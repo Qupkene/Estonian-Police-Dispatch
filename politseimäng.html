@@ -5,20 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Politsei Andmebaas - Main Page</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f2f2f2;
-            margin: 0;
-            padding: 0;
-            overflow-x: hidden;
-        }
-        .header {
-            background-color: #0056a5;
-            color: #fff;
-            padding: 20px;
-            text-align: center;
-            position: relative;
-        }
+    body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #f9f9f9;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    }
+
+    .header {
+    background-color: #007bff;
+    color: #fff;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 0 0 15px 15px;
+    }
+
         .container {
             padding: 20px;
             transition: all 0.3s ease;
@@ -88,15 +91,37 @@
             background-color: #f9f9f9;
             transition: all 0.3s ease;
         }
-        .call-item {
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
-            position: relative;
-            transition: background-color 0.3s ease;
+        .call-item .status-icon {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    font-size: 24px;
         }
         .call-item:hover {
-            background-color: #e8e8e8;
+    box-shadow: 0px 6px 16px rgba(0, 0, 0, 0.2);
         }
+        .call-item {
+    background-color: white;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 15px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    position: relative;
+        }
+        button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
         .officer-info {
             font-size: 0.9em;
             color: #777;
@@ -453,23 +478,50 @@
             evt.currentTarget.className += " active-tab";
         }
         function addCall() {
-            var callList = document.getElementById("callList");
-            var callItem = document.createElement("div");
-            callItem.className = "call-item";
-            var newCall = generateRandomCall();
-            callItem.innerHTML = `
-                <strong>${newCall.title}</strong><br>
-                <span class="hidden-description">${newCall.fullDescription}</span>
-                <span class="show-more" onclick="toggleDescription(this)">Näita rohkem</span><br>
-                <span>Kontakt: ${newCall.name}, Tel: ${newCall.phone}</span><br>
-                <div class="officer-info">
-                    <img src="${newCall.officer.avatar}" class="officer-avatar">
-                    <span>${newCall.officer.id} ${newCall.officer.name}: ${newCall.officer.distance} - ${newCall.officer.time}</span>
-                </div>
-            `;
-            callList.insertBefore(callItem, callList.firstChild);
-            document.getElementById("newCallSound").play();
-        }
+    var callList = document.getElementById("callList");
+    var callItem = document.createElement("div");
+    callItem.className = "call-item";
+    var newCall = generateRandomCall();
+
+    callItem.innerHTML = `
+        <strong>${newCall.title}</strong><br>
+        <span class="hidden-description">${newCall.fullDescription}</span>
+        <span class="show-more" onclick="toggleDescription(this)">Näita rohkem</span><br>
+        <span>Kontakt: ${newCall.name}, Tel: ${newCall.phone}</span><br>
+        <div class="officer-info">
+            <img src="${newCall.officer.avatar}" class="officer-avatar">
+            <span>${newCall.officer.id} ${newCall.officer.name}: ${newCall.officer.distance} - ${newCall.officer.time}</span>
+        </div>
+        <button onclick="acceptCall(this)" class="accept-btn">Aktsepteeri</button>
+        <button onclick="rejectCall(this)" class="reject-btn">Keeldu</button>
+    `;
+    callList.insertBefore(callItem, callList.firstChild);
+    document.getElementById("newCallSound").play();
+}
+function acceptCall(button) {
+    var callItem = button.parentElement;
+    callItem.style.backgroundColor = '#ffecb3'; // Yellow background for pending
+    callItem.innerHTML += '<span class="status-icon">➖</span>'; // Yellow minus sign
+    button.remove(); // Remove Accept button
+    callItem.querySelector('.reject-btn').remove(); // Remove Reject button
+    assignOfficers(callItem); // Wait to assign officers
+}
+
+function rejectCall(button) {
+    var callItem = button.parentElement;
+    callItem.style.backgroundColor = '#f8d7da'; // Red background for rejected
+    callItem.innerHTML += '<span class="status-icon">❌</span>'; // Red cross
+    button.remove(); // Remove Accept button
+    callItem.querySelector('.reject-btn').remove(); // Remove Reject button
+}
+function assignOfficers(callItem) {
+    setTimeout(() => {
+        callItem.style.backgroundColor = '#d4edda'; // Green background for accepted
+        callItem.querySelector('.status-icon').innerHTML = '✅'; // Green checkmark
+    }, 3000); // Simulating officer assignment delay
+}
+
+
 
         function toggleDescription(element) {
             var description = element.previousElementSibling;
