@@ -92,6 +92,7 @@
             padding: 10px;
             background-color: #f9f9f9;
             transition: all 0.3s ease;
+            width: 50%;
         }
         .call-item .status-icon {
     position: absolute;
@@ -227,6 +228,39 @@ button:hover {
             from { opacity: 1; }
             to { opacity: 0; }
         }
+
+        .flex {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .Police-Menu {
+
+
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f9f9f9;
+            transition: all 0.3s ease;
+
+            overflow-y:scroll;
+
+            width: 50%;
+
+            max-height: 300px;
+
+        }
+
+        .send-btn {
+            margin: 2.5px;
+        }
+        .fire-btn {
+            margin: 2.5px;
+
+            background-color: #ff4d4d;
+        }
+
     </style>
 </head>
 <body>
@@ -261,10 +295,17 @@ button:hover {
             <!-- Aktiivsed Kõned -->
             <div id="Calls" class="tabcontent active">
                 <h2>Aktiivsed Kõned</h2>
-                <div class="call-list" id="callList">
-                    <!-- Simuleeritud kõned ilmuvad siia -->
-                     
+                <div class="flex">
+                    <div class="call-list" id="callList">
+                        <!-- Simuleeritud kõned ilmuvad siia -->
+                         
+                    </div>
+
+                    <div class="Police-Menu" id="Police Menu">
+
+                    </div>
                 </div>
+
             </div>
 
             <!-- Profiili Täitmine -->
@@ -563,7 +604,12 @@ function assignOfficers(callItem) {
             console.log("Otsingutulemused:", results);
         }
 
-        setInterval(addCall, 2000);
+        addCall()
+        addCall()
+        addCall()
+        addOfficers()
+
+        //setInterval(addCall, 2000);
 
         function search() {
             var query = document.getElementById("searchInput").value.toLowerCase();
@@ -573,6 +619,33 @@ function assignOfficers(callItem) {
             } else {
                 alert("Isikut ei leitud.");
             }
+        }
+
+        function addOfficers () {
+            ///Police Menu
+            officers.forEach(element => {
+                var officer = element
+
+                var policeMenu = document.getElementById("Police Menu")
+
+                var officerItem = document.createElement("div");
+                officerItem.className = "call-item";
+
+                officerItem.innerHTML= `
+                <div class="officer-info">
+                    <img src="${officer.avatar}" class="officer-avatar">
+                    <span>${officer.id} ${officer.name}: ${officer.distance} - ${officer.time}</span>
+                </div>
+                <button class="button send-btn">Send</button>
+                <button class="button fire-btn">Fire</button>
+                `
+
+                policeMenu.insertBefore(officerItem, policeMenu.firstChild)
+
+            })
+            
+        //<button onclick="acceptCall(this)" class="accept-btn">Aktsepteeri</button>
+        //<button onclick="rejectCall(this)" class="reject-btn">Keeldu</button>
         }
 
         function showProfile(person) {
