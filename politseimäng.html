@@ -345,7 +345,8 @@ button:hover {
             { id: "102", name: "Liisa Tamm", distance: "3.2 km", time: "5 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
             { id: "213", name: "Priit Saar", distance: "4.5 km", time: "7 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
             { id: "344", name: "Eeva Leht", distance: "0.8 km", time: "1 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
-    { id: "001", name: "Eeva Leht", distance: "0.8 km", time: "1 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+
+            { id: "001", name: "Eeva Leht", distance: "0.8 km", time: "1 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
     { id: "002", name: "Mati Tamm", distance: "2.1 km", time: "3 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
     { id: "003", name: "Liina Kask", distance: "2.5 km", time: "4 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
     { id: "004", name: "Raimo Pärn", distance: "0.5 km", time: "1 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
@@ -633,9 +634,9 @@ function assignOfficers(callItem) {
                 officerItem.innerHTML= `
                 <div class="officer-info">
                     <img src="${officer.avatar}" class="officer-avatar">
-                    <span>${officer.id} ${officer.name}: ${officer.distance} - ${officer.time}</span>
+                    <span class = "data">${officer.id} ${officer.name}: ${officer.distance} - ${officer.time} </span>
                 </div>
-                <button class="button send-btn">Send</button>
+                <button onclick="sendOfficer(this)" class="button send-btn">Send</button>
                 <button class="button fire-btn">Fire</button>
                 `
 
@@ -645,6 +646,18 @@ function assignOfficers(callItem) {
             
         //<button onclick="acceptCall(this)" class="accept-btn">Aktsepteeri</button>
         //<button onclick="rejectCall(this)" class="reject-btn">Keeldu</button>
+        }
+
+        //    var callItem = button.parentElement;
+    //callItem.style.backgroundColor = '#f8d7da'; // Red background for rejected
+    //callItem.innerHTML += '<span class="status-icon">❌</span>'; // Red cross
+    //button.remove(); // Remove Accept button
+    //callItem.querySelector('.reject-btn').remove(); // Remove Reject button
+
+        function sendOfficer(button) {
+            var officer = button.parentElement;
+            officer.querySelector(".data").innerHTML += " Responting"
+
         }
 
         function showProfile(person) {
