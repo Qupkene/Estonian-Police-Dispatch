@@ -30,7 +30,7 @@
         .tab {
             overflow: hidden;
             border: 1px solid #ccc;
-            background-color: #0056a5;
+            background-color: #0071cf;
             color: #fff;
             display: flex;
             justify-content: space-around;
@@ -47,7 +47,7 @@
             color: #fff;
         }
         .tab button:hover {
-            background-color: #003f73;
+            background-color: #0056b3;
         }
         .tabcontent {
             display: none;
@@ -86,16 +86,17 @@
         .profile-info p {
             margin: 5px 0;
         }
-        .call-list {
-            max-height: 300px;
-            overflow-y: auto;
-            margin-top: 20px;
-            border: 1px solid #ddd;
-            padding: 10px;
-            background-color: #f9f9f9;
-            transition: all 0.3s ease;
-            width: 50%;
-        }
+        .call-list, .Police-Menu {
+    max-height: 500px; /* Adjust as needed for larger displays */
+    overflow-y: auto; /* Enable scrolling only if content exceeds max height */
+    width: 100%; /* Make it span the full width */
+
+}
+
+.flex {
+    flex-direction: column; /* Stack elements vertically instead of horizontally */
+}
+
         .call-item .status-icon {
     position: absolute;
     right: 10px;
@@ -538,10 +539,6 @@ button:hover {
         <span class="hidden-description">${newCall.fullDescription}</span>
         <span class="show-more" onclick="toggleDescription(this)">Näita rohkem</span><br>
         <span>Kontakt: ${newCall.name}, Tel: ${newCall.phone}</span><br>
-        <div class="officer-info">
-            <img src="${newCall.officer.avatar}" class="officer-avatar">
-            <span>${newCall.officer.id} ${newCall.officer.name}: ${newCall.officer.distance} - ${newCall.officer.time}</span>
-        </div>
         <button onclick="acceptCall(this)" class="accept-btn">Aktsepteeri</button>
         <button onclick="rejectCall(this)" class="reject-btn">Keeldu</button>
     `;
@@ -550,26 +547,64 @@ button:hover {
 }
 function acceptCall(button) {
     var callItem = button.parentElement;
-    callItem.style.backgroundColor = '#ffecb3'; // Yellow background for pending
-    callItem.innerHTML += '<span class="status-icon">➖</span>'; // Yellow minus sign
+    callItem.style.backgroundColor = '#ffecb3'; // Yellow for ongoing
     button.remove(); // Remove Accept button
     callItem.querySelector('.reject-btn').remove(); // Remove Reject button
-    assignOfficers(callItem); // Wait to assign officers
-}
 
+    let availableOfficers = officers.filter(officer => !officer.isAssigned);
+
+    if (availableOfficers.length > 0) {
+        assignOfficers(callItem, availableOfficers);
+    } else {
+        alert("No officers available.");
+    }
+}
 function rejectCall(button) {
     var callItem = button.parentElement;
     callItem.style.backgroundColor = '#f8d7da'; // Red background for rejected
     callItem.innerHTML += '<span class="status-icon">❌</span>'; // Red cross
     button.remove(); // Remove Accept button
     callItem.querySelector('.reject-btn').remove(); // Remove Reject button
+    button.remove(); // Remove Accept button
+    callItem.querySelector('.accept-btn').remove(); // Remove Reject button
+    
+    
+   setTimeout(() => {
+    callItem.remove ()
+   }, 2000); 
 }
-function assignOfficers(callItem) {
+
+function assignOfficers(callItem, availableOfficers) {
+    let assignedOfficer = availableOfficers[0]; // Assign first available officer
+    assignedOfficer.isAssigned = true;
+
+    callItem.innerHTML += `
+        <div class="officer-info">
+            <img src="${assignedOfficer.avatar}" class="officer-avatar">
+            <span>${assignedOfficer.id} ${assignedOfficer.name}: ${assignedOfficer.distance} - ${assignedOfficer.time}</span>
+        </div>
+    `;
+
     setTimeout(() => {
-        callItem.style.backgroundColor = '#d4edda'; // Green background for accepted
-        callItem.querySelector('.status-icon').innerHTML = '✅'; // Green checkmark
-    }, 3000); // Simulating officer assignment delay
+        callItem.style.backgroundColor = '#d4edda'; // Green when complete
+        callItem.innerHTML += '<span class="status-icon">✅</span>'; // Checkmark for completion
+        assignedOfficer.isAssigned = false; // Free officer
+    }, 3000);
 }
+
+
+function assignOfficers(callItem, availableOfficers) {
+    let assignedOfficer = availableOfficers[0]; // Get available officer
+    assignedOfficer.isAssigned = true;
+
+    callItem.innerHTML += `
+        <div class="officer-info">
+            <img src="${assignedOfficer.avatar}" class="officer-avatar">
+            <span>${assignedOfficer.id} ${assignedOfficer.name}: ${assignedOfficer.distance} - ${assignedOfficer.time}</span>
+        </div>
+    `;
+}
+
 
 
 
