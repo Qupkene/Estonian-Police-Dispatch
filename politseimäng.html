@@ -173,8 +173,10 @@ button:hover {
             align-items: center;
             height: 100vh;
             background: url('https://media.voog.com/0000/0048/4528/photos/PPA_pilt_kontakt.jpg') no-repeat;
-            background-position: center top; /* This will position the middle-top part of the image */
-            background-size: cover;
+            background-position-y: top; /* This will position the middle-top part of the image */
+            background-position-x: center;
+            background-color: #0071cf; background-repeat: repeat;
+            background-size: contain;background-repeat: no-repeat;
             transition: all 0.3s ease;
         }
         .login-box {
@@ -184,10 +186,11 @@ button:hover {
             box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.2);
             text-align: center;
             transition: transform 0.3s ease;
+            opacity: 90%;
         }
         .login-box input {
             padding: 10px;
-            margin: 10px 0;
+            margin: 10px -10px;
             width: 100%;
         }
         .login-box button {
@@ -309,11 +312,6 @@ button:hover {
                     </div>
                 </div>
 
-            </div>
-
-            <div class="officer-list" id="officerList">
-                <h2>Vabad Ohvitserid</h2>
-                <div id="freeOfficers"></div>
             </div>
             
             <!-- Profiili Täitmine -->
