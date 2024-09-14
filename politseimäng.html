@@ -15,13 +15,22 @@
     }
 
     .header {
-    background-color: #007bff;
+    background-color: #0071cf;
     color: #fff;
     padding: 20px;
     text-align: center;
     box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
     border-radius: 0 0 15px 15px;
     }
+
+    .accept-btn:hover {
+    background-color: green;
+}
+
+.reject-btn:hover {
+    background-color: red;
+}
+
 
         .container {
             padding: 20px;
@@ -87,18 +96,25 @@
             margin: 5px 0;
         }
         .call-list {
-    max-height: 600px; /* Set the height */
-    overflow-y: auto;
-    width: 60%; /* Reduce width to make room for officers */
-    float: right; /* Align it to the right */
+    width: 50%; /* Adjusted width */
+    float: none;
+    margin-left: -50%;
+    max-height: none; /* No scroll */
+    overflow-y: visible;
 }
 
 .officer-list {
-    max-height: 600px;
-    overflow-y: auto;
-    width: 35%; /* Set the width of the officer list */
-    float: left; /* Align it to the left */
-    margin-right: 20px; /* Add some space between officer list and call list */
+    background-color: white;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 15px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+    width: 20%; /* Adjusted width */
+    float: none;
+    margin-right: -50%;
+    margin-top: -25%;
+    max-height: none; /* No scroll */
+    overflow-y: visible;
 }
 
 .flex {
@@ -476,36 +492,57 @@ function acceptCall(button) {
 }
 
 function assignOfficerToCall(callItem) {
-    // When an officer is manually assigned, add it to the call and update status
-    var officerButtons = document.querySelectorAll('.send-officer'); // Select all 'Send' buttons
+    // Clear previous listeners to prevent multiple officers being assigned to the same call
+    const officerButtons = document.querySelectorAll('.send-officer');
 
     officerButtons.forEach(button => {
-        button.addEventListener('click', function () {
-            var officerId = button.getAttribute('data-officer-id');
-            var assignedOfficer = officers.find(officer => officer.id === officerId);
+        // Remove any existing event listeners
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
 
-            // Add the officer info to the call item
+        newButton.addEventListener('click', function () {
+            const officerId = newButton.getAttribute('data-officer-id');
+            const assignedOfficer = officers.find(officer => officer.id === officerId);
+
+            // Add the officer info to the specific call
             callItem.innerHTML += `
                 <div class="officer-info">
                     <img src="${assignedOfficer.avatar}" class="officer-avatar">
                     <span>${assignedOfficer.id} ${assignedOfficer.name}: ${assignedOfficer.distance} - ${assignedOfficer.time}</span>
                 </div>
             `;
-            assignedOfficer.isAssigned = true; // Mark officer as assigned
 
-            // Remove the officer from the available list and update the UI
-            button.disabled = true;
-            button.innerHTML = "Assigned";
+            newButton.addEventListener('click', function () {
+    const officerId = newButton.getAttribute('data-officer-id');
+    const assignedOfficer = officers.find(officer => officer.id === officerId);
 
-            // After a delay, mark the call as complete and free the officer
-            setTimeout(() => {
-                callItem.style.backgroundColor = '#d4edda'; // Change to green when the call is resolved
-                callItem.innerHTML += '<span class="status-icon">✅</span>'; // Show checkmark for completion
-                assignedOfficer.isAssigned = false; // Free the officer
-            }, 3000); // Simulated 3-second delay for completion
+    const travelTimeInMinutes = parseInt(assignedOfficer.time.split(' ')[0]); // Extract travel time in minutes
+
+    // Add officer info to the call
+    callItem.innerHTML += `
+        <div class="officer-info">
+            <img src="${assignedOfficer.avatar}" class="officer-avatar">
+            <span>${assignedOfficer.id} ${assignedOfficer.name}: ${assignedOfficer.distance} - ${assignedOfficer.time}</span>
+        </div>
+    `;
+
+    // Include the travel time in call resolution
+    setTimeout(() => {
+        callItem.style.backgroundColor = '#d4edda'; // Mark as complete
+        callItem.innerHTML += '<span class="status-icon">✅</span>';
+        assignedOfficer.isAssigned = false; // Free officer
+    }, (travelTimeInMinutes + 5) * 60000); // 5 minutes for call resolution + travel time
+});
+
+
+            // Disable officer for other assignments
+            newButton.disabled = true;
+            newButton.innerHTML = "Assigned";
+            assignedOfficer.isAssigned = true;
         });
     });
 }
+
 
 function rejectCall(button) {
     var callItem = button.parentElement;
@@ -524,13 +561,12 @@ function rejectCall(button) {
 
 function populateOfficerList() {
     var officerMenu = document.getElementById("officerMenu");
-    officerMenu.innerHTML = ''; // Clear any existing officers
+    officerMenu.innerHTML = ''; // Clear previous list
 
     officers.forEach(officer => {
-        if (!officer.isAssigned) { // Show only available officers
+        if (!officer.isAssigned) {
             var officerItem = document.createElement("div");
             officerItem.className = "officer-item";
-
             officerItem.innerHTML = `
                 <div class="officer-info">
                     <img src="${officer.avatar}" class="officer-avatar">
@@ -538,10 +574,23 @@ function populateOfficerList() {
                 </div>
                 <button class="send-officer" data-officer-id="${officer.id}">Send</button>
             `;
-            officerMenu.appendChild(officerItem);
+        } else {
+            // Show assigned officers in red
+            var officerItem = document.createElement("div");
+            officerItem.className = "officer-item assigned";
+            officerItem.style.color = "red"; // Mark as assigned
+
+            officerItem.innerHTML = `
+                <div class="officer-info">
+                    <img src="${officer.avatar}" class="officer-avatar">
+                    <span>${officer.id} ${officer.name} (Assigned)</span>
+                </div>
+            `;
         }
+        officerMenu.appendChild(officerItem);
     });
 }
+
 
 // Call this function to populate the list when the page loads
 populateOfficerList();
@@ -606,10 +655,7 @@ function assignOfficers(callItem, availableOfficers) {
             console.log("Otsingutulemused:", results);
         }
 
-
-        addCall()
-        addCall()
-        addCall()
+        setInterval(addCall, 2000);
         addOfficers()
 
         //setInterval(addCall, 2000);
