@@ -473,11 +473,29 @@ button:hover {
     callItem.className = "call-item";
     const newCall = generateRandomCall();
 
+    let nearestOfficer = -1
+    let nearestDistance = -1
+
+    officers.forEach(officer => {
+
+        
+
+        const officerDistance = parseFloat(officer.distance.split(' ')[0]) // Eeldame, et distance on "x km"
+
+        console.log(officerDistance)
+
+        if (officerDistance > nearestDistance) {
+            nearestDistance = officerDistance
+            nearestOfficer = officer
+        }
+
+    })
+
     // Leia lähim officer
-    const nearestOfficer = officers.reduce((nearest, officer) => {
-        const officerDistance = parseFloat(officer.distance.split(' ')[0]); // Eeldame, et distance on "x km"
-        return officerDistance < nearest.distance ? officer : nearest;
-    }, officers[0]);
+    //const nearestOfficer = officers.reduce((nearest, officer) => {
+    //    const officerDistance = parseFloat(officer.distance.split(' ')[0]); // Eeldame, et distance on "x km"
+     //   return officerDistance < nearest.distance ? officer : nearest;
+    //}, officers[1]);
 
     callItem.innerHTML = `
         <strong>#${callCount} ${newCall.title}</strong><br>
@@ -505,6 +523,7 @@ function acceptCall(button) {
 
 function assignOfficerToCall(callItem) {
     const officerButtons = document.querySelectorAll('.send-officer');
+
 
     officerButtons.forEach(button => {
         const newButton = button.cloneNode(true);
@@ -557,6 +576,7 @@ function assignOfficerToCall(callItem) {
 
 setTimeout(() => {
     callItem.remove ()
+
    }, 60000); 
 
         });
