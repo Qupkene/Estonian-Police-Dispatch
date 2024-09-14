@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="et">
+<head><link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Politsei Andmebaas - Main Page</title>
+    <style>
+    body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #f9f9f9;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    }
+
+    .header {
+    background-color: #007bff;
+    color: #fff;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 0 0 15px 15px;
+    }
+
+        .container {
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+        .tab {
+            overflow: hidden;
+            border: 1px solid #ccc;
+            background-color: #0071cf;
+            color: #fff;
+            display: flex;
+            justify-content: space-around;
+            border-radius: 15px 15px 15px;
+            
+        }
+        .tab button {
+            background-color: inherit;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 14px 16px;
+            transition: background-color 0.3s ease;
+            color: #fff;
+        }
+        .tab button:hover {
+            background-color: #0056b3;
+        }
+        .tabcontent {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-top: none;
+            background-color: #fff;
+            border-radius: 15px 15px 15px 15px;
+        }
+        .active {
+            display: block;
+        }
+        .active-tab {
+            background-color: #003f73;
+        }
+        .profile {
+            display: flex;
+            margin-top: 20px;
+        }
+        .profile-pic {
+            flex: 1;
+            text-align: center;
+        }
+        .profile-pic img {
+            border-radius: 50%;
+            width: 150px;
+            height: 150px;
+        }
+        .profile-info {
+            flex: 2;
+            padding-left: 20px;
+        }
+        .profile-info h3 {
+            margin-bottom: 10px;
+        }
+        .profile-info p {
+            margin: 5px 0;
+        }
+        .call-list {
+    max-height: 600px; /* Set the height */
+    overflow-y: auto;
+    width: 60%; /* Reduce width to make room for officers */
+    float: right; /* Align it to the right */
+}
+
+.officer-list {
+    max-height: 600px;
+    overflow-y: auto;
+    width: 35%; /* Set the width of the officer list */
+    float: left; /* Align it to the left */
+    margin-right: 20px; /* Add some space between officer list and call list */
+}
+
+.flex {
+    display: flex; /* Make the layout flexible */
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+        .call-item .status-icon {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    font-size: 24px;
+        }
+        .call-item:hover {
+    box-shadow: 0px 6px 16px rgba(0, 0, 0, 0.2);
+        }
+        .call-item {
+    background-color: white;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 15px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    position: relative;
+        }
+        button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+        .officer-info {
+            font-size: 0.9em;
+            color: #777;
+            margin-top: 5px;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        .officer-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .profile-form, .login-form {
+            margin-top: 20px;
+        }
+        .show-more {
+            cursor: pointer;
+            color: #0056a5;
+            text-decoration: underline;
+        }
+        .show-more {
+            cursor: pointer;
+            color: #0056a5;
+            text-decoration: underline;
+        }
+        .hidden-description {
+            display: none;
+        }
+        .wanted-status {
+            margin-top: 20px;
+        }
+        .wanted-status button {
+            background-color: #ff4d4d;
+            border: none;
+            color: white;
+            padding: 10px;
+            cursor: pointer;
+        }
+        .login-screen {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: url('https://media.voog.com/0000/0048/4528/photos/PPA_pilt_kontakt.jpg') no-repeat;
+            background-position-y: top; /* This will position the middle-top part of the image */
+            background-position-x: center;
+            background-color: #0071cf; background-repeat: repeat;
+            background-size: contain;background-repeat: no-repeat;
+            transition: all 0.3s ease;
+        }
+        .login-box {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            transition: transform 0.3s ease;
+            opacity: 90%;
+        }
+        .login-box input {
+            padding: 10px;
+            margin: 10px -10px;
+            width: 100%;
+        }
+        .login-box button {
+            padding: 10px;
+            width: 100%;
+            background-color: #0056a5;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .login-box button:hover {
+            background-color: #003f73;
+        }
+        .show-more {
+            cursor: pointer;
+            color: #0056a5;
+            text-decoration: underline;
+        }
+        .hidden-description {
+            display: none;
+        }
+        /* Fading effects */
+        .fade-in {
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        .fade-out {
+            opacity: 1;
+            animation: fadeOut 0.5s forwards;
+        }
+        
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        .flex {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .Police-Menu {
+
+
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f9f9f9;
+            transition: all 0.3s ease;
+
+            overflow-y:scroll;
+
+            width: 50%;
+
+            max-height: 300px;
+
+        }
+
+        .send-btn {
+            margin: 2.5px;
+        }
+        .fire-btn {
+            margin: 2.5px;
+
+            background-color: #ff4d4d;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="loginScreen" class="login-screen fade-in">
+        <div class="login-box">
+            <h2>Logi sisse</h2>
+            <input type="text" id="username" placeholder="Kasutajanimi">
+            <input type="password" id="password" placeholder="Parool">
+            <button onclick="login()">Logi Sisse</button>
+        </div>
+    </div>
+
+    <div id="mainContent" style="display:none;">
+        <div class="header">
+            <h1>Politsei Andmebaas</h1>
+        </div>
+
+        <div class="container">
+            <!-- Otsing -->
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Otsi isikut või juhtumit..." oninput="performSearch()">
+                <button onclick="search()">Otsi</button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tab">
+                <button class="tablinks" onclick="openTab(event, 'Calls')">Aktiivsed Kõned</button>
+                <button class="tablinks" onclick="openTab(event, 'Profiles')">Profiili Täitmine</button>
+                <button class="tablinks" onclick="openTab(event, 'Statistics')">Statistika</button>
+            </div>
+
+            <!-- Aktiivsed Kõned -->
+            <div id="Calls" class="tabcontent active">
+                <h2>Aktiivsed Kõned</h2>
+                <div class="flex">
+                    <div class="call-list" id="callList">
+                        <!-- Simuleeritud kõned ilmuvad siia -->
+                         
+                    </div>
+
+                    </div>
+                    <div class="flex">
+                        <!-- Officer List (Left Side) -->
+                        <div class="officer-list" id="officerList">
+                            <h3>Vabad Ohvitserid</h3>
+                            <div id="officerMenu">
+                                <!-- Officers will be populated here -->
+                            </div>
+                        </div>
+                    
+                        <!-- Call List (Right Side) -->
+                        <div class="call-list" id="callList">
+                            <!-- Call items will be added dynamically here -->
+                        </div>
+                    </div>
+                    
+                </div>
+
+            </div>
+            
+            <!-- Profiili Täitmine -->
+            <div id="Profiles" class="tabcontent">
+                <h2>Profiili Täitmine</h2>
+                <form class="profile-form" onsubmit="showProfile(event)">
+                    <label for="name">Nimi:</label><br>
+                    <input type="text" id="name" name="name" required><br><br>
+                    <label for="age">Vanus:</label><br>
+                    <input type="text" id="age" name="age" required><br><br>
+                    <label for="description">Kirjeldus:</label><br>
+                    <textarea id="description" name="description" required></textarea><br><br>
+                    <button type="submit">Salvesta</button>
+                </form>
+            </div>
+
+            <!-- Statistika -->
+            <div id="Statistics" class="tabcontent">
+                <h2>Statistika</h2>
+                <div id="crimeChart"></div>
+            </div>
+
+            <!-- Isiku Profiilide Tabid -->
+            <div id="ProfileView" class="tabcontent">
+                <!-- Isiku profiil ilmub siia -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Helid -->
+    <audio id="newCallSound" src="https://audio.jukehost.co.uk/MTMCvp6Hsj60oEXE8gbru22zwFxgTUz1"></audio>
+    <audio id="alertSound" src="https://audio.jukehost.co.uk/f69LT0iC444l0iUZKaZPBavMVkMt8VOY"></audio>
+    <audio id="loginSound" src="https://audio.jukehost.co.uk/CvSShK3d2T8p0OGT4JYPHBV8YO1IBsuu"></audio>
+
+    <script>
+        let officers = [
+            { id: "085", name: "Kalle Rebane", distance: "1.7 km", time: "2 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+            { id: "102", name: "Liisa Tamm", distance: "3.2 km", time: "5 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+            { id: "213", name: "Priit Saar", distance: "4.5 km", time: "7 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+            { id: "344", name: "Eeva Leht", distance: "0.8 km", time: "1 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+
+            { id: "001", name: "Eeva Leht", distance: "0.8 km", time: "1 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "002", name: "Mati Tamm", distance: "2.1 km", time: "3 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "003", name: "Liina Kask", distance: "2.5 km", time: "4 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "004", name: "Raimo Pärn", distance: "0.5 km", time: "1 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "005", name: "Kati Jõe", distance: "1.0 km", time: "2 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "006", name: "Jüri Veevart", distance: "3.0 km", time: "5 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "007", name: "Annika Talvik", distance: "1.5 km", time: "3 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "008", name: "Marko Tamm", distance: "2.8 km", time: "4 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "009", name: "Kristiina Soodla", distance: "2.0 km", time: "4 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "010", name: "Oleg Velip", distance: "1.2 km", time: "2 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+
+    { id: "011", name: "Andres Kask", distance: "11.5 km", time: "10 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "012", name: "Sally Roos", distance: "13.6 km", time: "12 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "013", name: "Rainer Pütti", distance: "15.2 km", time: "14 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "014", name: "Külli Jürgens", distance: "18.8 km", time: "16 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "015", name: "Elli Pärss", distance: "19.5 km", time: "17 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "016", name: "Timo Kivimäe", distance: "20.1 km", time: "18 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "017", name: "Hanna Puus", distance: "11.9 km", time: "10 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "018", name: "Mart Pärna", distance: "14.6 km", time: "12 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "019", name: "Evelin Soosaar", distance: "16.4 km", time: "14 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "020", name: "Liis Etten", distance: "13.3 km", time: "12 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+
+    { id: "021", name: "Evelin Akob", distance: "7.2 km", time: "8 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "022", name: "Sofia Kaljus", distance: "5.6 km", time: "6 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "023", name: "Priit Nahk", distance: "4.3 km", time: "5 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "024", name: "Kaia Vool", distance: "8.4 km", time: "9 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "025", name: "Antti Heiberg", distance: "9.1 km", time: "10 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "026", name: "Reet Kask", distance: "6.9 km", time: "7 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "027", name: "Tarmo Pool", distance: "3.7 km", time: "4 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "028", name: "Piret Pets", distance: "2.4 km", time: "3 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "029", name: "Aivar Saare", distance: "1.1 km", time: "2 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "030", name: "Ene Tamm", distance: "2.2 km", time: "3 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+
+    { id: "031", name: "Mart Kikas", distance: "10.2 km", time: "11 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "032", name: "Sille Soosaar", distance: "12.5 km", time: "12 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "033", name: "Rain Tõnissaar", distance: "14.8 km", time: "15 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "034", name: "Melina Noot", distance: "17.2 km", time: "16 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "035", name: "Artur Rätsepp", distance: "20.4 km", time: "19 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "036", name: "Helena Loodus", distance: "15.3 km", time: "14 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "037", name: "Enrik Lille", distance: "14.1 km", time: "13 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "038", name: "Kaidi Pajul", distance: "16.5 km", time: "15 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "039", name: "Rein Uustali", distance: "11.4 km", time: "10 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "040", name: "Tõnis Agur", distance: "18.4 km", time: "17 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+
+    { id: "041", name: "Grete Naja", distance: "9.7 km", time: "10 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "042", name: "Mart Nõges", distance: "11.6 km", time: "11 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "043", name: "Merike Lepik", distance: "13.4 km", time: "12 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "044", name: "Madis Koorem", distance: "15.1 km", time: "14 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "045", name: "Kalle Rajam", distance: "20.0 km", time: "19 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "046", name: "Kaarel Oras", distance: "17.3 km", time: "16 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "047", name: "Rita Veer", distance: "11.8 km", time: "11 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "048", name: "Priit Must", distance: "12.2 km", time: "12 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "049", name: "Sigrid Vinograd", distance: "14.9 km", time: "14 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "050", name: "Kärt Aun", distance: "15.6 km", time: "15 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+
+    { id: "051", name: "Pille Vits", distance: "5.0 km", time: "6 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "052", name: "Jenni Must", distance: "4.5 km", time: "5 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "053", name: "Reeli Allek", distance: "3.0 km", time: "4 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "054", name: "Ove Kaim", distance: "2.7 km", time: "3 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "055", name: "Karmen Peach", distance: "8.0 km", time: "9 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "056", name: "Eilir Samp", distance: "9.9 km", time: "10 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "057", name: "Helle Rull", distance: "11.9 km", time: "11 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "058", name: "Tõnu Kired", distance: "12.8 km", time: "12 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "059", name: "Anne Ein", distance: "18.0 km", time: "17 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "060", name: "Ursula Treen", distance: "16.5 km", time: "15 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+
+    { id: "061", name: "Reimo Rann", distance: "2.5 km", time: "3 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "062", name: "Viive Ring", distance: "3.3 km", time: "4 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "063", name: "Malle Muru", distance: "4.8 km", time: "5 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "064", name: "Arno Pild", distance: "6.1 km", time: "7 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "065", name: "Katrin Kali", distance: "8.6 km", time: "9 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "066", name: "Heidi Elga", distance: "10.2 km", time: "11 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "067", name: "Diana Alut", distance: "12.2 km", time: "12 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "068", name: "Mika Taar", distance: "14.3 km", time: "13 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "069", name: "Laine Kuku", distance: "16.7 km", time: "15 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "070", name: "Toomas Perk", distance: "19.5 km", time: "18 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+
+    { id: "071", name: "Karel Tael", distance: "3.5 km", time: "4 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "072", name: "Lloyd Poiss", distance: "7.0 km", time: "8 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "073", name: "Siver Raud", distance: "9.3 km", time: "10 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "074", name: "Karl Kared", distance: "13.5 km", time: "12 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "075", name: "Renee Rätsepp", distance: "15.8 km", time: "15 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "076", name: "Margo Kask", distance: "20.6 km", time: "20 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "077", name: "Lina Peet", distance: "10.0 km", time: "10 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "078", name: "Inge Kask", distance: "18.0 km", time: "17 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "079", name: "Veronika Pärt", distance: "16.0 km", time: "15 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "080", name: "Harri Rumm", distance: "14.0 km", time: "13 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+
+    { id: "081", name: "Kädi Aas", distance: "6.2 km", time: "7 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "082", name: "Katrin Lepp", distance: "8.3 km", time: "9 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "083", name: "Taavi Eriste", distance: "7.6 km", time: "8 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "084", name: "Selma Taar", distance: "11.1 km", time: "11 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "085", name: "Maria Soots", distance: "9.4 km", time: "10 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "086", name: "Madli Kindel", distance: "12.5 km", time: "12 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "087", name: "Ragnar Koil", distance: "5.1 km", time: "6 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "088", name: "Lille Lill", distance: "14.2 km", time: "13 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "089", name: "Eva Jõgi", distance: "8.0 km", time: "9 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "090", name: "Päris Mänd", distance: "16.9 km", time: "15 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+
+    { id: "091", name: "Olev Pilvik", distance: "4.1 km", time: "5 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "092", name: "Erik Maku", distance: "3.2 km", time: "4 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "093", name: "Liina Kahar", distance: "2.9 km", time: "3 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "094", name: "Henri Ruus", distance: "1.7 km", time: "2 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "095", name: "Robyn Lind", distance: "5.5 km", time: "6 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "096", name: "Ritva Kaljula", distance: "7.4 km", time: "8 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "097", name: "Margit Formula", distance: "11.7 km", time: "11 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "098", name: "Tauri Alavere", distance: "15.9 km", time: "14 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "099", name: "Alar Ranna", distance: "18.2 km", time: "17 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "100", name: "Karmen Vett", distance: "19.0 km", time: "18 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" }
+          // lisa veel ohvitsere...
+        ];
+
+        let names = ["Kalle Rebane", "Liisa Tamm", "Priit Saar", "Eeva Leht", "Marko Mets", "Anabell Luu", "Meeli Jõesaar", "Robert Tamm", "Karolin Vahter"];
+
+        let people = [
+            {
+                name: "Kalle Rebane",
+                age: 42,
+                job: "Politseinik",
+                location: "Tallinn",
+                previousCases: ["Vargus", "Liiklusõnnetus"],
+                isWanted: false,
+                avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp"
+            },
+            {
+                name: "Liisa Tamm",
+                age: 35,
+                job: "Politseinik",
+                location: "Tartu",
+                previousCases: ["Koduvägivald", "Joobes juhtimine"],
+                isWanted: true,
+                avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp"
+            },
+            {
+                name: "Priit Saar",
+                age: 29,
+                job: "Eraturvamees",
+                location: "Narva",
+                previousCases: ["Pangarööv"],
+                isWanted: false,
+                avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp"
+            }
+        ];
+
+        function login() {
+            var username = document.getElementById("username").value;
+            var password = document.getElementById("password").value;
+
+            if (username === "" && password === "") {
+                document.getElementById("loginScreen").classList.add("fade-out");
+                setTimeout(() => {
+                    document.getElementById("loginScreen").style.display = "none";
+                    document.getElementById("mainContent").classList.add("fade-in");
+                    document.getElementById("mainContent").style.display = "block";
+                    document.getElementById("loginSound").play();
+                }, 1000);
+            } else {
+                alert("Vale kasutajanimi või parool.");
+            }
+        }
+
+        function openTab(evt, tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tabcontent");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tablinks");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active-tab", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active-tab";
+        }
+        function addCall() {
+    var callList = document.getElementById("callList");
+    var callItem = document.createElement("div");
+    callItem.className = "call-item";
+    var newCall = generateRandomCall();
+
+    callItem.innerHTML = `
+        <strong>${newCall.title}</strong><br>
+        <span class="hidden-description">${newCall.fullDescription}</span>
+        <span class="show-more" onclick="toggleDescription(this)">Näita rohkem</span><br>
+        <span>Kontakt: ${newCall.name}, Tel: ${newCall.phone}</span><br>
+        <button onclick="acceptCall(this)" class="accept-btn">Aktsepteeri</button>
+        <button onclick="rejectCall(this)" class="reject-btn">Keeldu</button>
+    `;
+    callList.insertBefore(callItem, callList.firstChild);
+    document.getElementById("newCallSound").play();
+}
+function acceptCall(button) {
+    var callItem = button.parentElement;
+    callItem.style.backgroundColor = '#ffecb3'; // Yellow background for ongoing call
+    button.remove(); // Remove Accept button
+    callItem.querySelector('.reject-btn').remove(); // Remove Reject button
+
+    // Show the available officers for manual assignment
+    document.getElementById('officerList').style.display = 'block'; // Ensure the officer list is visible
+    assignOfficerToCall(callItem); // Proceed to assign officer manually
+}
+
+function assignOfficerToCall(callItem) {
+    // When an officer is manually assigned, add it to the call and update status
+    var officerButtons = document.querySelectorAll('.send-officer'); // Select all 'Send' buttons
+
+    officerButtons.forEach(button => {
+        button.addEventListener('click', function () {
+            var officerId = button.getAttribute('data-officer-id');
+            var assignedOfficer = officers.find(officer => officer.id === officerId);
+
+            // Add the officer info to the call item
+            callItem.innerHTML += `
+                <div class="officer-info">
+                    <img src="${assignedOfficer.avatar}" class="officer-avatar">
+                    <span>${assignedOfficer.id} ${assignedOfficer.name}: ${assignedOfficer.distance} - ${assignedOfficer.time}</span>
+                </div>
+            `;
+            assignedOfficer.isAssigned = true; // Mark officer as assigned
+
+            // Remove the officer from the available list and update the UI
+            button.disabled = true;
+            button.innerHTML = "Assigned";
+
+            // After a delay, mark the call as complete and free the officer
+            setTimeout(() => {
+                callItem.style.backgroundColor = '#d4edda'; // Change to green when the call is resolved
+                callItem.innerHTML += '<span class="status-icon">✅</span>'; // Show checkmark for completion
+                assignedOfficer.isAssigned = false; // Free the officer
+            }, 3000); // Simulated 3-second delay for completion
+        });
+    });
+}
+
+function rejectCall(button) {
+    var callItem = button.parentElement;
+    callItem.style.backgroundColor = '#f8d7da'; // Red background for rejected
+    callItem.innerHTML += '<span class="status-icon">❌</span>'; // Red cross
+    button.remove(); // Remove Accept button
+    callItem.querySelector('.reject-btn').remove(); // Remove Reject button
+    button.remove(); // Remove Accept button
+    callItem.querySelector('.accept-btn').remove(); // Remove Reject button
+    
+    
+   setTimeout(() => {
+    callItem.remove ()
+   }, 20000); 
+}
+
+function populateOfficerList() {
+    var officerMenu = document.getElementById("officerMenu");
+    officerMenu.innerHTML = ''; // Clear any existing officers
+
+    officers.forEach(officer => {
+        if (!officer.isAssigned) { // Show only available officers
+            var officerItem = document.createElement("div");
+            officerItem.className = "officer-item";
+
+            officerItem.innerHTML = `
+                <div class="officer-info">
+                    <img src="${officer.avatar}" class="officer-avatar">
+                    <span>${officer.id} ${officer.name}: ${officer.distance} - ${officer.time}</span>
+                </div>
+                <button class="send-officer" data-officer-id="${officer.id}">Send</button>
+            `;
+            officerMenu.appendChild(officerItem);
+        }
+    });
+}
+
+// Call this function to populate the list when the page loads
+populateOfficerList();
+
+
+    setTimeout(() => {
+        callItem.style.backgroundColor = '#d4edda'; // Green when complete
+        callItem.innerHTML += '<span class="status-icon">✅</span>'; // Checkmark for completion
+        assignedOfficer.isAssigned = false; // Free officer
+    }, 3000);
+
+function assignOfficers(callItem, availableOfficers) {
+    let assignedOfficer = availableOfficers[0]; // Get available officer
+    assignedOfficer.isAssigned = true;
+
+    callItem.innerHTML += `
+        <div class="officer-info">
+            <img src="${assignedOfficer.avatar}" class="officer-avatar">
+            <span>${assignedOfficer.id} ${assignedOfficer.name}: ${assignedOfficer.distance} - ${assignedOfficer.time}</span>
+        </div>
+    `;
+}
+
+
+
+
+        function toggleDescription(element) {
+            var description = element.previousElementSibling;
+            if (description.classList.contains("hidden-description")) {
+                description.classList.remove("hidden-description");
+                element.innerText = "Näita vähem";
+            } else {
+                description.classList.add("hidden-description");
+                element.innerText = "Näita rohkem";
+            }
+        }
+
+        function generateRandomCall() {
+    var callPairs = [
+        { title: "funny", description: "funny" },
+        { title: "serious", description: "very serious" },
+        { title: "urgent", description: "needs immediate attention" }
+    ];
+    
+    var randomPair = callPairs[Math.floor(Math.random() * callPairs.length)];
+    
+    var phone = "+372" + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
+    var officer = officers[Math.floor(Math.random() * officers.length)];
+    var randomName = names[Math.floor(Math.random() * names.length)];
+    
+    return { 
+        title: randomPair.title, 
+        fullDescription: randomPair.description, 
+        phone: phone, 
+        name: randomName,
+        officer: officer
+    };
+}
+        function performSearch() {
+            var query = document.getElementById("searchInput").value.toLowerCase();
+            var results = names.filter(name => name.toLowerCase().includes(query));
+            console.log("Otsingutulemused:", results);
+        }
+
+
+        addCall()
+        addCall()
+        addCall()
+        addOfficers()
+
+        //setInterval(addCall, 2000);
+
+
+        function search() {
+            var query = document.getElementById("searchInput").value.toLowerCase();
+            var person = people.find(p => p.name.toLowerCase().includes(query));
+            if (person) {
+                showProfile(person);
+            } else {
+                alert("Isikut ei leitud.");
+            }
+        }
+
+
+        function sendOfficer(button) {
+            var officer = button.parentElement;
+            officer.querySelector(".data").innerHTML += " Responting"
+
+        }
+
+        function showProfile(person) {
+            document.getElementById("ProfileView").innerHTML = `
+                <div class="profile">
+                    <div class="profile-pic">
+                        <img src="${person.avatar}" alt="${person.name}">
+                    </div>
+                    <div class="profile-info">
+                        <h3>${person.name}</h3>
+                        <p>Vanus: ${person.age}</p>
+                        <p>Töökoht: ${person.job}</p>
+                        <p>Elukoht: ${person.location}</p>
+                        <div class="profile-crimes">
+                            <h4>Varasemad juhtumid:</h4>
+                            <ul>
+                                ${person.previousCases.map(caseItem => `<li>${caseItem}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div class="wanted-status">
+                            <h4>Tagaotsitavus: ${person.isWanted ? 'Jah' : 'Ei'}</h4>
+                            <button onclick="toggleWantedStatus('${person.name}')">${person.isWanted ? 'Tühista tagaotsitavus' : 'Lisa tagaotsitavaks'}</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            openTab({ currentTarget: document.querySelector(`button[onclick="openTab(event, 'ProfileView')"]`) }, 'ProfileView');
+        }
+
+        function toggleWantedStatus(name) {
+            var person = people.find(p => p.name === name);
+            if (person) {
+                person.isWanted = !person.isWanted;
+                showProfile(person);
+            }
+        }
+
+        function performSearch() {
+            var query = document.getElementById("searchInput").value.toLowerCase();
+            var results = people.filter(person => person.name.toLowerCase().includes(query));
+            console.log("Otsingutulemused:", results);
+        }
+
+        setInterval(() => {
+            // Tegevused nagu andmete uuendamine
+        }, 5000);
+    </script>
+</body>
+</html>
