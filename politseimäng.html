@@ -109,12 +109,15 @@
     margin-bottom: 10px;
     border-radius: 15px;
     box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
-    width: 100%; /* Adjusted width */
+    width: 90%; /* Adjusted width */
     float: none;
     margin-right: -50%;
-    margin-top: 20px;
+    margin-top: 5px;
     max-height: none; /* No scroll */
     overflow-y: visible;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Two columns */
+    gap: 10px; /* Space between officers */
 }
 
 .flex {
@@ -335,7 +338,7 @@ button:hover {
             <div id="Calls" class="tabcontent active">
                 <h2>Aktiivsed Kõned</h2>
 
-                <h3>Vabad Ohvitserid</h3>
+                <h3></h3>
                 <div class="flex2">
                     
                     <div class="flex2 fit">
@@ -654,7 +657,22 @@ function assignOfficers(callItem, availableOfficers) {
             console.log("Otsingutulemused:", results);
         }
 
-        setInterval(addCall, 2000);
+        addCall()
+
+        function addRandomCall() {
+    // Loo uus kõne
+    addCall();
+    
+    // Määra randomiseeritud intervall (nt vahemikus 5 kuni 15 sekundit)
+    let randomInterval = Math.floor(Math.random() * (55000 - 10000 + 1)) + 5000;
+
+    // Rekursiivselt kutsu sama funktsioon random intervalliga
+    setTimeout(addRandomCall, randomInterval);
+}
+
+// Algata esimene kõne
+addRandomCall();
+
         addOfficers()
 
         //setInterval(addCall, 2000);
