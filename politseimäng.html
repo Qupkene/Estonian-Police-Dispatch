@@ -116,8 +116,7 @@
     max-height: none; /* No scroll */
     overflow-y: visible;
     display: grid;
-    grid-template-columns: repeat(2, 1fr); /* Two columns */
-    gap: 10px; /* Space between officers */
+
 }
 
 .flex {
@@ -465,23 +464,34 @@ button:hover {
             document.getElementById(tabName).style.display = "block";
             evt.currentTarget.className += " active-tab";
         }
+        let callCount = 0; // Hoia üleval callide arvu
+
         function addCall() {
-    var callList = document.getElementById("callList");
-    var callItem = document.createElement("div");
+    callCount++;
+    const callList = document.getElementById("callList");
+    const callItem = document.createElement("div");
     callItem.className = "call-item";
-    var newCall = generateRandomCall();
+    const newCall = generateRandomCall();
+
+    // Leia lähim officer
+    const nearestOfficer = officers.reduce((nearest, officer) => {
+        const officerDistance = parseFloat(officer.distance.split(' ')[0]); // Eeldame, et distance on "x km"
+        return officerDistance < nearest.distance ? officer : nearest;
+    }, officers[0]);
 
     callItem.innerHTML = `
-        <strong>${newCall.title}</strong><br>
-        <span class="hidden-description">${newCall.fullDescription}</span>
-        <span class="show-more" onclick="toggleDescription(this)">Näita rohkem</span><br>
+        <strong>#${callCount} ${newCall.title}</strong><br>
+        <span>Lähim Ohvitser: ${nearestOfficer.name} (${nearestOfficer.id}) ${nearestOfficer.distance}, ${nearestOfficer.time}</span><br>
         <span>Kontakt: ${newCall.name}, Tel: ${newCall.phone}</span><br>
-        <button onclick="acceptCall(this)" class="accept-btn">Aktsepteeri</button>
+        <button onclick="acceptCall(this, ${callCount})" class="accept-btn">Aktsepteeri</button>
         <button onclick="rejectCall(this)" class="reject-btn">Keeldu</button>
     `;
+
     callList.insertBefore(callItem, callList.firstChild);
     document.getElementById("newCallSound").play();
 }
+
+
 function acceptCall(button) {
     var callItem = button.parentElement;
     callItem.style.backgroundColor = '#ffecb3'; // Yellow background for ongoing call
@@ -494,56 +504,65 @@ function acceptCall(button) {
 }
 
 function assignOfficerToCall(callItem) {
-    // Clear previous listeners to prevent multiple officers being assigned to the same call
     const officerButtons = document.querySelectorAll('.send-officer');
 
     officerButtons.forEach(button => {
-        // Remove any existing event listeners
         const newButton = button.cloneNode(true);
         button.parentNode.replaceChild(newButton, button);
 
         newButton.addEventListener('click', function () {
             const officerId = newButton.getAttribute('data-officer-id');
             const assignedOfficer = officers.find(officer => officer.id === officerId);
+            const travelTimeInMinutes = parseInt(assignedOfficer.time.split(' ')[0]);
 
-            // Add the officer info to the specific call
+            // Lisa officer info callile
             callItem.innerHTML += `
                 <div class="officer-info">
                     <img src="${assignedOfficer.avatar}" class="officer-avatar">
-                    <span>${assignedOfficer.id} ${assignedOfficer.name}: ${assignedOfficer.distance} - ${assignedOfficer.time}</span>
+                    <span>${assignedOfficer.id} ${assignedOfficer.name}</span>
                 </div>
+                <progress value="0" max="100" id="progress-${assignedOfficer.id}"></progress>
             `;
+
+            newButton.disabled = true;
+            newButton.innerHTML = "Assigned";
+            assignedOfficer.isAssigned = true;
+
+            // Algata progressBar update
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 100 / (travelTimeInMinutes * 2); // Call lahendamiseks lisatakse travelTime x2
+                document.getElementById(`progress-${assignedOfficer.id}`).value = progress;
+
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    callItem.style.backgroundColor = '#d4edda'; // Lahendatud
+                    callItem.innerHTML += '<span class="status-icon">✅</span>';
+                    assignedOfficer.isAssigned = false; // Vabasta officer
+                }
+            }, 1000); // Update progress iga sekund
 
             newButton.addEventListener('click', function () {
     const officerId = newButton.getAttribute('data-officer-id');
     const assignedOfficer = officers.find(officer => officer.id === officerId);
 
-    const travelTimeInMinutes = parseInt(assignedOfficer.time.split(' ')[0]); // Extract travel time in minutes
-
-    // Add officer info to the call
     callItem.innerHTML += `
         <div class="officer-info">
             <img src="${assignedOfficer.avatar}" class="officer-avatar">
-            <span>${assignedOfficer.id} ${assignedOfficer.name}: ${assignedOfficer.distance} - ${assignedOfficer.time}</span>
+            <span>${assignedOfficer.id} ${assignedOfficer.name} (#${callCount})</span>
         </div>
     `;
-
-    // Include the travel time in call resolution
-    setTimeout(() => {
-        callItem.style.backgroundColor = '#d4edda'; // Mark as complete
-        callItem.innerHTML += '<span class="status-icon">✅</span>';
-        assignedOfficer.isAssigned = false; // Free officer
-    }, (travelTimeInMinutes + 5) * 60000); // 5 minutes for call resolution + travel time
+    // Siin samamoodi progressBar jne
 });
 
+setTimeout(() => {
+    callItem.remove ()
+   }, 60000); 
 
-            // Disable officer for other assignments
-            newButton.disabled = true;
-            newButton.innerHTML = "Assigned";
-            assignedOfficer.isAssigned = true;
         });
     });
 }
+
 
 
 function rejectCall(button) {
@@ -562,36 +581,28 @@ function rejectCall(button) {
 }
 
 function populateOfficerList() {
-    var officerMenu = document.getElementById("officerMenu");
-    officerMenu.innerHTML = ''; // Clear previous list
+    const officerMenu = document.getElementById("officerMenu");
+    officerMenu.innerHTML = ''; // Clear existing list
 
-    officers.forEach(officer => {
+    officers.forEach((officer, index) => {
         if (!officer.isAssigned) {
-            var officerItem = document.createElement("div");
+            const officerItem = document.createElement("div");
             officerItem.className = "officer-item";
+            officerItem.style.display = "inline-block"; // Kuvame kahes reas
+            officerItem.style.width = "45%"; // Vähendame laiust
+
             officerItem.innerHTML = `
                 <div class="officer-info">
                     <img src="${officer.avatar}" class="officer-avatar">
-                    <span>${officer.id} ${officer.name}: ${officer.distance} - ${officer.time}</span>
+                    <span>${officer.id} ${officer.name}</span>
                 </div>
                 <button class="send-officer" data-officer-id="${officer.id}">Send</button>
             `;
-        } else {
-            // Show assigned officers in red
-            var officerItem = document.createElement("div");
-            officerItem.className = "officer-item assigned";
-            officerItem.style.color = "red"; // Mark as assigned
-
-            officerItem.innerHTML = `
-                <div class="officer-info">
-                    <img src="${officer.avatar}" class="officer-avatar">
-                    <span>${officer.id} ${officer.name} (Assigned)</span>
-                </div>
-            `;
+            officerMenu.appendChild(officerItem);
         }
-        officerMenu.appendChild(officerItem);
     });
 }
+
 
 
 // Call this function to populate the list when the page loads
@@ -636,21 +647,25 @@ function assignOfficers(callItem, availableOfficers) {
         { title: "serious", description: "very serious" },
         { title: "urgent", description: "needs immediate attention" }
     ];
-    
+
     var randomPair = callPairs[Math.floor(Math.random() * callPairs.length)];
-    
     var phone = "+372" + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
-    var officer = officers[Math.floor(Math.random() * officers.length)];
     var randomName = names[Math.floor(Math.random() * names.length)];
-    
-    return { 
-        title: randomPair.title, 
-        fullDescription: randomPair.description, 
-        phone: phone, 
-        name: randomName,
-        officer: officer
+
+    // Genereeri iga officerile random aeg ja kaugus
+    officers.forEach(officer => {
+        officer.distance = `${(Math.random() * 10).toFixed(1)} km`;
+        officer.time = `${Math.floor(Math.random() * 15) + 1} min`;
+    });
+
+    return {
+        title: randomPair.title,
+        fullDescription: randomPair.description,
+        phone: phone,
+        name: randomName
     };
 }
+
         function performSearch() {
             var query = document.getElementById("searchInput").value.toLowerCase();
             var results = names.filter(name => name.toLowerCase().includes(query));
