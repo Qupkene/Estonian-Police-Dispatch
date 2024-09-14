@@ -96,11 +96,11 @@
             margin: 5px 0;
         }
         .call-list {
-    width: 50%; /* Adjusted width */
-    float: none;
-    margin-left: -50%;
-    max-height: none; /* No scroll */
-    overflow-y: visible;
+            width: 100%; /* Adjusted width */
+            float: none;
+            /*margin-left: -50%;
+            max-height: none; /* No scroll */
+            overflow-y: visible;
 }
 
 .officer-list {
@@ -109,10 +109,10 @@
     margin-bottom: 10px;
     border-radius: 15px;
     box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
-    width: 20%; /* Adjusted width */
+    width: 100%; /* Adjusted width */
     float: none;
     margin-right: -50%;
-    margin-top: -25%;
+    margin-top: 20px;
     max-height: none; /* No scroll */
     overflow-y: visible;
 }
@@ -262,11 +262,12 @@ button:hover {
             to { opacity: 0; }
         }
 
-        .flex {
+        .flex2 {
             height: 100%;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            align-items: flex-start;
+            justify-content:space-between;
+            
         }
         .Police-Menu {
 
@@ -292,6 +293,11 @@ button:hover {
             margin: 2.5px;
 
             background-color: #ff4d4d;
+        }
+
+        .fit {
+            width:fit-content;
+            width: 48%;
         }
 
     </style>
@@ -328,28 +334,21 @@ button:hover {
             <!-- Aktiivsed Kõned -->
             <div id="Calls" class="tabcontent active">
                 <h2>Aktiivsed Kõned</h2>
-                <div class="flex">
-                    <div class="call-list" id="callList">
-                        <!-- Simuleeritud kõned ilmuvad siia -->
-                         
+
+                <h3>Vabad Ohvitserid</h3>
+                <div class="flex2">
+                    
+                    <div class="flex2 fit">
+                        <div class="call-list" id="callList"></div>
                     </div>
 
-                    </div>
-                    <div class="flex">
+                    <div class="flex2 fit">
                         <!-- Officer List (Left Side) -->
                         <div class="officer-list" id="officerList">
-                            <h3>Vabad Ohvitserid</h3>
-                            <div id="officerMenu">
-                                <!-- Officers will be populated here -->
-                            </div>
-                        </div>
-                    
-                        <!-- Call List (Right Side) -->
-                        <div class="call-list" id="callList">
-                            <!-- Call items will be added dynamically here -->
+                            
+                            <div id="officerMenu"></div>
                         </div>
                     </div>
-                    
                 </div>
 
             </div>
