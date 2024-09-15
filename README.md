@@ -1,4 +1,4 @@
-# EPD Estonian Police Dispatch (simulator)
+# EPD Estonian Police Dispatch (simulator) BETA, full game will appear in Steam or some other website SOON!
 Built with HTML mostly, good for website gaming or for filming a Police Movie.
 If any questions our discords are qupkene, 0kimum
  
