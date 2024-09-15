@@ -81,7 +81,7 @@
             text-align: center;
         }
         .profile-pic img {
-            border-radius: 50%;
+            border-radius: 20%;
             width: 150px;
             height: 150px;
         }
@@ -156,6 +156,13 @@
 button:hover {
     background-color: #0056b3;
 }
+
+/* Kollane nupp assigned officerile */
+button.assigned-btn {
+    background-color: #FF5733;
+    color: black;
+}
+
         .officer-info {
             font-size: 0.9em;
             color: #777;
@@ -182,9 +189,6 @@ button:hover {
             cursor: pointer;
             color: #0056a5;
             text-decoration: underline;
-        }
-        .hidden-description {
-            display: none;
         }
         .wanted-status {
             margin-top: 20px;
@@ -389,16 +393,20 @@ button:hover {
 
     <script>
         let officers = [
-            { id: "085", name: "Kalle Rebane", distance: "1.7 km", time: "2 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
-            { id: "102", name: "Liisa Tamm", distance: "3.2 km", time: "5 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
-            { id: "213", name: "Priit Saar", distance: "4.5 km", time: "7 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
-            { id: "344", name: "Eeva Leht", distance: "1.0 km", time: "1 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
-    { id: "051", name: "Pille Vits", distance: "5.0 km", time: "6 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
-    { id: "052", name: "Jenni Must", distance: "4.5 km", time: "5 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
-    { id: "060", name: "Ursula Treen", distance: "16.5 km", time: "15 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
-    { id: "061", name: "Reimo Rann", distance: "2.5 km", time: "3 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
-    { id: "070", name: "Toomas Perk", distance: "19.5 km", time: "18 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
-    { id: "071", name: "Karel Tael", distance: "3.5 km", time: "4 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+            { id: "085", name: "Kalle Rebane - PATRULL", distance: "1.7 km", time: "2 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+//kindral
+            { id: "002", name: "Liisa Tamm - korrakaitse politseikindral", distance: "3.2 km", time: "5 min", avatar: "https://i.ibb.co/Y0cygDW/png-transparent-police-officer-logo-of-police-officer-police-officer-hat-logo-removebg-preview-1.png" },
+//patrull
+            { id: "013", name: "Priit Saar - PATRULL", distance: "4.5 km", time: "7 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+            { id: "044", name: "Eeva Leht - PATRULL", distance: "1.0 km", time: "1 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "051", name: "Pille Vits - PATRULL", distance: "5.0 km", time: "6 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+    { id: "052", name: "Jenni Must - PATRULL", distance: "4.5 km", time: "5 min", avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp" },
+//kriminaalpolitsei
+    { id: "960", name: "Ursula Treen - KRIMINAALPOLITSEI", distance: "16.5 km", time: "15 min", avatar: "https://i.ibb.co/JHxLHxH/Untitled-design-2-removebg-preview-1.png" },
+    { id: "961", name: "Reimo Rann - KRIMINAALPOLITSEI", distance: "2.5 km", time: "3 min", avatar: "https://i.ibb.co/JHxLHxH/Untitled-design-2-removebg-preview-1.png" },
+//kiirreageerijad
+    { id: "570", name: "Toomas Perk - KIIRREAGEERIJA", distance: "19.5 km", time: "18 min", avatar: "https://i.ibb.co/RHZXrMw/Untitled-design-1-1.png" },
+    { id: "571", name: "Karel Tael - KIIRREAGEERIJA", distance: "3.5 km", time: "4 min", avatar: "https://i.ibb.co/RHZXrMw/Untitled-design-1-1.png" },
           // lisa veel ohvitsere...
         ];
 
@@ -410,9 +418,9 @@ button:hover {
                 age: 42,
                 job: "Politseinik",
                 location: "Tallinn",
-                previousCases: ["Vargus", "Liiklusõnnetus"],
+                previousCases: ["Kiiruse ületamine 11-24km/h", "Liiklusõnnetus"],
                 isWanted: false,
-                avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp"
+                avatar: "https://i.ibb.co/DwF0TtD/images-1-1.png"
             },
             {
                 name: "Liisa Tamm",
@@ -420,17 +428,17 @@ button:hover {
                 job: "Politseinik",
                 location: "Tartu",
                 previousCases: ["Koduvägivald", "Joobes juhtimine"],
-                isWanted: true,
-                avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp"
+                isWanted: false,
+                avatar: "https://i.ibb.co/DwF0TtD/images-1-1.png"
             },
             {
                 name: "Priit Saar",
                 age: 29,
-                job: "Eraturvamees",
+                job: "Töötu",
                 location: "Narva",
                 previousCases: ["Pangarööv"],
                 isWanted: false,
-                avatar: "https://i.ibb.co/xDQKkFk/police-avatar-person-2845-1.webp"
+                avatar: "https://i.ibb.co/10B8rzF/images-2-1.png"
             }
         ];
 
@@ -473,34 +481,25 @@ button:hover {
     callItem.className = "call-item";
     const newCall = generateRandomCall();
 
-    let nearestOfficer = -1
-    let nearestDistance = -1
+    let nearestOfficer = -1;
+    let nearestDistance = -1;
 
     officers.forEach(officer => {
-
-        
-
-        const officerDistance = parseFloat(officer.distance.split(' ')[0]) // Eeldame, et distance on "x km"
-
-        console.log(officerDistance)
+        const officerDistance = parseFloat(officer.distance.split(' ')[0]);
 
         if (officerDistance > nearestDistance) {
-            nearestDistance = officerDistance
-            nearestOfficer = officer
+            nearestDistance = officerDistance;
+            nearestOfficer = officer;
         }
+    });
 
-    })
-
-    // Leia lähim officer
-    //const nearestOfficer = officers.reduce((nearest, officer) => {
-    //    const officerDistance = parseFloat(officer.distance.split(' ')[0]); // Eeldame, et distance on "x km"
-     //   return officerDistance < nearest.distance ? officer : nearest;
-    //}, officers[1]);
-
+    // Add the call content with hidden description
     callItem.innerHTML = `
         <strong>#${callCount} ${newCall.title}</strong><br>
         <span>Lähim Ohvitser: ${nearestOfficer.name} (${nearestOfficer.id}) ${nearestOfficer.distance}, ${nearestOfficer.time}</span><br>
         <span>Kontakt: ${newCall.name}, Tel: ${newCall.phone}</span><br>
+        <div class="hidden-description">${newCall.fullDescription}</div>
+        <button onclick="toggleDescription(this)" class="show-more">Näita rohkem</button><br>
         <button onclick="acceptCall(this, ${callCount})" class="accept-btn">Aktsepteeri</button>
         <button onclick="rejectCall(this)" class="reject-btn">Keeldu</button>
     `;
@@ -508,6 +507,18 @@ button:hover {
     callList.insertBefore(callItem, callList.firstChild);
     document.getElementById("newCallSound").play();
 }
+
+function toggleDescription(button) {
+    var description = button.previousElementSibling; // Select the previous element which is the description
+    if (description.classList.contains("hidden-description")) {
+        description.classList.remove("hidden-description");
+        button.innerText = "Näita vähem"; // Change button text
+    } else {
+        description.classList.add("hidden-description");
+        button.innerText = "Näita rohkem"; // Change back to original text
+    }
+}
+
 
 
 function acceptCall(button) {
@@ -524,7 +535,6 @@ function acceptCall(button) {
 function assignOfficerToCall(callItem) {
     const officerButtons = document.querySelectorAll('.send-officer');
 
-
     officerButtons.forEach(button => {
         const newButton = button.cloneNode(true);
         button.parentNode.replaceChild(newButton, button);
@@ -532,6 +542,13 @@ function assignOfficerToCall(callItem) {
         newButton.addEventListener('click', function () {
             const officerId = newButton.getAttribute('data-officer-id');
             const assignedOfficer = officers.find(officer => officer.id === officerId);
+
+            // Kontrollime, kas officer on juba määratud
+            if (assignedOfficer.isAssigned) {
+                alert(`${assignedOfficer.name} on juba määratud väljakutsele!`);
+                return; // Vältime topeltmääramist
+            }
+
             const travelTimeInMinutes = parseInt(assignedOfficer.time.split(' ')[0]);
 
             // Lisa officer info callile
@@ -543,9 +560,10 @@ function assignOfficerToCall(callItem) {
                 <progress value="0" max="100" id="progress-${assignedOfficer.id}"></progress>
             `;
 
-            newButton.disabled = true;
+            // Muuda nupp kollaseks ja kirjuta peale "Assigned"
+            newButton.classList.add("assigned-btn");
             newButton.innerHTML = "Assigned";
-            assignedOfficer.isAssigned = true;
+            assignedOfficer.isAssigned = true; // Märgime officeri määratuks
 
             // Algata progressBar update
             let progress = 0;
@@ -558,26 +576,18 @@ function assignOfficerToCall(callItem) {
                     callItem.style.backgroundColor = '#d4edda'; // Lahendatud
                     callItem.innerHTML += '<span class="status-icon">✅</span>';
                     assignedOfficer.isAssigned = false; // Vabasta officer
+
+                    // Muuda nupp tagasi "Send" olekusse ja algse värviga
+                    newButton.classList.remove("assigned-btn");
+                    newButton.classList.add("send-btn");
+                    newButton.innerHTML = "Send";
+                    newButton.disabled = false; // Aktiveeri nupp uuesti
                 }
             }, 1000); // Update progress iga sekund
 
-            newButton.addEventListener('click', function () {
-    const officerId = newButton.getAttribute('data-officer-id');
-    const assignedOfficer = officers.find(officer => officer.id === officerId);
-
-    callItem.innerHTML += `
-        <div class="officer-info">
-            <img src="${assignedOfficer.avatar}" class="officer-avatar">
-            <span>${assignedOfficer.id} ${assignedOfficer.name} (#${callCount})</span>
-        </div>
-    `;
-    // Siin samamoodi progressBar jne
-});
-
 setTimeout(() => {
     callItem.remove ()
-
-   }, 60000); 
+    }, 60000); 
 
         });
     });
@@ -602,7 +612,7 @@ function rejectCall(button) {
 
 function populateOfficerList() {
     const officerMenu = document.getElementById("officerMenu");
-    officerMenu.innerHTML = ''; // Clear existing list
+    officerMenu.innerHTML = ''; // Puhasta olemasolev nimekiri
 
     officers.forEach((officer, index) => {
         if (!officer.isAssigned) {
@@ -616,12 +626,13 @@ function populateOfficerList() {
                     <img src="${officer.avatar}" class="officer-avatar">
                     <span>${officer.id} ${officer.name}</span>
                 </div>
-                <button class="send-officer" data-officer-id="${officer.id}">Send</button>
+                <button class="send-btn send-officer" data-officer-id="${officer.id}">Send</button>
             `;
             officerMenu.appendChild(officerItem);
         }
     });
 }
+
 
 
 
@@ -646,10 +657,6 @@ function assignOfficers(callItem, availableOfficers) {
         </div>
     `;
 }
-
-
-
-
         function toggleDescription(element) {
             var description = element.previousElementSibling;
             if (description.classList.contains("hidden-description")) {
@@ -663,11 +670,70 @@ function assignOfficers(callItem, availableOfficers) {
 
         function generateRandomCall() {
     var callPairs = [
-        { title: "funny", description: "funny" },
-        { title: "serious", description: "very serious" },
-        { title: "urgent", description: "needs immediate attention" }
+    { title: "Pangarööv", description: "Vene tänava Swedpanka sisenesid 4 maskeeritud isikut tulirelvadega ning nõuavad raha." },
+    { title: "Maja süttimine", description: "Tulime koju ja nägime, et meie naabermaja katus põleb. Palun abi!" },
+    { title: "Kadunud laps", description: "9-aastane tüdruk jooksis kodust ära peale tüli vanematega, asukoht teadmata." },
+    { title: "Relvastatud vargus", description: "Toidupoodi sisenes maskiga mees relvaga ja nõudis kassapidajalt raha." },
+    { title: "Võltsitud dokument", description: "Autopesula töötaja kahtlustab kliendi dokumentide võltsimist." },
+    { title: "Koduvägivald", description: "Korteris on kuulda karjeid ja tugevat kolinat, kahtlustan, et mees lööb oma naist." },
+    { title: "Autoavarii", description: "Kahe auto kokkupõrge linna peaväljakul, üks juht tundub purjus olevat." },
+    { title: "Leitud narkootikumid", description: "Kooli õpetaja leidis tualetist kahtlase valge pulbriga kotikese." },
+    { title: "Jalgratta vargus", description: "Minu lapse jalgratas varastati meie hoovist öösel." },
+    { title: "Korrarikkuja baaris", description: "Klient keeldub baarist lahkumast, on agressiivne ja ähvardab töötajaid." },
+    { title: "Korteri sissemurdmine", description: "Koduuks oli lahti murtud ja korterist on kadunud väärisesemeid." },
+    { title: "Pommiähvardus", description: "Kooli administraator sai tundmatu kõne pommiähvardusega, evakuatsioon on alustatud." },
+    { title: "Kahtlane pakk rongijaamas", description: "Rongijaamas on maha jäetud suur kohver, keegi pole sellele ligi astunud." },
+    { title: "Salaküttimine", description: "Kohalikud jahimehed teatavad salaküttimisest riikliku kaitse all olevas metsas." },
+    { title: "Võltsitud raha", description: "Kassapidaja avastas kassa lugemisel võltsitud 50-eurose kupüüri." },
+    { title: "Põgenenud vang", description: "Kinnipidamisasutuse lähedalt on kadunud kinnipeetav, teda peetakse ohtlikuks." },
+    { title: "Arvutikelmus", description: "Firma sai kirja makse kinnitamise kohta, mida nad pole kunagi algatanud." },
+    { title: "Sissetung vanainimese koju", description: "Vanainimene teatab, et keegi on öösel tema koduuksest sisse tunginud ja kappides sorinud." },
+    { title: "Meeleavaldus", description: "Linnavalitsuse ees koguneb suur hulk inimesi protesteerima ja olukord hakkab eskaleeruma." },
+    { title: "Kahtlane draakon", description: "Metsast kostub veider heli, justkui draakon hingaks tuld – kohalikud on hirmul." },
+    { title: "Lennujaama turvaintsident", description: "Kahtlane isik keeldub lennujaamas turvakontrollist läbimast ja põhjustab häiret." },
+    { title: "Küberrünnak", description: "Kohalik haigla IT-süsteemid on langenud küberrünnaku ohvriks, mis häirib tööprotsesse." },
+    { title: "Loata tuletegemine", description: "Metsas süüdati lõke hoolimata kehtivast tuletegemise keelust, olukord näib kontrolli alt väljumas." },
+    { title: "Plaaniline pangarööv", description: "Anonüümne vihje viitab, et järgmise nädala alguses plaanitakse pangaröövi." },
+    { title: "Suvilate murdvargus", description: "Mitmes suvilas on sisse murtud ja varastatud väärtuslikke esemeid, sealhulgas paadid ja tööriistad." },
+    { title: "Agressiivne koer", description: "Tänaval on valla pääsenud suur koer, kes on inimesi rünnanud." },
+    { title: "Piraattaksod", description: "Kohalikud elanikud kahtlustavad, et linnas tegutseb suur piraattakso võrgustik." },
+    { title: "Allakukkunud UFO", description: "Metsas nähti öösel tulukesi ja leitakse kahtlane metallist objekt – kohalikud räägivad UFO-st." },
+    { title: "Pussitamine tänaval", description: "Vene tänaval oli kaklus, kus üks isik sai noaga haavata, ründaja on põgenenud." },
+    { title: "Korteriühistu konflikt", description: "Naaber ei maksa korteriühistu arveid ja on hakanud teisi korteriomanikke ähvardama." },
+    { title: "Öörahu rikkumine", description: "Noortekamp korraldab majade vahel valjuhäälseid pidusid ja rikub korduvalt öörahu." },
+    { title: "Rongilt alla kukkunud inimene", description: "Raudteel on rongilt kukkunud reisija, kes vajab kiiret meditsiinilist abi." },
+    { title: "Kahtlane jälitamine", description: "Mitu päeva on auto mind jälitanud kõikjale, kuhu ma lähen, kardan oma turvalisuse pärast." },
+    { title: "Purjus autojuht", description: "Nägin, kuidas juhuslik auto sõitis ettevaatamatult ja kaldus korduvalt vastassuunavööndisse." },
+    { title: "Sünnipäevapidu", description: "Laste sünnipäevalaadal puhkes suur tüli vanemate vahel, olukord on kontrolli alt väljas." },
+    { title: "Kaupluse vandaalitsemine", description: "Kohalikus elektroonikapoes on purustatud mitmed seadmed ja kahtlustatakse röövimiskatset." },
+    { title: "Naabrivalve kahtlus", description: "Naabruses elab tundmatu isik, kes käib öösiti ümber majade ja tundub kahtlane." },
+    { title: "Tulnukate maandumine", description: "Kohalik karjakasvataja väidab, et tema heinamaale on maandunud tundmatu lendav objekt." },
+    { title: "Varastatud auto", description: "Minu auto varastati öösel maja eest, jäljed viitavad murdvargusele." },
+    { title: "Reostunud jõgi", description: "Jõkke on valgunud suur kogus õli, mis on ohtlik keskkonnale ja loomadele." },
+    { title: "Tehnovõrgu saboteerimine", description: "Linna elektriliinidel toimus saboteerimine, mis põhjustas ulatusliku voolukatkestuse." },
+    { title: "Spordivõistlusel kaklus", description: "Jalgpallimängul puhkes kaklus, kus üks mängija lõi teist rusikaga näkku." },
+    { title: "Isik metsa eksinud", description: "Matkaja teatab, et tema kaaslane on metsas kaduma läinud ja telefonile ei vasta." },
+    { title: "Salajane kokkusaamine", description: "Kohalik elanik kahtlustab, et mahajäetud laohoones toimub ebaseaduslik relvakaup." },
+    { title: "Inimkaubandus", description: "Anonüümne vihje väidab, et korteris hoitakse kinni inimesi, keda sunnitakse tööle vastutahtmist." },
+    { title: "Loata rallivõistlus", description: "Metsateedel toimub loata rallivõistlus, kus kihutavad autod ohustavad teisi liiklejaid." },
+    { title: "Kontserdil vigastatu", description: "Rock-kontserdil kukkus inimene rahvamassi ja jäi jalge alla, vajab kiiret abi." },
+    { title: "Kassipoeg puu otsas", description: "Kassipoeg on juba mitmendat päeva puu otsas ja ei tule alla, omanik on mures." },
+    { title: "Põgenenud hobune", description: "Talu lähedal on vabadusse pääsenud hobune, kes jookseb mööda maanteed." },
+    { title: "Kadunud ehted", description: "Peale külaliste lahkumist avastasime, et meie väärtuslikud ehted on kadunud." },
+    { title: "Korterilõhkumine", description: "Minu allnaaber peksab oma korteri ust ja aknaid, ta on väga vihane ja purjus." },
+    { title: "Lennuki kaaperdamine", description: "Lennukis teatas üks reisija, et tal on pomm ja nõuab kohest maandumist." },
+    { title: "Jalakäija vigastamine", description: "Jalgrattur sõitis jalakäijale otsa ja vigastas teda, rattur põgenes sündmuskohalt." },
+    { title: "Mehe enesetapukatse", description: "Nägin meest, kes seisis silla äärel ja ähvardas hüpata, abi on vaja kohe." },
+    { title: "Ulmepargiga seotud viga", description: "Virtuaalreaalsuse pargis on juhtunud tõrge ja inimesed on 'lõksus' oma simulaatorites." },
+    { title: "Pealtnäha mahajäetud maja", description: "Majas, mis peaks olema tühi, on valgust ja liikumist – naabrid kahtlustavad sissetungi." },
+    { title: "Kummaline hääl kanalis", description: "Kanalisatsioonišahtist tuleb kummaline hääl, naabrid kardavad, et midagi ebatavalist toimub." },
+    { title: "Vangla mäss", description: "Kohalikus vanglas on mässu olukord, vangid on kontrolli alt väljunud." },
+    { title: "Häiriv hääl naaberkorterist", description: "Naaberkorterist kostub terve päev valju metalli kriginat, mis häirib kogu korrust." },
+    { title: "Surnud isik hotellitoas", description: "Hotelli koristaja leidis toast isiku, kes ei hinga ja on nähtavasti surnud." },
+    { title: "Kahtlustatav kodust väljumata", description: "Politseil on põhjus arvata, et otsitav isik peidab end oma korteris ega lahku sealt kunagi." }
     ];
 
+    
     var randomPair = callPairs[Math.floor(Math.random() * callPairs.length)];
     var phone = "+372" + Math.floor(Math.random() * 10000000).toString().padStart(7, '0');
     var randomName = names[Math.floor(Math.random() * names.length)];
