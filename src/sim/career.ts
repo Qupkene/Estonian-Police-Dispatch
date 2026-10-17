@@ -267,7 +267,9 @@ const HOMAGE_2024: { firstName: string; lastName: string; badge: string; gender:
   { firstName: 'Toomas', lastName: 'Perk', badge: '570', gender: 'M', specialty: 'rapid', years: 11, skill: 0.8 },
 ];
 
-const START_SPECIALTIES: UnitType[] = ['patrol', 'patrol', 'patrol', 'patrol', 'patrol', 'criminal', 'rapid', 'traffic'];
+/** Extra starting officers in every prefecture (Põhja adds them to the 2024 homage crew): two more patrol cars. */
+const EXTRA_START: UnitType[] = ['patrol', 'patrol', 'patrol', 'patrol'];
+const START_SPECIALTIES: UnitType[] = ['patrol', 'patrol', 'patrol', 'patrol', 'patrol', 'criminal', 'rapid', 'traffic', ...EXTRA_START];
 
 function makeStaff(
   id: string,
@@ -323,23 +325,28 @@ export function newCareer(name: string, badge: string, regionId: RegionId, seed:
       used.add(h.badge);
       staff.push(makeStaff(`staff-${i + 1}`, { ...h, avatarSeed: hashString(`${h.firstName} ${h.lastName}`) & 0x7fffffff }, 1));
     });
-  } else {
-    const ruP = regionId === 'ida' ? 0.4 : 0.06;
-    START_SPECIALTIES.forEach((spec, i) => {
-      const gender: Gender = rng.chance(0.35) ? 'F' : 'M';
-      const lang: SpeakerLang = rng.chance(ruP) ? 'ru' : 'et';
-      const years = i === 0 ? rng.int(9, 15) : rng.int(1, 12);
-      const nm = randomName(rng, lang, gender, new Date().getUTCFullYear() - (22 + years));
-      const skill = r2(clamp(0.45 + years * 0.02 + rng.normal(0, 0.05), 0.4, 0.85));
-      staff.push(makeStaff(`staff-${i + 1}`, { ...nm, badge: uniqueBadge(rng, used), gender, specialty: spec, years, skill, avatarSeed: rng.int(1, 0x7fffffff) }, 1));
-    });
   }
+  const ruP = regionId === 'ida' ? 0.4 : regionId === 'pohja' ? 0.25 : 0.06;
+  const offset = staff.length;
+  (regionId === 'pohja' ? EXTRA_START : START_SPECIALTIES).forEach((spec, j) => {
+    const i = offset + j;
+    const gender: Gender = rng.chance(0.35) ? 'F' : 'M';
+    const lang: SpeakerLang = rng.chance(ruP) ? 'ru' : 'et';
+    const years = i === 0 ? rng.int(9, 15) : rng.int(1, 12);
+    const nm = randomName(rng, lang, gender, new Date().getUTCFullYear() - (22 + years));
+    const skill = r2(clamp(0.45 + years * 0.02 + rng.normal(0, 0.05), 0.4, 0.85));
+    staff.push(makeStaff(`staff-${i + 1}`, { ...nm, badge: uniqueBadge(rng, used), gender, specialty: spec, years, skill, avatarSeed: rng.int(1, 0x7fffffff) }, 1));
+  });
   const fleet: FleetVehicle[] = [
     fleetVehicle('veh-1', 'skoda_octavia_combi', makePlate(rng), 1),
     fleetVehicle('veh-2', 'skoda_octavia_combi', makePlate(rng), 1),
     // Starting cars cover every starting specialty (patrol, rapid, criminal, traffic).
     fleetVehicle('veh-3', 'skoda_superb_combi', makePlate(rng), 1),
     fleetVehicle('veh-4', 'skoda_scala', makePlate(rng), 1),
+    // Two more patrol cars and a spare, for the extra starting officers.
+    fleetVehicle('veh-5', 'skoda_octavia_combi', makePlate(rng), 1),
+    fleetVehicle('veh-6', 'skoda_octavia_combi', makePlate(rng), 1),
+    fleetVehicle('veh-7', 'skoda_scala', makePlate(rng), 1),
   ];
   const base: CareerProfileX = {
     version: 1,

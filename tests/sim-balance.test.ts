@@ -173,10 +173,10 @@ describe.skipIf(!ready)('career load', () => {
       const career = newCareer('Bot', '777', regionId, 4242);
       const { s, report, minutes } = runShift(regionId, { hours: 12, startHour: 7, career });
       log(`career ${regionId}`, s, report, minutes);
-      // 3 response crews against 11-17 in the regular roster: the volume is scaled down, once, at creation.
+      // 5-6 response crews against 11-17 in the regular roster: the volume is scaled down, once, at creation.
       const f = Number(s.flags.loadFactor);
       expect(f).toBeGreaterThanOrEqual(CAREER_LOAD_FLOOR);
-      expect(f).toBeLessThan(0.4);
+      expect(f).toBeLessThan(0.8);
       expect(s.ended).toBe(true);
       // Before the fix a competent bot scored 0-30 (F) here, with 35-55 % of the calls expiring.
       expect(report.score).toBeGreaterThanOrEqual(50);
@@ -193,8 +193,8 @@ describe.skipIf(!ready)('career load', () => {
     const cs = createShift({ ...base, mode: 'career', roster: rosterFromCareer(career, 'day'), upgrades: [], reputation: 25 });
     expect(careerLoadFactor(free)).toBe(1);
     const f = careerLoadFactor(cs);
-    // pohja day: 3 response crews (2 patrol + rapid) of 13 in the regular roster.
-    expect(f).toBeCloseTo(3 / 13, 3);
+    // pohja day: 5 response crews (4 patrol + rapid) of 13 in the regular roster.
+    expect(f).toBeCloseTo(Math.sqrt(5 / 13), 3);
     cs.weather = free.weather;
     const t = start + 3 * 3_600_000;
     expect(spawnRatePerHour(cs, t)).toBeCloseTo(spawnRatePerHour(free, t) * f, 6);

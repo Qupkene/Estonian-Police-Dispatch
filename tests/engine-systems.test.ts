@@ -557,13 +557,13 @@ describe('economy data', () => {
 describe('career', () => {
   it('newCareer is valid (Põhja homage staff)', () => {
     const p = newCareer('Test', '777', 'pohja', 42);
-    expect(p.money).toBe(10000);
+    expect(p.money).toBe(40000);
     expect(p.reputation).toBe(25);
     expect(p.day).toBe(1);
-    expect(p.staff).toHaveLength(8);
+    expect(p.staff).toHaveLength(12); // the 2024 homage crew plus four more patrol officers
     expect(p.staff.find((m) => m.badge === '085')?.lastName).toBe('Rebane');
     expect(p.staff.filter((m) => m.specialty === 'patrol').length).toBeGreaterThanOrEqual(5);
-    expect(p.fleet).toHaveLength(4);
+    expect(p.fleet).toHaveLength(7);
     expect(p.recruits).toHaveLength(8);
     expect(p.unlockedRegions).toEqual(['pohja']);
     for (const m of p.staff) {
@@ -571,8 +571,8 @@ describe('career', () => {
       expect(m.salary).toBeLessThanOrEqual(3400);
     }
     const ida = newCareer('Test', '777', 'ida', 42);
-    expect(ida.staff).toHaveLength(8);
-    expect(new Set(ida.staff.map((m) => m.badge)).size).toBe(8);
+    expect(ida.staff).toHaveLength(12);
+    expect(new Set(ida.staff.map((m) => m.badge)).size).toBe(12);
   });
   it('rosterFromCareer builds crews from staff and fleet', () => {
     const p = newCareer('Test', '777', 'pohja', 42);
@@ -585,8 +585,8 @@ describe('career', () => {
       if (u.type === 'patrol') expect(u.crew.length).toBeGreaterThanOrEqual(2);
       if (u.type === 'criminal') expect(u.crew.length).toBeLessThanOrEqual(2);
     }
-    expect(officerIds).toHaveLength(8); // everyone seated with the starting fleet
-    expect(roster.filter((u) => u.type === 'patrol').length).toBeGreaterThanOrEqual(2);
+    expect(officerIds).toHaveLength(12); // everyone seated with the starting fleet
+    expect(roster.filter((u) => u.type === 'patrol').length).toBeGreaterThanOrEqual(4);
     expect(new Set(roster.map((u) => u.callsign)).size).toBe(roster.length);
     expect(roster.some((u) => u.type === 'k9')).toBe(false);
   });
@@ -595,19 +595,20 @@ describe('career', () => {
     const c = p.recruits[0];
     const r = hire(p, c.id);
     expect(r.error).toBeUndefined();
-    expect(r.profile.staff).toHaveLength(9);
+    expect(r.profile.staff).toHaveLength(13);
     expect(r.profile.money).toBe(p.money - c.salary);
     expect(r.profile.recruits.find((x) => x.id === c.id)).toBeUndefined();
-    expect(p.staff).toHaveLength(8); // input untouched
+    expect(p.staff).toHaveLength(12); // input untouched
     const broke = { ...p, money: 100 };
     expect(buyVehicle(broke, 'skoda_octavia_combi').error).toBeDefined();
     expect(buyUpgrade(broke, 'bodycam').error).toBeDefined();
     expect(buyVehicle(p, 'bmw_530d_touring').error?.et).toMatch(/auaste/);
     const bought = buyVehicle({ ...p, money: 50000 }, 'skoda_octavia_combi');
     expect(bought.error).toBeUndefined();
-    expect(bought.profile.fleet).toHaveLength(5);
-    const sold = sellVehicle(bought.profile, bought.profile.fleet[4].id);
-    expect(sold.money).toBe(bought.profile.money + Math.round(38000 * 0.6));
+    expect(bought.profile.fleet).toHaveLength(p.fleet.length + 1);
+    const sold = sellVehicle(bought.profile, bought.profile.fleet[p.fleet.length].id);
+    const octavia = VEHICLE_CATALOG.find((v) => v.id === 'skoda_octavia_combi')!;
+    expect(sold.money).toBe(bought.profile.money + Math.round(octavia.price * 0.6));
     const upg = buyUpgrade(p, 'bodycam');
     expect(upg.profile.upgrades).toContain('bodycam');
     expect(buyUpgrade(upg.profile, 'bodycam').error).toBeDefined();

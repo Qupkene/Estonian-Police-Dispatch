@@ -482,7 +482,8 @@ describe('engine-core with fixtures', () => {
     const s = quiet(E);
     const inc = spawn(E, s, 't_simple');
     const t0 = s.trust;
-    E.engine.step(s, 31 * MIN);
+    // 30 min caller patience × CALLER_PATIENCE 1.4 = 42 min.
+    E.engine.step(s, 43 * MIN);
     expect(inc.state).toBe('closed');
     expect(inc.closedBy).toBe('expired');
     expect(s.stats.expired).toBe(1);

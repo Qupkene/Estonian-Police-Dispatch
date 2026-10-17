@@ -120,8 +120,8 @@ export default {
   },
   'career.onb.intro.budget.title': { et: 'Eelarve', en: 'Budget' },
   'career.onb.intro.budget.text': {
-    et: 'Alustad 10 000 euroga. Iga vahetuse järel laekub päevaeelarve ja tulemustasu, maha lähevad palgad, ülalpidamine ja kütus. Iga 30 päeva järel on palgapäev.',
-    en: 'You start with €10,000. After each shift the daily budget and a performance bonus come in; salaries, upkeep and fuel go out. Payday every 30 days.',
+    et: 'Alustad 40 000 euro, 12 ametniku ja 7 autoga. Iga vahetuse järel laekub päevaeelarve ja tulemustasu, maha lähevad palgad, ülalpidamine ja kütus. Iga 30 päeva järel on palgapäev.',
+    en: 'You start with €40,000, 12 officers and 7 cars. After each shift the daily budget and a performance bonus come in; salaries, upkeep and fuel go out. Payday every 30 days.',
   },
   'career.onb.intro.hiring.title': { et: 'Palkamine ja varustus', en: 'Hiring and equipment' },
   'career.onb.intro.hiring.text': {

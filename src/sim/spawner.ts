@@ -39,13 +39,16 @@ import type {
 
 const T = (et: string, en: string): Text => ({ et, en });
 
-export const DIFFICULTY_FACTOR: Record<Difficulty, number> = { cadet: 0.6, normal: 1, veteran: 1.35, realistic: 1.8 };
+// Tuned for fun over realism: a normal shift leaves time to read the calls, the registry and the newspaper.
+export const DIFFICULTY_FACTOR: Record<Difficulty, number> = { cadet: 0.4, normal: 0.65, veteran: 0.9, realistic: 1.25 };
 
 /** Event-number prefixes per prefecture ("PÕ-261017-0042"). */
 export const NUMBER_PREFIX: Record<RegionId, string> = { pohja: 'PÕ', ida: 'ID', louna: 'LÕ', laane: 'LÄ' };
 
 /** Caller gives up after this many minutes by default (template.expiresMin overrides). */
 export const DEFAULT_EXPIRES_MIN: Record<Priority, number> = { 1: 45, 2: 75, 3: 150, 4: 240 };
+/** Game balance: callers wait this much longer than the template says, so a busy dispatcher can catch up. */
+export const CALLER_PATIENCE = 1.4;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Rate
@@ -81,8 +84,8 @@ export const CAREER_LOAD_FLOOR = 0.1;
  * Career mode: scale the prefecture's call volume to the force actually on duty. A new career has
  * 3 response crews where the regular roster has 11-17, so the full volume would bury it.
  * Computed once at shift creation (after the units exist) and stored in `s.flags`, JSON-safe:
- * - `loadFactor`: response units on duty ÷ response units of the regular normal-difficulty roster
- *   for this shift, clamped to [CAREER_LOAD_FLOOR, 1]. The difficulty factor still applies on top,
+ * - `loadFactor`: square root of (response units on duty ÷ response units of the regular
+ *   normal-difficulty roster for this shift), clamped to [CAREER_LOAD_FLOOR, 1]. The difficulty factor still applies on top,
  *   so veteran and realistic careers stay harder than normal ones.
  * - `skipZones`: comma-separated zones that the regular roster staffs but this force does not
  *   (e.g. Saaremaa and Hiiumaa before the player has an island crew). New calls there are moved
@@ -94,7 +97,8 @@ export function initCareerLoad(s: SimState): void {
   const shift = s.flags.shiftKind === 'night' ? 'night' : 'day';
   const regular = rosterSpecsFor(region, shift, 'normal').filter((sp) => !sp.onCall && RESPONSE_TYPES.has(sp.type));
   const mine = s.unitOrder.map((id) => s.units[id]).filter((u) => !!u && !u.onCall && RESPONSE_TYPES.has(u.type));
-  const factor = regular.length ? mine.length / regular.length : 1;
+  // Square root: a small force gets fewer calls, but not so few that the shift turns dull.
+  const factor = regular.length ? Math.sqrt(mine.length / regular.length) : 1;
   s.flags.loadFactor = Math.round(Math.max(CAREER_LOAD_FLOOR, Math.min(1, factor)) * 1000) / 1000;
   const covered = new Set(mine.map((u) => u.zone || 'mainland'));
   const staffed = new Set(regular.map((sp) => sp.zone ?? stationById(region, sp.stationId)?.zone ?? 'mainland'));
@@ -228,7 +232,7 @@ export function templateWeight(s: SimState, tpl: IncidentTemplate, ctx: PickCtx)
   return w;
 }
 
-/** Weighted template pick with the easter-egg budget (≤ 1.5 % of events). */
+/** Weighted template pick with the easter-egg budget (about 4 % of events, never more than 7 %). */
 export function pickTemplate(s: SimState, r: Rng, templates: IncidentTemplate[], t: number): IncidentTemplate | undefined {
   const ctx = pickCtx(s, t);
   const ws = templates.map((tpl) => templateWeight(s, tpl, ctx));
@@ -239,12 +243,13 @@ export function pickTemplate(s: SimState, r: Rng, templates: IncidentTemplate[],
     else normal += ws[i];
   });
   const easterCount = Number(s.flags.easterCount) || 0;
-  const tooMany = (easterCount + 1) / (s.stats.incidents + 1) > 0.03 && s.stats.incidents > 0;
+  const tooMany = (easterCount + 1) / (s.stats.incidents + 1) > 0.07 && s.stats.incidents > 0;
   let easterScale = 1;
   if (tooMany || normal <= 0) easterScale = normal <= 0 ? 1 : 0;
   else if (easter > 0) {
-    const target = (0.015 / (1 - 0.015)) * normal;
-    if (easter > target) easterScale = target / easter;
+    // Scale both ways: the templates' own weights are tiny, the budget lifts them to about 4 %.
+    const target = (0.04 / (1 - 0.04)) * normal;
+    easterScale = target / easter;
   }
   let total = 0;
   for (let i = 0; i < ws.length; i++) {
@@ -483,7 +488,7 @@ export function createIncident(s: SimState, tpl: IncidentTemplate, o: CreateOpts
   inc.slaMin = slaFor(s, inc, truePriority, tpl);
   // Rural callers wait longer: distances are bigger and they know it (DESIGN §4.3).
   const ruralWait = inc.slaMin > defaultSla(truePriority, true) ? 1.6 : 1;
-  inc.expiresAt = now + (tpl.expiresMin ?? DEFAULT_EXPIRES_MIN[truePriority]) * ruralWait * MIN;
+  inc.expiresAt = now + (tpl.expiresMin ?? DEFAULT_EXPIRES_MIN[truePriority]) * ruralWait * CALLER_PATIENCE * MIN;
   if (tpl.escalation) inc.escalateAt = now + tpl.escalation.afterMin * MIN;
   for (const a of tpl.agencies ?? []) if (r.chance(a.chance)) inc.agencyNeeds.push({ agency: a.agency, reason: a.reason });
   if (tpl.referral && r.chance(tpl.referral.chance)) inc.referral = tpl.referral.agency;
