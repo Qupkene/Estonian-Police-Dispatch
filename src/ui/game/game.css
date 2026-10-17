@@ -3263,10 +3263,65 @@ td.gm-table__task .muted {
     width: 120px;
   }
 }
+@media (max-width: 1500px) {
+  .gm-top__shift-row > span:first-child {
+    display: none;
+  }
+  .gm-top__shift-row {
+    justify-content: flex-end;
+  }
+  .gm-table__st {
+    width: 44px;
+  }
+  th.gm-table__st {
+    font-size: 0 !important;
+  }
+  th.gm-table__st::before {
+    content: '#';
+    font-size: 10px;
+  }
+  .gm-row__stlabel {
+    display: none !important;
+  }
+  .gm-table__cs {
+    width: 108px;
+  }
+  .gm-table__ty {
+    width: 72px;
+  }
+  .gm-table__fat {
+    width: 56px;
+  }
+  .gm-rl {
+    grid-template-columns: 56px 108px minmax(0, 1fr);
+    gap: 6px;
+  }
+}
 @media (max-width: 1360px) {
   .gm-top__env,
   .gm-top__trust {
     display: none !important;
+  }
+  .gm-dock {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .gm-table__ty span {
+    display: none;
+  }
+  .gm-table__ty {
+    width: 34px;
+  }
+  th.gm-table__ty {
+    font-size: 0 !important;
+  }
+  .gm-board .ui-panel__title {
+    display: none;
+  }
+  .gm-board__type {
+    max-width: 110px;
+  }
+  .gm-rl__t {
+    font-size: 10px;
   }
 }
 @media (max-width: 1199px) {

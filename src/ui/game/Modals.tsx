@@ -6,7 +6,7 @@ import { useT } from '@/i18n';
 import { Button, Kbd, Modal, Select, Slider } from '@/ui/components';
 import { hhmm } from '@/sim/time';
 import type { Lang } from '@/sim/types';
-import { selQueue } from './data';
+import { selQueue, soft } from './data';
 import { useGameUi } from './uiStore';
 
 function finishShift(): boolean {
@@ -155,7 +155,7 @@ export function ShiftEndModal() {
   const sim = useGame.getState().sim;
   if (!ended || dismissed || !sim) return null;
   const st = sim.stats;
-  const open = soft(() => selQueue(sim).length, 0);
+  const open = soft('endQueue', () => selQueue(sim).length, 0);
   return (
     <Modal open onClose={() => setDismissed(true)} title={t('game.end.title')} width={480}>
       <div className="gm-end">
@@ -184,12 +184,4 @@ export function ShiftEndModal() {
       </div>
     </Modal>
   );
-}
-
-function soft<T>(fn: () => T, d: T): T {
-  try {
-    return fn();
-  } catch {
-    return d;
-  }
 }

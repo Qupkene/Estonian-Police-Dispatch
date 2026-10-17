@@ -249,7 +249,11 @@ function QueueCard({ sim, inc, selected, cursor, pendingCount }: { sim: SimState
       </div>
       {incoming && (
         <div className="gm-card__actions" onClick={(e) => e.stopPropagation()}>
-          <Button size="sm" variant="primary" icon="check" title={t('game.queue.acceptTitle')} onClick={() => acknowledge(inc.id)}>
+          <Button size="sm" variant="primary" icon="check" title={t('game.queue.acceptTitle')} onClick={(e) => {
+            e.stopPropagation();
+            acknowledge(inc.id);
+            selectIncident(inc.id);
+          }}>
             {t('game.queue.accept')}
             <Kbd>A</Kbd>
           </Button>
