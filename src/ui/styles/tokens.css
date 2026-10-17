@@ -1,0 +1,115 @@
+/* EPD design tokens — dark CAD theme (default) + light "päevarežiim". */
+:root {
+  color-scheme: dark;
+  --bg-0: #06090d;
+  --bg-1: #0b1118;
+  --bg-2: #111a24;
+  --bg-3: #17222f;
+  --bg-4: #1f2c3b;
+  --glass: rgba(13, 20, 29, 0.82);
+  --line: #1e2a38;
+  --line-2: #2a3a4e;
+  --line-3: #3a4e66;
+  --text-0: #eaf1f8;
+  --text-1: #c0ccd9;
+  --text-2: #8595a8;
+  --text-3: #5b6a7d;
+  --accent: #3d8bff;
+  --accent-2: #00d0ff;
+  --accent-soft: rgba(61, 139, 255, 0.16);
+  --gold: #f2c14e;
+
+  --p1: #ff3b4e;
+  --p2: #ff9a1f;
+  --p3: #f2d40c;
+  --p4: #4da3ff;
+  --p1-soft: rgba(255, 59, 78, 0.14);
+  --p2-soft: rgba(255, 154, 31, 0.13);
+  --p3-soft: rgba(242, 212, 12, 0.11);
+  --p4-soft: rgba(77, 163, 255, 0.12);
+
+  --ok: #22c55e;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --info: #38bdf8;
+
+  --st-available: #22c55e;
+  --st-enroute: #3d8bff;
+  --st-onscene: #f59e0b;
+  --st-transport: #a855f7;
+  --st-busy: #94a3b8;
+  --st-break: #14b8a6;
+  --st-offduty: #475569;
+  --st-emergency: #ff2d55;
+
+  --font-ui: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 15px;
+  --fs-xl: 18px;
+  --fs-2xl: 24px;
+  --fs-3xl: 34px;
+
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 18px;
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-glow: 0 0 0 1px rgba(61, 139, 255, 0.45), 0 0 24px rgba(61, 139, 255, 0.25);
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-1: 120ms;
+  --dur-2: 220ms;
+  --dur-3: 420ms;
+
+  --topbar-h: 52px;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg-0: #e9eef4;
+  --bg-1: #f6f8fb;
+  --bg-2: #ffffff;
+  --bg-3: #eef2f7;
+  --bg-4: #e2e8f0;
+  --glass: rgba(255, 255, 255, 0.88);
+  --line: #d5dde7;
+  --line-2: #c3cedb;
+  --line-3: #a9b7c8;
+  --text-0: #0d1622;
+  --text-1: #263445;
+  --text-2: #55667b;
+  --text-3: #7d8da1;
+  --accent: #1f6fe5;
+  --accent-soft: rgba(31, 111, 229, 0.12);
+  --shadow-2: 0 8px 24px rgba(15, 30, 50, 0.12);
+}
+
+:root[data-colorblind='true'] {
+  --p1: #ff4d9a;
+  --p2: #ffb000;
+  --p3: #e8e8e8;
+  --p4: #3aa0ff;
+  --st-available: #3aa0ff;
+  --st-onscene: #ffb000;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-1: 0ms;
+    --dur-2: 0ms;
+    --dur-3: 0ms;
+  }
+}
