@@ -2,7 +2,9 @@
 
 EPD is a static site. `.github/workflows/deploy.yml` builds it on every push to `main` (or when
 run by hand) and publishes `dist/` through GitHub Pages. The custom domain **politsei.eu** serves
-the game from the domain root, so the build uses `BASE_PATH=/`.
+the game from the domain root. The workflow reads the site's base path from `actions/configure-pages`,
+so the same build works at `https://qupkene.github.io/Estonian-Police-Dispatch/` before the domain
+is ready and at `https://politsei.eu/` afterwards.
 
 | | |
 | --- | --- |
@@ -27,8 +29,12 @@ Do the steps in this order. Only a repository admin can change the settings.
    is not allowed to deploy to github-pages due to environment protection rules"*, open
    **Settings → Environments → github-pages → Deployment branches and tags** and allow `main`.
 
-Until the custom domain is set, the site is at `https://qupkene.github.io/Estonian-Police-Dispatch/`
-and will look broken there: the build expects to live at `/`. That is expected; carry on.
+Until the custom domain is set, the game is playable at `https://qupkene.github.io/Estonian-Police-Dispatch/`.
+After you add the custom domain in step 3, re-run the deploy workflow once (Actions → Deploy to GitHub
+Pages → Run workflow) so the build switches to the domain root.
+
+To try the game from this pull request before merging, allow its branch under **Settings →
+Environments → github-pages → Deployment branches and tags**, then run the workflow on that branch.
 
 ## 2. Verify politsei.eu on the GitHub account (prevents takeover)
 
