@@ -1258,6 +1258,29 @@ describe('deploy keeps player data in place', () => {
     }
   });
 
+  it('builds the map data after a successful switch, read-only on the map, never failing the update', () => {
+    const script = read('deploy/mainserver/politsei-uuenda.sh');
+    const main = script.slice(
+      script.indexOf('# ---------------------------------------------------------------- põhivoog'),
+    );
+    const health = main.indexOf('tervis "$tipp" || ebaonnestus');
+    const build = main.indexOf('kaardiandmed "$EHITUS/src/scripts"');
+    expect(health).toBeGreaterThan(0);
+    expect(build).toBeGreaterThan(health);
+    // Called as a condition: set -e cannot end the script there, and nothing is rolled back.
+    expect(main.slice(build - 'if ! '.length, build)).toBe('if ! ');
+    const fn = script.slice(script.indexOf('kaardiandmed() {'), script.indexOf('ebaonnestus() {'));
+    expect(fn).toContain('--network none');
+    expect(fn).toContain('-v "$kaart:/kaart/estonia.pmtiles:ro"');
+    expect(fn).toContain('-v politsei-node-modules:/app/node_modules:ro');
+    expect(fn).not.toMatch(/ebaonnestus|taasta|margi_vigaseks/);
+    // The installer runs the same step right after the map extract (its lock is already held).
+    const installer = read('deploy/mainserver/paigalda.sh');
+    expect(installer.indexOf('POLITSEI_LUKK_KAES=1 bash "$STAGE/politsei-uuenda.sh" --kaardiandmed')).toBeGreaterThan(
+      installer.indexOf('kaart || hoiata'),
+    );
+  });
+
   it('re-running the installer snapshots the database and leaves it and the sessions alone', () => {
     const script = read('deploy/mainserver/paigalda.sh');
     expect(script).toMatch(/politsei-uuenda\.sh" --varunda/);

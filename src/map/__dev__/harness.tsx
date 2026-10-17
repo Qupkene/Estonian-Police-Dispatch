@@ -9,6 +9,8 @@ import { TEMPLATES } from '@/data/incidents';
 import { cumulative, along, destination } from '@/sim/geo';
 import type { Incident, LngLat, SimState, Unit, UnitStatus, UnitType, Weather } from '@/sim/types';
 import type { MapStyleKey } from '@/store/settings';
+import { parseBuildings, parseRoads } from '@/map/roadGraph';
+import type { FeatureCollection } from 'geojson';
 
 const q = new URLSearchParams(location.search);
 const styleKey = (q.get('style') ?? 'tactical') as MapStyleKey;
@@ -126,12 +128,13 @@ const incidents: Incident[] = [
 ];
 
 // `origin=lon,lat` moves the whole fake scene (units, incidents, stations) there, e.g. onto a test
-// PMTiles extract of another city; `free=1` lifts the Estonia-only camera bounds.
+// PMTiles extract of another city; `spread=0.15` also shrinks it around that point (a small extract);
+// `free=1` lifts the Estonia-only camera bounds; `roads=1` draws the road graph and building
+// centroids from tiles/roads-v1.bin and tiles/buildings-v1.bin on top (data check).
 const ORIGIN = q.get('origin')?.split(',').map(Number) as LngLat | undefined;
+const SPREAD = Number(q.get('spread') ?? 1) || 1;
 if (ORIGIN && ORIGIN.length === 2 && ORIGIN.every(Number.isFinite)) {
-  const dx = ORIGIN[0] - 24.75;
-  const dy = ORIGIN[1] - 59.43;
-  const sh = (c: LngLat): LngLat => [c[0] + dx, c[1] + dy];
+  const sh = (c: LngLat): LngLat => [ORIGIN[0] + (c[0] - 24.75) * SPREAD, ORIGIN[1] + (c[1] - 59.43) * SPREAD];
   for (const u of units) {
     u.pos = sh(u.pos);
     if (u.move) {
@@ -208,6 +211,51 @@ function tick(t: number) {
   requestAnimationFrame(tick);
 }
 if (q.get('freeze') !== '1') requestAnimationFrame(tick);
+
+/** `roads=1`: the road graph (edges coloured by one-way) and building centroids as a debug layer. */
+async function showRoadData() {
+  const base = `${import.meta.env.BASE_URL}tiles/`;
+  const [rb, bb] = await Promise.all([fetch(`${base}roads-v1.bin`).then((r) => r.arrayBuffer()), fetch(`${base}buildings-v1.bin`).then((r) => r.arrayBuffer())]);
+  const g = parseRoads(rb);
+  const b = parseBuildings(bb);
+  const lines: FeatureCollection = { type: 'FeatureCollection', features: [] };
+  for (let e = 0; e < g.edges; e++) {
+    const coords: [number, number][] = [[g.nodeLon[g.edgeA[e]], g.nodeLat[g.edgeA[e]]]];
+    for (let k = g.shapeStart[e]; k < g.shapeStart[e + 1]; k++) coords.push([g.shapeLon[k], g.shapeLat[k]]);
+    coords.push([g.nodeLon[g.edgeB[e]], g.nodeLat[g.edgeB[e]]]);
+    lines.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: { ow: g.edgeFlags[e] & 16 ? 1 : 0 } });
+  }
+  const nodes: FeatureCollection = { type: 'FeatureCollection', features: [] };
+  for (let i = 0; i < g.nodes; i++) nodes.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [g.nodeLon[i], g.nodeLat[i]] }, properties: {} });
+  const blds: FeatureCollection = { type: 'FeatureCollection', features: [] };
+  for (let i = 0; i < b.count; i++) blds.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [b.lon[i], b.lat[i]] }, properties: {} });
+  type DevMap = {
+    getSource: (id: string) => unknown;
+    addSource: (id: string, s: unknown) => void;
+    addLayer: (l: unknown) => void;
+    on: (ev: string, fn: () => void) => void;
+    isStyleLoaded: () => boolean;
+  };
+  const add = () => {
+    const m = (window as unknown as { __epdMap?: DevMap }).__epdMap;
+    if (!m || !m.isStyleLoaded() || m.getSource('dbg-roads')) return;
+    m.addSource('dbg-roads', { type: 'geojson', data: lines });
+    m.addSource('dbg-nodes', { type: 'geojson', data: nodes });
+    m.addSource('dbg-blds', { type: 'geojson', data: blds });
+    m.addLayer({ id: 'dbg-roads', type: 'line', source: 'dbg-roads', paint: { 'line-color': ['case', ['==', ['get', 'ow'], 1], '#ff7a00', '#00e5ff'], 'line-width': 1.6, 'line-opacity': 0.85 } });
+    m.addLayer({ id: 'dbg-nodes', type: 'circle', source: 'dbg-nodes', paint: { 'circle-radius': 1.8, 'circle-color': '#ffffff' } });
+    m.addLayer({ id: 'dbg-blds', type: 'circle', source: 'dbg-blds', paint: { 'circle-radius': 1.6, 'circle-color': '#ff3df2' } });
+  };
+  const wait = setInterval(() => {
+    const m = (window as unknown as { __epdMap?: DevMap }).__epdMap;
+    if (!m) return;
+    clearInterval(wait);
+    m.on('styledata', add);
+    m.on('idle', add);
+    add();
+  }, 100);
+}
+if (q.get('roads') === '1') void showRoadData();
 
 function App() {
   const [selUnit, setSelUnit] = useState<string | undefined>(q.get('sel') ?? undefined);

@@ -6,6 +6,10 @@ import type { Feature, FeatureCollection, LineString, Point, Polygon } from 'geo
 import type { Incident, Lang, LngLat, Priority, RegionDef, SimState, Unit } from '@/sim/types';
 
 export type PosFn = (u: Unit) => { pos: LngLat; heading: number };
+/** Remaining path of a moving unit from its current shown position (see remainingPath). */
+export type RemainingFn = (u: Unit, now: number, current: LngLat) => LngLat[];
+/** Where an incident is shown (the road layer may move it onto a building); null = not decided yet. */
+export type IncCoordFn = (inc: Incident) => LngLat | null;
 
 const R_KM = 6371.0088;
 const RAD = Math.PI / 180;
@@ -53,12 +57,18 @@ const PRIO_WEIGHT: Record<Priority, number> = { 1: 1, 2: 0.7, 3: 0.45, 4: 0.25 }
 export const isHidden = (s: SimState, id: string) => !!s.flags?.[`hidden:${id}`];
 
 /** Route lines of units heading to the selected incident plus the selected unit's own path. */
-export function buildRoutes(s: SimState, pos: PosFn, selectedIncidentId?: string, selectedUnitId?: string): FeatureCollection<LineString> {
+export function buildRoutes(
+  s: SimState,
+  pos: PosFn,
+  selectedIncidentId?: string,
+  selectedUnitId?: string,
+  remaining: RemainingFn = remainingPath,
+): FeatureCollection<LineString> {
   const features: Feature<LineString>[] = [];
   const now = s.now;
   const push = (u: Unit, kind: 'incident' | 'selected') => {
     if (!isMoving(u, now)) return;
-    const coords = remainingPath(u, now, pos(u).pos);
+    const coords = remaining(u, now, pos(u).pos);
     if (coords.length < 2) return;
     features.push({
       type: 'Feature',
@@ -98,16 +108,20 @@ export function buildPursuits(s: SimState): FeatureCollection<LineString> {
   return { type: 'FeatureCollection', features };
 }
 
+const sameCoord = (a: LngLat, b: LngLat) => a[0] === b[0] && a[1] === b[1];
+
 /** Area-search circles with progress (0..1) for the fill opacity. */
-export function buildSearches(s: SimState): FeatureCollection<Polygon> {
+export function buildSearches(s: SimState, incCoord?: IncCoordFn): FeatureCollection<Polygon> {
   const features: Feature<Polygon>[] = [];
   for (const id of s.incidentOrder) {
     const inc = s.incidents[id];
     const sr = inc?.search;
     if (!sr?.center || inc.state === 'closed' || isHidden(s, id)) continue;
+    // A search centred on the incident follows its marker.
+    const center = incCoord && inc.location?.coord && sameCoord(sr.center, inc.location.coord) ? (incCoord(inc) ?? sr.center) : sr.center;
     features.push({
       type: 'Feature',
-      geometry: { type: 'Polygon', coordinates: [circlePolygon(sr.center, Math.max(0.05, sr.radiusKm))] },
+      geometry: { type: 'Polygon', coordinates: [circlePolygon(center, Math.max(0.05, sr.radiusKm))] },
       properties: { id, progress: Math.max(0, Math.min(1, sr.progress)), found: !!sr.found },
     });
   }
@@ -115,14 +129,14 @@ export function buildSearches(s: SimState): FeatureCollection<Polygon> {
 }
 
 /** Every incident of the shift as a weighted point for the heat layer. */
-export function buildHeat(s: SimState): FeatureCollection<Point> {
+export function buildHeat(s: SimState, incCoord?: IncCoordFn): FeatureCollection<Point> {
   const features: Feature<Point>[] = [];
   for (const id of s.incidentOrder) {
     const inc: Incident | undefined = s.incidents[id];
     if (!inc?.location?.coord || isHidden(s, id) || inc.closedBy === 'duplicate' || inc.closedBy === 'prank') continue;
     features.push({
       type: 'Feature',
-      geometry: { type: 'Point', coordinates: inc.location.coord },
+      geometry: { type: 'Point', coordinates: (incCoord && incCoord(inc)) || inc.location.coord },
       properties: { w: PRIO_WEIGHT[inc.truePriority ?? inc.priority] ?? 0.4 },
     });
   }

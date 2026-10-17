@@ -6,18 +6,23 @@
 # ja käsitsi: sudo politsei-uuenda.sh
 #
 # Võtmed:
-#   --joud     ehita origin/main tipp ka siis, kui see on juba paigas, kui CI pole
-#              roheline või kui see commit on varem ebaõnnestunud
-#   --varunda  tee ainult andmebaasi varukoopia (data/varu/) ja lõpeta
-#   --abi      see tekst
+#   --joud           ehita origin/main tipp ka siis, kui see on juba paigas, kui CI pole
+#                    roheline või kui see commit on varem ebaõnnestunud
+#   --varunda        tee ainult andmebaasi varukoopia (data/varu/) ja lõpeta
+#   --kaardiandmed   ehita ainult kaardiandmed (teed ja hooned, tiles/*-v1.bin) paigas oleva
+#                    repo skriptiga, kui need puuduvad või on vananenud; koos --joud alati
+#   --abi            see tekst
 #
 # Käik: pilet ära, lukk, võrguruumi kontroll, origin/main tipp (git ls-remote), võrdlus
 # failiga www/version.txt, GitHubi check-runs, ehitus node:22 konteineris, dist ja php -l
 # kontroll, andmebaasi varukoopia (ilma selleta vahetust ei tule), www.prev koopia, rsync www/
-# sisse, repo checkout, tervisekontroll. Vea korral taastatakse www ja repo eelmisele versioonile.
-# Mängijate andmeid (data/epd.sqlite, data/sessions/, data/deploy-secret) ja kaarti (tiles/)
-# skript ei muuda. data/ all kustutab ta ainult pileti data/control/uuenda.json ja vanu
-# varukoopiaid data/varu/ kaustas. Logi: journalctl -t politsei-uuenda
+# sisse, repo checkout, tervisekontroll, kaardiandmed. Vea korral taastatakse www ja repo
+# eelmisele versioonile. Kaardiandmete viga uuendust ei katkesta ega tühista.
+# Mängijate andmeid (data/epd.sqlite, data/sessions/, data/deploy-secret) ja kaarti
+# (tiles/estonia.pmtiles) skript ei muuda. tiles/ alla kirjutab ainult kaardiandmete samm
+# (roads-v1.bin, buildings-v1.bin ja nende .gz, ajutise faili ja ümbernimetamisega). data/ all
+# kustutab ta ainult pileti data/control/uuenda.json ja vanu varukoopiaid data/varu/ kaustas.
+# Logi: journalctl -t politsei-uuenda
 
 set -euo pipefail
 umask 022
@@ -42,6 +47,8 @@ VARU_HOIA=14
 VARU_PAEVI=7
 OLEK="$JUUR/olek"
 EHITUS="$JUUR/ehitus"
+# Kaart ja sellest tuletatud kaardiandmed (teedevõrk ja hooned, scripts/build-mapdata.mjs).
+KAARDIKAUST="$JUUR/tiles"
 LUKUFAIL="${POLITSEI_LUKK:-/run/lock/politsei-uuenda.lock}"
 PIDU_ENV="${POLITSEI_PIDU_ENV:-/etc/pidu.env}"
 GH_REPO=Qupkene/Estonian-Police-Dispatch
@@ -54,6 +61,7 @@ VEEB=politsei
 
 JOUD=0
 VARUNDA=0
+KAARDIANDMED=0
 VAHETUS=0
 KASITLETUD=0
 SIHT_SHA=""
@@ -68,7 +76,8 @@ for arg in "$@"; do
     case "$arg" in
         --joud) JOUD=1 ;;
         --varunda) VARUNDA=1 ;;
-        --abi|-h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+        --kaardiandmed) KAARDIANDMED=1 ;;
+        --abi|-h|--help) sed -n '2,25p' "$0"; exit 0 ;;
         *) echo "Tundmatu võti: $arg (vaata --abi)" >&2; exit 2 ;;
     esac
 done
@@ -575,6 +584,60 @@ taasta() {
     fi
 }
 
+# Kaardiandmed: teedevõrk ja hoonete keskpunktid (scripts/build-mapdata.mjs) kaardifailist
+# tiles/estonia.pmtiles kausta tiles/, kust Caddy neid /tiles/ all jagab. Ehitab siis, kui mõni
+# fail puudub või on kaardist vanem, kui ehitusskript muutus või kui $2 = joud. Konteiner näeb
+# kaarti ainult lugemiseks, võrku tal pole; skript kirjutab ajutisse faili ja nimetab selle ümber
+# (sama kaust, bind mount näeb uut faili), vea korral jäävad vanad failid. $1 = kaust, kus on
+# build-mapdata.mjs. Selles funktsioonis set -e ei kehti (kutsutakse if-i või || kaudu).
+kaardiandmed() {
+    local skriptid="$1" joud="${2:-}" kaart="$KAARDIKAUST/estonia.pmtiles" tempel vana f vaja=0
+    if [ ! -s "$kaart" ]; then
+        logi "Kaardiandmed: $kaart puudub, jätan vahele"
+        return 0
+    fi
+    if [ ! -f "$skriptid/build-mapdata.mjs" ]; then
+        logi "Kaardiandmed: $skriptid/build-mapdata.mjs puudub, jätan vahele"
+        return 0
+    fi
+    if ! docker volume inspect politsei-node-modules >/dev/null 2>&1; then
+        logi "Kaardiandmed: npm pakette veel pole (esimene ehitus teeb need), jätan vahele"
+        return 0
+    fi
+    tempel="$(sha256sum "$skriptid/build-mapdata.mjs" | cut -c1-16) $(stat -c '%s %Y' "$kaart")" || return 1
+    vana="$(cat "$OLEK/kaardiandmed.txt" 2>/dev/null || true)"
+    for f in roads-v1.bin roads-v1.bin.gz buildings-v1.bin buildings-v1.bin.gz; do
+        if [ ! -s "$KAARDIKAUST/$f" ] || [ "$KAARDIKAUST/$f" -ot "$kaart" ]; then
+            vaja=1
+        fi
+    done
+    if [ "$tempel" != "$vana" ] || [ "$joud" = joud ]; then
+        vaja=1
+    fi
+    if [ "$vaja" = 0 ]; then
+        logi "Kaardiandmed on ajakohased"
+        return 0
+    fi
+    docker rm -f politsei-kaart >/dev/null 2>&1 || true
+    logi "Kaardiandmed: ehitan teedevõrgu ja hooned (node:22, 2 CPU, nice 10, võtab mõne minuti)"
+    if timeout --signal=TERM 2700 docker run --rm --init --name politsei-kaart --network none \
+            --cpus 2 --cpu-shares 256 --memory 3g --memory-swap 3g \
+            -e NODE_OPTIONS=--max-old-space-size=2560 \
+            -v "$skriptid:/app/scripts:ro" \
+            -v politsei-node-modules:/app/node_modules:ro \
+            -v "$KAARDIKAUST:/kaart" \
+            -v "$kaart:/kaart/estonia.pmtiles:ro" \
+            -w /app "$NODE_PILT" \
+            nice -n 10 node scripts/build-mapdata.mjs /kaart/estonia.pmtiles /kaart; then
+        mkdir -p "$OLEK" && printf '%s\n' "$tempel" > "$OLEK/kaardiandmed.txt"
+        logi "Kaardiandmed valmis"
+        return 0
+    fi
+    docker rm -f politsei-kaart >/dev/null 2>&1 || true
+    logi "HOIATUS: kaardiandmete ehitus ebaõnnestus, vanad failid jäävad alles (mäng töötab ka ilma: autod sirgjooni pidi)"
+    return 1
+}
+
 ebaonnestus() {
     local pohjus="$1"
     KASITLETUD=1
@@ -617,6 +680,29 @@ if [ "$VARUNDA" = 1 ]; then
         exit 0
     fi
     logi "VIGA: andmebaasi varukoopia ebaõnnestus"
+    exit 1
+fi
+
+# ---------------------------------------------------------------- ainult kaardiandmed
+
+# --kaardiandmed: paigalda.sh kutsub seda pärast kaardi tõmbamist (POLITSEI_LUKK_KAES=1, lukk on
+# tal juba käes), omanik võib ka käsitsi. Skript tuleb paigas olevast repost.
+if [ "$KAARDIANDMED" = 1 ]; then
+    if [ "${POLITSEI_LUKK_KAES:-0}" != 1 ]; then
+        mkdir -p "$(dirname "$LUKUFAIL")"
+        exec 9>"$LUKUFAIL"
+        if ! flock -w 1800 9; then
+            logi "Uuendus käib juba üle 30 minuti, proovi hiljem uuesti"
+            exit 1
+        fi
+    fi
+    kaardi_joud=""
+    if [ "$JOUD" = 1 ]; then
+        kaardi_joud=joud
+    fi
+    if kaardiandmed "$REPO/scripts" "$kaardi_joud"; then
+        exit 0
+    fi
     exit 1
 fi
 
@@ -749,4 +835,10 @@ VAHETUS=0
 kirjuta_olek "ok $tipp $teema"
 logi "Valmis: politsei.eu jookseb nüüd $(lyhike "$tipp") ($teema)"
 teata "politsei.eu uuendatud: $(lyhike "$tipp") $teema"
+
+# 11. Kaardiandmed (kui puuduvad või on vananenud). Uus versioon on juba paigas: viga ainult
+# logitakse ja teatatakse, uuendust see ei tühista.
+if ! kaardiandmed "$EHITUS/src/scripts"; then
+    teata "politsei.eu: kaardiandmete (teed ja hooned) ehitus ebaõnnestus, vanad failid jäid. Logi: journalctl -t politsei-uuenda. Uuesti: sudo politsei-uuenda.sh --kaardiandmed"
+fi
 exit 0
