@@ -4,6 +4,20 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { spellDigits, spellLetters, ttsText, ttsVoice, TTS_VOICES_F, TTS_VOICES_M } from '@/audio/ttsText';
+import {
+  isStale,
+  maxWaitingAt,
+  minPrioAt,
+  pickSpoken,
+  PRIO,
+  speakableAt,
+  speechPrio,
+  speechTag,
+  voiceSpeedIndex,
+  type SpeechTag,
+} from '@/audio/radioSpeech';
+import { SPEEDS } from '@/store/game';
+import type { Incident, RadioMsg, SimState, Unit } from '@/sim/types';
 
 const probe = vi.hoisted(() => ({ online: true }));
 vi.mock('@/net/api', () => ({ API_BASE: '/api', probeBackend: () => Promise.resolve(probe.online) }));
@@ -62,17 +76,17 @@ describe('Estonian text for the neural voice', () => {
       'juhtimiskeskus, Lõuna 31. Varasemaid lähisuhtevägivalla sündmusi? kehaline väärkohtlemine kahtlus.',
     );
     expect(ttsText('Leiti MDMA tablette.')).toBe('Leiti emm dee emm aa tablette.');
-    expect(ttsText('Alustati kriminaalmenetlust KarS § 121 järgi.')).toBe(
-      'Alustati kriminaalmenetlust karistusseadustiku paragrahvi 121 järgi.',
-    );
-    expect(ttsText('Kriminaalmenetlus KarS § 199 lg 2 järgi.')).toBe(
-      'Kriminaalmenetlus karistusseadustiku paragrahvi 199 lõike 2 järgi.',
-    );
-    expect(ttsText('Väärteomenetlus LS § 224.')).toBe('Väärteomenetlus liiklusseaduse paragrahv 224.');
-    // A law reference in brackets is a note for the reader.
+    // Law paragraphs are never said on the radio (they stay in the incident panel and the report).
+    expect(ttsText('Alustati kriminaalmenetlust KarS § 121 järgi.')).toBe('Alustati kriminaalmenetlust.');
+    expect(ttsText('Kriminaalmenetlus KarS § 199 lg 2 järgi, kahju 49 €.')).toBe('Kriminaalmenetlus, kahju 49 eurot.');
+    expect(ttsText('Väärteomenetlus LS § 224.')).toBe('Väärteomenetlus.');
+    expect(ttsText('Alustati kriminaalmenetlust KarS § 263 ja § 274 järgi.')).toBe('Alustati kriminaalmenetlust.');
+    expect(ttsText('Viibimiskeeld kohaldati eile KorS § 44 alusel.')).toBe('Viibimiskeeld kohaldati eile.');
     expect(ttsText('Alustati menetlust lähenemiskeelu rikkumise eest (KarS § 331²).')).toBe(
       'Alustati menetlust lähenemiskeelu rikkumise eest.',
     );
+    expect(ttsText('Peame kinni NPALS väärteo tõttu.')).toBe('Peame kinni väärteo tõttu.');
+    expect(ttsText('Paragrahv § 12 jäi.')).not.toMatch(/§|12/);
     expect(ttsText('lastekaitse / sotsiaaltöö saabus')).toBe('lastekaitse või sotsiaaltöö saabus');
   });
 
@@ -111,6 +125,130 @@ describe('voice per radio sender', () => {
     // Different crews sound different.
     expect(new Set(units.map((from) => ttsVoice({ from, gender: 'M' }).voice)).size).toBeGreaterThan(2);
     expect(ttsVoice({ from: 'PÕHJA 21' }, false).speed).toBe(1);
+  });
+});
+
+// ── which lines are read, and when they go stale ─────────────────────────────
+
+describe('radio voice: what is read and what goes stale', () => {
+  const msg = (o: Partial<RadioMsg> = {}): RadioMsg => ({
+    id: 'r1',
+    t: 1000,
+    from: 'PÕHJA 21',
+    text: { et: 'Põhja 21, kohal.', en: 'Põhja 21, on scene.' },
+    level: 'routine',
+    kind: 'status',
+    ...o,
+  });
+  const inc = (o: Partial<Incident> = {}) =>
+    ({ id: 'i1', state: 'onscene', priority: 3, truePriority: 3, assigned: ['u1'], beats: [], ...o }) as unknown as Incident;
+  const unit = (o: Partial<Unit> = {}) => ({ id: 'u1', callsign: 'PÕHJA 21', status: 'onscene', crew: [], ...o }) as unknown as Unit;
+  const world = (o: { radio?: RadioMsg[]; incidents?: Incident[]; units?: Unit[]; now?: number } = {}) =>
+    ({
+      now: o.now ?? 1000,
+      radio: o.radio ?? [],
+      incidents: Object.fromEntries((o.incidents ?? [inc()]).map((x) => [x.id, x])),
+      units: Object.fromEntries((o.units ?? [unit()]).map((x) => [x.id, x])),
+    }) as unknown as SimState;
+
+  it('ranks a line by what it asks of the dispatcher', () => {
+    const s = world({ incidents: [inc(), inc({ id: 'p1', priority: 1, truePriority: 1 })] });
+    expect(speechPrio(s, msg())).toBe(PRIO.routine);
+    expect(speechPrio(s, msg({ incidentId: 'i1' }))).toBe(PRIO.routine);
+    expect(speechPrio(s, msg({ incidentId: 'p1' }))).toBe(PRIO.important);
+    expect(speechPrio(s, msg({ kind: 'pursuit', level: 'priority' }))).toBe(PRIO.important);
+    expect(speechPrio(s, msg({ level: 'priority', kind: 'info' }))).toBe(PRIO.important);
+    expect(speechPrio(s, msg({ kind: 'choice', replies: [{ id: 'a', label: { et: 'A', en: 'A' } }] }))).toBe(PRIO.reply);
+    expect(speechPrio(s, msg({ kind: 'backup', level: 'emergency' }))).toBe(PRIO.emergency);
+  });
+
+  it('reads less the faster the game runs, and nothing while paused', () => {
+    expect(SPEEDS[2] / SPEEDS[1]).toBe(2);
+    expect(SPEEDS[3] / SPEEDS[1]).toBe(4);
+    expect(minPrioAt(0)).toBeNull();
+    for (const p of Object.values(PRIO)) expect(speakableAt(p, 0)).toBe(false);
+    // 1x: everything.
+    for (const p of Object.values(PRIO)) expect(speakableAt(p, 1)).toBe(true);
+    // 2x: no routine chatter.
+    expect(speakableAt(PRIO.routine, 2)).toBe(false);
+    expect(speakableAt(PRIO.important, 2)).toBe(true);
+    expect(speakableAt(PRIO.reply, 2)).toBe(true);
+    // 4x and 8x: only lines that need a reply, and emergencies.
+    for (const i of [3, 4]) {
+      expect(speakableAt(PRIO.important, i)).toBe(false);
+      expect(speakableAt(PRIO.reply, i)).toBe(true);
+      expect(speakableAt(PRIO.emergency, i)).toBe(true);
+    }
+    // At most one line waits from 2x up.
+    expect(maxWaitingAt(1)).toBeUndefined();
+    expect(maxWaitingAt(2)).toBe(1);
+    expect(maxWaitingAt(4)).toBe(1);
+    // Director mode runs in real time; paused is paused.
+    expect(voiceSpeedIndex({ speedIndex: 1, realtime: true })).toBe(1);
+    expect(voiceSpeedIndex({ speedIndex: 0, realtime: true })).toBe(0);
+    expect(voiceSpeedIndex({ speedIndex: 3 })).toBe(3);
+  });
+
+  it('picks the line that matters most among those read at this speed', () => {
+    const routine = msg({ id: 'r1' });
+    const pursuit = msg({ id: 'r2', kind: 'pursuit', level: 'priority' });
+    const question = msg({ id: 'r3', kind: 'query', level: 'priority', replies: [{ id: 'clean', label: { et: 'Puhas', en: 'Clean' } }] });
+    const s = world({ radio: [routine, pursuit, question] });
+    expect(pickSpoken(s, [routine], 1)?.msg.id).toBe('r1');
+    expect(pickSpoken(s, [routine], 2)).toBeUndefined();
+    expect(pickSpoken(s, [routine, pursuit], 2)?.msg.id).toBe('r2');
+    expect(pickSpoken(s, [routine, pursuit], 3)).toBeUndefined();
+    expect(pickSpoken(s, [routine, pursuit, question], 3)?.msg.id).toBe('r3');
+    expect(pickSpoken(s, [routine, pursuit, question], 0)).toBeUndefined();
+  });
+
+  it('drops a line once the player has acted on it or the world has moved past it', () => {
+    // Answered question.
+    const q = msg({ id: 'r5', incidentId: 'i1', kind: 'choice', level: 'priority', replies: [{ id: 'a', label: { et: 'A', en: 'A' } }] });
+    const beat = { index: 0, status: 'active' as const, radioId: 'r5' };
+    const s = world({ radio: [q], incidents: [inc({ beats: [beat] })] });
+    const tag = speechTag(s, q);
+    expect(isStale(s, tag)).toBe(false);
+    q.answered = 'a';
+    expect(isStale(s, tag)).toBe(true);
+    // The beat it opened is over (backup sent, decision taken by the unit).
+    q.answered = undefined;
+    beat.status = 'done' as never;
+    expect(isStale(s, tag)).toBe(true);
+
+    // The incident was closed after the line was said; the closing report itself is not stale.
+    const working = msg({ id: 'r6', t: 900, incidentId: 'i2', unitId: undefined });
+    const closing = msg({ id: 'r7', t: 1000, incidentId: 'i2', unitId: undefined });
+    const s2 = world({ radio: [working, closing], incidents: [inc({ id: 'i2', state: 'closed', closedAt: 1000 })] });
+    expect(isStale(s2, speechTag(s2, working))).toBe(true);
+    expect(isStale(s2, speechTag(s2, closing))).toBe(false);
+
+    // The unit moved on: "teel" is stale once it is on scene.
+    const u = unit({ status: 'enroute' });
+    const ack = msg({ id: 'r8', unitId: 'u1', incidentId: 'i1' });
+    const s3 = world({ radio: [ack], units: [u] });
+    const ackTag: SpeechTag = speechTag(s3, ack);
+    expect(ackTag.unitStatus).toBe('enroute');
+    expect(isStale(s3, ackTag)).toBe(false);
+    (u as { status: string }).status = 'onscene';
+    expect(isStale(s3, ackTag)).toBe(true);
+
+    // Häirekeskus asks for units; once the player sends one, the notice is stale.
+    const p1 = inc({ id: 'i3', state: 'queued', priority: 1, truePriority: 1, assigned: [] });
+    const hk = msg({ id: 'r9', from: 'HK', kind: 'info', level: 'priority', incidentId: 'i3', unitId: undefined });
+    const s4 = world({ radio: [hk], incidents: [p1] });
+    const hkTag = speechTag(s4, hk);
+    expect(isStale(s4, hkTag)).toBe(false);
+    p1.assigned.push('u1');
+    expect(isStale(s4, hkTag)).toBe(true);
+
+    // A question past its deadline.
+    const late = msg({ id: 'r10', kind: 'query', replies: [{ id: 'clean', label: { et: 'P', en: 'C' } }], expiresAt: 1500 });
+    const s5 = world({ radio: [late], now: 1000 });
+    const lateTag = speechTag(s5, late);
+    expect(isStale(s5, lateTag)).toBe(false);
+    (s5 as { now: number }).now = 1600;
+    expect(isStale(s5, lateTag)).toBe(true);
   });
 });
 
@@ -320,6 +458,76 @@ describe('server voice queue', () => {
     Object.assign(ctx, { decodeAudioData: async (d: ArrayBuffer): Promise<Stub> => ({ tag: new TextDecoder().decode(d), duration: 0.05 }) });
     nk.say(line('after'));
     await until(() => log.includes('end:after'));
+  });
+
+  const tagged = (text: string, tag: Partial<SpeechTag>, extra: Record<string, unknown> = {}) => ({
+    ...line(text),
+    tag: { msgId: 'r0', t: 0, from: 'PÕHJA 21', prio: PRIO.routine, ...tag } as SpeechTag,
+    ...extra,
+  });
+  const longClips = () => {
+    const ctx = (audio.out as { ctx: Record<string, unknown> }).ctx;
+    Object.assign(ctx, { decodeAudioData: async (d: ArrayBuffer): Promise<Stub> => ({ tag: new TextDecoder().decode(d), duration: 5 }) });
+    return () => Object.assign(ctx, { decodeAudioData: async (d: ArrayBuffer): Promise<Stub> => ({ tag: new TextDecoder().decode(d), duration: 0.05 }) });
+  };
+
+  it('cuts the line that plays and drops waiting lines about a message the player answered', async () => {
+    const short = longClips();
+    nk.say(tagged('A', { msgId: 'r1', incidentId: 'i1' }));
+    nk.say(tagged('B', { msgId: 'r2', incidentId: 'i1' }));
+    nk.say(tagged('C', { msgId: 'r3', incidentId: 'i2' }));
+    await until(() => log.includes('start:A'));
+    expect(nk.ttsTags().map((t) => t.msgId)).toEqual(['r1', 'r2', 'r3']);
+    short();
+    // The player closed incident i1: A is cut, B never plays, C goes on.
+    expect(nk.cancelTts((t) => t.incidentId === 'i1')).toBe(2);
+    await until(() => log.includes('end:C'));
+    expect(log).toContain('stop:A');
+    // (B may have been fetched ahead while A played; it is never heard.)
+    expect(log.some((e) => e === 'start:B' || e === 'fallback:B')).toBe(false);
+    expect(log.filter((e) => e.startsWith('start'))).toEqual(['start:A', 'start:C']);
+    expect(nk.ttsTags()).toEqual([]);
+  });
+
+  it('never plays a line cancelled while its clip was still on the way', async () => {
+    nk.say(tagged('hold-x', { msgId: 'r9' }));
+    await until(() => log.includes('fetch:hold-x'));
+    expect(nk.cancelTts((t) => t.msgId === 'r9')).toBe(1);
+    hold.get('hold-x')!();
+    nk.say(tagged('next', { msgId: 'r10' }));
+    await until(() => log.includes('end:next'));
+    expect(log.some((e) => e === 'start:hold-x' || e === 'fallback:hold-x')).toBe(false);
+  });
+
+  it('keeps one waiting line at higher speed and can shorten the queue later', async () => {
+    nk.say(tagged('hold-1', { msgId: 'r1' }));
+    await until(() => log.includes('fetch:hold-1'));
+    for (const t of ['B', 'C', 'D']) nk.say(tagged(t, { msgId: t }, { maxWaiting: 1 }));
+    expect(nk.ttsTags().map((t) => t.msgId)).toEqual(['r1', 'D']);
+    nk.say(tagged('E', { msgId: 'E' }));
+    nk.say(tagged('F', { msgId: 'F' }));
+    nk.limitTtsQueue(1);
+    expect(nk.ttsTags().map((t) => t.msgId)).toEqual(['r1', 'F']);
+    hold.get('hold-1')!();
+    await until(() => log.includes('end:F'));
+    expect(log.filter((e) => e.startsWith('start'))).toEqual(['start:hold-1', 'start:F']);
+  });
+
+  it('cuts a line that the browser voice is reading', async () => {
+    probe.online = false;
+    let stopped = 0;
+    let release: () => void = () => {};
+    nk.say(
+      tagged('slow', { msgId: 'r1' }, {
+        fallback: () => new Promise<void>((r) => { log.push('fallback:slow'); release = r; }),
+        stopFallback: () => { stopped++; release(); },
+      }),
+    );
+    nk.say(tagged('after', { msgId: 'r2' }));
+    await until(() => log.includes('fallback:slow'));
+    expect(nk.cancelTts((t) => t.msgId === 'r1')).toBe(1);
+    expect(stopped).toBe(1);
+    await until(() => log.includes('fallback:after'));
   });
 
   it('speaks Estonian through the queue with the sender’s voice, English through the browser', async () => {

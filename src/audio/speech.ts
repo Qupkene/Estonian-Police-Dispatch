@@ -4,9 +4,11 @@
 // src/audio/neurokone.ts), one line at a time with a radio sound. When the server is not there or the
 // clip cannot be had, an 'et-EE' (or any 'et*') browser voice reads the line; without one Estonian text
 // is NOT spoken (an English voice reading Estonian sounds wrong). English uses the browser voice:
-// en-GB → en-US → any en.
+// en-GB → en-US → any en. Radio lines in both languages wait in the same queue, so cancelSpeech()
+// can drop or cut a line the player has already acted on.
 import { sfx } from './sfx';
-import { NEUROKONE_NAME, onTtsChange, say, stopTts, ttsReady } from './neurokone';
+import { cancelTts, limitTtsQueue, NEUROKONE_NAME, onTtsChange, say, stopTts, ttsReady } from './neurokone';
+import type { SpeechTag } from './radioSpeech';
 import { ttsText, ttsVoice, type TtsSpeaker } from './ttsText';
 
 export interface SpeakOptions {
@@ -17,6 +19,10 @@ export interface SpeakOptions {
   volume?: number;
   /** Who is talking (radio sender, crew gender): picks the Estonian server voice. */
   speaker?: TtsSpeaker;
+  /** What the radio line is about (cancelSpeech drops it when the player has acted on it). */
+  tag?: SpeechTag;
+  /** Radio lines that may wait behind the one playing when this one is queued. */
+  maxWaiting?: number;
 }
 
 export interface VoiceLike {
@@ -155,36 +161,73 @@ function webSpeak(text: string, lang: 'et' | 'en', opts: SpeakOptions | undefine
   return true;
 }
 
-/** Web Speech as a fallback of the Estonian queue: resolves when the line is over (at most 20 s). */
-function webSpeakDone(text: string, lang: 'et' | 'en', opts: SpeakOptions | undefined): Promise<void> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(resolve, 20_000);
-    const done = () => {
-      clearTimeout(timer);
-      resolve();
-    };
-    if (!webSpeak(text, lang, opts, done)) done();
-  });
+/**
+ * Web Speech as a fallback of the queue: `run` resolves when the line is over (at most 20 s),
+ * `stop` cuts it short.
+ */
+function webSpeakDone(text: string, lang: 'et' | 'en', opts: SpeakOptions | undefined): { run: () => Promise<void>; stop: () => void } {
+  let finish: (() => void) | null = null;
+  let speaking = false;
+  return {
+    run: () =>
+      new Promise((resolve) => {
+        const timer = setTimeout(() => done(), 20_000);
+        const done = () => {
+          clearTimeout(timer);
+          finish = null;
+          speaking = false;
+          resolve();
+        };
+        finish = done;
+        speaking = webSpeak(text, lang, opts, done);
+        if (!speaking) done();
+      }),
+    stop: () => {
+      if (speaking) {
+        try {
+          synth()?.cancel();
+        } catch {
+          /* ignore */
+        }
+        pending = 0;
+      }
+      finish?.();
+    },
+  };
 }
 
 export function speak(text: string, lang: 'et' | 'en', opts?: SpeakOptions): void {
   if (!text) return;
-  if (lang === 'et') {
-    // Every Estonian line goes through one queue, so the server voice and the browser voice never
-    // talk over each other. When the server voice is known to be unusable, the line goes straight
-    // to the fallback (empty text: no request).
-    const radio = !!opts?.radio;
+  const radio = !!opts?.radio;
+  if (lang === 'et' || radio) {
+    // Every Estonian line, and every radio line, goes through one queue, so the server voice and the
+    // browser voice never talk over each other and a stale line can be dropped. English never asks
+    // the server; neither does Estonian when the server voice is known to be unusable (empty text).
     const { voice, speed } = ttsVoice(opts?.speaker, radio);
+    const web = webSpeakDone(text, lang, opts);
     say({
-      text: ttsReady() === false ? '' : ttsText(text),
+      text: lang !== 'et' || ttsReady() === false ? '' : ttsText(text),
       voice,
       speed,
       radio,
-      fallback: () => webSpeakDone(text, lang, opts),
+      fallback: web.run,
+      stopFallback: web.stop,
+      tag: opts?.tag,
+      maxWaiting: opts?.maxWaiting,
     });
     return;
   }
   webSpeak(text, lang, opts);
+}
+
+/** Drop waiting radio lines whose tag matches and cut the one that plays if it matches. */
+export function cancelSpeech(match: (tag: SpeechTag) => boolean): number {
+  return cancelTts(match);
+}
+
+/** Keep at most `max` radio lines waiting. */
+export function limitSpeechQueue(max: number): void {
+  limitTtsQueue(max);
 }
 
 export function stopSpeech(): void {

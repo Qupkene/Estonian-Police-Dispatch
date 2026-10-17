@@ -482,7 +482,9 @@ export interface OutcomeSpec {
   minSuccess?: number;
   maxSuccess?: number;
   result: OutcomeResult;
-  text: Text; // final radio report / closing note, placeholders allowed
+  text: Text; // closing summary (timeline, report, newspaper), placeholders allowed
+  /** Short radio report the unit sends ("{callsign}: pooled rahunesid, lõpetame."); derived from `text` when absent. */
+  radio?: Text;
   arrests?: number;
   injuries?: number; // civilian injuries
   trust?: number;

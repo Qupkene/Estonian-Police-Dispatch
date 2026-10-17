@@ -5,8 +5,9 @@ import { onGameEvents, useGame } from '@/store/game';
 import { useSettings } from '@/store/settings';
 import type { GameEvent, RadioMsg, SimState } from '@/sim/types';
 import { t } from '@/i18n';
+import { isStale, maxWaitingAt, pickSpoken, speakableAt, voiceSpeedIndex, type SpeechTag } from './radioSpeech';
 import { sfx } from './sfx';
-import { speak, stopSpeech } from './speech';
+import { cancelSpeech, limitSpeechQueue, speak, stopSpeech } from './speech';
 
 /** Selector for UI elements that make a (very subtle) click sound. */
 const CLICK_SEL = '.ui-btn, .ui-iconbtn, .ui-tab, .ui-seg__opt, [data-sfx="click"]';
@@ -82,20 +83,43 @@ function handleEvents(events: GameEvent[]) {
       sfx.play('radioIn', { gain: fresh.some((m) => m.level !== 'routine') ? 1 : 0.7 });
     }
     const st = useSettings.getState();
-    if (st.radioVoice) {
-      // Speak only the most important fresh line to keep the voice current.
-      const pick = [...fresh].sort((a, b) => rank(b) - rank(a))[0];
-      const ev = events.find((e) => (e.type === 'radio' || e.type === 'radio_emergency') && e.text);
-      const text = pick ? radioLine(pick, st.lang) : ev?.text ? ev.text[st.lang] || ev.text.et : '';
-      const msg = pick ?? all.find((m) => m.text === ev?.text);
-      if (text)
-        speak(text, st.lang, {
+    const speed = voiceSpeedIndex(g);
+    if (st.radioVoice && speed > 0) {
+      // Speak only the most important fresh line that fits the game speed, to keep the voice current
+      // (the dispatcher's own lines only when nothing else came in).
+      const pick = pickSpoken(sim, fresh.length ? fresh : all, speed);
+      if (pick)
+        speak(radioLine(pick.msg, st.lang), st.lang, {
           radio: true,
           volume: Math.min(1, st.volume + 0.2),
-          speaker: msg ? speakerOf(sim, msg) : undefined,
+          speaker: speakerOf(sim, pick.msg),
+          tag: pick.tag,
+          maxWaiting: maxWaitingAt(speed),
         });
     }
   }
+}
+
+let voiceSpeed = -1;
+
+/**
+ * Keep the radio voice in step with the game (every UI tick and command): silent while paused, only
+ * what still matters when the speed goes up, and never a line the player has already acted on.
+ */
+function syncRadioVoice(sim: SimState | null, speed: number): void {
+  const prev = voiceSpeed;
+  voiceSpeed = speed;
+  if (!sim) return;
+  if (speed <= 0) {
+    if (prev !== 0) stopSpeech();
+    return;
+  }
+  if (speed > prev && prev > 0) {
+    cancelSpeech((tag: SpeechTag) => !speakableAt(tag.prio, speed));
+    const max = maxWaitingAt(speed);
+    if (max !== undefined) limitSpeechQueue(max);
+  }
+  cancelSpeech((tag: SpeechTag) => isStale(sim, tag));
 }
 
 /**
@@ -117,9 +141,6 @@ function speakerOf(sim: SimState, m: RadioMsg): { from: string; gender?: 'M' | '
   if (m.from === 'JK' || m.from === 'HK' || !m.unitId) return { from: m.from };
   return { from: m.from, gender: sim.units[m.unitId]?.crew?.[0]?.gender };
 }
-
-const rank = (m: RadioMsg) =>
-  m.level === 'emergency' ? 3 : m.level === 'priority' ? 2 : m.replies?.length ? 1.5 : 1;
 
 /** Ring while any 112 call waits; pickup/hang-up sounds when calls change state. */
 function watchCalls(sim: SimState | null, screen: string) {
@@ -217,13 +238,16 @@ export function AudioBridge() {
   // Engine events → sounds.
   useEffect(() => onGameEvents(handleEvents), []);
 
-  // Calls are watched every UI tick (ring until answered or missed).
+  // Calls are watched every UI tick (ring until answered or missed); the radio voice drops lines
+  // that went stale and follows the game speed.
   useEffect(
     () =>
       useGame.subscribe((s, prev) => {
         if (s.sim !== prev.sim) resetForSim(s.sim);
         if (s.tick !== prev.tick || s.sim !== prev.sim || s.screen !== prev.screen)
           watchCalls(s.sim, s.screen);
+        if (s.screen === 'game' && (s.tick !== prev.tick || s.sim !== prev.sim || s.speedIndex !== prev.speedIndex || s.realtime !== prev.realtime))
+          syncRadioVoice(s.sim, voiceSpeedIndex(s));
       }),
     [],
   );

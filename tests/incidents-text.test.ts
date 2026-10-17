@@ -11,10 +11,11 @@ import { createShift } from '@/sim/engine';
 import { directionText, safeCar } from '@/sim/incidents';
 import { onStreet, roadOfAddress } from '@/sim/pursuit';
 import { phrase } from '@/sim/radio';
+import { radioClosure, stripLawRefs } from '@/sim/radioText';
 import { fmtDate, personFlags } from '@/sim/registry';
 import { aAge, buildReport, inessive, placeEn, pressPlace, pressStory, sentencesOf, summaryCore } from '@/sim/report';
 import { Rng } from '@/sim/rng';
-import { fill, fillText, genitiveName } from '@/sim/text';
+import { fill, fillText, genitiveName, T } from '@/sim/text';
 import { tallinnTime } from '@/sim/time';
 import type { Incident, Person, Text } from '@/sim/types';
 import { addIncident, makeIncident, makePerson, makeState, makeVehicle, T0 } from './fixtures-systems/state';
@@ -278,6 +279,93 @@ describe('radio phrases', () => {
     }
     expect(all.some((t) => /Vahetus alustas|sündmused läheb/.test(t.et))).toBe(false);
     for (const [k, v] of Object.entries(AGENCY_NAMES)) expect(v.en, k).not.toMatch(/^(ambulance|Rescue Board|local government|veterinarian)$/);
+  });
+});
+
+describe('radio wording', () => {
+  const words = (s: string) => s.trim().split(/\s+/).length;
+  const LAW = /§|(?<![\p{L}])(KarS|NPALS|KorS|KrMS|VTMS|VTK|LS)(?![\p{L}])/u;
+  const DASHES = new RegExp('[\\u2013\\u2014]');
+
+  it('takes law paragraphs out of a sentence and keeps the rest', () => {
+    expect(stripLawRefs('Alustati kriminaalmenetlust KarS § 121 järgi.')).toBe('Alustati kriminaalmenetlust.');
+    expect(stripLawRefs('Kriminaalmenetlus KarS § 199 lg 2 järgi, kahju 49 €.')).toBe('Kriminaalmenetlus, kahju 49 €.');
+    expect(stripLawRefs('Õhutajad peeti kinni. Kriminaalmenetlus KarS § 263 ja § 274 järgi.')).toBe('Õhutajad peeti kinni. Kriminaalmenetlus.');
+    expect(stripLawRefs('Alustati menetlust ahistava jälitamise tunnustel (KarS § 157³), teatajat nõustati.')).toBe(
+      'Alustati menetlust ahistava jälitamise tunnustel, teatajat nõustati.',
+    );
+    expect(stripLawRefs('Väärteomenetlus LS § 224 järgi, juhtimisõigus peatati.')).toBe('Väärteomenetlus, juhtimisõigus peatati.');
+    expect(stripLawRefs('Pank peatas makse. Kriminaalmenetlus KarS § 213 järgi (katse).')).toBe('Pank peatas makse. Kriminaalmenetlus.');
+    expect(stripLawRefs('Criminal proceedings opened under KarS § 199(2).')).toBe('Criminal proceedings opened.');
+    expect(stripLawRefs('Removal order issued under KorS § 44.')).toBe('Removal order issued.');
+    expect(stripLawRefs('Ilma viiteta lause, 1,8 promilli.')).toBe('Ilma viiteta lause, 1,8 promilli.');
+  });
+
+  it('turns an outcome summary into a short radio report', () => {
+    const calm = T(
+      'Pooled rahunesid, füüsilise vägivalla tunnuseid ei tuvastatud. Sündmus registreeriti, pooltele selgitati abivõimalusi.',
+      'The parties calmed down and no signs of physical violence were found. The event was logged and both were told where to get help.',
+    );
+    expect(radioClosure(calm, 'resolved')).toEqual({
+      et: '{callsign}: pooled rahunesid, vägivalda pole, lõpetame.',
+      en: '{callsign}: parties calmed down, no violence, closing.',
+    });
+    expect(radioClosure(T('Mees peeti kinni. Alustati kriminaalmenetlust KarS § 121 järgi.', 'The man was detained. Criminal proceedings opened under KarS § 121.'), 'arrest').et).toBe(
+      '{callsign}: mees kinni peetud.',
+    );
+    expect(radioClosure(T('Kriminaalmenetlus KarS § 209 järgi, kahju 380 €. Teatajale anti nõu.', 'Criminal case under KarS § 209, loss €380. The caller was advised.'), 'report').et).toBe(
+      '{callsign}: kriminaalmenetlus alustatud, kahju 380 €.',
+    );
+    expect(radioClosure(T('Selgus, et mees oli naist tõuganud. Alustati kriminaalmenetlust.', 'It turned out the man had shoved the woman.'), 'report').et).toBe(
+      '{callsign}: mees oli naist tõuganud.',
+    );
+    expect(radioClosure(T('Ühte kalameest, kes üritas üle vee ujuda, ei leitud. Otsingud jätkuvad.', 'One angler was not found.'), 'tragedy').et).toBe(
+      '{callsign}: ühte kalameest ei leitud.',
+    );
+    // A summary that already starts with the callsign keeps it once.
+    expect(radioClosure(T('{callsign}: politsei pädevusse ei kuulu, teataja suunatud: {agency}.', '{callsign}: not a police matter, caller referred to {agency}.'), 'referred').et).toBe(
+      '{callsign}: politsei pädevusse ei kuulu, teataja suunatud: {agency}, lõpetame.',
+    );
+  });
+
+  it('keeps every closing report on the radio short, without law paragraphs', () => {
+    let n = 0;
+    for (const tpl of TEMPLATES)
+      for (const o of tpl.outcomes) {
+        const r = o.radio ?? radioClosure(o.text, o.result);
+        for (const [lang, max] of [['et', 10], ['en', 12]] as const) {
+          const line = r[lang];
+          const body = line.replace(/^\{(callsign|short)\}:\s*/, '');
+          expect(line, `${tpl.id}/${o.id}`).toMatch(/^\{(callsign|short)\}: \S/);
+          expect(line, `${tpl.id}/${o.id}`).toMatch(/[.!?]$/);
+          expect(line, `${tpl.id}/${o.id}`).not.toMatch(LAW);
+          expect(line, `${tpl.id}/${o.id}`).not.toMatch(DASHES);
+          expect(words(body), `${tpl.id}/${o.id}: ${line}`).toBeGreaterThanOrEqual(2);
+          expect(words(body), `${tpl.id}/${o.id}: ${line}`).toBeLessThanOrEqual(max);
+        }
+        n++;
+      }
+    expect(n).toBeGreaterThan(500);
+  });
+
+  it('acknowledges like police radio: callsign first, a few words, no chatter', () => {
+    const acks = ['ack', 'ackUrgent', 'ackFar', 'choiceAck', 'queryAck', 'recallAck', 'arrive', 'available', 'backupArrive'];
+    for (const k of acks)
+      for (const t of RADIO[k]) {
+        expect(t.et, `${k}: ${t.et}`).toMatch(/^\{(callsign|short)\}[,:]/);
+        expect(words(t.et), `${k}: ${t.et}`).toBeLessThanOrEqual(8);
+        expect(words(t.en), `${k}: ${t.en}`).toBeLessThanOrEqual(9);
+      }
+    for (const k of Object.keys(RADIO).filter((x) => x.startsWith('reply_')))
+      for (const t of RADIO[k]) expect(t.et, `${k}: ${t.et}`).toMatch(/^\{(callsign|short)\}, /);
+    const all = Object.values(RADIO).flat();
+    for (const t of all) {
+      expect(`${t.et} ${t.en}`, t.et).not.toMatch(LAW);
+      expect(`${t.et} ${t.en}`, t.et).not.toMatch(DASHES);
+      expect(t.et, t.et).not.toMatch(/nii teemegi|jah, |hea, liigume|selge pilt|kahjuks|vabandust|vabandan|söök jääb|kohv ja võileib|ole täpsem|kahju, kolleeg/i);
+      expect(words(t.et), t.et).toBeLessThanOrEqual(14);
+    }
+    expect(RADIO.choiceAck.map((t) => t.et)).toContain('{callsign}, selge.');
   });
 });
 

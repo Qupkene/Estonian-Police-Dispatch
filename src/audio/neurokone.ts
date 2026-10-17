@@ -4,11 +4,15 @@
 // Audio with a light radio sound (band-pass 300 to 3400 Hz, a little drive and compression, squelch).
 //
 // One line at a time: lines wait in a short queue, the oldest waiting line is dropped when it is full
-// and a line that waited too long is skipped, so radio traffic stays current. Only the line that is up
-// next is fetched ahead (dropped lines cost the server nothing). Decoded clips stay in a small LRU.
+// and a line that waited too long is skipped, so radio traffic stays current. A line can carry a tag
+// (which radio message, incident and unit it is about): cancelTts() drops the waiting lines that
+// match and cuts the one that plays, so a line the player has already acted on is not read out.
+// Only the line that is up next is fetched ahead (dropped lines cost the server nothing). Decoded
+// clips stay in a small LRU.
 // When a clip cannot be had, the line's fallback plays instead (Web Speech, or nothing); server
 // trouble also pauses the server voice for a while (1 min, doubling up to 10 min). Nothing is logged.
 import { API_BASE, probeBackend } from '@/net/api';
+import type { SpeechTag } from './radioSpeech';
 import { sfx } from './sfx';
 
 export interface TtsLine {
@@ -20,6 +24,12 @@ export interface TtsLine {
   radio: boolean;
   /** Plays the line another way (Web Speech or silence); resolves when it is done. */
   fallback: () => Promise<void>;
+  /** Cuts the fallback short (cancelTts on a line that is being read by the browser voice). */
+  stopFallback?: () => void;
+  /** What the line is about, for cancelTts(). */
+  tag?: SpeechTag;
+  /** Radio lines that may wait behind the one playing when this one is queued (default QUEUE_MAX). */
+  maxWaiting?: number;
 }
 
 /** Lines that may wait behind the one playing. */
@@ -40,6 +50,7 @@ interface Item {
   line: TtsLine;
   at: number;
   audio?: Promise<AudioBuffer | null>;
+  cancelled?: boolean;
 }
 
 const lru = new Map<string, AudioBuffer>();
@@ -48,6 +59,8 @@ let queue: Item[] = [];
 let busy = false;
 let generation = 0;
 let current: { stop: () => void } | null = null;
+/** The line being fetched, played or read by the fallback. */
+let active: Item | null = null;
 
 let backend: boolean | undefined;
 let failures = 0;
@@ -348,35 +361,87 @@ async function pump(): Promise<void> {
     while (queue.length && gen === generation) {
       const item = queue.shift() as Item;
       if (stale(item)) continue;
+      active = item;
       const buf = await audioOf(item);
       if (gen !== generation) return;
-      if (stale(item)) continue;
+      if (stale(item) || item.cancelled) continue;
       if (buf) {
         // The next line is fetched while this one plays.
         if (queue[0]) void audioOf(queue[0]);
         if (await play(buf, item.line.radio, gen)) {
-          if (gen === generation) await sleep(GAP_MS);
+          if (gen !== generation) return;
+          active = null;
+          await sleep(GAP_MS);
           continue;
         }
         if (gen !== generation) return;
+        if (item.cancelled) continue;
       }
       try {
         await item.line.fallback();
       } catch {
         /* fallback is best effort */
       }
+      if (gen === generation) active = null;
     }
   } finally {
-    if (gen === generation) busy = false;
+    if (gen === generation) {
+      busy = false;
+      active = null;
+    }
   }
 }
 
 /** Queue a line for the Estonian voice. */
 export function say(line: TtsLine): void {
   const item: Item = { key: `${line.voice}|${line.speed.toFixed(2)}|${line.text}`, line, at: now() };
-  if (line.radio) while (queue.length >= QUEUE_MAX) queue.shift();
+  if (line.radio) {
+    const max = Math.max(0, Math.min(QUEUE_MAX, line.maxWaiting ?? QUEUE_MAX));
+    // The line itself waits too (until pump takes it), so make room for it.
+    while (queue.length && queue.length >= Math.max(1, max)) queue.shift();
+  }
   queue.push(item);
   void pump();
+}
+
+/**
+ * Drop the waiting lines whose tag matches and cut the line that plays (or is being fetched) when it
+ * matches. The queue goes on with the next line. Returns how many lines were dropped or cut.
+ */
+export function cancelTts(match: (tag: SpeechTag) => boolean): number {
+  let n = 0;
+  queue = queue.filter((it) => {
+    const hit = !!it.line.tag && match(it.line.tag);
+    if (hit) n++;
+    return !hit;
+  });
+  const a = active;
+  if (a && !a.cancelled && a.line.tag && match(a.line.tag)) {
+    a.cancelled = true;
+    n++;
+    const c = current;
+    current = null;
+    c?.stop();
+    try {
+      a.line.stopFallback?.();
+    } catch {
+      /* best effort */
+    }
+  }
+  return n;
+}
+
+/** Keep at most `max` radio lines waiting (the newest stay). */
+export function limitTtsQueue(max: number): void {
+  while (queue.length > Math.max(0, max)) queue.shift();
+}
+
+/** Tags of the line that plays and the waiting ones (in that order). */
+export function ttsTags(): SpeechTag[] {
+  const out: SpeechTag[] = [];
+  if (active && !active.cancelled && active.line.tag) out.push(active.line.tag);
+  for (const it of queue) if (it.line.tag) out.push(it.line.tag);
+  return out;
 }
 
 /** Stop the clip that plays and forget the waiting lines. */
@@ -384,9 +449,16 @@ export function stopTts(): void {
   generation++;
   queue = [];
   busy = false;
+  const a = active;
+  active = null;
   const c = current;
   current = null;
   c?.stop();
+  try {
+    a?.line.stopFallback?.();
+  } catch {
+    /* best effort */
+  }
 }
 
 /** Forget everything (tests). */

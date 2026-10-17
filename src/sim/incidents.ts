@@ -35,6 +35,7 @@ import {
   ZERO_BREAKDOWN,
 } from './scoring';
 import { startSearch, updateSearch } from './search';
+import { radioClosure } from './radioText';
 import { fillText, genitiveName, type Vars } from './text';
 import { hhmm, isoDate, MIN } from './time';
 import {
@@ -1238,7 +1239,8 @@ function completeIncident(s: SimState, inc: Incident, tpl: IncidentTemplate | un
   if (out.result === 'escaped') s.stats.escaped++;
   if (out.result === 'false_alarm' || inc.falseAlarm) s.stats.falseAlarms++;
 
-  if (speaker && text.et.trim()) unitSay(s, speaker, text, inc, { kind: 'status' });
+  // On the air only a short report; the full summary goes to the timeline (and the report).
+  if (speaker && text.et.trim()) unitSay(s, speaker, fillText(out.radio ?? radioClosure(out.text, out.result), vars), inc, { kind: 'status' });
   addTimeline(s, inc, 'outcome', text);
 
   // Officer stress.
