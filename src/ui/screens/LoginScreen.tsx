@@ -1,12 +1,17 @@
 // Estonian e-identity login simulation (ID-kaart / Mobiil-ID / Smart-ID) + the classic 2024 login.
-// Nothing is real: any input is accepted after a short delay. Owned by ui-shell.
+// The e-ID flows are simulations: any input is accepted after a short delay (guest logins).
+// The "Klassika" tab is the real account login when the server answers (src/net/account.ts);
+// both fields empty is still the 2024 easter egg. Owned by ui-shell.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useGame, type LoginUser } from '@/store/game';
-import { useT } from '@/i18n';
+import { useAccount, type AccountUser } from '@/net/account';
+import { nameProblem, PASSWORD_MIN } from '@/net/sync';
+import { useLang, useT } from '@/i18n';
 import { sfx } from '@/audio/sfx';
 import { Badge, Button, Emblem, Icon, IconButton, Spinner, Tabs, TextField } from '@/ui/components';
 import { Backdrop } from './shell/Backdrop';
 import { Disclaimer, LangToggle, useToast } from './shell/ShellPage';
+import { accountErrorText } from './shell/accountText';
 import {
   formatCountdown,
   generateIdentity,
@@ -24,10 +29,13 @@ type Method = 'idcard' | 'mobiilid' | 'smartid' | 'legacy';
 export function LoginScreen() {
   const t = useT();
   const login = useGame((s) => s.login);
+  const backend = useAccount((s) => s.backend);
+  const accountUser = useAccount((s) => s.user);
   const [seed, setSeed] = useState(() => (Date.now() ^ 0x2024) >>> 0);
   const [id, setId] = useState<GeneratedIdentity>(() => generateIdentity(seed));
   const [name, setName] = useState(() => `${id.firstName} ${id.lastName}`);
-  const [method, setMethod] = useState<Method>('idcard');
+  // The menu's "Create account" button opens the Klassika tab straight away.
+  const [method, setMethod] = useState<Method>(() => (useAccount.getState().intent ? 'legacy' : 'idcard'));
   const [success, setSuccess] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
   const toast = useToast(3000);
@@ -42,7 +50,17 @@ export function LoginScreen() {
 
   const finalName = () => name.trim() || `${id.firstName} ${id.lastName}`;
 
+  useEffect(() => {
+    void useAccount.getState().init();
+  }, []);
+
+  /** Every login except the account one is a guest login: an open account session ends. */
+  const leaveAccount = () => {
+    if (useAccount.getState().user) void useAccount.getState().logout();
+  };
+
   const complete = (m: LoginUser['method'], idcode?: string) => {
+    leaveAccount();
     const user: LoginUser = { name: finalName(), method: m, idcode };
     setSuccess(user.name);
     sfx.unlock();
@@ -50,7 +68,15 @@ export function LoginScreen() {
     setTimeout(() => login(user), 850);
   };
 
+  const accountLogin = (u: AccountUser) => {
+    setSuccess(u.name);
+    sfx.unlock();
+    sfx.play('login');
+    setTimeout(() => login({ name: u.name, method: 'account' }), 850);
+  };
+
   const legacyLogin = () => {
+    leaveAccount();
     try {
       localStorage.setItem('epd:legacyLogin', '1');
     } catch {
@@ -64,6 +90,7 @@ export function LoginScreen() {
   };
 
   const guest = () => {
+    leaveAccount();
     sfx.unlock();
     login({ name: name.trim() || t('shell.login.guestName'), method: 'guest' });
   };
@@ -112,6 +139,27 @@ export function LoginScreen() {
                   {t('shell.login.secure')}
                 </Badge>
               </header>
+              {accountUser && (
+                <div className="sh-resume" role="status">
+                  <span className="sh-resume__icon" aria-hidden="true">
+                    <Icon name="cloud" size={18} />
+                  </span>
+                  <span className="sh-resume__text">
+                    <strong>{t('account.resume.title', { name: accountUser.name })}</strong>
+                    <span>{t('account.resume.text')}</span>
+                  </span>
+                  <span className="sh-resume__actions">
+                    <Button variant="primary" iconRight="chevron-right" onClick={() => accountLogin(accountUser)}>
+                      {t('account.resume.continue')}
+                    </Button>
+                    <IconButton
+                      icon="logout"
+                      label={t('account.logout')}
+                      onClick={() => void useAccount.getState().logout()}
+                    />
+                  </span>
+                </div>
+              )}
               <TextField
                 label={t('shell.login.name')}
                 icon="user"
@@ -166,7 +214,7 @@ export function LoginScreen() {
                     onDone={(code) => complete('smartid', code)}
                   />
                 )}
-                {method === 'legacy' && <LegacyForm onLegacy={legacyLogin} />}
+                {method === 'legacy' && <LegacyForm onLegacy={legacyLogin} onAccount={accountLogin} />}
               </div>
               <div className="sh-login__alt">
                 <span className="sh-dim">{t('shell.login.or')}</span>
@@ -175,6 +223,12 @@ export function LoginScreen() {
                 </Button>
               </div>
               <p className="sh-login__sim">{t('shell.login.simNote')}</p>
+              {backend === 'online' && method !== 'legacy' && !accountUser && (
+                <button type="button" className="sh-login__acct" onClick={() => setMethod('legacy')}>
+                  <Icon name="cloud" size={14} />
+                  {t('account.login.hint')}
+                </button>
+              )}
             </>
           )}
         </section>
@@ -487,56 +541,155 @@ function MobileFlow({
   );
 }
 
-// ── Classic 2024 login ──────────────────────────────────────────────────────
+// ── Classic 2024 login = account login ──────────────────────────────────────
 
-function LegacyForm({ onLegacy }: { onLegacy: () => void }) {
+type LegacyMode = 'login' | 'register';
+
+function LegacyForm({ onLegacy, onAccount }: { onLegacy: () => void; onAccount: (u: AccountUser) => void }) {
   const t = useT();
+  const lang = useLang();
+  const backend = useAccount((s) => s.backend);
+  const busy = useAccount((s) => s.busy);
+  const [mode, setMode] = useState<LegacyMode>(() => (useAccount.getState().intent === 'register' ? 'register' : 'login'));
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
-  const [error, setError] = useState(false);
+  const [pass2, setPass2] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [shake, setShake] = useState(0);
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (isLegacyLogin(user, pass)) {
-      setError(false);
-      onLegacy();
-    } else {
-      setError(true);
-      setShake((n) => n + 1);
-      sfx.play('error');
-    }
+  const online = backend === 'online';
+  const register = online && mode === 'register';
+
+  useEffect(() => {
+    useAccount.getState().setIntent(null);
+  }, []);
+
+  const fail = (msg: string) => {
+    setError(msg);
+    setShake((n) => n + 1);
+    sfx.play('error');
   };
+
+  const switchMode = (m: LegacyMode) => {
+    setMode(m);
+    setError(null);
+    setPass('');
+    setPass2('');
+  };
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    // 2024: both fields empty was the only combination that worked. It still does.
+    if (isLegacyLogin(user, pass) && (!register || pass2 === '')) {
+      setError(null);
+      onLegacy();
+      return;
+    }
+    const acct = useAccount.getState();
+    if (acct.backend === 'unknown') await acct.init();
+    if (useAccount.getState().backend !== 'online') {
+      fail(t('shell.login.legacy.wrong'));
+      return;
+    }
+    const name = user.trim();
+    if (register) {
+      const np = nameProblem(name);
+      if (np) return fail(t(`account.rule.name.${np}`));
+      if (pass.length < PASSWORD_MIN) return fail(t('account.rule.pass.short', { n: PASSWORD_MIN }));
+      if (pass !== pass2) return fail(t('account.rule.pass.mismatch'));
+    } else if (!name || !pass) {
+      return fail(t('shell.login.legacy.wrong'));
+    }
+    setError(null);
+    const ok = register ? await acct.register(name, pass) : await acct.login(name, pass);
+    const u = useAccount.getState().user;
+    if (ok && u) onAccount(u);
+    else fail(accountErrorText(useAccount.getState().error, lang) || t('account.err.unknown'));
+  };
+
+  const rules = [
+    { key: 'account.rule.name', ok: nameProblem(user) === null },
+    { key: 'account.rule.pass', ok: pass.length >= PASSWORD_MIN },
+    { key: 'account.rule.repeat', ok: pass2.length > 0 && pass === pass2 },
+  ];
+
   return (
-    <form className="sh-legacy" onSubmit={submit}>
+    <form className="sh-legacy" onSubmit={submit} noValidate>
       <div className={`sh-legacy__box${shake ? ' is-shake' : ''}`} key={shake}>
-        <h2>{t('shell.login.legacy.title')}</h2>
+        <h2>{register ? t('account.register.title') : t('shell.login.legacy.title')}</h2>
         <input
           className="sh-legacy__input"
+          name="username"
           placeholder={t('shell.login.legacy.user')}
           aria-label={t('shell.login.legacy.user')}
           value={user}
           onChange={(e) => setUser(e.target.value)}
-          autoComplete="off"
+          autoComplete={online ? 'username' : 'off'}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          maxLength={64}
         />
         <input
           className="sh-legacy__input"
           type="password"
+          name="password"
           placeholder={t('shell.login.legacy.pass')}
           aria-label={t('shell.login.legacy.pass')}
           value={pass}
           onChange={(e) => setPass(e.target.value)}
-          autoComplete="off"
+          autoComplete={online ? (register ? 'new-password' : 'current-password') : 'off'}
         />
-        <button type="submit" className="sh-legacy__btn">
-          {t('shell.login.legacy.submit')}
+        {register && (
+          <input
+            className="sh-legacy__input"
+            type="password"
+            name="password-repeat"
+            placeholder={t('account.register.repeat')}
+            aria-label={t('account.register.repeat')}
+            value={pass2}
+            onChange={(e) => setPass2(e.target.value)}
+            autoComplete="new-password"
+          />
+        )}
+        {register && (
+          <ul className="sh-legacy__rules" aria-label={t('account.rules')}>
+            {rules.map((r) => (
+              <li key={r.key} className={r.ok ? 'is-ok' : ''}>
+                <Icon name={r.ok ? 'check' : 'info'} size={12} />
+                {t(r.key)}
+              </li>
+            ))}
+          </ul>
+        )}
+        <button type="submit" className="sh-legacy__btn" disabled={busy} aria-busy={busy || undefined}>
+          {busy ? (
+            <>
+              <Spinner size={14} /> {t('account.login.busy')}
+            </>
+          ) : register ? (
+            t('account.register.submit')
+          ) : (
+            t('shell.login.legacy.submit')
+          )}
         </button>
         {error && (
           <p className="sh-legacy__err" role="alert">
-            {t('shell.login.legacy.wrong')}
+            {error}
           </p>
         )}
       </div>
-      <p className="sh-legacy__note">{t('shell.login.legacy.note')}</p>
+      {online && (
+        <button
+          type="button"
+          className="sh-legacy__switch"
+          onClick={() => switchMode(register ? 'login' : 'register')}
+        >
+          {register ? t('account.login.toLogin') : t('account.login.toRegister')}
+        </button>
+      )}
+      <p className="sh-legacy__note">{online ? t('account.login.note') : t('shell.login.legacy.note')}</p>
+      {backend === 'offline' && <p className="sh-legacy__offline">{t('account.login.offline')}</p>}
     </form>
   );
 }

@@ -587,6 +587,9 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       const director = await alice.post('/api/score', { ...SHIFT, mode: 'director' });
       expect(director.status).toBe(400);
       expect(director.json.error).toBe('unranked_mode');
+      const empty = await alice.post('/api/score', { ...SHIFT, incidents: 0 });
+      expect(empty.status).toBe(400);
+      expect(empty.json).toMatchObject({ error: 'empty_shift', field: 'incidents' });
     });
 
     it('stores shifts and returns the rank within the region', async () => {

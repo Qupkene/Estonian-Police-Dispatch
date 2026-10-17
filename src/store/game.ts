@@ -18,7 +18,8 @@ export type RightTab = 'incident' | 'unit' | 'registry' | 'stats' | 'bulletins' 
 
 export interface LoginUser {
   name: string;
-  method: 'idcard' | 'mobiilid' | 'smartid' | 'legacy' | 'guest';
+  /** 'account' = a real account on the server (src/net/account.ts); everything else is a guest. */
+  method: 'idcard' | 'mobiilid' | 'smartid' | 'legacy' | 'guest' | 'account';
   idcode?: string;
 }
 
@@ -174,7 +175,7 @@ function frame(ts: number) {
   sinceSave += dtReal;
   if (sinceSave > 30_000 && sim.mode !== 'director') {
     sinceSave = 0;
-    autosave(sim);
+    autosave(sim, { periodic: true });
   }
 }
 
@@ -193,12 +194,42 @@ export function stopLoop() {
 
 const SAVE_KEY = 'epd:autosave';
 
-export function autosave(sim: SimState) {
+/**
+ * Cloud sync hooks, filled in by src/net/account.ts while a player is logged in to an account.
+ * The store itself never talks to the network.
+ */
+export const autosaveHooks: {
+  /**
+   * A save was written. `raw` is the JSON; `kind` says who saved: the 30 s game loop ('periodic'),
+   * the player ('explicit', e.g. Save & quit) or the closing page ('unload').
+   */
+  onSave?: (raw: string, kind: 'periodic' | 'explicit' | 'unload') => void;
+  /** The save was removed (shift ended). */
+  onClear?: () => void;
+} = {};
+
+export interface AutosaveOptions {
+  /** The page is closing (beforeunload): cloud upload must use keepalive. */
+  unload?: boolean;
+  /** Written by the game loop every 30 s (the cloud copy is throttled), not by the player. */
+  periodic?: boolean;
+  /** false: write only the browser copy (used when the save came from the cloud). Default true. */
+  cloud?: boolean;
+}
+
+export function autosave(sim: SimState, opts: AutosaveOptions = {}) {
+  let raw: string;
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(sim));
+    raw = JSON.stringify(sim);
+  } catch {
+    return;
+  }
+  try {
+    localStorage.setItem(SAVE_KEY, raw);
   } catch {
     /* storage full or blocked: ignore */
   }
+  if (opts.cloud !== false) autosaveHooks.onSave?.(raw, opts.unload ? 'unload' : opts.periodic ? 'periodic' : 'explicit');
 }
 
 export function loadAutosave(): SimState | null {
@@ -212,17 +243,18 @@ export function loadAutosave(): SimState | null {
   }
 }
 
-export function clearAutosave() {
+export function clearAutosave(opts: Pick<AutosaveOptions, 'cloud'> = {}) {
   try {
     localStorage.removeItem(SAVE_KEY);
   } catch {
     /* ignore */
   }
+  if (opts.cloud !== false) autosaveHooks.onClear?.();
 }
 
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', () => {
     const sim = useGame.getState().sim;
-    if (sim && !sim.ended && sim.mode !== 'director') autosave(sim);
+    if (sim && !sim.ended && sim.mode !== 'director') autosave(sim, { unload: true });
   });
 }

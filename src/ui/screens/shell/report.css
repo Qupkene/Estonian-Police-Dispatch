@@ -127,6 +127,42 @@
   margin-top: 10px;
 }
 
+/* leaderboard line on the grade card */
+.sh-grade__rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 0;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--text-0);
+}
+.sh-grade__rank .ui-icon {
+  color: var(--gold);
+}
+.sh-grade__rankRegion {
+  font-weight: 500;
+  color: var(--text-2);
+}
+.sh-grade__rank--hint {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-2);
+}
+.sh-grade__rank--hint .ui-icon {
+  color: var(--accent-2);
+}
+.sh-grade__rank--error {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--warn);
+}
+.sh-grade__rank--error .ui-icon {
+  color: var(--warn);
+}
+
 /* stat tiles */
 .sh-rep__stats {
   display: flex;

@@ -1,5 +1,8 @@
 /* Main menu */
 .sh-menu__top {
+  /* above the cards (their blur and fade-in create stacking contexts) so the account menu overlaps them */
+  position: relative;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -58,6 +61,324 @@
   gap: 4px;
   font-size: var(--fs-xs);
   color: var(--text-2);
+}
+
+/* Account chip (logged-in accounts) */
+.sh-acct {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-2) 80%, transparent);
+  backdrop-filter: blur(6px);
+}
+.sh-acct__btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 8px 0 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-0);
+  text-align: left;
+}
+.sh-acct__btn:hover .sh-acct__chev,
+.sh-acct__btn[aria-expanded='true'] .sh-acct__chev {
+  color: var(--accent-2);
+}
+.sh-acct__btn:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+.sh-acct__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0;
+}
+.sh-acct__name {
+  font-weight: 650;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sh-acct__cloud {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.sh-acct__cloud.is-saved .ui-icon {
+  color: var(--ok);
+}
+.sh-acct__cloud.is-saving .ui-icon {
+  color: var(--accent-2);
+  animation: epd-blink 1.2s ease-in-out infinite;
+}
+.sh-acct__cloud.is-error {
+  color: var(--warn);
+}
+.sh-acct__chev {
+  color: var(--text-3);
+  transition: color var(--dur-1) var(--ease);
+}
+.sh-acct__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: 270px;
+  max-width: calc(100vw - 24px);
+  padding: 6px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  background: var(--bg-2);
+  box-shadow: var(--shadow-2), 0 16px 40px rgba(0, 0, 0, 0.45);
+  animation: epd-fade-in var(--dur-1) var(--ease);
+}
+.sh-acct__menuHead {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-sm);
+}
+.sh-acct__menuHead strong {
+  font-size: var(--fs-md);
+  overflow-wrap: anywhere;
+}
+.sh-acct__lost {
+  color: var(--warn);
+}
+.sh-acct__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-0);
+  font-size: var(--fs-md);
+  text-align: left;
+}
+.sh-acct__item:hover,
+.sh-acct__item:focus-visible {
+  background: var(--bg-3);
+  outline: none;
+}
+.sh-acct__item .ui-icon {
+  color: var(--text-2);
+}
+.sh-acct__item.is-danger,
+.sh-acct__item.is-danger .ui-icon {
+  color: var(--danger);
+}
+.sh-acct__delete {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.sh-acct__delete p {
+  margin: 0;
+  color: var(--text-1);
+}
+.sh-acct__delete .ui-field__input {
+  font-size: 16px;
+  height: 44px;
+}
+
+/* Guest hint: an account keeps progress everywhere */
+.sh-guest {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px 12px;
+  align-items: start;
+  padding: 14px 16px;
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+.sh-guest__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-3));
+}
+.sh-guest__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.sh-guest__text strong {
+  color: var(--text-0);
+  font-size: var(--fs-md);
+}
+.sh-guest .ui-btn {
+  grid-column: 2;
+  justify-self: start;
+}
+
+/* Leaderboard */
+.sh-lb {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 16px 12px;
+}
+.sh-lb__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 750;
+}
+.sh-lb__title .ui-icon {
+  color: var(--gold);
+}
+.sh-lb__top {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  letter-spacing: 0.08em;
+}
+.sh-lb__filter {
+  align-self: stretch;
+  display: flex;
+}
+.sh-lb__filter .ui-seg__opt {
+  flex: 1;
+  padding: 0 4px;
+}
+.sh-lb__state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 64px;
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+.sh-lb__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sh-lb__row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 26px 34px;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 3px 8px;
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+}
+.sh-lb__row:nth-child(odd) {
+  background: color-mix(in srgb, var(--bg-3) 55%, transparent);
+}
+.sh-lb__row.is-me {
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-2));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.sh-lb__rank {
+  color: var(--text-3);
+  font-weight: 700;
+  text-align: center;
+}
+.sh-lb__row.is-top1 .sh-lb__rank {
+  color: var(--gold);
+}
+.sh-lb__row.is-top2 .sh-lb__rank,
+.sh-lb__row.is-top3 .sh-lb__rank {
+  color: var(--text-1);
+}
+.sh-lb__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+.sh-lb__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 650;
+  color: var(--text-0);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sh-lb__you {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--accent);
+}
+.sh-lb__meta {
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sh-lb__grade {
+  --gc: var(--text-2);
+  display: grid;
+  place-items: center;
+  height: 22px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: var(--fs-sm);
+  color: var(--gc);
+  background: color-mix(in srgb, var(--gc) 14%, transparent);
+}
+.sh-lb__grade--gold {
+  --gc: var(--gold);
+}
+.sh-lb__grade--ok {
+  --gc: var(--ok);
+}
+.sh-lb__grade--accent {
+  --gc: var(--accent-2);
+}
+.sh-lb__grade--warn {
+  --gc: var(--warn);
+}
+.sh-lb__grade--danger {
+  --gc: var(--danger);
+}
+.sh-lb__score {
+  font-weight: 750;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .sh-menu__main {
@@ -333,6 +654,25 @@
   }
   .sh-user__text {
     display: none;
+  }
+  .sh-acct__name {
+    max-width: 96px;
+  }
+  /* room for the language toggle next to the account chip */
+  .sh-menu__logo span {
+    display: none;
+  }
+  .sh-menu__topRight .ui-seg {
+    flex-wrap: nowrap;
+  }
+  .sh-acct__cloud {
+    font-size: 10px;
+  }
+  .sh-acct__chev {
+    display: none;
+  }
+  .sh-menu__topRight {
+    gap: 8px;
   }
   .sh-menu__main {
     padding: 4px 12px 16px;

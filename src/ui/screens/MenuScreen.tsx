@@ -1,11 +1,14 @@
 // Main menu. Owned by ui-shell.
-import { useMemo, useRef, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
 import { loadAutosave, useGame, type Screen } from '@/store/game';
 import { useCareer } from '@/store/career';
+import { useAccount } from '@/net/account';
 import { useLang, useT } from '@/i18n';
 import type { GameMode } from '@/sim/types';
 import { ddmmyyyy, hhmm } from '@/sim/time';
-import { Badge, Emblem, Icon, IconButton, type IconName } from '@/ui/components';
+import { Badge, Button, Emblem, Icon, IconButton, type IconName } from '@/ui/components';
+import { AccountChip } from './shell/AccountChip';
+import { Leaderboard } from './shell/Leaderboard';
 import { Backdrop } from './shell/Backdrop';
 import { Disclaimer, LangToggle } from './shell/ShellPage';
 import { formatMoney, regionSummary, VERSION } from './shell/helpers';
@@ -42,7 +45,21 @@ export function MenuScreen() {
   const resumeShift = useGame((s) => s.resumeShift);
   const logout = useGame((s) => s.logout);
   const profile = useCareer((s) => s.profile);
-  const saved = useMemo(() => loadAutosave(), []);
+  const backend = useAccount((s) => s.backend);
+  const accountUser = useAccount((s) => s.user);
+  // Re-read when a cloud save landed in the browser after the menu opened.
+  const pulls = useAccount((s) => s.pulls);
+  const saved = useMemo(() => loadAutosave(), [pulls]);
+  const isAccount = user?.method === 'account';
+
+  useEffect(() => {
+    void useAccount.getState().init();
+  }, []);
+
+  const createAccount = () => {
+    useAccount.getState().setIntent('register');
+    logout();
+  };
   const listRef = useRef<HTMLDivElement>(null);
 
   const go = (s: Screen) => () => setScreen(s);
@@ -138,7 +155,9 @@ export function MenuScreen() {
   };
 
   const methodLabel = user
-    ? user.method === 'legacy'
+    ? user.method === 'account'
+      ? t('account.method')
+      : user.method === 'legacy'
       ? t('shell.login.method.legacy')
       : user.method === 'guest'
         ? t('shell.login.guestName')
@@ -161,7 +180,8 @@ export function MenuScreen() {
         </div>
         <div className="sh-menu__topRight">
           <LangToggle />
-          {user && (
+          {isAccount && <AccountChip />}
+          {user && !isAccount && (
             <div className="sh-user" title={user.idcode ? `${user.name} · ${user.idcode}` : user.name}>
               <span className="sh-user__avatar" aria-hidden="true">
                 {initials}
@@ -219,6 +239,21 @@ export function MenuScreen() {
         </section>
 
         <aside className="sh-menu__right">
+          {backend === 'online' && !isAccount && (
+            <section className="sh-card sh-guest">
+              <span className="sh-guest__icon" aria-hidden="true">
+                <Icon name="cloud" size={18} />
+              </span>
+              <div className="sh-guest__text">
+                <strong>{t('account.guest.title')}</strong>
+                <span>{t('account.guest.text')}</span>
+              </div>
+              <Button size="sm" variant="primary" icon="user" onClick={createAccount}>
+                {t('account.guest.cta')}
+              </Button>
+            </section>
+          )}
+          {backend === 'online' && <Leaderboard me={accountUser?.name ?? null} />}
           <section className="sh-card sh-news">
             <h2 className="sh-news__title">
               <Icon name="star" size={16} /> {t('shell.menu.news')}

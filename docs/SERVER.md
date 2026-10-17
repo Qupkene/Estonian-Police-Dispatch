@@ -90,7 +90,7 @@ Rules:
 - Passwords: at least 8 characters, stored with `password_hash` (argon2id when available, else bcrypt).
 - Login/register rate limit: 10 attempts per 15 minutes per IP and name, 40 per IP.
 - Save size limits: `autosave` 4 MB, `career` and `settings` 512 kB.
-- Scores: `score` 0 to 100, one row per finished shift, leaderboard shows each user's best.
+- Scores: `score` 0 to 100, `incidents` at least 1 (400 `empty_shift` otherwise), one row per finished shift, leaderboard shows each user's best.
 - Client IP: `X-Forwarded-For` is trusted only when the direct peer is `EPD_TRUSTED_PROXY`.
 
 ### 4.1 API details (as implemented in `server/`)

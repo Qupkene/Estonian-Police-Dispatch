@@ -71,6 +71,10 @@ function epd_score_input(array $body): array
     if (!in_array($row['mode'], EPD_RANKED_MODES, true)) {
         epd_fail(400, 'unranked_mode', 'Selle režiimi tulemusi edetabelisse ei kanta.', [], ['field' => 'mode']);
     }
+    // A shift with no incidents gets a flat grade from the sim; it says nothing about the player.
+    if ($row['incidents'] < 1) {
+        epd_fail(400, 'empty_shift', 'Sündmusteta vahetus edetabelisse ei lähe.', [], ['field' => 'incidents']);
+    }
     return $row;
 }
 

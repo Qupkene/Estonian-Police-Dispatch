@@ -13,10 +13,21 @@ export default defineConfig({
     },
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1600, height: 900 } } }],
-  webServer: {
-    command: 'npm run preview -- --port 4173 --strictPort',
-    url: 'http://localhost:4173',
-    reuseExistingServer: true,
-    timeout: 60_000,
-  },
+  webServer: [
+    {
+      command: 'npm run preview -- --port 4173 --strictPort',
+      url: 'http://localhost:4173',
+      reuseExistingServer: true,
+      timeout: 60_000,
+    },
+    {
+      // The PHP API (accounts, saves, leaderboard); vite preview proxies /api to it.
+      // Its data lives in test-results/, which Playwright empties before every run. -q: no access log.
+      command: 'php -q -S 127.0.0.1:8787 server/dev-router.php',
+      url: 'http://127.0.0.1:8787/api/health',
+      env: { EPD_DATA: './test-results/epd-data' },
+      reuseExistingServer: true,
+      timeout: 30_000,
+    },
+  ],
 });

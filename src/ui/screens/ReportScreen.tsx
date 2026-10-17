@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useGame } from '@/store/game';
 import { useCareer } from '@/store/career';
+import { useAccount } from '@/net/account';
+import { submitScoreOnce, unrankedReason } from '@/net/scores';
 import { useLang, useT } from '@/i18n';
 import { sfx } from '@/audio/sfx';
 import { ddmmyyyy, hhmm, wall } from '@/sim/time';
 import type { LedgerEntry, Officer, Priority, ShiftReport } from '@/sim/types';
-import { Badge, Button, Empty, Icon, PriorityChip, type IconName } from '@/ui/components';
+import { Badge, Button, Empty, Icon, PriorityChip, Spinner, type IconName } from '@/ui/components';
 import { Newspaper } from './shell/Newspaper';
 import { ShellPage } from './shell/ShellPage';
 import {
@@ -128,6 +130,7 @@ export function ReportScreen() {
             <div className="sh-grade__score">
               <span className="mono">{Math.round(report.score)}</span> / 100 {t('shell.rep.points')}
             </div>
+            <RankLine report={report} />
             <div className="sh-grade__chips">
               <Badge tone="accent" icon="star">
                 +{report.xp} XP
@@ -351,6 +354,74 @@ export function ReportScreen() {
         </section>
       </div>
     </ShellPage>
+  );
+}
+
+type RankState = { status: 'idle' } | { status: 'sending' } | { status: 'done'; rank: number | null } | { status: 'error' };
+
+/** Leaderboard line on the grade card: the player's place (accounts) or a hint (guests). */
+function RankLine({ report }: { report: ShiftReport }) {
+  const t = useT();
+  const backend = useAccount((s) => s.backend);
+  const user = useAccount((s) => s.user);
+  const cloud = useAccount((s) => s.cloud);
+  const [state, setState] = useState<RankState>({ status: 'idle' });
+  const [attempt, setAttempt] = useState(0);
+  const unranked = unrankedReason(report);
+  const ranked = unranked === null;
+  const loggedIn = !!user;
+
+  useEffect(() => {
+    if (!loggedIn || !ranked) return;
+    let alive = true;
+    setState({ status: 'sending' });
+    // submitScoreOnce posts each report exactly once (StrictMode and re-renders included).
+    submitScoreOnce(report)
+      .then((rank) => alive && setState({ status: 'done', rank }))
+      .catch(() => alive && setState({ status: 'error' }));
+    return () => {
+      alive = false;
+    };
+  }, [report, loggedIn, ranked, attempt]);
+
+  if (backend !== 'online') return null;
+  if (!loggedIn)
+    return (
+      <p className="sh-grade__rank sh-grade__rank--hint">
+        <Icon name="cloud" size={14} /> {t('account.rep.guest')}
+      </p>
+    );
+  return (
+    <>
+      {!ranked ? (
+        <p className="sh-grade__rank sh-grade__rank--hint">
+          {t(unranked === 'empty' ? 'account.rep.empty' : 'account.rep.notRanked')}
+        </p>
+      ) : state.status === 'done' ? (
+        <p className="sh-grade__rank" data-testid="leaderboard-rank">
+          <Icon name="trophy" size={15} />
+          {state.rank ? t('account.rep.rank', { rank: state.rank }) : t('account.rep.ranked')}
+          {/* The server ranks within the shift's prefecture. */}
+          {state.rank ? <span className="sh-grade__rankRegion">({t(`account.lb.region.${report.regionId}`)})</span> : null}
+        </p>
+      ) : state.status === 'error' ? (
+        <p className="sh-grade__rank sh-grade__rank--error">
+          <Icon name="warning" size={14} /> {t('account.rep.error')}
+          <Button size="sm" variant="ghost" icon="refresh" onClick={() => setAttempt((n) => n + 1)}>
+            {t('account.rep.retry')}
+          </Button>
+        </p>
+      ) : (
+        <p className="sh-grade__rank sh-grade__rank--hint" role="status">
+          <Spinner size={13} /> {t('account.rep.sending')}
+        </p>
+      )}
+      {cloud === 'error' && (
+        <p className="sh-grade__rank sh-grade__rank--error" role="status">
+          <Icon name="cloud" size={14} /> {t('account.cloud.error')}
+        </p>
+      )}
+    </>
   );
 }
 
