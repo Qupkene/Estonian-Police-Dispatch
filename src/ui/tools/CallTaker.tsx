@@ -264,13 +264,19 @@ function Conversation({ sim, call }: { sim: SimState; call: ActiveCall }) {
     };
   }, [visible.length]);
 
+  // Follow the newest line only while the player is at the bottom; scrolling up to re-read stops it.
+  const follow = useRef(true);
+  const onScroll = () => {
+    const el = ref.current;
+    if (el) follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+  };
   useLayoutEffect(() => {
     const el = ref.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (el && follow.current) el.scrollTop = el.scrollHeight;
   });
 
   return (
-    <div className="tl-call__chat" ref={ref} aria-live="polite">
+    <div className="tl-call__chat" ref={ref} onScroll={onScroll} aria-live="polite">
       {visible.map((l, i) => {
         const k = `${call.id}:${i}`;
         const start = firstSeen.get(k) ?? 0;
