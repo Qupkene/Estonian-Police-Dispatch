@@ -1,0 +1,64 @@
+# EPD 2.0 (politsei.eu) MainServeris: /opt/stack/politsei/compose.yml
+#
+# Sama muster nagu mc-veeb (relee-veeb + veeb) ja raadio (relee-raadio + raadio):
+#   relee-politsei  WireGuardi külgkonteiner veeb võrgus, WG aadress 10.99.0.5
+#   politsei        FrankenPHP relee-politsei võrguruumis, kuulab :80 ainult seal
+#
+# Paigaldab deploy/mainserver/paigalda.sh. POLITSEI_IP (vaba aadress veeb võrgus) on failis .env
+# samas kaustas, selle valib paigaldaja.
+#
+# NB: kui relee-politsei eraldi taaskäivitub või luuakse uuesti, jääb politsei vana võrguruumi
+# külge ja kaotab võrgu (nagu veeb mc-veebis). Parandus:
+#   cd /opt/stack/politsei && docker compose up -d --force-recreate politsei
+# politsei-uuenda.sh kontrollib seda iga 10 minuti järel ja teeb sama ise.
+
+name: politsei
+
+services:
+  relee-politsei:
+    image: lscr.io/linuxserver/wireguard:latest
+    container_name: relee-politsei
+    cap_add:
+      - NET_ADMIN
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: Europe/Tallinn
+    volumes:
+      # wg0.conf + politsei.key (privaatvõti, PostUp wg set ... private-key)
+      - ./wg:/config/wg_confs
+    networks:
+      veeb:
+        ipv4_address: ${POLITSEI_IP:?POLITSEI_IP puudub failist /opt/stack/politsei/.env}
+    restart: unless-stopped
+
+  politsei:
+    image: dunglas/frankenphp:1-php8.4
+    container_name: politsei
+    network_mode: service:relee-politsei
+    depends_on:
+      relee-politsei:
+        condition: service_started
+        # "docker compose restart relee-politsei" taaskäivitab ka selle
+        restart: true
+    command: ["frankenphp", "run", "--config", "/etc/epd/Caddyfile", "--adapter", "caddyfile"]
+    environment:
+      EPD_DATA: /data
+      EPD_TRUSTED_PROXY: 10.99.0.1
+      # Pildi vaikimisi XDG_DATA_HOME on /data, see on siin mängu andmekaust.
+      # Caddy oma failid (TLS-i pole, ainult lukud ja autosave) jäävad konteinerisse.
+      XDG_CONFIG_HOME: /caddy/config
+      XDG_DATA_HOME: /caddy/data
+      TZ: Europe/Tallinn
+    volumes:
+      # Kaustad, mitte üksikud failid: bind mount osutab inode'ile (reeglid 37, 51, 54).
+      - ./www:/app/www:ro
+      - ./repo/server:/app/server:ro
+      - ./data:/data
+      - ./tiles:/srv/tiles:ro
+      - ./conf:/etc/epd:ro
+    restart: unless-stopped
+
+networks:
+  veeb:
+    external: true

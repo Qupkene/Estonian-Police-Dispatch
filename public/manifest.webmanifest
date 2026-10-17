@@ -1,0 +1,21 @@
+{
+  "name": "EPD · Eesti Politsei Dispetšer",
+  "short_name": "EPD",
+  "description": "Realistlik Eesti politsei juhtimiskeskuse simulaator. Mitteametlik fännimäng, ei ole seotud PPA-ga.",
+  "lang": "et",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#06090d",
+  "background_color": "#06090d",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

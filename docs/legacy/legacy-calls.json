@@ -1,0 +1,931 @@
+[
+ {
+  "n": 1,
+  "title": "Pangarööv",
+  "description": "Vene tänava Swedpanka sisenesid 4 maskeeritud isikut tulirelvadega ning nõuavad raha.",
+  "support_need_chance": 90,
+  "bonus_officers_type": "KIIRREAGEERIJA",
+  "inV1": true
+ },
+ {
+  "n": 2,
+  "title": "Maja süttimine",
+  "description": "Tulime koju ja nägime, et meie naabermaja katus põleb. Palun abi!",
+  "support_need_chance": 60,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 3,
+  "title": "Kadunud laps",
+  "description": "9-aastane tüdruk jooksis kodust ära peale tüli vanematega, asukoht teadmata.",
+  "support_need_chance": 30,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 4,
+  "title": "Relvastatud vargus",
+  "description": "Toidupoodi sisenes maskiga mees relvaga ja nõudis kassapidajalt raha.",
+  "support_need_chance": 70,
+  "bonus_officers_type": "KIIRREAGEERIJA",
+  "inV1": true
+ },
+ {
+  "n": 5,
+  "title": "Võltsitud dokument",
+  "description": "Autopesula töötaja kahtlustab kliendi dokumentide võltsimist.",
+  "support_need_chance": 5,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 6,
+  "title": "Koduvägivald",
+  "description": "Korteris on kuulda karjeid ja tugevat kolinat, kahtlustan, et mees lööb oma naist.",
+  "support_need_chance": 15,
+  "bonus_officers_type": "KIIRREAGEERIJA",
+  "inV1": true
+ },
+ {
+  "n": 7,
+  "title": "Autoavarii",
+  "description": "Kahe auto kokkupõrge linna peaväljakul, üks juht tundub purjus olevat.",
+  "support_need_chance": 2,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 8,
+  "title": "Leitud narkootikumid",
+  "description": "Kooli õpetaja leidis tualetist kahtlase valge pulbriga kotikese.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 9,
+  "title": "Jalgratta vargus",
+  "description": "Minu lapse jalgratas varastati meie hoovist öösel.",
+  "support_need_chance": 5,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 10,
+  "title": "Korrarikkuja baaris",
+  "description": "Klient keeldub baarist lahkumast, on agressiivne ja ähvardab töötajaid.",
+  "support_need_chance": 15,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 11,
+  "title": "Korteri sissemurdmine",
+  "description": "Koduuks oli lahti murtud ja korterist on kadunud väärisesemeid.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 12,
+  "title": "Pommiähvardus",
+  "description": "Kooli administraator sai tundmatu kõne pommiähvardusega, evakuatsioon on alustatud.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 13,
+  "title": "Kahtlane pakk rongijaamas",
+  "description": "Rongijaamas on maha jäetud suur kohver, keegi pole sellele ligi astunud.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 14,
+  "title": "Salaküttimine",
+  "description": "Kohalikud jahimehed teatavad salaküttimisest riikliku kaitse all olevas metsas.",
+  "support_need_chance": 7,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 15,
+  "title": "Võltsitud raha",
+  "description": "Kassapidaja avastas kassa lugemisel võltsitud 50-eurose kupüüri.",
+  "support_need_chance": 2,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 16,
+  "title": "Põgenenud vang",
+  "description": "Kinnipidamisasutuse lähedalt on kadunud kinnipeetav, teda peetakse ohtlikuks.",
+  "support_need_chance": 20,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 17,
+  "title": "Arvutikelmus",
+  "description": "Firma sai kirja makse kinnitamise kohta, mida nad pole kunagi algatanud.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 18,
+  "title": "Sissetung vanainimese koju",
+  "description": "Vanainimene teatab, et keegi on öösel tema koduuksest sisse tunginud ja kappides sorinud.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 19,
+  "title": "Meeleavaldus",
+  "description": "Linnavalitsuse ees koguneb suur hulk inimesi protesteerima ja olukord hakkab eskaleeruma.",
+  "support_need_chance": 65,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 20,
+  "title": "Kahtlane draakon",
+  "description": "Metsast kostub veider heli, justkui draakon hingaks tuld, kohalikud on hirmul.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 21,
+  "title": "Lennujaama turvaintsident",
+  "description": "Kahtlane isik keeldub lennujaamas turvakontrollist läbimast ja põhjustab häiret.",
+  "support_need_chance": 23,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 22,
+  "title": "Küberrünnak",
+  "description": "Kohalik haigla IT-süsteemid on langenud küberrünnaku ohvriks, mis häirib tööprotsesse.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 23,
+  "title": "Loata tuletegemine",
+  "description": "Metsas süüdati lõke hoolimata kehtivast tuletegemise keelust, olukord näib kontrolli alt väljumas.",
+  "support_need_chance": 10,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 24,
+  "title": "Plaaniline pangarööv",
+  "description": "Anonüümne vihje viitab, et järgmise nädala alguses plaanitakse pangaröövi.",
+  "support_need_chance": 50,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 25,
+  "title": "Suvilate murdvargus",
+  "description": "Mitmes suvilas on sisse murtud ja varastatud väärtuslikke esemeid, sealhulgas paadid ja tööriistad.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 26,
+  "title": "Agressiivne koer",
+  "description": "Tänaval on valla pääsenud suur koer, kes on inimesi rünnanud.",
+  "support_need_chance": 15,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 27,
+  "title": "Piraattaksod",
+  "description": "Kohalikud elanikud kahtlustavad, et linnas tegutseb suur piraattakso võrgustik.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 28,
+  "title": "Allakukkunud UFO",
+  "description": "Metsas nähti öösel tulukesi ja leitakse kahtlane metallist objekt, kohalikud räägivad UFO-st.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 29,
+  "title": "Pussitamine tänaval",
+  "description": "Vene tänaval oli kaklus, kus üks isik sai noaga haavata, ründaja on põgenenud.",
+  "support_need_chance": 85,
+  "bonus_officers_type": "KIIRREAGEERIJA",
+  "inV1": true
+ },
+ {
+  "n": 30,
+  "title": "Korteriühistu konflikt",
+  "description": "Naaber ei maksa korteriühistu arveid ja on hakanud teisi korteriomanikke ähvardama.",
+  "support_need_chance": 50,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 31,
+  "title": "Öörahu rikkumine",
+  "description": "Noortekamp korraldab majade vahel valjuhäälseid pidusid ja rikub korduvalt öörahu.",
+  "support_need_chance": 10,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 32,
+  "title": "Rongilt alla kukkunud inimene",
+  "description": "Raudteel on rongilt kukkunud reisija, kes vajab kiiret meditsiinilist abi.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 33,
+  "title": "Kahtlane jälitamine",
+  "description": "Mitu päeva on auto mind jälitanud kõikjale, kuhu ma lähen, kardan oma turvalisuse pärast.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 34,
+  "title": "Purjus autojuht",
+  "description": "Nägin, kuidas juhuslik auto sõitis ettevaatamatult ja kaldus korduvalt vastassuunavööndisse.",
+  "support_need_chance": 9,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 35,
+  "title": "Sünnipäevapidu",
+  "description": "Laste sünnipäevalaadal puhkes suur tüli vanemate vahel, olukord on kontrolli alt väljas.",
+  "support_need_chance": 10,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 36,
+  "title": "Kaupluse vandaalitsemine",
+  "description": "Kohalikus elektroonikapoes on purustatud mitmed seadmed ja kahtlustatakse röövimiskatset.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 37,
+  "title": "Naabrivalve kahtlus",
+  "description": "Naabruses elab tundmatu isik, kes käib öösiti ümber majade ja tundub kahtlane.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 38,
+  "title": "Tulnukate maandumine",
+  "description": "Kohalik karjakasvataja väidab, et tema heinamaale on maandunud tundmatu lendav objekt.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 39,
+  "title": "Varastatud auto",
+  "description": "Minu auto varastati öösel maja eest, jäljed viitavad murdvargusele.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 40,
+  "title": "Reostunud jõgi",
+  "description": "Jõkke on valgunud suur kogus õli, mis on ohtlik keskkonnale ja loomadele.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 41,
+  "title": "Tehnovõrgu saboteerimine",
+  "description": "Linna elektriliinidel toimus saboteerimine, mis põhjustas ulatusliku voolukatkestuse.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 42,
+  "title": "Spordivõistlusel kaklus",
+  "description": "Jalgpallimängul puhkes kaklus, kus üks mängija lõi teist rusikaga näkku.",
+  "support_need_chance": 15,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 43,
+  "title": "Isik metsa eksinud",
+  "description": "Matkaja teatab, et tema kaaslane on metsas kaduma läinud ja telefonile ei vasta.",
+  "support_need_chance": 20,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 44,
+  "title": "Salajane kokkusaamine",
+  "description": "Kohalik elanik kahtlustab, et mahajäetud laohoones toimub ebaseaduslik relvakaup.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 45,
+  "title": "Inimkaubandus",
+  "description": "Anonüümne vihje väidab, et korteris hoitakse kinni inimesi, keda sunnitakse tööle vastutahtmist.",
+  "support_need_chance": 85,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 46,
+  "title": "Loata rallivõistlus",
+  "description": "Metsateedel toimub loata rallivõistlus, kus kihutavad autod ohustavad teisi liiklejaid.",
+  "support_need_chance": 25,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 47,
+  "title": "Kontserdil vigastatu",
+  "description": "Rock-kontserdil kukkus inimene rahvamassi ja jäi jalge alla, vajab kiiret abi.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 48,
+  "title": "Kassipoeg puu otsas",
+  "description": "Kassipoeg on juba mitmendat päeva puu otsas ja ei tule alla, omanik on mures.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 49,
+  "title": "Põgenenud hobune",
+  "description": "Talu lähedal on vabadusse pääsenud hobune, kes jookseb mööda maanteed.",
+  "support_need_chance": 1,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 50,
+  "title": "Kadunud ehted",
+  "description": "Peale külaliste lahkumist avastasime, et meie väärtuslikud ehted on kadunud.",
+  "support_need_chance": 5,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 51,
+  "title": "Korterilõhkumine",
+  "description": "Minu allnaaber peksab oma korteri ust ja aknaid, ta on väga vihane ja purjus.",
+  "support_need_chance": 9,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 52,
+  "title": "Lennuki kaaperdamine",
+  "description": "Lennukis teatas üks reisija, et tal on pomm ja nõuab kohest maandumist.",
+  "support_need_chance": 20,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 53,
+  "title": "Jalakäija vigastamine",
+  "description": "Jalgrattur sõitis jalakäijale otsa ja vigastas teda, rattur põgenes sündmuskohalt.",
+  "support_need_chance": 8,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 54,
+  "title": "Mehe enesetapukatse",
+  "description": "Nägin meest, kes seisis silla äärel ja ähvardas hüpata, abi on vaja kohe.",
+  "support_need_chance": 8,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 55,
+  "title": "Pealtnäha mahajäetud maja",
+  "description": "Majas, mis peaks olema tühi, on valgust ja liikumist, naabrid kahtlustavad sissetungi.",
+  "support_need_chance": 5,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 56,
+  "title": "Kummaline hääl kanalis",
+  "description": "Kanalisatsioonišahtist tuleb kummaline hääl, naabrid kardavad, et midagi ebatavalist toimub.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 57,
+  "title": "Vangla mäss",
+  "description": "Kohalikus vanglas on mässu olukord, vangid on kontrolli alt väljunud.",
+  "support_need_chance": 95,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 58,
+  "title": "Kahtlane isik kooli lähedal",
+  "description": "Kooli lähedal on nähtud kahtlast isikut, kes jälgib lapsi ja käitub kahtlaselt.",
+  "support_need_chance": 11,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 59,
+  "title": "Põlenud auto",
+  "description": "Parklas on leitud põlenud auto, mille omanikku ei ole võimalik tuvastada.",
+  "support_need_chance": 12,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 60,
+  "title": "Loomade väärkohtlemine",
+  "description": "Naaber piinab oma koera, see on pidevalt ahelas ja ei saa korralikku hooldust.",
+  "support_need_chance": 2,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 61,
+  "title": "Kahtlane pakk postkastis",
+  "description": "Postkastis on leitud kahtlane pakk, millel puudub saatja andmed.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 62,
+  "title": "Kohalikud narkodiilerid",
+  "description": "Kohalikud elanikud kahtlustavad, et naabruses tegutseb narkodiilerite võrgustik.",
+  "support_need_chance": 18,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 63,
+  "title": "Häiriv hääl naaberkorterist",
+  "description": "Naaberkorterist kostub terve päev valju metalli kriginat, mis häirib kogu korrust.",
+  "support_need_chance": 24,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 64,
+  "title": "Surnud isik hotellitoas",
+  "description": "Hotelli koristaja leidis toast isiku, kes ei hinga ja on nähtavasti surnud.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 65,
+  "title": "Kahtlustatav kodust väljumata",
+  "description": "Politseil on põhjus arvata, et otsitav isik peidab end oma korteris ega lahku sealt kunagi.",
+  "support_need_chance": 85,
+  "bonus_officers_type": null,
+  "inV1": true
+ },
+ {
+  "n": 66,
+  "title": "Tulistamine koolis",
+  "description": "Kohalikus keskkoolis on tulistamine. Mitmed inimesed on vigastatud. Tulistaja võib veel hoones viibida.",
+  "support_need_chance": 100,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 67,
+  "title": "Perevägivald lõppes surmaga",
+  "description": "Naaber kutsus politsei, kuuldes karjeid. Korterist leiti naine, kellel oli mitu noahaava. Mees on sündmuskohalt põgenenud.",
+  "support_need_chance": 88,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 68,
+  "title": "Politseinik tapeti kontrolli käigus",
+  "description": "Liikluspeatus eskaleerus tulevahetuseks. Üks politseinik langes teenistuses, kahtlusalune on relvastatud ja põgenemas.",
+  "support_need_chance": 100,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 69,
+  "title": "Vangide põgenemine konvoist",
+  "description": "Kaks vanglatranspordis olnud isikut ründasid saatjat ja põgenesid metsapiirkonda. Mõlemad on ohtlikud ja relvastatud.",
+  "support_need_chance": 91,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 70,
+  "title": "Relvastatud rööv lõppes pantvangikriisiga",
+  "description": "Panga röövimise käigus haarasid kurjategijad mitu pantvangi. Kriis kestab, läbirääkimised käivad.",
+  "support_need_chance": 100,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 71,
+  "title": "Elumajast leiti kolm surnukeha",
+  "description": "Naaber märkas, et peret pole päevi näha olnud. Politsei leidis kohapeal kolme pereliikme surnukehad. Tapmises kahtlustatakse peretuttavat.",
+  "support_need_chance": 76,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 72,
+  "title": "Kahtlane isik avas tule kaubanduskeskuses",
+  "description": "Relvastatud mees avas tule rahvarohkes keskuses. On vigastatuid ja paanika.",
+  "support_need_chance": 100,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 73,
+  "title": "Pommikahtlus rongijaamas",
+  "description": "Rongijaamas on leitud mahajäetud kott, mille läheduses märgati isikut, kes lahkus kiiresti. Kott võib sisaldada lõhkeainet.",
+  "support_need_chance": 93,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 74,
+  "title": "Võimalik inimkaubandus kortermajas",
+  "description": "Mitmed inimesed kuulsid appikarjeid. Korterist leiti mitu isikut, keda hoiti vastu nende tahtmist. Kahtlusalune arvatakse olevat organiseeritud grupist.",
+  "support_need_chance": 60,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 75,
+  "title": "Meeleavaldus läks üle vägivallaks",
+  "description": "Alguses rahumeelne protest muutus vägivaldseks. Politseinikke rünnati, on mitu vigastatut.",
+  "support_need_chance": 77,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 76,
+  "title": "Relvastatud mees katusekorrusel",
+  "description": "Majanaabrid kutsusid politsei, kui nägid relvastatud meest kortermaja katusel sihtimas möödujaid.",
+  "support_need_chance": 94,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 77,
+  "title": "Kooli pommiähvardus",
+  "description": "Anonüümne kõne teatas, et kooli on paigaldatud lõhkekeha. Kool evakueeriti, olukord on kriitiline.",
+  "support_need_chance": 88,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 78,
+  "title": "Massitulistamine bussijaamas",
+  "description": "Tulistaja avas tule ootepaviljonis. On mitu hukkunut, ründaja liikus sündmuskohalt minema.",
+  "support_need_chance": 100,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 79,
+  "title": "Lapse röövimine mänguväljakult",
+  "description": "Pealtnägijad nägid meest viimas last jõuga autosse ja lahkumas suurel kiirusel.",
+  "support_need_chance": 91,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 80,
+  "title": "Võõras relvaga kooli territooriumil",
+  "description": "Õpilased märkasid tundmatut isikut relvaga koolihoovis liikumas.",
+  "support_need_chance": 86,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 81,
+  "title": "Tapmine motellis",
+  "description": "Motellitoast leiti verine stseen ja elutu keha, kahtlustatakse narkotehingu ebaõnnestumist.",
+  "support_need_chance": 55,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 82,
+  "title": "Tänavakaklus muutus tulevahetuseks",
+  "description": "Kaklus kahe jõugu vahel eskaleerus relvakonfliktiks keset linna. On vigastatuid.",
+  "support_need_chance": 76,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 83,
+  "title": "Politseinik pussitati joobes isiku kinnipidamisel",
+  "description": "Rahunemiskutse käigus sai üks ohvitser noahaava. Kahtlusalune põgenes parki.",
+  "support_need_chance": 68,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 84,
+  "title": "Raskelt vigastatud laps kodus",
+  "description": "Kiirabi kutsus politsei, kuna väike laps oli saanud seletamatuid vigastusi. Kahtlustatakse perevägivalda.",
+  "support_need_chance": 41,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 85,
+  "title": "Lõhkematerjal korteris",
+  "description": "Politsei leidis läbiotsimisel eluruumidest suures koguses plahvatusohtlikke aineid.",
+  "support_need_chance": 87,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 86,
+  "title": "Suitsiidikatse kõrghoones",
+  "description": "Isik istub kõrghoone äärel ja keeldub alla tulemast. Läbirääkijad teel.",
+  "support_need_chance": 52,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 87,
+  "title": "Kahtlased kaevamised öösiti",
+  "description": "Naabrid märkasid, et öösiti kaevatakse metsas kraave ja kantakse kotte. Kahtlustatakse varjatud tegevust.",
+  "support_need_chance": 21,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 88,
+  "title": "Rünnak meditsiinitöötaja vastu",
+  "description": "Kiirabitöötajat rünnati kodukülastuse käigus. Isik on tugevas afektiseisundis ja agressiivne.",
+  "support_need_chance": 64,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 89,
+  "title": "Tapmine otseülekandes",
+  "description": "Sotsiaalmeediasse postitati video, kus noormees laseb kellegi maha ja põgeneb. Video asukoht on tuvastamisel.",
+  "support_need_chance": 95,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 90,
+  "title": "Sõidukis avastati inimjäänused",
+  "description": "Võsast leitud hüljatud autost avastati tugeva lagunemisastmega surnukeha.",
+  "support_need_chance": 60,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 91,
+  "title": "Laskmine mänguväljakul",
+  "description": "Kaks meest vahetasid tuld laste mänguväljaku läheduses. On vigastatuid, sealhulgas lapsi.",
+  "support_need_chance": 92,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 92,
+  "title": "Kahtlane tegevus mahajäetud tehases",
+  "description": "Inimesed käivad öösiti maha jäetud tehases, kostub masinate müra. Kahtlustatakse ebaseaduslikku relvatöökoda.",
+  "support_need_chance": 49,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 93,
+  "title": "Noorte kättemaksurünnak",
+  "description": "Grupp noorukeid ründas teist kampa pesapallikurkide ja noaga. On mitu vigastatut.",
+  "support_need_chance": 57,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 94,
+  "title": "Vägivaldne röövimine tanklas",
+  "description": "Maskides mehed peksid töötaja läbi ja varastasid kassa. Juhtum salvestati turvakaamerasse.",
+  "support_need_chance": 63,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 95,
+  "title": "Relvade smugeldamine sadamas",
+  "description": "Tolli teatel on info, et lähiajal saabub relvadega konteiner. Vajatakse relvastatud tuge.",
+  "support_need_chance": 84,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 96,
+  "title": "Kahtlane parkiv sõiduk",
+  "description": "Kortermaja ees seisab mitu päeva tundmatu sõiduk. Elanikud kahtlustavad, et keegi jälgib neid.",
+  "support_need_chance": 12,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 97,
+  "title": "Võltsitud rahatähed poes",
+  "description": "Poemüüja avastas sularahas makstud võltsitud kupüüri, mis võib viidata laiemale skeemile.",
+  "support_need_chance": 7,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 98,
+  "title": "Kodutu tungis trepikotta",
+  "description": "Elanikud teatasid, et kodutu mees magab öösiti trepikojas ja keeldub lahkumast.",
+  "support_need_chance": 3,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 99,
+  "title": "Müra garaažist hilistel tundidel",
+  "description": "Naabrid kuulevad öösiti mehaanilisi helisid garaažist. Kahtlustatakse illegaalseid töötlusi.",
+  "support_need_chance": 15,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 100,
+  "title": "Teismelised ronivad kraanadele",
+  "description": "Ehitustandril ronivad noored kraanade ja tellingute otsas, oht vigastusteks.",
+  "support_need_chance": 5,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 101,
+  "title": "Tundmatu isik pildistab maju",
+  "description": "Elanik nägi isikut, kes käis tänaval ja pildistas hooneid ning aknaid pikalt.",
+  "support_need_chance": 6,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 102,
+  "title": "Lastekarjeid mänguväljakult",
+  "description": "Mänguväljakul kuuldakse tugevaid karjeid. Võib olla vigastus või kiusamine.",
+  "support_need_chance": 4,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 103,
+  "title": "Kohviku omanik keeldub maksma töötajale",
+  "description": "Töötaja väidab, et tööandja ei maksnud palka ja ähvardas teda, kui ta raha küsis.",
+  "support_need_chance": 9,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 104,
+  "title": "Naaber loopis prügi rõdult",
+  "description": "Ülemise korruse elanik viskas oma prügi alla tänavale ja keeldus vastutamast.",
+  "support_need_chance": 2,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 105,
+  "title": "Valgustamata jalgrattur öösel",
+  "description": "Mitmed autojuhid teatasid ratturist, kes sõidab pimedas ilma tuledeta ja ohtlikult.",
+  "support_need_chance": 1,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 106,
+  "title": "Kahtlane uksealt müük",
+  "description": "Tundmatu isik käib korterist korterisse ja üritab müüa elektroonikat ilma dokumentideta.",
+  "support_need_chance": 10,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 107,
+  "title": "Mürarikas sünnipäev",
+  "description": "Kohalikus majas peetakse sünnipäevapidu, mille muusika ja karjumine häirib naabreid.",
+  "support_need_chance": 3,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 108,
+  "title": "Ratas lukust lahti lõigatud",
+  "description": "Jalgrattaomanik leidis oma lukustatud ratta kadununa, lõikejäljed alles.",
+  "support_need_chance": 8,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 109,
+  "title": "Koer ründas teist koera",
+  "description": "Jalutajate vahel tekkis konflikt, kuna üks koer hammustas teist. Loom on kontrollimata.",
+  "support_need_chance": 5,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 110,
+  "title": "Koolilapse kadumine hommikul",
+  "description": "Laps ei ilmunud kooli ja vanemad ei saa temaga ühendust. Viimati nähti teda bussipeatuses.",
+  "support_need_chance": 35,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 111,
+  "title": "Parkimisvaidlus eskaleerus sõimamiseks",
+  "description": "Kahe autojuhi vaidlus parkimiskoha üle muutus valjuks ja ähvardavaks.",
+  "support_need_chance": 2,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 112,
+  "title": "Kahtlane lõhn trepikojas",
+  "description": "Kortermajas levib tugev keemiline või mädanenud lõhn. Elanikud on mures.",
+  "support_need_chance": 6,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 113,
+  "title": "Taksosõitja keeldus maksmast",
+  "description": "Taksosõitja jõudis sihtkohta ja keeldus arvet tasumast, ähvardades juhti.",
+  "support_need_chance": 4,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 114,
+  "title": "Järelvalveta laps mängib rõdul",
+  "description": "Väike laps on üksinda kortermaja rõdul ega reageeri koputustele. Vanemaid ei ole näha.",
+  "support_need_chance": 13,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 115,
+  "title": "Ilutulestik öisel ajal",
+  "description": "Linna äärealal lasti öösel ilutulestikku, mis häiris elanikke ja äratas lapsed.",
+  "support_need_chance": 3,
+  "bonus_officers_type": null,
+  "inV1": false
+ },
+ {
+  "n": 116,
+  "title": "Ulmepargiga seotud viga",
+  "description": "Virtuaalreaalsuse pargis on juhtunud tõrge ja inimesed on lõksus oma simulaatorites.",
+  "support_need_chance": 0,
+  "bonus_officers_type": null,
+  "inV1": true,
+  "onlyV1": true
+ }
+]

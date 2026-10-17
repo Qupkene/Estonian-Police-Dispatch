@@ -1,0 +1,11 @@
+# EPD (politsei.eu): /api/deploy-hook kirjutab pileti, see käivitab uuenduse kohe.
+# Skript kustutab pileti esimese asjana, muidu käivituks teenus ringiratast.
+[Unit]
+Description=EPD politsei.eu uuenduse pilet (GitHubi webhook)
+
+[Path]
+PathExists=/opt/stack/politsei/data/control/uuenda.json
+Unit=politsei-uuenda.service
+
+[Install]
+WantedBy=multi-user.target

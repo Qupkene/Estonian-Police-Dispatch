@@ -1,0 +1,557 @@
+/**
+ * Engine entry points (engine-core): createShift, step, drainEvents, finalizeShift.
+ * See DESIGN §4. The SimState is mutated in place and stays JSON-serialisable.
+ */
+import { ageOf, describePerson, describeVehicle } from '@/gen/describe';
+import { generatePerson } from '@/gen/person';
+import { generateVehicle } from '@/gen/vehicle';
+import { dayInfo } from './calendar';
+import { updateCalls } from './calls';
+import { emit, regionOf } from './internal';
+import { isHidden, openIncidentIds, updateIncidents } from './incidents';
+import { jkPhrase } from './radio';
+import { buildReport } from './report';
+import { Rng } from './rng';
+import { updateShiftScore } from './scoring';
+import { updateSpawner } from './spawner';
+import { ddmmyyyy, hhmm, isoDate, MIN, seasonOf, wall, DAY } from './time';
+import { buildUnits, updateUnits } from './units';
+import { initialWeather, updateWeather } from './weather';
+import type {
+  Bulletin,
+  GameEvent,
+  NewShiftOptions,
+  Person,
+  PersonSpec,
+  Priority,
+  RegionDef,
+  ShiftReport,
+  ShiftStats,
+  SimState,
+  Text,
+  Vehicle,
+} from './types';
+
+const T = (et: string, en: string): Text => ({ et, en });
+
+/** Engine sub-step length (game ms). */
+export const SUBSTEP_MS = 5_000;
+/** Overtime after the shift end while P1/P2 events are still open. */
+export const OVERTIME_MS = 60 * MIN;
+
+export function emptyStats(): ShiftStats {
+  return {
+    incidents: 0,
+    closed: 0,
+    byPriority: { 1: 0, 2: 0, 3: 0, 4: 0 },
+    responseTimes: { 1: [], 2: [], 3: [], 4: [] },
+    arrests: 0,
+    civilianInjuries: 0,
+    officerInjuries: 0,
+    escaped: 0,
+    expired: 0,
+    falseAlarms: 0,
+    referralsCorrect: 0,
+    referralsWrong: 0,
+    queries: 0,
+    repliesCorrect: 0,
+    repliesWrong: 0,
+    beatsMissed: 0,
+    pursuits: 0,
+    pursuitsCaught: 0,
+    callsAnswered: 0,
+    callsMissed: 0,
+    score: 0,
+  };
+}
+
+/** 'day' when the shift starts 06:00-17:59 local time, else 'night'. */
+export function shiftKindOf(start: number): 'day' | 'night' {
+  const h = wall(start).hour;
+  return h >= 6 && h < 18 ? 'day' : 'night';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// createShift
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function createShift(opts: NewShiftOptions): SimState {
+  const seed = opts.seed >>> 0;
+  const s: SimState = {
+    version: 2,
+    seed,
+    rng: (seed ^ 0x9e3779b9) >>> 0 || 1,
+    mode: opts.mode,
+    difficulty: opts.difficulty,
+    regionId: opts.regionId,
+    playerName: opts.playerName,
+    startTime: opts.start,
+    endTime: opts.start + Math.max(0.25, opts.hours) * 3_600_000,
+    now: opts.start,
+    ended: false,
+    weather: { kind: 'clear', tempC: 5, windMs: 3, roadFactor: 1, text: T('Selge', 'Clear') },
+    units: {},
+    unitOrder: [],
+    incidents: {},
+    incidentOrder: [],
+    persons: {},
+    vehicles: {},
+    radio: [],
+    calls: [],
+    bulletins: [],
+    queries: [],
+    events: [],
+    seq: { incident: 0, radio: 0, person: 0, call: 0, bulletin: 0 },
+    nextSpawnAt: opts.start,
+    trust: 50,
+    stats: emptyStats(),
+    flags: {},
+  };
+  const region = regionOf(s);
+  if (!region) throw new Error(`createShift: unknown region ${opts.regionId}`);
+  // Independent sub-streams so content changes in one part don't reshuffle the others.
+  const root = new Rng(s.rng);
+  const rWeather = root.fork(1);
+  const rUnits = root.fork(2);
+  const rReg = root.fork(3);
+  const rMisc = root.fork(4);
+  s.rng = root.int(1, 0xffffffff);
+
+  s.flags.shiftKind = shiftKindOf(opts.start);
+  s.flags.autoSpawn = opts.mode !== 'director';
+  s.flags.kmDriven = 0;
+  for (const u of opts.upgrades ?? []) s.flags[`upg:${u}`] = true;
+  if (opts.weather) s.flags['wx:locked'] = true;
+
+  try {
+    s.weather = initialWeather(rWeather, opts.start, opts.weather, opts.regionId);
+  } catch (err) {
+    console.warn('[EPD] initialWeather failed', err);
+  }
+  s.flags['wx:last'] = opts.start;
+
+  if (opts.reputation !== undefined) s.trust = Math.round(Math.max(15, Math.min(90, 50 + (opts.reputation - 25) / 2)));
+
+  buildUnits(s, rUnits, opts);
+  populateRegistry(s, rReg, region);
+  addLegends(s);
+  addBulletins(s, rMisc, region);
+
+  s.nextSpawnAt = opts.start + rMisc.range(1, 3) * MIN;
+
+  jkPhrase(s, 'shiftStart', { kind: 'info', vars: { n: String(s.unitOrder.length) } });
+  s.events = [];
+  return s;
+}
+
+// ── Registry background population (DESIGN §4.10) ───────────────────────────
+
+const BACKGROUND_SPEC: PersonSpec = {
+  role: 'witness',
+  wanted: 0.03,
+  record: 0.2,
+  weapon: 0.05,
+  noLicense: 0.06,
+  probation: 0.03,
+  restraining: 0.015,
+};
+
+function populateRegistry(s: SimState, r: Rng, region: RegionDef): void {
+  const people: Person[] = [];
+  for (let i = 0; i < 150; i++) {
+    try {
+      // No explicit lang/age: gen/person applies the regional demographics.
+      const p = generatePerson(r, { id: `p${++s.seq.person}`, now: s.now, region, spec: BACKGROUND_SPEC });
+      s.persons[p.id] = p;
+      people.push(p);
+    } catch (err) {
+      if (i === 0) console.warn('[EPD] generatePerson failed', err);
+      break;
+    }
+  }
+  if (!people.length) return;
+  for (let i = 0; i < 60; i++) {
+    const owner = r.pick(people);
+    try {
+      const v = generateVehicle(r, {
+        now: s.now,
+        owner,
+        region: s.regionId,
+        isTaken: (pl) => !!s.vehicles[pl],
+        spec: { role: 'involved', stolen: 0.04, noInsurance: 0.05, noInspection: 0.07, suspended: 0.015 },
+      });
+      if (s.vehicles[v.plate]) continue;
+      if (!v.ownerCompany) v.ownerId = owner.id;
+      if (v.ownerId === owner.id && !owner.vehicles.includes(v.plate)) owner.vehicles.push(v.plate);
+      s.vehicles[v.plate] = v;
+    } catch (err) {
+      if (i === 0) console.warn('[EPD] generateVehicle failed', err);
+      break;
+    }
+  }
+}
+
+// ── The two legends from the 2025 version ───────────────────────────────────
+
+const LEGEND_NOTE = T('LEGEND 2025: EPD 2025. aasta versiooni legendaarne tagaotsitav.', 'LEGEND 2025: legendary wanted person from the 2025 version of EPD.');
+
+function legendPerson(base: Omit<Person, 'notes' | 'vehicles' | 'flags'> & { flags: Person['flags']; extra: Text[] }): Person {
+  const { extra, ...p } = base;
+  return { ...p, vehicles: [], notes: [LEGEND_NOTE, ...extra] };
+}
+
+export function addLegends(s: SimState): void {
+  const okimum = legendPerson({
+    id: 'legend-okimum',
+    idcode: '50403140273',
+    firstName: 'Rainer',
+    lastName: 'Okimum',
+    gender: 'M',
+    birthDate: '2004-03-14',
+    citizenship: 'EST',
+    lang: 'et',
+    address: 'Tallinn',
+    city: 'Tallinn',
+    phone: '+372 5555 2025',
+    occupation: T('CSS koodi kirjutaja', 'CSS code writer'),
+    appearance: {
+      heightCm: 181,
+      build: 'slim',
+      hair: 'short',
+      hairColor: 'brown',
+      eyes: 'blue',
+      glasses: true,
+      clothing: T('must kapuutsiga pusa, kõrvaklapid', 'black hoodie, headphones'),
+    },
+    license: { status: 'suspended', categories: ['B'] },
+    records: [
+      { date: '2024-11-02', lawId: 'ls_fleeing', kind: 'misdemeanour', punishment: T('„Kriminaalne mittepeatumine“: juhtimisõiguse peatamine', '“Criminal failure to stop”: licence suspended') },
+      { date: '2025-02-14', lawId: 'kars_263', kind: 'crime', punishment: T('„Tule avamine relvast avalikus kohas“: 2 a vangistust', '“Opening fire in a public place”: 2 years in prison') },
+      { date: '2025-06-23', lawId: 'kars_121', kind: 'crime', punishment: T('„Kehavigastuste tekitamine“: tingimisi vangistus', '“Causing bodily injuries”: suspended sentence') },
+    ],
+    flags: {
+      wanted: {
+        reason: T('Kriminaalne mittepeatumine, tule avamine avalikus kohas', 'Criminal failure to stop, opening fire in public'),
+        since: '2025-01-01',
+        dangerous: true,
+        armed: true,
+        authority: 'Harju Maakohus',
+      },
+    },
+    avatarSeed: 2025_0001,
+    extra: [T('Varasemad juhtumid: Kriminaalne mittepeatumine; Tule avamine relvast avalikus kohas; Kehavigastuste tekitamine.', 'Previous cases: criminal failure to stop; opening fire in a public place; causing bodily injuries.')],
+  });
+  const sarmert = legendPerson({
+    id: 'legend-sarmert',
+    idcode: '18804014383',
+    firstName: 'Magnus',
+    lastName: 'Sarmert 「✔ ᵛᵉʳᶦᶠᶦᵉᵈ」',
+    gender: 'M',
+    birthDate: '1588-04-01',
+    citizenship: 'EST',
+    lang: 'et',
+    address: 'Tallinn',
+    city: 'Tallinn',
+    phone: '+372 5438 0001',
+    occupation: T('Hesburgeri klienditeenindaja', 'Hesburger customer service worker'),
+    appearance: {
+      heightCm: 176,
+      build: 'average',
+      hair: 'curly',
+      hairColor: 'grey',
+      eyes: 'green',
+      beard: 'full',
+      clothing: T('kiirtoidurestorani vormiriided, nimesilt', 'fast-food uniform with a name tag'),
+    },
+    license: { status: 'expired', categories: ['B'], validUntil: '1999-12-31' },
+    records: [
+      { date: '2023-05-05', lawId: 'kars_25_114', kind: 'crime', punishment: T('„Mõrvakatse“: 8 a vangistust', '“Attempted murder”: 8 years in prison') },
+      { date: '2024-08-17', lawId: 'kars_118', kind: 'crime', punishment: T('„Toidumürgitamine“: 3 a vangistust', '“Food poisoning”: 3 years in prison') },
+      { date: '2025-03-30', lawId: 'kars_200_2', kind: 'crime', punishment: T('„Relvastatud Hesburgerirööv“: tagaotsitav', '“Armed Hesburger robbery”: wanted') },
+    ],
+    flags: {
+      wanted: {
+        reason: T('Relvastatud Hesburgerirööv, mõrvakatse', 'Armed Hesburger robbery, attempted murder'),
+        since: '2025-03-30',
+        dangerous: true,
+        armed: true,
+        authority: 'Põhja Ringkonnaprokuratuur',
+      },
+    },
+    avatarSeed: 2025_0438,
+    extra: [T('Varasemad juhtumid: Mõrvakatse; Toidumürgitamine; Relvastatud Hesburgerirööv. Vanus 438 a (kinnitatud).', 'Previous cases: attempted murder; food poisoning; armed Hesburger robbery. Age 438 (verified).')],
+  });
+  s.persons[okimum.id] = okimum;
+  s.persons[sarmert.id] = sarmert;
+}
+
+// ── Bulletins: BOLO, päevakäsk, weather ─────────────────────────────────────
+
+function pushBulletin(s: SimState, b: Omit<Bulletin, 'id' | 't'>): Bulletin {
+  const out: Bulletin = { id: `b${++s.seq.bulletin}`, t: s.now, ...b };
+  s.bulletins.push(out);
+  return out;
+}
+
+function descPerson(p: Person, now: number): Text {
+  try {
+    return describePerson(p, now);
+  } catch {
+    return T(p.gender === 'M' ? 'mees' : 'naine', p.gender === 'M' ? 'man' : 'woman');
+  }
+}
+
+function descVehicle(v: Vehicle): Text {
+  try {
+    return describeVehicle(v);
+  } catch {
+    return T(`${v.make} ${v.model} (${v.plate})`, `${v.make} ${v.model} (${v.plate})`);
+  }
+}
+
+const WANTED_REASONS: Text[] = [
+  T('Kahtlustatav korduvas vargustes, kohus kuulutas tagaotsitavaks.', 'Suspected of repeated thefts, declared wanted by the court.'),
+  T('Hoidub kõrvale vangistuse kandmisest.', 'Evading a prison sentence.'),
+  T('Kahtlustatav kehalises väärkohtlemises, ei ilmunud menetlusse.', 'Suspected of assault, failed to appear in proceedings.'),
+  T('Kahtlustatav kelmuses, varjab end.', 'Suspected of fraud, in hiding.'),
+  T('Rikkus kriminaalhoolduse tingimusi.', 'Breached probation conditions.'),
+];
+
+/** Capitalised sentence with a closing full stop. */
+function sentence(t: string): string {
+  const x = t.trim();
+  if (!x) return x;
+  const c = x.charAt(0).toUpperCase() + x.slice(1);
+  return /[.!?]$/.test(c) ? c : c + '.';
+}
+
+function addBulletins(s: SimState, r: Rng, region: RegionDef): void {
+  const now = s.now;
+  const persons = Object.values(s.persons).filter((p) => !p.id.startsWith('legend-'));
+  const vehicles = Object.values(s.vehicles);
+  // BOLO vehicles (stolen).
+  const nVeh = vehicles.length ? r.int(1, 2) : 0;
+  let stolen = vehicles.filter((v) => v.flags.stolen);
+  while (stolen.length < nVeh && vehicles.length) {
+    const v = r.pick(vehicles);
+    if (!v.flags.stolen) {
+      v.flags.stolen = { since: isoDate(now - r.int(1, 12) * DAY), text: T('Varastatud omaniku elukoha juurest', 'Stolen from outside the owner’s home') };
+      stolen = vehicles.filter((x) => x.flags.stolen);
+    }
+  }
+  for (const v of r.shuffle([...stolen]).slice(0, nVeh)) {
+    const car = descVehicle(v);
+    pushBulletin(s, {
+      kind: 'bolo_vehicle',
+      title: T(`Otsitav sõiduk: ${v.plate}`, `Vehicle BOLO: ${v.plate}`),
+      text: {
+        et: `Varastatud ${car.et}. Varguse aeg ${v.flags.stolen?.since ?? ''}. Märkamisel teavitada juhtimiskeskust, mitte sekkuda üksi. ANPR hoiatus aktiivne.`,
+        en: `Stolen ${car.en}. Stolen on ${v.flags.stolen?.since ?? ''}. If seen, notify control, do not intervene alone. ANPR alert active.`,
+      },
+      plate: v.plate,
+    });
+  }
+  // BOLO persons (wanted).
+  const nPer = persons.length ? r.int(1, 2) : 0;
+  let wanted = persons.filter((p) => p.flags.wanted);
+  while (wanted.length < nPer && persons.length) {
+    const p = r.pick(persons);
+    if (!p.flags.wanted) {
+      p.flags.wanted = {
+        reason: r.pick(WANTED_REASONS),
+        since: isoDate(now - r.int(5, 200) * DAY),
+        dangerous: r.chance(0.2),
+        authority: r.pick(['Harju Maakohus', 'Tartu Maakohus', 'Viru Maakohus', 'Pärnu Maakohus']),
+      };
+      wanted = persons.filter((x) => x.flags.wanted);
+    }
+  }
+  for (const p of r.shuffle([...wanted]).slice(0, nPer)) {
+    const d = descPerson(p, now);
+    const reason = p.flags.wanted!.reason;
+    let age = 0;
+    try {
+      age = ageOf(p, now);
+    } catch {
+      age = 30;
+    }
+    pushBulletin(s, {
+      kind: 'bolo_person',
+      title: T(`Tagaotsitav: ${p.firstName} ${p.lastName}`, `Wanted: ${p.firstName} ${p.lastName}`),
+      text: {
+        et: `${p.firstName} ${p.lastName} (${age}), isikukood ${p.idcode}. ${sentence(d.et)} ${sentence(reason.et)}${p.flags.wanted!.dangerous ? ' Võib olla ohtlik!' : ''}`,
+        en: `${p.firstName} ${p.lastName} (${age}), ID code ${p.idcode}. ${sentence(d.en)} ${sentence(reason.en)}${p.flags.wanted!.dangerous ? ' May be dangerous!' : ''}`,
+      },
+      personId: p.id,
+    });
+  }
+  if (r.chance(0.15)) {
+    pushBulletin(s, {
+      kind: 'bolo_person',
+      title: T('Tagaotsitav: Rainer Okimum', 'Wanted: Rainer Okimum'),
+      text: T(
+        'LEGEND 2025. Kriminaalne mittepeatumine, tule avamine relvast avalikus kohas. Viimati nähtud CSS-i kirjutamas. Ohtlik!',
+        'LEGEND 2025. Criminal failure to stop, opening fire in public. Last seen writing CSS. Dangerous!',
+      ),
+      personId: 'legend-okimum',
+    });
+  }
+
+  // Päevakäsk from the prefecture commander.
+  const w = wall(now);
+  const night = s.flags.shiftKind === 'night';
+  const season = seasonOf(w.month);
+  const focus: Text[] = [];
+  if (night) focus.push(T('joobes juhid ja öörahu rikkumised', 'drunk drivers and night-quiet violations'));
+  else focus.push(T('liiklusjärelevalve koolide ja lasteaedade juures', 'traffic enforcement near schools and kindergartens'));
+  if (w.weekday >= 4) focus.push(T('meelelahutusasutuste ümbrus ja lähisuhtevägivald', 'nightlife areas and domestic violence'));
+  if (season === 'winter') focus.push(T('libedus ja liiklusõnnetused', 'icy roads and traffic accidents'));
+  else if (season === 'summer') focus.push(T('veekogud, rannad ja suvilapiirkonnad', 'lakes, beaches and summer-house areas'));
+  else if (season === 'autumn') focus.push(T('pimeda ajal jalakäijate nähtavus', 'pedestrian visibility after dark'));
+  else focus.push(T('kevadised kulupõlengud ja mootorrattad', 'spring grass fires and motorcycles'));
+  let holiday: Text | undefined;
+  try {
+    holiday = dayInfo(now).holiday;
+  } catch {
+    holiday = undefined;
+  }
+  if (holiday) focus.push(T(`${holiday.et}: eeldada tavapärasest suuremat koormust`, `${holiday.en}: expect a heavier load than usual`));
+  const cmd = region.commander;
+  const sig = cmd ? T(`${cmd.title.et} ${cmd.name}`, `${cmd.title.en} ${cmd.name}`) : T(`${region.name.et}, prefekt`, `${region.name.en}, prefect`);
+  pushBulletin(s, {
+    kind: 'order',
+    title: T(`Päevakäsk ${ddmmyyyy(now)}`, `Orders of the day ${ddmmyyyy(now)}`),
+    text: {
+      et: `${region.name.et}. Vahetus algab kell ${hhmm(now)}, teenistuses ${s.unitOrder.length} üksust. Vahetuse operatiivinfo haldur: ${s.playerName}. Erilist tähelepanu: ${focus.map((f) => f.et).join('; ')}. Kõik ekipaažid kannavad kehakaameraid, ohutus ennekõike. Allkiri: ${sig.et}`,
+      en: `${region.name.en}. Shift starts at ${hhmm(now)}, ${s.unitOrder.length} units on duty. Dispatcher on shift: ${s.playerName}. Special attention: ${focus.map((f) => f.en).join('; ')}. All crews wear body cameras, safety first. Signed: ${sig.en}`,
+    },
+  });
+  // Weather.
+  const wx = s.weather;
+  const icy = wx.roadFactor >= 1.2;
+  const temp = (t: string, lang: 'et' | 'en') =>
+    /°C/.test(t) ? '' : lang === 'et' ? ` Õhutemperatuur ${String(Math.round(wx.tempC)).replace('-', '−')} °C.` : ` Air temperature ${Math.round(wx.tempC)} °C.`;
+  pushBulletin(s, {
+    kind: 'weather',
+    title: T('Ilm ja teeolud', 'Weather and road conditions'),
+    text: {
+      et: `${sentence(wx.text.et)}${temp(wx.text.et, 'et')} Tuul ${Math.round(wx.windMs)} m/s.${icy ? ' Teed on libedad. Arvestage pikema sõiduajaga.' : ''}`,
+      en: `${sentence(wx.text.en)}${temp(wx.text.en, 'en')} Wind ${Math.round(wx.windMs)} m/s.${icy ? ' Roads are slippery. Expect longer travel times.' : ''}`,
+    },
+  });
+  if (holiday) {
+    pushBulletin(s, {
+      kind: 'event',
+      title: holiday,
+      text: T('Pühade ajal on oodata rohkem väljakutseid, eriti õhtul ja öösel.', 'Expect more call-outs over the holiday, especially in the evening and at night.'),
+    });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// step
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function step(s: SimState, dtGameMs: number): void {
+  if (s.ended || !(dtGameMs > 0)) return;
+  let left = dtGameMs;
+  while (left > 0 && !s.ended) {
+    const h = Math.min(SUBSTEP_MS, left);
+    left -= h;
+    s.now += h;
+    substep(s, h);
+  }
+}
+
+function substep(s: SimState, h: number): void {
+  try {
+    updateWeather(s);
+  } catch (err) {
+    console.warn('[EPD] updateWeather failed', err);
+  }
+  updateSpawner(s);
+  updateUnits(s, h);
+  updateIncidents(s, h);
+  try {
+    updateCalls(s);
+  } catch (err) {
+    console.warn('[EPD] updateCalls failed', err);
+  }
+  checkShiftEnd(s);
+}
+
+function checkShiftEnd(s: SimState): void {
+  if (s.now < s.endTime || s.mode === 'director') return;
+  if (!s.flags.endAnnounced) {
+    s.flags.endAnnounced = true;
+    jkPhrase(s, 'shiftEnd', { kind: 'info' });
+  }
+  const urgent = openIncidentIds(s).some((id) => {
+    const inc = s.incidents[id];
+    return !!inc && inc.state !== 'closed' && !isHidden(s, inc) && Math.min(inc.priority, inc.truePriority) <= 2;
+  });
+  if (!urgent || s.now >= s.endTime + OVERTIME_MS) {
+    s.ended = true;
+    updateShiftScore(s);
+    emit(s, { type: 'shift_end', text: T('Vahetus lõppenud', 'Shift over') });
+  }
+}
+
+export function drainEvents(s: SimState): GameEvent[] {
+  const out = s.events;
+  s.events = [];
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// finalizeShift
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function finalizeShift(s: SimState): ShiftReport {
+  updateShiftScore(s);
+  try {
+    return buildReport(s);
+  } catch (err) {
+    console.warn('[EPD] buildReport failed, using a minimal report', err);
+    return minimalReport(s);
+  }
+}
+
+function gradeOf(score: number): ShiftReport['grade'] {
+  return score >= 90 ? 'S' : score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 35 ? 'D' : 'F';
+}
+
+function minimalReport(s: SimState): ShiftReport {
+  const avg: Partial<Record<Priority, number>> = {};
+  for (const p of [1, 2, 3, 4] as Priority[]) {
+    const xs = s.stats.responseTimes[p];
+    if (xs.length) avg[p] = Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10;
+  }
+  const score = s.stats.score;
+  return {
+    regionId: s.regionId,
+    mode: s.mode,
+    difficulty: s.difficulty,
+    start: s.startTime,
+    end: s.now,
+    playerName: s.playerName,
+    stats: s.stats,
+    avgResponse: avg,
+    score,
+    grade: gradeOf(score),
+    xp: Math.round(score * 2 + s.stats.closed * 5),
+    reputationDelta: Math.round((score - 55) / 10),
+    earnings: { bonus: 0, fuel: 0, overtime: 0, fines: 0, total: 0 },
+    kmDriven: Number(s.flags.kmDriven) || 0,
+    injuredOfficers: [],
+    officerXp: {},
+    highlights: [],
+    newspaper: {
+      masthead: 'EPD Teataja',
+      date: ddmmyyyy(s.now),
+      headline: T('Vahetus lõppes', 'Shift over'),
+      sub: T(`${s.stats.closed} sündmust lahendatud`, `${s.stats.closed} events handled`),
+      stories: [],
+    },
+  };
+}

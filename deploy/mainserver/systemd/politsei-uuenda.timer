@@ -1,0 +1,13 @@
+# EPD (politsei.eu): varukontroll, kui webhook jäi tulemata. Võrdleb origin/main tippu
+# failiga www/version.txt ja ehitab ainult siis, kui need erinevad.
+[Unit]
+Description=EPD politsei.eu uuenduse kontroll iga 10 minuti järel
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+Persistent=true
+Unit=politsei-uuenda.service
+
+[Install]
+WantedBy=timers.target
