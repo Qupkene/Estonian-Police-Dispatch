@@ -28,11 +28,23 @@ jobs:
           node-version: 22
           cache: npm
 
+      # The PHP API (server/) is tested against `php -S`, the same PHP the FrankenPHP image ships.
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_sqlite, mbstring
+          coverage: none
+
       - name: Install dependencies
         run: npm ci
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: PHP lint
+        run: |
+          if [ -d server ]; then find server -name '*.php' -print0 | xargs -0 -r -n1 php -l; fi
 
       - name: Unit tests
         run: npm test
@@ -56,6 +68,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      # The PHP API (server/) is tested against `php -S`, the same PHP the FrankenPHP image ships.
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_sqlite, mbstring
+          coverage: none
 
       - name: Install dependencies
         run: npm ci
