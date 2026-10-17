@@ -4,7 +4,7 @@ import { useLang, useT, useTx } from '@/i18n';
 import * as rules from '@/sim/career';
 import { Avatar, Button, Empty, Icon, Meter } from '@/ui/components';
 import type { Candidate, CareerProfile, Text, UnitType } from '@/sim/types';
-import { affordability, calendarOf, costsOf, fmtMoney, levelTone, monthlyBudget, pct, sortRows, UNIT_ICON, type Affordability } from './helpers';
+import { affordability, calendarOf, costsOf, fmtMoney, levelTone, monthlyBudget, pct, safe, sortRows, UNIT_ICON, type Affordability } from './helpers';
 import { SpecialtyFilter } from './bits';
 import { useToast } from './Toasts';
 
@@ -45,7 +45,7 @@ export function RecruitTab({ profile }: { profile: CareerProfile }) {
       return;
     }
     setHired(c.id);
-    notify('ok', t('career.recruit.hired', { name }), t('career.recruit.hiredSub', { spec: t(`career.spec.${c.specialty}`), salary: fmtMoney(c.salary, lang) }));
+    notify('ok', t('career.recruit.hired', { name }), t('career.recruit.hiredSub', { spec: t(`career.spec.${c.specialty}`), salary: fmtMoney(c.salary, lang), cost: fmtMoney(hireCostOf(c), lang) }));
   };
 
   return (
@@ -102,7 +102,8 @@ export function RecruitTab({ profile }: { profile: CareerProfile }) {
                 key={c.id}
                 c={c}
                 fresh={hired === c.id}
-                aff={affordability(profile, c.salary, 0, costs, budget)}
+                cost={hireCostOf(c)}
+                aff={affordability(profile, c.salary, hireCostOf(c), costs, budget)}
                 onHire={() => hire(c)}
               />
             ))}
@@ -113,7 +114,12 @@ export function RecruitTab({ profile }: { profile: CareerProfile }) {
   );
 }
 
-function CandidateCard({ c, aff, onHire, fresh }: { c: Candidate; aff: Affordability; onHire: () => void; fresh: boolean }) {
+/** Up-front cost of hiring (rules: first month's pay incl. gear); falls back to one monthly salary. */
+function hireCostOf(c: Candidate): number {
+  return safe(() => rules.hireCost(c), c.salary);
+}
+
+function CandidateCard({ c, aff, cost, onHire, fresh }: { c: Candidate; aff: Affordability; cost: number; onHire: () => void; fresh: boolean }) {
   const t = useT();
   const tx = useTx();
   const lang = useLang();
@@ -141,9 +147,11 @@ function CandidateCard({ c, aff, onHire, fresh }: { c: Candidate; aff: Affordabi
       <Meter value={c.skill} tone={levelTone(c.skill)} label={t('career.staff.col.skill')} />
       {c.bio && <p className="cr-cand__bio">“{tx(c.bio)}”</p>}
       <div className="cr-cand__foot">
-        <div className="cr-cand__salary">
+        <div className="cr-cand__salary" title={t('career.recruit.costHint')}>
           <strong className="mono">{fmtMoney(c.salary, lang)}</strong>
-          <span className="dim">{t('career.perMonth')}</span>
+          <span className="dim">
+            {t('career.perMonth')} · {t('career.recruit.cost', { cost: fmtMoney(cost, lang) })}
+          </span>
         </div>
         <span className={`cr-aff cr-aff--${aff}`}>
           <Icon name={aff === 'ok' ? 'check' : aff === 'tight' ? 'warning' : 'x'} size={12} />

@@ -29,7 +29,7 @@ export function UnitPanel() {
       </div>
     );
   }
-  return <UnitDetail sim={sim} u={u} selIncId={selInc && selInc.state !== 'closed' ? selInc.id : undefined} />;
+  return <UnitDetail key={u.id} sim={sim} u={u} selIncId={selInc && selInc.state !== 'closed' ? selInc.id : undefined} />;
 }
 
 function CrewCard({ o, fatigue }: { o: Officer; fatigue: number }) {
@@ -122,7 +122,7 @@ function UnitDetail({ sim, u, selIncId }: { sim: SimState; u: Unit; selIncId?: s
           <dd className="mono">{Math.round(u.fatigue * 100)}%</dd>
         </div>
         <div>
-          <dt>{t('game.tab.incident')}</dt>
+          <dt>{t('game.shift')}</dt>
           <dd className="mono">
             {t('game.unit.handled', { n: u.handled })} · {t('game.unit.breaks', { n: u.breaks })}
           </dd>
@@ -132,7 +132,7 @@ function UnitDetail({ sim, u, selIncId }: { sim: SimState; u: Unit; selIncId?: s
       <Section title={t('game.unit.task')} icon="route">
         <div className="gm-unit__task">
           <span className="gm-unit__task-label">{task}</span>
-          {eta !== null && <span className="gm-unit__eta mono">ETA {countdown(eta)}</span>}
+          {eta !== null && <span className="gm-unit__eta mono">{t('game.eta', { t: countdown(eta) })}</span>}
           {u.busyUntil && u.busyUntil > sim.now && u.status === 'busy' && (
             <span className="gm-unit__eta mono">{t('game.unit.busyUntil', { t: hhmm(u.busyUntil) })}</span>
           )}
@@ -159,14 +159,14 @@ function UnitDetail({ sim, u, selIncId }: { sim: SimState; u: Unit; selIncId?: s
           {selInc ? t('game.unit.sendTo', { n: `${selInc.code} · ${selInc.number.split('-').pop()}` }) : t('game.inc.send')}
         </Button>
         {u.incidentId && (
-          <Button icon="x" onClick={() => recallUnit(u.id)}>
+          <Button size="sm" icon="x" onClick={() => recallUnit(u.id)}>
             {t('game.inc.recall')}
           </Button>
         )}
-        <Button icon={onBreak ? 'play' : 'pause'} disabled={!canBreak} onClick={() => setUnitBreak(u.id, !onBreak)}>
+        <Button size="sm" icon={onBreak ? 'play' : 'pause'} disabled={!canBreak} onClick={() => setUnitBreak(u.id, !onBreak)}>
           {onBreak ? t('game.unit.endBreak') : t('game.unit.break')}
         </Button>
-        <Button icon="map" onClick={() => g.focusMap(u.pos, 15)}>
+        <Button size="sm" icon="map" onClick={() => g.focusMap(u.pos, 15)}>
           {t('game.inc.showOnMap')}
         </Button>
       </div>

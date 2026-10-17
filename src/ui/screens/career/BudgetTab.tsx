@@ -20,7 +20,7 @@ const KIND_ICON: Record<LedgerEntry['kind'], Parameters<typeof Icon>[0]['name']>
   other: 'list',
 };
 
-const PAGE = 60;
+const PAGE = 30;
 
 export function BudgetTab({ profile }: { profile: CareerProfile }) {
   const t = useT();
@@ -156,7 +156,7 @@ export function BudgetTab({ profile }: { profile: CareerProfile }) {
             </table>
             {rows.length > limit && (
               <div className="cr-more">
-                <Button size="sm" variant="ghost" icon="chevron-down" onClick={() => setLimit((l) => l + PAGE * 2)}>
+                <Button size="sm" variant="ghost" icon="chevron-down" onClick={() => setLimit((l) => l + PAGE * 3)}>
                   {t('career.showMore', { n: rows.length - limit })}
                 </Button>
               </div>

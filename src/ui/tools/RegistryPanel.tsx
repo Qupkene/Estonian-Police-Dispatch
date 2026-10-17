@@ -9,18 +9,15 @@ import { Avatar, Button, Empty, Icon, IconButton, Segmented } from '@/ui/compone
 import { ageAt, isLegend, querySubject, queriesForRecord, uncheckedLinks, vehicleByPlate, type RecordRef } from './lib/helpers';
 import { pending, pFlags, run, searchP, searchV, TEMPLATES_BY_ID, useSim, vFlags } from './lib/engine';
 import { FlagDots, Plate } from './parts';
+import { useRegistryUi, type RegMode, type RegResults, type RegView } from './lib/registryUi';
 import { PersonCard } from './registry/PersonCard';
 import { VehicleCard } from './registry/VehicleCard';
 import { ClassicProfile } from './registry/ClassicProfile';
 import './tools.css';
 
-type Mode = 'person' | 'vehicle';
-type View = { kind: 'person'; id: string } | { kind: 'vehicle'; plate: string };
-interface Results {
-  kind: Mode;
-  q: string;
-  ids: string[];
-}
+type Mode = RegMode;
+type View = RegView;
+type Results = RegResults;
 
 const CLASSIC_KEY = 'epd:tools:classic';
 
@@ -42,15 +39,18 @@ export function RegistryPanel() {
   const registryQuery = useGame((g) => g.registryQuery);
   const selPerson = useGame((g) => g.selection.personId);
   const selPlate = useGame((g) => g.selection.plate);
+  const shift = sim ? `${sim.seed}:${sim.startTime}` : '';
 
-  const [mode, setMode] = useState<Mode>('person');
-  const [input, setInput] = useState('');
-  const [results, setResults] = useState<Results | null>(null);
-  const [trail, setTrail] = useState<View[]>([]);
+  const ui = useRegistryUi();
+  const { mode, input, results, trail, showHistory } = ui.shift === shift ? ui : { ...ui, mode: 'person' as Mode, input: '', results: null, trail: [] as View[], showHistory: false };
   const [classic, setClassic] = useState(readClassic);
-  const [showHistory, setShowHistory] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const view = trail[trail.length - 1] ?? null;
+  const setUi = useRegistryUi.getState().set;
+  const setMode = (m: Mode) => setUi({ mode: m });
+  const setInput = (v: string) => setUi({ input: v });
+  const setTrail = (fn: (tr: View[]) => View[]) => setUi({ trail: fn(useRegistryUi.getState().trail) });
+  const setShowHistory = (fn: (h: boolean) => boolean) => setUi({ showHistory: fn(useRegistryUi.getState().showHistory) });
 
   const open = (v: View, push = false) => setTrail((tr) => (push ? [...tr, v] : [v]));
 
@@ -58,27 +58,35 @@ export function RegistryPanel() {
     const query = q.trim();
     if (!query) return;
     const out = run((s) => (kind === 'person' ? searchP(s, query).map((p) => p.id) : searchV(s, query).map((v) => v.plate))) ?? [];
-    setResults({ kind, q: query, ids: out });
-    setShowHistory(false);
-    if (out.length === 1) open(kind === 'person' ? { kind: 'person', id: out[0] } : { kind: 'vehicle', plate: out[0] });
-    else setTrail([]);
+    setUi({
+      results: { kind, q: query, ids: out },
+      showHistory: false,
+      trail: out.length === 1 ? [kind === 'person' ? { kind: 'person', id: out[0] } : { kind: 'vehicle', plate: out[0] }] : [],
+    });
   };
 
-  // External requests: openRegistry(kind, q) from radio / incident panel / bulletins.
+  // New shift → fresh panel state.
   useEffect(() => {
-    if (!registryQuery) return;
-    setMode(registryQuery.kind);
-    setInput(registryQuery.q);
+    if (shift) useRegistryUi.getState().syncShift(shift);
+  }, [shift]);
+
+  // External requests: openRegistry(kind, q) from radio / incident panel / bulletins (each request handled once).
+  useEffect(() => {
+    if (!registryQuery || registryQuery.n === useRegistryUi.getState().handledN) return;
+    useRegistryUi.getState().syncShift(shift);
+    setUi({ handledN: registryQuery.n, mode: registryQuery.kind, input: registryQuery.q });
     doSearch(registryQuery.kind, registryQuery.q);
   }, [registryQuery?.n]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Selection-based requests: select({ personId } | { plate }, 'registry').
   useEffect(() => {
+    const key = selPerson ? `p:${selPerson}` : selPlate ? `v:${selPlate}` : '';
+    if (key === useRegistryUi.getState().handledSel) return;
+    setUi({ handledSel: key });
+    if (!key) return;
     if (selPerson) open({ kind: 'person', id: selPerson });
-  }, [selPerson]);
-  useEffect(() => {
-    if (selPlate) open({ kind: 'vehicle', plate: selPlate });
-  }, [selPlate]);
+    else if (selPlate) open({ kind: 'vehicle', plate: selPlate });
+  }, [selPerson, selPlate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Opening a record linked to an open incident counts as "checked".
   const viewKey = view ? (view.kind === 'person' ? `p:${view.id}` : `v:${view.plate}`) : '';
@@ -200,7 +208,7 @@ export function RegistryPanel() {
                 <button
                   type="button"
                   className="tl-linkbtn"
-                  onClick={() => (trail.length > 1 ? setTrail((tr) => tr.slice(0, -1)) : setTrail([]))}
+                  onClick={() => setTrail((tr) => (tr.length > 1 ? tr.slice(0, -1) : []))}
                 >
                   <Icon name="chevron-left" size={14} />
                   {trail.length > 1 ? t('tools.back') : t('tools.reg.backToResults')}

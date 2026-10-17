@@ -47,7 +47,14 @@ export function Button({
   return (
     <button
       type="button"
-      className={cx('ui-btn', `ui-btn--${variant}`, `ui-btn--${size}`, block && 'ui-btn--block', loading && 'is-loading', className)}
+      className={cx(
+        'ui-btn',
+        `ui-btn--${variant}`,
+        `ui-btn--${size}`,
+        block && 'ui-btn--block',
+        loading && 'is-loading',
+        className,
+      )}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...rest}
@@ -87,9 +94,21 @@ export function Kbd({ children }: { children: ReactNode }) {
 
 export function Spinner({ size = 16, className }: { size?: number; className?: string }) {
   return (
-    <svg className={cx('ui-spinner', className)} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+    <svg
+      className={cx('ui-spinner', className)}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
       <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeOpacity=".2" strokeWidth="2.5" />
-      <path d="M21 12a9 9 0 0 0-9-9" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      <path
+        d="M21 12a9 9 0 0 0-9-9"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -137,7 +156,13 @@ export interface TabDef<T extends string> {
 }
 
 /** Roving-focus helper shared by Tabs and Segmented: ←/→/Home/End move and select. */
-function rovingKey<T extends string>(e: ReactKeyboardEvent<HTMLElement>, items: { id: T; disabled?: boolean }[], value: T, onChange: (v: T) => void, role: string) {
+function rovingKey<T extends string>(
+  e: ReactKeyboardEvent<HTMLElement>,
+  items: { id: T; disabled?: boolean }[],
+  value: T,
+  onChange: (v: T) => void,
+  role: string,
+) {
   const keys = ['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'Home', 'End'];
   if (!keys.includes(e.key)) return;
   const enabled = items.filter((i) => !i.disabled);
@@ -170,7 +195,11 @@ export function Tabs<T extends string>({
   variant?: 'line' | 'pill';
 }) {
   return (
-    <div className={cx('ui-tabs', `ui-tabs--${variant}`, className)} role="tablist" onKeyDown={(e) => rovingKey(e, tabs, value, onChange, 'tab')}>
+    <div
+      className={cx('ui-tabs', `ui-tabs--${variant}`, className)}
+      role="tablist"
+      onKeyDown={(e) => rovingKey(e, tabs, value, onChange, 'tab')}
+    >
       {tabs.map((t) => {
         const active = t.id === value;
         return (
@@ -269,7 +298,10 @@ export function Badge({
 export function PriorityChip({ p, compact }: { p: Priority; compact?: boolean }) {
   const t = useT();
   return (
-    <span className={cx('ui-prio', `ui-prio--${p}`, compact && 'ui-prio--compact')} title={t(`shell.prio.${p}`)}>
+    <span
+      className={cx('ui-prio', `ui-prio--${p}`, compact && 'ui-prio--compact')}
+      title={t(`shell.prio.${p}`)}
+    >
       {compact ? p : `P${p}`}
     </span>
   );
@@ -286,7 +318,8 @@ export function StatusChip({ status, label }: { status: UnitStatus; label: strin
 
 // ── Modal ────────────────────────────────────────────────────────────────────
 
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function Modal({
   open,
@@ -497,7 +530,19 @@ export interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElemen
 }
 
 /** Labelled text input with optional leading icon, hint and error. */
-export function TextField({ value, onChange, label, icon, hint, error, mono, trailing, className, id, ...rest }: TextFieldProps) {
+export function TextField({
+  value,
+  onChange,
+  label,
+  icon,
+  hint,
+  error,
+  mono,
+  trailing,
+  className,
+  id,
+  ...rest
+}: TextFieldProps) {
   const autoId = useId();
   const fid = id ?? autoId;
   return (
@@ -519,7 +564,11 @@ export function TextField({ value, onChange, label, icon, hint, error, mono, tra
         />
         {trailing}
       </div>
-      {error ? <div className="ui-field__error">{error}</div> : hint ? <div className="ui-field__hint">{hint}</div> : null}
+      {error ? (
+        <div className="ui-field__error">{error}</div>
+      ) : hint ? (
+        <div className="ui-field__hint">{hint}</div>
+      ) : null}
     </div>
   );
 }
@@ -553,7 +602,17 @@ export function Meter({
   );
 }
 
-export function Empty({ icon = 'info', children, title, action }: { icon?: IconName; children: ReactNode; title?: ReactNode; action?: ReactNode }) {
+export function Empty({
+  icon = 'info',
+  children,
+  title,
+  action,
+}: {
+  icon?: IconName;
+  children: ReactNode;
+  title?: ReactNode;
+  action?: ReactNode;
+}) {
   return (
     <div className="ui-empty">
       <span className="ui-empty__icon">

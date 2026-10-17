@@ -53,42 +53,99 @@ export function oc(
 
 const Q_RADIO: Partial<Record<PersonRole, Text[]>> = {
   suspect: [
-    T('Juhtimiskeskus, {callsign}. Palun kontrolli isikut, isikukood {idcode}.', 'Control, {callsign}. Please run a person check, ID code {idcode}.'),
-    T('{callsign}: kontrolli palun isikut {name}, isikukood {idcode}. Kas on tagaotsitav või keelde?', '{callsign}: please check {name}, ID code {idcode}. Any warrants or court orders?'),
-    T('JK, {callsign}. Isikul dokumenti kaasas pole, ütleb nimeks {name}. Palun kontrolli andmebaasist.', 'Control, {callsign}. Subject carries no ID, gives the name {name}. Please run it.'),
+    T(
+      'Juhtimiskeskus, {callsign}. Palun kontrolli isikut, isikukood {idcode}.',
+      'Control, {callsign}. Please run a person check, ID code {idcode}.',
+    ),
+    T(
+      '{callsign}: kontrolli palun isikut {name}, isikukood {idcode}. Kas on tagaotsitav või keelde?',
+      '{callsign}: please check {name}, ID code {idcode}. Any warrants or court orders?',
+    ),
+    T(
+      'Juhtimine, {callsign}. Isikul dokumenti kaasas pole, ütleb nimeks {name}. Palun kontrolli andmebaasist.',
+      'Control, {callsign}. Subject carries no ID, gives the name {name}. Please run it.',
+    ),
+    T(
+      'Juhtimine, {callsign}. Palun isikupäring, isikukood {idcode}.',
+      'Control, {callsign}. Person query please, ID code {idcode}.',
+    ),
   ],
   victim: [
-    T('Juhtimiskeskus, {callsign}. Kannatanu on {name}, isikukood {idcode}. Palun kontrolli andmeid.', 'Control, {callsign}. The victim is {name}, ID code {idcode}. Please check the record.'),
-    T('{callsign}: kannatanu andmed — {name}, isikukood {idcode}. Kontrolli palun.', '{callsign}: victim details — {name}, ID code {idcode}. Please check.'),
+    T(
+      'Juhtimiskeskus, {callsign}. Kannatanu on {name}, isikukood {idcode}. Palun kontrolli andmeid.',
+      'Control, {callsign}. The victim is {name}, ID code {idcode}. Please check the record.',
+    ),
+    T(
+      '{callsign}: kannatanu andmed — {name}, isikukood {idcode}. Kontrolli palun.',
+      '{callsign}: victim details — {name}, ID code {idcode}. Please check.',
+    ),
   ],
   driver: [
-    T('Juhtimiskeskus, {callsign}. Juht on {name}, isikukood {idcode}. Palun kontrolli juhtimisõigust ja keelde.', 'Control, {callsign}. The driver is {name}, ID code {idcode}. Please check licence and any orders.'),
-    T('{callsign}: kontrolli palun juhti {name}, isikukood {idcode}.', '{callsign}: please check the driver {name}, ID code {idcode}.'),
+    T(
+      'Juhtimiskeskus, {callsign}. Juht on {name}, isikukood {idcode}. Palun kontrolli juhtimisõigust ja keelde.',
+      'Control, {callsign}. The driver is {name}, ID code {idcode}. Please check licence and any orders.',
+    ),
+    T(
+      '{callsign}: kontrolli palun juhti {name}, isikukood {idcode}.',
+      '{callsign}: please check the driver {name}, ID code {idcode}.',
+    ),
   ],
   caller: [
-    T('JK, {callsign}. Teataja on {name}, isikukood {idcode}. Palun kontrolli.', 'Control, {callsign}. The caller is {name}, ID code {idcode}. Please check.'),
+    T(
+      'Juhtimine, {callsign}. Teataja on {name}, isikukood {idcode}. Palun kontrolli.',
+      'Control, {callsign}. The caller is {name}, ID code {idcode}. Please check.',
+    ),
   ],
   witness: [
-    T('JK, {callsign}. Tunnistaja {name}, isikukood {idcode}. Palun kontrolli andmeid.', 'Control, {callsign}. Witness {name}, ID code {idcode}. Please check the record.'),
+    T(
+      'Juhtimine, {callsign}. Tunnistaja {name}, isikukood {idcode}. Palun kontrolli andmeid.',
+      'Control, {callsign}. Witness {name}, ID code {idcode}. Please check the record.',
+    ),
   ],
   deceased: [
-    T('Juhtimiskeskus, {callsign}. Surnu juurest leiti dokument: {name}, isikukood {idcode}. Palun kontrolli.', 'Control, {callsign}. An ID was found on the deceased: {name}, ID code {idcode}. Please check.'),
+    T(
+      'Juhtimiskeskus, {callsign}. Surnu juurest leiti dokument: {name}, isikukood {idcode}. Palun kontrolli.',
+      'Control, {callsign}. An ID was found on the deceased: {name}, ID code {idcode}. Please check.',
+    ),
   ],
 };
 
-export function qPerson(subject: PersonRole, at: BeatAt = 'arrive', o: { chance?: number; radio?: Text[] } = {}): QueryBeat {
-  const b: QueryBeat = { kind: 'query', queryType: 'person', subject, at, radio: o.radio ?? Q_RADIO[subject] ?? Q_RADIO.suspect! };
+export function qPerson(
+  subject: PersonRole,
+  at: BeatAt = 'arrive',
+  o: { chance?: number; radio?: Text[] } = {},
+): QueryBeat {
+  const b: QueryBeat = {
+    kind: 'query',
+    queryType: 'person',
+    subject,
+    at,
+    radio: o.radio ?? Q_RADIO[subject] ?? Q_RADIO.suspect!,
+  };
   if (o.chance !== undefined) b.chance = o.chance;
   return b;
 }
 
 const QV_RADIO: Text[] = [
-  T('Juhtimiskeskus, {callsign}. Palun kontrolli sõidukit, number {plate}.', 'Control, {callsign}. Please run plate {plate}.'),
+  T(
+    'Juhtimiskeskus, {callsign}. Palun kontrolli sõidukit, number {plate}.',
+    'Control, {callsign}. Please run plate {plate}.',
+  ),
   T('{callsign}: palun kontrolli sõidukit {plate} — {car}.', '{callsign}: please run {plate} — {car}.'),
+  T(
+    'Juhtimine, {callsign}. Palun sõidukipäring: {plate}.',
+    'Control, {callsign}. Vehicle query please: {plate}.',
+  ),
 ];
 
 export function qVehicle(at: BeatAt = 'arrive', o: { chance?: number; radio?: Text[] } = {}): QueryBeat {
-  const b: QueryBeat = { kind: 'query', queryType: 'vehicle', subject: 'vehicle', at, radio: o.radio ?? QV_RADIO };
+  const b: QueryBeat = {
+    kind: 'query',
+    queryType: 'vehicle',
+    subject: 'vehicle',
+    at,
+    radio: o.radio ?? QV_RADIO,
+  };
   if (o.chance !== undefined) b.chance = o.chance;
   return b;
 }
@@ -97,29 +154,62 @@ export function qVehicle(at: BeatAt = 'arrive', o: { chance?: number; radio?: Te
 
 const BACKUP_RADIO: Partial<Record<UnitType | 'any', Text[]>> = {
   patrol: [
-    T('{callsign}: olukord pingeline, vajame lisapatrulli!', '{callsign}: situation is tense, we need another patrol!'),
-    T('{callsign}, JK-le. Isik agressiivne, palun kiiresti lisajõude!', '{callsign} to Control. Subject aggressive, requesting backup urgently!'),
+    T(
+      '{callsign}: olukord pingeline, vajame lisapatrulli!',
+      '{callsign}: situation is tense, we need another patrol!',
+    ),
+    T(
+      'Juhtimine, {callsign}. Isik agressiivne, palun kiiresti lisajõude!',
+      'Control, {callsign}. Subject aggressive, requesting backup urgently!',
+    ),
   ],
   any: [
-    T('{callsign}: vajame kiiresti lisajõude, kõik lähedal olevad ekipaažid!', '{callsign}: we need backup fast, all units nearby!'),
-    T('{callsign}, JK-le. Meid on liiga vähe, palun lisaekipaaži!', '{callsign} to Control. We are outnumbered, send another unit!'),
+    T(
+      '{callsign}: vajame kiiresti lisajõude, kõik lähedal olevad ekipaažid!',
+      '{callsign}: we need backup fast, all units nearby!',
+    ),
+    T(
+      'Juhtimine, {callsign}. Meid on liiga vähe, palun lisaekipaaži!',
+      'Control, {callsign}. We are outnumbered, send another unit!',
+    ),
   ],
   rapid: [
-    T('{callsign}: vajame kiirreageerijaid, olukord väljub kontrolli alt!', '{callsign}: we need rapid response, the situation is getting out of hand!'),
-    T('{callsign}, JK-le. Palun kiirreageerijad sündmuskohale, oht relva kasutamiseks!', '{callsign} to Control. Request rapid response to the scene, possible use of weapons!'),
+    T(
+      '{callsign}: vajame kiirreageerijaid, olukord väljub kontrolli alt!',
+      '{callsign}: we need rapid response, the situation is getting out of hand!',
+    ),
+    T(
+      'Juhtimine, {callsign}. Palun kiirreageerijad sündmuskohale, oht relva kasutamiseks!',
+      'Control, {callsign}. Request rapid response to the scene, possible use of weapons!',
+    ),
   ],
   criminal: [
-    T('{callsign}: palun kriminaalpolitsei sündmuskohale, vajame uurijat.', '{callsign}: please send CID to the scene, we need an investigator.'),
-    T('{callsign}, JK-le. Sündmuskoht piiratud, ootame kriminaalpolitseid ja ekspertiisi.', '{callsign} to Control. Scene cordoned off, waiting for CID and forensics.'),
+    T(
+      '{callsign}: palun kriminaalpolitsei sündmuskohale, vajame uurijat.',
+      '{callsign}: please send CID to the scene, we need an investigator.',
+    ),
+    T(
+      'Juhtimine, {callsign}. Sündmuskoht piiratud, ootame kriminaalpolitseid ja ekspertiisi.',
+      'Control, {callsign}. Scene cordoned off, waiting for CID and forensics.',
+    ),
   ],
   k9: [
-    T('{callsign}: kahtlustatav lahkus jalgsi, vajame koerajuhti jälje ajamiseks.', '{callsign}: suspect left on foot, we need a dog handler to track.'),
+    T(
+      '{callsign}: kahtlustatav lahkus jalgsi, vajame koerajuhti jälje ajamiseks.',
+      '{callsign}: suspect left on foot, we need a dog handler to track.',
+    ),
   ],
   community: [
-    T('{callsign}: palun piirkonnapolitseinik või noorsoopolitseinik appi, alaealised.', '{callsign}: please send a community or youth officer, minors involved.'),
+    T(
+      '{callsign}: palun piirkonnapolitseinik või noorsoopolitseinik appi, alaealised.',
+      '{callsign}: please send a community or youth officer, minors involved.',
+    ),
   ],
   special: [
-    T('{callsign}: vajame eriüksust, isik barrikadeerunud ja relvastatud!', '{callsign}: we need the special unit, subject barricaded and armed!'),
+    T(
+      '{callsign}: vajame eriüksust, isik barrikadeerunud ja relvastatud!',
+      '{callsign}: we need the special unit, subject barricaded and armed!',
+    ),
   ],
 };
 
@@ -143,14 +233,33 @@ export function backup(
 
 const AGENCY_RADIO: Partial<Record<Agency, Text[]>> = {
   kiirabi: [
-    T('{callsign}: kannatanul vigastused, palun kiirabi sündmuskohale.', '{callsign}: the victim is injured, request an ambulance to the scene.'),
-    T('{callsign}, JK-le. Vajame kiirabi, anname esmaabi.', '{callsign} to Control. We need an ambulance, giving first aid.'),
+    T(
+      '{callsign}: kannatanul vigastused, palun kiirabi sündmuskohale.',
+      '{callsign}: the victim is injured, request an ambulance to the scene.',
+    ),
+    T(
+      'Juhtimine, {callsign}. Vajame kiirabi, anname esmaabi.',
+      'Control, {callsign}. We need an ambulance, giving first aid.',
+    ),
   ],
-  paaste: [T('{callsign}: vajame päästjaid, uks tuleb avada.', '{callsign}: we need rescue, the door has to be opened.')],
+  paaste: [
+    T(
+      '{callsign}: vajame päästjaid, uks tuleb avada.',
+      '{callsign}: we need rescue, the door has to be opened.',
+    ),
+  ],
   sotsiaal: [
-    T('{callsign}: korteris on alaealised, palun teavitage lastekaitset.', '{callsign}: there are minors in the flat, please notify child protection.'),
+    T(
+      '{callsign}: korteris on alaealised, palun teavitage lastekaitset.',
+      '{callsign}: there are minors in the flat, please notify child protection.',
+    ),
   ],
-  kov: [T('{callsign}: palun teavitage omavalitsust, vajame sotsiaaltöötajat.', '{callsign}: please notify the municipality, we need a social worker.')],
+  kov: [
+    T(
+      '{callsign}: palun teavitage omavalitsust, vajame sotsiaaltöötajat.',
+      '{callsign}: please notify the municipality, we need a social worker.',
+    ),
+  ],
 };
 
 export function agency(
@@ -171,24 +280,41 @@ export function agency(
   return b;
 }
 
-export const kiirabi = (at: BeatAt = 'arrive', o: { chance?: number; radio?: Text[]; timeoutMin?: number } = {}): AgencyBeat =>
-  agency('kiirabi', at, { ...o, ok: { success: 0.05 } });
+export const kiirabi = (
+  at: BeatAt = 'arrive',
+  o: { chance?: number; radio?: Text[]; timeoutMin?: number } = {},
+): AgencyBeat => agency('kiirabi', at, { ...o, ok: { success: 0.05 } });
 
 // ─── Transports ─────────────────────────────────────────────────────────────
 
-function transport(dest: TransportBeat['dest'], at: BeatAt, radio: Text[], paperworkMin: [number, number], chance?: number): TransportBeat {
+function transport(
+  dest: TransportBeat['dest'],
+  at: BeatAt,
+  radio: Text[],
+  paperworkMin: [number, number],
+  chance?: number,
+): TransportBeat {
   const b: TransportBeat = { kind: 'transport', dest, at, radio, paperworkMin };
   if (chance !== undefined && chance < 1) b.chance = chance;
   return b;
 }
 
-export const toArrest = (at: BeatAt, o: { chance?: number; radio?: Text[]; paperwork?: [number, number] } = {}): TransportBeat =>
+export const toArrest = (
+  at: BeatAt,
+  o: { chance?: number; radio?: Text[]; paperwork?: [number, number] } = {},
+): TransportBeat =>
   transport(
     'arrest',
     at,
     o.radio ?? [
-      T('{callsign}: üks isik kinni peetud, toimetame arestimajja.', '{callsign}: one person detained, transporting to the detention house.'),
-      T('{callsign}, JK-le. Kahtlustatav käeraudades, sõidame arestimajja.', '{callsign} to Control. Suspect cuffed, heading to the detention house.'),
+      T(
+        '{callsign}: üks isik kinni peetud, toimetame arestimajja.',
+        '{callsign}: one person detained, transporting to the detention house.',
+      ),
+      T(
+        'Juhtimine, {callsign}. Kahtlustatav käeraudades, sõidame arestimajja.',
+        'Control, {callsign}. Suspect cuffed, heading to the detention house.',
+      ),
     ],
     o.paperwork ?? [15, 30],
     o.chance,
@@ -199,8 +325,14 @@ export const toSober = (at: BeatAt, o: { chance?: number; radio?: Text[] } = {})
     'arrest',
     at,
     o.radio ?? [
-      T('{callsign}: isik tugevas joobes, toimetame kainenema.', '{callsign}: subject heavily intoxicated, taking them to sober up.'),
-      T('{callsign}, JK-le. Joobes isik sõidukis, suundume kainestusse.', '{callsign} to Control. Intoxicated person on board, heading to the sobering-up cells.'),
+      T(
+        '{callsign}: isik tugevas joobes, toimetame kainenema.',
+        '{callsign}: subject heavily intoxicated, taking them to sober up.',
+      ),
+      T(
+        'Juhtimine, {callsign}. Joobes isik sõidukis, suundume kainestusse.',
+        'Control, {callsign}. Intoxicated person on board, heading to the sobering-up cells.',
+      ),
     ],
     [10, 20],
     o.chance,
@@ -210,7 +342,12 @@ export const toHospital = (at: BeatAt, o: { chance?: number; radio?: Text[] } = 
   transport(
     'hospital',
     at,
-    o.radio ?? [T('{callsign}: isik vajab arstlikku kontrolli, toimetame EMO-sse.', '{callsign}: subject needs a medical check, taking them to A&E.')],
+    o.radio ?? [
+      T(
+        '{callsign}: isik vajab arstlikku kontrolli, toimetame EMO-sse.',
+        '{callsign}: subject needs a medical check, taking them to A&E.',
+      ),
+    ],
     [20, 40],
     o.chance,
   );
@@ -219,7 +356,12 @@ export const toHome = (at: BeatAt, o: { chance?: number; radio?: Text[] } = {}):
   transport(
     'home',
     at,
-    o.radio ?? [T('{callsign}: isik rahunenud, viime ta koju.', '{callsign}: subject has calmed down, driving them home.')],
+    o.radio ?? [
+      T(
+        '{callsign}: isik rahunenud, viime ta koju.',
+        '{callsign}: subject has calmed down, driving them home.',
+      ),
+    ],
     [5, 10],
     o.chance,
   );
@@ -244,7 +386,12 @@ export function pursuit(at: BeatAt, radio: Text[], chance?: number): PursuitBeat
   return b;
 }
 
-export function escalate(at: BeatAt, toPriority: Priority, radio: Text[], o: { chance?: number; need?: UnitNeed; effects?: Effects } = {}): EscalateBeat {
+export function escalate(
+  at: BeatAt,
+  toPriority: Priority,
+  radio: Text[],
+  o: { chance?: number; need?: UnitNeed; effects?: Effects } = {},
+): EscalateBeat {
   const b: EscalateBeat = { kind: 'escalate', at, toPriority, radio };
   if (o.need) b.need = o.need;
   if (o.effects) b.effects = o.effects;
@@ -252,7 +399,12 @@ export function escalate(at: BeatAt, toPriority: Priority, radio: Text[], o: { c
   return b;
 }
 
-export const opt = (id: string, label: Text, reply: Text, effects: Effects): ChoiceOption => ({ id, label, reply, effects });
+export const opt = (id: string, label: Text, reply: Text, effects: Effects): ChoiceOption => ({
+  id,
+  label,
+  reply,
+  effects,
+});
 
 export function choice(
   at: BeatAt,
@@ -271,18 +423,40 @@ export function k9Choice(at: BeatAt, chance?: number): ChoiceBeat {
   return choice(
     at,
     [
-      T('{callsign}: kahtlustatav põgeneb jalgsi {direction}. Kas saadame koerajuhi või jätame?', '{callsign}: suspect is fleeing on foot {direction}. Do we send a dog handler or let it go?'),
-      T('{callsign}, JK-le. Isik jooksis minema, jälg värske. Kas kutsume koera?', '{callsign} to Control. Subject ran off, the track is fresh. Do we call in a dog?'),
+      T(
+        '{callsign}: kahtlustatav põgeneb jalgsi {direction}. Kas saadame koerajuhi või jätame?',
+        '{callsign}: suspect is fleeing on foot {direction}. Do we send a dog handler or let it go?',
+      ),
+      T(
+        'Juhtimine, {callsign}. Isik jooksis minema, jälg värske. Kas kutsume koera?',
+        'Control, {callsign}. Subject ran off, the track is fresh. Do we call in a dog?',
+      ),
     ],
     [
-      opt('k9', T('Saada koerajuht', 'Send a dog handler'), T('{callsign}, JK. Koerajuht suunatud, hoidke jälg puutumata.', '{callsign}, Control. Dog handler on the way, keep the track clean.'), {
-        success: 0.15,
-        time: 20,
-      }),
-      opt('leave', T('Jäta, vormista sündmus', 'Let it go, document the scene'), T('{callsign}, JK. Jälitust ei jätka, vormistage sündmus.', '{callsign}, Control. No pursuit, document the scene.'), {
-        success: -0.1,
-        trust: -1,
-      }),
+      opt(
+        'k9',
+        T('Saada koerajuht', 'Send a dog handler'),
+        T(
+          '{callsign}, juhtimine. Koerajuht suunatud, hoidke jälg puutumata.',
+          '{callsign}, Control. Dog handler on the way, keep the track clean.',
+        ),
+        {
+          success: 0.15,
+          time: 20,
+        },
+      ),
+      opt(
+        'leave',
+        T('Jäta, vormista sündmus', 'Let it go, document the scene'),
+        T(
+          '{callsign}, juhtimine. Jälitust ei jätka, vormistage sündmus.',
+          '{callsign}, Control. No pursuit, document the scene.',
+        ),
+        {
+          success: -0.1,
+          trust: -1,
+        },
+      ),
     ],
     'leave',
     { chance, timeoutMin: 3 },

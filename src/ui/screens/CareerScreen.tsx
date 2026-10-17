@@ -25,12 +25,13 @@ function isUsable(p: CareerProfile | null): p is CareerProfile {
 }
 
 export function CareerScreen() {
+  const t = useT();
   const profile = useCareer((s) => s.profile);
   return (
     <ToastProvider>
       <div className="cr-screen">
         {isUsable(profile) ? <Hq profile={profile} /> : profile ? <BrokenSave /> : <Onboarding />}
-        <p className="cr-disclaimer">{useT()('core.disclaimer')}</p>
+        <p className="cr-disclaimer">{t('core.disclaimer')}</p>
       </div>
     </ToastProvider>
   );
@@ -40,9 +41,8 @@ function Hq({ profile }: { profile: CareerProfile }) {
   const t = useT();
   const rank = useRank(profile);
   const [tab, setTab] = useStoredState<TabId>('epd:career:tab', 'staff', TAB_IDS);
-  const staff = profile.staff ?? [];
   const tabs: TabDef<TabId>[] = [
-    { id: 'staff', label: t('career.tab.staff'), icon: 'users', badge: staff.length || undefined },
+    { id: 'staff', label: t('career.tab.staff'), icon: 'users' },
     { id: 'recruit', label: t('career.tab.recruit'), icon: 'plus', badge: (profile.recruits ?? []).length || undefined },
     { id: 'fleet', label: t('career.tab.fleet'), icon: 'car' },
     { id: 'upgrades', label: t('career.tab.upgrades'), icon: 'shield' },

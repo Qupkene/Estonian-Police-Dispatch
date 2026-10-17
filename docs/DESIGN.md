@@ -162,7 +162,7 @@ Location: pick a place kind from `template.places`, then:
 
 ### 4.4 Beats (on-scene interactions)
 Each `BeatSpec` in a template becomes a `BeatState`. When it fires:
-* `query` — unit radios "kontrolli isikut, isikukood 38506120234" (or plate). A `RadioMsg` with
+* `query` — unit radios "kontrolli isikut, isikukood 38506120236" (or plate). A `RadioMsg` with
   `replies` is created. Reply ids for person: `clean`, `wanted`, `restraining`, `nolicense`,
   `weapon`, `probation`, `notfound`; for vehicle: `clean`, `stolen`, `noinsurance`,
   `noinspection`, `suspended`, `ownerwanted`, `notfound`. The engine knows the truth from the

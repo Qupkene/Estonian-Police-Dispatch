@@ -1,7 +1,7 @@
 // Small presentational pieces shared by the CAD screen components.
 import type { ReactNode } from 'react';
 import { useGame } from '@/store/game';
-import { useLang, useT, useTx } from '@/i18n';
+import { useT, useTx } from '@/i18n';
 import { Badge, Button, Icon, type IconName } from '@/ui/components';
 import type { Recommendation } from '@/sim/selectors';
 import { MIN } from '@/sim/time';
@@ -156,7 +156,7 @@ export function RadioReplies({ msg, sim, compact }: { msg: RadioMsg; sim: SimSta
         </Button>
       )}
       {msg.replies.map((r) => (
-        <Button key={r.id} size="sm" variant={r.id === 'clean' ? 'secondary' : 'secondary'} className="gm-reply" onClick={() => replyRadio(msg.id, r.id)}>
+        <Button key={r.id} size="sm" className="gm-reply" onClick={() => replyRadio(msg.id, r.id)}>
           {tx(r.label)}
         </Button>
       ))}
@@ -192,8 +192,4 @@ export function Kv({ k, v, tone, title }: { k: ReactNode; v: ReactNode; tone?: '
       <span className="gm-kv__v mono">{v}</span>
     </div>
   );
-}
-
-export function useLangCode() {
-  return useLang();
 }

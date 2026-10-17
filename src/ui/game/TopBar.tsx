@@ -19,7 +19,8 @@ export function TopBar() {
   const speedIndex = useGame((s) => s.speedIndex);
   const realtime = useGame((s) => s.realtime);
   const profile = useCareer((s) => s.profile);
-  const ui = useGameUi();
+  const drawerOpen = useGameUi((s) => s.drawerOpen);
+  const setUi = useGameUi((s) => s.set);
   if (!sim) return null;
 
   const g = useGame.getState();
@@ -46,7 +47,7 @@ export function TopBar() {
       <button
         type="button"
         className="gm-top__drawer"
-        onClick={() => ui.set({ drawerOpen: !ui.drawerOpen })}
+        onClick={() => setUi({ drawerOpen: !drawerOpen })}
         aria-label={t('game.queueDrawer')}
         title={t('game.queueDrawer')}
       >
@@ -199,7 +200,7 @@ export function TopBar() {
 
       <div className="gm-top__end">
         {director && <IconButton icon="eye-off" label={t('game.hud.hide')} onClick={() => g.setHud(false)} />}
-        <button type="button" className="gm-top__menu" onClick={() => ui.set({ pauseOpen: true })} title={t('game.menu')}>
+        <button type="button" className="gm-top__menu" onClick={() => setUi({ pauseOpen: true })} title={t('game.menu')}>
           <Icon name="settings" size={16} />
           <Kbd>Esc</Kbd>
         </button>

@@ -234,3 +234,26 @@ export function Gauge({ value, tone, label, size = 168 }: { value: number; tone:
     </svg>
   );
 }
+
+// ── Sparkline: compact trend for stat tiles ──────────────────────────────────────────────────
+
+export function Sparkline({ values, height = 34, ariaLabel }: { values: number[]; height?: number; ariaLabel: string }) {
+  const [ref, width] = useWidth<HTMLDivElement>(200);
+  if (values.length < 2) return <div ref={ref} className="cr-spark" style={{ height }} />;
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  const x = linearScale(0, values.length - 1, 2, width - 6);
+  const y = linearScale(lo, hi === lo ? lo + 1 : hi, height - 3, 4);
+  const pts: [number, number][] = values.map((v, i) => [x(i), y(v)]);
+  const last = pts[pts.length - 1];
+  const area = `${linePath(pts)} L${last[0].toFixed(1)} ${height} L${pts[0][0].toFixed(1)} ${height} Z`;
+  return (
+    <div ref={ref} className="cr-spark" style={{ height }}>
+      <svg width={width} height={height} role="img" aria-label={ariaLabel}>
+        <path className="cr-spark__area" d={area} />
+        <path className="cr-spark__line" d={linePath(pts)} />
+        <circle className="cr-chart__dot" cx={last[0]} cy={last[1]} r={3.5} />
+      </svg>
+    </div>
+  );
+}

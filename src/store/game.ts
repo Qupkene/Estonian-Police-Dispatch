@@ -33,6 +33,8 @@ export interface Selection {
 export const SPEEDS = [0, 15, 30, 60, 120] as const;
 /** Director mode real-time speed. */
 export const REALTIME = 1;
+/** Game seconds per real second while a 112 call is ringing or active. */
+export const CALL_SPEED = 2;
 
 interface GameStore {
   screen: Screen;
@@ -151,7 +153,10 @@ function frame(ts: number) {
   if (!sim) return;
   const dtReal = last ? Math.min(250, ts - last) : 16;
   last = ts;
-  const speed = g.realtime ? (g.speedIndex === 0 ? 0 : 1) : SPEEDS[g.speedIndex];
+  let speed = g.realtime ? (g.speedIndex === 0 ? 0 : 1) : SPEEDS[g.speedIndex];
+  // While a 112 call rings or is in progress the dispatcher is on the phone: the world slows to
+  // near real time so the call can actually be answered and the conversation read.
+  if (speed > CALL_SPEED && sim.calls.some((c) => !c.endedAt)) speed = CALL_SPEED;
   if (speed > 0 && !sim.ended) {
     try {
       step(sim, dtReal * speed);

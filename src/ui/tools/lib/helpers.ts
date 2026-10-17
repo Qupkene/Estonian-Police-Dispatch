@@ -201,6 +201,15 @@ export function sortFlags<F extends FlagLike>(flags: F[]): F[] {
   return [...flags].sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]);
 }
 
+/** "TAGAOTSITAV — põhjus (asutus)" → { head: "TAGAOTSITAV", rest: "põhjus (asutus)" }. */
+export function splitFlagText(text: string): { head: string; rest: string } {
+  const dash = text.indexOf(' — ');
+  if (dash > 0) return { head: text.slice(0, dash).trim(), rest: text.slice(dash + 3).trim() };
+  const par = text.indexOf(' (');
+  if (par > 0 && text.endsWith(')')) return { head: text.slice(0, par).trim(), rest: text.slice(par + 2, -1).trim() };
+  return { head: text.trim(), rest: '' };
+}
+
 export function isLegend(p: Pick<Person, 'id'>): boolean {
   return p.id.startsWith('legend-');
 }
@@ -441,6 +450,29 @@ export const CATEGORIES: IncidentCategory[] = [
   'fraud',
   'easter',
 ];
+
+/** Human labels for template placeholders shown in the director preview. */
+export const PLACEHOLDER_LABEL: Record<string, Text> = {
+  address: { et: 'aadress', en: 'address' },
+  place: { et: 'koht', en: 'place' },
+  city: { et: 'linn', en: 'city' },
+  district: { et: 'linnaosa', en: 'district' },
+  callsign: { et: 'kutsung', en: 'callsign' },
+  suspect: { et: 'kahtlustatav', en: 'suspect' },
+  suspectName: { et: 'kahtlustatava nimi', en: 'suspect name' },
+  victim: { et: 'kannatanu', en: 'victim' },
+  victimName: { et: 'kannatanu nimi', en: 'victim name' },
+  caller: { et: 'teataja', en: 'caller' },
+  idcode: { et: 'isikukood', en: 'ID code' },
+  name: { et: 'nimi', en: 'name' },
+  plate: { et: 'numbrimärk', en: 'plate' },
+  car: { et: 'sõiduk', en: 'vehicle' },
+  direction: { et: 'suund', en: 'direction' },
+  age: { et: 'vanus', en: 'age' },
+  n: { et: 'arv', en: 'number' },
+  time: { et: 'kellaaeg', en: 'time' },
+  agency: { et: 'asutus', en: 'agency' },
+};
 
 /** Default SLA minutes (DESIGN §4.5, urban) — used when no incident data yet. */
 export const DEFAULT_SLA: Record<Priority, number> = { 1: 10, 2: 20, 3: 45, 4: 120 };

@@ -208,6 +208,19 @@ export function specialDays(year: number): SpecialDay[] {
       tags: ['fireworks', 'drunk', 'domestic'],
     },
   ];
+  // Other police-relevant dates (docs/research/map-services.md §9.2/§9.4).
+  const nthWeekday = (month: number, weekday: number, n: number): number => {
+    // weekday: 0 = Sunday … 6 = Saturday (JS convention); returns day of month of the n-th occurrence
+    const first = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+    return 1 + ((weekday - first + 7) % 7) + (n - 1) * 7;
+  };
+  list.push(
+    { id: 'pronksioo', month: 4, day: 26, name: T('Pronksiöö aastapäev', 'Bronze Night anniversary'), publicHoliday: false, factor: 1.0, tags: ['public_order_watch'] },
+    { id: 'may9', month: 5, day: 9, name: T('9. mai', '9 May'), publicHoliday: false, factor: 1.05, tags: ['public_order_watch', 'crowd'] },
+    { id: 'hingedepaev', month: 11, day: 2, name: T('Hingedepäev', "All Souls' Day"), publicHoliday: false, factor: 1.0, tags: ['cemetery_traffic'] },
+    { id: 'tartu_maraton', month: 2, day: nthWeekday(2, 0, 3), name: T('Tartu Maraton', 'Tartu Ski Marathon'), publicHoliday: false, factor: 1.0, tags: ['road_closures', 'sport'] },
+    { id: 'tallinna_maraton', month: 9, day: nthWeekday(9, 0, 2), name: T('Tallinna maraton', 'Tallinn Marathon'), publicHoliday: false, factor: 1.05, tags: ['road_closures', 'sport', 'crowd'] },
+  );
   const fest = SONG_FESTIVALS[year];
   if (fest) {
     const startUtc = Date.UTC(year, fest.from[0] - 1, fest.from[1]);

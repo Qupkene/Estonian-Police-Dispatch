@@ -17,7 +17,7 @@ import { useGameUi } from './uiStore';
 
 const AGENCY_ICON: Partial<Record<Agency, IconName>> = { kiirabi: 'ambulance', paaste: 'fire', merepaaste: 'boat', keskkonnaamet: 'globe', sotsiaal: 'users' };
 
-function flagsOf<T>(key: string, fn: () => RecordFlag[]): RecordFlag[] {
+function flagsOf(key: string, fn: () => RecordFlag[]): RecordFlag[] {
   return soft<RecordFlag[]>(key, fn, []);
 }
 
@@ -55,9 +55,7 @@ export function CallerBlock({ inc }: { inc: Incident }) {
     <div className="gm-caller">
       <Icon name="phone" size={13} />
       <span className="gm-caller__name">{c.name}</span>
-      <a className="gm-caller__phone mono" href={undefined}>
-        {c.phone}
-      </a>
+      <span className="gm-caller__phone mono">{c.phone}</span>
       <LangFlag lang={c.lang} />
       <span className="sr-only">{t('game.inc.callerLang', { l: t(`game.spk.${c.lang}`) })}</span>
     </div>
@@ -234,24 +232,26 @@ export function RecommendBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
                 <span className={`gm-check${picked ? ' is-on' : ''}`} aria-hidden="true">
                   {picked && <Icon name="check" size={10} />}
                 </span>
-                <span className="gm-rec__cs mono">
+                <span className="gm-rec__cs mono" title={u.callsign}>
                   <StatusDot status={u.status} />
-                  {u.callsign}
+                  <span>{u.callsign}</span>
                 </span>
                 <span className="gm-rec__type" title={t(`game.utype.${u.type}`)}>
                   <UnitTypeIcon type={u.type} size={12} />
                   {t(`game.ushort.${u.type}`)}
                 </span>
-                <span className="gm-rec__info">
-                  {other ? (
-                    <span className="gm-rec__divert">{t('game.inc.diverts', { c: `${other.code} P${other.priority}` })}</span>
-                  ) : r.reason ? (
-                    <span className="gm-rec__reason">{msg(r.reason)}</span>
-                  ) : null}
-                </span>
                 <span className="gm-rec__km mono">{fmtKm(r.km, lang)}</span>
                 <span className="gm-rec__eta mono">{Number.isFinite(r.etaMin) ? `${fmtNum(r.etaMin, r.etaMin < 10 ? 1 : 0, lang)}′` : '—'}</span>
                 <FitBadge fit={r.fit} />
+                {(other || r.reason) && (
+                  <span className="gm-rec__info">
+                    {other ? (
+                      <span className="gm-rec__divert">{t('game.inc.diverts', { c: `${other.code} P${other.priority}` })}</span>
+                    ) : (
+                      <span className="gm-rec__reason">{msg(r.reason)}</span>
+                    )}
+                  </span>
+                )}
               </div>
             );
           })}
@@ -301,7 +301,7 @@ export function AssignedBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
                   {t(`game.ushort.${u.type}`)}
                 </span>
                 <StatusChip status={u.status} label={t(`game.status.${u.status}`)} />
-                <span className="gm-asg__eta mono">{eta !== null ? `ETA ${countdown(eta)}` : u.status === 'onscene' ? t('game.inc.arrived') : ''}</span>
+                <span className="gm-asg__eta mono">{eta !== null ? t('game.eta', { t: countdown(eta) }) : u.status === 'onscene' ? t('game.inc.arrived') : ''}</span>
                 {inc.state !== 'closed' && (
                   <Button size="sm" variant="ghost" icon="x" onClick={() => recallUnit(u.id)}>
                     {t('game.inc.recall')}

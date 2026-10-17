@@ -1,5 +1,6 @@
 // Pure helpers for the career (HQ management) screen. No React / DOM imports — unit-tested in tests/career-ui.test.ts.
 import * as rules from '@/sim/career';
+import * as economy from '@/data/economy';
 import { DAILY_BUDGET, RANKS, UPGRADES } from '@/data/economy';
 import type { CareerProfile, Lang, LedgerEntry, RegionId, RosterUnit, ShiftReport, StaffMember, Text, UnitType } from '@/sim/types';
 import type { IconName } from '@/ui/components/Icon';
@@ -417,4 +418,29 @@ export function validateOnboarding(name: string, badge: string): { name?: string
 
 export function randomBadge(seed = Math.random()): string {
   return String(100 + Math.floor(clamp(seed, 0, 0.999999) * 900)).padStart(3, '0');
+}
+
+// ── Prefecture unlocks ────────────────────────────────────────────────────────────────────────
+
+export interface RegionLock {
+  id: RegionId;
+  unlocked: boolean;
+  /** RANKS index that unlocks it (undefined = unknown / home). */
+  minRank?: number;
+}
+
+/** Which prefectures are open for shifts, and the rank that opens the rest (EXTRA_REGION_RANKS × REGION_UNLOCK_ORDER). */
+export function regionLocks(p: Pick<CareerProfile, 'regionId' | 'unlockedRegions'>): RegionLock[] {
+  const eco = economy as unknown as { EXTRA_REGION_RANKS?: number[]; REGION_UNLOCK_ORDER?: RegionId[] };
+  const open = new Set<RegionId>([p.regionId, ...(p.unlockedRegions ?? [])]);
+  const order = (eco.REGION_UNLOCK_ORDER ?? REGION_ORDER).filter((id) => id !== p.regionId);
+  const ranks = eco.EXTRA_REGION_RANKS ?? [];
+  return REGION_ORDER.map((id) => {
+    const i = order.indexOf(id);
+    return { id, unlocked: open.has(id), minRank: id === p.regionId || i < 0 ? undefined : ranks[i] };
+  });
+}
+
+export function capitalize(s: string): string {
+  return s ? s[0].toLocaleUpperCase('et') + s.slice(1) : s;
 }

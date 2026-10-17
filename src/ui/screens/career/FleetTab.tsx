@@ -4,7 +4,7 @@ import * as rules from '@/sim/career';
 import { VEHICLE_CATALOG } from '@/data/economy';
 import { Badge, Button, Empty, Icon, Meter, Modal } from '@/ui/components';
 import type { CareerProfile, CatalogVehicle, FleetVehicle, UnitType } from '@/sim/types';
-import { fmtMoney, fmtNum, isLocked, levelTone, pct, rankName, UNIT_TYPES, type RankInfo } from './helpers';
+import { fmtMoney, fmtNum, isLocked, levelTone, pct, rankName, safe, UNIT_TYPES, type RankInfo } from './helpers';
 import { LockTag, Plate, Stat, SuitsChips } from './bits';
 import { useCareerAction } from './actions';
 
@@ -26,6 +26,7 @@ export function FleetTab({ profile, rank }: { profile: CareerProfile; rank: Rank
     return UNIT_TYPES.filter((u) => need.has(u) && !suited.has(u) && u !== 'heli');
   }, [fleet, profile.staff]);
 
+  const resale = selling ? safe<number | null>(() => rules.resaleValue(selling), null) : null;
   const ownedCount = (model: string) => fleet.filter((v) => v.model === model).length;
 
   const buy = (c: CatalogVehicle) =>
@@ -191,6 +192,11 @@ export function FleetTab({ profile, rank }: { profile: CareerProfile; rank: Rank
             <div>
               <p>{t('career.fleet.sellText', { model: selling.model })}</p>
               <p className="dim">{t('career.fleet.sellNote', { cond: pct(selling.condition) })}</p>
+              {resale !== null && (
+                <p className="cr-confirm__value">
+                  {t('career.fleet.resale')} <strong className="mono cr-pos">{fmtMoney(resale, lang, { sign: true })}</strong>
+                </p>
+              )}
             </div>
           </div>
         )}

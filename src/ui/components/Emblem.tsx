@@ -7,13 +7,29 @@ const OUTER_PETALS = [0, 45, 90, 135, 180, 225, 270, 315];
 const INNER_PETALS = [22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5];
 
 /** Cornflower floret pointing up from the flower centre: a narrow funnel ending in serrated teeth. */
-export const PETAL_PATH = 'M-1 -2.4L-3 -7.9L-3.9 -9.9L-2.4 -9.4L-1.3 -10.7L0 -9.5L1.3 -10.7L2.4 -9.4L3.9 -9.9L3 -7.9L1 -2.4Z';
+export const PETAL_PATH =
+  'M-1 -2.4L-3 -7.9L-3.9 -9.9L-2.4 -9.4L-1.3 -10.7L0 -9.5L1.3 -10.7L2.4 -9.4L3.9 -9.9L3 -7.9L1 -2.4Z';
 
-export function Emblem({ size = 48, className, title = 'EPD' }: { size?: number; className?: string; title?: string }) {
+export function Emblem({
+  size = 48,
+  className,
+  title = 'EPD',
+}: {
+  size?: number;
+  className?: string;
+  title?: string;
+}) {
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const g = (n: string) => `epd-${n}-${uid}`;
   return (
-    <svg className={`ui-emblem${className ? ' ' + className : ''}`} width={size} height={size} viewBox="0 0 64 64" role="img" aria-label={title}>
+    <svg
+      className={`ui-emblem${className ? ' ' + className : ''}`}
+      width={size}
+      height={size}
+      viewBox="0 0 64 64"
+      role="img"
+      aria-label={title}
+    >
       <defs>
         <linearGradient id={g('fill')} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#15386b" />
@@ -51,10 +67,24 @@ export function Emblem({ size = 48, className, title = 'EPD' }: { size?: number;
       {/* cornflower */}
       <g transform="translate(32 23.2)">
         {OUTER_PETALS.map((a) => (
-          <path key={a} d={PETAL_PATH} transform={`rotate(${a})`} fill={`url(#${g('petal')})`} stroke="#0b1d3d" strokeWidth=".35" />
+          <path
+            key={a}
+            d={PETAL_PATH}
+            transform={`rotate(${a})`}
+            fill={`url(#${g('petal')})`}
+            stroke="#0b1d3d"
+            strokeWidth=".35"
+          />
         ))}
         {INNER_PETALS.map((a) => (
-          <path key={a} d={PETAL_PATH} transform={`rotate(${a}) scale(.62)`} fill="#9cc0ff" stroke="#0b1d3d" strokeWidth=".4" />
+          <path
+            key={a}
+            d={PETAL_PATH}
+            transform={`rotate(${a}) scale(.62)`}
+            fill="#9cc0ff"
+            stroke="#0b1d3d"
+            strokeWidth=".4"
+          />
         ))}
         <circle r="2.7" fill="#2a1f66" stroke="#0b1d3d" strokeWidth=".4" />
         <circle r=".55" cx="-1" cy="-.6" fill="#b9a6ff" />
@@ -62,7 +92,13 @@ export function Emblem({ size = 48, className, title = 'EPD' }: { size?: number;
         <circle r=".55" cx="0" cy="1" fill="#b9a6ff" />
       </g>
       {/* divider */}
-      <path d="M22 35.4h6.5M35.5 35.4H42" stroke="#3d8bff" strokeOpacity=".7" strokeWidth="1" strokeLinecap="round" />
+      <path
+        d="M22 35.4h6.5M35.5 35.4H42"
+        stroke="#3d8bff"
+        strokeOpacity=".7"
+        strokeWidth="1"
+        strokeLinecap="round"
+      />
       <circle cx="32" cy="35.4" r="1" fill="#8cc4ff" />
       {/* EPD monogram */}
       <path

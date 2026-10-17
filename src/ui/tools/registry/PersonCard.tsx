@@ -167,7 +167,7 @@ export function PersonCard({
             </span>
           )}
         </div>
-        {a.clothing && (tx(a.clothing) || null) && (
+        {a.clothing && tx(a.clothing) && !tx(describe(p, s.now)).includes(tx(a.clothing)) && (
           <div className="tl-desc tl-desc--sub">
             {t('tools.p.clothing')}: {tx(a.clothing)}
           </div>
@@ -233,7 +233,7 @@ export function PersonCard({
                   return (
                     <tr key={i}>
                       <td className="mono">{isoToEt(r.date)}</td>
-                      <td className="mono tl-nowrap">{law ? `${law.act} ${law.para}` : lawIdLabel(r.lawId)}</td>
+                      <td className="mono tl-act">{law ? `${law.act} ${law.para}` : lawIdLabel(r.lawId)}</td>
                       <td>
                         <div className="tl-rec__title">
                           {law ? tx(law.title) : r.lawId}{' '}

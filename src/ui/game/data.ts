@@ -22,7 +22,7 @@ import type {
   Unit,
   UnitNeed,
 } from '@/sim/types';
-import { parseQueryRef, sortQueue } from './format';
+import { parseQueryRef, sortQueue, typeFits } from './format';
 
 const warned = new Set<string>();
 
@@ -206,6 +206,15 @@ export interface ActiveBackup {
   need: UnitNeed;
   remainingMin: number | null;
   msg?: RadioMsg;
+  /** Matching units already driving there since the request (soonest first). */
+  enroute: { unit: Unit; etaMin: number | null }[];
+}
+
+function helpEnroute(s: SimState, inc: Incident, need: UnitNeed, since?: number): ActiveBackup['enroute'] {
+  return assignedUnits(s, inc)
+    .filter((u) => u.status === 'enroute' && typeFits(need.type, u.type) && (since === undefined || u.statusSince >= since - 1000))
+    .map((u) => ({ unit: u, etaMin: u.move ? Math.max(0, (u.move.arriveAt - s.now) / MIN) : null }))
+    .sort((a, b) => (a.etaMin ?? 1e9) - (b.etaMin ?? 1e9));
 }
 
 /** The incident's active "Toetust vajab" request, if any. */
@@ -218,13 +227,22 @@ export function activeBackup(s: SimState, inc: Incident): ActiveBackup | null {
     if (spec?.kind === 'backup') {
       const bs = spec as BackupBeat;
       const msg = b.radioId ? s.radio.find((m) => m.id === b.radioId) : undefined;
-      return { beat: b, need: bs.need, remainingMin: b.timeoutAt ? (b.timeoutAt - s.now) / MIN : null, msg };
+      return {
+        beat: b,
+        need: bs.need,
+        remainingMin: b.timeoutAt ? (b.timeoutAt - s.now) / MIN : null,
+        msg,
+        enroute: helpEnroute(s, inc, bs.need, b.activeSince),
+      };
     }
   }
   const msg = s.radio.find(
     (m) => m.incidentId === inc.id && m.kind === 'backup' && !m.answered && (m.expiresAt === undefined || m.expiresAt > s.now),
   );
-  if (msg) return { need: { type: 'any', count: 1 }, remainingMin: msg.expiresAt ? (msg.expiresAt - s.now) / MIN : null, msg };
+  if (msg) {
+    const need: UnitNeed = { type: 'any', count: 1 };
+    return { need, remainingMin: msg.expiresAt ? (msg.expiresAt - s.now) / MIN : null, msg, enroute: helpEnroute(s, inc, need, msg.t) };
+  }
   return null;
 }
 
@@ -265,7 +283,7 @@ export function querySubject(s: SimState, msg: RadioMsg): QuerySubject | null {
 }
 
 /** Whether the dispatcher plausibly knows who this person is (otherwise only a description). */
-export function isIdentified(s: SimState, inc: Incident, ref: IncidentPersonRef, tpl: IncidentTemplate | undefined): boolean {
+export function isIdentified(_s: SimState, inc: Incident, ref: IncidentPersonRef, tpl: IncidentTemplate | undefined): boolean {
   if (ref.checked) return true;
   if (ref.role === 'caller' || inc.caller?.personId === ref.personId) return true;
   const spec = tpl?.persons.find((p) => p.role === ref.role);

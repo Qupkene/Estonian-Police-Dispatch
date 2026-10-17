@@ -38,7 +38,7 @@ export function IncidentPanel() {
       </div>
     );
   }
-  return <IncidentDetail sim={sim} inc={inc} />;
+  return <IncidentDetail key={inc.id} sim={sim} inc={inc} />;
 }
 
 const PRIOS: Priority[] = [1, 2, 3, 4];
@@ -87,9 +87,11 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
             </button>
           ))}
           {inc.escalated && (
-            <Badge tone="danger" className="gm-inc__esc">
-              <Icon name="warning" size={11} /> ESK
-            </Badge>
+            <span title={t('game.inc.escTitle')}>
+              <Badge tone="danger" className="gm-inc__esc">
+                <Icon name="warning" size={11} /> {t('game.inc.escShort')}
+              </Badge>
+            </span>
           )}
         </div>
         <div className="gm-inc__addr">
@@ -104,7 +106,7 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
         </div>
         {incoming && (
           <div className="gm-inc__ack">
-            <Button variant="primary" icon="check" onClick={() => acknowledge(inc.id)}>
+            <Button variant="primary" icon="check" title={t('game.queue.acceptTitle')} onClick={() => acknowledge(inc.id)}>
               {t('game.queue.accept')}
               <Kbd>A</Kbd>
             </Button>
@@ -132,9 +134,24 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
             {backup.msg && <p className="gm-backup__text">„{tx(backup.msg.text)}“</p>}
             <div className="gm-backup__foot">
               <span>{t('game.inc.backupNeed', { n: backup.need.count, type: t(`game.utype.${backup.need.type}`) })}</span>
-              <Button variant="danger" icon="send" onClick={() => sendBackup(inc.id)}>
-                {t('game.queue.sendHelp')}
-              </Button>
+              {backup.enroute.length ? (
+                <span className="gm-backup__foot-actions">
+                  <span className="gm-helpenroute mono">
+                    <Icon name="siren" size={11} />
+                    {t('game.queue.helpEnroute', {
+                      c: backup.enroute[0].unit.callsign,
+                      t: backup.enroute[0].etaMin !== null ? countdown(backup.enroute[0].etaMin) : '',
+                    })}
+                  </span>
+                  <Button size="sm" variant="ghost" icon="plus" onClick={() => sendBackup(inc.id)}>
+                    {t('game.queue.sendMore')}
+                  </Button>
+                </span>
+              ) : (
+                <Button variant="danger" icon="send" onClick={() => sendBackup(inc.id)}>
+                  {t('game.queue.sendHelp')}
+                </Button>
+              )}
             </div>
           </div>
         )}

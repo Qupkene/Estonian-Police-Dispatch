@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react';
 import type { Citizenship } from '@/sim/types';
 import { Icon, type IconName } from '@/ui/components';
-import { formatPlate, type FlagLike } from './lib/helpers';
+import { formatPlate, splitFlagText, type FlagLike } from './lib/helpers';
 import { useTx } from '@/i18n';
 import './tools.css';
 
@@ -96,15 +96,21 @@ const SEV_ICON: Record<FlagLike['severity'], IconName> = { danger: 'alert', warn
 
 export function FlagBanner({ flags }: { flags: FlagLike[] }) {
   const tx = useTx();
-  if (!flags.length) return null;
+  const shown = flags.filter((f) => f.id !== 'legend');
+  if (!shown.length) return null;
   return (
     <ul className="tl-flags" role="list">
-      {flags.map((f) => (
-        <li key={f.id} className={`tl-flag tl-flag--${f.severity}`}>
-          <Icon name={SEV_ICON[f.severity]} size={14} />
-          <span>{tx(f.text).toUpperCase()}</span>
-        </li>
-      ))}
+      {shown.map((f) => {
+        const full = tx(f.text);
+        const { head, rest } = splitFlagText(full);
+        return (
+          <li key={f.id} className={`tl-flag tl-flag--${f.severity}`} title={full}>
+            <Icon name={SEV_ICON[f.severity]} size={14} />
+            <span className="tl-flag__head">{head.toUpperCase()}</span>
+            {rest && rest.length <= 32 && <span className="tl-flag__rest">{rest}</span>}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -119,11 +125,14 @@ export function FlagDots({ flags, legend }: { flags: FlagLike[]; legend?: boolea
           <Icon name="star" size={12} />
         </span>
       )}
-      {flags.slice(0, 4).map((f) => (
-        <span key={f.id} className={`tl-dot tl-dot--${f.severity}`} title={tx(f.text)}>
-          <Icon name={SEV_ICON[f.severity]} size={12} />
-        </span>
-      ))}
+      {flags
+        .filter((f) => f.id !== 'legend')
+        .slice(0, 4)
+        .map((f) => (
+          <span key={f.id} className={`tl-dot tl-dot--${f.severity}`} title={tx(f.text)}>
+            <Icon name={SEV_ICON[f.severity]} size={12} />
+          </span>
+        ))}
     </span>
   );
 }

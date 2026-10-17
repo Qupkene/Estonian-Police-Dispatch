@@ -90,7 +90,7 @@ export function buildPursuits(s: SimState): FeatureCollection<LineString> {
   for (const id of s.incidentOrder) {
     const inc = s.incidents[id];
     const p = inc?.pursuit;
-    if (!p || p.ended || inc.state === 'closed' || isHidden(s, id)) continue;
+    if (!p?.suspectPos || p.ended || inc.state === 'closed' || isHidden(s, id)) continue;
     const coords = [...(p.trail ?? []).slice(-120), p.suspectPos];
     if (coords.length < 2) continue;
     features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: { id } });
@@ -104,7 +104,7 @@ export function buildSearches(s: SimState): FeatureCollection<Polygon> {
   for (const id of s.incidentOrder) {
     const inc = s.incidents[id];
     const sr = inc?.search;
-    if (!sr || inc.state === 'closed' || isHidden(s, id)) continue;
+    if (!sr?.center || inc.state === 'closed' || isHidden(s, id)) continue;
     features.push({
       type: 'Feature',
       geometry: { type: 'Polygon', coordinates: [circlePolygon(sr.center, Math.max(0.05, sr.radiusKm))] },
@@ -119,7 +119,7 @@ export function buildHeat(s: SimState): FeatureCollection<Point> {
   const features: Feature<Point>[] = [];
   for (const id of s.incidentOrder) {
     const inc: Incident | undefined = s.incidents[id];
-    if (!inc || isHidden(s, id) || inc.closedBy === 'duplicate' || inc.closedBy === 'prank') continue;
+    if (!inc?.location?.coord || isHidden(s, id) || inc.closedBy === 'duplicate' || inc.closedBy === 'prank') continue;
     features.push({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: inc.location.coord },
@@ -140,18 +140,26 @@ export function buildStations(region: RegionDef | undefined, lang: Lang): Featur
 }
 
 /**
- * Pixel offsets that fan out stacked stationary units (several cars parked at one station, or
- * units on scene at the same incident) so each marker stays clickable.
+ * Pixel offsets that stack co-located stationary units into a tidy column (several cars parked at
+ * one station, units on scene at the same incident, or any other pile-up) so each marker and its
+ * callsign label stays readable and clickable.
+ *  - `scene`: units on scene line up to the right of the incident diamond.
+ *  - `station`: units parked at their station stack upwards, right of the station icon (its label
+ *    sits below the icon).
+ *  - otherwise units within ~40 m of each other form a column centred on the spot.
  */
 export function declutterOffsets(
-  items: { id: string; pos: LngLat; moving: boolean; scene?: string }[],
-  radiusPx = 17,
+  items: { id: string; pos: LngLat; moving: boolean; scene?: string; station?: string }[],
+  rowPx = 24,
 ): Map<string, [number, number]> {
   const groups = new Map<string, string[]>();
   for (const it of items) {
     if (it.moving) continue;
-    // Units on scene orbit their incident marker; others are bucketed at ~40 m.
-    const k = it.scene ? `scene:${it.scene}` : `${Math.round(it.pos[0] * 1500)}:${Math.round(it.pos[1] * 2500)}`;
+    const k = it.scene
+      ? `scene:${it.scene}`
+      : it.station
+        ? `station:${it.station}`
+        : `${Math.round(it.pos[0] * 1500)}:${Math.round(it.pos[1] * 2500)}`;
     const g = groups.get(k);
     if (g) g.push(it.id);
     else groups.set(k, [it.id]);
@@ -161,21 +169,12 @@ export function declutterOffsets(
     ids.sort();
     const n = ids.length;
     if (k.startsWith('scene:')) {
-      // Fan out to the right of the incident diamond, starting up-right.
-      const r = 30 + Math.max(0, n - 5) * 4;
-      const step = Math.min(48, 300 / Math.max(1, n)) * (Math.PI / 180);
-      ids.forEach((id, i) => {
-        const a = -Math.PI / 4 + i * step;
-        out.set(id, [Math.round(Math.cos(a) * r), Math.round(Math.sin(a) * r)]);
-      });
-      continue;
+      ids.forEach((id, i) => out.set(id, [30, Math.round((i - (n - 1) / 2) * rowPx)]));
+    } else if (k.startsWith('station:')) {
+      ids.forEach((id, i) => out.set(id, [24, -i * rowPx]));
+    } else if (n > 1) {
+      ids.forEach((id, i) => out.set(id, [0, Math.round((i - (n - 1) / 2) * rowPx)]));
     }
-    if (n < 2) continue;
-    const r = radiusPx + Math.max(0, n - 4) * 3.5;
-    ids.forEach((id, i) => {
-      const a = -Math.PI / 2 + (i / n) * 2 * Math.PI;
-      out.set(id, [Math.round(Math.cos(a) * r), Math.round(Math.sin(a) * r)]);
-    });
   }
   return out;
 }

@@ -179,30 +179,42 @@ export interface NeedRow {
   met: boolean;
 }
 
+/** General response unit types (mirrors the engine's need-matching rule in sim/units.ts). */
+const GENERAL_TYPES: UnitType[] = ['patrol', 'rapid', 'aux', 'traffic', 'border', 'community', 'k9'];
+
+/** Can a unit of type `t` fill a need slot of type `need`? (rapid/K9/… may cover a patrol need). */
+export function typeFits(need: UnitNeed['type'], t: UnitType): boolean {
+  if (need === t) return true;
+  if (need === 'any') return GENERAL_TYPES.includes(t) || t === 'criminal' || t === 'special';
+  if (need === 'patrol') return GENERAL_TYPES.includes(t) || t === 'special';
+  if (need === 'rapid') return t === 'special';
+  return false;
+}
+
+const needRank = (t: UnitNeed['type']) => (t === 'any' ? 2 : t === 'patrol' ? 1 : 0);
+
 /**
- * Match needs against the unit types present. Specific types are filled first; 'any' needs take
- * the leftovers, so a single unit is never counted twice.
+ * Match needs against the unit types present, like the engine does: specific needs first, then
+ * 'patrol', then 'any'; each slot takes an exact type first, then a compatible one. A unit is
+ * never counted twice. Rows keep the input order.
  */
 export function needCoverage(needs: UnitNeed[], unitTypes: UnitType[]): NeedRow[] {
   const pool = [...unitTypes];
   const rows: NeedRow[] = needs.map((n) => ({ type: n.type, count: n.count, have: 0, met: false }));
-  const take = (pred: (t: UnitType) => boolean, max: number): number => {
-    let got = 0;
-    for (let i = 0; i < pool.length && got < max; ) {
-      if (pred(pool[i])) {
-        pool.splice(i, 1);
-        got++;
-      } else i++;
+  const order = rows.map((_r, i) => i).sort((a, b) => needRank(rows[a].type) - needRank(rows[b].type));
+  for (const idx of order) {
+    const r = rows[idx];
+    for (let pass = 0; pass < 2 && r.have < r.count; pass++) {
+      for (let i = 0; i < pool.length && r.have < r.count; ) {
+        const ok = pass === 0 ? pool[i] === r.type : typeFits(r.type, pool[i]);
+        if (ok) {
+          pool.splice(i, 1);
+          r.have++;
+        } else i++;
+      }
     }
-    return got;
-  };
-  rows.forEach((r) => {
-    if (r.type !== 'any') r.have = take((t) => t === r.type, r.count);
-  });
-  rows.forEach((r) => {
-    if (r.type === 'any') r.have = take(() => true, r.count);
-  });
-  rows.forEach((r) => (r.met = r.have >= r.count));
+    r.met = r.have >= r.count;
+  }
   return rows;
 }
 

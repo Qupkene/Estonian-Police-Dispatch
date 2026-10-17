@@ -37,12 +37,18 @@ export const OCCUPATIONS: Occupation[] = [
   o('yliopilane', 'üliõpilane', 'university student', 0, 19, 30, { status: true }),
   o('pensionar', 'pensionär', 'pensioner', 0, 60, 110, { status: true }),
   o('tootu', 'töötu', 'unemployed', 0, 18, 64, { status: true }),
-  o('lapsehoolduspuhkus', 'lapsehoolduspuhkusel', 'on parental leave', 0, 20, 43, { status: true, female: 0.9 }),
+  o('lapsehoolduspuhkus', 'lapsehoolduspuhkusel', 'on parental leave', 0, 20, 43, {
+    status: true,
+    female: 0.9,
+  }),
   o('toovoimetu', 'töövõimetoetuse saaja', 'on incapacity benefit', 0, 25, 64, { status: true }),
   // ── Retail & service ──
   o('myyja', 'müüja', 'shop assistant', 6, 18, 70, { female: 0.75 }),
   o('kassapidaja', 'kassapidaja', 'cashier', 3, 18, 70, { female: 0.85 }),
-  o('klienditeenindaja', 'klienditeenindaja', 'customer service agent', 2.2, 18, 62, { female: 0.7, ru: 1.2 }),
+  o('klienditeenindaja', 'klienditeenindaja', 'customer service agent', 2.2, 18, 62, {
+    female: 0.7,
+    ru: 1.2,
+  }),
   o('poejuhataja', 'kaupluse juhataja', 'store manager', 0.6, 25, 65, { female: 0.7 }),
   o('tanklateenindaja', 'tankla teenindaja', 'petrol station attendant', 0.6, 18, 60, { female: 0.6 }),
   o('kokk', 'kokk', 'cook', 2, 18, 65, { female: 0.5 }),
@@ -55,7 +61,7 @@ export const OCCUPATIONS: Occupation[] = [
   o('juuksur', 'juuksur', 'hairdresser', 0.8, 19, 65, { female: 0.9 }),
   o('kosmeetik', 'kosmeetik', 'beautician', 0.4, 20, 60, { female: 0.97 }),
   o('massoor', 'massöör', 'massage therapist', 0.3, 22, 62, { female: 0.7 }),
-  o('treener', 'spordi­treener', 'sports coach', 0.4, 20, 62, { female: 0.4 }),
+  o('treener', 'treener', 'sports coach', 0.4, 20, 62, { female: 0.4 }),
   o('turvatootaja', 'turvatöötaja', 'security guard', 1.8, 19, 68, { female: 0.15, ru: 1.8 }),
   o('postiljon', 'postiljon', 'postal worker', 0.4, 19, 68, { female: 0.65 }),
   o('kinnisvaramaakler', 'kinnisvaramaakler', 'real estate agent', 0.5, 23, 68, { female: 0.55 }),
@@ -66,7 +72,7 @@ export const OCCUPATIONS: Occupation[] = [
   o('autojuht', 'autojuht', 'driver', 4, 21, 68, { female: 0.08 }),
   o('veoautojuht', 'veoautojuht', 'truck driver', 3, 21, 67, { female: 0.03, ru: 1.4 }),
   o('bussijuht', 'bussijuht', 'bus driver', 1.2, 24, 67, { female: 0.15, ru: 1.4 }),
-  o('taksojuht', 'taksojuht', 'taxi driver', 1.2, 21, 70, { female: 0.08, ru: 1.6 }),
+  o('taksojuht', 'taksojuht', 'taxi driver', 1.6, 21, 70, { female: 0.08, ru: 1.6, regions: ['pohja'] }),
   o('trammijuht', 'trammijuht', 'tram driver', 0.12, 24, 65, { female: 0.4, regions: ['pohja'] }),
   o('rongijuht', 'vedurijuht', 'train driver', 0.15, 24, 63, { female: 0.05 }),
   o('kuller', 'kuller', 'courier', 1.5, 18, 55, { female: 0.2 }),
@@ -93,25 +99,48 @@ export const OCCUPATIONS: Occupation[] = [
   o('haljastaja', 'haljastaja', 'landscaper', 0.4, 19, 72, { female: 0.55 }),
   // ── Industry & primary sector ──
   o('tehasetooline', 'tehasetööline', 'factory worker', 3, 18, 63, { female: 0.4, ru: 1.6 }),
-  o('liinioperaator', 'tootmisliini operaator', 'production line operator', 2, 18, 63, { female: 0.4, ru: 1.5 }),
+  o('liinioperaator', 'tootmisliini operaator', 'production line operator', 2, 18, 63, {
+    female: 0.4,
+    ru: 1.5,
+  }),
   o('polevkivi', 'põlevkivitööstuse operaator', 'oil shale plant operator', 1, 20, 63, {
     female: 0.15,
     ru: 1.5,
     regions: ['ida'],
   }),
   o('kaevur', 'kaevur', 'miner', 0.5, 20, 58, { female: 0.02, ru: 1.5, regions: ['ida'] }),
-  o('energeetik', 'energeetik', 'power plant technician', 0.4, 22, 63, { female: 0.1, regions: ['ida'] }),
+  o('energeetik', 'elektrijaama operaator', 'power plant operator', 0.4, 22, 63, {
+    female: 0.1,
+    regions: ['ida'],
+  }),
+  o('keemia', 'keemiatööstuse operaator', 'chemical plant operator', 0.4, 20, 63, {
+    female: 0.2,
+    ru: 1.5,
+    regions: ['ida'],
+  }),
   o('lihatoostus', 'lihatööstuse töötaja', 'meat processing worker', 0.5, 19, 63, { female: 0.4 }),
   o('kalatoostus', 'kalatööstuse töötaja', 'fish processing worker', 0.3, 19, 63, {
     female: 0.6,
     regions: ['laane', 'pohja'],
   }),
   o('omble', 'õmbleja', 'seamstress', 0.5, 20, 70, { female: 0.95, ru: 1.4 }),
-  o('metsatooline', 'metsatööline', 'forestry worker', 0.8, 20, 63, { female: 0.05, regions: ['louna', 'laane'] }),
-  o('harvester', 'harvesterioperaator', 'harvester operator', 0.4, 22, 62, { female: 0.03, regions: ['louna'] }),
-  o('pollumajandus', 'põllumajandustöötaja', 'farm worker', 1.5, 18, 70, { female: 0.3, regions: ['louna', 'laane'] }),
+  o('metsatooline', 'metsatööline', 'forestry worker', 0.8, 20, 63, {
+    female: 0.05,
+    regions: ['louna', 'laane'],
+  }),
+  o('harvester', 'harvesterioperaator', 'harvester operator', 0.4, 22, 62, {
+    female: 0.03,
+    regions: ['louna'],
+  }),
+  o('pollumajandus', 'põllumajandustöötaja', 'farm worker', 1.5, 18, 70, {
+    female: 0.3,
+    regions: ['louna', 'laane'],
+  }),
   o('talunik', 'talunik', 'farmer', 1, 25, 78, { female: 0.25, ru: 0.4, regions: ['louna', 'laane'] }),
-  o('loomakasvatus', 'loomakasvatustöötaja', 'livestock worker', 0.6, 20, 67, { female: 0.5, regions: ['louna'] }),
+  o('loomakasvatus', 'loomakasvatustöötaja', 'livestock worker', 0.6, 20, 67, {
+    female: 0.5,
+    regions: ['louna'],
+  }),
   o('kalur', 'kalur', 'fisherman', 0.4, 20, 72, { female: 0.05, regions: ['laane', 'ida'] }),
   // ── Office, IT & business ──
   o('itarendaja', 'IT-arendaja', 'software developer', 2, 21, 60, { female: 0.2, regions: ['pohja'] }),
@@ -149,6 +178,7 @@ export const OCCUPATIONS: Occupation[] = [
   o('kaitsevaelane', 'kaitseväelane', 'soldier', 0.5, 19, 55, { female: 0.12 }),
   o('ajateenija', 'ajateenija', 'conscript', 0.6, 18, 27, { female: 0.03, ru: 0.6 }),
   o('vanglaametnik', 'vanglaametnik', 'prison officer', 0.2, 21, 60, { female: 0.35 }),
+  o('piirivalvur', 'piirivalvur', 'border guard', 0.2, 21, 60, { female: 0.2, regions: ['ida', 'louna'] }),
   // ── Health & care ──
   o('ode', 'õde', 'nurse', 1.8, 21, 67, { female: 0.92 }),
   o('hooldaja', 'hooldaja', 'care worker', 1.6, 19, 68, { female: 0.88, ru: 1.4 }),

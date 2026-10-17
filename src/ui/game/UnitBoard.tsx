@@ -133,7 +133,13 @@ function BoardRow({ sim, u, selected, recommended }: { sim: SimState; u: Unit; s
     const atBase = st ? haversineKm(st.coord, u.pos) < 0.3 : false;
     task = (
       <span className="muted">
-        {u.onCall ? t('game.unit.onCall') : atBase ? `${st?.short ?? ''} · ${t('game.board.atBase')}` : t('game.board.patrolNear', { p: st?.short ?? tx(st?.name) })}
+        {u.onCall
+          ? t('game.unit.onCall')
+          : !st
+            ? t('game.move.patrol')
+            : atBase
+              ? `${st.short || tx(st.name)} · ${t('game.board.atBase')}`
+              : t('game.board.patrolNear', { p: st.short || tx(st.name) })}
       </span>
     );
   }

@@ -1,0 +1,127 @@
+/* Boot screen */
+.sh-boot {
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  cursor: default;
+}
+.sh-boot__frame {
+  width: min(760px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.sh-boot__brand {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  animation: epd-fade-in var(--dur-3) var(--ease);
+}
+.sh-boot__title {
+  font-family: var(--font-mono);
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  background: linear-gradient(90deg, var(--text-0), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.sh-boot__sub {
+  margin-top: 6px;
+  color: var(--text-1);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.sh-boot__meta {
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.sh-boot__log {
+  list-style: none;
+  margin: 0;
+  padding: 16px 18px;
+  min-height: 310px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--bg-0) 80%, black);
+  box-shadow:
+    inset 0 0 40px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(0, 0, 0, 0.4);
+  font-size: var(--fs-sm);
+  line-height: 1.85;
+  color: var(--text-1);
+}
+.sh-boot__line {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  animation: sh-boot-line 160ms var(--ease) both;
+}
+@keyframes sh-boot-line {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+}
+.sh-boot__ts {
+  color: var(--text-3);
+  white-space: pre;
+}
+.sh-boot__text {
+  flex: 1;
+  min-width: 0;
+}
+.sh-boot__detail {
+  color: var(--text-3);
+}
+.sh-boot__st {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.sh-boot__st--ok {
+  color: var(--ok);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--ok) 50%, transparent);
+}
+.sh-boot__st--off {
+  color: var(--warn);
+}
+.sh-boot__cursor {
+  color: var(--accent-2);
+  animation: epd-blink 0.9s steps(2, start) infinite;
+}
+.sh-boot__bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-3);
+  overflow: hidden;
+}
+.sh-boot__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 12px var(--accent-2);
+}
+.sh-boot__foot {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  margin-top: -12px;
+}
+.sh-boot__skip {
+  animation: epd-blink 1.6s ease-in-out infinite;
+}
+@media (max-width: 600px) {
+  .sh-boot__title {
+    font-size: 30px;
+  }
+  .sh-boot__ts {
+    display: none;
+  }
+  .sh-boot__log {
+    min-height: 0;
+    font-size: var(--fs-xs);
+  }
+}

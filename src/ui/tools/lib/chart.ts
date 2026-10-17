@@ -34,6 +34,16 @@ export function niceTicks(min: number, max: number, count = 4, integer = false):
   return out;
 }
 
+/** Time-axis ticks at round wall-clock steps (10/15/30 min, 1/2/3/4/6 h) between t0 and t1 (epoch ms). */
+export function timeTicks(t0: number, t1: number, maxTicks = 5): number[] {
+  const span = Math.max(1, t1 - t0);
+  const steps = [10, 15, 30, 60, 120, 180, 240, 360].map((m) => m * 60_000);
+  const step = steps.find((st) => span / st <= Math.max(1, maxTicks - 1)) ?? steps[steps.length - 1];
+  const out: number[] = [];
+  for (let v = Math.ceil(t0 / step) * step; v <= t1; v += step) out.push(v);
+  return out;
+}
+
 /** Point on a circle; angle 0 = 12 o'clock, clockwise. */
 export function polar(cx: number, cy: number, r: number, a: number): [number, number] {
   return [cx + r * Math.sin(a), cy - r * Math.cos(a)];

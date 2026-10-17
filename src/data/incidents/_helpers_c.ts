@@ -211,8 +211,8 @@ export function breathRefusal(at: BeatAt, chance = 0.3): ChoiceBeat {
   return choice(
     at,
     [
-      T('{callsign}: juht keeldub alkomeetrisse puhumast. Kas toimetame ta joobe tuvastamiseks vereanalüüsile?', '{callsign}: the driver refuses the breath test. Do we take him for a blood test to establish intoxication?'),
-      T('JK, {callsign}. Juht ei nõustu puhuma ja on ilmselgelt joobes. Kas viime haiglasse vereproovi andma?', 'Control, {callsign}. The driver will not blow and is clearly drunk. Do we take him to hospital for a blood sample?'),
+      T('{callsign}: juht keeldub alkomeetrisse puhumast. Kas toimetame ta joobe tuvastamiseks vereanalüüsile?', '{callsign}: the driver refuses the breath test. Do we take the driver for a blood test to establish intoxication?'),
+      T('JK, {callsign}. Juht ei nõustu puhuma ja on ilmselgelt joobes. Kas viime haiglasse vereproovi andma?', 'Control, {callsign}. The driver will not blow and is clearly intoxicated. Do we take the driver to hospital for a blood sample?'),
     ],
     [
       opt('blood', T('Jah, vereanalüüsile', 'Yes, blood test'), T('{callsign}, toimetage juht haiglasse vereanalüüsile, protokoll hiljem.', '{callsign}, take the driver to hospital for a blood test, paperwork afterwards.'), { success: 0.15, time: 25 }),

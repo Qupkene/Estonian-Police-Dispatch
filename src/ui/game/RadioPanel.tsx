@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useGame } from '@/store/game';
 import { useT, useTx } from '@/i18n';
 import { Icon, Panel } from '@/ui/components';
@@ -27,7 +27,6 @@ export function RadioPanel() {
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const [unseen, setUnseen] = useState(0);
-  const lastCount = useRef(0);
 
   const total = sim?.radio.length ?? 0;
   const lastId = sim?.radio[total - 1]?.id;
@@ -43,10 +42,6 @@ export function RadioPanel() {
       setUnseen((n) => n + 1);
     }
   }, [lastId, filter]);
-
-  useEffect(() => {
-    lastCount.current = total;
-  }, [total]);
 
   if (!sim) return null;
   const pending = selPendingRadio(sim);
@@ -71,11 +66,11 @@ export function RadioPanel() {
     setUnseen(0);
   };
 
-  const filters: { id: RadioFilter; label: string; n?: number; tone?: string }[] = [
-    { id: 'all', label: t('game.radio.all') },
-    { id: 'reply', label: t('game.radio.reply'), n: pending.length, tone: 'warn' },
-    { id: 'emergency', label: t('game.radio.emergency'), n: emergencies, tone: 'danger' },
-    { id: 'selected', label: t('game.radio.selected') },
+  const filters: { id: RadioFilter; label: string; title: string; n?: number; tone?: string }[] = [
+    { id: 'all', label: t('game.radio.all'), title: t('game.radio.all') },
+    { id: 'reply', label: t('game.radio.replyShort'), title: `${t('game.radio.reply')} (F6)`, n: pending.length, tone: 'warn' },
+    { id: 'emergency', label: t('game.radio.emergencyShort'), title: t('game.radio.emergency'), n: emergencies, tone: 'danger' },
+    { id: 'selected', label: t('game.radio.selectedShort'), title: t('game.radio.selected') },
   ];
 
   return (
@@ -96,6 +91,7 @@ export function RadioPanel() {
               type="button"
               className={`gm-seg__btn${filter === f.id ? ' is-active' : ''}`}
               disabled={f.id === 'selected' && !selectedInc}
+              title={f.title}
               onClick={() => {
                 stick.current = true;
                 setUi({ radioFilter: f.id });

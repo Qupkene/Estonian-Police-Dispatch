@@ -7,6 +7,7 @@ import * as rules from '@/sim/career';
 import { Badge, Button, Emblem, Icon, IconButton, Meter, Modal, Segmented } from '@/ui/components';
 import type { CareerProfile, RegionId, Text } from '@/sim/types';
 import {
+  balanceSeries,
   calendarOf,
   costsOf,
   fmtMoney,
@@ -16,14 +17,15 @@ import {
   inboxStyle,
   monthlyBudget,
   rankInfo,
+  rankName,
   readiness,
-  REGION_ORDER,
+  regionLocks,
   reputationTone,
   safe,
   type RankInfo,
 } from './helpers';
 import { useCountUp, useDelta } from './hooks';
-import { Gauge, ScoreColumns } from './Charts';
+import { Gauge, ScoreColumns, Sparkline } from './Charts';
 
 // ── Header ───────────────────────────────────────────────────────────────────────────────────
 
@@ -70,6 +72,7 @@ function MoneyCard({ profile }: { profile: CareerProfile }) {
   const costs = costsOf(profile);
   const budget = monthlyBudget(profile.regionId);
   const net = budget - costs.total;
+  const trend = useMemo(() => balanceSeries(profile.money, profile.ledger ?? []).slice(-15).map((p) => p.balance), [profile.money, profile.ledger]);
   return (
     <section className="cr-card cr-kpi cr-kpi--money">
       <header className="cr-kpi__head">
@@ -84,6 +87,7 @@ function MoneyCard({ profile }: { profile: CareerProfile }) {
           </span>
         )}
       </div>
+      {trend.length > 1 && <Sparkline values={trend} ariaLabel={t('career.kpi.trend')} />}
       <dl className="cr-kv">
         <div>
           <dt>{t('career.kpi.dailyBudget')}</dt>
@@ -101,7 +105,8 @@ function MoneyCard({ profile }: { profile: CareerProfile }) {
 function StaatusCard({ profile }: { profile: CareerProfile }) {
   const t = useT();
   const lang = useLang();
-  const rep = Math.round(useCountUp(profile.reputation, 900));
+  const repAnim = useCountUp(profile.reputation, 900);
+  const rep = Math.round(repAnim);
   const tone = reputationTone(profile.reputation);
   const last = profile.history?.[profile.history.length - 1];
   return (
@@ -114,7 +119,7 @@ function StaatusCard({ profile }: { profile: CareerProfile }) {
         </span>
       </header>
       <div className="cr-staatus">
-        <Gauge value={profile.reputation} tone={tone} label={t('career.kpi.staatus')} />
+        <Gauge value={repAnim} tone={tone} label={t('career.kpi.staatus')} />
         <div className="cr-staatus__val">
           <strong>{rep}</strong>
           <span>/ 100</span>
@@ -159,7 +164,7 @@ function RankCard({ profile, rank }: { profile: CareerProfile; rank: RankInfo })
           </span>
         </div>
       </div>
-      <Meter value={rank.progress} tone="accent" label={t('career.rank.progress')} />
+      {RANKS.length > 0 && <Meter value={rank.progress} tone="accent" label={t('career.rank.progress')} />}
       {rank.nextName ? (
         <div className="cr-unlocks">
           <span className="cr-unlocks__title">
@@ -270,11 +275,10 @@ export function KpiGrid({ profile, rank }: { profile: CareerProfile; rank: RankI
 
 export function ShiftBand({ profile }: { profile: CareerProfile }) {
   const t = useT();
+  const tx = useTx();
   const lang = useLang();
-  const unlocked = useMemo(() => {
-    const u = (profile.unlockedRegions ?? []).filter((r) => REGION_ORDER.includes(r));
-    return u.includes(profile.regionId) ? u : [profile.regionId, ...u];
-  }, [profile.unlockedRegions, profile.regionId]);
+  const locks = useMemo(() => regionLocks(profile), [profile]);
+  const unlocked = useMemo(() => locks.filter((l) => l.unlocked).map((l) => l.id), [locks]);
   const [region, setRegion] = useState<RegionId>(profile.regionId);
   useEffect(() => {
     if (!unlocked.includes(region)) setRegion(profile.regionId);
@@ -328,15 +332,26 @@ export function ShiftBand({ profile }: { profile: CareerProfile }) {
           )}
         </div>
         <div className="cr-cta__go">
-          {unlocked.length > 1 && (
-            <Segmented
-              size="sm"
-              label={t('career.cta.region')}
-              value={region}
-              onChange={setRegion}
-              options={unlocked.map((r) => ({ value: r, label: t(`career.region.${r}.short`), title: t(`career.region.${r}.name`) }))}
-            />
-          )}
+          <Segmented
+            size="sm"
+            label={t('career.cta.region')}
+            value={region}
+            onChange={setRegion}
+            options={locks.map((l) => {
+              const lockText = l.minRank !== undefined ? t('career.lock.rank', { rank: tx(rankName(l.minRank)) || String(l.minRank + 1) }) : '';
+              return {
+                value: l.id,
+                disabled: !l.unlocked,
+                title: l.unlocked ? t(`career.region.${l.id}.name`) : `${t(`career.region.${l.id}.name`)} · ${lockText}`,
+                label: (
+                  <>
+                    {!l.unlocked && <Icon name="lock" size={11} />}
+                    {t(`career.region.${l.id}.short`)}
+                  </>
+                ),
+              };
+            })}
+          />
           <Button variant="primary" size="lg" icon="play" onClick={start} className="cr-cta__btn">
             {t('career.cta.start')}
           </Button>

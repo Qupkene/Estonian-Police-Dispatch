@@ -43,8 +43,10 @@ export interface ControllerEvents {
   onOffline: (offline: boolean) => void;
   /** The user panned the map while following a unit. */
   onFollowBreak: () => void;
-  /** WebGL context could not be created after all. */
+  /** The WebGL context was lost and not restored. */
   onFatal: () => void;
+  /** Camera pitch crossed the 2D/3D threshold (user tilted with the mouse / touch). */
+  onTilt: (tilted: boolean) => void;
 }
 
 export interface ControllerInit {
@@ -105,12 +107,14 @@ export class MapController {
   private unitPosFails = 0;
   private unitPosBypassUntil = 0;
   private warned = new Set<string>();
+  private lostTimer: ReturnType<typeof setTimeout> | undefined;
+  private tilted = false;
   private onlineListener = () => {
     if (this.offline) this.retryOnline();
   };
 
   constructor(
-    private container: HTMLElement,
+    container: HTMLElement,
     private root: HTMLElement,
     init: ControllerInit,
     private getProps: () => MapViewProps,
@@ -157,13 +161,20 @@ export class MapController {
 
     this.map.on('error', this.onError);
     this.map.on('click', this.onClick);
-    this.map.on('styleimagemissing', this.onImageMissing);
+    this.map.setMissingStyleImageResolver(this.resolveImage);
     this.map.on('dragstart', this.onUserMove);
     this.map.on('zoom', this.onZoom);
-    this.map.on('mousemove', 'stations-icon', this.onStationEnter);
-    this.map.on('mouseleave', 'stations-icon', this.onStationLeave);
-    this.map.on('webglcontextlost', () => console.warn('[map] WebGL context lost'));
+    this.map.on('mousemove', 'stations-halo', this.onStationEnter);
+    this.map.on('mouseleave', 'stations-halo', this.onStationLeave);
+    this.map.on('pitchend', this.onPitchEnd);
+    this.map.on('webglcontextlost', () => {
+      console.warn('[map] WebGL context lost');
+      clearTimeout(this.lostTimer);
+      this.lostTimer = setTimeout(() => this.events.onFatal(), 8000);
+    });
+    this.map.on('webglcontextrestored', () => clearTimeout(this.lostTimer));
     window.addEventListener('online', this.onlineListener);
+    if (import.meta.env.DEV) Object.assign(window as object, { __epdMap: this.map, __epdMapCtl: this });
     this.onZoom();
     this.loop();
   }
@@ -297,6 +308,7 @@ export class MapController {
   }
 
   setTilt(on: boolean) {
+    this.tilted = on;
     this.map.easeTo({ pitch: on ? 52 : 0, bearing: on ? this.map.getBearing() || -12 : 0, duration: this.motionOK ? 700 : 0 });
   }
 
@@ -334,6 +346,14 @@ export class MapController {
     }
   };
 
+  private onPitchEnd = () => {
+    const tilted = this.map.getPitch() > 5;
+    if (tilted !== this.tilted) {
+      this.tilted = tilted;
+      this.events.onTilt(tilted);
+    }
+  };
+
   private onZoom = () => {
     const z = this.map.getZoom();
     const cls = z < 7.5 ? 'epdm-zxlo' : z < 10 ? 'epdm-zlo' : '';
@@ -363,11 +383,11 @@ export class MapController {
     if (this.stationTip) this.stationTip.style.display = 'none';
   };
 
-  private onImageMissing = (e: { id: string }) => {
-    if (e.id !== 'epdm-station' && e.id !== 'epdm-station-hq') return;
-    if (this.map.hasImage(e.id)) return;
-    const img = drawStationIcon(e.id === 'epdm-station-hq');
-    if (img) this.map.addImage(e.id, img, { pixelRatio: 2 });
+  private resolveImage = (id: string) => {
+    if (id !== 'epdm-station' && id !== 'epdm-station-hq') return;
+    if (this.map.hasImage(id)) return;
+    const img = drawStationIcon(id === 'epdm-station-hq');
+    if (img) this.map.addImage(id, img, { pixelRatio: 2 });
   };
 
   // ── Frame loop ─────────────────────────────────────────────────────────────
@@ -465,13 +485,24 @@ export class MapController {
   }
 
   private computeOffsets(s: SimState) {
-    const items: { id: string; pos: LngLat; moving: boolean; scene?: string }[] = [];
+    const items: { id: string; pos: LngLat; moving: boolean; scene?: string; station?: string }[] = [];
+    const stations = REGIONS[this.regionId]?.stations ?? [];
     for (const id of s.unitOrder ?? Object.keys(s.units)) {
       const u = s.units[id];
       if (!u) continue;
       const moving = isMoving(u, s.now);
-      const scene = !moving && u.status === 'onscene' && u.incidentId && s.incidents[u.incidentId] ? u.incidentId : undefined;
-      items.push({ id, pos: this.posOf(u).pos, moving, scene });
+      const pos = this.posOf(u).pos;
+      let scene: string | undefined;
+      let station: string | undefined;
+      if (!moving) {
+        const inc = u.incidentId ? s.incidents[u.incidentId] : undefined;
+        if (inc && inc.state !== 'closed' && nearKm(pos, inc.location.coord, 0.08)) scene = inc.id;
+        else {
+          const st = stations.find((x) => x.id === u.stationId) ?? stations.find((x) => nearKm(pos, x.coord, 0.06));
+          if (st && nearKm(pos, st.coord, 0.06)) station = st.id;
+        }
+      }
+      items.push({ id, pos, moving, scene, station });
     }
     return declutterOffsets(items);
   }
@@ -513,6 +544,7 @@ export class MapController {
     if (this.destroyed) return;
     this.destroyed = true;
     cancelAnimationFrame(this.raf);
+    clearTimeout(this.lostTimer);
     window.removeEventListener('online', this.onlineListener);
     this.units.destroy();
     this.incidents.destroy();
@@ -525,7 +557,21 @@ export class MapController {
       /* already gone */
     }
     for (const c of ['epdm-zxlo', 'epdm-zlo', 'epdm--placing']) this.root.classList.remove(c);
+    if (import.meta.env.DEV) {
+      const w = window as unknown as { __epdMap?: unknown; __epdMapCtl?: unknown };
+      if (w.__epdMapCtl === this) {
+        delete w.__epdMap;
+        delete w.__epdMapCtl;
+      }
+    }
   }
+}
+
+/** Cheap planar distance check (km) for small distances. */
+function nearKm(a: LngLat, b: LngLat, km: number): boolean {
+  const dx = (a[0] - b[0]) * 55.8; // km per degree of longitude at ~59.6° N
+  const dy = (a[1] - b[1]) * 111.2;
+  return dx * dx + dy * dy <= km * km;
 }
 
 /** Police-station map icon (shield with a cornflower-blue core), drawn at 2× pixel ratio. */

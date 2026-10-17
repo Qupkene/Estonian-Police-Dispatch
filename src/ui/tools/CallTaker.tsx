@@ -82,7 +82,7 @@ function CallCard({ sim, call, waiting }: { sim: SimState; call: ActiveCall; wai
             <Icon name="phone" size={26} />
           </span>
           <div className="tl-call__ringtext">
-            <div className="tl-call__eyebrow">112 · {t('tools.call.ringing')}</div>
+            <div className="tl-call__eyebrow">{t('tools.call.ringing')}</div>
             <div className="tl-call__title">{t('tools.call.connecting')}</div>
             <div className="tl-call__meta">
               <span className="mono">{phone}</span>
@@ -286,6 +286,8 @@ function Conversation({ sim, call }: { sim: SimState; call: ActiveCall }) {
           );
         }
         const mine = l.who === 'dispatcher';
+        // The engine stores the Russian original in `ru`; `text` holds the translation once an interpreter has worked on it.
+        const hasTr = !!l.ru && tx(l.text) !== l.ru;
         return (
           <div key={k} className={`tl-bubble ${mine ? 'tl-bubble--me' : 'tl-bubble--caller'}`}>
             <div className="tl-bubble__who">{mine ? t('tools.call.you') : t('tools.call.callerLabel')}</div>
@@ -294,9 +296,9 @@ function Conversation({ sim, call }: { sim: SimState; call: ActiveCall }) {
               {!done && <span className="tl-caret" aria-hidden="true" />}
             </div>
             {l.ru && done && (
-              <div className={`tl-bubble__tr${call.interpreter ? '' : ' is-missing'}`}>
+              <div className={`tl-bubble__tr${hasTr ? '' : ' is-missing'}`}>
                 <Icon name="globe" size={11} />
-                {call.interpreter ? tx(l.text) : t('tools.call.noTranslation')}
+                {hasTr ? tx(l.text) : t('tools.call.noTranslation')}
               </div>
             )}
           </div>

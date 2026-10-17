@@ -1,9 +1,15 @@
 /**
  * Internal engine helpers shared by engine-core and engine-systems modules.
- * Owned by engine-core; the trivial helpers are implemented here already.
+ * Owned by engine-core.
+ *
+ * `publishIncident` and `moveUnitTo` are bound to the engine-core implementations as soon as this
+ * module loads (no need to import engine.ts first); `wireInternals` can still override them
+ * (e.g. in tests).
  */
 import { REGIONS } from '@/data/regions';
-import { TEMPLATE_BY_ID } from '@/data/incidents';
+import { TEMPLATE_BY_ID, TEMPLATES } from '@/data/incidents';
+import { publishIncidentImpl } from './incidents';
+import { moveUnitToImpl } from './units';
 import type { GameEvent, Incident, IncidentTemplate, LngLat, RadioMsg, RegionDef, SimState, Text, TimelineEntry, Unit } from './types';
 
 export function regionOf(s: SimState): RegionDef {
@@ -12,6 +18,15 @@ export function regionOf(s: SimState): RegionDef {
 
 export function tplOf(inc: Incident): IncidentTemplate | undefined {
   return TEMPLATE_BY_ID[inc.templateId];
+}
+
+export function templateById(id: string): IncidentTemplate | undefined {
+  return TEMPLATE_BY_ID[id];
+}
+
+/** All incident templates (content). */
+export function allTemplates(): IncidentTemplate[] {
+  return TEMPLATES;
 }
 
 export function addTimeline(s: SimState, inc: Incident, kind: TimelineEntry['kind'], text: Text): void {
@@ -32,23 +47,27 @@ export function pushRadio(s: SimState, msg: Omit<RadioMsg, 'id' | 't'> & { t?: n
   return m;
 }
 
-/** Make a (possibly hidden) incident visible in the queue and notify the UI. Implemented by engine-core. */
-export let publishIncident: (s: SimState, inc: Incident) => void = () => {
-  throw new Error('publishIncident not wired');
-};
+/**
+ * Make a (possibly hidden) incident visible in the queue and notify the UI: clears
+ * `flags['hidden:<id>']`, shifts expiry/escalation timers by the time the call took, adds the
+ * timeline entry and emits incident_new / incident_p1. Idempotent.
+ */
+export let publishIncident: (s: SimState, inc: Incident) => void = (s, inc) => publishIncidentImpl(s, inc);
 
-/** Send a unit somewhere (computes path + ETA, sets status). Implemented by engine-core. */
+/**
+ * Send a unit somewhere (computes path + ETA, sets status: incident → enroute, transport →
+ * transport, patrol/return → available, pursuit/search → unchanged unless available → enroute).
+ * Unreachable targets (other zone without ferry) leave the unit unchanged.
+ */
 export let moveUnitTo: (
   s: SimState,
   u: Unit,
   to: LngLat,
   purpose: NonNullable<Unit['move']>['purpose'],
   siren: boolean,
-) => void = () => {
-  throw new Error('moveUnitTo not wired');
-};
+) => void = (s, u, to, purpose, siren) => moveUnitToImpl(s, u, to, purpose, siren);
 
-/** engine-core calls this once at module init to provide the implementations above. */
+/** Override the implementations above (tests). */
 export function wireInternals(impl: { publishIncident: typeof publishIncident; moveUnitTo: typeof moveUnitTo }): void {
   publishIncident = impl.publishIncident;
   moveUnitTo = impl.moveUnitTo;

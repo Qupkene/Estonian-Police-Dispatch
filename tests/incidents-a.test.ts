@@ -17,23 +17,67 @@ const FILES: [IncidentCategory, IncidentTemplate[]][] = [
 const ALL: IncidentTemplate[] = FILES.flatMap(([, list]) => list);
 
 const PLACE_KINDS: PlaceKind[] = [
-  'residential', 'house', 'street', 'bar', 'nightclub', 'mall', 'shop', 'bank', 'school', 'kindergarten', 'university',
-  'hospital', 'park', 'beach', 'forest', 'lake', 'highway', 'ruralroad', 'trainstation', 'busstation', 'port', 'airport',
-  'stadium', 'concert', 'office', 'industrial', 'construction', 'parking', 'hotel', 'church', 'cemetery', 'gasstation',
-  'government', 'embassy', 'prison', 'border', 'farm', 'summerhouse', 'village', 'oldtown', 'museum',
+  'residential',
+  'house',
+  'street',
+  'bar',
+  'nightclub',
+  'mall',
+  'shop',
+  'bank',
+  'school',
+  'kindergarten',
+  'university',
+  'hospital',
+  'park',
+  'beach',
+  'forest',
+  'lake',
+  'highway',
+  'ruralroad',
+  'trainstation',
+  'busstation',
+  'port',
+  'airport',
+  'stadium',
+  'concert',
+  'office',
+  'industrial',
+  'construction',
+  'parking',
+  'hotel',
+  'church',
+  'cemetery',
+  'gasstation',
+  'government',
+  'embassy',
+  'prison',
+  'border',
+  'farm',
+  'summerhouse',
+  'village',
+  'oldtown',
+  'museum',
 ];
 const ALLOWED = new Set<string>(TEMPLATE_PLACEHOLDERS);
-const LEGACY_TYPE: Record<string, string> = { KIIRREAGEERIJA: 'rapid', KRIMINAALPOLITSEI: 'criminal', PATRULL: 'patrol', KORRAKAITSE: 'patrol' };
+const LEGACY_TYPE: Record<string, string> = {
+  KIIRREAGEERIJA: 'rapid',
+  KRIMINAALPOLITSEI: 'criminal',
+  PATRULL: 'patrol',
+  KORRAKAITSE: 'patrol',
+};
 
 /** Every string anywhere inside a value, with a path for error messages. */
 function strings(v: unknown, path: string, out: [string, string][] = []): [string, string][] {
   if (typeof v === 'string') out.push([path, v]);
   else if (Array.isArray(v)) v.forEach((x, i) => strings(x, `${path}[${i}]`, out));
-  else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) strings(x, `${path}.${k}`, out);
+  else if (v && typeof v === 'object')
+    for (const [k, x] of Object.entries(v)) strings(x, `${path}.${k}`, out);
   return out;
 }
 
-const eligible = (o: IncidentTemplate['outcomes'][number], s: number) => (o.minSuccess ?? 0) <= s + 1e-9 && s <= (o.maxSuccess ?? 1) + 1e-9;
+const eligible = (o: IncidentTemplate['outcomes'][number], s: number) =>
+  (o.minSuccess ?? 0) <= s + 1e-9 && s <= (o.maxSuccess ?? 1) + 1e-9;
 
 describe('incidents A — violence / domestic / public_order / drugs', () => {
   it('has at least 60 templates across the four files', () => {
@@ -82,7 +126,8 @@ describe('incidents A — violence / domestic / public_order / drugs', () => {
           expect(s.et.trim().length, t.id).toBeGreaterThan(0);
           expect(s.en.trim().length, t.id).toBeGreaterThan(0);
         }
-        for (const s of t.summary) expect(s.et.startsWith('{address}') || s.et.startsWith('{place}'), `${t.id}: ${s.et}`).toBe(true);
+        for (const s of t.summary)
+          expect(s.et.startsWith('{address}') || s.et.startsWith('{place}'), `${t.id}: ${s.et}`).toBe(true);
         expect((t.callerLines ?? []).length).toBeGreaterThanOrEqual(2);
         expect((t.details ?? []).length).toBeGreaterThanOrEqual(1);
       });
@@ -104,9 +149,20 @@ describe('incidents A — violence / domestic / public_order / drugs', () => {
           ).toBe(true);
         }
         // Low success must allow a "bad" ending; high success a good one.
-        const bad = ['escaped', 'tragedy', 'unfounded', 'false_alarm', 'hospital', 'report', 'referred', 'warning'];
+        const bad = [
+          'escaped',
+          'tragedy',
+          'unfounded',
+          'false_alarm',
+          'hospital',
+          'report',
+          'referred',
+          'warning',
+        ];
         expect(t.outcomes.some((o) => eligible(o, 0.05) && bad.includes(o.result))).toBe(true);
-        expect(t.outcomes.some((o) => eligible(o, 0.95) && !['escaped', 'tragedy'].includes(o.result))).toBe(true);
+        expect(t.outcomes.some((o) => eligible(o, 0.95) && !['escaped', 'tragedy'].includes(o.result))).toBe(
+          true,
+        );
       });
 
       it('has consistent beats', () => {
@@ -124,7 +180,10 @@ describe('incidents A — violence / domestic / public_order / drugs', () => {
               expect((t.vehicles ?? []).length, `${t.id}: vehicle query needs vehicles`).toBeGreaterThan(0);
             } else {
               expect(b.subject).not.toBe('vehicle');
-              expect(roles.has(b.subject as never), `${t.id}: query subject ${b.subject} not in persons`).toBe(true);
+              expect(
+                roles.has(b.subject as never),
+                `${t.id}: query subject ${b.subject} not in persons`,
+              ).toBe(true);
             }
           }
           if (b.kind === 'choice') {
@@ -132,7 +191,8 @@ describe('incidents A — violence / domestic / public_order / drugs', () => {
             const ids = b.options.map((o) => o.id);
             expect(new Set(ids).size).toBe(ids.length);
             expect(ids, `${t.id}: defaultOption`).toContain(b.defaultOption);
-            for (const o of b.options) if (o.effects.outcome) expect(outcomeIds.has(o.effects.outcome)).toBe(true);
+            for (const o of b.options)
+              if (o.effects.outcome) expect(outcomeIds.has(o.effects.outcome)).toBe(true);
           }
           if (b.kind === 'backup') {
             expect(b.timeoutMin).toBeGreaterThanOrEqual(3);
@@ -147,12 +207,16 @@ describe('incidents A — violence / domestic / public_order / drugs', () => {
           for (const m of s.matchAll(/\{(\w*)\}/g)) {
             expect(ALLOWED.has(m[1]), `${path}: unknown placeholder {${m[1]}} in "${s}"`).toBe(true);
           }
-          expect((s.match(/\{/g) ?? []).length, `${path}: unbalanced braces`).toBe((s.match(/\}/g) ?? []).length);
-          if (/\{(plate|car)\}/.test(s)) expect((t.vehicles ?? []).length, `${path} uses vehicle placeholder`).toBeGreaterThan(0);
+          expect((s.match(/\{/g) ?? []).length, `${path}: unbalanced braces`).toBe(
+            (s.match(/\}/g) ?? []).length,
+          );
+          if (/\{(plate|car)\}/.test(s))
+            expect((t.vehicles ?? []).length, `${path} uses vehicle placeholder`).toBeGreaterThan(0);
         }
         // {idcode}/{name} refer to the subject of a query beat, so only query radio may use them.
         const outside = strings({ ...t, beats: (t.beats ?? []).filter((b) => b.kind !== 'query') }, t.id);
-        for (const [path, s] of outside) expect(/\{(idcode|name)\}/.test(s), `${path}: {idcode}/{name} outside a query beat`).toBe(false);
+        for (const [path, s] of outside)
+          expect(/\{(idcode|name)\}/.test(s), `${path}: {idcode}/{name} outside a query beat`).toBe(false);
       });
 
       it('has a sane call script when present', () => {
@@ -177,11 +241,16 @@ describe('incidents A — violence / domestic / public_order / drugs', () => {
       const hits = ALL.filter((t) => t.legacy && t.title.et === title);
       expect(hits.length, `legacy title "${title}"`).toBe(1);
     }
-    for (const t of ALL.filter((x) => x.legacy)) expect(titles, `${t.id} is legacy but not in A`).toContain(t.title.et);
+    for (const t of ALL.filter((x) => x.legacy))
+      expect(titles, `${t.id} is legacy but not in A`).toContain(t.title.et);
   });
 
   it('maps legacy support chance and bonus officer type', () => {
-    const calls = legacyCalls as { title: string; support_need_chance: number; bonus_officers_type: string | null }[];
+    const calls = legacyCalls as {
+      title: string;
+      support_need_chance: number;
+      bonus_officers_type: string | null;
+    }[];
     for (const title of assignment.A) {
       const call = calls.find((c) => c.title === title);
       expect(call, title).toBeDefined();
@@ -197,7 +266,10 @@ describe('incidents A — violence / domestic / public_order / drugs', () => {
       }
       if (call!.bonus_officers_type) {
         const type = LEGACY_TYPE[call!.bonus_officers_type];
-        expect((t.units.ideal ?? []).some((n) => n.type === type), `${t.id}: ideal ${type}`).toBe(true);
+        expect(
+          (t.units.ideal ?? []).some((n) => n.type === type),
+          `${t.id}: ideal ${type}`,
+        ).toBe(true);
       }
     }
   });

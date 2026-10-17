@@ -48,8 +48,9 @@ export const SRC = {
 export type OverlaySourceId = typeof SRC.stations | typeof SRC.routes | typeof SRC.pursuit | typeof SRC.search | typeof SRC.heat;
 export const OVERLAY_SOURCES: OverlaySourceId[] = [SRC.stations, SRC.routes, SRC.pursuit, SRC.search, SRC.heat];
 
-/** Layers hidden in cinematic mode. */
+/** Label layers hidden in cinematic mode (route lines are hidden too). */
 export const LABEL_LAYERS = ['label-district', 'label-village', 'label-alev', 'label-city', 'label-city-major', 'stations-label'];
+export const ROUTE_LAYERS = ['routes-casing', 'routes-line', 'routes-line-calm'];
 export const HEAT_LAYER = 'heat';
 export const RASTER_LAYER = 'raster';
 
@@ -386,8 +387,8 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     layout: { visibility: opts.heat ? 'visible' : 'none' },
     paint: {
       'heatmap-weight': ['coalesce', ['get', 'w'], 0.5],
-      'heatmap-intensity': interp([[6, 0.7], [12, 1.8]]),
-      'heatmap-radius': interp([[6, 12], [10, 26], [14, 48]]),
+      'heatmap-intensity': interp([[6, 1], [12, 2.6]]),
+      'heatmap-radius': interp([[6, 14], [10, 30], [14, 56]]),
       'heatmap-opacity': interp([[6, 0.8], [14, 0.55]]),
       'heatmap-color': [
         'interpolate',
@@ -428,11 +429,12 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
       'line-dasharray': ['literal', [3, 2]],
     },
   });
+  const routeVis = opts.cinematic ? 'none' : 'visible';
   add({
     id: 'routes-casing',
     type: 'line',
     source: SRC.routes,
-    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    layout: { visibility: routeVis, 'line-join': 'round', 'line-cap': 'round' },
     paint: { 'line-color': '#02060b', 'line-opacity': 0.75, 'line-width': interp([[6, 4], [14, 7]]) },
   });
   add({
@@ -440,7 +442,7 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     type: 'line',
     source: SRC.routes,
     filter: ['==', ['get', 'siren'], true],
-    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    layout: { visibility: routeVis, 'line-join': 'round', 'line-cap': 'round' },
     paint: {
       'line-color': ['match', ['get', 'kind'], 'selected', PALETTE.routeSelected, PALETTE.route],
       'line-width': interp([[6, 2], [14, 3.5]]),
@@ -451,7 +453,7 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     type: 'line',
     source: SRC.routes,
     filter: ['!=', ['get', 'siren'], true],
-    layout: { 'line-join': 'round' },
+    layout: { visibility: routeVis, 'line-join': 'round' },
     paint: {
       'line-color': ['match', ['get', 'kind'], 'selected', PALETTE.routeSelected, PALETTE.route],
       'line-width': interp([[6, 2], [14, 3.5]]),

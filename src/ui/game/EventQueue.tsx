@@ -36,7 +36,7 @@ export function RejectMenu({ incidentId, className }: { incidentId: string; clas
   const t = useT();
   const items = useRejectItems(incidentId);
   return (
-    <MenuButton items={items} className={className} backLabel={t('game.reject.back')}>
+    <MenuButton items={items} className={className} backLabel={t('game.reject.back')} title={t('game.queue.rejectTitle')}>
       {t('game.queue.reject')}
     </MenuButton>
   );
@@ -231,7 +231,11 @@ function QueueCard({ sim, inc, selected, cursor, pendingCount }: { sim: SimState
           </span>
         )}
         {pursuit && <span className="gm-card__pursuit">{t('game.pursuit.title')}</span>}
-        {inc.escalated && <Icon name="warning" size={12} className="gm-card__esc" />}
+        {inc.escalated && (
+          <span title={t('game.inc.escTitle')}>
+            <Icon name="warning" size={12} className="gm-card__esc" />
+          </span>
+        )}
         <span className="gm-card__units">
           {units.length === 0 && !incoming && <span className="gm-card__nounits">{t('game.queue.noUnits')}</span>}
           {units.slice(0, 4).map((u) => (
@@ -245,7 +249,7 @@ function QueueCard({ sim, inc, selected, cursor, pendingCount }: { sim: SimState
       </div>
       {incoming && (
         <div className="gm-card__actions" onClick={(e) => e.stopPropagation()}>
-          <Button size="sm" variant="primary" icon="check" onClick={() => acknowledge(inc.id)}>
+          <Button size="sm" variant="primary" icon="check" title={t('game.queue.acceptTitle')} onClick={() => acknowledge(inc.id)}>
             {t('game.queue.accept')}
             <Kbd>A</Kbd>
           </Button>
@@ -257,9 +261,16 @@ function QueueCard({ sim, inc, selected, cursor, pendingCount }: { sim: SimState
           <Icon name="siren" size={14} />
           <span className="gm-card__backup-label">{t('game.queue.backup')}</span>
           {backup.remainingMin !== null && <span className="mono gm-card__backup-cd">{countdown(backup.remainingMin)}</span>}
-          <Button size="sm" variant="danger" onClick={() => sendBackup(inc.id)}>
-            {t('game.queue.sendHelp')}
-          </Button>
+          {backup.enroute.length ? (
+            <span className="gm-helpenroute mono" title={backup.enroute.map((e) => e.unit.callsign).join(', ')}>
+              <Icon name="siren" size={11} />
+              {t('game.queue.helpEnrouteShort', { t: backup.enroute[0].etaMin !== null ? countdown(backup.enroute[0].etaMin) : '' })}
+            </span>
+          ) : (
+            <Button size="sm" variant="danger" onClick={() => sendBackup(inc.id)}>
+              {t('game.queue.sendHelp')}
+            </Button>
+          )}
         </div>
       )}
     </div>

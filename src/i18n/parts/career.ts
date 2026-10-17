@@ -149,6 +149,7 @@ export default {
   'career.hq.careerDay': { et: 'Karjääri {n}. päev', en: 'Career day {n}' },
   'career.kpi.money': { et: 'Eelarve', en: 'Budget' },
   'career.kpi.dailyBudget': { et: 'Päevaeelarve', en: 'Daily budget' },
+  'career.kpi.trend': { et: 'Kassajäägi muutus viimastel päevadel', en: 'Balance over recent days' },
   'career.kpi.monthNet': { et: 'Kuu prognoos', en: 'Monthly forecast' },
   'career.kpi.staatus': { et: 'Staatus', en: 'Status' },
   'career.kpi.staatusLegacy': { et: 'Staatus — otse 2025. aasta versioonist', en: 'Status — straight from the 2025 version' },
@@ -235,9 +236,10 @@ export default {
   'career.staff.fireTitle': { et: 'Ametniku vallandamine', en: 'Dismiss officer' },
   'career.staff.fireText': { et: 'Kas vallandad ametniku {name} (märk #{badge})?', en: 'Dismiss {name} (badge #{badge})?' },
   'career.staff.fireNote': {
-    et: 'Palk ({salary} kuus) kaob kuludest, aga koos ametnikuga lahkub ka tema kogemus. Otsust ei saa tagasi võtta.',
-    en: 'The salary ({salary} / month) leaves your costs, but so does the officer’s experience. This cannot be undone.',
+    et: 'Palk ({salary} kuus) kaob kuludest, kuid lõpparve on {severance} ja meeskonna moraal langeb veidi. Otsust ei saa tagasi võtta.',
+    en: 'The salary ({salary} / month) leaves your costs, but the final settlement is {severance} and team morale dips slightly. This cannot be undone.',
   },
+  'career.staff.firedSub': { et: 'Lõpparve {amount}', en: 'Final settlement {amount}' },
   'career.staff.fireConfirm': { et: 'Vallanda', en: 'Dismiss' },
   'career.staff.fired': { et: '{name} vallandati', en: '{name} was dismissed' },
   'career.staff.fireFailed': { et: 'Vallandamine ebaõnnestus', en: 'Dismissal failed' },
@@ -257,9 +259,11 @@ export default {
   // ── Recruiting ───────────────────────────────────────────────────────────
   'career.recruit.title': { et: 'Palka ohvitsere', en: 'Hire officers' },
   'career.recruit.lead': {
-    et: 'Kandidaadid on läbinud taustakontrolli ja ootavad pakkumist. Palk arvestatakse iga vahetuse järel (1/30 kuupalgast).',
-    en: 'These candidates have passed background checks and await an offer. Salaries are charged after every shift (1/30 of the monthly pay).',
+    et: 'Kandidaadid on läbinud taustakontrolli ja ootavad pakkumist. Palkamisel makstakse ette esimene kuupalk koos vormi ja varustusega, edaspidi arvestatakse palk iga vahetuse järel.',
+    en: 'These candidates have passed background checks and await an offer. Hiring pays the first month’s salary plus uniform and gear up front; after that salaries are charged after every shift.',
   },
+  'career.recruit.cost': { et: 'palkamine {cost}', en: 'hiring {cost}' },
+  'career.recruit.costHint': { et: 'Palkamiskulu: esimene kuupalk koos varustusega', en: 'Hiring cost: first month’s pay including gear' },
   'career.recruit.refresh': { et: 'Uued kandidaadid {month}. kuu alguses', en: 'New candidates at the start of month {month}' },
   'career.recruit.refreshIn': { et: '{n} vahetuse pärast', en: 'in {n} shifts' },
   'career.recruit.refreshOne': { et: 'pärast tänast vahetust', en: 'after today’s shift' },
@@ -271,7 +275,7 @@ export default {
   'career.recruit.failed': { et: 'Palkamine ebaõnnestus', en: 'Hiring failed' },
   'career.recruit.hire': { et: 'Palka', en: 'Hire' },
   'career.recruit.hired': { et: '{name} on palgatud!', en: '{name} has been hired!' },
-  'career.recruit.hiredSub': { et: '{spec} · {salary} kuus', en: '{spec} · {salary} / month' },
+  'career.recruit.hiredSub': { et: '{spec} · {salary} kuus · palkamiskulu {cost}', en: '{spec} · {salary} / month · hiring cost {cost}' },
   'career.recruit.skill': { et: 'oskus', en: 'skill' },
   'career.recruit.age': { et: '{n}-aastane', en: 'age {n}' },
   'career.recruit.yearOne': { et: 'staaž 1 aasta', en: '1 year of service' },
@@ -309,10 +313,11 @@ export default {
   'career.fleet.sellTitle': { et: 'Sõiduki müük', en: 'Sell vehicle' },
   'career.fleet.sellText': { et: 'Kas müüd sõiduki {model}?', en: 'Sell the {model}?' },
   'career.fleet.sellNote': {
-    et: 'Seisukord {cond} %. Müügihinna määravad seisukord ja vanus.',
-    en: 'Condition {cond}%. The sale price depends on condition and age.',
+    et: 'Seisukord {cond} %. Müügihind sõltub ostuhinnast ja sõiduki seisukorrast.',
+    en: 'Condition {cond}%. The sale price depends on the purchase price and the vehicle’s condition.',
   },
   'career.fleet.sellConfirm': { et: 'Müü', en: 'Sell' },
+  'career.fleet.resale': { et: 'Müügihind:', en: 'Sale price:' },
 
   // ── Equipment ────────────────────────────────────────────────────────────
   'career.upg.owned': { et: 'Soetatud', en: 'Owned' },

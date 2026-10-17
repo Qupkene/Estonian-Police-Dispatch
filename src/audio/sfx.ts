@@ -27,16 +27,41 @@ export type SfxName =
   | 'pursuit';
 
 export const SFX_NAMES: SfxName[] = [
-  'boot', 'login', 'click', 'hover', 'newIncident', 'p1Alert', 'escalated', 'radioIn', 'radioOut', 'emergency', 'backup',
-  'resolved', 'error', 'typing', 'phonePickup', 'phoneHangup', 'achievement', 'cash', 'dispatch', 'pursuit',
+  'boot',
+  'login',
+  'click',
+  'hover',
+  'newIncident',
+  'p1Alert',
+  'escalated',
+  'radioIn',
+  'radioOut',
+  'emergency',
+  'backup',
+  'resolved',
+  'error',
+  'typing',
+  'phonePickup',
+  'phoneHangup',
+  'achievement',
+  'cash',
+  'dispatch',
+  'pursuit',
 ];
 
 /** Ring cadence (seconds). CEPT/European style single long ring; the off-time is shortened for gameplay. */
 export const RING_CADENCE = { on: 1.0, off: 2.0 } as const;
 
 /** Burst start times/durations for `count` rings (pure — used by the scheduler and tests). */
-export function ringSchedule(count: number, cadence: { on: number; off: number } = RING_CADENCE, t0 = 0): { start: number; dur: number }[] {
-  return Array.from({ length: Math.max(0, count) }, (_, i) => ({ start: t0 + i * (cadence.on + cadence.off), dur: cadence.on }));
+export function ringSchedule(
+  count: number,
+  cadence: { on: number; off: number } = RING_CADENCE,
+  t0 = 0,
+): { start: number; dur: number }[] {
+  return Array.from({ length: Math.max(0, count) }, (_, i) => ({
+    start: t0 + i * (cadence.on + cadence.off),
+    dur: cadence.on,
+  }));
 }
 
 /** Perceptual volume curve: slider 0..1 → linear gain. */
@@ -46,7 +71,22 @@ export function volumeToGain(v: number): number {
 }
 
 /** Minimum gap between two plays of the same sound (ms). */
-const MIN_GAP: Partial<Record<SfxName, number>> = { typing: 25, hover: 60, click: 40, radioIn: 140, radioOut: 140, newIncident: 250, p1Alert: 900, emergency: 1500, backup: 1200, pursuit: 2000 };
+const MIN_GAP: Partial<Record<SfxName, number>> = {
+  typing: 25,
+  hover: 60,
+  click: 40,
+  radioIn: 140,
+  radioOut: 140,
+  newIncident: 250,
+  p1Alert: 900,
+  emergency: 1500,
+  backup: 1200,
+  pursuit: 2000,
+  phonePickup: 600,
+  phoneHangup: 600,
+  achievement: 800,
+  cash: 300,
+};
 
 interface Engine {
   ctx: AudioContext;
@@ -67,7 +107,9 @@ const lastPlayed = new Map<SfxName, number>();
 
 function createEngine(): Engine | null {
   if (typeof window === 'undefined') return null;
-  const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  const Ctor =
+    window.AudioContext ??
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!Ctor) return null;
   let ctx: AudioContext;
   try {
@@ -184,7 +226,10 @@ function noise(e: Engine, o: NoiseOpts): AudioBufferSourceNode {
   } else {
     g.gain.exponentialRampToValueAtTime(0.0001, o.at + o.dur);
   }
-  src.connect(f).connect(g).connect(o.dest ?? e.sfxBus);
+  src
+    .connect(f)
+    .connect(g)
+    .connect(o.dest ?? e.sfxBus);
   src.start(o.at, Math.random() * 1.5);
   src.stop(o.at + o.dur + 0.05);
   return src;
@@ -199,13 +244,30 @@ function bell(e: Engine, freq: number, at: number, dur: number, gain: number, de
 
 /** Roger / PTT beep. */
 function beep(e: Engine, freq: number, at: number, dur: number, gain: number) {
-  tone(e, { type: 'square', freq, at, dur, gain, attack: 0.003, shape: 'hold', filter: { type: 'lowpass', freq: 2600 } });
+  tone(e, {
+    type: 'square',
+    freq,
+    at,
+    dur,
+    gain,
+    attack: 0.003,
+    shape: 'hold',
+    filter: { type: 'lowpass', freq: 2600 },
+  });
 }
 
 /** Radio squelch burst. */
 function squelch(e: Engine, at: number, dur: number, gain: number, dest?: AudioNode) {
   noise(e, { at, dur, gain, type: 'bandpass', freq: 1700, q: 0.6, attack: 0.002, dest });
-  noise(e, { at, dur: Math.min(0.02, dur), gain: gain * 0.8, type: 'highpass', freq: 3500, attack: 0.001, dest });
+  noise(e, {
+    at,
+    dur: Math.min(0.02, dur),
+    gain: gain * 0.8,
+    type: 'highpass',
+    freq: 3500,
+    attack: 0.001,
+    dest,
+  });
 }
 
 // ── Sound designs ────────────────────────────────────────────────────────────
@@ -216,8 +278,18 @@ const DESIGNS: Record<SfxName, Design> = {
   // Rising swell + console chord when the CAD "boots".
   boot: (e, t, g) => {
     tone(e, { freq: 55, to: 110, at: t, dur: 1.4, gain: 0.16 * g, attack: 0.6, shape: 'hold' });
-    noise(e, { at: t, dur: 1.2, gain: 0.04 * g, type: 'lowpass', freq: 200, to: 2600, attack: 0.9, shape: 'hold' });
-    for (const [i, f] of [440, 659.3, 880].entries()) tone(e, { type: 'triangle', freq: f, at: t + 1.05 + i * 0.05, dur: 1.2, gain: 0.07 * g, attack: 0.01 });
+    noise(e, {
+      at: t,
+      dur: 1.2,
+      gain: 0.04 * g,
+      type: 'lowpass',
+      freq: 200,
+      to: 2600,
+      attack: 0.9,
+      shape: 'hold',
+    });
+    for (const [i, f] of [440, 659.3, 880].entries())
+      tone(e, { type: 'triangle', freq: f, at: t + 1.05 + i * 0.05, dur: 1.2, gain: 0.07 * g, attack: 0.01 });
     beep(e, 1760, t + 1.05, 0.05, 0.04 * g);
   },
   // Soft two-note confirmation (e-ID accepted).
@@ -242,15 +314,51 @@ const DESIGNS: Record<SfxName, Design> = {
     for (let k = 0; k < 2; k++) {
       for (let i = 0; i < 3; i++) {
         const at = t + k * 0.52 + i * 0.13;
-        tone(e, { type: 'square', freq: k ? 1250 : 1100, at, dur: 0.085, gain: 0.13 * g, attack: 0.003, shape: 'hold', filter: { type: 'lowpass', freq: 3000 } });
-        tone(e, { freq: (k ? 1250 : 1100) * 2, at, dur: 0.085, gain: 0.03 * g, attack: 0.003, shape: 'hold' });
+        tone(e, {
+          type: 'square',
+          freq: k ? 1250 : 1100,
+          at,
+          dur: 0.085,
+          gain: 0.13 * g,
+          attack: 0.003,
+          shape: 'hold',
+          filter: { type: 'lowpass', freq: 3000 },
+        });
+        tone(e, {
+          freq: (k ? 1250 : 1100) * 2,
+          at,
+          dur: 0.085,
+          gain: 0.03 * g,
+          attack: 0.003,
+          shape: 'hold',
+        });
       }
     }
   },
   // Rising sweep + confirmation beep: "situation got worse".
   escalated: (e, t, g) => {
-    tone(e, { type: 'sawtooth', freq: 420, to: 900, at: t, dur: 0.36, gain: 0.1 * g, attack: 0.02, shape: 'hold', filter: { type: 'lowpass', freq: 2200 } });
-    tone(e, { type: 'sawtooth', freq: 520, to: 1100, at: t + 0.38, dur: 0.3, gain: 0.1 * g, attack: 0.02, shape: 'hold', filter: { type: 'lowpass', freq: 2400 } });
+    tone(e, {
+      type: 'sawtooth',
+      freq: 420,
+      to: 900,
+      at: t,
+      dur: 0.36,
+      gain: 0.1 * g,
+      attack: 0.02,
+      shape: 'hold',
+      filter: { type: 'lowpass', freq: 2200 },
+    });
+    tone(e, {
+      type: 'sawtooth',
+      freq: 520,
+      to: 1100,
+      at: t + 0.38,
+      dur: 0.3,
+      gain: 0.1 * g,
+      attack: 0.02,
+      shape: 'hold',
+      filter: { type: 'lowpass', freq: 2400 },
+    });
     bell(e, 1174.7, t + 0.7, 0.4, 0.09 * g);
   },
   // Squelch opens + short high PTT beep (incoming transmission).
@@ -268,25 +376,65 @@ const DESIGNS: Record<SfxName, Design> = {
   emergency: (e, t, g) => {
     for (let i = 0; i < 10; i++) {
       const f = i % 2 ? 690 : 1020;
-      tone(e, { type: 'square', freq: f, at: t + i * 0.15, dur: 0.145, gain: 0.12 * g, attack: 0.004, shape: 'hold', filter: { type: 'lowpass', freq: 3200 } });
+      tone(e, {
+        type: 'square',
+        freq: f,
+        at: t + i * 0.15,
+        dur: 0.145,
+        gain: 0.12 * g,
+        attack: 0.004,
+        shape: 'hold',
+        filter: { type: 'lowpass', freq: 3200 },
+      });
     }
-    tone(e, { type: 'sawtooth', freq: 110, at: t, dur: 1.5, gain: 0.05 * g, attack: 0.02, shape: 'hold', filter: { type: 'lowpass', freq: 500 } });
+    tone(e, {
+      type: 'sawtooth',
+      freq: 110,
+      at: t,
+      dur: 1.5,
+      gain: 0.05 * g,
+      attack: 0.02,
+      shape: 'hold',
+      filter: { type: 'lowpass', freq: 500 },
+    });
     squelch(e, t + 1.5, 0.15, 0.12 * g);
   },
   // "Toetust vajab" — homage to the 2025 supportNeededSound: three urgent rising sweeps + double beep.
   backup: (e, t, g) => {
     for (let i = 0; i < 3; i++) {
-      tone(e, { type: 'sawtooth', freq: 480, to: 1040, at: t + i * 0.27, dur: 0.22, gain: 0.11 * g, attack: 0.01, shape: 'hold', filter: { type: 'bandpass', freq: 1300, q: 0.6 } });
+      tone(e, {
+        type: 'sawtooth',
+        freq: 480,
+        to: 1040,
+        at: t + i * 0.27,
+        dur: 0.22,
+        gain: 0.11 * g,
+        attack: 0.01,
+        shape: 'hold',
+        filter: { type: 'bandpass', freq: 1300, q: 0.6 },
+      });
     }
     beep(e, 1660, t + 0.86, 0.07, 0.07 * g);
     beep(e, 1660, t + 0.98, 0.07, 0.07 * g);
   },
   // Pleasant ascending arpeggio.
   resolved: (e, t, g) => {
-    [523.3, 659.3, 784, 1046.5].forEach((f, i) => tone(e, { type: 'triangle', freq: f, at: t + i * 0.075, dur: 0.6, gain: 0.08 * g, attack: 0.005 }));
+    [523.3, 659.3, 784, 1046.5].forEach((f, i) =>
+      tone(e, { type: 'triangle', freq: f, at: t + i * 0.075, dur: 0.6, gain: 0.08 * g, attack: 0.005 }),
+    );
   },
   error: (e, t, g) => {
-    for (let i = 0; i < 2; i++) tone(e, { type: 'square', freq: 196, at: t + i * 0.17, dur: 0.11, gain: 0.11 * g, attack: 0.004, shape: 'hold', filter: { type: 'lowpass', freq: 1200 } });
+    for (let i = 0; i < 2; i++)
+      tone(e, {
+        type: 'square',
+        freq: 196,
+        at: t + i * 0.17,
+        dur: 0.11,
+        gain: 0.11 * g,
+        attack: 0.004,
+        shape: 'hold',
+        filter: { type: 'lowpass', freq: 1200 },
+      });
   },
   // A soft keyboard click (call it per keystroke).
   typing: (e, t, g) => {
@@ -305,10 +453,20 @@ const DESIGNS: Record<SfxName, Design> = {
   phoneHangup: (e, t, g) => {
     noise(e, { at: t, dur: 0.03, gain: 0.16 * g, type: 'lowpass', freq: 1800, attack: 0.001 });
     tone(e, { freq: 120, to: 70, at: t, dur: 0.07, gain: 0.12 * g, attack: 0.001 });
-    for (let i = 0; i < 3; i++) tone(e, { freq: 425, at: t + 0.16 + i * 0.24, dur: 0.12, gain: 0.05 * g, attack: 0.005, shape: 'hold' });
+    for (let i = 0; i < 3; i++)
+      tone(e, {
+        freq: 425,
+        at: t + 0.16 + i * 0.24,
+        dur: 0.12,
+        gain: 0.05 * g,
+        attack: 0.005,
+        shape: 'hold',
+      });
   },
   achievement: (e, t, g) => {
-    [784, 987.8, 1174.7, 1568].forEach((f, i) => tone(e, { type: 'triangle', freq: f, at: t + i * 0.07, dur: 0.7, gain: 0.08 * g, attack: 0.004 }));
+    [784, 987.8, 1174.7, 1568].forEach((f, i) =>
+      tone(e, { type: 'triangle', freq: f, at: t + i * 0.07, dur: 0.7, gain: 0.08 * g, attack: 0.004 }),
+    );
     const sh = e.ctx.createOscillator();
     const lfo = e.ctx.createOscillator();
     const lg = e.ctx.createGain();
@@ -525,7 +683,17 @@ function chatterBurst(e: Engine) {
   // Squelch at both ends.
   squelch(e, t - 0.02, 0.06, 0.25, out);
   squelch(e, x, 0.12, 0.22, out);
-  noise(e, { at: t, dur: x - t, gain: 0.04, type: 'bandpass', freq: 2200, q: 0.5, attack: 0.02, shape: 'hold', dest: out });
+  noise(e, {
+    at: t,
+    dur: x - t,
+    gain: 0.04,
+    type: 'bandpass',
+    freq: 2200,
+    q: 0.5,
+    attack: 0.02,
+    shape: 'hold',
+    dest: out,
+  });
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────

@@ -60,7 +60,7 @@ export function pFlags(p: Person, now: number): FlagLike[] {
 
 export function vFlags(v: Vehicle, s: SimState): FlagLike[] {
   const owner = v.ownerId ? s.persons[v.ownerId] : undefined;
-  const f = safe(() => vehicleFlags(v, s.now), null as FlagLike[] | null) ?? fallbackVehicleFlags(v, s.now, owner);
+  const f = safe(() => vehicleFlags(v, s.now, owner), null as FlagLike[] | null) ?? fallbackVehicleFlags(v, s.now, owner);
   return sortFlags(f);
 }
 

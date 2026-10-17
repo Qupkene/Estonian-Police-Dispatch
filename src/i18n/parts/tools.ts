@@ -301,6 +301,7 @@ export default {
   'tools.stats.countAxis': { et: 'sündmusi', en: 'incidents' },
   'tools.stats.unitsAxis': { et: 'üksusi', en: 'units' },
   'tools.stats.minAxis': { et: 'minutit', en: 'minutes' },
+  'tools.stats.median': { et: 'Mediaan', en: 'Median' },
   'tools.stats.total': { et: 'kokku {n}', en: '{n} total' },
   'tools.stats.n': { et: '{n} saabumist', en: '{n} arrivals' },
   'tools.stats.status.available': { et: 'Vaba', en: 'Available' },
@@ -373,6 +374,10 @@ export default {
   'tools.dir.hud': { et: 'Liides nähtav (HUD)', en: 'HUD visible' },
   'tools.dir.realtime': { et: 'Reaalaeg 1:1', en: 'Real time 1:1' },
   'tools.dir.scenes': { et: 'Stseenid', en: 'Scenes' },
+  'tools.dir.scenesNote': {
+    et: 'Stseenid on kirjutatud Tallinna jaoks — teistes prefektuurides paigutatakse need piirkonna keskuse lähedale.',
+    en: 'Scenes are written for Tallinn — in other prefectures they are placed near the regional centre.',
+  },
   'tools.dir.play': { et: 'Mängi', en: 'Play' },
   'tools.dir.stop': { et: 'Peata', en: 'Stop' },
   'tools.dir.step': { et: 'samm {i}/{n}', en: 'step {i}/{n}' },

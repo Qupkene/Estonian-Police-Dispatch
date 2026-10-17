@@ -8,20 +8,78 @@ import { pushRadio, regionOf } from './internal';
 import { withRng } from './rng';
 import { fillText, type Vars } from './text';
 import { hhmm } from './time';
-import type { Agency, Incident, RadioMsg, RadioReply, SimState, Text, Unit } from './types';
+import type { Agency, Incident, PlaceKind, RadioMsg, RadioReply, SimState, Text, Unit } from './types';
 
-/** Spoken callsign: numeric callsigns get the prefecture radio prefix ("21" → "Põhja 21"). */
+const titleWord = (w: string) => (/^[A-ZÕÄÖÜŠŽ]{3,}$/.test(w) ? w.charAt(0) + w.slice(1).toLowerCase() : w);
+
+/**
+ * Spoken callsign: numeric callsigns get the prefecture radio prefix ("21" → "Põhja 21"); all-caps
+ * words are spoken in normal case ("PÕHJA LIIKLUS 1" → "Põhja Liiklus 1").
+ */
 export function spokenCallsign(s: SimState, u: Pick<Unit, 'callsign'>): string {
   const cs = u.callsign.trim();
   const prefix = regionOf(s)?.radioName ?? '';
-  if (/^\d/.test(cs) && prefix && !cs.startsWith(prefix)) return `${prefix} ${cs}`;
-  return cs;
+  if (/^\d/.test(cs)) return prefix ? `${prefix} ${cs}` : cs;
+  return cs.split(/\s+/).map(titleWord).join(' ');
 }
 
-/** Short spoken form used by crews between themselves: trailing number group or the callsign. */
-export function shortCallsign(u: Pick<Unit, 'callsign'>): string {
-  const m = u.callsign.match(/(\d+)\s*$/);
-  return m ? m[1] : u.callsign;
+/** Short form used between crews: without the prefecture prefix ("PÕHJA K1" → "K1", "PÕHJA 32" → "32"). */
+export function shortCallsign(s: SimState, u: Pick<Unit, 'callsign'>): string {
+  const cs = u.callsign.trim();
+  const prefix = (regionOf(s)?.radioName ?? '').toUpperCase();
+  let rest = cs;
+  if (prefix && cs.toUpperCase().startsWith(prefix + ' ')) rest = cs.slice(prefix.length + 1).trim() || cs;
+  return rest.split(/\s+/).map(titleWord).join(' ');
+}
+
+/** Short bilingual label for a place kind, used for {place} when the location has no name. */
+export const PLACE_KIND_LABEL: Record<PlaceKind, Text> = {
+  residential: { et: 'Kortermaja', en: 'Apartment building' },
+  house: { et: 'Eramu', en: 'Private house' },
+  street: { et: 'Tänav', en: 'Street' },
+  bar: { et: 'Baar', en: 'Bar' },
+  nightclub: { et: 'Ööklubi', en: 'Nightclub' },
+  mall: { et: 'Kaubanduskeskus', en: 'Shopping centre' },
+  shop: { et: 'Kauplus', en: 'Shop' },
+  bank: { et: 'Pank', en: 'Bank' },
+  school: { et: 'Kool', en: 'School' },
+  kindergarten: { et: 'Lasteaed', en: 'Kindergarten' },
+  university: { et: 'Ülikool', en: 'University' },
+  hospital: { et: 'Haigla', en: 'Hospital' },
+  park: { et: 'Park', en: 'Park' },
+  beach: { et: 'Rand', en: 'Beach' },
+  forest: { et: 'Mets', en: 'Forest' },
+  lake: { et: 'Järv', en: 'Lake' },
+  highway: { et: 'Maantee', en: 'Highway' },
+  ruralroad: { et: 'Külatee', en: 'Country road' },
+  trainstation: { et: 'Raudteejaam', en: 'Railway station' },
+  busstation: { et: 'Bussijaam', en: 'Bus station' },
+  port: { et: 'Sadam', en: 'Port' },
+  airport: { et: 'Lennujaam', en: 'Airport' },
+  stadium: { et: 'Staadion', en: 'Stadium' },
+  concert: { et: 'Kontserdipaik', en: 'Concert venue' },
+  office: { et: 'Büroohoone', en: 'Office building' },
+  industrial: { et: 'Tööstusala', en: 'Industrial area' },
+  construction: { et: 'Ehitusplats', en: 'Construction site' },
+  parking: { et: 'Parkla', en: 'Car park' },
+  hotel: { et: 'Hotell', en: 'Hotel' },
+  church: { et: 'Kirik', en: 'Church' },
+  cemetery: { et: 'Kalmistu', en: 'Cemetery' },
+  gasstation: { et: 'Tankla', en: 'Gas station' },
+  government: { et: 'Riigiasutus', en: 'Government building' },
+  embassy: { et: 'Saatkond', en: 'Embassy' },
+  prison: { et: 'Vangla', en: 'Prison' },
+  border: { et: 'Piiripunkt', en: 'Border crossing' },
+  farm: { et: 'Talu', en: 'Farm' },
+  summerhouse: { et: 'Suvila', en: 'Summer house' },
+  village: { et: 'Küla', en: 'Village' },
+  oldtown: { et: 'Vanalinn', en: 'Old town' },
+  museum: { et: 'Muuseum', en: 'Museum' },
+};
+
+/** {place}: the place's own name, else a place-kind label (never repeats the address). */
+export function placeText(loc: Incident['location']): Text | string {
+  return loc.placeName ?? PLACE_KIND_LABEL[loc.placeKind] ?? loc.address;
 }
 
 export function agencyName(a: Agency | string | undefined): Text {
@@ -34,11 +92,11 @@ export function radioVars(s: SimState, u?: Unit, inc?: Incident, extra: Vars = {
   const v: Vars = { time: hhmm(s.now) };
   if (u) {
     v.callsign = spokenCallsign(s, u);
-    v.short = shortCallsign(u);
+    v.short = shortCallsign(s, u);
   }
   if (inc) {
     v.address = inc.location.address;
-    v.place = inc.location.placeName ?? inc.location.address;
+    v.place = placeText(inc.location);
     v.city = inc.location.city;
     v.district = inc.location.district ?? inc.location.city;
     v.title = inc.title;
@@ -120,6 +178,7 @@ export function hkPhrase(s: SimState, key: string, inc?: Incident, extra: Vars =
 export const PERSON_REPLIES: RadioReply[] = [
   { id: 'clean', label: { et: 'Puhas — märkeid pole', en: 'Clean — nothing on file' } },
   { id: 'wanted', label: { et: 'Tagaotsitav — pidage kinni', en: 'Wanted — detain' } },
+  { id: 'missing', label: { et: 'Kadunuks tunnistatud — otsitav', en: 'Reported missing' } },
   { id: 'restraining', label: { et: 'Kehtib lähenemiskeeld', en: 'Restraining order in force' } },
   { id: 'nolicense', label: { et: 'Juhtimisõigus puudub', en: 'No valid driving licence' } },
   { id: 'weapon', label: { et: 'Relvaluba — ettevaatust', en: 'Firearms permit — caution' } },

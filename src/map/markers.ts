@@ -40,19 +40,26 @@ function makeRoot(kind: string, onActivate: () => void): HTMLDivElement {
   root.className = `epdm-mk epdm-mk--${kind}`;
   root.setAttribute('role', 'button');
   root.tabIndex = -1;
+  // Dragging the map may start on a marker; only a real click (no drag) selects it.
+  let downX = NaN;
+  let downY = NaN;
+  root.addEventListener('pointerdown', (e) => {
+    downX = e.clientX;
+    downY = e.clientY;
+  });
   root.addEventListener('click', (e) => {
     e.stopPropagation();
+    if (Number.isFinite(downX) && Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return;
     onActivate();
   });
   root.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
+    // Enter only: Space is the global pause hotkey.
+    if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
       onActivate();
     }
   });
-  // Keep marker presses from starting a map drag / click.
-  root.addEventListener('mousedown', (e) => e.stopPropagation());
   root.addEventListener('dblclick', (e) => e.stopPropagation());
   return root;
 }
@@ -118,7 +125,7 @@ export class UnitMarkers {
     this.seen.clear();
     for (const id of s.unitOrder ?? Object.keys(s.units)) {
       const u = s.units[id];
-      if (!u) continue;
+      if (!u || !u.pos) continue;
       this.seen.add(id);
       const rec = this.recs.get(id) ?? this.create(u);
       const { pos, heading } = c.pos(u);
@@ -146,9 +153,7 @@ export class UnitMarkers {
         const status = t(`map.status.${u.status}`, c.lang);
         rec.root.setAttribute('aria-label', `${u.callsign} · ${status}`);
         rec.root.title = `${u.callsign} · ${status}${u.vehicle ? ` · ${u.vehicle}` : ''}`;
-        rec.root.style.zIndex = String(
-          sel ? 60 : u.status === 'emergency' ? 55 : hl ? 50 : atSelected ? 45 : siren ? 42 : u.status === 'offduty' ? 30 : 40,
-        );
+        rec.root.style.zIndex = String(unitZ(u.status, sel, hl, atSelected, siren));
       }
       if (!near(pos[0], rec.lng, 1e-7) || !near(pos[1], rec.lat, 1e-7)) {
         rec.lng = pos[0];
@@ -183,6 +188,21 @@ export class UnitMarkers {
 }
 
 const ZERO: [number, number] = [0, 0];
+
+/**
+ * Stacking order: selected unit 60 > emergency 55 > highlighted 50 > assigned to the selected
+ * incident 48 > siren 46 > open incidents 40–43 > other active units 36 > idle 30 > off duty 25.
+ */
+function unitZ(status: Unit['status'], sel: boolean, hl: boolean, assigned: boolean, siren: boolean): number {
+  if (sel) return 60;
+  if (status === 'emergency') return 55;
+  if (hl) return 50;
+  if (assigned) return 48;
+  if (siren) return 46;
+  if (status === 'enroute' || status === 'onscene' || status === 'transport') return 36;
+  if (status === 'offduty') return 25;
+  return 30;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Incidents
@@ -245,7 +265,7 @@ export class IncidentMarkers {
     this.seen.clear();
     for (const id of s.incidentOrder ?? Object.keys(s.incidents)) {
       const inc = s.incidents[id];
-      if (!inc || isHidden(s, id)) continue;
+      if (!inc?.location?.coord || isHidden(s, id)) continue;
       const closed = inc.state === 'closed';
       const existing = this.recs.get(id);
       if (closed) {
@@ -286,7 +306,7 @@ export class IncidentMarkers {
         rec.tip.innerHTML =
           `<b>P${inc.priority} · ${esc(inc.code)}</b> ${esc(title)}<br><span>${esc(inc.location.address ?? '')}</span>` +
           (backup ? `<em>${esc(t('map.backup', c.lang))}</em>` : '');
-        rec.root.style.zIndex = String(sel ? 58 : backup ? 52 : closed ? 10 : 20 + (5 - inc.priority));
+        rec.root.style.zIndex = String(sel ? 58 : backup ? 52 : closed ? 15 : 39 + (5 - inc.priority));
       }
       const [lng, lat] = inc.location.coord;
       if (!near(lng, rec.lng, 1e-8) || !near(lat, rec.lat, 1e-8)) {
@@ -336,7 +356,7 @@ export class SuspectMarkers {
     for (const id of s.incidentOrder ?? Object.keys(s.incidents)) {
       const inc = s.incidents[id];
       const p = inc?.pursuit;
-      if (!p || p.ended || inc.state === 'closed' || isHidden(s, id)) continue;
+      if (!p?.suspectPos || p.ended || inc.state === 'closed' || isHidden(s, id)) continue;
       this.seen.add(id);
       let rec = this.recs.get(id);
       if (!rec) {

@@ -49,7 +49,11 @@
 }
 .ui-btn:hover:not(:disabled),
 .ui-iconbtn:hover:not(:disabled) {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--btn-bg-hover) 88%, white 12%), var(--btn-bg-hover));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--btn-bg-hover) 88%, white 12%),
+    var(--btn-bg-hover)
+  );
   border-color: color-mix(in srgb, var(--btn-border) 60%, var(--text-2) 40%);
 }
 .ui-btn:active:not(:disabled),
@@ -384,7 +388,11 @@
 }
 .ui-seg__opt.is-active {
   color: var(--text-0);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 30%, var(--bg-4)), color-mix(in srgb, var(--accent) 18%, var(--bg-3)));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 30%, var(--bg-4)),
+    color-mix(in srgb, var(--accent) 18%, var(--bg-3))
+  );
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent),
     0 2px 8px color-mix(in srgb, var(--accent) 20%, transparent);
@@ -1013,4 +1021,14 @@
   .ui-status--emergency {
     animation: none;
   }
+}
+
+/* Settings → "Vähenda animatsioone" (AudioBridge mirrors it to <html data-reduced-motion>). Applies app-wide. */
+:root[data-reduced-motion='true'] *,
+:root[data-reduced-motion='true'] *::before,
+:root[data-reduced-motion='true'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
 }

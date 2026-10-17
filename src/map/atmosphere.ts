@@ -105,7 +105,7 @@ export class Atmosphere {
   private lastNight = -1;
   private lastDusk = -1;
 
-  constructor(host: HTMLElement, before: Element | null) {
+  constructor(host: HTMLElement, before: Node | null) {
     this.night = document.createElement('div');
     this.night.className = 'epdm-night';
     this.dusk = document.createElement('div');

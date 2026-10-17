@@ -55,13 +55,13 @@ function withChance<B extends { chance?: number }>(b: B, chance?: number): B {
 }
 
 export const Q_PERSON: Text[] = [
-  T('Juhtimiskeskus, {callsign}. Kontrolli isikut: {name}, isikukood {idcode}.', 'Control, {callsign}. Run a person check: {name}, ID code {idcode}.'),
-  T('{callsign}, päring: {name}, {idcode}. Kas on tagaotsitav või kehtivaid piiranguid?', '{callsign}, request a check: {name}, {idcode}. Wanted, or any active restrictions?'),
+  T('Juhtimiskeskus, {callsign}. Kontrolli palun isikut: {name}, isikukood {idcode}.', 'Control, {callsign}. Please check a person: {name}, ID code {idcode}.'),
+  T('Juhtimine, {callsign}. Palun isikupäring: {name}, {idcode}. Kas on tagaotsimisi või piiranguid?', 'Control, {callsign}. Person query please: {name}, {idcode}. Any wanted notices or restrictions?'),
 ];
 
 export const Q_VEHICLE: Text[] = [
   T('Juhtimiskeskus, {callsign}. Kontrolli sõidukit numbriga {plate}.', 'Control, {callsign}. Check the vehicle with plate {plate}.'),
-  T('{callsign}: palun sõidukipäring, {plate}, {car}.', '{callsign}: vehicle check please, {plate}, {car}.'),
+  T('Juhtimine, {callsign}. Palun sõidukipäring: {plate}, {car}.', 'Control, {callsign}. Vehicle query please: {plate}, {car}.'),
 ];
 
 /** Registry check of a person with the given role. */
@@ -124,7 +124,7 @@ export function agencyBeat(agency: Agency, at: BeatAt, radio: Text[], o: AgencyO
 }
 
 const ARREST_RADIO: Text[] = [
-  T('{callsign}: isik peeti kinni, toimetame arestimajja.', '{callsign}: person detained, transporting to the arrest house.'),
+  T('{callsign}: isik kahtlustatavana kinni peetud, toimetame arestimajja.', '{callsign}: person detained as a suspect, taking them to the arrest house.'),
   T('{callsign}: kahtlustatav kinni peetud, liigume arestimaja suunas.', '{callsign}: suspect detained, heading to the arrest house.'),
 ];
 

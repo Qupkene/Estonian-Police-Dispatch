@@ -4,7 +4,11 @@ import { useLang, useT, useTx } from '@/i18n';
 import * as rules from '@/sim/career';
 import { Avatar, Badge, Button, Empty, Icon, Meter, Modal, Segmented } from '@/ui/components';
 import type { CareerProfile, StaffMember, UnitType } from '@/sim/types';
-import { fmtMoney, fmtNum, levelTone, pct, safe, sortRows, staffAge, statusTone, UNIT_ICON, type SortDir } from './helpers';
+import * as economy from '@/data/economy';
+import { capitalize, fmtMoney, fmtNum, levelTone, pct, safe, sortRows, staffAge, statusTone, UNIT_ICON, type SortDir } from './helpers';
+
+/** Severance in months of salary (data/economy SEVERANCE_MONTHS; 0 if not defined). */
+const SEVERANCE = (economy as unknown as { SEVERANCE_MONTHS?: number }).SEVERANCE_MONTHS ?? 0;
 import { useToast } from './Toasts';
 import { SortHeader, SpecialtyFilter, Stat } from './bits';
 
@@ -58,10 +62,11 @@ export function StaffTab({ profile, goRecruit }: { profile: CareerProfile; goRec
     if (!firing) return;
     const who = `${firing.firstName} ${firing.lastName}`;
     try {
-      const before = useCareer.getState().profile?.staff.length ?? 0;
+      const before = useCareer.getState().profile;
       useCareer.getState().update((p) => rules.fire(p, firing.id));
-      const after = useCareer.getState().profile?.staff.length ?? 0;
-      if (after < before) notify('info', t('career.staff.fired', { name: who }));
+      const after = useCareer.getState().profile;
+      const paid = (after?.money ?? 0) - (before?.money ?? 0);
+      if ((after?.staff.length ?? 0) < (before?.staff.length ?? 0)) notify('info', t('career.staff.fired', { name: who }), paid ? t('career.staff.firedSub', { amount: fmtMoney(paid, lang, { sign: true }) }) : undefined);
       else notify('warn', t('career.staff.fireFailed'));
     } catch (err) {
       console.warn('[EPD career] fire failed', err);
@@ -81,8 +86,8 @@ export function StaffTab({ profile, goRecruit }: { profile: CareerProfile; goRec
         <Stat icon="users" label={t('career.staff.headcount')} value={fmtNum(staff.length, lang)} />
         <Stat icon="check" label={t('career.staff.active')} value={fmtNum(staff.filter((m) => m.status === 'active').length, lang)} />
         <Stat icon="ambulance" label={t('career.staff.injured')} value={fmtNum(staff.filter((m) => m.status === 'injured').length, lang)} tone="danger" />
-        <Stat icon="gauge" label={t('career.staff.avgSkill')} value={String(pct(avgSkill))} />
-        <Stat icon="star" label={t('career.staff.avgMorale')} value={`${pct(avgMorale)} %`} />
+        <Stat icon="gauge" label={t('career.staff.avgSkill')} value={staff.length ? String(pct(avgSkill)) : '—'} />
+        <Stat icon="star" label={t('career.staff.avgMorale')} value={staff.length ? `${pct(avgMorale)} %` : '—'} />
         <Stat icon="money" label={t('career.staff.payroll')} value={fmtMoney(payroll, lang)} sub={t('career.perMonth')} />
       </div>
 
@@ -127,7 +132,7 @@ export function StaffTab({ profile, goRecruit }: { profile: CareerProfile; goRec
                           <strong>
                             {m.firstName} {m.lastName}
                           </strong>
-                          <span className="dim">{tx(m.rank) || tx(m.title)}</span>
+                          <span className="dim">{[capitalize(tx(m.title)), tx(m.rank)].filter(Boolean).join(' · ')}</span>
                         </div>
                       </div>
                     </td>
@@ -241,7 +246,7 @@ export function StaffTab({ profile, goRecruit }: { profile: CareerProfile; goRec
               <p>
                 {t('career.staff.fireText', { name: `${firing.firstName} ${firing.lastName}`, badge: firing.badge })}
               </p>
-              <p className="dim">{t('career.staff.fireNote', { salary: fmtMoney(firing.salary, lang) })}</p>
+              <p className="dim">{t('career.staff.fireNote', { salary: fmtMoney(firing.salary, lang), severance: fmtMoney(Math.round(firing.salary * SEVERANCE), lang) })}</p>
             </div>
           </div>
         )}

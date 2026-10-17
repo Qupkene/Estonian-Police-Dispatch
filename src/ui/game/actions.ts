@@ -48,7 +48,8 @@ export function acknowledgeNext(): string | undefined {
   }
   if (!target) return undefined;
   acknowledge(target.id);
-  if (!g.selection.incidentId) g.select({ incidentId: target.id }, 'incident');
+  // Select it so the next D dispatches to it (A → D → A → D works through the queue).
+  selectIncident(target.id);
   return target.id;
 }
 

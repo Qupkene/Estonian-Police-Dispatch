@@ -10,9 +10,77 @@ export const VERSION = '2.0.0';
 
 // ── Names, codes, phone numbers (login simulation) ──────────────────────────
 
-const FIRST_M = ['Andres', 'Mart', 'Tõnu', 'Rasmus', 'Kristjan', 'Siim', 'Marko', 'Priit', 'Jaanus', 'Indrek', 'Karl', 'Taavi', 'Ott', 'Märt', 'Hendrik', 'Kaspar', 'Rein', 'Urmas', 'Tarmo', 'Erik'];
-const FIRST_F = ['Kadri', 'Liis', 'Maarja', 'Kristiina', 'Triin', 'Helen', 'Kätlin', 'Merike', 'Anu', 'Piret', 'Eveliis', 'Grete', 'Karin', 'Signe', 'Tiina', 'Laura', 'Mari', 'Ülle', 'Evelin', 'Kärt'];
-const LAST = ['Tamm', 'Saar', 'Sepp', 'Mägi', 'Kask', 'Kukk', 'Rebane', 'Ilves', 'Pärn', 'Koppel', 'Lepik', 'Kuusk', 'Oja', 'Põder', 'Raudsepp', 'Vaher', 'Lõhmus', 'Kalda', 'Tooming', 'Kivi', 'Mets', 'Laur', 'Kõiv', 'Sild', 'Järv'];
+const FIRST_M = [
+  'Andres',
+  'Mart',
+  'Tõnu',
+  'Rasmus',
+  'Kristjan',
+  'Siim',
+  'Marko',
+  'Priit',
+  'Jaanus',
+  'Indrek',
+  'Karl',
+  'Taavi',
+  'Ott',
+  'Märt',
+  'Hendrik',
+  'Kaspar',
+  'Rein',
+  'Urmas',
+  'Tarmo',
+  'Erik',
+];
+const FIRST_F = [
+  'Kadri',
+  'Liis',
+  'Maarja',
+  'Kristiina',
+  'Triin',
+  'Helen',
+  'Kätlin',
+  'Merike',
+  'Anu',
+  'Piret',
+  'Eveliis',
+  'Grete',
+  'Karin',
+  'Signe',
+  'Tiina',
+  'Laura',
+  'Mari',
+  'Ülle',
+  'Evelin',
+  'Kärt',
+];
+const LAST = [
+  'Tamm',
+  'Saar',
+  'Sepp',
+  'Mägi',
+  'Kask',
+  'Kukk',
+  'Rebane',
+  'Ilves',
+  'Pärn',
+  'Koppel',
+  'Lepik',
+  'Kuusk',
+  'Oja',
+  'Põder',
+  'Raudsepp',
+  'Vaher',
+  'Lõhmus',
+  'Kalda',
+  'Tooming',
+  'Kivi',
+  'Mets',
+  'Laur',
+  'Kõiv',
+  'Sild',
+  'Järv',
+];
 
 export interface GeneratedIdentity {
   firstName: string;
@@ -138,7 +206,14 @@ export const REGION_FALLBACK: Record<RegionId, RegionFallback> = {
     name: { et: 'Lõuna prefektuur', en: 'South Prefecture' },
     short: 'LÕUNA',
     hqCity: 'Tartu',
-    counties: ['Tartu maakond', 'Jõgeva maakond', 'Põlva maakond', 'Valga maakond', 'Viljandi maakond', 'Võru maakond'],
+    counties: [
+      'Tartu maakond',
+      'Jõgeva maakond',
+      'Põlva maakond',
+      'Valga maakond',
+      'Viljandi maakond',
+      'Võru maakond',
+    ],
     label: [26.25, 58.1],
     hq: [26.722, 58.378],
     description: {
@@ -151,7 +226,14 @@ export const REGION_FALLBACK: Record<RegionId, RegionFallback> = {
     name: { et: 'Lääne prefektuur', en: 'West Prefecture' },
     short: 'LÄÄNE',
     hqCity: 'Pärnu',
-    counties: ['Pärnu maakond', 'Lääne maakond', 'Saare maakond', 'Hiiu maakond', 'Rapla maakond', 'Järva maakond'],
+    counties: [
+      'Pärnu maakond',
+      'Lääne maakond',
+      'Saare maakond',
+      'Hiiu maakond',
+      'Rapla maakond',
+      'Järva maakond',
+    ],
     label: [23.95, 58.62],
     hq: [24.497, 58.385],
     description: {
@@ -254,7 +336,10 @@ export interface CountyShape {
   area: number;
 }
 
-type GeoFeature = { properties: { name: string }; geometry: { type: 'Polygon' | 'MultiPolygon'; coordinates: number[][][] | number[][][][] } };
+type GeoFeature = {
+  properties: { name: string };
+  geometry: { type: 'Polygon' | 'MultiPolygon'; coordinates: number[][][] | number[][][][] };
+};
 
 export const ESTONIA_BOUNDS: [LngLat, LngLat] = [
   [21.7, 57.47],
@@ -265,7 +350,9 @@ export const ESTONIA_BOUNDS: [LngLat, LngLat] = [
 export function countyShapes(proj: Projection, minDist = 0.9): CountyShape[] {
   const feats = (countiesGeo as unknown as { features: GeoFeature[] }).features;
   return feats.map((f) => {
-    const polys = (f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates : [f.geometry.coordinates]) as number[][][][];
+    const polys = (
+      f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates : [f.geometry.coordinates]
+    ) as number[][][][];
     let d = '';
     let minX = Infinity;
     let minY = Infinity;
@@ -293,7 +380,13 @@ export function countyShapes(proj: Projection, minDist = 0.9): CountyShape[] {
         d += 'M' + simple.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L') + 'Z';
       }
     }
-    return { name: f.properties.name, regionId: regionOfCounty(f.properties.name), d, center: [(minX + maxX) / 2, (minY + maxY) / 2], area };
+    return {
+      name: f.properties.name,
+      regionId: regionOfCounty(f.properties.name),
+      d,
+      center: [(minX + maxX) / 2, (minY + maxY) / 2],
+      area,
+    };
   });
 }
 
@@ -303,7 +396,10 @@ export type DatePreset = 'today' | 'jaanipaev' | 'newyear' | 'winterfri' | 'summ
 export const DATE_PRESETS: DatePreset[] = ['today', 'jaanipaev', 'newyear', 'winterfri', 'summersat'];
 
 export type ShiftPreset = 'day' | 'night' | 'short';
-export const SHIFT_PRESETS: Record<ShiftPreset, { hour: number; hours: number; kind: 'day' | 'night' | 'custom' }> = {
+export const SHIFT_PRESETS: Record<
+  ShiftPreset,
+  { hour: number; hours: number; kind: 'day' | 'night' | 'custom' }
+> = {
   day: { hour: 7, hours: 12, kind: 'day' },
   night: { hour: 19, hours: 12, kind: 'night' },
   short: { hour: 22, hours: 4, kind: 'custom' },
@@ -362,7 +458,8 @@ export function ymdText({ y, m, d }: YMD): string {
 
 /** Built-in special-day note used when sim/calendar has nothing (or is still a stub). */
 export function presetHoliday(date: YMD): Text | undefined {
-  if (date.m === 6 && date.d === 23) return { et: 'Võidupüha ja jaaniõhtu', en: 'Victory Day and Midsummer Eve' };
+  if (date.m === 6 && date.d === 23)
+    return { et: 'Võidupüha ja jaaniõhtu', en: 'Victory Day and Midsummer Eve' };
   if (date.m === 6 && date.d === 24) return { et: 'Jaanipäev', en: 'Midsummer Day' };
   if (date.m === 12 && date.d === 31) return { et: 'Vana-aasta õhtu', en: "New Year's Eve" };
   if (date.m === 1 && date.d === 1) return { et: 'Uusaasta', en: "New Year's Day" };
