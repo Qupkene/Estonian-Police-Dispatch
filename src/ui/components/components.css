@@ -1,0 +1,311 @@
+/* Minimal base styles for shared primitives — ui-shell owns and polishes this file. */
+.ui-btn,
+.ui-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--line-2);
+  background: var(--bg-3);
+  color: var(--text-0);
+  border-radius: var(--r-md);
+  padding: 6px 12px;
+  font-weight: 550;
+  transition: background var(--dur-1), border-color var(--dur-1);
+}
+.ui-btn:hover,
+.ui-iconbtn:hover {
+  background: var(--bg-4);
+}
+.ui-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.ui-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.ui-btn--danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+.ui-btn--success {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #04130a;
+}
+.ui-btn--warning {
+  background: var(--warn);
+  border-color: var(--warn);
+  color: #1a1000;
+}
+.ui-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+}
+.ui-btn--sm {
+  padding: 3px 8px;
+  font-size: var(--fs-sm);
+}
+.ui-btn--lg {
+  padding: 10px 18px;
+  font-size: var(--fs-lg);
+}
+.ui-btn--block {
+  width: 100%;
+}
+.ui-iconbtn {
+  padding: 6px;
+}
+.ui-kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 4px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  color: var(--text-2);
+}
+.ui-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+.ui-panel__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.ui-panel__title {
+  margin: 0;
+  font-size: var(--fs-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-1);
+  flex: 1;
+}
+.ui-panel__body {
+  min-height: 0;
+  overflow: auto;
+  flex: 1;
+}
+.ui-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--line);
+}
+.ui-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--text-2);
+}
+.ui-tab.is-active {
+  color: var(--text-0);
+  border-bottom-color: var(--accent);
+}
+.ui-tab__badge {
+  background: var(--p1);
+  color: #fff;
+  font-size: 10px;
+  border-radius: 8px;
+  padding: 0 5px;
+}
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-3);
+  color: var(--text-1);
+  border: 1px solid var(--line-2);
+}
+.ui-badge--danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.ui-badge--warn {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+.ui-badge--ok {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+.ui-badge--info {
+  color: var(--info);
+  border-color: var(--info);
+}
+.ui-badge--accent {
+  color: var(--accent-2);
+  border-color: var(--accent);
+}
+.ui-badge--gold {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+.ui-prio {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #000;
+}
+.ui-prio--1 {
+  background: var(--p1);
+  color: #fff;
+}
+.ui-prio--2 {
+  background: var(--p2);
+}
+.ui-prio--3 {
+  background: var(--p3);
+}
+.ui-prio--4 {
+  background: var(--p4);
+}
+.ui-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-xs);
+  color: var(--text-1);
+}
+.ui-status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ui-status--available .ui-status__dot {
+  background: var(--st-available);
+}
+.ui-status--enroute .ui-status__dot {
+  background: var(--st-enroute);
+}
+.ui-status--onscene .ui-status__dot {
+  background: var(--st-onscene);
+}
+.ui-status--transport .ui-status__dot {
+  background: var(--st-transport);
+}
+.ui-status--busy .ui-status__dot {
+  background: var(--st-busy);
+}
+.ui-status--break .ui-status__dot {
+  background: var(--st-break);
+}
+.ui-status--offduty .ui-status__dot {
+  background: var(--st-offduty);
+}
+.ui-status--emergency .ui-status__dot {
+  background: var(--st-emergency);
+}
+.ui-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+}
+.ui-modal__card {
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+}
+.ui-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.ui-modal__head h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+}
+.ui-modal__body {
+  padding: 16px;
+}
+.ui-modal__foot {
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.ui-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.ui-toggle input {
+  accent-color: var(--accent);
+}
+.ui-toggle__track {
+  display: none;
+}
+.ui-slider,
+.ui-select {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ui-select select {
+  background: var(--bg-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  padding: 6px 8px;
+}
+.ui-meter {
+  height: 6px;
+  background: var(--bg-4);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.ui-meter__fill {
+  height: 100%;
+  background: var(--accent);
+}
+.ui-meter--ok .ui-meter__fill {
+  background: var(--ok);
+}
+.ui-meter--warn .ui-meter__fill {
+  background: var(--warn);
+}
+.ui-meter--danger .ui-meter__fill {
+  background: var(--danger);
+}
+.ui-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  color: var(--text-3);
+  text-align: center;
+}
+.ui-avatar {
+  border-radius: 8px;
+  background: var(--bg-3);
+  flex: none;
+}
