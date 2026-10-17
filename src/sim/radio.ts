@@ -77,9 +77,86 @@ export const PLACE_KIND_LABEL: Record<PlaceKind, Text> = {
   museum: { et: 'Muuseum', en: 'Museum' },
 };
 
+/**
+ * Generic Estonian nouns that curated places use as their name, with the area in brackets
+ * ("Tankla (Paldiski mnt)", "Toidukauplus (Õismäe)"). They are common nouns, not names, so they get
+ * an English (and Russian) translation and are lower-cased when spoken inside a sentence.
+ */
+export const GENERIC_PLACE: Record<string, { en: string; ru: string }> = {
+  Aiandusühistu: { en: 'Allotment association', ru: 'садовое товарищество' },
+  Baar: { en: 'Bar', ru: 'бар' },
+  Büroohoone: { en: 'Office building', ru: 'офисное здание' },
+  Ehitusplats: { en: 'Construction site', ru: 'стройка' },
+  Festivaliala: { en: 'Festival grounds', ru: 'территория фестиваля' },
+  Gümnaasium: { en: 'Secondary school', ru: 'гимназия' },
+  Hotell: { en: 'Hotel', ru: 'гостиница' },
+  Karaokebaar: { en: 'Karaoke bar', ru: 'караоке-бар' },
+  Kaubanduskeskus: { en: 'Shopping centre', ru: 'торговый центр' },
+  Kauplus: { en: 'Shop', ru: 'магазин' },
+  Kool: { en: 'School', ru: 'школа' },
+  Kõrts: { en: 'Tavern', ru: 'корчма' },
+  Lasteaed: { en: 'Kindergarten', ru: 'детский сад' },
+  Lihatööstus: { en: 'Meat processing plant', ru: 'мясокомбинат' },
+  Pank: { en: 'Bank', ru: 'банк' },
+  Põhikool: { en: 'School', ru: 'школа' },
+  Pubi: { en: 'Pub', ru: 'паб' },
+  Saatkond: { en: 'Embassy', ru: 'посольство' },
+  Spaahotell: { en: 'Spa hotel', ru: 'спа-отель' },
+  Suvilaala: { en: 'Summer cottage area', ru: 'дачный посёлок' },
+  Suvilad: { en: 'Summer cottages', ru: 'дачи' },
+  Talu: { en: 'Farm', ru: 'хутор' },
+  Tankla: { en: 'Petrol station', ru: 'заправка' },
+  Toidukauplus: { en: 'Grocery store', ru: 'продуктовый магазин' },
+  Turg: { en: 'Market', ru: 'рынок' },
+  Ööklubi: { en: 'Nightclub', ru: 'ночной клуб' },
+};
+
+/** First words that are common nouns or adjectives, so a caller says them in lower case ("riigipiir, Narva jõe kallas"). */
+const SPOKEN_LOWER = new Set(['Riigipiir', 'Endine', 'Lennujaama', 'Piiriületuse']);
+
+/** "Tankla (Paldiski mnt)" → head "Tankla", qualifier "Paldiski mnt"; undefined when the head is not a generic noun. */
+function genericParts(name: string | undefined): { head: string; qualifier: string } | undefined {
+  const m = /^(\S+) \((.+)\)$/.exec(name ?? '');
+  return m && GENERIC_PLACE[m[1]] ? { head: m[1], qualifier: m[2] } : undefined;
+}
+
 /** {place}: the place's own name, else a place-kind label (never repeats the address). */
 export function placeText(loc: Incident['location']): Text | string {
+  const g = genericParts(loc.placeName);
+  if (g) return { et: loc.placeName!, en: `${GENERIC_PLACE[g.head].en} (${g.qualifier})` };
   return loc.placeName ?? PLACE_KIND_LABEL[loc.placeKind] ?? loc.address;
+}
+
+/**
+ * The place as a caller names it inside a sentence: without the bracketed qualifier, generic nouns
+ * in lower case ("tankla" / "the petrol station" / "заправка"), proper names as they are (Russian in
+ * quotes). Undefined when the location has no name of its own.
+ */
+export function spokenPlace(loc: Incident['location']): { ru: string; et: string; en: string } | undefined {
+  if (!loc.placeName || loc.placeName === loc.address) return undefined;
+  const g = genericParts(loc.placeName);
+  if (g) {
+    const t = GENERIC_PLACE[g.head];
+    return { ru: t.ru, et: g.head.toLowerCase(), en: `the ${t.en.toLowerCase()}` };
+  }
+  const bare = loc.placeName.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  // "Varnja alevik, Peipsiääre vald" already says "Varnja": naming it again adds nothing.
+  if (loc.address.includes(bare)) return undefined;
+  const first = bare.split(/[\s,]/)[0];
+  const et = SPOKEN_LOWER.has(first) ? first.toLowerCase() + bare.slice(first.length) : bare;
+  return { ru: `«${bare}»`, et, en: bare };
+}
+
+/** The place as a caller starts a sentence with it ("Toidukauplus, teisel korrusel…"): no qualifier, capitalised. */
+export function spokenPlaceLabel(loc: Incident['location']): Text {
+  const g = genericParts(loc.placeName);
+  if (g) return { et: g.head, en: GENERIC_PLACE[g.head].en };
+  if (loc.placeName && loc.placeName !== loc.address) {
+    const bare = loc.placeName.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    return { et: bare, en: bare };
+  }
+  const kind = PLACE_KIND_LABEL[loc.placeKind];
+  return kind ?? { et: loc.address, en: loc.address };
 }
 
 export function agencyName(a: Agency | string | undefined): Text {
@@ -105,11 +182,17 @@ export function radioVars(s: SimState, u?: Unit, inc?: Incident, extra: Vars = {
   return { ...v, ...extra };
 }
 
-/** Pick a phrase variant (deterministically, from the sim RNG) and fill it. */
+/**
+ * Pick a phrase variant (deterministically, from the sim RNG) and fill it. Variants that need a
+ * value the caller did not give (no {number} without an event, no {n} for a 1-minute ETA) are
+ * skipped, so a literal "{number}" never reaches the radio. Always one RNG draw.
+ */
 export function phrase(s: SimState, key: string, vars: Vars): Text {
   const list = RADIO[key];
   if (!list || list.length === 0) return { et: key, en: key };
-  const t = withRng(s, (r) => r.pick(list));
+  const filled = (t: Text) => [...`${t.et} ${t.en}`.matchAll(/\{(\w+)\}/g)].every((m) => vars[m[1]] !== undefined);
+  const usable = list.filter(filled);
+  const t = withRng(s, (r) => r.pick(usable.length ? usable : list));
   return fillText(t, vars);
 }
 

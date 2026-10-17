@@ -4,10 +4,25 @@
 export type Slot = 'career' | 'settings' | 'autosave';
 export const SLOTS: readonly Slot[] = ['career', 'settings', 'autosave'];
 
-/** One side of a slot: `data` null = nothing stored, `updated` 0 = age unknown (unix ms otherwise). */
+/**
+ * The server's copy of a slot. `data` null = nothing stored or a deletion marker; `updated` is the
+ * server's version of the slot (unix ms on the server clock, strictly growing), 0 = the server never had it.
+ */
 export interface Side {
   data: unknown;
   updated: number;
+}
+
+/**
+ * This browser's copy of a slot. No client clock is involved: `base` is the server version this copy
+ * was last synced with, `dirty` says whether it changed locally since.
+ */
+export interface LocalSide {
+  data: unknown;
+  /** Server `updated` of the copy last synced (0 = never synced). */
+  base: number;
+  /** Changed in this browser since the last sync. */
+  dirty: boolean;
 }
 
 export type SyncAction = 'pull' | 'push' | 'none';
@@ -23,28 +38,53 @@ export interface SaveResponse {
 export const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
-const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
+/** A positive finite number, else 0. */
+export const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
+
+function sameJson(a: unknown, b: unknown): boolean {
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
 
 /**
- * Decide one slot.
- * - The server never had it: upload what the browser has (first-login migration).
- * - The browser never had it: take the server's copy.
- * - Both known: the newer `updated` wins; equal ages mean "already in sync", except when both ages are
- *   unknown, then the server is the source of truth.
+ * Decide one slot. Only server versions are compared, never a client clock with the server's.
+ * - Both copies hold the same data: nothing to do.
+ * - `foreign` (guest data, or data last synced with another account): it may only fill a slot the
+ *   account has nothing in. Whatever the account has in the cloud wins.
+ * - The server still has the version we synced: upload when the browser changed it, else nothing.
+ * - The server's version is older than the one we synced (its row is gone, or it was restored from a
+ *   backup): upload, so the browser's progress is not lost.
+ * - The server has a newer version: take it. When the browser changed the slot too, that is a conflict:
+ *   the cloud copy wins and the caller keeps the local one in a backup key (see needsBackup).
  */
-export function decideSlot(local: Side, remote: Side): SyncAction {
+export function decideSlot(local: LocalSide, remote: Side, foreign = false): SyncAction {
   const hasLocal = local.data != null;
   const hasRemote = remote.data != null;
-  if (!hasRemote && !remote.updated) return hasLocal ? 'push' : 'none';
-  if (!hasLocal && !local.updated) return hasRemote ? 'pull' : 'none';
-  if (remote.updated > local.updated) return 'pull';
-  if (local.updated > remote.updated) return 'push';
-  return local.updated === 0 && hasRemote ? 'pull' : 'none';
+  if (hasLocal && hasRemote && sameJson(local.data, remote.data)) return 'none';
+  if (foreign) {
+    if (hasRemote) return 'pull';
+    return hasLocal ? 'push' : 'none';
+  }
+  if (!hasLocal && !hasRemote && !remote.updated) return 'none';
+  if (remote.updated === local.base) return local.dirty ? 'push' : 'none';
+  if (remote.updated < local.base) return 'push';
+  return 'pull';
+}
+
+/**
+ * True when pulling would overwrite browser data that exists nowhere else (changed here and not
+ * uploaded, or guest data): the caller copies it to a backup key first.
+ */
+export function needsBackup(local: LocalSide, remote: Side): boolean {
+  return local.data != null && local.dirty && !sameJson(local.data, remote.data);
 }
 
 export interface PlanOptions {
-  /** Account the local data was last synced with (null: never synced, i.e. guest data). */
-  owner: number | null;
+  /** Account each local slot was last synced with (null: never synced, i.e. guest data). */
+  owner: Record<Slot, number | null>;
   /** Account that is logging in now. */
   userId: number;
 }
@@ -56,18 +96,63 @@ export function remoteSide(res: SaveResponse, slot: Slot): Side {
 }
 
 /**
- * Per-slot actions for a login. Local data that was last synced with a different account is treated as
- * being of unknown age, so that account's server copy wins (a shared browser never overwrites someone
- * else's cloud save); when the server has nothing it is still migrated.
+ * Per-slot actions for a sync. Local data that is guest data or was last synced with a different account
+ * never overwrites the account's cloud copy (a shared or new browser cannot destroy someone's career);
+ * it is only migrated into slots the account has nothing in.
  */
-export function planSync(res: SaveResponse, local: Record<Slot, Side>, opts: PlanOptions): Record<Slot, SyncAction> {
-  const foreign = opts.owner !== null && opts.owner !== opts.userId;
+export function planSync(res: SaveResponse, local: Record<Slot, LocalSide>, opts: PlanOptions): Record<Slot, SyncAction> {
   const out = {} as Record<Slot, SyncAction>;
   for (const slot of SLOTS) {
-    const l = local[slot];
-    out[slot] = decideSlot(foreign ? { data: l.data, updated: 0 } : l, remoteSide(res, slot));
+    out[slot] = decideSlot(local[slot], remoteSide(res, slot), opts.owner[slot] !== opts.userId);
   }
   return out;
+}
+
+// ── Local sync metadata (localStorage `epd:sync`, kept by src/net/account.ts) ──
+
+export interface SlotMeta {
+  /** Account this slot's browser data was last synced with; null = guest data. */
+  owner: number | null;
+  /** Server version (`updated`) of the copy last synced; 0 = never synced. */
+  base: number;
+  /** Changed in this browser since the last sync. */
+  dirty: boolean;
+}
+
+export interface Meta {
+  /** Account this browser is signed in to (written on sign-in and sign-out, read by other tabs). */
+  account: number | null;
+  slots: Record<Slot, SlotMeta>;
+}
+
+// Without any metadata the browser's data has an unknown history (e.g. from before accounts existed),
+// so it counts as changed: a cloud copy never replaces it without a backup.
+const freshSlot = (): SlotMeta => ({ owner: null, base: 0, dirty: true });
+
+/** Stored metadata (format 2, or format 1 `{ owner, updated }` from the first accounts release). */
+export function parseMeta(raw: string | null): Meta {
+  const meta: Meta = { account: null, slots: { career: freshSlot(), settings: freshSlot(), autosave: freshSlot() } };
+  if (!raw) return meta;
+  try {
+    const m: unknown = JSON.parse(raw);
+    if (!isObj(m)) return meta;
+    const legacyOwner = typeof m.owner === 'number' ? m.owner : null;
+    // Format 1 only knew the last synced account.
+    meta.account = typeof m.account === 'number' ? m.account : 'account' in m ? null : legacyOwner;
+    for (const slot of SLOTS) {
+      const e = isObj(m.slots) ? m.slots[slot] : undefined;
+      if (isObj(e)) {
+        meta.slots[slot] = { owner: typeof e.owner === 'number' ? e.owner : null, base: num(e.base), dirty: e.dirty === true };
+      } else if (isObj(m.updated)) {
+        // Format 1 mixed both clocks in `updated`. Keep it as the base and count the data as changed: it is
+        // uploaded when the server still has that version and kept in a backup when the cloud has another.
+        meta.slots[slot] = { owner: legacyOwner, base: num(m.updated[slot]), dirty: true };
+      }
+    }
+  } catch {
+    /* garbage: start fresh */
+  }
+  return meta;
 }
 
 /** A resumable autosave (SimState version 2, not ended) or null. */

@@ -73,6 +73,16 @@ function nounFor(gender: Gender, age: number): Text {
   return m ? { et: 'mees', en: 'man' } : { et: 'naine', en: 'woman' };
 }
 
+/**
+ * An English description used inside a sentence needs its article: "the attacker is a man, about
+ * 30…", "an elderly woman…". describePerson itself stays a bare label ("man, about 30…").
+ */
+export function withArticleEn(desc: string): string {
+  if (/^(a|an|the)\s/i.test(desc)) return desc;
+  if (!/^(boy|girl|teenage|young|elderly|man|woman)\b/i.test(desc)) return desc;
+  return `${/^[aeiou]/i.test(desc) ? 'an' : 'a'} ${desc}`;
+}
+
 const BUILD: Record<Appearance['build'], Text> = {
   slim: { et: 'kõhna kehaehitusega', en: 'slim build' },
   average: { et: 'keskmise kehaehitusega', en: 'medium build' },

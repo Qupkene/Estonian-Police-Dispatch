@@ -11,9 +11,10 @@ import { emit, regionOf } from './internal';
 import { isHidden, openIncidentIds, updateIncidents } from './incidents';
 import { jkPhrase } from './radio';
 import { buildReport } from './report';
+import { fmtDate } from './registry';
 import { Rng } from './rng';
 import { updateShiftScore } from './scoring';
-import { updateSpawner } from './spawner';
+import { initCareerLoad, skippedZones, updateSpawner } from './spawner';
 import { ddmmyyyy, hhmm, isoDate, MIN, seasonOf, wall, DAY } from './time';
 import { buildUnits, updateUnits } from './units';
 import { initialWeather, updateWeather } from './weather';
@@ -121,6 +122,8 @@ export function createShift(opts: NewShiftOptions): SimState {
   s.flags.autoSpawn = opts.mode !== 'director';
   s.flags.kmDriven = 0;
   for (const u of opts.upgrades ?? []) s.flags[`upg:${u}`] = true;
+  // Spike strips are standard PPA kit; only career makes them an upgrade to buy.
+  if (opts.mode !== 'career') s.flags['upg:spikes'] = true;
   if (opts.weather) s.flags['wx:locked'] = true;
 
   try {
@@ -133,9 +136,12 @@ export function createShift(opts: NewShiftOptions): SimState {
   if (opts.reputation !== undefined) s.trust = Math.round(Math.max(15, Math.min(90, 50 + (opts.reputation - 25) / 2)));
 
   buildUnits(s, rUnits, opts);
+  // Career: call volume follows the force on duty (no rng use, so the other streams stay put).
+  if (opts.mode === 'career') initCareerLoad(s);
   populateRegistry(s, rReg, region);
   addLegends(s);
   addBulletins(s, rMisc, region);
+  addCoverageBulletin(s, region);
 
   s.nextSpawnAt = opts.start + rMisc.range(1, 3) * MIN;
 
@@ -325,6 +331,20 @@ function sentence(t: string): string {
   return /[.!?]$/.test(c) ? c : c + '.';
 }
 
+/** Career: tell the player which staffed zones their force does not cover (see initCareerLoad). */
+function addCoverageBulletin(s: SimState, region: RegionDef): void {
+  const zones = [...skippedZones(s)].map((id) => region.zones.find((z) => z.id === id)?.name ?? T(id, id));
+  if (!zones.length) return;
+  pushBulletin(s, {
+    kind: 'order',
+    title: T('Vastutusala', 'Area of responsibility'),
+    text: {
+      et: `Meie ekipaažid ei kata sel vahetusel järgmisi piirkondi: ${zones.map((z) => z.et).join(', ')}. Sealsed väljakutsed võtab vastu teine dispetšer.`,
+      en: `Our crews do not cover these areas this shift: ${zones.map((z) => z.en).join(', ')}. Calls from there go to another dispatcher.`,
+    },
+  });
+}
+
 function addBulletins(s: SimState, r: Rng, region: RegionDef): void {
   const now = s.now;
   const persons = Object.values(s.persons).filter((p) => !p.id.startsWith('legend-'));
@@ -345,8 +365,8 @@ function addBulletins(s: SimState, r: Rng, region: RegionDef): void {
       kind: 'bolo_vehicle',
       title: T(`Otsitav sõiduk: ${v.plate}`, `Vehicle BOLO: ${v.plate}`),
       text: {
-        et: `Varastatud ${car.et}. Varguse aeg ${v.flags.stolen?.since ?? ''}. Märkamisel teavitada juhtimiskeskust, mitte sekkuda üksi. ANPR hoiatus aktiivne.`,
-        en: `Stolen ${car.en}. Stolen on ${v.flags.stolen?.since ?? ''}. If seen, notify control, do not intervene alone. ANPR alert active.`,
+        et: `Varastatud ${car.et}. Varguse aeg ${fmtDate(v.flags.stolen?.since ?? '')}. Märkamisel teavitada juhtimiskeskust, mitte sekkuda üksi. ANPR hoiatus aktiivne.`,
+        en: `Stolen ${car.en}. Stolen on ${fmtDate(v.flags.stolen?.since ?? '')}. If seen, notify control, do not intervene alone. ANPR alert active.`,
       },
       plate: v.plate,
     });

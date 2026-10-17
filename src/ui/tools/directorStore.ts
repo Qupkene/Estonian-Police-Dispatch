@@ -28,6 +28,8 @@ interface DirectorStore {
   setScene: (s: DirectorScene | null) => void;
   /** Perform the pending placement at `coord`. Returns the new incident id (spawn) or null. */
   commitPlacing: (coord: LngLat) => string | null;
+  /** Forget everything from the last shift (GameScreen calls it when a new shift mounts). */
+  reset: () => void;
 }
 
 export const useDirector = create<DirectorStore>()((set, get) => ({
@@ -45,7 +47,11 @@ export const useDirector = create<DirectorStore>()((set, get) => ({
     const { placing, priority, customSummary } = get();
     const g = useGame.getState();
     const s = g.sim;
-    if (!s || !placing) return null;
+    // A placement armed in a director shift never acts on another shift (quick play, career).
+    if (!s || !placing || s.mode !== 'director') {
+      if (placing) set({ placing: null });
+      return null;
+    }
     let id: string | null = null;
     try {
       if (placing.kind === 'incident') {
@@ -56,7 +62,8 @@ export const useDirector = create<DirectorStore>()((set, get) => ({
           summary: customSummary ?? undefined,
         });
       } else {
-        directorMoveUnit(s, placing.unitId, coord);
+        // A teleport: the unit appears at the spot at once instead of driving there.
+        directorMoveUnit(s, placing.unitId, coord, { instant: true });
       }
     } catch (err) {
       console.warn('[EPD director] placement failed', err);
@@ -65,4 +72,5 @@ export const useDirector = create<DirectorStore>()((set, get) => ({
     useGame.getState().bump();
     return id;
   },
+  reset: () => set({ placing: null, priority: null, customSummary: null, scene: null, lastSpawned: null }),
 }));

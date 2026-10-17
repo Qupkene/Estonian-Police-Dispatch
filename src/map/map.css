@@ -11,10 +11,21 @@
   font-family: var(--font-ui);
   --epdm-glass: rgba(9, 15, 23, 0.86);
   --epdm-line: rgba(120, 160, 210, 0.18);
+  /* The map and its glass panels stay dark in both themes, so the ink stays light too: the light
+     theme's dark --text-* and deep --accent-2 would sink into the glass (about 1.5:1). */
+  --text-0: #eaf1f8;
+  --text-1: #c0ccd9;
+  --text-2: #93a2b4;
+  --text-3: #8191a5;
+  --accent-2: #00d0ff;
+  color: var(--text-1);
 }
 .epdm__map {
   position: absolute;
   inset: 0;
+  /* Own stacking context: marker z-indices (15-70) then only order markers among themselves and
+     never rise above the toolbar, the layers menu or the offline chip. */
+  z-index: 0;
 }
 .epdm .maplibregl-canvas:focus-visible {
   outline: 2px solid var(--accent, #3d8bff);

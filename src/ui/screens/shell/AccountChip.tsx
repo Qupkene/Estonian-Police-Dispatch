@@ -116,6 +116,7 @@ function DeleteAccount({ open, name, onClose }: { open: boolean; name: string; o
   const busy = useAccount((s) => s.busy);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const submit = async (e?: FormEvent) => {
     e?.preventDefault();
@@ -126,6 +127,8 @@ function DeleteAccount({ open, name, onClose }: { open: boolean; name: string; o
       useGame.getState().logout();
     } else {
       setError(accountErrorText(useAccount.getState().error, lang, 'password'));
+      // The confirm button was disabled while busy, so focus fell out of the dialog: back to the password.
+      formRef.current?.querySelector('input')?.focus();
     }
   };
 
@@ -148,7 +151,7 @@ function DeleteAccount({ open, name, onClose }: { open: boolean; name: string; o
         </>
       }
     >
-      <form className="sh-acct__delete" onSubmit={submit}>
+      <form className="sh-acct__delete" onSubmit={submit} ref={formRef}>
         <p>{t('account.delete.text', { name })}</p>
         <TextField
           label={t('account.delete.password')}

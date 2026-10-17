@@ -22,6 +22,7 @@ import { fillText } from './text';
 import { MIN } from './time';
 import {
   atBase,
+  boatCanReach,
   endBreak,
   moveUnit,
   ONCALL_DELAY_MIN,
@@ -31,6 +32,7 @@ import {
   startBreak,
   stopUnit,
   unitEta,
+  zoneAt,
 } from './units';
 import type { Agency, CallQuestionId, Incident, LngLat, Priority, RadioMsg, SimState, Text, Unit } from './types';
 
@@ -87,6 +89,11 @@ export function dispatchUnits(s: SimState, incidentId: string, unitIds: string[]
       rejects.push(T(`${cs}: ${bad.et}`, `${cs}: ${bad.en}`));
       continue;
     }
+    // A boat sails in a straight line: only to events on or by its own water body.
+    if (u.type === 'boat' && !boatCanReach(s, u, inc)) {
+      rejects.push(T(`${cs}: veesõidukiga kättesaamatu`, `${cs}: unreachable by boat`));
+      continue;
+    }
     const eta = unitEta(s, u, inc.location.coord, inc.location.zone, siren);
     if (!eta) {
       rejects.push(T(`${cs}: maismaad pidi kättesaamatu`, `${cs}: unreachable by road`));
@@ -119,7 +126,8 @@ export function dispatchUnits(s: SimState, incidentId: string, unitIds: string[]
     const key = wasOnBreak ? 'dispatchBreak' : siren ? 'dispatchUrgent' : 'dispatch';
     jkSay(s, phrase(s, key, radioVars(s, u, inc)), { unit: u, inc, kind: 'dispatch', level: inc.priority === 1 ? 'priority' : 'routine' });
     if (delay) unitPhrase(s, u, 'onCallActivate', inc);
-    else unitPhrase(s, u, etaMin > 25 ? 'ackFar' : siren ? 'ackUrgent' : 'ack', inc, { n: String(etaMin) });
+    // A 1-minute ETA gets a variant without "{n} minutit" (no "1 minutit" / "1 minutes" on the radio).
+    else unitPhrase(s, u, etaMin > 25 ? 'ackFar' : siren ? 'ackUrgent' : 'ack', inc, etaMin > 1 ? { n: String(etaMin) } : {});
     addTimeline(s, inc, 'dispatch', fillText(T('{callsign} saadetud, saabumine u {n} min', '{callsign} dispatched, ETA about {n} min'), radioVars(s, u, inc, { n: String(etaMin) })));
   }
   if (!sent.length) {
@@ -325,6 +333,7 @@ export function directorMoveUnit(s: SimState, unitId: string, coord: LngLat, opt
   if (opts.instant) {
     stopUnit(s, u);
     u.pos = coord;
+    u.zone = zoneAt(regionOf(s), coord);
     return;
   }
   moveUnit(s, u, coord, u.status === 'transport' ? 'transport' : 'patrol', !!opts.siren, { profile: opts.siren ? 'siren' : 'normal' });

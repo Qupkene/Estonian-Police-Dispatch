@@ -227,7 +227,8 @@ const STATIONS: Station[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Roster (normal): 8 patrols by day / 9 by night (2 on Saaremaa, 1 on Hiiumaa) + specialists.
+// Roster (normal): 8 patrols by day / 12 by night (2 on Saaremaa, 1 on Hiiumaa) + specialists.
+// Night doubles Haapsalu, Rapla and Paide: the six counties are too far apart for one crew each.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ROSTER: UnitSpec[] = [
@@ -270,6 +271,32 @@ const ROSTER: UnitSpec[] = [
   },
   { callsign: 'LÄÄNE 51', type: 'patrol', stationId: 'la-rapla', vehicle: 'Škoda Octavia Combi', crew: 2 },
   { callsign: 'LÄÄNE 61', type: 'patrol', stationId: 'la-paide', vehicle: 'Škoda Octavia Combi', crew: 2 },
+  // Night: a second crew for Haapsalu, Rapla and Paide (listed after the one-crew-per-town block,
+  // so a growing career force covers every county before it doubles any).
+  {
+    callsign: 'LÄÄNE 22',
+    type: 'patrol',
+    stationId: 'la-haapsalu',
+    vehicle: 'Škoda Octavia Combi',
+    crew: 2,
+    shift: 'night',
+  },
+  {
+    callsign: 'LÄÄNE 52',
+    type: 'patrol',
+    stationId: 'la-rapla',
+    vehicle: 'Škoda Octavia Combi',
+    crew: 2,
+    shift: 'night',
+  },
+  {
+    callsign: 'LÄÄNE 62',
+    type: 'patrol',
+    stationId: 'la-paide',
+    vehicle: 'Škoda Scala',
+    crew: 2,
+    shift: 'night',
+  },
   // Prefecture specialists (Pärnu)
   { callsign: 'LÄÄNE 81', type: 'rapid', stationId: 'la-parnu', vehicle: 'Škoda Kodiaq', crew: 3 },
   {
@@ -319,15 +346,6 @@ const ROSTER: UnitSpec[] = [
     vehicle: 'Škoda Scala',
     crew: 2,
     shift: 'day',
-    minDifficulty: 'veteran',
-  },
-  {
-    callsign: 'LÄÄNE 22',
-    type: 'patrol',
-    stationId: 'la-haapsalu',
-    vehicle: 'Škoda Octavia Combi',
-    crew: 2,
-    shift: 'night',
     minDifficulty: 'veteran',
   },
   {
@@ -395,24 +413,6 @@ const ROSTER: UnitSpec[] = [
     crew: 2,
     shift: 'night',
     zone: HII,
-    minDifficulty: 'realistic',
-  },
-  {
-    callsign: 'LÄÄNE 52',
-    type: 'patrol',
-    stationId: 'la-rapla',
-    vehicle: 'Škoda Octavia Combi',
-    crew: 2,
-    shift: 'night',
-    minDifficulty: 'realistic',
-  },
-  {
-    callsign: 'LÄÄNE 62',
-    type: 'patrol',
-    stationId: 'la-paide',
-    vehicle: 'Škoda Scala',
-    crew: 2,
-    shift: 'night',
     minDifficulty: 'realistic',
   },
   {
@@ -499,10 +499,10 @@ const TOWNS: Town[] = [
   },
   // Lääne maakond
   { name: 'Haapsalu', county: 'Lääne maakond', coord: [23.542, 58.944], population: 9500, ruShare: 0.1 },
-  { name: 'Lihula', county: 'Lääne maakond', coord: [23.832, 58.6865], population: 1200, ruShare: 0.03 },
+  { name: 'Lihula', county: 'Pärnu maakond', coord: [23.832, 58.6865], population: 1200, ruShare: 0.03 },
   { name: 'Uuemõisa', county: 'Lääne maakond', coord: [23.57818, 58.94479], population: 1400, ruShare: 0.08 },
   { name: 'Taebla', county: 'Lääne maakond', coord: [23.72955, 58.95131], population: 800, ruShare: 0.04 },
-  { name: 'Virtsu', county: 'Lääne maakond', coord: [23.53808, 58.5765], population: 450, ruShare: 0.03 },
+  { name: 'Virtsu', county: 'Pärnu maakond', coord: [23.53808, 58.5765], population: 450, ruShare: 0.03 },
   {
     name: 'Hullo',
     county: 'Lääne maakond',

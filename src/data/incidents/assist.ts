@@ -771,7 +771,7 @@ export const TEMPLATES_ASSIST: IncidentTemplate[] = [
         T('Palun aidake, mu õde kirjutas, et ta ei jaksa enam, ja nüüd ta telefon on väljas.', 'Please help, my sister wrote that she cannot go on, and now her phone is off.'),
       ],
       answers: {
-        where: [T('Ta elab {address}, kolmas korrus.', 'He lives at {address}, third floor.')],
+        where: [T('Ta elab aadressil {address}, kolmas korrus.', 'He lives at {address}, third floor.')],
         when: [T('Sõnum tuli umbes kakskümmend minutit tagasi.', 'The message came about twenty minutes ago.')],
         intoxicated: [T('Ta on viimasel ajal palju joonud.', 'He has been drinking a lot lately.')],
         weapons: [T('Tal on kodus jahipüss, ma tean.', 'He has a hunting rifle at home, I know that.')],
@@ -1163,7 +1163,7 @@ export const TEMPLATES_ASSIST: IncidentTemplate[] = [
       T('Ma kukkusin ja ei saa üles… olen juba tund aega põrandal.', 'I fell and cannot get up… I have been on the floor for an hour.'),
       T('Ema vajutas häirenuppu, aga ta ei vasta telefonile.', 'Mum pressed her alarm button but she does not answer the phone.'),
     ],
-    details: [T('Alates 2026. aasta septembrist suunab Häirekeskus sellised teated eelkõige kiirabile või sotsiaaltöötajale.', 'Since September 2026 the emergency centre primarily routes such calls to the ambulance service or a social worker.')],
+    details: [T('Alates 2026. aasta septembrist suunab Häirekeskus sellised teated eelkõige kiirabile või sotsiaaltöötajale.', 'Since September 2026 the ERC primarily routes such calls to the ambulance service or a social worker.')],
     beats: [
       choice('arrive', [T('{callsign}: uks on lukus, seest kostab abipalumist. Kas avame ukse jõuga?', '{callsign}: the door is locked and we can hear calls for help. Do we force the door?')], [
         opt('force', T('Jah', 'Yes'), T('{callsign}, avage uks, teavitage hiljem omanikku.', '{callsign}, open the door, inform the owner afterwards.'), { success: 0.15 }),

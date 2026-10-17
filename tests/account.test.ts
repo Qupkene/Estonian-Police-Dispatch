@@ -4,66 +4,103 @@ import {
   backoffMs,
   decideSlot,
   nameProblem,
+  needsBackup,
+  parseMeta,
   planSync,
   sameData,
   sanitizeSettings,
   validAutosave,
   validCareer,
+  type LocalSide,
   type SaveResponse,
   type Side,
   type Slot,
 } from '@/net/sync';
 import { isRanked, parseScores, scoreBody, unrankedReason } from '@/net/scores';
 import { accountErrorText } from '@/ui/screens/shell/accountText';
+import { t as translate } from '@/i18n';
 import type { ShiftReport } from '@/sim/types';
 
-const side = (data: unknown, updated = 0): Side => ({ data, updated });
-const none = side(null, 0);
+const remote = (data: unknown, updated = 0): Side => ({ data, updated });
+const local = (data: unknown, base = 0, dirty = false): LocalSide => ({ data, base, dirty });
+const empty = remote(null, 0);
 
-describe('decideSlot: newer wins', () => {
-  it('pulls when the server copy is newer', () => {
-    expect(decideSlot(side({ a: 1 }, 1000), side({ a: 2 }, 2000))).toBe('pull');
+describe('decideSlot: server versions only, never a client clock', () => {
+  it('does nothing when the server still has the version we synced and nothing changed here', () => {
+    expect(decideSlot(local({ a: 1 }, 2000), remote({ a: 2 }, 2000))).toBe('none');
   });
-  it('pushes when the browser copy is newer', () => {
-    expect(decideSlot(side({ a: 1 }, 3000), side({ a: 2 }, 2000))).toBe('push');
+  it('uploads a local change on top of the version the server still has', () => {
+    expect(decideSlot(local({ a: 1 }, 2000, true), remote({ a: 2 }, 2000))).toBe('push');
   });
-  it('does nothing when both have the same age', () => {
-    expect(decideSlot(side({ a: 1 }, 2000), side({ a: 1 }, 2000))).toBe('none');
+  it('a local delete on top of the current server version is pushed (as a delete)', () => {
+    expect(decideSlot(local(null, 4000, true), remote({ a: 1 }, 4000))).toBe('push');
   });
-  it('prefers the server when neither age is known', () => {
-    expect(decideSlot(side({ a: 1 }, 0), side({ a: 2 }, 0))).toBe('pull');
+  it('takes a newer server version when nothing changed here', () => {
+    expect(decideSlot(local({ a: 1 }, 1000), remote({ a: 2 }, 2000))).toBe('pull');
   });
-  it('a local delete that is newer than the server copy is pushed (as a delete)', () => {
-    expect(decideSlot(side(null, 5000), side({ a: 1 }, 4000))).toBe('push');
+  it('a conflict (changed on both sides) goes to the cloud copy; the local one needs a backup', () => {
+    const l = local({ a: 1 }, 1000, true);
+    const r = remote({ a: 2 }, 2000);
+    expect(decideSlot(l, r)).toBe('pull');
+    expect(needsBackup(l, r)).toBe(true);
+  });
+  it('a deletion marker newer than our copy is pulled (another device finished the shift)', () => {
+    expect(decideSlot(local({ shift: 1 }, 1000), remote(null, 3000))).toBe('pull');
+  });
+  it('restores the cloud from the browser when the server lost writes we had seen', () => {
+    // No row any more, or a database restored from a backup: server versions only ever grow.
+    expect(decideSlot(local({ day: 50 }, 5000), empty)).toBe('push');
+    expect(decideSlot(local({ day: 50 }, 5000), remote({ day: 40 }, 4000))).toBe('push');
+  });
+  it('a slow or fast client clock changes nothing: an unsent local save is uploaded after a reload', () => {
+    // The tab closed before its last autosave reached the server (keepalive cap). Whatever the clock
+    // said, the server still holds the version the browser built on, so the browser copy wins.
+    expect(decideSlot(local({ now: 2 }, 7_000, true), remote({ now: 1 }, 7_000))).toBe('push');
+  });
+  it('identical data needs nothing, whatever the versions', () => {
+    expect(decideSlot(local({ a: 1 }, 1, true), remote({ a: 1 }, 9))).toBe('none');
   });
 });
 
-describe('decideSlot: first-login migration', () => {
-  it('uploads browser data when the server has never had the slot', () => {
-    expect(decideSlot(side({ a: 1 }, 0), none)).toBe('push');
-    expect(decideSlot(side({ a: 1 }, 1234), none)).toBe('push');
+describe('decideSlot: guest or foreign data never overwrites a cloud slot', () => {
+  it('fills a slot the server never had', () => {
+    expect(decideSlot(local({ a: 1 }, 0, true), empty, true)).toBe('push');
   });
-  it('downloads when the browser never had the slot', () => {
-    expect(decideSlot(none, side({ a: 2 }, 99))).toBe('pull');
+  it('fills a slot whose cloud copy was deleted', () => {
+    expect(decideSlot(local({ a: 1 }, 0, true), remote(null, 500), true)).toBe('push');
   });
-  it('does nothing when neither side has anything', () => {
-    expect(decideSlot(none, none)).toBe('none');
+  it('takes the cloud copy when there is one, however new the browser data looks', () => {
+    expect(decideSlot(local({ a: 1 }, 9_999_999, true), remote({ a: 2 }, 1), true)).toBe('pull');
+  });
+  it('a guest without anything never deletes a cloud copy', () => {
+    expect(decideSlot(local(null, 0, true), remote({ a: 2 }, 5), true)).toBe('pull');
+    expect(decideSlot(local(null, 0, true), empty, true)).toBe('none');
+  });
+});
+
+describe('needsBackup', () => {
+  it('only for local data that exists nowhere else and differs from the cloud copy', () => {
+    expect(needsBackup(local({ a: 1 }, 0, true), remote({ a: 2 }, 5))).toBe(true);
+    expect(needsBackup(local({ a: 1 }, 0, false), remote({ a: 2 }, 5))).toBe(false);
+    expect(needsBackup(local({ a: 1 }, 0, true), remote({ a: 1 }, 5))).toBe(false);
+    expect(needsBackup(local(null, 0, true), remote({ a: 1 }, 5))).toBe(false);
   });
 });
 
 describe('planSync', () => {
-  const local = (over: Partial<Record<Slot, Side>> = {}): Record<Slot, Side> => ({
-    career: none,
-    settings: side({ lang: 'et' }, 0),
-    autosave: none,
+  const sides = (over: Partial<Record<Slot, LocalSide>> = {}): Record<Slot, LocalSide> => ({
+    career: local(null, 0, true),
+    settings: local({ lang: 'et' }, 0, true),
+    autosave: local(null, 0, true),
     ...over,
   });
+  const owners = (o: number | null) => ({ career: o, settings: o, autosave: o });
   const save = { version: 2, ended: false, now: 1 };
 
   it('migrates everything on the first login to an empty account', () => {
     const res: SaveResponse = { career: null, settings: null, autosave: null, updated: {} };
-    const plan = planSync(res, local({ career: side({ profile: { day: 3 }, inbox: [] }, 10), autosave: side(save, 10) }), {
-      owner: null,
+    const plan = planSync(res, sides({ career: local({ profile: { day: 3 }, inbox: [] }, 0, true), autosave: local(save, 0, true) }), {
+      owner: owners(null),
       userId: 7,
     });
     expect(plan).toEqual({ career: 'push', settings: 'push', autosave: 'push' });
@@ -76,20 +113,37 @@ describe('planSync', () => {
       autosave: save,
       updated: { career: 500, settings: 500, autosave: 500 },
     };
-    expect(planSync(res, local(), { owner: null, userId: 7 })).toEqual({ career: 'pull', settings: 'pull', autosave: 'pull' });
+    expect(planSync(res, sides(), { owner: owners(null), userId: 7 })).toEqual({ career: 'pull', settings: 'pull', autosave: 'pull' });
   });
 
-  it('keeps the newer side per slot', () => {
+  it("guest progress on a new browser never replaces the account's career or deletes its shift", () => {
+    // The account has a day-50 career and a saved shift. A guest on a phone made a career and finished
+    // a free shift (autosave deleted locally), with fresh change times. Then they log in.
+    const res: SaveResponse = {
+      career: { profile: { day: 50, budget: 999_999 }, inbox: [] },
+      settings: null,
+      autosave: save,
+      updated: { career: 1000, autosave: 1000 },
+    };
+    const plan = planSync(res, sides({ career: local({ profile: { day: 1 }, inbox: [] }, 0, true) }), {
+      owner: owners(null),
+      userId: 7,
+    });
+    expect(plan).toEqual({ career: 'pull', settings: 'push', autosave: 'pull' });
+  });
+
+  it('follows the server version per slot', () => {
     const res: SaveResponse = {
       career: { profile: { day: 9 }, inbox: [] },
       settings: { lang: 'en' },
       autosave: null,
       updated: { career: 500, settings: 100 },
     };
-    const plan = planSync(res, local({ career: side({ profile: { day: 2 } }, 400), settings: side({ lang: 'et' }, 200) }), {
-      owner: 7,
-      userId: 7,
-    });
+    const plan = planSync(
+      res,
+      sides({ career: local({ profile: { day: 2 } }, 400), settings: local({ lang: 'et' }, 100, true), autosave: local(null, 0) }),
+      { owner: owners(7), userId: 7 },
+    );
     expect(plan.career).toBe('pull');
     expect(plan.settings).toBe('push');
     expect(plan.autosave).toBe('none');
@@ -102,17 +156,44 @@ describe('planSync', () => {
       autosave: null,
       updated: { career: 100 },
     };
-    // The local career is newer by the clock, but it was synced with account 3, not 7.
-    const plan = planSync(res, local({ career: side({ profile: { day: 50 } }, 9_999) }), { owner: 3, userId: 7 });
+    // The local career was synced with account 3 and changed since, but this is account 7.
+    const plan = planSync(res, sides({ career: local({ profile: { day: 50 } }, 9_999, true) }), { owner: owners(3), userId: 7 });
     expect(plan.career).toBe('pull');
     expect(plan.settings).toBe('push');
   });
 
-  it('ignores a finished or foreign-format autosave from the server', () => {
+  it('a finished shift on the server: the stale browser copy goes, guest shifts fill the slot', () => {
     const res: SaveResponse = { career: null, settings: null, autosave: { version: 2, ended: true }, updated: { autosave: 50 } };
-    const plan = planSync(res, local({ autosave: side(save, 10) }), { owner: null, userId: 1 });
-    // The newest state on the server is a finished shift: nothing to resume, the stale browser copy goes.
-    expect(plan.autosave).toBe('pull');
+    // Synced with this account before: the newest state on the server is a finished shift, nothing to resume.
+    expect(planSync(res, sides({ autosave: local(save, 10) }), { owner: owners(1), userId: 1 }).autosave).toBe('pull');
+    // A guest's own shift may take the empty slot.
+    expect(planSync(res, sides({ autosave: local(save, 0, true) }), { owner: owners(null), userId: 1 }).autosave).toBe('push');
+  });
+});
+
+describe('sync metadata', () => {
+  it('reads format 2', () => {
+    const m = parseMeta(
+      JSON.stringify({ v: 2, account: 7, slots: { career: { owner: 7, base: 123, dirty: false }, settings: { owner: null, base: 0, dirty: true } } }),
+    );
+    expect(m.account).toBe(7);
+    expect(m.slots.career).toEqual({ owner: 7, base: 123, dirty: false });
+    expect(m.slots.settings).toEqual({ owner: null, base: 0, dirty: true });
+    // Missing: unknown history, counts as changed.
+    expect(m.slots.autosave).toEqual({ owner: null, base: 0, dirty: true });
+  });
+  it('migrates format 1 (mixed clocks) to "changed on top of that version"', () => {
+    const m = parseMeta(JSON.stringify({ owner: 3, updated: { career: 50, settings: 0, autosave: 70 } }));
+    expect(m.account).toBe(3);
+    expect(m.slots.career).toEqual({ owner: 3, base: 50, dirty: true });
+    expect(m.slots.autosave).toEqual({ owner: 3, base: 70, dirty: true });
+  });
+  it('treats missing or broken metadata as guest data with an unknown history', () => {
+    for (const raw of [null, '', 'nope', '[1]']) {
+      const m = parseMeta(raw);
+      expect(m.account).toBeNull();
+      expect(m.slots.career).toEqual({ owner: null, base: 0, dirty: true });
+    }
   });
 });
 
@@ -151,6 +232,8 @@ describe('payload validation', () => {
     expect(nameProblem('Tõnu-Põder')).toBeNull();
     expect(nameProblem('a b c')).toBe('chars');
     expect(nameProblem('Renée')).toBe('chars');
+    expect(nameProblem('Андрей')).toBe('chars');
+    expect(nameProblem('José')).toBe('chars');
     expect(nameProblem('To\u0303nu')).toBeNull(); // o + combining tilde, NFC makes it õ
     expect(nameProblem('x'.repeat(25))).toBe('long');
   });
@@ -259,6 +342,15 @@ describe('api client', () => {
   });
 });
 
+describe('name rule texts', () => {
+  // Only Latin letters (plus õäöüšž) pass: a message that just says "letters" contradicts itself for 'Андрей'.
+  it.each(['account.rule.name', 'account.rule.name.chars', 'account.err.invalid_name'])('%s names the allowed letters', (key) => {
+    expect(translate(key, 'et')).toMatch(/ladina täh/);
+    expect(translate(key, 'et')).toContain('õ, ä, ö, ü, š, ž');
+    expect(translate(key, 'en')).toMatch(/Latin letters \(including õ ä ö ü š ž\)/);
+  });
+});
+
 describe('error texts', () => {
   const err = (status: number, code: string, message: string | null = null) => ({ status, code, message });
   it("shows the server's Estonian message in the Estonian UI", () => {
@@ -270,6 +362,10 @@ describe('error texts', () => {
     expect(accountErrorText(err(429, 'slow_down'), 'en')).toMatch(/Too many attempts/);
     expect(accountErrorText(err(0, 'network'), 'en')).toMatch(/Could not reach/);
     expect(accountErrorText(err(503, 'http_503'), 'en')).toMatch(/Server error/);
+  });
+  it('explains a switched account and a save conflict in English', () => {
+    expect(accountErrorText(err(409, 'user_mismatch', 'Teine konto.'), 'en')).toBe('Another account has signed in to this browser meanwhile.');
+    expect(accountErrorText(err(409, 'save_conflict'), 'en')).toBe('The save has changed on another device meanwhile.');
   });
   it('uses the wrong-password text for account deletion', () => {
     expect(accountErrorText(err(403, 'forbidden'), 'en', 'password')).toBe('Wrong password.');

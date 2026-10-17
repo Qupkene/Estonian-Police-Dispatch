@@ -17,6 +17,7 @@ import type {
   IncidentTemplate,
   QueryBeat,
   RadioMsg,
+  RadioReply,
   RegionDef,
   SimState,
   Unit,
@@ -147,6 +148,15 @@ export function selTemplate(s: SimState, inc: Incident): IncidentTemplate | unde
   return soft('templateOf', () => S.templateOf(s, inc) ?? TEMPLATE_BY_ID[inc.templateId], TEMPLATE_BY_ID[inc.templateId]);
 }
 
+/**
+ * The reply an answered radio prompt shows, or null when the engine closed the prompt itself
+ * (`answered` is then an internal marker such as 'timeout' or 'closed', never shown raw).
+ */
+export function answeredReply(msg: RadioMsg): RadioReply | null {
+  if (!msg.answered) return null;
+  return msg.replies?.find((r) => r.id === msg.answered) ?? null;
+}
+
 export function selPendingRadio(s: SimState): RadioMsg[] {
   return safe(
     'pendingRadio',
@@ -171,7 +181,8 @@ function fallbackRecs(s: SimState, inc: Incident): Recommendation[] {
       const etaMin = ((heli ? km : km * (urban ? 1.35 : 1.25)) / speed) * 60 * (heli ? 1 : s.weather.roadFactor || 1);
       const fit: Recommendation['fit'] =
         u.status !== 'available' ? 'unavailable' : matches(inc.ideal, u) ? 'ideal' : matches(inc.need, u) ? 'need' : 'weak';
-      return { unit: u, etaMin, km, fit };
+      // Without the engine's need bookkeeping a weak unit is never sent automatically.
+      return { unit: u, etaMin, km, fit, ...(fit === 'weak' ? { manual: true } : {}) };
     })
     .sort((a, b) => FIT_RANK[a.fit] - FIT_RANK[b.fit] || a.etaMin - b.etaMin);
 }
@@ -191,14 +202,21 @@ export function dispatchable(recs: Recommendation[]): Recommendation[] {
   return recs.filter((r) => r.fit === 'ideal' || r.fit === 'need' || r.fit === 'weak');
 }
 
-/** Best unit for a given need type (backup requests), or the best dispatchable overall. */
+/**
+ * The unit the D key / big "Saada" button / "Saada abi" sends: an exact match for a typed backup
+ * request, else the best 'ideal'/'need' unit (recs are already ranked by fit and effective ETA,
+ * which counts reassignment of a close unit on a less urgent job). Only when nothing covers the
+ * need does it fall back to a general unit that adds something; never a specialist (helicopter,
+ * boat, K-komando, investigator, prisoner transport), a unit across a ferry, or a unit beyond an
+ * already covered need. Undefined means the player has to pick by hand.
+ */
 export function bestFor(recs: Recommendation[], type?: UnitNeed['type']): Recommendation | undefined {
-  const ok = dispatchable(recs);
+  const ok = dispatchable(recs).filter((r) => !r.manual);
   if (type && type !== 'any') {
-    const exact = ok.filter((r) => r.unit.type === type).sort((a, b) => a.etaMin - b.etaMin)[0];
+    const exact = ok.find((r) => r.unit.type === type && r.fit !== 'weak');
     if (exact) return exact;
   }
-  return ok.filter((r) => r.fit !== 'weak')[0] ?? ok[0];
+  return ok.find((r) => r.fit !== 'weak') ?? ok.find((r) => S.autoPickable(r));
 }
 
 export interface ActiveBackup {

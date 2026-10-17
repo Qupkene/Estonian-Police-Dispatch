@@ -1,7 +1,8 @@
 /**
  * Data-integrity and geography checks for the Lõuna and Lääne prefecture definitions.
- * Geography is checked against the bundled geoBoundaries county polygons and settlements list,
- * so a misplaced marker (wrong county, wrong island, missing zone) fails the build.
+ * Geography is checked against the bundled county polygons (2017 borders, Maa- ja Ruumiamet data)
+ * and settlements list, so a misplaced marker (wrong county, wrong island, missing zone) fails the
+ * build.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -52,6 +53,33 @@ function countyOf(p: LngLat): string | undefined {
   }
   return undefined;
 }
+
+/** Distance in km from a point to the outline of a county (0 inside it). */
+function kmToCounty(p: LngLat, name: string): number {
+  if (countyOf(p) === name) return 0;
+  const f = COUNTIES.find((c) => c.properties.name === name);
+  if (!f) return Infinity;
+  const kx = 111.32 * Math.cos((p[1] * Math.PI) / 180);
+  const ky = 110.57;
+  let best = Infinity;
+  const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+  for (const poly of polys) {
+    for (const ring of poly) {
+      for (let i = 1; i < ring.length; i++) {
+        const [ax, ay] = [(ring[i - 1][0] - p[0]) * kx, (ring[i - 1][1] - p[1]) * ky];
+        const [bx, by] = [(ring[i][0] - p[0]) * kx, (ring[i][1] - p[1]) * ky];
+        const [dx, dy] = [bx - ax, by - ay];
+        const t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / (dx * dx + dy * dy || 1)));
+        best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
+      }
+    }
+  }
+  return best;
+}
+
+/** Harbours sit at the waterline: they may lie this far off the (land-only) county polygons. */
+const HARBOUR_KINDS = new Set(['port', 'harbour']);
+const HARBOUR_SLACK_KM = 0.15;
 
 function inBox([x, y]: LngLat, [[w, s], [e, n]]: [LngLat, LngLat]): boolean {
   return x >= w && x <= e && y >= s && y <= n;
@@ -143,7 +171,7 @@ describe.each(CASES)('region %s', (id, r) => {
     expect(r.callVolume).toBeGreaterThan(2);
     expect(r.description.et.length).toBeGreaterThan(80);
     expect(r.description.en.length).toBeGreaterThan(80);
-    expect(r.commander?.title.et).toMatch(/^Prefekt/);
+    expect(r.commander?.title.et).toBe('Prefekt, politseikolonel');
   });
 
   it('keeps every coordinate inside region bounds and Estonia', () => {
@@ -157,7 +185,13 @@ describe.each(CASES)('region %s', (id, r) => {
     const own = new Set(r.counties);
     for (const p of allPoints(r)) {
       if (p.kind === 'lake') continue;
-      expect(own.has(countyOf(p.coord) ?? '(none)'), `${p.what} → ${countyOf(p.coord)}`).toBe(true);
+      const county = countyOf(p.coord);
+      if (!county && HARBOUR_KINDS.has(p.kind ?? '')) {
+        const near = Math.min(...r.counties.map((c) => kmToCounty(p.coord, c)));
+        expect(near, `${p.what} is ${near.toFixed(2)} km off the coast`).toBeLessThanOrEqual(HARBOUR_SLACK_KM);
+        continue;
+      }
+      expect(own.has(county ?? '(none)'), `${p.what} → ${county}`).toBe(true);
     }
   });
 
@@ -276,6 +310,11 @@ describe('Lõuna specifics', () => {
     expect(r.roster.filter((u) => u.type === 'border' && !u.minDifficulty)).toHaveLength(2);
     expect(r.zones.find((z) => z.id === 'piirissaar')?.ferryMinutes).toBeGreaterThan(0);
     expect(r.places.some((p) => p.zone === 'piirissaar' && p.kind === 'port')).toBe(true);
+    // Piirissaare vald merged into Tartu vald in 2017 (Peipsiääre vald never held the island).
+    for (const p of r.places.filter((x) => x.zone === 'piirissaar')) {
+      expect(p.address, p.id).not.toMatch(/Peipsiääre/);
+      if (/ küla, /.test(p.address)) expect(p.address, p.id).toMatch(/ küla, Tartu vald$/);
+    }
     const ids = new Set(r.places.map((p) => p.id));
     for (const id of [
       'lo-raekoja-plats',
@@ -294,6 +333,7 @@ describe('Lõuna specifics', () => {
     const ru = (n: string) => r.towns.find((t) => t.name === n)?.ruShare ?? -1;
     expect(ru('Kallaste')).toBeGreaterThan(0.4);
     expect(ru('Mustvee')).toBeGreaterThan(0.3);
+    expect(ru('Lohusuu')).toBeGreaterThan(0.3);
     expect(ru('Valga')).toBeGreaterThan(0.25);
     expect(ru('Viljandi')).toBeLessThan(0.1);
   });

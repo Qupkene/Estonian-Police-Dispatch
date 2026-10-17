@@ -1,6 +1,6 @@
 // Main menu. Owned by ui-shell.
 import { useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
-import { loadAutosave, useGame, type Screen } from '@/store/game';
+import { clearAutosave, loadAutosave, shiftKeyOf, useGame, type Screen } from '@/store/game';
 import { useCareer } from '@/store/career';
 import { useAccount } from '@/net/account';
 import { useLang, useT } from '@/i18n';
@@ -49,8 +49,16 @@ export function MenuScreen() {
   const accountUser = useAccount((s) => s.user);
   // Re-read when a cloud save landed in the browser after the menu opened.
   const pulls = useAccount((s) => s.pulls);
-  const saved = useMemo(() => loadAutosave(), [pulls]);
+  const loaded = useMemo(() => loadAutosave(), [pulls]);
+  // A career shift this profile has already been paid for (an old copy from another device) is over:
+  // it is never offered again, and the stale copy is removed here and in the cloud.
+  const paidAlready = !!loaded && loaded.mode === 'career' && !!profile?.paidShifts?.includes(shiftKeyOf(loaded));
+  const saved = paidAlready ? null : loaded;
   const isAccount = user?.method === 'account';
+
+  useEffect(() => {
+    if (paidAlready) clearAutosave();
+  }, [paidAlready]);
 
   useEffect(() => {
     void useAccount.getState().init();
@@ -71,16 +79,18 @@ export function MenuScreen() {
   const items: Item[] = [];
   if (saved) {
     const r = regionSummary(saved.regionId);
+    const vars = {
+      region: r.name[lang],
+      date: ddmmyyyy(saved.now),
+      time: hhmm(saved.now),
+      mode: t(`shell.mode.${saved.mode}`),
+    };
+    // A shift whose clock ran out before its report was opened is not continued: it opens the report.
     items.push({
       id: 'continue',
-      icon: 'play',
-      title: t('shell.menu.continue'),
-      desc: t('shell.menu.continueDesc', {
-        region: r.name[lang],
-        date: ddmmyyyy(saved.now),
-        time: hhmm(saved.now),
-        mode: t(`shell.mode.${saved.mode}`),
-      }),
+      icon: saved.ended ? 'newspaper' : 'play',
+      title: saved.ended ? t('game.end.report') : t('shell.menu.continue'),
+      desc: saved.ended ? t('game.pending.desc', vars) : t('shell.menu.continueDesc', vars),
       primary: true,
       run: () => resumeShift(saved),
     });

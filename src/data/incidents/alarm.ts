@@ -186,7 +186,7 @@ export const TEMPLATES_ALARM: IncidentTemplate[] = [
     vehicles: [{ role: 'suspect', kind: 'car', stolen: 0.85, noInsurance: 0.3, driverRole: 'driver' }],
     summary: [
       T('{address}. ANPR-kaamera tuvastas tagaotsitava sõiduki {plate} ({car}), liigub {direction}.', '{address}. An ANPR camera detected wanted vehicle {plate} ({car}), heading {direction}.'),
-      T('{address}. ANPR-tabamus: varguse tõttu tagaotsitav {car} {plate}, kell {time}, sõidusuund {direction}.', '{address}. ANPR hit: {car} {plate}, wanted as stolen, at {time}, heading {direction}.'),
+      T('{address}. ANPR-tabamus: varguse tõttu tagaotsitav {car} {plate}, kell {time}, liigub {direction}.', '{address}. ANPR hit: {car} {plate}, wanted as stolen, at {time}, heading {direction}.'),
     ],
     callerLines: [
       T('ANPR süsteemi automaatne teade: tagaotsitav sõiduk kaamera vaateväljas.', 'Automatic ANPR notification: a wanted vehicle is in camera view.'),
@@ -393,7 +393,7 @@ export const TEMPLATES_ALARM: IncidentTemplate[] = [
     vehicles: [{ role: 'suspect', kind: 'car', noInsurance: 0.1, driverRole: 'driver' }],
     summary: [
       T('{address}. Liisingufirma valvekeskus: sõiduki {plate} jälgimisseade näitab liikumist, omanik kinnitab, et auto peaks seisma koduhoovis.', '{address}. The leasing company’s monitoring centre: the tracker on vehicle {plate} shows movement; the owner says the car should be parked at home.'),
-      T('{address}. Sõiduki {car} {plate} GPS-jälgija liigub {direction}, omanik magas ja võtmed on tal.', '{address}. The GPS tracker of {car} {plate} is moving {direction}; the owner was asleep and has the keys.'),
+      T('{address}. Sõiduki GPS-jälgija liigub {direction}, omanik magas ja võtmed on tal. Sõiduk: {car}, {plate}.', '{address}. The vehicle’s GPS tracker is moving {direction}; the owner was asleep and has the keys. Vehicle: {car}, {plate}.'),
     ],
     callerLines: [
       T('Minu telefon näitab, et auto sõidab praegu linna serval, aga mina olen kodus!', 'My phone shows the car driving on the edge of town right now, but I’m at home!'),

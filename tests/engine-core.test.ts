@@ -14,6 +14,7 @@ type SelectorsMod = typeof import('@/sim/selectors');
 type IncidentsMod = typeof import('@/sim/incidents');
 type SpawnerMod = typeof import('@/sim/spawner');
 type UnitsMod = typeof import('@/sim/units');
+type DataMod = typeof import('@/ui/game/data');
 
 interface Eng {
   engine: EngineMod;
@@ -22,6 +23,8 @@ interface Eng {
   incidents: IncidentsMod;
   spawner: SpawnerMod;
   units: UnitsMod;
+  /** UI selector layer: bestFor() is what the D key and the big "Saada" button send. */
+  data: DataMod;
 }
 
 const MOCKED = [
@@ -49,6 +52,7 @@ async function loadModules(): Promise<Eng> {
     incidents: await import('@/sim/incidents'),
     spawner: await import('@/sim/spawner'),
     units: await import('@/sim/units'),
+    data: await import('@/ui/game/data'),
   };
 }
 
@@ -636,6 +640,235 @@ describe('engine-core with fixtures', () => {
     expect(inc.closedBy).toBe('expired');
   });
 
+  it('abandoned vs expired: the wording says units left, not that nobody came; open beats are closed', () => {
+    // Abandoned: the unit arrived, was recalled before the query beat ran, nobody came back.
+    const s = quiet(E);
+    const inc = spawn(E, s, 't_query');
+    const [uid] = dispatchBest(E, s, inc);
+    expect(stepUntil(E, s, () => inc.state === 'onscene', 60)).toBe(true);
+    expect(inc.beats.some((b) => b.status === 'pending' || b.status === 'active')).toBe(true);
+    E.commands.recallUnit(s, uid);
+    const hk0 = s.radio.filter((m) => m.from === 'HK').length;
+    const t0 = s.trust;
+    E.engine.step(s, 46 * MIN);
+    expect(inc.state).toBe('closed');
+    expect(inc.closedBy).toBe('expired');
+    expect(s.stats.expired).toBe(1);
+    expect(s.trust).toBeLessThan(t0);
+    expect(inc.outcome?.id).toBe('abandoned');
+    expect(inc.outcome?.text.et).toMatch(/pooleli/);
+    expect(inc.outcome?.text.et).not.toMatch(/ei jõudnud kohale/);
+    const texts = inc.timeline.map((e) => e.text.et).join(' | ');
+    expect(texts).toMatch(/jäi pooleli/);
+    expect(texts).not.toMatch(/keegi ei jõudnud kohale/);
+    expect(s.radio.filter((m) => m.from === 'HK').length).toBe(hk0);
+    expect(inc.beats.every((b) => b.status !== 'pending' && b.status !== 'active')).toBe(true);
+    // Expired: nobody ever arrived, the old wording stays.
+    const s2 = quiet(E);
+    const inc2 = spawn(E, s2, 't_query');
+    expect(stepUntil(E, s2, () => inc2.state === 'closed', 240, MIN)).toBe(true);
+    expect(inc2.closedBy).toBe('expired');
+    expect(inc2.outcome?.id).toBe('expired');
+    expect(inc2.timeline.some((e) => /keegi ei jõudnud kohale/.test(e.text.et))).toBe(true);
+    expect(inc2.beats.every((b) => b.status === 'skipped')).toBe(true);
+  });
+
+  it('radio prompts closed by the engine show no raw id: answeredReply is null for a timeout', () => {
+    const s = quiet(E);
+    const inc = spawn(E, s, 't_query');
+    dispatchBest(E, s, inc);
+    expect(stepUntil(E, s, () => E.selectors.pendingRadio(s).some((m) => m.kind === 'query'), 60)).toBe(true);
+    const msg = E.selectors.pendingRadio(s).find((m) => m.kind === 'query')!;
+    expect(E.data.answeredReply(msg)).toBeNull();
+    stepUntil(E, s, () => inc.beats[0].status !== 'active', 10);
+    expect(msg.answered).toBe('timeout');
+    expect(E.data.answeredReply(msg)).toBeNull();
+    // A real reply is shown with its label.
+    const s2 = quiet(E);
+    const inc2 = spawn(E, s2, 't_query');
+    dispatchBest(E, s2, inc2);
+    stepUntil(E, s2, () => E.selectors.pendingRadio(s2).some((m) => m.kind === 'query'), 60);
+    const msg2 = E.selectors.pendingRadio(s2).find((m) => m.kind === 'query')!;
+    E.commands.replyRadio(s2, msg2.id, msg2.replies![0].id);
+    expect(E.data.answeredReply(msg2)?.id).toBe(msg2.replies![0].id);
+  });
+
+  // ── Recommendations / D key ────────────────────────────────────────────────
+
+  /** Park every mainland ground unit except `keep` far away in Külaküla (held there). */
+  function parkFar(s: SimState, keep: string[] = []): void {
+    for (const id of s.unitOrder) {
+      const u = s.units[id];
+      if (u.zone !== 'mainland' || u.type === 'heli' || keep.includes(u.callsign)) continue;
+      E.commands.directorMoveUnit(s, id, [25.25, 59.2], { instant: true });
+    }
+  }
+  const unitId = (s: SimState, callsign: string) => s.unitOrder.find((id) => s.units[id].callsign === callsign)!;
+
+  it('D key: a close crew on a less urgent job beats a free crew far away', () => {
+    const s = quiet(E);
+    parkFar(s, ['21']);
+    const near = unitId(s, '21');
+    E.commands.directorMoveUnit(s, near, [24.84, 59.437], { instant: true });
+    const low = E.commands.directorSpawn(s, { templateId: 't_simple', coord: [24.86, 59.44], priority: 4 });
+    expect(E.commands.dispatchUnits(s, low, [near]).ok).toBe(true);
+    const p1 = E.commands.directorSpawn(s, { templateId: 't_simple', coord: [24.84, 59.437], priority: 1 });
+    const recs = E.selectors.recommendUnits(s, p1);
+    const free = recs.find((r) => r.unit.status === 'available' && r.unit.type === 'patrol' && r.unit.zone === 'mainland')!;
+    expect(free.etaMin).toBeGreaterThan(15);
+    expect(recs[0].unit.id).toBe(near);
+    expect(recs[0].unit.status).toBe('enroute');
+    expect(recs[0].fit).toBe('need');
+    const best = E.data.bestFor(recs)!;
+    expect(best.unit.id).toBe(near);
+    const r = E.commands.dispatchUnits(s, p1, [best.unit.id]);
+    expect(r.ok).toBe(true);
+    expect(r.reason?.et).toMatch(/lahkus/);
+    // The reverse never happens: nothing is pulled off a more urgent event.
+    const p4 = E.commands.directorSpawn(s, { templateId: 't_simple', coord: [24.84, 59.437], priority: 4 });
+    expect(E.selectors.recommendUnits(s, p4).find((x) => x.unit.id === near)?.fit).toBe('unavailable');
+  });
+
+  it('D key: an ideal-only type (helicopter) never outranks a unit that covers the need', () => {
+    const s = quiet(E);
+    const heli = s.unitOrder.find((id) => s.units[id].type === 'heli')!;
+    const inc = spawn(E, s, 't_simple', [24.8, 59.415]); // next to the air base
+    inc.ideal = [{ type: 'heli', count: 1 }];
+    const recs = E.selectors.recommendUnits(s, inc.id);
+    const h = recs.find((r) => r.unit.id === heli)!;
+    expect(h.fit).toBe('weak');
+    expect(h.reason?.et).toMatch(/ei kata põhivajadust/);
+    expect(recs[0].fit).toBe('need');
+    expect(E.units.typeFits('patrol', recs[0].unit.type)).toBe(true);
+    const best = E.data.bestFor(recs)!;
+    expect(best.unit.type).not.toBe('heli');
+    E.commands.dispatchUnits(s, inc.id, [best.unit.id]);
+    // Need covered: now the helicopter is the ideal extra and the D key offers it.
+    const after = E.selectors.recommendUnits(s, inc.id);
+    expect(after[0].unit.id).toBe(heli);
+    expect(after[0].fit).toBe('ideal');
+    expect(E.data.bestFor(after)?.unit.id).toBe(heli);
+  });
+
+  it('D key: nothing is sent automatically once the need is met or when only specialists remain', () => {
+    const s = quiet(E);
+    const inc = spawn(E, s, 't_simple');
+    const first = E.data.bestFor(E.selectors.recommendUnits(s, inc.id))!;
+    expect(['ideal', 'need']).toContain(first.fit);
+    E.commands.dispatchUnits(s, inc.id, [first.unit.id]);
+    const after = E.selectors.recommendUnits(s, inc.id);
+    const weak = after.filter((r) => r.fit === 'weak');
+    expect(weak.length).toBeGreaterThan(0);
+    expect(weak.every((r) => r.manual)).toBe(true);
+    expect(after.find((r) => r.unit.type === 'heli')?.fit).toBe('weak');
+    expect(E.data.bestFor(after)).toBeUndefined();
+    // Every mainland ground unit busy: the on-call helicopter and the island crew stay hand-pick only.
+    const s2 = quiet(E);
+    for (const id of s2.unitOrder) {
+      const u = s2.units[id];
+      if (u.type !== 'heli' && u.zone === 'mainland') E.units.setStatus(s2, u, 'onscene');
+    }
+    const inc2 = spawn(E, s2, 't_simple');
+    const recs2 = E.selectors.recommendUnits(s2, inc2.id);
+    const heli = recs2.find((r) => r.unit.type === 'heli')!;
+    expect(heli.fit).toBe('weak');
+    expect(heli.manual).toBe(true);
+    const island = recs2.find((r) => r.unit.callsign === 'S-1')!;
+    expect(island.fit).toBe('weak');
+    expect(island.manual).toBe(true);
+    expect(island.reason?.et).toMatch(/praam/);
+    expect(E.data.bestFor(recs2)).toBeUndefined();
+    // The player can still send them by hand.
+    expect(E.commands.dispatchUnits(s2, inc2.id, [island.unit.id]).ok).toBe(true);
+  });
+
+  it('ferry: only a P1 on an island with no local crew free gets a mainland crew automatically', () => {
+    const s = quiet(E);
+    const s1 = unitId(s, 'S-1');
+    E.units.setStatus(s, s.units[s1], 'onscene');
+    const p3 = E.commands.directorSpawn(s, { templateId: 't_simple', coord: [22.51, 58.25], priority: 3 });
+    expect(s.incidents[p3].location.zone).toBe('saar');
+    const recs3 = E.selectors.recommendUnits(s, p3);
+    expect(recs3.filter((r) => r.unit.type === 'patrol' && r.fit !== 'unavailable').every((r) => r.fit === 'weak' && r.manual)).toBe(true);
+    expect(E.data.bestFor(recs3)).toBeUndefined();
+    const p1 = E.commands.directorSpawn(s, { templateId: 't_simple', coord: [22.51, 58.25], priority: 1 });
+    const best = E.data.bestFor(E.selectors.recommendUnits(s, p1))!;
+    expect(best.unit.zone).toBe('mainland');
+    expect(best.fit).toBe('need');
+    expect(best.etaMin).toBeGreaterThan(60);
+    expect(best.reason?.et).toMatch(/Praamiga/);
+    // With the island crew free again it is the pick, and mainland crews are hand-pick only.
+    E.units.setStatus(s, s.units[s1], 'available');
+    const recs1 = E.selectors.recommendUnits(s, p1);
+    expect(E.data.bestFor(recs1)?.unit.id).toBe(s1);
+    expect(recs1.filter((r) => r.unit.zone === 'mainland' && r.unit.type === 'patrol').every((r) => r.fit === 'weak' && r.manual)).toBe(true);
+  });
+
+  it('zones: mid-crossing a unit is where it is (ETA from its position, ferry charged on the way back)', () => {
+    const s = quiet(E);
+    const s1 = s.units[unitId(s, 'S-1')];
+    const a = spawn(E, s, 't_simple', [24.84, 59.437]);
+    expect(E.commands.dispatchUnits(s, a.id, [s1.id]).ok).toBe(true);
+    const total = (s1.move!.arriveAt - s.now) / MIN;
+    expect(total).toBeGreaterThan(60);
+    E.engine.step(s, Math.round(total * 0.95) * MIN);
+    expect(s1.status).toBe('enroute');
+    expect(E.units.unitZoneNow(s, s1)).toBe('mainland');
+    const here = E.commands.directorSpawn(s, { templateId: 't_simple', coord: E.units.unitPosAt(s1, s.now).pos, priority: 1 });
+    const r = E.selectors.recommendUnits(s, here).find((x) => x.unit.id === s1.id)!;
+    expect(r.etaMin).toBeLessThan(5);
+    // Recalled now, the trip home to the island includes the ferry.
+    E.commands.recallUnit(s, s1.id);
+    expect(s1.zone).toBe('mainland');
+    expect((s1.move!.arriveAt - s.now) / MIN).toBeGreaterThan(60);
+  });
+
+  it('arrest transport on an island goes to the local holding cells when there are any', () => {
+    const region = E.selectors.getRegion(quiet(E));
+    expect(E.units.arrestHouse(quiet(E), 'saar')?.id).toBe('st_arrest'); // no local cells: the arrest house
+    const cells = { id: 'st_saar_cells', name: { et: 'Saare arestikambrid', en: 'Island holding cells' }, short: 'Saare AK', kind: 'arrest' as const, city: 'Saarelinn', address: 'Transvaali tn 58', coord: [22.502, 58.252] as [number, number], zone: 'saar' };
+    region.stations.push(cells);
+    try {
+      const s = quiet(E);
+      expect(E.units.arrestHouse(s, 'saar')?.id).toBe('st_saar_cells');
+      expect(E.units.arrestHouse(s, 'mainland')?.id).toBe('st_arrest');
+      expect(E.units.arrestHouse(s)?.id).toBe('st_arrest');
+      const inc = spawn(E, s, 't_transport', [22.51, 58.25]);
+      const u = s.units[unitId(s, 'S-1')];
+      expect(E.commands.dispatchUnits(s, inc.id, [u.id]).ok).toBe(true);
+      expect(stepUntil(E, s, () => inc.state === 'closed', 180)).toBe(true);
+      expect(u.status).toBe('transport');
+      expect(u.move?.path[u.move.path.length - 1]).toEqual(cells.coord);
+      expect((u.move!.arriveAt - s.now) / MIN).toBeLessThan(15);
+    } finally {
+      region.stations.splice(region.stations.indexOf(cells), 1);
+    }
+  });
+
+  it('a unit still on a pursuit leg after the pursuit ended settles on arrival instead of staying en route', () => {
+    const s = quiet(E);
+    const inc = spawn(E, s, 't_simple');
+    const [uid] = dispatchBest(E, s, inc);
+    const u = s.units[uid];
+    const heli = s.units[s.unitOrder.find((id) => s.units[id].type === 'heli')!];
+    expect(E.commands.dispatchUnits(s, inc.id, [heli.id]).ok).toBe(true);
+    inc.pursuit = { suspectPos: [24.83, 59.43], heading: 0, speedKmh: 90, startedAt: s.now, risk: 0, pressure: 0, heli: true, spikes: false, trail: [], ended: 'terminated' };
+    E.units.moveUnit(s, u, [24.83, 59.43], 'pursuit', true);
+    E.units.moveUnit(s, heli, [24.83, 59.43], 'pursuit', true);
+    expect(stepUntil(E, s, () => u.move?.purpose !== 'pursuit' && heli.move?.purpose !== 'pursuit', 30)).toBe(true);
+    expect(u.status).toBe('onscene');
+    expect(heli.status).toBe('available');
+    expect(inc.assigned).not.toContain(heli.id);
+    expect(inc.assigned).toContain(u.id);
+  });
+
+  it('spike strips: standard kit in quick play and director mode, a career upgrade otherwise', () => {
+    expect(E.engine.createShift(opts()).flags['upg:spikes']).toBe(true);
+    expect(E.engine.createShift(opts({ mode: 'director' })).flags['upg:spikes']).toBe(true);
+    expect(E.engine.createShift(opts({ mode: 'career' })).flags['upg:spikes']).toBeUndefined();
+    expect(E.engine.createShift(opts({ mode: 'career', upgrades: ['spikes'] })).flags['upg:spikes']).toBe(true);
+  });
+
   it('selectors: progress, live stats, sun, SLA, pending radio', () => {
     const s = quiet(E);
     expect(E.selectors.shiftProgress(s)).toBe(0);
@@ -763,4 +996,190 @@ describe('engine-core smoke test with real content', () => {
     }
     for (const m of s.radio) expect(m.text.et, m.text.et).not.toMatch(/\{\w+\}|undefined/);
   }, 60_000);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('dispatch recommendations and unit movement with real content', () => {
+  let E: Eng;
+  let R: typeof import('@/data/regions').REGIONS;
+  let P: typeof import('@/sim/pursuit');
+  let ready = false;
+  beforeAll(async () => {
+    vi.resetModules();
+    for (const m of MOCKED) vi.doUnmock(m);
+    const { REGIONS } = await import('@/data/regions');
+    const { TEMPLATES } = await import('@/data/incidents');
+    R = REGIONS;
+    ready = REGIONS.laane.roster.length > 0 && REGIONS.louna.roster.length > 0 && TEMPLATES.length > 20;
+    E = await loadModules();
+    P = await import('@/sim/pursuit');
+  });
+
+  const night = (regionId: NewShiftOptions['regionId'], seed = 3, hour = 22): SimState => {
+    const s = E.engine.createShift(opts({ seed, regionId, mode: 'director', start: Date.UTC(2026, 9, 16, hour - 3, 0) }));
+    return s;
+  };
+  const byCs = (s: SimState, cs: string) => Object.values(s.units).find((u) => u.callsign === cs)!;
+  const town = (regionId: NewShiftOptions['regionId'], name: string) => R[regionId].towns.find((t) => t.name === name)!.coord;
+
+  it('Lääne P1 next to a crew driving to a P4: the D key does not pick a free crew an hour away', (ctx) => {
+    if (!ready) return ctx.skip();
+    const s = night('laane');
+    const u21 = byCs(s, 'LÄÄNE 21');
+    const low = E.commands.directorSpawn(s, { templateId: 'public_order_garage_noise', coord: town('laane', 'Lihula'), priority: 4 });
+    E.commands.dispatchUnits(s, low, [u21.id]);
+    E.engine.step(s, MIN);
+    const p1 = E.commands.directorSpawn(s, { templateId: 'domestic_knife', coord: E.units.unitPosAt(u21, s.now).pos, priority: 1 });
+    const recs = E.selectors.recommendUnits(s, p1);
+    const r21 = recs.find((r) => r.unit.id === u21.id)!;
+    expect(['ideal', 'need']).toContain(r21.fit);
+    expect(recs.indexOf(r21)).toBeLessThan(3);
+    const best = E.data.bestFor(recs)!;
+    expect(best.etaMin).toBeLessThan(r21.etaMin + 5);
+  });
+
+  it('Lõuna: an investigator (ideal only) is not sent before a unit that covers the patrol need', (ctx) => {
+    if (!ready) return ctx.skip();
+    const s = E.engine.createShift(opts({ seed: 3, regionId: 'louna', mode: 'director', start: Date.UTC(2026, 9, 16, 7, 0) }));
+    const crim = Object.values(s.units).find((u) => u.type === 'criminal')!;
+    const at = R.louna.stations.find((x) => x.id === crim.stationId)!.coord;
+    for (const tid of ['drugs_local_dealers', 'fraud_computer_fraud', 'property_summerhouse_burglaries']) {
+      const id = E.commands.directorSpawn(s, { templateId: tid, coord: at });
+      expect(id).not.toBe('');
+      const recs = E.selectors.recommendUnits(s, id);
+      expect(recs.find((r) => r.unit.id === crim.id)?.fit).toBe('weak');
+      const best = E.data.bestFor(recs)!;
+      expect(best.unit.type).not.toBe('criminal');
+      expect(E.units.typeFits('patrol', best.unit.type)).toBe(true);
+      expect(E.commands.dispatchUnits(s, id, [best.unit.id]).ok).toBe(true);
+      // Patrol need covered: the investigator is now the ideal extra.
+      const next = E.data.bestFor(E.selectors.recommendUnits(s, id));
+      expect(next?.unit.id).toBe(crim.id);
+      expect(next?.fit).toBe('ideal');
+    }
+  });
+
+  it('Lääne: with the mainland busy, a P3 in Paide does not pull the only Hiiumaa crew over the ferry', (ctx) => {
+    if (!ready) return ctx.skip();
+    const s = night('laane');
+    for (const u of Object.values(s.units)) {
+      if (u.zone !== 'mainland' || ['heli', 'boat', 'transport', 'criminal', 'special'].includes(u.type)) continue;
+      const id = E.commands.directorSpawn(s, { templateId: 'public_order_garage_noise', coord: u.pos, priority: 2 });
+      E.commands.dispatchUnits(s, id, [u.id]);
+    }
+    E.engine.step(s, MIN);
+    const id = E.commands.directorSpawn(s, { templateId: 'public_order_garage_noise', coord: town('laane', 'Paide'), priority: 3 });
+    const recs = E.selectors.recommendUnits(s, id);
+    const hii = recs.find((r) => r.unit.callsign === 'LÄÄNE 41')!;
+    expect(hii.unit.zone).toBe('hiiumaa');
+    expect(hii.fit).toBe('weak');
+    expect(hii.manual).toBe(true);
+    expect(hii.reason?.et).toMatch(/praam/);
+    expect(E.data.bestFor(recs)).toBeUndefined();
+  });
+
+  it('Lääne: 95 % of the way from Saaremaa to Pärnu the unit is on the mainland (no phantom ferry)', (ctx) => {
+    if (!ready) return ctx.skip();
+    const s = night('laane');
+    const u = byCs(s, 'LÄÄNE 31');
+    expect(u.zone).toBe('saaremaa');
+    const a = E.commands.directorSpawn(s, { templateId: 'public_order_garage_noise', coord: town('laane', 'Pärnu'), priority: 2 });
+    E.commands.dispatchUnits(s, a, [u.id]);
+    const total = (u.move!.arriveAt - s.now) / MIN;
+    expect(total).toBeGreaterThan(75);
+    E.engine.step(s, Math.round(total * 0.95) * MIN);
+    const b = E.commands.directorSpawn(s, { templateId: 'domestic_knife', coord: E.units.unitPosAt(u, s.now).pos, priority: 1 });
+    const r = E.selectors.recommendUnits(s, b).find((x) => x.unit.id === u.id)!;
+    expect(r.etaMin).toBeLessThan(5);
+    E.commands.recallUnit(s, u.id);
+    expect((u.move!.arriveAt - s.now) / MIN).toBeGreaterThan(75);
+  });
+
+  it('boats: no sailing to inland towns or to another water body; coast and own lake are fine', (ctx) => {
+    if (!ready) return ctx.skip();
+    const s = night('laane', 7, 19);
+    const boat = byCs(s, 'LÄÄNE 71');
+    const inland = E.commands.directorSpawn(s, { templateId: 'public_order_garage_noise', coord: town('laane', 'Paide') });
+    const rec = E.selectors.recommendUnits(s, inland).find((r) => r.unit.id === boat.id)!;
+    expect(rec.fit).toBe('unreachable');
+    expect(rec.reason?.et).toMatch(/Veesõidukiga/);
+    const res = E.commands.dispatchUnits(s, inland, [boat.id]);
+    expect(res.ok).toBe(false);
+    expect(res.reason?.et).toMatch(/veesõidukiga kättesaamatu/);
+    expect(boat.status).toBe('available');
+    const beach = R.laane.places.find((p) => p.name === 'Pärnu rand')!;
+    const coast = E.commands.directorSpawn(s, { templateId: 'public_order_garage_noise', coord: beach.coord });
+    expect(E.selectors.recommendUnits(s, coast).find((r) => r.unit.id === boat.id)?.fit).not.toBe('unreachable');
+    // Ida: the Peipsi boat does not cross land to the Gulf of Finland.
+    const si = night('ida', 7, 19);
+    const ib = Object.values(si.units).find((u) => u.type === 'boat')!;
+    const sea = E.commands.directorSpawn(si, { templateId: 'public_order_garage_noise', coord: town('ida', 'Narva-Jõesuu') });
+    expect(E.selectors.recommendUnits(si, sea).find((r) => r.unit.id === ib.id)?.fit).toBe('unreachable');
+    const peipsi = R.ida.places.find((p) => p.kind === 'beach' && /Peipsi/.test(p.name))!;
+    const lake = E.commands.directorSpawn(si, { templateId: 'public_order_garage_noise', coord: peipsi.coord });
+    expect(si.incidents[lake].location.placeKind).toBe('beach');
+    expect(E.selectors.recommendUnits(si, lake).find((r) => r.unit.id === ib.id)?.fit).not.toBe('unreachable');
+  });
+
+  it('Lääne: island arrests use the island holding cells, the mainland keeps Pärnu', (ctx) => {
+    if (!ready) return ctx.skip();
+    const s = night('laane');
+    expect(E.units.arrestHouse(s)?.id).toBe('la-parnu-arest');
+    expect(E.units.arrestHouse(s, 'mainland')?.id).toBe('la-parnu-arest');
+    expect(E.units.arrestHouse(s, 'saaremaa')?.id).toBe('la-kuressaare-kambrid');
+    expect(E.units.arrestHouse(s, 'hiiumaa')?.id).toBe('la-kardla-kambrid');
+    expect(E.units.arrestHouse(s, 'kihnu')?.id).toBe('la-parnu-arest');
+  });
+
+  const pursuitShift = () => E.engine.createShift(opts({ seed: 9, regionId: 'pohja', mode: 'director', start: Date.UTC(2026, 9, 16, 19, 0) }));
+
+  it('pursuit: an off-duty helicopter is not sent', (ctx) => {
+    if (!ready) return ctx.skip();
+    const s = pursuitShift();
+    const heli = Object.values(s.units).find((u) => u.type === 'heli')!;
+    E.units.setStatus(s, heli, 'offduty');
+    const pat = Object.values(s.units).find((u) => u.type === 'patrol')!;
+    const id = E.commands.directorSpawn(s, { templateId: 'traffic_mittepeatumine', coord: pat.pos });
+    E.commands.dispatchUnits(s, id, [pat.id]);
+    const inc = s.incidents[id];
+    P.startPursuit(s, inc, pat.pos);
+    E.commands.pursuitAction(s, id, 'heli');
+    E.engine.step(s, 3 * MIN);
+    expect(inc.assigned).not.toContain(heli.id);
+    expect(heli.move).toBeUndefined();
+    expect(heli.status).toBe('offduty');
+    expect(s.radio.some((m) => m.incidentId === id && /Helikopter ei ole saadaval/.test(m.text.et))).toBe(true);
+    expect(s.radio.some((m) => m.unitId === heli.id && /toetage jälitust/.test(m.text.et))).toBe(false);
+  });
+
+  it('pursuit: the helicopter is released when the pursuit ends, so the event can still close', (ctx) => {
+    if (!ready) return ctx.skip();
+    const s = pursuitShift();
+    const heli = Object.values(s.units).find((u) => u.type === 'heli')!;
+    const pat = Object.values(s.units).find((u) => u.type === 'patrol')!;
+    const id = E.commands.directorSpawn(s, { templateId: 'traffic_mittepeatumine', coord: pat.pos });
+    E.commands.dispatchUnits(s, id, [pat.id]);
+    const inc = s.incidents[id];
+    P.startPursuit(s, inc, pat.pos);
+    E.commands.pursuitAction(s, id, 'heli');
+    expect(inc.assigned).toContain(heli.id);
+    E.engine.step(s, 8 * MIN);
+    if (!inc.pursuit!.ended) E.commands.pursuitAction(s, id, 'terminate');
+    E.engine.step(s, MIN);
+    expect(inc.assigned).not.toContain(heli.id);
+    expect(heli.incidentId).toBeUndefined();
+    expect(heli.status).toBe('available');
+    expect(heli.move?.purpose ?? 'none').not.toBe('pursuit');
+    // Back at the scene, the ground crew is recalled before finishing: with only the helicopter
+    // left it used to hang open forever; now nothing is assigned and it lapses as abandoned.
+    E.engine.step(s, 30 * MIN);
+    expect(heli.status).not.toBe('enroute');
+    expect(inc.state).toBe('onscene');
+    expect(inc.firstArrivalAt).toBeDefined();
+    E.commands.recallUnit(s, pat.id);
+    expect(inc.assigned).toEqual([]);
+    expect(stepUntil(E, s, () => inc.state === 'closed', 60, MIN)).toBe(true);
+    expect(inc.outcome?.id).toBe('abandoned');
+  });
 });

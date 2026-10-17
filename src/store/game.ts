@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createShift, drainEvents, finalizeShift, step } from '@/sim/engine';
-import type { GameEvent, LngLat, NewShiftOptions, ShiftReport, SimState } from '@/sim/types';
+import { REGION_IDS } from '@/data/regions';
+import type { GameEvent, GameMode, LngLat, NewShiftOptions, ShiftReport, SimState } from '@/sim/types';
 
 export type Screen =
   | 'boot'
@@ -42,7 +43,7 @@ interface GameStore {
   user: LoginUser | null;
   sim: SimState | null;
   report: ShiftReport | null;
-  /** Bumped ~8×/s while a shift runs so components re-render. */
+  /** Bumped ~8×/s while a shift runs (not while paused) so components re-render. */
   tick: number;
   speedIndex: number;
   realtime: boolean;
@@ -96,25 +97,41 @@ export const useGame = create<GameStore>()((set, get) => ({
   setBriefing: (b) => set({ briefing: { ...get().briefing, ...b } }),
   startShift: (opts) => {
     const sim = createShift(opts);
-    set({ sim, report: null, screen: 'game', selection: {}, rightTab: 'incident', speedIndex: 1, tick: 0, realtime: opts.mode === 'director' });
+    // mapFocus: null, or the new shift's map would fly to the last shift's focus point on mount.
+    set({ sim, report: null, screen: 'game', selection: {}, rightTab: 'incident', speedIndex: 1, tick: 0, realtime: opts.mode === 'director', mapFocus: null });
     startLoop();
   },
   resumeShift: (sim) => {
-    set({ sim, report: null, screen: 'game', selection: {}, speedIndex: 0, tick: 0 });
+    set({ sim, report: null, screen: 'game', selection: {}, speedIndex: 0, tick: 0, mapFocus: null });
+    if (sim.ended) {
+      // The clock ran out before the report was opened (reload, crash, Save & quit): report straight away.
+      // If that fails the shift stays on screen with its end dialog, so the player can try again.
+      try {
+        if (get().endShift()) return;
+      } catch (err) {
+        console.error('[EPD] endShift failed', err);
+      }
+    }
     startLoop();
   },
   endShift: () => {
-    const sim = get().sim;
+    const { sim, report: done } = get();
     if (!sim) return null;
+    // Already settled (a second click on the report button): never build or pay a second report.
+    if (done) return done;
     stopLoop();
+    // Settled from here on, also when ended early: nothing saves it again and it can never be resumed.
+    sim.ended = true;
     const report = finalizeShift(sim);
+    report.shiftKey = shiftKeyOf(sim);
+    if (sim.flags) sim.flags[REPORTED_FLAG] = true;
     clearAutosave();
     set({ report, screen: 'report' });
     return report;
   },
   quitShift: () => {
     stopLoop();
-    set({ sim: null, screen: 'menu' });
+    set({ sim: null, screen: 'menu', mapFocus: null });
   },
   select: (sel, tab) => set({ selection: sel, ...(tab ? { rightTab: tab } : {}) }),
   setRightTab: (rightTab) => set({ rightTab }),
@@ -157,25 +174,28 @@ function frame(ts: number) {
   let speed = g.realtime ? (g.speedIndex === 0 ? 0 : 1) : SPEEDS[g.speedIndex];
   // While a 112 call rings or is in progress the dispatcher is on the phone: the world slows to
   // near real time so the call can actually be answered and the conversation read.
-  if (speed > CALL_SPEED && sim.calls.some((c) => !c.endedAt)) speed = CALL_SPEED;
-  if (speed > 0 && !sim.ended) {
+  if (speed > CALL_SPEED && Array.isArray(sim.calls) && sim.calls.some((c) => !c.endedAt)) speed = CALL_SPEED;
+  const running = speed > 0 && !sim.ended;
+  if (running) {
     try {
       step(sim, dtReal * speed);
     } catch (err) {
       console.error('[EPD] step failed', err);
     }
   }
-  const events = drainEvents(sim);
+  const events = Array.isArray(sim.events) ? drainEvents(sim) : [];
   if (events.length) listeners.forEach((l) => l(events));
+  // Paused or over: nothing moves, so no re-render (UI commands bump on their own, the end of the
+  // shift arrives as a 'shift_end' event).
   sinceBump += dtReal;
-  if (sinceBump >= 125 || events.length) {
+  if (events.length || (running && sinceBump >= 125)) {
     sinceBump = 0;
     g.bump();
   }
   sinceSave += dtReal;
-  if (sinceSave > 30_000 && sim.mode !== 'director') {
+  if (sinceSave > 30_000) {
     sinceSave = 0;
-    autosave(sim, { periodic: true });
+    saveNow({ periodic: true });
   }
 }
 
@@ -193,6 +213,13 @@ export function stopLoop() {
 // ── Autosave ─────────────────────────────────────────────────────────────────
 
 const SAVE_KEY = 'epd:autosave';
+/** sim.flags key set once the shift's report exists: such a sim is never saved or resumed again. */
+const REPORTED_FLAG = 'shiftReported';
+
+/** Identity of one shift: the same for every save and resume of it, different for every new shift. */
+export function shiftKeyOf(sim: Pick<SimState, 'seed' | 'startTime'>): string {
+  return `${sim.seed}:${sim.startTime}`;
+}
 
 /**
  * Cloud sync hooks, filled in by src/net/account.ts while a player is logged in to an account.
@@ -218,6 +245,8 @@ export interface AutosaveOptions {
 }
 
 export function autosave(sim: SimState, opts: AutosaveOptions = {}) {
+  // A shift that already has its report is settled: saving it would bring it back.
+  if (sim.flags?.[REPORTED_FLAG]) return;
   let raw: string;
   try {
     raw = JSON.stringify(sim);
@@ -232,15 +261,32 @@ export function autosave(sim: SimState, opts: AutosaveOptions = {}) {
   if (opts.cloud !== false) autosaveHooks.onSave?.(raw, opts.unload ? 'unload' : opts.periodic ? 'periodic' : 'explicit');
 }
 
+/**
+ * The browser's saved shift, or null. A shift whose clock ran out is still returned (`ended`: its
+ * report is pending, resumeShift opens it). A save that cannot be resumed (garbage, another version,
+ * an unknown prefecture, missing parts) is removed so it cannot break the menu again.
+ */
 export function loadAutosave(): SimState | null {
+  let raw: string | null;
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return null;
-    const sim = JSON.parse(raw) as SimState;
-    return sim.version === 2 && !sim.ended ? sim : null;
+    raw = localStorage.getItem(SAVE_KEY);
   } catch {
     return null;
   }
+  if (!raw) return null;
+  let sim: unknown = null;
+  try {
+    sim = JSON.parse(raw);
+  } catch {
+    /* garbage: removed below */
+  }
+  if (isValidSave(sim)) return sim;
+  try {
+    localStorage.removeItem(SAVE_KEY);
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
 
 export function clearAutosave(opts: Pick<AutosaveOptions, 'cloud'> = {}) {
@@ -252,9 +298,68 @@ export function clearAutosave(opts: Pick<AutosaveOptions, 'cloud'> = {}) {
   if (opts.cloud !== false) autosaveHooks.onClear?.();
 }
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', () => {
-    const sim = useGame.getState().sim;
-    if (sim && !sim.ended && sim.mode !== 'director') autosave(sim, { unload: true });
+const GAME_MODES: readonly GameMode[] = ['career', 'free', 'director', 'tutorial'];
+const SAVE_OBJECTS = ['units', 'incidents', 'persons', 'vehicles', 'stats', 'weather', 'flags', 'seq'] as const;
+const SAVE_ARRAYS = ['unitOrder', 'incidentOrder', 'radio', 'calls', 'bulletins', 'queries'] as const;
+const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/**
+ * True when `x` has the shape of a resumable SimState (version 2): a known prefecture and mode, finite
+ * clock values and every collection the game reads. Saves come from this browser, another device via the
+ * cloud, or an older or newer client, so they are checked before anything renders them. A missing
+ * `events` list (transient, drained every frame) is repaired. A shift that was already reported is not
+ * resumable.
+ */
+export function isValidSave(x: unknown): x is SimState {
+  if (!isPlainObject(x) || x.version !== 2) return false;
+  if (!REGION_IDS.includes(x.regionId as SimState['regionId'])) return false;
+  if (!GAME_MODES.includes(x.mode as GameMode)) return false;
+  if (![x.now, x.startTime, x.endTime].every((n) => typeof n === 'number' && Number.isFinite(n))) return false;
+  if (!SAVE_OBJECTS.every((k) => isPlainObject(x[k]))) return false;
+  if (!SAVE_ARRAYS.every((k) => Array.isArray(x[k]))) return false;
+  if ((x.flags as Record<string, unknown>)[REPORTED_FLAG]) return false;
+  if (!Array.isArray(x.events)) x.events = [];
+  return true;
+}
+
+// ── Save on leave ────────────────────────────────────────────────────────────
+
+/** Set by the app error boundary: automatic saves stop so a broken state never replaces the last good save. */
+let crashed = false;
+export function setCrashed(on: boolean): void {
+  crashed = on;
+}
+
+let lastLeaveSave: { sim: SimState; now: number; at: number } | null = null;
+
+/**
+ * Save the running shift if there is one worth saving: on the game screen (never once the report is
+ * showing), not director mode, not after a crash. Returns whether it saved.
+ */
+export function saveNow(opts: AutosaveOptions = {}): boolean {
+  const g = useGame.getState();
+  const sim = g.sim;
+  if (!sim || crashed || g.screen !== 'game' || sim.mode === 'director') return false;
+  if (opts.unload) {
+    // visibilitychange, pagehide and beforeunload often fire together on close: one save is enough.
+    const at = Date.now();
+    if (lastLeaveSave && lastLeaveSave.sim === sim && lastLeaveSave.now === sim.now && at - lastLeaveSave.at < 2000) return false;
+    lastLeaveSave = { sim, now: sim.now, at };
+  }
+  autosave(sim, opts);
+  return true;
+}
+
+// Registered before src/net/account.ts adds its own listeners (it imports this module), so the cloud
+// flush on hide or close uploads this fresh save. iOS Safari never fires beforeunload and mobile
+// browsers kill hidden tabs without it, hence pagehide and visibilitychange as well.
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  const onLeave = () => {
+    saveNow({ unload: true });
+  };
+  window.addEventListener('beforeunload', onLeave);
+  window.addEventListener('pagehide', onLeave);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') onLeave();
   });
 }

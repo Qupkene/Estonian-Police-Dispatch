@@ -16,6 +16,7 @@ import {
   formatDecimal,
   formatMoney,
   gradeTone,
+  ledgerNet,
   mean,
   regionSummary,
   responseTone,
@@ -47,7 +48,8 @@ export function ReportScreen() {
     try {
       const ledger = useCareer.getState().applyReport(report);
       careerResult.set(report, { ledger });
-      if (report.earnings.total > 0) sfx.play('cash');
+      // The ledger is what changes the budget (earnings.total leaves out the daily budget, pay and upkeep).
+      if (ledgerNet(ledger) > 0) sfx.play('cash');
     } catch (e) {
       careerResult.set(report, { ledger: [], error: e instanceof Error ? e.message : String(e) });
     }
@@ -280,29 +282,19 @@ export function ReportScreen() {
               </p>
             )}
             <div className="sh-career">
+              {/* The ledger already holds the bonus, fuel, overtime and fines, so it is the only list. */}
               <div className="sh-earn">
-                <EarnRow label={t('shell.rep.e.bonus')} amount={Math.abs(report.earnings.bonus)} />
-                <EarnRow label={t('shell.rep.e.fuel')} amount={-Math.abs(report.earnings.fuel)} />
-                <EarnRow label={t('shell.rep.e.overtime')} amount={-Math.abs(report.earnings.overtime)} />
-                <EarnRow label={t('shell.rep.e.fines')} amount={-Math.abs(report.earnings.fines)} />
-                <EarnRow label={t('shell.rep.e.total')} amount={report.earnings.total} total />
-              </div>
-              <div className="sh-career__side">
                 {cr && cr.ledger.length > 0 && (
                   <>
                     <h3 className="sh-rep__sub">{t('shell.rep.ledger')}</h3>
-                    <ul className="sh-ledger">
-                      {cr.ledger.map((l, i) => (
-                        <li key={i}>
-                          <span>{l.text[lang] || l.text.et}</span>
-                          <span className={`mono ${l.amount >= 0 ? 'is-plus' : 'is-minus'}`}>
-                            {formatMoney(l.amount, lang, true)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                    {cr.ledger.map((l, i) => (
+                      <EarnRow key={i} label={l.text[lang] || l.text.et} amount={l.amount} />
+                    ))}
+                    <EarnRow label={t('shell.rep.e.net')} amount={ledgerNet(cr.ledger)} total />
                   </>
                 )}
+              </div>
+              <div className="sh-career__side">
                 {inbox.length > 0 && (
                   <>
                     <h3 className="sh-rep__sub">

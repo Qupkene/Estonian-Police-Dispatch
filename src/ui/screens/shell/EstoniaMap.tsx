@@ -1,4 +1,4 @@
-// Interactive SVG prefecture picker built from data/geo/counties.json (geoBoundaries, CC BY 4.0).
+// Interactive SVG prefecture picker built from data/geo/counties.json (Maa- ja Ruumiamet county boundaries via Who's On First).
 import { useMemo, useState, type KeyboardEvent } from 'react';
 import { REGION_IDS } from '@/data/regions';
 import type { RegionId } from '@/sim/types';

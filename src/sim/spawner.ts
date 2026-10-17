@@ -15,7 +15,7 @@ import { Rng, withRng } from './rng';
 import { defaultSla, slaFor } from './scoring';
 import { fillText } from './text';
 import { HOUR, isoDate, MIN, seasonOf, wall } from './time';
-import { zoneAt } from './units';
+import { rosterSpecsFor, stationById, zoneAt } from './units';
 import { weatherCallFactor, weatherTrafficFactor } from './weather';
 import type {
   Difficulty,
@@ -34,6 +34,7 @@ import type {
   SimState,
   SpeakerLang,
   Text,
+  UnitType,
 } from './types';
 
 const T = (et: string, en: string): Text => ({ et, en });
@@ -61,8 +62,55 @@ export function spawnRatePerHour(s: SimState, t: number): number {
     (dayInfo(t).factor || 1) *
     DIFFICULTY_FACTOR[s.difficulty] *
     weatherCallFactor(s.weather);
+  if (s.mode === 'career') r *= careerLoadFactor(s);
   if (s.mode === 'tutorial') r *= 0.5;
   return Math.max(0.05, r);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Career load (DESIGN §4.12)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Unit types that answer general calls. The career load is measured in these. */
+const RESPONSE_TYPES: ReadonlySet<UnitType> = new Set<UnitType>(['patrol', 'rapid', 'aux', 'traffic', 'k9', 'border', 'community']);
+
+/** Lowest career load factor, so a shift with a single crew left still gets calls. */
+export const CAREER_LOAD_FLOOR = 0.1;
+
+/**
+ * Career mode: scale the prefecture's call volume to the force actually on duty. A new career has
+ * 3 response crews where the regular roster has 11-17, so the full volume would bury it.
+ * Computed once at shift creation (after the units exist) and stored in `s.flags`, JSON-safe:
+ * - `loadFactor`: response units on duty ÷ response units of the regular normal-difficulty roster
+ *   for this shift, clamped to [CAREER_LOAD_FLOOR, 1]. The difficulty factor still applies on top,
+ *   so veteran and realistic careers stay harder than normal ones.
+ * - `skipZones`: comma-separated zones that the regular roster staffs but this force does not
+ *   (e.g. Saaremaa and Hiiumaa before the player has an island crew). New calls there are moved
+ *   to a covered zone, because a 75-105 min ferry trip would expire every one of them.
+ */
+export function initCareerLoad(s: SimState): void {
+  const region = regionOf(s);
+  if (!region) return;
+  const shift = s.flags.shiftKind === 'night' ? 'night' : 'day';
+  const regular = rosterSpecsFor(region, shift, 'normal').filter((sp) => !sp.onCall && RESPONSE_TYPES.has(sp.type));
+  const mine = s.unitOrder.map((id) => s.units[id]).filter((u) => !!u && !u.onCall && RESPONSE_TYPES.has(u.type));
+  const factor = regular.length ? mine.length / regular.length : 1;
+  s.flags.loadFactor = Math.round(Math.max(CAREER_LOAD_FLOOR, Math.min(1, factor)) * 1000) / 1000;
+  const covered = new Set(mine.map((u) => u.zone || 'mainland'));
+  const staffed = new Set(regular.map((sp) => sp.zone ?? stationById(region, sp.stationId)?.zone ?? 'mainland'));
+  s.flags.skipZones = covered.size ? [...staffed].filter((z) => !covered.has(z)).join(',') : '';
+}
+
+/** Career call-volume multiplier (1 outside career or before initCareerLoad ran). */
+export function careerLoadFactor(s: SimState): number {
+  const f = Number(s.flags.loadFactor);
+  return s.mode === 'career' && f > 0 ? Math.min(1, f) : 1;
+}
+
+/** Zones where no new calls spawn this shift (career only, see initCareerLoad). */
+export function skippedZones(s: SimState): Set<string> {
+  const raw = s.mode === 'career' ? s.flags.skipZones : undefined;
+  return new Set(typeof raw === 'string' && raw ? raw.split(',') : []);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -233,6 +281,29 @@ function fallbackLocation(r: Rng, region: RegionDef, kinds: PlaceKind[]): Incide
   return { address: coordText(coord), coord, city: '', placeKind: kind, zone: region.zones[0]?.id ?? 'mainland' };
 }
 
+/** A location for a template's place kinds, with its zone filled in. */
+function templateLocation(r: Rng, region: RegionDef, tpl: IncidentTemplate): IncidentLocation {
+  let location: IncidentLocation;
+  try {
+    location = pickLocation(r, region, tpl.places.length ? tpl.places : ['street']);
+  } catch {
+    location = fallbackLocation(r, region, tpl.places);
+  }
+  return location.zone ? location : { ...location, zone: zoneAt(region, location.coord) };
+}
+
+/**
+ * Career: a location outside the skipped zones (a few re-picks), or undefined when the template
+ * only fits places there (e.g. an island ferry port), in which case the call is not spawned.
+ */
+function coveredLocation(r: Rng, region: RegionDef, tpl: IncidentTemplate, skip: Set<string>): IncidentLocation | undefined {
+  for (let i = 0; i < 8; i++) {
+    const loc = templateLocation(r, region, tpl);
+    if (!skip.has(loc.zone ?? 'mainland')) return loc;
+  }
+  return undefined;
+}
+
 function coordText(c: LngLat): string {
   return `Kaardipunkt ${c[1].toFixed(5)}, ${c[0].toFixed(5)}`;
 }
@@ -372,14 +443,7 @@ export function createIncident(s: SimState, tpl: IncidentTemplate, o: CreateOpts
   const seq = ++s.seq.incident;
   const r = withRng(s, (rr) => rr.fork(seq));
   const now = s.now;
-  let location = o.location;
-  if (!location) {
-    try {
-      location = pickLocation(r, region, tpl.places.length ? tpl.places : ['street']);
-    } catch {
-      location = fallbackLocation(r, region, tpl.places);
-    }
-  }
+  let location = o.location ?? templateLocation(r, region, tpl);
   if (!location.zone) location = { ...location, zone: zoneAt(region, location.coord) };
   const truePriority = o.priority ?? tpl.priority;
   const w = wall(now);
@@ -589,10 +653,15 @@ export function updateSpawner(s: SimState): void {
     return;
   }
   let n = 0;
+  const skip = skippedZones(s);
   while (s.now >= s.nextSpawnAt && s.nextSpawnAt < s.endTime && n < 4) {
     const t = s.nextSpawnAt;
     const tpl = withRng(s, (r) => pickTemplate(s, r, allTemplates(), t));
-    if (tpl) spawnIncident(s, tpl);
+    if (tpl && !skip.size) spawnIncident(s, tpl);
+    else if (tpl) {
+      const location = withRng(s, (r) => coveredLocation(r, regionOf(s), tpl, skip));
+      if (location) spawnIncident(s, tpl, { location });
+    }
     const rate = spawnRatePerHour(s, t) / HOUR;
     s.nextSpawnAt = t + Math.max(10_000, withRng(s, (r) => r.exp(rate)));
     n++;

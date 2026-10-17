@@ -13,7 +13,7 @@ export const REGIONS: Record<RegionId, RegionDef> = {
 
 export const REGION_IDS: RegionId[] = ['pohja', 'ida', 'louna', 'laane'];
 
-/** Prefecture responsible for a county name as written in geoBoundaries ("Harju maakond"). */
+/** Prefecture responsible for a county name as written in data/geo ("Harju maakond"). */
 export function regionForCounty(county: string): RegionId | undefined {
   return REGION_IDS.find((id) => REGIONS[id].counties.includes(county));
 }

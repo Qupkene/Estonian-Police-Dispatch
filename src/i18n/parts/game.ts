@@ -254,6 +254,7 @@ export default {
   'game.pursuit.spikes': { et: 'Naelamatt', en: 'Spike strip' },
   'game.pursuit.heliOn': { et: 'Kopter õhus', en: 'Heli overhead' },
   'game.pursuit.spikesOn': { et: 'Naelamatt paigas', en: 'Spikes deployed' },
+  'game.pursuit.spikesLocked': { et: 'Vaja on täiendust „Naelamatid“', en: 'Requires the "Spike strips" upgrade' },
   'game.pursuit.caught': { et: 'Peatatud', en: 'Stopped' },
   'game.pursuit.escaped': { et: 'Põgenes', en: 'Escaped' },
   'game.pursuit.crashed': { et: 'Avarii', en: 'Crashed' },
@@ -411,9 +412,33 @@ export default {
 
   // ── Director ──────────────────────────────────────────────────────────────
   'game.dir.placeIncident': { et: 'Klõpsa kaardil, kuhu sündmus paigutada', en: 'Click the map to place the event' },
-  'game.dir.placeUnit': { et: 'Klõpsa kaardil, kuhu {c} teleportida', en: 'Click the map to move {c}' },
+  'game.dir.placeUnit': { et: 'Klõpsa kaardil, kuhu {c} teleportida', en: 'Click the map to teleport {c}' },
   'game.dir.cancel': { et: 'Esc tühistab', en: 'Esc cancels' },
 
   'game.empty': { et: 'Aktiivset vahetust pole.', en: 'No active shift.' },
   'game.toMenu': { et: 'Tagasi menüüsse', en: 'Back to menu' },
+  'game.loading': { et: 'Laadimine…', en: 'Loading…' },
+
+  // ── Saved shift whose report is still pending (main menu) ────────────────
+  'game.pending.desc': {
+    et: 'Vahetus on läbi · {region} · {date} kell {time} · {mode}',
+    en: 'Shift over · {region} · {date} at {time} · {mode}',
+  },
+
+  // ── Error screen (app error boundary) ────────────────────────────────────
+  'game.crash.title': { et: 'Midagi läks valesti', en: 'Something went wrong' },
+  'game.crash.textShift': {
+    et: 'Mäng peatati vea tõttu. Vahetuse saab salvestada ja menüüsse naasta.',
+    en: 'The game was paused because of an error. You can save the shift and return to the menu.',
+  },
+  'game.crash.text': { et: 'Seda vaadet ei õnnestunud kuvada.', en: 'This screen could not be shown.' },
+  'game.crash.chunk': {
+    et: 'Mängu osa ei õnnestunud laadida. Kontrolli võrguühendust ja laadi leht uuesti.',
+    en: 'Part of the game could not be loaded. Check the connection and reload the page.',
+  },
+  'game.crash.save': { et: 'Salvesta ja mine menüüsse', en: 'Save and return to menu' },
+  'game.crash.menuNoSave': { et: 'Mine menüüsse salvestamata', en: 'Return to menu without saving' },
+  'game.crash.discard': { et: 'Kustuta salvestatud vahetus', en: 'Delete the saved shift' },
+  'game.crash.reload': { et: 'Laadi leht uuesti', en: 'Reload the page' },
+  'game.crash.details': { et: 'Tehniline info', en: 'Technical details' },
 } satisfies Dict;

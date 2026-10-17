@@ -277,7 +277,7 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
         1,
         T(
           'Lööja ründas ka korraldajat ega allunud korraldustele. Ta peeti kinni ja toimetati arestimajja.',
-          'The player also attacked an organiser and ignored orders. He was detained and taken to the detention house.',
+          'The player also attacked an organiser and ignored orders. He was detained and taken to the arrest house.',
         ),
         { arrests: 1 },
       ),
@@ -502,8 +502,8 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
     ],
     details: [
       T(
-        'Valvekaamera salvestisel lahkub toast mees, {suspect}, ja sõidab minema sõidukiga {car}, {plate}.',
-        'CCTV shows a man, {suspect}, leaving the room and driving off in {car}, {plate}.',
+        'Valvekaamera salvestisel lahkub toast mees, {suspect}, ja sõidab autoga minema. Auto: {car}, {plate}.',
+        'CCTV shows a man, {suspect}, leaving the room and driving off in a {car} ({plate}).',
       ),
       T(
         'Toast leiti kaal ja minigrip-kotid valge pulbriga.',
@@ -909,7 +909,7 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
             T('Pidage kinni', 'Detain'),
             T(
               '{callsign}, juhtimine. Pidage kinni kahtlustatavana ja toimetage arestimajja.',
-              '{callsign}, Control. Detain as a suspect and take him to the detention house.',
+              '{callsign}, Control. Detain as a suspect and take him to the arrest house.',
             ),
             { arrests: 1, time: 20 },
           ),
@@ -1983,7 +1983,7 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
         3,
         T(
           'Ründaja peeti kinni ja toimetati arestimajja. Alustati kriminaalmenetlust KarS § 121 järgi.',
-          'The attacker was detained and taken to the detention house. Criminal proceedings opened under KarS § 121.',
+          'The attacker was detained and taken to the arrest house. Criminal proceedings opened under KarS § 121.',
         ),
         { arrests: 1, trust: 2 },
       ),
@@ -2321,7 +2321,7 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
         1,
         T(
           'Ähvardaja peeti kinni ja toimetati arestimajja. Alustati kriminaalmenetlust KarS § 120 järgi.',
-          'The man was detained and taken to the detention house. Criminal proceedings opened under KarS § 120.',
+          'The man was detained and taken to the arrest house. Criminal proceedings opened under KarS § 120.',
         ),
         { arrests: 1 },
       ),
@@ -2553,7 +2553,7 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
         '{address}. A man is waving a gun-like object and threatening people. Dark jacket, moving {direction}.',
       ),
       T(
-        '{address}. Parklas sihtis autojuht teist juhti püstolitaolise esemega ja istus seejärel autosse {car}.',
+        '{address}. Parklas sihtis autojuht teist juhti püstolitaolise esemega ja istus seejärel autosse. Auto: {car}.',
         '{address}. In a car park a driver pointed a gun-like object at another driver and then got into a {car}.',
       ),
     ],

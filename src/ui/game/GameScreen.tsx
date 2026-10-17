@@ -1,6 +1,6 @@
 // In-shift CAD screen (owned by ui-game): layout shell + map host + right context panel + dock.
 import { memo, useCallback, useEffect, useMemo } from 'react';
-import { useGame, type RightTab } from '@/store/game';
+import { shiftKeyOf, useGame, type RightTab } from '@/store/game';
 import { useSettings } from '@/store/settings';
 import { useLang, useT } from '@/i18n';
 import { Button, Empty, Icon, Tabs, type TabDef } from '@/ui/components';
@@ -11,6 +11,7 @@ import { BulletinsPanel } from '@/ui/tools/BulletinsPanel';
 import { DirectorPanel } from '@/ui/tools/DirectorPanel';
 import { CallTaker } from '@/ui/tools/CallTaker';
 import { useDirector } from '@/ui/tools/directorStore';
+import { stopScene } from '@/ui/tools/lib/sceneRunner';
 import type { LngLat } from '@/sim/types';
 import { selectIncident, selectUnit } from './actions';
 import { selPendingRadio, selQueue, selRecs, soft } from './data';
@@ -41,10 +42,15 @@ export function GameScreen() {
   useHotkeys();
   useToastFeed();
 
-  // Fresh UI state for every shift.
-  const simId = sim ? `${sim.seed}:${sim.startTime}` : '';
+  // Fresh UI state for every shift. Director state (an armed map placement, a running scene) belongs
+  // to the shift it was made in and must never act on the next quick-play or career shift.
+  const simId = sim ? shiftKeyOf(sim) : '';
   useEffect(() => {
-    if (simId) setUi({ queueCursor: null, picks: {}, dispatchError: {}, toasts: [], pauseOpen: false, bulletinsSeen: 0, drawerOpen: false });
+    if (!simId) return;
+    setUi({ queueCursor: null, picks: {}, dispatchError: {}, toasts: [], pauseOpen: false, bulletinsSeen: 0, drawerOpen: false });
+    stopScene();
+    useDirector.getState().reset();
+    return () => stopScene();
   }, [simId, setUi]);
 
   if (!sim) {

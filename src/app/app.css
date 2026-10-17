@@ -1,0 +1,81 @@
+/* App shell: lazy-screen loading state and the error screen of the app error boundary (App.tsx). */
+
+.app-loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  background: var(--bg-0);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.app-crash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-4);
+  background: var(--bg-0);
+  overflow: auto;
+}
+
+.app-crash__card {
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-6) var(--sp-5);
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+  text-align: center;
+}
+
+.app-crash__icon {
+  color: var(--warn);
+}
+
+.app-crash__title {
+  margin: 0;
+  font-size: var(--fs-xl);
+  color: var(--text-0);
+}
+
+.app-crash__text {
+  margin: 0;
+  color: var(--text-1);
+}
+
+.app-crash__actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.app-crash__details {
+  width: 100%;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  text-align: left;
+}
+
+.app-crash__details summary {
+  cursor: pointer;
+}
+
+.app-crash__details code {
+  display: block;
+  margin-top: var(--sp-2);
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

@@ -7,6 +7,7 @@ import { correctReply, foldName, personFlags, searchPersons, searchVehicles, veh
 import { gradeOf, buildReport, inessive, type ShiftReportX } from '@/sim/report';
 import { callAnswer, callAsk, callEnd, callInterpreter, maybeCreateCall, updateCalls } from '@/sim/calls';
 import { isOnLand, pursuitCommand, startPursuit, updatePursuit } from '@/sim/pursuit';
+import { waterBodiesNear, waterBodyAt } from '@/sim/land';
 import { startSearch, updateSearch } from '@/sim/search';
 import {
   applyShiftReport,
@@ -343,6 +344,18 @@ describe('pursuit', () => {
     expect(isOnLand([24.5, 59.7])).toBe(false); // Gulf of Finland
     expect(isOnLand([22.5, 58.3])).toBe(true); // Saaremaa
   });
+  it('water bodies: sea, Peipsi and Võrtsjärv apart; Estonian and foreign land are not water', () => {
+    expect(waterBodyAt([24.5, 59.7])).toBe('sea'); // Gulf of Finland
+    expect(waterBodyAt([23.6, 58.0])).toBe('sea'); // Gulf of Riga
+    expect(waterBodyAt([27.5, 58.75])).toBe('peipsi');
+    expect(waterBodyAt([27.9, 57.95])).toBe('peipsi'); // Pihkva järv: same body as Peipsi
+    expect(waterBodyAt([26.0, 58.28])).toBe('vortsjarv');
+    expect(waterBodyAt([24.75, 59.43])).toBeNull(); // Tallinn
+    expect(waterBodyAt([28.6, 59.3])).toBeNull(); // Russia, east of Narva
+    expect(waterBodyAt([25.4, 57.5])).toBeNull(); // Latvia
+    expect(waterBodiesNear([24.75, 59.43], 1).size).toBe(0);
+    expect([...waterBodiesNear([24.5, 59.45], 2)]).toContain('sea'); // Tallinn bay shore
+  });
   it('runs deterministically to an end', () => {
     const a = runPursuit(777);
     const b = runPursuit(777);
@@ -473,10 +486,38 @@ describe('report', () => {
     }
     expect(np.stories.length).toBeGreaterThanOrEqual(3);
     expect(np.stories.length).toBeLessThanOrEqual(4);
-    expect(np.stories.some((x) => x.body.et.includes('teatati Häirekeskusele'))).toBe(true);
-    expect(np.stories.some((x) => x.body.et.includes('Tallinnas Lasnamäel aadressil Punane tn 16-45'))).toBe(true);
+    expect(np.stories.some((x) => x.body.et.includes('kutsuti politsei Tallinnas Lasnamäel aadressile Punane tn 16-45.'))).toBe(true);
+    expect(np.stories.some((x) => x.body.en.includes('police were called to Punane tn 16-45, Lasnamäe, Tallinn.'))).toBe(true);
     expect(r.officerXp['u1-o1']).toBeGreaterThan(0);
     expect(r.extras?.resolvedByDistrict['Lasnamäe']).toBe(1);
+  });
+  it('an abandoned P1 (units came, then left) is not reported as "police never arrived"', () => {
+    const lapsed = (arrived: boolean): ShiftReportX => {
+      const s = makeState({ now: T0 + 8 * 3_600_000 });
+      addIncident(
+        s,
+        makeIncident('x', {
+          state: 'closed',
+          closedBy: 'expired',
+          truePriority: 1,
+          priority: 1,
+          ...(arrived ? { firstArrivalAt: T0 + 9 * 60_000 } : {}),
+          outcome: { id: arrived ? 'abandoned' : 'expired', result: 'unfounded', text: { et: 'x', en: 'x' }, success: 0, arrests: 0, injuries: 0, officerInjured: false, score: 0, breakdown: { response: 0, resources: 0, decisions: 0, outcome: 0, safety: 0, classification: 0, total: 0 } },
+        }),
+      );
+      s.stats.incidents = 1;
+      s.stats.closed = 1;
+      s.stats.expired = 1;
+      return buildReport(s) as ShiftReportX;
+    };
+    const never = lapsed(false);
+    expect(never.newspaper.headline.et).toMatch(/Politsei ei jõudnudki kohale/);
+    expect(never.highlights.some((h) => /ei jõudnud kohale/.test(h.text.et))).toBe(true);
+    const left = lapsed(true);
+    expect(left.newspaper.headline.et).not.toMatch(/ei jõudnudki kohale/);
+    expect(left.highlights.length).toBeGreaterThan(0);
+    for (const h of left.highlights) expect(h.text.et).not.toMatch(/ei jõudnud kohale/);
+    expect(left.highlights.some((h) => /käis kohal, kuid lahkus/.test(h.text.et))).toBe(true);
   });
   it('empty shift still produces a calm-night paper', () => {
     const s = makeState({ now: T0 + 4 * 3_600_000 });

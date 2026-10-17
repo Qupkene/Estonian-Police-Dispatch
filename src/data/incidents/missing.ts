@@ -75,7 +75,7 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
       answers: {
         when: [T('Umbes kell {time} jooksis ta uksest välja.', 'She ran out of the door at about {time}.')],
         suspect: [T('Roosa jope, sinine seljakott, heledad juuksed patsis.', 'Pink jacket, blue backpack, fair hair in a ponytail.')],
-        where: [T('Me elame {address}.', 'We live at {address}.')],
+        where: [T('Me elame aadressil {address}.', 'We live at {address}.')],
         direction: [T('Ta jooksis pargi poole, arvan ma.', 'She ran towards the park, I think.')],
       },
       openingRu: ['Помогите, пропала дочь! Мы поругались, она выбежала из дома, уже час её нет!'],
@@ -208,7 +208,7 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
     ],
     callerLines: [
       T('Üks mees haaras lapse ja tõstis ta autosse, laps karjus! Nad sõitsid minema!', 'A man grabbed a child and put them in a car, the child was screaming! They drove off!'),
-      T('Ma nägin numbrit osaliselt: {plate}. {car}, sõitis {direction}.', 'I saw part of the plate: {plate}. A {car}, went {direction}.'),
+      T('Jõudsin numbri üles kirjutada: {plate}. Auto oli {car}, see sõitis {direction}.', 'I managed to note the plate: {plate}. It was a {car}, and it went {direction}.'),
     ],
     details: [
       T('Lapse ema on sündmuskohal ja annab kirjelduse.', 'The child’s mother is at the scene giving a description.'),
@@ -217,7 +217,7 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
     beats: [
       qVehicle('arrive', { radio: [T('{callsign}: kontrolli kiiresti sõidukit {plate}, {car}. Kellele kuulub?', '{callsign}: urgently run {plate}, {car}. Who is the keeper?')] }),
       info(2, [T('{callsign}: ema sõnul võib tegu olla lapse isaga, kellel on lähenemiskeeld. Kontrollige!', '{callsign}: the mother says it may be the child’s father, who is under a restraining order. Check it!')], 0.4),
-      pursuit(4, [T('{callsign}: märkasime kirjeldusele vastavat sõidukit {direction}, ei peatu! Jälitame!', '{callsign}: we have eyes on a matching vehicle {direction}, it will not stop! In pursuit!')], 0.6),
+      pursuit(4, [T('{callsign}: märkasime kirjeldusele vastavat sõidukit, liigub {direction} ega peatu! Jälitame!', '{callsign}: we have eyes on a matching vehicle moving {direction}, it will not stop! In pursuit!')], 0.6),
       backup(0.91, u('rapid'), [T('{callsign}: sõiduk peatus metsateel, kahtlustatav barrikadeerus. Vajame kiirreageerijaid!', '{callsign}: the car stopped on a forest track and the suspect has barricaded himself in. We need rapid response!')], { at: 10, timeoutMin: 8 }),
     ],
     outcomes: [
@@ -460,7 +460,7 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
         T('Kuulge, ma ei tea, kus ma olen. Igal pool on ainult puud.', 'Listen, I do not know where I am. There are only trees everywhere.'),
       ],
       answers: {
-        where: [T('Ma jätsin auto metsatee äärde, {address} kandis. Rohkem ei tea.', 'I left the car by the forest road near {address}. That is all I know.')],
+        where: [T('Ma jätsin auto metsatee äärde, lähim koht on {address}. Rohkem ei tea.', 'I left the car by the forest road near {address}. That is all I know.')],
         injured: [T('Jalg on märg ja külm, aga muidu olen terve.', 'My foot is wet and cold, but otherwise I am fine.')],
         when: [T('Läksin metsa kella kümne paiku hommikul.', 'I went into the forest around ten in the morning.')],
         safe: [T('Ma istun kännu peal, hakkab pimedaks minema.', 'I am sitting on a stump, it is getting dark.')],
@@ -591,7 +591,7 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
       ],
       answers: {
         count: [T('Meid on {n}.', 'There are {n} of us.')],
-        where: [T('Umbes kilomeeter kaldast, {address} kohal.', 'About a kilometre from shore, off {address}.')],
+        where: [T('Umbes kilomeeter kaldast, lähim koht kaldal on {address}.', 'About a kilometre from shore, off {address}.')],
         injured: [T('Keegi pole veel vette kukkunud, aga külm on.', 'Nobody has fallen in yet, but it is cold.')],
         safe: [T('Jää meie all on veel paks, aga serv praguneb.', 'The ice under us is still thick, but the edge is cracking.')],
       },
@@ -616,7 +616,7 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
     ],
     vehicles: [{ role: 'involved', kind: 'car', driverRole: 'missing' }],
     summary: [
-      T('{address}. {age}-aastane mees sõitis hommikul autoga {car} ({plate}) poodi ja ei ole tagasi tulnud. Telefon ei vasta, tal on mäluprobleemid.', '{address}. A {age}-year-old man drove to the shop this morning in a {car} ({plate}) and has not returned. His phone does not answer; he has memory problems.'),
+      T('{address}. {age}-aastane mees sõitis hommikul autoga poodi ja ei ole tagasi tulnud. Auto: {car}, {plate}. Telefon ei vasta, tal on mäluprobleemid.', '{address}. A {age}-year-old man drove to the shop this morning in a {car} ({plate}) and has not returned. His phone does not answer; he has memory problems.'),
       T('{address}. Tütar teatab: isa lahkus autoga kell {time}, pidi olema tagasi tunni ajaga. Tal on südamehaigus.', '{address}. His daughter reports: her father left by car at {time} and should have been back within an hour. He has a heart condition.'),
     ],
     callerLines: [

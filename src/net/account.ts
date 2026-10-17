@@ -1,25 +1,37 @@
 // Accounts and cloud saves (docs/SERVER.md). Guests never send anything beyond the health probe:
 // their progress stays in this browser exactly as before. While logged in, career and settings are
 // uploaded 2 s after the last change and the shift autosave at most every 30 s.
+// Sync never compares the browser's clock with the server's: every slot remembers the server version it
+// was last synced with (`base`) and whether it changed here since (`dirty`). Each upload names its base,
+// so a stale tab or device can never overwrite newer progress (the server answers 409 and this tab reads
+// the cloud again), and a tab re-reads the cloud when it becomes visible. Browser data that a cloud copy
+// replaces while it exists nowhere else (guest progress, unsynced changes) is kept in epd:backup.<slot>.
 // Failures never block the game: the cloud state turns 'error' and uploads retry with backoff.
 import { create } from 'zustand';
 import { useCareer } from '@/store/career';
 import { useSettings, type Settings } from '@/store/settings';
-import { autosave, autosaveHooks, clearAutosave, loadAutosave } from '@/store/game';
+import { autosave, autosaveHooks, clearAutosave, isValidSave, loadAutosave, shiftKeyOf, useGame } from '@/store/game';
 import type { CareerProfile, SimState, Text } from '@/sim/types';
-import { probeBackend, request, toApiError, type ApiError } from './api';
+import { apiHooks, bindUser, probeBackend, request, toApiError, type ApiError } from './api';
 import {
   backoffMs,
   dataOf,
+  isObj,
+  needsBackup,
+  num,
+  parseMeta,
   planSync,
   remoteSide,
   sameData,
   sanitizeSettings,
   SLOTS,
   validCareer,
+  type LocalSide,
+  type Meta,
   type SaveResponse,
   type Side,
   type Slot,
+  type SlotMeta,
 } from './sync';
 
 export interface AccountUser {
@@ -51,7 +63,7 @@ interface AccountStore {
   busy: boolean;
   error: AccountError | null;
   cloud: CloudState;
-  /** The server rejected our session while syncing (it expired): the player has to log in again. */
+  /** The server rejected our session while syncing (it expired, or another tab signed in as someone else). */
   sessionLost: boolean;
   /** Bumped whenever server data was written into the local stores (the menu re-reads the autosave). */
   pulls: number;
@@ -64,6 +76,13 @@ interface AccountStore {
   login: (name: string, password: string) => Promise<boolean>;
   /** Stop syncing (after a last best-effort upload) and end the server session. Local data stays. */
   logout: () => Promise<void>;
+  /**
+   * The player chose a guest, e-ID or 2024 login: end any account session, and never start one from a
+   * /api/me answer that is still on its way.
+   */
+  decline: () => void;
+  /** "Delete all data": like decline, and also ends a server session this tab is not syncing with. */
+  forget: () => Promise<void>;
   deleteAccount: (password: string) => Promise<boolean>;
   clearError: () => void;
   setIntent: (intent: AccountStore['intent']) => void;
@@ -74,6 +93,8 @@ const AUTOSAVE_INTERVAL_MS = 30_000;
 /** Browsers refuse keepalive bodies above 64 kB (all keepalive requests of a page together). */
 const KEEPALIVE_MAX_BYTES = 60_000;
 const LOGOUT_FLUSH_MS = 3000;
+/** Focus and visibilitychange usually fire together: one cloud check is enough. */
+const CHECK_MIN_MS = 1000;
 
 const toAccountError = (e: unknown): AccountError => {
   const err: ApiError = toApiError(e);
@@ -83,47 +104,59 @@ const toAccountError = (e: unknown): AccountError => {
 const isUser = (u: unknown): u is AccountUser =>
   typeof u === 'object' && u !== null && typeof (u as AccountUser).name === 'string' && (u as AccountUser).id !== undefined;
 
-// ── Local sync metadata (owner + per-slot change times) ─────────────────────
+/** The server no longer accepts this tab's session: it expired, or the cookie belongs to another account now. */
+const sessionGone = (err: ApiError) => err.status === 401 || (err.status === 409 && err.code === 'user_mismatch');
+
+// ── Local sync metadata ─────────────────────────────────────────────────────
 
 const META_KEY = 'epd:sync';
+/** Browser data that a cloud copy replaced while it existed nowhere else: `epd:backup.<slot>`. */
+export const BACKUP_PREFIX = 'epd:backup.';
 
-interface Meta {
-  /** Account the browser data was last synced with; null = guest data. */
-  owner: number | null;
-  /** When each slot last changed locally, or the server time of the copy we hold. 0 = unknown. */
-  updated: Record<Slot, number>;
-}
-
-function readMeta(): Meta {
-  const meta: Meta = { owner: null, updated: { career: 0, settings: 0, autosave: 0 } };
+function readStoredMeta(): Meta {
   try {
-    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(META_KEY) : null;
-    if (!raw) return meta;
-    const m = JSON.parse(raw) as Partial<Meta>;
-    if (typeof m.owner === 'number') meta.owner = m.owner;
-    for (const slot of SLOTS) {
-      const v = m.updated?.[slot];
-      if (typeof v === 'number' && Number.isFinite(v)) meta.updated[slot] = v;
-    }
+    return parseMeta(typeof localStorage !== 'undefined' ? localStorage.getItem(META_KEY) : null);
   } catch {
-    /* storage blocked or garbage: start fresh */
+    return parseMeta(null); // storage blocked
   }
-  return meta;
 }
 
-const meta = readMeta();
+/** This tab's view. Other tabs of the browser keep their own and write only the slots they change. */
+const meta: Meta = readStoredMeta();
 
-function writeMeta() {
+/**
+ * Write slot entries (and, when given, the signed-in account) into the stored metadata. The stored copy
+ * is read first, so the entries other tabs wrote for other slots stay. With `ifStored`, the slot is only
+ * written while the stored entry is still the one this tab wrote (an upload result must not overwrite the
+ * entry of a newer local change another tab made meanwhile).
+ */
+function saveMeta(slots: readonly Slot[], account?: number | null, ifStored?: SlotMeta) {
   try {
-    localStorage.setItem(META_KEY, JSON.stringify(meta));
+    const stored = readStoredMeta();
+    for (const slot of slots) {
+      if (ifStored && JSON.stringify(stored.slots[slot]) !== JSON.stringify(ifStored)) continue;
+      stored.slots[slot] = { ...meta.slots[slot] };
+    }
+    if (account !== undefined) stored.account = account;
+    localStorage.setItem(META_KEY, JSON.stringify({ v: 2, account: stored.account, slots: stored.slots }));
   } catch {
     /* storage blocked */
   }
 }
 
-function markLocal(slot: Slot, at = Date.now()) {
-  meta.updated[slot] = at;
-  writeMeta();
+function markLocal(slot: Slot) {
+  meta.slots[slot].dirty = true;
+  saveMeta([slot]);
+}
+
+/** Keep browser data that is about to be replaced. False when storage refused it. */
+function writeBackup(slot: Slot, data: unknown): boolean {
+  try {
+    localStorage.setItem(BACKUP_PREFIX + slot, JSON.stringify({ at: Date.now(), owner: meta.slots[slot].owner, data }));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ── Local snapshots ─────────────────────────────────────────────────────────
@@ -134,34 +167,22 @@ const careerData = () => {
 };
 const settingsData = () => dataOf(useSettings.getState());
 
-function localSide(slot: Slot): Side {
+function localSide(slot: Slot): LocalSide {
+  const { base, dirty } = meta.slots[slot];
   switch (slot) {
     case 'career':
-      return { data: useCareer.getState().profile ? careerData() : null, updated: meta.updated.career };
+      return { data: useCareer.getState().profile ? careerData() : null, base, dirty };
     case 'settings':
-      return { data: settingsData(), updated: meta.updated.settings };
+      return { data: settingsData(), base, dirty };
     case 'autosave':
-      return { data: loadAutosave(), updated: meta.updated.autosave };
+      return { data: loadAutosave(), base, dirty };
   }
 }
 
-function applyRemote(slot: Slot, side: Side) {
-  if (slot === 'career') {
-    const c = validCareer(side.data);
-    useCareer.setState({
-      profile: (c?.profile ?? null) as CareerProfile | null,
-      inbox: (c?.inbox ?? []) as Text[],
-    });
-  } else if (slot === 'settings') {
-    const patch = sanitizeSettings(side.data, settingsData());
-    if (Object.keys(patch).length) useSettings.getState().set(patch as Partial<Omit<Settings, 'set'>>);
-  } else if (side.data) {
-    autosave(side.data as unknown as SimState, { cloud: false });
-  } else {
-    clearAutosave({ cloud: false });
-  }
-  meta.updated[slot] = side.updated;
-  writeMeta();
+/** The browser's autosave is exactly `sim` (writing it can fail when storage is full). */
+function storedAutosaveIs(sim: SimState): boolean {
+  const s = loadAutosave();
+  return !!s && shiftKeyOf(s) === shiftKeyOf(sim) && s.now === sim.now;
 }
 
 // ── Sync engine ─────────────────────────────────────────────────────────────
@@ -170,6 +191,10 @@ interface Session {
   userId: number;
   /** The first GET /api/save was merged; uploads are allowed from now on. */
   ready: boolean;
+  /** The cloud read that is running, if any. */
+  merging: Promise<void> | null;
+  /** Another read was asked for while one was running. */
+  again: boolean;
 }
 
 let session: Session | null = null;
@@ -183,6 +208,8 @@ const failed = new Set<Slot | 'load'>();
 const failures: Record<Slot, number> = { career: 0, settings: 0, autosave: 0 };
 /** Bumped on every local change, to know whether an upload result is still the newest state. */
 const seq: Record<Slot, number> = { career: 0, settings: 0, autosave: 0 };
+/** Bumped when an upload moved a slot's base: a cloud read that started before must not undo it. */
+const epoch: Record<Slot, number> = { career: 0, settings: 0, autosave: 0 };
 /** Uploads of one slot run one after another. */
 const chains: Record<Slot, Promise<void>> = {
   career: Promise.resolve(),
@@ -194,6 +221,9 @@ let autosaveRaw: string | null | undefined;
 let lastAutosavePush = 0;
 let loadRetry: ReturnType<typeof setTimeout> | null = null;
 let loadFailures = 0;
+let lastCheck = 0;
+/** The player picked a guest, e-ID or 2024 login: a late /api/me answer must not start a session. */
+let declined = false;
 
 /** An upload of the slot is scheduled, queued or running. */
 const busySlot = (slot: Slot) => timers[slot] !== undefined || queued[slot] > 0;
@@ -228,6 +258,43 @@ function byteLength(s: string): number {
   return typeof TextEncoder !== 'undefined' ? new TextEncoder().encode(s).byteLength : s.length * 3;
 }
 
+/** Write a cloud copy into the browser (a pull). Data that exists nowhere else goes to the backup key first. */
+function applyRemote(slot: Slot, remote: Side, local: LocalSide, userId: number) {
+  if (needsBackup(local, remote)) writeBackup(slot, local.data);
+  // An upload still waiting for this slot would only send the cloud copy back.
+  clearTimer(slot);
+  if (slot === 'autosave') autosaveRaw = undefined;
+  let base = remote.updated;
+  if (slot === 'career') {
+    const c = validCareer(remote.data);
+    useCareer.setState({
+      profile: (c?.profile ?? null) as CareerProfile | null,
+      inbox: (c?.inbox ?? []) as Text[],
+    });
+  } else if (slot === 'settings') {
+    const patch = sanitizeSettings(remote.data, settingsData());
+    if (Object.keys(patch).length) useSettings.getState().set(patch as Partial<Omit<Settings, 'set'>>);
+  } else if (isValidSave(remote.data)) {
+    // Checked like a browser save: a copy from an older or newer client must not break the menu.
+    const sim = remote.data;
+    autosave(sim, { cloud: false });
+    if (!storedAutosaveIs(sim)) {
+      // Storage is full. The backup stays (it may be the only copy); the replaced shift makes room.
+      clearAutosave({ cloud: false });
+      autosave(sim, { cloud: false });
+      // Still no room: keep nothing that would look synced, and fetch the cloud copy again next time.
+      if (!storedAutosaveIs(sim)) {
+        clearAutosave({ cloud: false });
+        base = 0;
+      }
+    }
+  } else {
+    clearAutosave({ cloud: false });
+  }
+  meta.slots[slot] = { owner: userId, base, dirty: false };
+  saveMeta([slot]);
+}
+
 /** Upload one slot now. `keepalive` for page unload (skips the queue: the page is going away). */
 function flush(slot: Slot, keepalive = false): Promise<void> {
   clearTimer(slot);
@@ -249,17 +316,38 @@ function flush(slot: Slot, keepalive = false): Promise<void> {
       raw = JSON.stringify(slot === 'career' ? careerData() : settingsData());
     }
     const ka = keepalive && (raw === undefined || byteLength(raw) <= KEEPALIVE_MAX_BYTES);
+    // The server writes only while it still holds the version this copy builds on.
+    const before = { ...meta.slots[slot] };
     try {
-      const r = await request<{ updated?: unknown }>(method, `/save/${slot}`, undefined, { rawBody: raw, keepalive: ka });
+      const r = await request<{ updated?: unknown }>(method, `/save/${slot}?base=${before.base}`, undefined, {
+        rawBody: raw,
+        keepalive: ka,
+      });
       if (session !== s) return;
       failures[slot] = 0;
       failed.delete(slot);
-      if (seq[slot] === mySeq) markLocal(slot, typeof r?.updated === 'number' && r.updated > 0 ? r.updated : Date.now());
+      const m = meta.slots[slot];
+      const updated = num(r?.updated);
+      if (updated) {
+        m.base = updated;
+        epoch[slot]++;
+      }
+      m.owner = s.userId;
+      if (seq[slot] === mySeq) m.dirty = false;
+      saveMeta([slot], undefined, before);
     } catch (e) {
       if (session !== s) return;
       const err = toApiError(e);
-      if (err.status === 401) {
+      if (sessionGone(err)) {
         sessionLost();
+        return;
+      }
+      if (err.status === 409 && err.code === 'save_conflict') {
+        // Another tab or device saved this slot since our last sync: read the cloud again instead of
+        // overwriting it (the merge keeps whatever exists only here in the backup key).
+        failures[slot] = 0;
+        failed.delete(slot);
+        void resync(s);
         return;
       }
       failed.add(slot);
@@ -307,23 +395,46 @@ function flushWaiting(keepalive: boolean): Promise<void> {
   return Promise.all(jobs).then(() => undefined);
 }
 
+/** Read the cloud and merge it (one read at a time per session; a request during a read runs once more after it). */
+function resync(s: Session): Promise<void> {
+  if (s.merging) {
+    s.again = true;
+    return s.merging;
+  }
+  const run = async () => {
+    await Promise.resolve();
+    try {
+      do {
+        s.again = false;
+        await loadAndMerge(s);
+      } while (s.again && session === s);
+    } finally {
+      s.merging = null;
+    }
+  };
+  s.merging = run();
+  return s.merging;
+}
+
 async function loadAndMerge(s: Session): Promise<void> {
+  const epochs = { ...epoch };
   let res: SaveResponse;
   try {
     res = await request<SaveResponse>('GET', '/save');
   } catch (e) {
     if (session !== s) return;
     const err = toApiError(e);
-    if (err.status === 401) {
+    if (sessionGone(err)) {
       sessionLost();
       return;
     }
     failed.add('load');
     loadFailures++;
     refreshCloud();
+    if (loadRetry) clearTimeout(loadRetry);
     loadRetry = setTimeout(() => {
       loadRetry = null;
-      void loadAndMerge(s);
+      void resync(s);
     }, backoffMs(loadFailures));
     return;
   }
@@ -332,27 +443,40 @@ async function loadAndMerge(s: Session): Promise<void> {
   loadFailures = 0;
 
   const local = { career: localSide('career'), settings: localSide('settings'), autosave: localSide('autosave') };
-  const plan = planSync(res, local, { owner: meta.owner, userId: s.userId });
+  const owner = { career: meta.slots.career.owner, settings: meta.slots.settings.owner, autosave: meta.slots.autosave.owner };
+  const plan = planSync(res, local, { owner, userId: s.userId });
+  // A slot whose upload finished while the read was on its way is newer here than in this reply.
+  const fresh = (slot: Slot) => epoch[slot] === epochs[slot];
+  const before = SLOTS.map((slot) => JSON.stringify(meta.slots[slot]));
   let pulled = false;
   applying = true;
   try {
     for (const slot of SLOTS) {
-      if (plan[slot] !== 'pull') continue;
-      try {
-        applyRemote(slot, remoteSide(res, slot));
-        pulled = true;
-      } catch (err) {
-        console.warn(`[EPD] could not apply cloud save "${slot}"`, err);
+      if (!fresh(slot)) continue;
+      const remote = remoteSide(res, slot);
+      if (plan[slot] === 'pull') {
+        try {
+          applyRemote(slot, remote, local[slot], s.userId);
+          pulled = true;
+        } catch (err) {
+          console.warn(`[EPD] could not apply cloud save "${slot}"`, err);
+        }
+      } else {
+        // 'push' uploads on top of the version just read; 'none' means both sides already agree.
+        meta.slots[slot] = { owner: s.userId, base: remote.updated, dirty: plan[slot] === 'push' };
       }
     }
   } finally {
     applying = false;
   }
-  meta.owner = s.userId;
-  writeMeta();
+  // Only entries this merge changed: another tab may hold a newer entry for a slot that stayed as it was.
+  saveMeta(
+    SLOTS.filter((slot, i) => JSON.stringify(meta.slots[slot]) !== before[i]),
+    s.userId,
+  );
   s.ready = true;
   for (const slot of SLOTS) {
-    if (plan[slot] !== 'push') continue;
+    if (plan[slot] !== 'push' || !fresh(slot)) continue;
     if (slot === 'autosave') {
       const sim = loadAutosave();
       autosaveRaw = sim ? JSON.stringify(sim) : null;
@@ -363,8 +487,31 @@ async function loadAndMerge(s: Session): Promise<void> {
   refreshCloud();
 }
 
+/**
+ * The tab became visible or got focus: ask the server for its slot versions (a tiny request) and read
+ * the cloud again when another tab or device saved something, before the player can change anything here.
+ */
+async function checkCloud(): Promise<void> {
+  const s = session;
+  if (!s?.ready || s.merging || SLOTS.some(busySlot)) return;
+  const now = Date.now();
+  if (now - lastCheck < CHECK_MIN_MS) return;
+  lastCheck = now;
+  let res: unknown;
+  try {
+    res = await request<unknown>('GET', '/save?versions=1');
+  } catch (e) {
+    if (session === s && sessionGone(toApiError(e))) sessionLost();
+    return; // offline: the version check on the next upload still protects the cloud
+  }
+  if (session !== s || !isObj(res)) return;
+  const updated = isObj(res.updated) ? res.updated : {};
+  if (SLOTS.some((slot) => num(updated[slot]) !== meta.slots[slot].base)) await resync(s);
+}
+
 function endSession() {
   session = null;
+  bindUser(null);
   for (const slot of SLOTS) {
     clearTimer(slot);
     failures[slot] = 0;
@@ -385,11 +532,20 @@ function sessionLost() {
 
 async function startSession(user: AccountUser): Promise<void> {
   endSession();
-  const s: Session = { userId: Number(user.id), ready: false };
+  const s: Session = { userId: Number(user.id), ready: false, merging: null, again: false };
   session = s;
+  bindUser(s.userId);
+  // Tell the other tabs which account this browser is signed in to now (one that syncs another account stops).
+  saveMeta([], s.userId);
   useAccount.setState({ user, error: null, sessionLost: false });
   refreshCloud();
-  await loadAndMerge(s);
+  await resync(s);
+}
+
+/** A guest, e-ID or 2024 login was chosen (here or in a game started from it). */
+function accountDeclined(): boolean {
+  const gu = useGame.getState().user;
+  return declined || (gu !== null && gu.method !== 'account');
 }
 
 // ── Store ───────────────────────────────────────────────────────────────────
@@ -419,7 +575,14 @@ export const useAccount = create<AccountStore>()((set, get) => ({
       if (get().user) return;
       try {
         const r = await request<{ user?: unknown }>('GET', '/me');
-        if (isUser(r.user) && !get().user) await startSession(r.user);
+        if (!isUser(r.user) || get().user) return;
+        if (accountDeclined()) {
+          // The player chose to play without this account while /me was on its way: end that session
+          // instead of syncing a guest's game into someone's account.
+          void request('POST', '/logout', {}).catch(() => {});
+          return;
+        }
+        await startSession(r.user);
       } catch {
         /* no session or no answer: stay a guest */
       }
@@ -438,10 +601,31 @@ export const useAccount = create<AccountStore>()((set, get) => ({
     if (s.ready) await Promise.race([flushWaiting(false), new Promise((r) => setTimeout(r, LOGOUT_FLUSH_MS))]);
     if (session !== s) return; // someone logged in again meanwhile: that login replaced the server session
     endSession();
+    // The server session ends for every tab of this browser: the others stop syncing as well.
+    saveMeta([], null);
     try {
       await request('POST', '/logout', {});
     } catch {
       /* the cookie expires on its own */
+    }
+  },
+
+  decline: () => {
+    declined = true;
+    if (session || get().user) void get().logout();
+  },
+
+  forget: async () => {
+    declined = true;
+    const had = session !== null;
+    await get().logout();
+    // A cookie this tab never synced with (e.g. /me failed) is ended too.
+    if (!had && get().backend !== 'offline') {
+      try {
+        await request('POST', '/logout', {});
+      } catch {
+        /* nothing to end */
+      }
     }
   },
 
@@ -450,8 +634,9 @@ export const useAccount = create<AccountStore>()((set, get) => ({
     try {
       await request('DELETE', '/me', { password });
       endSession();
-      meta.owner = null; // what stays in this browser is guest data again
-      writeMeta();
+      // What stays in this browser is guest data again, found nowhere else.
+      for (const slot of SLOTS) meta.slots[slot] = { owner: null, base: 0, dirty: true };
+      saveMeta(SLOTS, null);
       set({ user: null, sessionLost: false });
       return true;
     } catch (e) {
@@ -470,6 +655,7 @@ async function authenticate(path: '/login' | '/register', name: string, password
   const st = useAccount.getState();
   if (st.busy) return false;
   useAccount.setState({ busy: true, error: null });
+  declined = false; // an explicit account login
   try {
     if (st.backend !== 'online') {
       await st.init();
@@ -488,6 +674,10 @@ async function authenticate(path: '/login' | '/register', name: string, password
 }
 
 // ── Wiring (browser only) ───────────────────────────────────────────────────
+
+apiHooks.onUserMismatch = () => {
+  if (session) sessionLost();
+};
 
 useCareer.subscribe((s, prev) => {
   if (s.profile !== prev.profile || s.inbox !== prev.inbox) onLocalChange('career');
@@ -525,7 +715,15 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     if (session?.ready) void flushWaiting(true);
   });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden' && session?.ready) void flushWaiting(true);
+    if (!session?.ready) return;
+    if (document.visibilityState === 'hidden') void flushWaiting(true);
+    else void checkCloud();
+  });
+  window.addEventListener('focus', () => void checkCloud());
+  // Another tab signed in as someone else, signed out or cleared the data: this tab stops writing.
+  window.addEventListener('storage', (e) => {
+    if (!session || (e.key !== META_KEY && e.key !== null)) return;
+    if (parseMeta(e.key === null ? null : e.newValue).account !== session.userId) sessionLost();
   });
   // Probe early (during the boot screen) so the login screen knows whether accounts exist.
   void useAccount.getState().init();

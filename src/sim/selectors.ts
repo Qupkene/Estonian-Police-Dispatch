@@ -5,7 +5,9 @@ import { regionOf, tplOf } from './internal';
 import { isHidden, openIncidentIds, workBlocked, workProgress as incWorkProgress } from './incidents';
 import { sunAltitude, sunTimes } from './sun';
 import { MIN } from './time';
-import { coverage, typeFits, unitEta, unitPosAt } from './units';
+import { haversineKm } from './geo';
+import { slaFor } from './scoring';
+import { boatCanReach, coverage, ferryMinutes, typeFits, unitEta, unitPosAt, unitZoneNow } from './units';
 import type { Incident, IncidentTemplate, LngLat, RadioMsg, RegionDef, SimState, Text, Unit, UnitNeed } from './types';
 
 export interface Recommendation {
@@ -14,6 +16,12 @@ export interface Recommendation {
   km: number;
   fit: 'ideal' | 'need' | 'weak' | 'unavailable' | 'unreachable';
   reason?: Text;
+  /**
+   * Never the automatic pick (D key, the big "Saada" button, "Saada abi"): a specialist on a
+   * routine call, a unit beyond the remaining need, or one that would have to take a ferry. The
+   * player can still pick it by hand.
+   */
+  manual?: boolean;
 }
 
 const T = (et: string, en: string): Text => ({ et, en });
@@ -45,6 +53,9 @@ export function queue(s: SimState): Incident[] {
 
 const FIT_RANK: Record<Recommendation['fit'], number> = { ideal: 0, need: 1, weak: 2, unavailable: 3, unreachable: 4 };
 
+/** Unit types that should not be burned on general calls (only when explicitly needed). */
+export const SPECIALIST: readonly Unit['type'][] = ['special', 'heli', 'criminal', 'boat', 'transport'];
+
 const UNAVAILABLE_REASON: Partial<Record<Unit['status'], Text>> = {
   onscene: T('Teisel sündmuskohal', 'At another scene'),
   transport: T('Transpordib kinnipeetut', 'Transporting a detainee'),
@@ -58,10 +69,27 @@ function remaining(s: SimState, inc: Incident, needs: UnitNeed[]): UnitNeed[] {
   return coverage(types, needs).missing;
 }
 
-/** Ranked units for an incident (fit vs need/ideal, then ETA); busy units last as 'unavailable'. */
+/**
+ * Time budget the dispatcher works with: the SLA of the priority shown on the card (the true
+ * priority, and so `slaMin`, may still be hidden from the player).
+ */
+function budgetMin(s: SimState, inc: Incident): number {
+  return inc.priority === inc.truePriority ? inc.slaMin : slaFor(s, inc, inc.priority);
+}
+
+/**
+ * Ranked units for an incident, the way a dispatcher would choose:
+ * 1. fit: 'ideal' (fills a remaining need slot and is the type the event ideally wants), 'need'
+ *    (fills a remaining need slot), 'weak' (adds nothing to the remaining need, a specialist on a
+ *    routine call, or across a ferry), then 'unavailable' and 'unreachable';
+ * 2. effective ETA: the drive time plus a penalty for pulling a unit off a less urgent job or a
+ *    break, so a crew next door on a P4 beats a free crew an hour away.
+ * An 'ideal' unit much further away than the nearest adequate one drops to 'need'.
+ */
 export function recommendUnits(s: SimState, incidentId: string): Recommendation[] {
   const inc = s.incidents[incidentId];
   if (!inc) return [];
+  const region = regionOf(s);
   const siren = Math.min(inc.priority, inc.truePriority) <= 2;
   const tpl = tplOf(inc);
   const backupBeat = inc.beats.find((b) => b.status === 'active' && tpl?.beats?.[b.index]?.kind === 'backup');
@@ -69,9 +97,16 @@ export function recommendUnits(s: SimState, incidentId: string): Recommendation[
   const needLeft = remaining(s, inc, inc.need);
   const idealLeft = inc.ideal.length ? remaining(s, inc, inc.ideal) : [];
   const out: Recommendation[] = [];
+  /** Recommendations that need a ferry crossing, with the zone the unit is in now. */
+  const ferry = new Map<Recommendation, string>();
   for (const id of s.unitOrder) {
     const u = s.units[id];
     if (!u || u.status === 'offduty' || inc.assigned.includes(u.id)) continue;
+    if (u.type === 'boat' && !boatCanReach(s, u, inc)) {
+      const km = haversineKm(unitPosAt(u, s.now).pos, inc.location.coord);
+      out.push({ unit: u, etaMin: Infinity, km, fit: 'unreachable', reason: T('Veesõidukiga kättesaamatu', 'Unreachable by boat') });
+      continue;
+    }
     const eta = unitEta(s, u, inc.location.coord, inc.location.zone, siren);
     const km = eta?.km ?? 0;
     if (!eta) {
@@ -95,39 +130,87 @@ export function recommendUnits(s: SimState, incidentId: string): Recommendation[
       });
       continue;
     }
-    let fit: Recommendation['fit'];
     const specialist = SPECIALIST.includes(u.type);
-    if (bkNeed && typeFits(bkNeed.type, u.type)) fit = bkNeed.type === u.type || !specialist ? (bkNeed.type === u.type ? 'ideal' : 'need') : 'weak';
-    else if (idealLeft.some((n) => n.type === u.type)) fit = 'ideal';
-    else if (needLeft.some((n) => n.type === u.type)) fit = 'need';
-    else if (needLeft.some((n) => typeFits(n.type, u.type))) fit = specialist ? 'weak' : 'need';
-    else fit = 'weak';
-    let reason: Text | undefined;
-    if (u.status === 'enroute') reason = T('Teel teisele sündmusele, suunatakse ümber', 'En route to another event, will be reassigned');
-    else if (u.status === 'break') reason = T('Pausil, paus katkestatakse', 'On break, break will be interrupted');
-    else if (u.onCall && !u.move) reason = T('Valves baasis, väljub 5 min jooksul', 'On call at base, departs within 5 min');
-    else if (u.fatigue > 0.8) reason = T('Väga väsinud', 'Very tired');
-    if ((u.status === 'enroute' || u.status === 'break') && fit === 'ideal') fit = 'need';
-    out.push({ unit: u, etaMin: eta.etaMin, km, fit, reason });
+    const idealType = idealLeft.some((n) => n.type === u.type);
+    let fit: Recommendation['fit'];
+    let why: Text | undefined;
+    if (bkNeed && typeFits(bkNeed.type, u.type)) {
+      fit = bkNeed.type === u.type ? 'ideal' : specialist ? 'weak' : 'need';
+      if (fit === 'weak') why = T('Eriüksus, ei sobi tavaväljakutsele', 'Specialist unit, not for routine calls');
+    } else if (needLeft.length) {
+      if (!needLeft.some((n) => typeFits(n.type, u.type))) {
+        // An ideal-only type (investigator, helicopter) or another type that cannot fill a slot:
+        // it helps once the basic need is covered, not instead of it.
+        fit = 'weak';
+        why =
+          specialist && !idealType
+            ? T('Eriüksus, ei sobi tavaväljakutsele', 'Specialist unit, not for routine calls')
+            : T('Täiendav üksus, ei kata põhivajadust', 'Additional unit, does not cover the basic need');
+      } else if (idealType) fit = 'ideal';
+      else if (needLeft.some((n) => n.type === u.type)) fit = 'need';
+      else if (specialist) {
+        fit = 'weak';
+        why = T('Eriüksus, ei sobi tavaväljakutsele', 'Specialist unit, not for routine calls');
+      } else fit = 'need';
+    } else if (idealType) fit = 'ideal';
+    else {
+      fit = 'weak';
+      why = T('Vajadus on juba kaetud', 'The need is already covered');
+    }
+    let reason: Text | undefined = why;
+    if (!reason) {
+      if (u.status === 'enroute') reason = T('Teel teisele sündmusele, suunatakse ümber', 'En route to another event, will be reassigned');
+      else if (u.status === 'break') reason = T('Pausil, paus katkestatakse', 'On break, break will be interrupted');
+      else if (u.onCall && !u.move) reason = T('Valves baasis, väljub 5 min jooksul', 'On call at base, departs within 5 min');
+      else if (u.fatigue > 0.8) reason = T('Väga väsinud', 'Very tired');
+    }
+    const r: Recommendation = { unit: u, etaMin: eta.etaMin, km, fit, reason };
+    if (fit === 'weak' && (specialist || !needLeft.length)) r.manual = true;
+    if (u.type !== 'heli' && u.type !== 'boat') {
+      const zone = unitZoneNow(s, u);
+      if ((ferryMinutes(region, zone, inc.location.zone) ?? 0) > 0) ferry.set(r, zone);
+    }
+    out.push(r);
   }
+  // Across a ferry: hours away, and it strips the island (or the mainland) of a crew. Only a P1 on
+  // an island with no adequate local unit free gets a mainland crew sent over automatically.
+  if (ferry.size) {
+    const localOk = out.some((r) => (r.fit === 'ideal' || r.fit === 'need') && !ferry.has(r));
+    for (const [r, zone] of ferry) {
+      if (r.fit === 'ideal' || r.fit === 'need') {
+        const sendOver = inc.priority === 1 && !localOk && zone === 'mainland' && inc.location.zone !== 'mainland';
+        if (sendOver) {
+          r.fit = 'need';
+          r.reason = T('Praamiga, kohalikku vaba üksust pole', 'By ferry, no local unit free');
+          continue;
+        }
+        r.fit = 'weak';
+      }
+      r.manual = true;
+      r.reason = T('Teises tsoonis (praam)', 'Other zone (ferry)');
+    }
+  }
+  // Effective ETA: drive time plus the cost of pulling a unit off a less urgent job or a break.
+  const budget = budgetMin(s, inc);
+  const pen = Math.max(3, budget * 0.2);
+  const eff = (r: Recommendation) => r.etaMin + (r.unit.status === 'available' ? 0 : pen);
   // An "ideal" unit far away is worse than an adequate one close by: demote it.
   let nearest = Infinity;
-  for (const r of out) if ((r.fit === 'ideal' || r.fit === 'need') && r.etaMin < nearest) nearest = r.etaMin;
-  const slack = Math.max(8, inc.slaMin * 0.5);
+  for (const r of out) if ((r.fit === 'ideal' || r.fit === 'need') && eff(r) < nearest) nearest = eff(r);
+  const slack = Math.max(5, budget * 0.25);
   for (const r of out) {
-    if (r.fit === 'ideal' && r.etaMin > nearest + slack) {
+    if (r.fit === 'ideal' && eff(r) > nearest + slack) {
       r.fit = 'need';
       r.reason = r.reason ?? T('Sobiv üksus, kuid kaugel', 'Suitable unit, but far away');
     }
   }
-  return out.sort((a, b) => FIT_RANK[a.fit] - FIT_RANK[b.fit] || availRank(a.unit) - availRank(b.unit) || a.etaMin - b.etaMin);
+  return out.sort((a, b) => FIT_RANK[a.fit] - FIT_RANK[b.fit] || Number(!!a.manual) - Number(!!b.manual) || eff(a) - eff(b) || 0);
 }
 
-/** Unit types that should not be burned on general calls (only when explicitly needed). */
-const SPECIALIST: Unit['type'][] = ['special', 'heli', 'criminal', 'boat', 'transport'];
-
-function availRank(u: Unit): number {
-  return u.status === 'available' ? 0 : 1;
+/** Recommendations the D key / "Saada" may send on its own: fit for the job and not hand-pick only. */
+export function autoPickable(r: Recommendation): boolean {
+  if (r.manual) return false;
+  return r.fit === 'ideal' || r.fit === 'need' || (r.fit === 'weak' && !SPECIALIST.includes(r.unit.type));
 }
 
 export function unitPos(_s: SimState, u: Unit, t?: number): { pos: LngLat; heading: number } {

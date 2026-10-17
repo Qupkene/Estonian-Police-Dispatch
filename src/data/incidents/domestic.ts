@@ -28,7 +28,7 @@ const aggressorChoice = (at: number, radio: Text[]) =>
         T('Pidage kinni kahtlustatavana', 'Detain as a suspect'),
         T(
           '{callsign}, juhtimine. Pidage kinni ja toimetage arestimajja.',
-          '{callsign}, Control. Detain and take him to the detention house.',
+          '{callsign}, Control. Detain and take him to the arrest house.',
         ),
         {
           success: 0.1,
@@ -194,7 +194,7 @@ export const TEMPLATES_DOMESTIC: IncidentTemplate[] = [
         3,
         T(
           'Vägivallatseja peeti kinni ja toimetati arestimajja. Alustati kriminaalmenetlust KarS § 121 järgi, kannatanut nõustati ohvriabi võimalustest.',
-          'The abuser was detained and taken to the detention house. Criminal proceedings opened under KarS § 121; the victim was advised about victim support.',
+          'The abuser was detained and taken to the arrest house. Criminal proceedings opened under KarS § 121; the victim was advised about victim support.',
         ),
         { arrests: 1, trust: 3 },
       ),
@@ -633,7 +633,7 @@ export const TEMPLATES_DOMESTIC: IncidentTemplate[] = [
         3,
         T(
           'Mees peeti kinni ja toimetati arestimajja. Alustati kriminaalmenetlust KarS § 121 järgi, täideti riskihindamise küsimustik.',
-          'The man was detained and taken to the detention house. Criminal proceedings opened under KarS § 121 and a risk assessment questionnaire was completed.',
+          'The man was detained and taken to the arrest house. Criminal proceedings opened under KarS § 121 and a risk assessment questionnaire was completed.',
         ),
         { arrests: 1, trust: 3 },
       ),
@@ -666,7 +666,7 @@ export const TEMPLATES_DOMESTIC: IncidentTemplate[] = [
       toPriority: 1,
       text: T(
         'Häirekeskus: kõne katkes, viimati oli kuulda ukse murdmist.',
-        'Emergency centre: the call dropped; the last thing heard was the door being broken.',
+        'ERC: the call dropped; the last thing heard was the door being broken.',
       ),
     },
     interactiveChance: 0.35,
@@ -970,7 +970,7 @@ export const TEMPLATES_DOMESTIC: IncidentTemplate[] = [
         ),
       ],
       answers: {
-        name: [
+        suspect: [
           T(
             'Ta on mu endine elukaaslane, kohus andis keelu kevadel.',
             'He is my ex-partner, the court gave the order in spring.',
@@ -1775,7 +1775,7 @@ export const TEMPLATES_DOMESTIC: IncidentTemplate[] = [
         3,
         T(
           'Mees peeti kinni ja toimetati arestimajja. Alustati kriminaalmenetlust KarS § 121 järgi.',
-          'The man was detained and taken to the detention house. Criminal proceedings opened under KarS § 121.',
+          'The man was detained and taken to the arrest house. Criminal proceedings opened under KarS § 121.',
         ),
         { arrests: 1, trust: 2 },
       ),

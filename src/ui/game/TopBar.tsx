@@ -144,7 +144,8 @@ export function TopBar() {
             aria-pressed={realtime}
           >
             <Icon name="clock" size={13} />
-            {t('game.speed.realtime')}
+            {/* In a span so the phone layout can hide the label and keep only the clock icon. */}
+            <span>{t('game.speed.realtime')}</span>
           </button>
         )}
       </div>

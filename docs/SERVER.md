@@ -67,6 +67,8 @@ Relay VPS: Caddy site `politsei.eu` (and `www.politsei.eu` redirecting to it) �
 All bodies are JSON (`Content-Type: application/json`). Session cookie `EPDSESS` (HttpOnly,
 SameSite=Lax, Secure when the request came over HTTPS via the relay). Every state-changing request
 (POST, PUT, DELETE) must carry the header `X-EPD: 1`, otherwise 403 (simple CSRF guard).
+A logged-in client also sends `X-EPD-User: <its account id>`; routes that need a login answer
+409 `user_mismatch` when the session cookie belongs to another account (see 4.1).
 Errors: `{ "error": "<code>", "message": "<Estonian text>" }` with a fitting status.
 
 | Method | Path | Body | Response |
@@ -77,16 +79,17 @@ Errors: `{ "error": "<code>", "message": "<Estonian text>" }` with a fitting sta
 | POST | /api/login | `{ name, password }` | `{ user }`; 401 wrong, 429 too many |
 | POST | /api/logout | | `{ ok: true }` |
 | DELETE | /api/me | `{ password }` | `{ ok: true }` (deletes the account and all its data) |
-| GET | /api/save | | `{ career, settings, autosave, updated: { career?, settings?, autosave? } }` (null when missing, unix ms) |
-| PUT | /api/save/{slot} | any JSON object | `{ ok: true, updated }`; slot is `career`, `settings` or `autosave`; 413 when too big |
-| DELETE | /api/save/{slot} | | `{ ok: true }` |
+| GET | /api/save | | `{ career, settings, autosave, updated: { career?, settings?, autosave? } }` (null when missing or deleted; `updated` = the slot's version, unix ms) |
+| GET | /api/save?versions=1 | | `{ updated: { career?, settings?, autosave? } }` (versions only) |
+| PUT | /api/save/{slot}?base= | any JSON object | `{ ok: true, updated }`; slot is `career`, `settings` or `autosave`; 413 when too big; 409 `save_conflict` when `base` is not the stored version |
+| DELETE | /api/save/{slot}?base= | | `{ ok: true, updated }` (keeps a deletion marker); 409 `save_conflict` as for PUT |
 | POST | /api/score | `{ regionId, mode, difficulty, score, grade, incidents, arrests, start }` | `{ ok: true, rank }` (logged-in users only) |
 | GET | /api/scores?region=&limit= | | `{ scores: [{ name, score, grade, regionId, difficulty, incidents, at }] }` best per user |
 | POST | /api/deploy-hook | GitHub webhook | 202 `{ queued: sha }` or 200 `{ ignored: reason }` |
 
 Rules:
 
-- Names: 3 to 24 characters, letters (including õäöüšž), digits, `_`, `.`, `-`; case-insensitive unique.
+- Names: 3 to 24 characters, Latin letters (including õäöüšž), digits, `_`, `.`, `-`; case-insensitive unique.
 - Passwords: at least 8 characters, stored with `password_hash` (argon2id when available, else bcrypt).
 - Login/register rate limit: 10 attempts per 15 minutes per IP and name, 40 per IP.
 - Save size limits: `autosave` 4 MB, `career` and `settings` 512 kB.
@@ -95,7 +98,7 @@ Rules:
 
 ### 4.1 API details (as implemented in `server/`)
 
-These refine the table above; nothing in it changed.
+These refine the table above.
 
 General:
 
@@ -125,6 +128,11 @@ Accounts and sessions:
   before the password, so a blocked IP gets 429 even with the right password.
 - `DELETE /api/me`: 401 `auth_required` when not logged in, 400 `password_required` without a password,
   403 `wrong_password` for a wrong one (the session stays valid).
+- `X-EPD-User`: every route that needs a login (saves, `POST /api/score`, `DELETE /api/me`) compares the
+  header, when sent, with the session's account and answers 409 `user_mismatch` when they differ. The
+  cookie is shared by all tabs of a browser, so after another tab logged in as someone else, a tab that
+  still syncs the first account cannot write into the second one. Without the header nothing is checked.
+  The client treats `user_mismatch` like 401: that tab stops syncing and asks to log in again.
 - Session cookie `EPDSESS`, `Path=/`, 30 day idle expiry: the cookie and the server-side stamp are
   refreshed at most once an hour while the player is active. Session files live in `EPD_DATA/sessions`.
   Guests never get a session cookie; an unknown or expired cookie is cleared. A new session id is issued
@@ -133,12 +141,44 @@ Accounts and sessions:
 Saves:
 
 - All save routes need a login: 401 `auth_required`.
+- Versions: every write of a slot stores `updated` = server time in unix ms, but always at least the
+  previous version + 1, so versions of a slot strictly grow (two writes in one millisecond differ).
 - `GET /api/save`: `updated` only has keys for slots that exist, e.g.
   `{ "career": {...}, "settings": null, "autosave": null, "updated": { "career": 1760000000000 } }`.
-  Slot contents come back byte for byte as they were stored.
+  Slot contents come back byte for byte as they were stored. A deleted slot comes back as `null` with
+  its version in `updated` (the deletion marker). `?versions=1` answers only `{ "updated": {...} }`.
 - `PUT /api/save/{slot}`: 400 `bad_slot` (unknown slot), 400 `not_object` (not starting with `{`),
-  400 `bad_json` (invalid JSON), 413 `too_large`. The reply's `updated` is the server time stored for
-  the slot. `DELETE` of a missing slot is fine.
+  400 `bad_json` (invalid JSON), 413 `too_large`. The reply's `updated` is the slot's new version.
+- `DELETE /api/save/{slot}` does not remove the row: it stores the JSON `null` with a new version and
+  answers `{ ok: true, updated }`, so other devices learn about the deletion instead of uploading their
+  old copy again. Deleting a missing slot is fine (it gets a marker too).
+- `?base=<version>` on PUT and DELETE: the version the client's copy builds on (`0` = "the server has no
+  such slot"). The write only happens when the stored version (0 for a missing row) still equals it,
+  else 409 `save_conflict` with `updated` = the stored version, and nothing is written. Check and write
+  run in one `BEGIN IMMEDIATE` transaction. Without `base` the write is unconditional (older clients).
+  400 `bad_base` when `base` is not a plain non-negative integer.
+
+Cloud sync in the client (`src/net/account.ts`, decisions in `src/net/sync.ts`):
+
+- No clock is compared with the server's. Per slot, localStorage `epd:sync` keeps the account the data
+  was last synced with (`owner`), the server version it was last synced with (`base`) and whether it
+  changed in this browser since (`dirty`). Format: `{ v: 2, account, slots: { career: { owner, base,
+  dirty }, ... } }`; `account` is the account this browser is signed in to. Format 1 (`{ owner, updated }`)
+  is read as "changed on top of that version".
+- On login and whenever the tab becomes visible or gets focus (a `?versions=1` check first, the full read
+  only when a version moved), the client reads the cloud and decides per slot: the server still has
+  `base` → upload when dirty; the server has a newer version → take it; the server's version is older
+  than `base` (row gone, or a restored database) → upload. Guest data, or data last synced with another
+  account, never overwrites a cloud slot: it only fills slots that are empty or deleted.
+- Uploads send `?base=`; on 409 `save_conflict` the tab reads the cloud again instead of overwriting.
+  When both sides changed, the cloud copy wins.
+- Browser data that a cloud copy replaces while it exists nowhere else (guest progress, unsynced changes)
+  is first copied to `epd:backup.<slot>` as `{ at, owner, data }`.
+- A tab stops syncing when another tab of the browser signs in to another account, signs out or clears
+  the data (a `storage` event on `epd:sync`), or when the server answers `user_mismatch`.
+- Choosing a guest, e-ID or 2024 login ends an open session and keeps a late `/api/me` answer from
+  starting one. "Delete all data" in Settings signs out (after the last uploads) before it clears the
+  browser, so the reload does not pull the cloud data back.
 
 Leaderboard:
 

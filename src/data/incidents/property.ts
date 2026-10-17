@@ -280,7 +280,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     outcomes: [
       oc('arrest', 2, 'arrest', 'Naabri kirjelduse järgi peeti kinni kahtlustatav, osa varast leiti tema kotist. Kriminaalmenetlus KarS § 199 lg 2 järgi.', 'Based on the neighbour’s description a suspect was detained; part of the property was found in his bag. Criminal proceedings under KarS § 199(2).', { min: 0.7, arrests: 1, trust: 5 }),
       oc('report', 3, 'report', 'Sündmuskoht vaadeldi, jäljed fikseeriti. Kriminaalmenetlus KarS § 199 lg 2 järgi, kahju u 3 200 €.', 'The scene was examined and traces secured. Criminal proceedings under KarS § 199(2), damage about €3,200.', { min: 0.3 }),
-      oc('scene_spoiled', 2, 'report', 'Sündmuskoht oli enne patrulli saabumist rikutud ja jälgi ei õnnestunud fikseerida. Kriminaalmenetlus alustati, kahtlustatavat ei ole.', 'The scene had been disturbed before the patrol arrived and no traces could be secured. Proceedings opened, no suspect.', { max: 0.4, trust: -2 }),
+      oc('scene_spoiled', 2, 'report', 'Sündmuskoht oli enne patrulli saabumist rikutud ja jälgi ei õnnestunud fikseerida. Alustati kriminaalmenetlust, kahtlustatavat ei ole.', 'The scene had been disturbed before the patrol arrived and no traces could be secured. Proceedings opened, no suspect.', { max: 0.4, trust: -2 }),
       oc('locksmith', 0.4, 'unfounded', 'Selgus, et ühistu lukksepp avas ukse veeavarii tõttu ja ehted oli tütar enda juurde viinud. Kuritegu ei toimunud.', 'It turned out the housing association’s locksmith had opened the door because of a water leak, and the daughter had taken the jewellery. No crime occurred.'),
     ],
     expiresMin: 240,
@@ -329,7 +329,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
       oc('acquaintance', 2, 'arrest', 'Kahtlustatavaks osutus eakale küttepuid toonud tuttav, kes tunnistas vargust. Raha tagastati osaliselt. Kriminaalmenetlus KarS § 199 lg 2 järgi.', 'The suspect turned out to be the acquaintance who brought her firewood; he admitted the theft. Part of the money was returned. Criminal proceedings under KarS § 199(2).', { min: 0.65, arrests: 1, trust: 5 }),
       oc('report', 3, 'report', 'Kriminaalmenetlus KarS § 199 lg 2 järgi. Pangakaart suleti, eakale anti nõu uste lukustamiseks ja piirkonnapolitseinik külastab teda.', 'Criminal proceedings under KarS § 199(2). The bank card was blocked; she was advised to lock her doors and the district officer will visit her.', { min: 0.3, max: 0.85 }),
       oc('confusion', 1, 'referred', 'Selgus, et asju tõstis ümber eaka tütar ja raha oli teises kapis. Kuritegu ei tuvastatud, sotsiaaltöötajat teavitati eaka toimetulekust.', 'It turned out her daughter had moved things around and the money was in another cupboard. No crime found; the social worker was informed about her coping.'),
-      oc('late', 1, 'report', 'Patrull jõudis kohale hilinemisega, eakas oli vahepeal jäljed ära koristanud. Kriminaalmenetlus alustati, tõendeid napib.', 'The patrol arrived late and she had tidied away any traces in the meantime. Proceedings opened, but evidence is thin.', { max: 0.35, trust: -3 }),
+      oc('late', 1, 'report', 'Patrull jõudis kohale hilinemisega, eakas oli vahepeal jäljed ära koristanud. Alustati kriminaalmenetlust, tõendeid napib.', 'The patrol arrived late and she had tidied away any traces in the meantime. Proceedings opened, but evidence is thin.', { max: 0.35, trust: -3 }),
     ],
     expiresMin: 180,
     interactiveChance: 0.35,
@@ -687,7 +687,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     vehicles: [{ role: 'suspect', kind: 'car', stolen: 0.5, noInsurance: 0.3, driverRole: 'suspect' }],
     summary: [
       T('{place}, {address}. Maskides mehed peksid töötaja läbi ja varastasid kassa. Juhtum salvestati turvakaamerasse.', '{place}, {address}. Masked men beat up the employee and stole the till. The incident was caught on CCTV.'),
-      T('{place}, {address}. Tankla töötaja on vigastatud, kaks maskis meest lahkusid autoga {car} {direction}.', '{place}, {address}. The station attendant is injured; two masked men left in a {car} {direction}.'),
+      T('{place}, {address}. Tankla töötaja on vigastatud, kaks maskis meest lahkusid autoga {direction}. Auto: {car}.', '{place}, {address}. The station attendant is injured; two masked men left in a {car} {direction}.'),
     ],
     callerLines: [
       T('Nad lõid mind maha ja võtsid kassa… mul jookseb peast verd.', 'They knocked me down and took the till… my head is bleeding.'),
@@ -817,7 +817,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
       mood: 'calm',
       opening: [
         T('Tere, kaupluse turvatöötaja. Meil on poevaras kinni peetud.', 'Hello, store security here. We’re holding a shoplifter.'),
-        T('Tere, siin {place} turva. Pidasime kinni mehe, kes üritas alkoholi maksmata välja viia.', 'Hello, {place} security. We’ve detained a man who tried to walk out with alcohol without paying.'),
+        T('Tere, helistan kaupluse turvast. Pidasime kinni mehe, kes üritas alkoholi maksmata välja viia.', 'Hello, store security here. We’ve detained a man who tried to walk out with alcohol without paying.'),
       ],
       answers: {
         what: [T('Pani kaks pudelit konjakit kotti ja kõndis kassadest mööda.', 'He put two bottles of cognac in his bag and walked past the tills.')],
@@ -930,7 +930,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     vehicles: [{ role: 'suspect', kind: 'van', stolen: 0.15, noInsurance: 0.25, noInspection: 0.3, suspended: 0.1, driverRole: 'suspect' }],
     summary: [
       T('{address}. Teataja kuuleb parklas nurgalihvija häält, kaks meest on ühe auto all. Läheduses seisab kaubik {plate}.', '{address}. The caller hears an angle grinder in the car park; two men are under a car. A van, {plate}, is parked nearby.'),
-      T('{address}. Öösel saetakse autodelt katalüsaatoreid. Kahtlustatavad liiguvad kaubikuga {car}.', '{address}. Catalytic converters are being cut off cars overnight. The suspects are using a {car}.'),
+      T('{address}. Öösel saetakse autodelt katalüsaatoreid. Kahtlustatavate sõiduk: {car}.', '{address}. Catalytic converters are being cut off cars overnight. The suspects are using a {car}.'),
     ],
     callerLines: [
       T('Keegi saeb all parklas, sädemed lendavad auto alt! Kell on kolm öösel!', 'Someone’s sawing down in the car park, sparks flying from under a car! It’s three in the morning!'),
@@ -1146,7 +1146,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     ],
     vehicles: [{ role: 'victim', kind: 'van' }],
     summary: [
-      T('{address}. Purjus mees lõhub parklas kaubiku {plate} aknaid ja peegleid. {suspect}.', '{address}. A drunk man is smashing the windows and mirrors of van {plate} in the car park. {suspect}.'),
+      T('{address}. Purjus mees lõhub parklas kaubiku {plate} aknaid ja peegleid. Kirjeldus: {suspect}.', '{address}. A drunk man is smashing the windows and mirrors of van {plate} in the car park. Description: {suspect}.'),
       T('{address}. Teataja kuuleb klaasi purunemist, mees peksab kaigaga tööfirma kaubikut.', '{address}. The caller hears glass breaking; a man is beating a company van with a stick.'),
     ],
     callerLines: [

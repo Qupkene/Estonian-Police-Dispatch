@@ -553,7 +553,7 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
             T('Pidage kinni', 'Detain'),
             T(
               '{callsign}, juhtimine. Pidage kinni, arstlik kontroll arestimajas.',
-              '{callsign}, Control. Detain; medical check at the detention house.',
+              '{callsign}, Control. Detain; medical check at the arrest house.',
             ),
             { time: 20 },
           ),
@@ -580,7 +580,7 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
         2,
         T(
           'Isikul tuvastati narkojoove, alustati väärteomenetlust NPALS § 15 järgi ja ta toimetati arestimajja kainenema.',
-          'Drug intoxication was confirmed; misdemeanour proceedings opened under NPALS § 15 and the person was taken to the detention house to sober up.',
+          'Drug intoxication was confirmed; misdemeanour proceedings opened under NPALS § 15 and the person was taken to the arrest house to sober up.',
         ),
       ),
       oc(
@@ -1002,7 +1002,7 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
       ),
     ],
     details: [
-      T('Müüjaks peetakse {suspect}.', 'The seller is thought to be {suspect}.'),
+      T('Arvatav müüja: {suspect}.', 'Suspected seller: {suspect}.'),
       T('Peol on ka alaealisi.', 'There are minors at the party.'),
     ],
     agencies: [{ agency: 'kiirabi', chance: 0.4, reason: T('Teadvuseta külaline', 'Unconscious guest') }],
@@ -1124,7 +1124,7 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
     ],
     details: [
       T('Sõiduk: {car}, {plate}.', 'Vehicle: {car}, {plate}.'),
-      T('Müüjaks peetakse {suspect}.', 'The seller is thought to be {suspect}.'),
+      T('Arvatav müüja: {suspect}.', 'Suspected seller: {suspect}.'),
     ],
     beats: [
       backup(0.6, un('rapid'), {

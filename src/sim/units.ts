@@ -6,17 +6,20 @@ import { randomName } from '@/gen/names';
 import { bearing, cumulative, destination, haversineKm, lerp, along } from './geo';
 import { emit, regionOf } from './internal';
 import { onUnitArrived } from './incidents';
+import { waterBodiesNear } from './land';
 import { phrase, radioVars, unitPhrase, unitSay } from './radio';
 import { Rng, withRng } from './rng';
 import { HOUR, MIN } from './time';
 import type {
   Difficulty,
   Gender,
+  Incident,
   LngLat,
   Movement,
   NewShiftOptions,
   Officer,
   Place,
+  PlaceKind,
   RegionDef,
   RosterUnit,
   SimState,
@@ -147,8 +150,17 @@ export function nearestHospital(s: SimState, p: LngLat, zone?: string): Place | 
   return best;
 }
 
-export function arrestHouse(s: SimState): Station | undefined {
+/**
+ * Where a detainee is taken. On an island with its own holding cells (Kuressaare, Kärdla) that is
+ * the local cells; otherwise the prefecture's arrest house (`arrestHouseId`; Põhja has two
+ * mainland arrest stations, so the id decides there).
+ */
+export function arrestHouse(s: SimState, zone?: string): Station | undefined {
   const region = regionOf(s);
+  if (zone && zone !== 'mainland') {
+    const local = region.stations.find((x) => x.kind === 'arrest' && (x.zone ?? 'mainland') === zone);
+    if (local) return local;
+  }
   return stationById(region, region.arrestHouseId) ?? region.stations.find((x) => x.kind === 'arrest') ?? region.stations[0];
 }
 
@@ -222,6 +234,64 @@ export function travelEstimate(
   return { minutes: Math.max(0.5, minutes), roadKm: urbanKm * 1.35 + ruralKm * 1.25, straightKm: d };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Boats: they travel in a straight line, so they may only go where their own water body reaches
+// ─────────────────────────────────────────────────────────────────────────────
+
+const WATER_KINDS: PlaceKind[] = ['port', 'beach', 'lake'];
+const boatHomeCache = new WeakMap<RegionDef, Map<string, Set<string>>>();
+const incWaterCache = new WeakMap<object, Set<string>>();
+
+/**
+ * Water bodies by a point: within 1 km, or (wide) the nearest ring up to 5 km that finds any. The
+ * coastline and lake outlines are coarse, so a beach or harbour can test a few km from water.
+ */
+function waterNear(p: LngLat, wide: boolean): Set<string> {
+  for (const km of wide ? [1, 2.5, 5] : [1]) {
+    const w = waterBodiesNear(p, km);
+    if (w.size) return w;
+  }
+  return new Set();
+}
+
+/** Water bodies a boat works on: the one(s) by its home harbour. */
+function boatHome(region: RegionDef, u: Unit): Set<string> {
+  let m = boatHomeCache.get(region);
+  if (!m) {
+    m = new Map();
+    boatHomeCache.set(region, m);
+  }
+  let w = m.get(u.stationId);
+  if (!w) {
+    w = waterNear(stationById(region, u.stationId)?.coord ?? u.pos, true);
+    m.set(u.stationId, w);
+  }
+  return w;
+}
+
+/**
+ * Can this patrol boat reach the incident over water? The incident must be on or by water (within
+ * 1 km; up to 5 km for ports, beaches, lakes, events that ask for a boat and islands without a
+ * road link) and that water must be the boat's own: a Peipsi boat cannot sail to the Gulf of
+ * Finland, and no boat reaches an inland lake such as Pühajärv. A harbour with no water found
+ * around it (coarse data) does not restrict its boat.
+ */
+export function boatCanReach(s: SimState, u: Unit, inc: Incident): boolean {
+  const region = regionOf(s);
+  const wantsBoat = inc.need.some((n) => n.type === 'boat') || inc.ideal.some((n) => n.type === 'boat');
+  const watery = wantsBoat || WATER_KINDS.includes(inc.location.placeKind) || ferryMinutes(region, 'mainland', inc.location.zone) === null;
+  let at = incWaterCache.get(inc.location);
+  if (!at) {
+    at = waterNear(inc.location.coord, watery);
+    incWaterCache.set(inc.location, at);
+  }
+  if (!at.size) return false;
+  const home = boatHome(region, u);
+  if (!home.size) return true;
+  for (const w of at) if (home.has(w)) return true;
+  return false;
+}
+
 /** Position & heading of a unit at time t (interpolates the active movement). */
 export function unitPosAt(u: Unit, t: number): { pos: LngLat; heading: number } {
   const m = u.move;
@@ -234,6 +304,37 @@ export function unitPosAt(u: Unit, t: number): { pos: LngLat; heading: number } 
   return along(m.path, m.cum, total * f);
 }
 
+/** Memo of zoneAt() for each movement's end point (pure geometry, so reloads agree). */
+const moveEndZone = new WeakMap<Movement, string>();
+
+/** Zone a movement ends in: the incident's zone for incident trips, the station's for returns. */
+function destZoneOf(s: SimState, u: Unit, m: Movement): string {
+  const inc = m.purpose === 'incident' && u.incidentId ? s.incidents[u.incidentId] : undefined;
+  if (inc) return inc.location.zone;
+  const home = m.purpose === 'return' ? unitStation(s, u)?.zone : undefined;
+  if (home) return home;
+  let z = moveEndZone.get(m);
+  if (z === undefined) {
+    z = zoneAt(regionOf(s), m.path[m.path.length - 1]);
+    moveEndZone.set(m, z);
+  }
+  return z;
+}
+
+/**
+ * Movement zone the unit is in right now. `u.zone` is only updated on arrival, so mid-trip across
+ * zones (on or past the ferry) the zone is derived from the current position instead. Trips that
+ * stay inside the unit's zone keep `u.zone` (no nearest-point guessing near a coast).
+ */
+export function unitZoneNow(s: SimState, u: Unit, pos?: LngLat): string {
+  const m = u.move;
+  if (!m || m.path.length === 0) return u.zone;
+  const region = regionOf(s);
+  if (region.zones.length <= 1) return u.zone;
+  if (destZoneOf(s, u, m) === u.zone) return u.zone;
+  return zoneAt(region, pos ?? unitPosAt(u, s.now).pos);
+}
+
 /** Is the unit parked at its station (for on-call activation)? */
 export function atBase(s: SimState, u: Unit): boolean {
   if (u.move) return false;
@@ -243,7 +344,7 @@ export function atBase(s: SimState, u: Unit): boolean {
 /** ETA (minutes) and straight-line km for a unit to reach a point now, or null if unreachable. */
 export function unitEta(s: SimState, u: Unit, to: LngLat, toZone: string, siren: boolean): { etaMin: number; km: number } | null {
   const from = unitPosAt(u, s.now).pos;
-  const est = travelEstimate(s, u.type, from, u.zone, to, toZone, siren ? 'siren' : 'normal');
+  const est = travelEstimate(s, u.type, from, unitZoneNow(s, u, from), to, toZone, siren ? 'siren' : 'normal');
   if (!est) return null;
   let eta = est.minutes;
   if (u.onCall && u.status === 'available' && atBase(s, u)) eta += ONCALL_DELAY_MIN;
@@ -293,6 +394,7 @@ export function setStatus(s: SimState, u: Unit, st: UnitStatus): void {
 export function stopUnit(s: SimState, u: Unit): void {
   if (!u.move) return;
   const p = unitPosAt(u, s.now);
+  u.zone = unitZoneNow(s, u, p.pos);
   settleKm(s, u, s.now);
   u.pos = p.pos;
   u.heading = p.heading;
@@ -320,9 +422,10 @@ export function moveUnit(
 ): boolean {
   const region = regionOf(s);
   const from = unitPosAt(u, s.now).pos;
+  const fromZone = unitZoneNow(s, u, from);
   const toZone = o.zone ?? zoneAt(region, to);
   const profile: SpeedProfile = o.profile ?? (siren ? 'siren' : purpose === 'patrol' ? 'patrol' : 'normal');
-  const est = travelEstimate(s, u.type, from, u.zone, to, toZone, profile);
+  const est = travelEstimate(s, u.type, from, fromZone, to, toZone, profile);
   if (!est) return false;
   // Keep a pending departure delay (on-call activation) when re-routing before departure.
   let delay = (o.delayMin ?? 0) * MIN;
@@ -647,10 +750,13 @@ export function patrolWaypoint(s: SimState, r: Rng, u: Unit): LngLat | undefined
 
 /** Release a unit from its incident: available again, heads back towards its patrol area. */
 export function releaseUnit(s: SimState, u: Unit, say: boolean, inc?: { id: string } | undefined): void {
+  // The event the unit is leaving (also after paperwork, when only u.incidentId still names it):
+  // the 'available' phrases may mention its number.
+  const from = s.incidents[inc?.id ?? u.incidentId ?? ''];
   delete u.incidentId;
   delete u.busyUntil;
   setStatus(s, u, 'available');
-  if (say) unitPhrase(s, u, 'available', inc ? s.incidents[inc.id] : undefined);
+  if (say) unitPhrase(s, u, 'available', from);
   emit(s, { type: 'unit_available', unitId: u.id });
   returnToPatrol(s, u);
 }
@@ -772,6 +878,21 @@ function onArrive(s: SimState, u: Unit, m: Movement): void {
     case 'return':
       u.zone = zoneAt(region, u.pos);
       break;
+    case 'pursuit': {
+      // Live pursuits re-target their units every game-minute. If the pursuit is over (or the
+      // event is gone) nothing will move this unit again, so settle it like an incident arrival.
+      const inc = u.incidentId ? s.incidents[u.incidentId] : undefined;
+      if (inc && inc.state !== 'closed' && inc.pursuit && !inc.pursuit.ended) break;
+      if (inc && inc.state !== 'closed' && inc.assigned.includes(u.id) && u.type !== 'heli') {
+        u.zone = inc.location.zone;
+        setStatus(s, u, 'onscene');
+        onUnitArrived(s, inc, u);
+      } else {
+        if (inc && inc.state !== 'closed') inc.assigned = inc.assigned.filter((id) => id !== u.id);
+        releaseUnit(s, u, false);
+      }
+      break;
+    }
     default:
       break;
   }

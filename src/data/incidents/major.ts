@@ -13,8 +13,8 @@ import type { IncidentTemplate } from '@/sim/types';
 import { T, u, out, qPerson, qVehicle, backup, agency, transport, info, pursuit, search, choice, opt, escalate } from './_helpers_c';
 
 const T_ARREST = [
-  T('{callsign}: kinnipeetu peal, toimetame arestimajja.', '{callsign}: detainee on board, taking him to the custody suite.'),
-  T('{callsign}, kahtlustatav kinni peetud, suundume arestimaja poole.', '{callsign}, suspect detained, heading for the custody suite.'),
+  T('{callsign}: kinnipeetu peal, toimetame arestimajja.', '{callsign}: detainee on board, taking him to the arrest house.'),
+  T('{callsign}, kahtlustatav kinni peetud, suundume arestimaja poole.', '{callsign}, suspect detained, heading for the arrest house.'),
 ];
 
 const A_KIIRABI = [
@@ -499,7 +499,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
       transport('arrest', T_ARREST, { at: 40, chance: 0.6 }),
     ],
     outcomes: [
-      out('surrender', 'arrest', [0.45, 1], 5, T('Kahtlustatav andis end pärast tunniajalist läbirääkimist üle. Ta toimetati arestimajja.', 'The suspect surrendered after an hour of negotiation and was taken to the custody suite.'), { arrests: 1 }),
+      out('surrender', 'arrest', [0.45, 1], 5, T('Kahtlustatav andis end pärast tunniajalist läbirääkimist üle. Ta toimetati arestimajja.', 'The suspect surrendered after an hour of negotiation and was taken to the arrest house.'), { arrests: 1 }),
       out('entry', 'arrest', [0.4, 1], 2, T('Kiirreageerijad sisenesid korterisse ja pidasid kahtlustatava kinni. Kedagi ei vigastatud.', 'Rapid response entered the flat and detained the suspect. Nobody was injured.'), { arrests: 1 }),
       out('empty', 'unfounded', [0, 0.6], 1, T('Korteris kahtlustatavat ei olnud. Ta oli varem tagaukse kaudu lahkunud.', 'The suspect was not in the flat. He had left earlier through the back door.')),
       out('injury', 'hospital', [0, 0.25], 1, T('Kinnipidamisel osutas kahtlustatav vastupanu, üks politseinik sai vigastada. Kahtlustatav peeti kinni.', 'The suspect resisted arrest and an officer was injured. The suspect was detained.'), { arrests: 1 }),
@@ -859,7 +859,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
     agencies: [{ agency: 'kiirabi', chance: 1, reason: T('Ametnik maas', 'Officer down') }],
     summary: [
       T('{address}. Liikluspeatus eskaleerus tulevahetuseks. Üks politseinik langes teenistuses, kahtlusalune on relvastatud ja põgenemas {direction}.', '{address}. A traffic stop escalated into an exchange of fire. One police officer has fallen in the line of duty; the suspect is armed and fleeing {direction}.'),
-      T('{address}. HÄDAOLUKORD: ametnik maas. Kahtlusalune põgenes sõidukiga {car}, numbrimärk {plate}.', '{address}. EMERGENCY: officer down. The suspect fled in a {car}, plate {plate}.'),
+      T('{address}. HÄDAOLUKORD: ametnik maas. Kahtlusalune põgenes sõidukiga: {car}, numbrimärk {plate}.', '{address}. EMERGENCY: officer down. The suspect fled in a {car}, plate {plate}.'),
     ],
     callerLines: [T('(raadio) Ametnik maas! Ametnik maas! Lasud, kahtlusalune põgeneb!', '(radio) Officer down! Officer down! Shots fired, the suspect is fleeing!')],
     details: [
@@ -1010,7 +1010,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
     ],
     summary: [
       T('{address}. Kaugliinibuss sõitis libedal teel kraavi ja jäi külili, pardal u {n}0 reisijat. Kiirabi ja pääste väljas.', '{address}. An intercity bus slid off the icy road and is on its side with about {n}0 passengers on board. Ambulances and rescue dispatched.'),
-      T('{address}. Buss ja veoauto kokkupõrge, palju vigastatuid, osa reisijatest kiilunud. Häirekeskus kuulutas välja suurõnnetuse.', '{address}. Collision between a bus and a lorry, many injured, some passengers trapped. The emergency centre has declared a major incident.'),
+      T('{address}. Buss ja veoauto kokkupõrge, palju vigastatuid, osa reisijatest kiilunud. Häirekeskus kuulutas välja suurõnnetuse.', '{address}. Collision between a bus and a lorry, many injured, some passengers trapped. The ERC has declared a major incident.'),
     ],
     callerLines: [
       T('Buss on kraavis külili, inimesed karjuvad, mõned ei saa välja!', 'The bus is on its side in the ditch, people are screaming, some cannot get out!'),

@@ -8,6 +8,7 @@ import { ageOf } from '@/gen/describe';
 import { FUEL_PER_KM, OVERTIME_PER_HOUR } from '@/data/economy';
 import { dayInfo } from './calendar';
 import { tplOf } from './internal';
+import { PLACE_KIND_LABEL } from './radio';
 import { ddmmyyyy, HOUR, MIN, wall } from './time';
 import type { Incident, Person, Priority, RegionId, ShiftReport, SimState, Text, Unit } from './types';
 
@@ -135,6 +136,9 @@ const INESSIVE: Record<string, string> = {
   Kalamaja: 'Kalamajas',
   Õismäe: 'Õismäel',
   Lilleküla: 'Lillekülas',
+  // City districts whose bare inessive reads oddly next to the town ("Kohtla-Järvel Järvel").
+  Järve: 'Järve linnaosas',
+  Mai: 'Mai linnaosas',
 };
 
 /** Estonian inessive ("Tallinnas", "Lasnamäel") for a place name, via a dictionary + simple rules. */
@@ -144,7 +148,20 @@ export function inessive(name: string): string {
   if (/(mäe|järve|nõmme|pää)$/i.test(name)) return name + 'l';
   if (/ küla$/.test(name) || / vald$/.test(name)) return name.replace(/ küla$/, ' külas').replace(/ vald$/, ' vallas');
   if (/ maakond$/.test(name)) return name.replace(/ maakond$/, ' maakonnas');
+  // Consonant stems need their vowel back: "Supilinn" → "Supilinnas", "Rannarajoon" → "Rannarajoonis".
+  if (/linn$/.test(name)) return name + 'as';
+  if (/rajoon$/.test(name)) return name + 'is';
   return name + 's';
+}
+
+/** English form of an Estonian place name: "Harju maakond" → "Harju County", "Saue vald" → "Saue Parish". */
+export function placeEn(name: string): string {
+  return name.replace(/ maakond\b/g, ' County').replace(/ vald\b/g, ' Parish');
+}
+
+/** "a 25-year-old" / "an 18-year-old" / "an 8-year-old": English article by how the number is read. */
+export function aAge(age: number): string {
+  return /^(8|11|18|8\d)$/.test(String(age)) ? 'an' : 'a';
 }
 
 const WEEKDAY_ADE = ['Esmaspäeval', 'Teisipäeval', 'Kolmapäeval', 'Neljapäeval', 'Reedel', 'Laupäeval', 'Pühapäeval'];
@@ -159,30 +176,60 @@ function enTime(t: number): string {
   return `${String(w.hour).padStart(2, '0')}:${String(w.minute).padStart(2, '0')}`;
 }
 
-function placeIn(inc: Incident): Text {
+/**
+ * Where it happened, for the press story: the inessive lead ("Tallinnas Põhja-Tallinnas") and the
+ * address, plus the English line. The town or district is left out when the address already names
+ * it ("Kloogaranna-Türisalu tee, 2. km, Harju maakond" needs no "Harju maakonnas" in front).
+ */
+export function pressPlace(inc: Incident): { lead: string; address: string; en: string } {
   const loc = inc.location;
-  const parts: string[] = [inessive(loc.city)];
-  if (loc.district && loc.district !== loc.city) parts.push(inessive(loc.district));
-  const highway = loc.placeKind === 'highway';
-  const et = highway ? `${parts[0]}, ${loc.address}` : `${parts.join(' ')} aadressil ${loc.address}`;
-  const en = highway ? `${loc.address}, near ${loc.city}` : `${loc.address}, ${loc.district && loc.district !== loc.city ? loc.district + ', ' : ''}${loc.city}`;
-  return { et, en };
+  const parts = loc.address.split(/,\s*/);
+  const named = (n: string | undefined) => !!n && parts.some((p) => p === n || p === `${n} küla` || p === `${n} alevik` || p === `${n} alev`);
+  const city = named(loc.city) ? undefined : loc.city;
+  const district = loc.district && loc.district !== loc.city && !named(loc.district) ? loc.district : undefined;
+  const lead = [city, district].filter((x): x is string => !!x).map(inessive).join(' ');
+  const addrEn = placeEn(loc.address);
+  let en: string;
+  if (loc.placeKind === 'highway' && city && !/ (vald|maakond)$/.test(city)) en = `${addrEn}, near ${city}`;
+  else en = [addrEn, district, city].filter((x): x is string => !!x).map(placeEn).join(', ');
+  return { lead, address: loc.address, en };
 }
 
-/** Drop the leading HK location sentence ("Lasnamäe, Punane tn 16-45.") and keep the first content sentence. */
-export function summaryCore(text: string, inc: Incident): string {
-  const sentences = text
-    .split(/(?<=[.!?])\s+/)
+/**
+ * Split a summary into sentences without breaking inside ordinals and initials: a sentence ends at
+ * . ! or ? followed by a capital (or a quote), never after a lone capital initial ("A. H. Tammsaare").
+ * "Saue-Keila maantee, 14. km" stays in one piece because "km" is lower case.
+ */
+export function sentencesOf(text: string): string[] {
+  return text
+    .split(/(?<=[.!?])(?<!(?:^|[\s(„"])[A-ZÕÄÖÜŠŽ]\.)\s+(?=[A-ZÕÄÖÜŠŽ0-9„"“(])/)
     .map((x) => x.trim())
     .filter(Boolean);
+}
+
+/**
+ * The first content sentence of an HK summary, without the leading location ("Lasnamäe, Punane tn
+ * 16-45." / "Kauplus, Narva mnt 112."), capitalised and without the closing full stop.
+ */
+export function summaryCore(text: string, inc: Incident): string {
   const loc = inc.location;
-  const isLoc = (x: string) => x.includes(loc.address) || (x.length < 60 && (x.startsWith(loc.city) || (loc.district !== undefined && x.startsWith(loc.district))));
-  const content = sentences.filter((x) => !isLoc(x));
-  let core = (content[0] ?? sentences[sentences.length - 1] ?? '').replace(/[.!?]+$/, '');
-  // Lower-case the first letter of an ordinary sentence start ("Naabri teatel…", "A grey Audi…"),
-  // but keep acronyms and names that are followed by another capitalised word.
-  if (/^[A-ZÕÄÖÜŠŽ](?:[a-zõäöüšž]|\s+[a-zõäöüšž0-9])/.test(core)) core = core.charAt(0).toLowerCase() + core.slice(1);
-  return core;
+  const label = PLACE_KIND_LABEL[loc.placeKind];
+  const places = [loc.placeName, label?.et, label?.en, loc.city, loc.district].filter((x): x is string => !!x);
+  let rest = text.trim();
+  // The location prefix is matched literally, so dots inside the address cannot split it.
+  for (const p of [...places.map((x) => `${x}, ${loc.address}`), loc.address]) {
+    const m = rest.startsWith(p) ? /^[.:,]?\s+/.exec(rest.slice(p.length)) : null;
+    if (m) {
+      rest = rest.slice(p.length + m[0].length);
+      break;
+    }
+  }
+  const isLoc = (x: string) => {
+    const y = x.replace(/[.!?]+$/, '');
+    return y === loc.address || y === loc.city || y === loc.district || y === loc.placeName || y.endsWith(`, ${loc.address}`);
+  };
+  const core = (sentencesOf(rest).find((x) => !isLoc(x)) ?? '').replace(/[.!?]+$/, '').trim();
+  return core ? core.charAt(0).toUpperCase() + core.slice(1) : '';
 }
 
 function suspectOf(s: SimState, inc: Incident): Person | undefined {
@@ -199,13 +246,30 @@ function personNoun(p: Person, now: number, nominative = false): Text {
     /* default */
   }
   const male = p.gender === 'M';
-  const et = nominative ? `${age}-aastane ${male ? 'mees' : 'naine'}` : `${age}-aastase ${male ? 'mehe' : 'naise'}`;
-  return { et, en: `a ${age}-year-old ${male ? 'man' : 'woman'}` };
+  // Children and teenagers are not "mees"/"naine": PPA style is "13-aastane poiss", "16-aastane noormees".
+  const [nom, gen, en] =
+    age >= 18
+      ? male
+        ? ['mees', 'mehe', 'man']
+        : ['naine', 'naise', 'woman']
+      : male
+        ? age >= 14
+          ? ['noormees', 'noormehe', 'boy']
+          : ['poiss', 'poisi', 'boy']
+        : ['tüdruk', 'tüdruku', 'girl'];
+  const et = nominative ? `${age}-aastane ${nom}` : `${age}-aastase ${gen}`;
+  return { et, en: `${aAge(age)} ${age}-year-old ${en}` };
 }
 
 function outcomeSentence(s: SimState, inc: Incident): Text {
   const parts: Text[] = [];
   const resp = responseMin(inc);
+  if (inc.closedBy === 'expired' && inc.firstArrivalAt !== undefined) {
+    return T(
+      'Patrull käis kohal, kuid lahkus enne, kui sündmus sai lahendatud. Prefektuur analüüsib juhtunut.',
+      'A patrol reached the scene but left before the matter was resolved. The prefecture is reviewing what happened.',
+    );
+  }
   if (inc.closedBy === 'expired') {
     return T(
       'Politseipatrull ei jõudnud kohale enne, kui teataja sündmuskohalt lahkus. Prefektuur analüüsib juhtunut.',
@@ -216,7 +280,13 @@ function outcomeSentence(s: SimState, inc: Incident): Text {
   if (inc.closedBy === 'referral') return T('Teade edastati pädevale asutusele.', 'The report was passed on to the competent agency.');
   if (inc.closedBy === 'phone') return T('Teatajat nõustati telefoni teel.', 'The caller was advised over the phone.');
   if (inc.closedBy === 'duplicate') return T('Sama sündmuse kohta oli laekunud ka teisi teateid.', 'Other reports about the same event had also come in.');
-  if (resp !== null && resp > 0) parts.push(T(`Patrull jõudis kohale ${Math.max(1, Math.round(resp))} minutiga.`, `A patrol arrived within ${Math.max(1, Math.round(resp))} minutes.`));
+  if (resp !== null && resp > 0) {
+    const m = Math.max(1, Math.round(resp));
+    parts.push(T(`Patrull jõudis kohale ${m} minutiga.`, `A patrol arrived within ${m} ${m === 1 ? 'minute' : 'minutes'}.`));
+  }
+  const o = inc.outcome;
+  // Somebody was caught after all: no "the suspect left before police arrived" afterwards.
+  const caught = (o?.arrests ?? 0) > 0 || !!inc.search?.found || inc.pursuit?.ended === 'caught';
   if (inc.pursuit?.ended) {
     const p = inc.pursuit.ended;
     parts.push(
@@ -226,11 +296,12 @@ function outcomeSentence(s: SimState, inc: Incident): Text {
           ? T('Juht eiras peatumismärguannet, kaotas jälitamise käigus sõiduki üle kontrolli ja sõitis teelt välja.', 'The driver ignored the signal to stop, lost control during the pursuit and left the road.')
           : p === 'terminated'
             ? T('Ohutuse huvides jälitus katkestati.', 'The pursuit was called off for safety reasons.')
-            : T('Peatumismärguannet eiranud juht pääses esialgu põgenema.', 'The driver who ignored the signal to stop got away for now.'),
+            : caught
+              ? T('Peatumismärguannet eiranud juht pääses esialgu põgenema, kuid tabati hiljem.', 'The driver who ignored the signal to stop got away at first but was caught later.')
+              : T('Peatumismärguannet eiranud juht pääses põgenema.', 'The driver who ignored the signal to stop got away.'),
     );
   }
   if (inc.search?.found) parts.push(inc.category === 'missing' ? T('Otsingute käigus leiti isik elusana.', 'The person was found alive during the search.') : T('Kahtlustatav tabati piirkonna läbikammimisel.', 'The suspect was found while the area was being searched.'));
-  const o = inc.outcome;
   const sus = suspectOf(s, inc);
   if (o) {
     if (o.arrests > 0 && sus) {
@@ -248,7 +319,11 @@ function outcomeSentence(s: SimState, inc: Incident): Text {
         parts.push(T('Politsei tegi rikkujale hoiatuse.', 'Police issued a warning.'));
         break;
       case 'hospital':
-        parts.push(T('Kannatanu toimetati haiglasse.', 'The injured person was taken to hospital.'));
+        parts.push(
+          inc.category === 'missing'
+            ? T('Leitud isik toimetati kontrolliks haiglasse.', 'The person who was found was taken to hospital for a check-up.')
+            : T('Kannatanu toimetati haiglasse.', 'The injured person was taken to hospital.'),
+        );
         break;
       case 'tragedy':
         parts.push(T('Hoolimata kiirest reageerimisest ei õnnestunud inimelu päästa. Sündmuse täpsed asjaolud selgitatakse menetluse käigus.', 'Despite a rapid response, a life could not be saved. The exact circumstances will be established in the investigation.'));
@@ -258,16 +333,21 @@ function outcomeSentence(s: SimState, inc: Incident): Text {
         parts.push(T('Teade ei leidnud kinnitust.', 'The report could not be confirmed.'));
         break;
       case 'escaped':
-        parts.push(T('Kahtlustatav lahkus enne politsei saabumist, politsei selgitab tema isikut.', 'The suspect left before police arrived; police are working to identify them.'));
+        if (caught) break;
+        parts.push(
+          inc.pursuit?.ended
+            ? T('Politsei selgitab põgenenud juhi isikut.', 'Police are working to identify the driver who fled.')
+            : T('Kahtlustatav lahkus enne politsei saabumist, politsei selgitab tema isikut.', 'The suspect left before police arrived; police are working to identify them.'),
+        );
         break;
       case 'referred':
         parts.push(T('Juhtum anti üle pädevale asutusele.', 'The case was handed over to the competent agency.'));
         break;
       case 'arrest':
-        if (!(o.arrests > 0 && sus)) parts.push(T('Kahtlustatav peeti kinni ja toimetati arestimajja.', 'The suspect was detained and taken to the detention centre.'));
+        if (!(o.arrests > 0 && sus)) parts.push(T('Kahtlustatav peeti kinni ja toimetati arestimajja.', 'The suspect was detained and taken to the arrest house.'));
         break;
       default:
-        parts.push(T('Olukord lahendati kohapeal.', 'The situation was resolved on the spot.'));
+        if (!(inc.search?.found && inc.category === 'missing')) parts.push(T('Olukord lahendati kohapeal.', 'The situation was resolved on the spot.'));
     }
   }
   if (parts.length === 0) parts.push(T('Sündmuse asjaolusid selgitatakse.', 'The circumstances are being established.'));
@@ -277,29 +357,56 @@ function outcomeSentence(s: SimState, inc: Incident): Text {
 const ADVICE: Partial<Record<Incident['category'], Text>> = {
   domestic: T('Politsei tuletab meelde, et lähisuhtevägivalla korral tuleb kohe helistada hädaabinumbril 112.', 'Police remind everyone to call 112 immediately in cases of domestic violence.'),
   traffic: T('Politsei tuletab meelde, et joobes juhtimine on kuritegu ning ohustab kõiki liiklejaid.', 'Police remind drivers that drink-driving is a crime that endangers everyone on the road.'),
-  fraud: T('Politsei soovitab mitte anda telefoni teel kellelegi oma Smart-ID või pangakoodide andmeid.', 'Police advise never to give your Smart-ID or bank codes to anyone over the phone.'),
+  fraud: T('Politsei soovitab olla võõraste palvete ja pakkumistega ettevaatlik ning mitte anda kellelegi oma pangakoode ega Smart-ID andmeid.', 'Police advise caution with unexpected requests from strangers and never to give anyone your bank codes or Smart-ID details.'),
   property: T('Politsei palub kõigil, kellel on sündmuse kohta infot, anda sellest teada.', 'Police ask anyone with information about the incident to come forward.'),
   missing: T('Politsei tänab kõiki, kes otsingutele kaasa aitasid.', 'Police thank everyone who helped with the search.'),
 };
 
+/** Drink-driving, as the title or summary words it ("Purjus autojuht", "Joobes juhi kahtlus", "juht on vist purjus"). */
+const DRINK_DRIVING = /(joobes|purjus)\s*(auto)?juh|juht (on )?(vist |ilmselt |arvatavasti )?(joobes|purjus)/i;
+
+/** The closing reminder for a story, only where it fits what happened. */
+function adviceFor(inc: Incident): Text | undefined {
+  if (inc.closedBy !== 'units') return undefined;
+  if (inc.category === 'traffic') return DRINK_DRIVING.test(`${inc.title.et} ${inc.summary.et}`) ? ADVICE.traffic : undefined;
+  if (inc.category === 'missing') return inc.search ? ADVICE.missing : undefined;
+  // The appeal for witnesses is for cases where nobody has been caught yet.
+  if (inc.category === 'property') return (inc.outcome?.arrests ?? 0) > 0 ? undefined : ADVICE.property;
+  return ADVICE[inc.category];
+}
+
 /** One press-release paragraph built from a real incident. */
 export function pressStory(s: SimState, inc: Incident): { title: Text; body: Text } {
   const w = wall(inc.createdAt);
-  const place = placeIn(inc);
-  const coreEt = summaryCore(inc.summary.et, inc);
-  const coreEn = summaryCore(inc.summary.en, inc);
-  const open: Text = {
-    et: `${WEEKDAY_ADE[w.weekday]} kell ${pressTime(inc.createdAt)} teatati Häirekeskusele, et ${place.et}${coreEt ? ' ' + coreEt : ' vajatakse politsei abi'}.`,
-    en: `On ${WEEKDAY_EN[w.weekday]} at ${enTime(inc.createdAt)} the Emergency Response Centre received a report from ${place.en}${coreEn ? ': ' + coreEn : ''}.`,
-  };
+  const day = WEEKDAY_ADE[w.weekday];
+  const dayEn = WEEKDAY_EN[w.weekday];
+  const t = pressTime(inc.createdAt);
+  const tEn = enTime(inc.createdAt);
+  const p = pressPlace(inc);
+  const lead = p.lead ? `${p.lead} ` : '';
+  // The location is a sentence of its own; the summary's first content sentence follows it.
+  let open: Text;
+  if (inc.source === 'field') {
+    open = T(`${day} kell ${t} sai politseiametnik ${lead}aadressil ${p.address} teenistusülesandeid täites vigastada.`, `On ${dayEn} at ${tEn} a police officer was injured on duty at ${p.en}.`);
+  } else {
+    const first =
+      inc.source === 'alarm'
+        ? T(`${day} kell ${t} käivitus valvehäire ${lead}aadressil ${p.address}.`, `On ${dayEn} at ${tEn} an alarm went off at ${p.en}.`)
+        : inc.source === 'anpr'
+          ? T(`${day} kell ${t} andis numbrituvastuskaamera politseile hoiatuse ${lead}aadressil ${p.address}.`, `On ${dayEn} at ${tEn} a number-plate camera alerted police at ${p.en}.`)
+          : T(`${day} kell ${t} kutsuti politsei ${lead}aadressile ${p.address}.`, `On ${dayEn} at ${tEn} police were called to ${p.en}.`);
+    const coreEt = summaryCore(inc.summary.et, inc);
+    const coreEn = summaryCore(inc.summary.en, inc);
+    open = { et: coreEt ? `${first.et} ${coreEt}.` : first.et, en: coreEn ? `${first.en} ${coreEn}.` : first.en };
+  }
   const out = outcomeSentence(s, inc);
-  const advice = ADVICE[inc.category];
+  const advice = adviceFor(inc);
   const body: Text = {
-    et: [open.et, out.et, advice && inc.closedBy === 'units' ? advice.et : ''].filter(Boolean).join(' '),
-    en: [open.en, out.en, advice && inc.closedBy === 'units' ? advice.en : ''].filter(Boolean).join(' '),
+    et: [open.et, out.et, advice?.et ?? ''].filter(Boolean).join(' '),
+    en: [open.en, out.en, advice?.en ?? ''].filter(Boolean).join(' '),
   };
   const loc = inc.location.district && inc.location.district !== inc.location.city ? inc.location.district : inc.location.city;
-  const title: Text = { et: `${inc.title.et} ${inessive(loc)}`, en: `${inc.title.en} in ${loc}` };
+  const title: Text = { et: `${inc.title.et} ${inessive(loc)}`, en: `${inc.title.en} in ${placeEn(loc)}` };
   return { title, body };
 }
 
@@ -519,7 +626,7 @@ function buildHighlights(s: SimState, closed: Incident[]): ShiftReport['highligh
     return {
       incidentId: i.id,
       title: i.title,
-      text: { et: `${when} · ${i.location.address}, ${i.location.city}. ${story.et}`, en: `${enTime(i.createdAt)} · ${i.location.address}, ${i.location.city}. ${story.en}` },
+      text: { et: `${when} · ${i.location.address}, ${i.location.city}. ${story.et}`, en: `${enTime(i.createdAt)} · ${placeEn(i.location.address)}, ${placeEn(i.location.city)}. ${story.en}` },
       good: g,
     };
   });
@@ -544,7 +651,7 @@ function buildNewspaper(
   let lead: Incident | undefined = top;
   const loc = (i: Incident) => {
     const d = i.location.district && i.location.district !== i.location.city ? i.location.district : i.location.city;
-    return { et: inessive(d), en: d };
+    return { et: inessive(d), en: placeEn(d) };
   };
   const lower = (t: Text): Text => ({ et: t.et.toLowerCase(), en: t.en.toLowerCase() });
   if (top && top.outcome?.result === 'tragedy') {
@@ -557,7 +664,7 @@ function buildNewspaper(
   } else if (top && top.pursuit?.ended === 'caught') {
     const l = loc(top);
     headline = T(`${o.night ? 'Ööline' : 'Päevane'} jälitus ${l.et} lõppes kinnipidamisega`, `${o.night ? 'Night-time' : 'Daytime'} chase in ${l.en} ends in arrest`);
-  } else if (top && top.closedBy === 'expired' && top.truePriority <= 2) {
+  } else if (top && top.closedBy === 'expired' && top.firstArrivalAt === undefined && top.truePriority <= 2) {
     const l = loc(top);
     const tt = lower(top.title);
     headline = T(`Politsei ei jõudnudki kohale: ${tt.et} ${l.et} jäi abita`, `Police never arrived: ${tt.en} in ${l.en} left without help`);
@@ -580,10 +687,10 @@ function buildNewspaper(
       headline = T(`Kummaline ${period.et} ${l.et}: politsei kontrollis teadet „${top.title.et}“`, `A strange ${period.en} in ${l.en}: police checked a report of “${top.title.en}”`);
     } else if (holiday === 'newyear') {
       lead = undefined;
-      headline = T(`Aastavahetusel kutsuti politsei välja ${n} korral`, `Police called out ${n} times over New Year's Eve`);
+      headline = T(`Aastavahetusel kutsuti politsei välja ${n} korral`, `Police called out ${n === 1 ? 'once' : `${n} times`} over New Year's Eve`);
     } else if (holiday === 'jaanipaev') {
       lead = undefined;
-      headline = T(`Jaaniöö: politsei reageeris ${n} väljakutsele`, `Midsummer night: police responded to ${n} call-outs`);
+      headline = T(`Jaaniöö: politsei reageeris ${n} väljakutsele`, `Midsummer night: police responded to ${n} ${n === 1 ? 'call-out' : 'call-outs'}`);
     } else if (n >= 35) {
       lead = undefined;
       headline = T(`Tormiline ${period.et}: politsei sai ${n} väljakutset`, `A hectic ${period.en}: police handled ${n} call-outs`);
@@ -598,11 +705,14 @@ function buildNewspaper(
   }
 
   const region = { pohja: 'Põhja', ida: 'Ida', louna: 'Lõuna', laane: 'Lääne' }[s.regionId];
-  const arrestEt = arrests > 0 ? `kinni peeti ${arrests} inimest` : 'kedagi kinni ei peetud';
+  // English uses the same names as the rest of the UI ("North Prefecture").
+  const regionEn = { pohja: 'North', ida: 'East', louna: 'South', laane: 'West' }[s.regionId];
+  const arrestEt = arrests > 0 ? `kinni peeti ${arrests} ${arrests === 1 ? 'inimene' : 'inimest'}` : 'kedagi kinni ei peetud';
   const arrestEn = arrests > 0 ? `detained ${arrests} ${arrests === 1 ? 'person' : 'people'}` : 'made no arrests';
+  const x = s.stats.expired;
   const sub = T(
-    `${o.night ? 'Öö' : 'Päeva'} jooksul reageeris ${region} prefektuur ${n} väljakutsele, ${arrestEt}${s.stats.expired ? `, ${s.stats.expired} teadet jäi õigeaegselt teenindamata` : ''}.`,
-    `During the ${o.night ? 'night' : 'day'} the ${region} prefecture responded to ${n} call-outs and ${arrestEn}${s.stats.expired ? `; ${s.stats.expired} reports were not attended in time` : ''}.`,
+    `${o.night ? 'Öö' : 'Päeva'} jooksul reageeris ${region} prefektuur ${n} väljakutsele, ${arrestEt}${x ? `, ${x} ${x === 1 ? 'teade' : 'teadet'} jäi õigeaegselt teenindamata` : ''}.`,
+    `During the ${o.night ? 'night' : 'day'} the ${regionEn} Prefecture responded to ${n} ${n === 1 ? 'call-out' : 'call-outs'} and ${arrestEn}${x ? `; ${x} ${x === 1 ? 'report was' : 'reports were'} not attended in time` : ''}.`,
   );
 
   const storyIncs = ranked.filter((i) => i !== lead && i.closedBy !== 'duplicate').slice(0, 4);
@@ -612,8 +722,8 @@ function buildNewspaper(
     stories.push({
       title: T('Politsei argipäevik', 'Police diary'),
       body: T(
-        `${region} prefektuuri juhtimiskeskus koordineeris ${o.night ? 'öö' : 'päeva'} jooksul ${n} sündmust. „Täname inimesi, kes märkasid ja helistasid kohe 112“, sõnas vahetuse vanem.`,
-        `The ${region} prefecture command centre coordinated ${n} events during the ${o.night ? 'night' : 'day'}. “Thank you to everyone who noticed something and called 112 right away,” said the shift supervisor.`,
+        `${region} prefektuuri juhtimiskeskus koordineeris ${o.night ? 'öö' : 'päeva'} jooksul ${n} ${n === 1 ? 'sündmuse' : 'sündmust'}. „Täname inimesi, kes märkasid ja helistasid kohe 112“, sõnas vahetuse vanem.`,
+        `The ${regionEn} Prefecture command centre coordinated ${n} ${n === 1 ? 'event' : 'events'} during the ${o.night ? 'night' : 'day'}. “Thank you to everyone who noticed something and called 112 right away,” said the shift supervisor.`,
       ),
     });
   }

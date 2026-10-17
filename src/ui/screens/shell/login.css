@@ -1,7 +1,8 @@
-/* Login screen */
+/* Login screen. No justify-content: center here. .sh-login__wrap (flex: 1) already centres its
+   content when it fits, and when it is taller than a phone screen, centring would push the top of
+   the emblem above the scroll origin where it can never be scrolled back into view. */
 .sh-login {
   align-items: center;
-  justify-content: center;
   transition:
     opacity 1s ease,
     filter 1s ease;

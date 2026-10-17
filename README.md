@@ -142,10 +142,10 @@ deploy/       koduserveri ja relee paigaldusskriptid
 
 | Allikas | Milleks | Litsents |
 | --- | --- | --- |
-| [geoBoundaries](https://www.geoboundaries.org) | maakondade ja asustusüksuste piirid, asulad | CC BY 4.0 |
+| [geoBoundaries](https://www.geoboundaries.org) | asustusüksuste piirid, asulad | CC BY 4.0 |
 | [Natural Earth](https://www.naturalearthdata.com) | maismaa, järved, maanteed, raudteed | avalik omand (public domain) |
 | © [OpenStreetMap](https://www.openstreetmap.org/copyright)'i kaastöötajad, [Protomaps](https://protomaps.com) | tänavakaart (PMTiles, mängu serverist) | OSM-i andmed ODbL, stiil BSD-3-Clause |
-| [Maa- ja Ruumiamet](https://maaruum.ee) | võrgus hallkaart ja ortofoto | Maa- ja Ruumiameti avaandmete tingimused, viitega allikale |
+| [Maa- ja Ruumiamet](https://maaruum.ee) | võrgus hallkaart ja ortofoto; maakondade piirid 2017. aasta haldusreformi järgi ([Who's On First](https://whosonfirst.org/docs/licenses/) kaudu) | Maa- ja Ruumiameti avaandmete tingimused, viitega allikale |
 | Noto Sans, Inter, JetBrains Mono | fondid | SIL Open Font License 1.1 |
 | [MapLibre GL JS](https://maplibre.org) | kaardimootor | BSD-3-Clause |
 
@@ -282,10 +282,10 @@ deploy/       home server and relay setup scripts
 
 | Source | Used for | Licence |
 | --- | --- | --- |
-| [geoBoundaries](https://www.geoboundaries.org) | county and settlement boundaries, settlements | CC BY 4.0 |
+| [geoBoundaries](https://www.geoboundaries.org) | settlement boundaries, settlements | CC BY 4.0 |
 | [Natural Earth](https://www.naturalearthdata.com) | land, lakes, roads, railways | public domain |
 | © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, [Protomaps](https://protomaps.com) | street map (PMTiles from the game server) | OSM data under ODbL, style under BSD-3-Clause |
-| [Maa- ja Ruumiamet](https://maaruum.ee) (Estonian Land and Spatial Development Board) | online grey-scale map and orthophoto tiles | Maa- ja Ruumiamet open-data terms, with attribution |
+| [Maa- ja Ruumiamet](https://maaruum.ee) (Estonian Land and Spatial Development Board) | online grey-scale map and orthophoto tiles; county boundaries as drawn by the 2017 administrative reform (via [Who's On First](https://whosonfirst.org/docs/licenses/)) | Maa- ja Ruumiamet open-data terms, with attribution |
 | Noto Sans, Inter, JetBrains Mono | fonts | SIL Open Font License 1.1 |
 | [MapLibre GL JS](https://maplibre.org) | map engine | BSD-3-Clause |
 

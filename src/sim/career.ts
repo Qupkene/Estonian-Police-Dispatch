@@ -403,9 +403,9 @@ function toOfficer(m: StaffMember): Officer {
   };
 }
 
-/** Callsign/station allocator that reuses the prefecture roster's scheme. */
-function allocator(p: CareerProfile, shift: 'day' | 'night') {
-  const region = regionOf(p.regionId);
+/** Callsign/station allocator that reuses the roster scheme of the prefecture the shift runs in. */
+function allocator(regionId: RegionId, shift: 'day' | 'night') {
+  const region = regionOf(regionId);
   const specs: UnitSpec[] = (region?.roster ?? []).filter((x) => (x.shift ?? 'both') === 'both' || x.shift === shift);
   const allSpecs: UnitSpec[] = region?.roster ?? [];
   const stations = (region?.stations ?? []).filter((x) => x.kind === 'station' || x.kind === 'hq' || x.kind === 'post');
@@ -429,8 +429,8 @@ function allocator(p: CareerProfile, shift: 'day' | 'night') {
         const m = /^(.*?)(\d+)$/.exec(proto.callsign)!;
         sign = `${m[1]}${Number(m[2]) + n}`;
       } else if (type === 'special') sign = n === 1 ? 'K-KOMANDO' : `K-KOMANDO ${n}`;
-      else if (type === 'patrol') sign = `${PREFIX[p.regionId]}${(rr % 3) + 1}-${20 + n}`;
-      else sign = `${FALLBACK_CODE[type]}${PREFIX[p.regionId]}${n}`;
+      else if (type === 'patrol') sign = `${PREFIX[regionId]}${(rr % 3) + 1}-${20 + n}`;
+      else sign = `${FALLBACK_CODE[type]}${PREFIX[regionId]}${n}`;
     }
     usedSigns.add(sign);
     return { callsign: sign, stationId: proto?.stationId && !station ? proto.stationId : station?.id ?? proto?.stationId ?? '', zone: station?.zone };
@@ -458,9 +458,11 @@ const ASSIGN_ORDER: UnitType[] = ['patrol', 'rapid', 'patrol', 'criminal', 'k9',
  * Crews of 2 (patrol) etc. from active staff + fleet for the given shift. Patrol crews are
  * formed first and vehicles are handed out round-robin (patrol, rapid, patrol, criminal, K9…)
  * so a small fleet yields a balanced shift; staff without a vehicle take a third seat in a
- * patrol car (or ride with an investigator). Officer ids equal staff ids.
+ * patrol car (or ride with an investigator). Officer ids equal staff ids. `regionId` is the
+ * prefecture the shift runs in (an unlocked one, default the home region): callsigns and stations
+ * come from its roster.
  */
-export function rosterFromCareer(p: CareerProfile, shift: 'day' | 'night'): RosterUnit[] {
+export function rosterFromCareer(p: CareerProfile, shift: 'day' | 'night', regionId: RegionId = p.regionId): RosterUnit[] {
   const owns = (id: string) => p.upgrades.includes(id);
   const active = p.staff.filter((m) => m.status === 'active').sort((a, b) => b.skill - a.skill);
   const pool = new Map<UnitType, StaffMember[]>();
@@ -474,7 +476,7 @@ export function rosterFromCareer(p: CareerProfile, shift: 'day' | 'night'): Rost
     if (spec === 'special' && !owns('kkomando')) spec = 'rapid';
     if (spec === 'heli' && !owns('heli_hours')) continue; // pilots fly only with helicopter hours
     if (spec === 'community' && shift === 'night') spec = 'patrol';
-    if (spec === 'border' && p.regionId !== 'ida' && p.regionId !== 'louna') spec = 'patrol';
+    if (spec === 'border' && regionId !== 'ida' && regionId !== 'louna') spec = 'patrol';
     if (spec === 'boat' && !p.fleet.some((v) => v.suits.includes('boat'))) spec = 'patrol';
     take(spec).push(m);
   }
@@ -492,7 +494,7 @@ export function rosterFromCareer(p: CareerProfile, shift: 'day' | 'night'): Rost
     }
     return undefined;
   };
-  const alloc = allocator(p, shift);
+  const alloc = allocator(regionId, shift);
   const units: (RosterUnit & { _staff: StaffMember[] })[] = [];
   const add = (type: UnitType, crew: StaffMember[], vehicle: string, onCall?: boolean) => {
     const a = alloc(type);

@@ -92,10 +92,14 @@ export function Toasts() {
   const tx = useTx();
   const msg = useMsg();
   if (!toasts.length) return null;
+  const newest = toasts[toasts.length - 1].id;
   return (
     <div className="gm-toasts" aria-live="assertive">
       {toasts.map((to) => {
         const clickable = !!(to.incidentId || to.unitId);
+        // Only the newest toast shows its full text; older ones collapse to a single line so a burst
+        // never covers much of the map.
+        const compact = to.id !== newest;
         const sub = to.vars?.sub;
         const title = t(to.title, to.vars);
         const raw = to.text === undefined ? '' : typeof to.text === 'string' ? msg(to.text) : tx(to.text);
@@ -104,8 +108,9 @@ export function Toasts() {
         return (
           <div
             key={to.id}
-            className={`gm-toast gm-toast--${to.kind}${clickable ? ' is-clickable' : ''}`}
+            className={`gm-toast gm-toast--${to.kind}${clickable ? ' is-clickable' : ''}${compact ? ' is-compact' : ''}`}
             role="status"
+            title={compact && body ? body : undefined}
             onClick={() => {
               if (to.incidentId && useGame.getState().sim?.incidents[to.incidentId]) selectIncident(to.incidentId, { focus: true });
               else if (to.unitId) selectUnit(to.unitId, { focus: true });
@@ -113,7 +118,7 @@ export function Toasts() {
             }}
           >
             <span className="gm-toast__icon">
-              <Icon name={ICON[to.kind]} size={16} />
+              <Icon name={ICON[to.kind]} size={compact ? 13 : 16} />
             </span>
             <div className="gm-toast__body">
               <strong>{title}</strong>

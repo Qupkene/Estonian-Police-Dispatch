@@ -400,10 +400,18 @@ GitHubi veebiliides:
 
 ## Service worker
 
-`public/sw.js` hoiab mängu võrguta mängitavana. Lehed laetakse võrgust enne vahemälu, räsiga
-`assets/*` ja `glyphs/*` tulevad vahemälust, `/api/` ja `/tiles/` lähevad alati otse serverisse.
-Tõsta `VERSION` faili alguses, kui muutuvad `public/glyphs/`, muud räsita failid või vahemälu
-loogika.
+`public/sw.js` hoiab mängu võrguta mängitavana. Lehed laetakse võrgust enne vahemälu. Kui võrku
+pole või server vastab 5xx (relee varuleht, kui koduserver on maas), avaneb vahemälus olev mäng.
+Räsiga `assets/*` ja `glyphs/*` tulevad vahemälust, `/api/` ja `/tiles/` lähevad alati otse
+serverisse.
+
+`VERSION` ja `PRECACHE` kirjutab ehitus ise (`vite.config.ts`, plugin `epd-sw-manifest`). Versioon
+on paketi versioon pluss kogu ehituse räsi. Nimekirjas on kõik JS-tükid ja stiilifailid (ka
+vahetuse ekraani eraldi tükk), MapLibre'i worker, ladina kirja fondid, kaardi kirjamärgid
+(`glyphs/`) ja algsed versioonid (`legacy/`). Iga muudatusega deploy paigaldab seega uue service
+workeri, mis laeb uue ehituse vahemällu ja kustutab vanad vahemälud. Eelmise ehituse staatiline
+vahemälu jääb alles, et veel avatud vaheleht saaks oma ülejäänud tükid kätte. Käsitsi pole vaja
+midagi tõsta.
 
 ## .eu domeen
 

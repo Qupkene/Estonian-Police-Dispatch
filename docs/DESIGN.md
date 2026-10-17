@@ -125,7 +125,8 @@ documented signature below (stubs exist). Report needed changes instead of editi
 ### 4.2 Spawning
 Poisson process: rate/h = `region.callVolume × hourCurve[h] × weekdayFactor × holidayFactor ×
 difficultyFactor × weatherFactor`. Default hour curve peaks 22-02 (1.6×), lowest 04-07 (0.45×).
-Difficulty factor: cadet 0.6, normal 1, veteran 1.35, realistic 1.8.
+Difficulty factor: cadet 0.6, normal 1, veteran 1.35, realistic 1.8. Career shifts also multiply
+by the career `loadFactor` (§4.12).
 Template choice weight = `template.weight × hourProfile(template.hours)[h] × weekendBoost ×
 season/month filter × region filter × place-availability`. Easter eggs (`easterEgg: true`) total
 ≤ 1.5 % of events. `legacy: true` templates are normal content.
@@ -264,6 +265,12 @@ history, achievements, recruit pool.
 * Upgrades (data/economy.ts) change engine numbers (see §6). Rank thresholds unlock regions,
   helicopter, K-komando, Director mode is always free.
 * Injured officers are out for 2-10 days.
+* Call load follows the force on duty (computed once in `createShift`, kept in `SimState.flags`):
+  the spawn rate is multiplied by `loadFactor` = response units on duty ÷ response units of the
+  regular normal-difficulty roster for that shift (patrol, rapid, aux, traffic, K9, border,
+  community), clamped to 0.1..1; the difficulty factor still applies on top. Zones the regular
+  roster staffs but the career force does not (`skipZones`, e.g. Saaremaa and Hiiumaa before an
+  island crew exists) get no calls; the briefing bulletins say so.
 
 ## 5. Public APIs (signatures: stubs exist, implementers keep them)
 
@@ -305,7 +312,13 @@ getRegion(s): RegionDef
 templateOf(s, inc): IncidentTemplate | undefined
 ```
 `Recommendation = { unit: Unit; etaMin: number; km: number; fit: 'ideal' | 'need' | 'weak' |
-'unavailable' | 'unreachable'; reason?: Text }`.
+'unavailable' | 'unreachable'; reason?: Text; manual?: boolean }`. Ranking: fit first ('ideal' and
+'need' only for units that fill a remaining need slot; ideal-only types such as an investigator or
+the helicopter are 'weak' until the basic need is covered), then effective ETA (drive time plus a
+penalty for pulling a unit off a less urgent job or a break). `manual` marks units the D key never
+sends on its own: specialists (heli, boat, special, criminal, transport) on routine calls, units
+beyond an already covered need, and crews across a ferry (except a mainland crew for a P1 on an
+island with no local crew free). Boats are 'unreachable' away from their own water body.
 
 Registry (`sim/registry.ts`): `searchPersons(s, q): Person[]`, `searchVehicles(s, q): Vehicle[]`,
 `personFlags(p, now): RecordFlag[]`, `vehicleFlags(v, now): RecordFlag[]`

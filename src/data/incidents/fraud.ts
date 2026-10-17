@@ -170,7 +170,7 @@ export const TEMPLATES_FRAUD: IncidentTemplate[] = [
     outcomes: [
       oc('contained', 2, 'report', 'Rünnak lokaliseeriti, süsteemid taastati varukoopiatest. Alustati kriminaalmenetlust arvutisabotaaži asjas, uurimise võttis üle küberkuritegude büroo.', 'The attack was contained and systems restored from backups. Criminal proceedings for computer sabotage; the cybercrime bureau took over.', { min: 0.55, trust: 4 }),
       oc('referred', 2, 'referred', 'Juhtum anti üle küberkuritegude büroole ja riiklikule küberturbe meeskonnale. Patrull tagas kohapeal korra.', 'The case was handed to the cybercrime bureau and the national cyber security team. The patrol kept order on site.', { min: 0.25 }),
-      oc('long_outage', 1, 'report', 'Süsteemide taastamine kestab mitu päeva, patsiente suunati teistesse haiglatesse. Kriminaalmenetlus alustati.', 'Restoring the systems will take several days; patients were diverted to other hospitals. Criminal proceedings opened.', { max: 0.45, trust: -3 }),
+      oc('long_outage', 1, 'report', 'Süsteemide taastamine kestab mitu päeva, patsiente suunati teistesse haiglatesse. Alustati kriminaalmenetlust.', 'Restoring the systems will take several days; patients were diverted to other hospitals. Criminal proceedings opened.', { max: 0.45, trust: -3 }),
     ],
     expiresMin: 240,
     interactiveChance: 0.05,
@@ -462,7 +462,7 @@ export const TEMPLATES_FRAUD: IncidentTemplate[] = [
       answers: {
         what: [T('Ta ütles, et poiss lõi jalakäija alla ja kui ma kuus tuhat ei maksa, läheb ta vanglasse.', 'He said the boy ran over a pedestrian and if I don’t pay six thousand he’ll go to prison.')],
         when: [T('Kuller pidi tulema poole tunni pärast. Raha on mul juba ümbrikus.', 'The courier is supposed to come in half an hour. I’ve already put the money in an envelope.')],
-        name: [T('Ta ütles, et on uurija… nime ma ei mäleta.', 'He said he was an investigator… I don’t remember his name.')],
+        suspect: [T('Ta ütles, et on uurija… nime ma ei mäleta.', 'He said he was an investigator… I don’t remember his name.')],
         safe: [T('Jah, ma olen kodus. Mulle öeldi, et ma ei tohi kellelegi rääkida.', 'Yes, I’m at home. They told me I mustn’t tell anyone.')],
       },
       openingRu: ['Алло… мне позвонил полицейский, сказал, что внук попал в аварию. Это правда? Мне нужно отдать деньги курьеру…'],

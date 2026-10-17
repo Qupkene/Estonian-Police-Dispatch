@@ -40,10 +40,14 @@ function jitter(c: LngLat, i: number): LngLat {
   return [c[0] + Math.cos(a) * 0.0006, c[1] + Math.sin(a) * 0.0004];
 }
 
-function execStep(st: SceneStep, units: Record<string, string>, i: number): void {
+/** Run one scene step against the shift the scene was started in; any other shift (or none) ends the scene. */
+function execStep(st: SceneStep, units: Record<string, string>, i: number, simRef: SimState): void {
   const g = useGame.getState();
   const s = g.sim;
-  if (!s || s.ended) return;
+  if (!s || s.ended || s !== simRef || s.mode !== 'director') {
+    stopScene();
+    return;
+  }
   const center = regionOf(s).center;
   if (st.kind === 'focus') {
     g.focusMap(resolveWhere(st.where, s.regionId, center), st.zoom);
@@ -73,7 +77,7 @@ function execStep(st: SceneStep, units: Record<string, string>, i: number): void
 export function playScene(sc: Scene): void {
   stopScene();
   const s = useGame.getState().sim;
-  if (!s) return;
+  if (!s || s.mode !== 'director') return;
   const first = sc.steps.find((st) => st.kind !== 'radio') as Exclude<SceneStep, { kind: 'radio' }> | undefined;
   const center = first ? resolveWhere(first.where, s.regionId, regionOf(s).center) : regionOf(s).center;
   const units = sceneUnits(s, center);
@@ -83,7 +87,8 @@ export function playScene(sc: Scene): void {
   sc.steps.forEach((st, i) => {
     timers.push(
       setTimeout(() => {
-        execStep(st, units, i);
+        execStep(st, units, i, s);
+        if (!timers.length) return; // the scene was stopped (shift changed)
         done++;
         useDirector.getState().setScene(done >= total ? null : { id: sc.id, step: done, total });
         if (done >= total) timers = [];

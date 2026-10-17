@@ -54,9 +54,12 @@ export function LoginScreen() {
     void useAccount.getState().init();
   }, []);
 
-  /** Every login except the account one is a guest login: an open account session ends. */
+  /**
+   * Every login except the account one is a guest login: an open account session ends, and one that
+   * /api/me is still about to report (slow connection) is never started.
+   */
   const leaveAccount = () => {
-    if (useAccount.getState().user) void useAccount.getState().logout();
+    useAccount.getState().decline();
   };
 
   const complete = (m: LoginUser['method'], idcode?: string) => {
@@ -222,7 +225,10 @@ export function LoginScreen() {
                   {t('shell.login.guest')}
                 </Button>
               </div>
-              <p className="sh-login__sim">{t('shell.login.simNote')}</p>
+              <p className="sh-login__sim">
+                {/* The account form does send data: its note says what the server keeps. */}
+                {t(backend === 'online' && method === 'legacy' ? 'account.login.simNote' : 'shell.login.simNote')}
+              </p>
               {backend === 'online' && method !== 'legacy' && !accountUser && (
                 <button type="button" className="sh-login__acct" onClick={() => setMethod('legacy')}>
                   <Icon name="cloud" size={14} />
@@ -555,23 +561,38 @@ function LegacyForm({ onLegacy, onAccount }: { onLegacy: () => void; onAccount: 
   const [pass, setPass] = useState('');
   const [pass2, setPass2] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [shake, setShake] = useState(0);
+  /** Which input the error is about (focused after the shake, marked aria-invalid). */
+  const [errorField, setErrorField] = useState<'user' | 'pass' | 'pass2' | null>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const userRef = useRef<HTMLInputElement>(null);
+  const passRef = useRef<HTMLInputElement>(null);
+  const pass2Ref = useRef<HTMLInputElement>(null);
   const online = backend === 'online';
   const register = online && mode === 'register';
+  const errId = 'sh-legacy-err';
 
   useEffect(() => {
     useAccount.getState().setIntent(null);
   }, []);
 
-  const fail = (msg: string) => {
+  const fail = (msg: string, field: 'user' | 'pass' | 'pass2' = 'pass') => {
     setError(msg);
-    setShake((n) => n + 1);
+    setErrorField(field);
     sfx.play('error');
+    // Restart the 2024 shake without remounting the inputs, so focus and the phone keyboard stay.
+    const box = boxRef.current;
+    if (box) {
+      box.classList.remove('is-shake');
+      void box.offsetWidth;
+      box.classList.add('is-shake');
+    }
+    ({ user: userRef, pass: passRef, pass2: pass2Ref })[field].current?.focus();
   };
 
   const switchMode = (m: LegacyMode) => {
     setMode(m);
     setError(null);
+    setErrorField(null);
     setPass('');
     setPass2('');
   };
@@ -594,17 +615,22 @@ function LegacyForm({ onLegacy, onAccount }: { onLegacy: () => void; onAccount: 
     const name = user.trim();
     if (register) {
       const np = nameProblem(name);
-      if (np) return fail(t(`account.rule.name.${np}`));
-      if (pass.length < PASSWORD_MIN) return fail(t('account.rule.pass.short', { n: PASSWORD_MIN }));
-      if (pass !== pass2) return fail(t('account.rule.pass.mismatch'));
+      if (np) return fail(t(`account.rule.name.${np}`), 'user');
+      if (pass.length < PASSWORD_MIN) return fail(t('account.rule.pass.short', { n: PASSWORD_MIN }), 'pass');
+      if (pass !== pass2) return fail(t('account.rule.pass.mismatch'), 'pass2');
     } else if (!name || !pass) {
-      return fail(t('shell.login.legacy.wrong'));
+      return fail(t('shell.login.legacy.wrong'), name ? 'pass' : 'user');
     }
     setError(null);
+    setErrorField(null);
     const ok = register ? await acct.register(name, pass) : await acct.login(name, pass);
     const u = useAccount.getState().user;
     if (ok && u) onAccount(u);
-    else fail(accountErrorText(useAccount.getState().error, lang) || t('account.err.unknown'));
+    else {
+      const err = useAccount.getState().error;
+      const field = err?.code === 'invalid_name' || err?.code === 'name_taken' ? 'user' : 'pass';
+      fail(accountErrorText(err, lang) || t('account.err.unknown'), field);
+    }
   };
 
   const rules = [
@@ -615,13 +641,20 @@ function LegacyForm({ onLegacy, onAccount }: { onLegacy: () => void; onAccount: 
 
   return (
     <form className="sh-legacy" onSubmit={submit} noValidate>
-      <div className={`sh-legacy__box${shake ? ' is-shake' : ''}`} key={shake}>
+      <div
+        className="sh-legacy__box"
+        ref={boxRef}
+        onAnimationEnd={(e) => e.target === e.currentTarget && e.currentTarget.classList.remove('is-shake')}
+      >
         <h2>{register ? t('account.register.title') : t('shell.login.legacy.title')}</h2>
         <input
+          ref={userRef}
           className="sh-legacy__input"
           name="username"
           placeholder={t('shell.login.legacy.user')}
           aria-label={t('shell.login.legacy.user')}
+          aria-invalid={error && errorField === 'user' ? true : undefined}
+          aria-describedby={error && errorField === 'user' ? errId : undefined}
           value={user}
           onChange={(e) => setUser(e.target.value)}
           autoComplete={online ? 'username' : 'off'}
@@ -631,22 +664,28 @@ function LegacyForm({ onLegacy, onAccount }: { onLegacy: () => void; onAccount: 
           maxLength={64}
         />
         <input
+          ref={passRef}
           className="sh-legacy__input"
           type="password"
           name="password"
           placeholder={t('shell.login.legacy.pass')}
           aria-label={t('shell.login.legacy.pass')}
+          aria-invalid={error && errorField === 'pass' ? true : undefined}
+          aria-describedby={error && errorField === 'pass' ? errId : undefined}
           value={pass}
           onChange={(e) => setPass(e.target.value)}
           autoComplete={online ? (register ? 'new-password' : 'current-password') : 'off'}
         />
         {register && (
           <input
+            ref={pass2Ref}
             className="sh-legacy__input"
             type="password"
             name="password-repeat"
             placeholder={t('account.register.repeat')}
             aria-label={t('account.register.repeat')}
+            aria-invalid={error && errorField === 'pass2' ? true : undefined}
+            aria-describedby={error && errorField === 'pass2' ? errId : undefined}
             value={pass2}
             onChange={(e) => setPass2(e.target.value)}
             autoComplete="new-password"
@@ -674,7 +713,7 @@ function LegacyForm({ onLegacy, onAccount }: { onLegacy: () => void; onAccount: 
           )}
         </button>
         {error && (
-          <p className="sh-legacy__err" role="alert">
+          <p className="sh-legacy__err" id={errId} role="alert">
             {error}
           </p>
         )}

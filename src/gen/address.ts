@@ -227,7 +227,8 @@ function allRoads(): Road[] {
     // "A-B maantee" after the towns nearest to each end (B must differ from A).
     const a = nearestTown(r.path[0], 25);
     const b = a && nearestTown(r.path[r.path.length - 1], 40, a);
-    if (a && b) r.name = `${genitiveTown(a)}-${b} maantee`;
+    // Both route ends in the genitive: "Türi-Tallinna maantee", not "Türi-Tallinn maantee".
+    if (a && b) r.name = `${genitiveTown(a)}-${genitiveTown(b)} maantee`;
   }
   roadsCache = roads;
   return roads;

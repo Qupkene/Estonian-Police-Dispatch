@@ -118,10 +118,21 @@ function epd_current_user(): ?array
     return $user;
 }
 
-/** @return array<string, mixed> */
+/**
+ * The logged-in user's row, else 401. A client that names the account it expects in `X-EPD-User`
+ * gets 409 `user_mismatch` when the session cookie now belongs to another account (another tab of
+ * the same browser logged in as someone else), so it never writes into the wrong account.
+ *
+ * @return array<string, mixed>
+ */
 function epd_require_user(): array
 {
-    return epd_current_user() ?? epd_fail(401, 'auth_required', 'Selleks pead olema sisse logitud.');
+    $user = epd_current_user() ?? epd_fail(401, 'auth_required', 'Selleks pead olema sisse logitud.');
+    $expected = trim(epd_header('X-EPD-User') ?? '');
+    if ($expected !== '' && $expected !== (string) $user['id']) {
+        epd_fail(409, 'user_mismatch', 'Selles brauseris on vahepeal sisse logitud teine konto.');
+    }
+    return $user;
 }
 
 // ---------------------------------------------------------------- users
@@ -298,7 +309,7 @@ function epd_route_register(): ApiReply
     epd_rate_record($db, $ip, $nameKey, 'register');
 
     if (!epd_valid_name($name)) {
-        epd_fail(400, 'invalid_name', 'Nimi peab olema 3 kuni 24 märki pikk ja sisaldama ainult tähti, numbreid ning märke _ . -', [], ['field' => 'name']);
+        epd_fail(400, 'invalid_name', 'Nimi peab olema 3 kuni 24 märki pikk ja sisaldama ainult ladina tähti (ka õ, ä, ö, ü, š, ž), numbreid ning märke _ . -', [], ['field' => 'name']);
     }
     $password = epd_check_password($body['password'] ?? null);
     if (epd_find_user_by_key($db, $nameKey) !== null) {

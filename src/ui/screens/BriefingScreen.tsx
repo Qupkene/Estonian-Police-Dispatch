@@ -6,6 +6,7 @@ import { useLang, useT } from '@/i18n';
 import { sfx } from '@/audio/sfx';
 import { rankOf, rosterFromCareer } from '@/sim/career';
 import { dayInfo, weekdayFactor } from '@/sim/calendar';
+import { shiftKindOf } from '@/sim/engine';
 import { Rng } from '@/sim/rng';
 import { sunTimes } from '@/sim/sun';
 import { DAY, HOUR, hhmm, wall } from '@/sim/time';
@@ -15,10 +16,12 @@ import { Badge, Button, Emblem, Empty, Icon, type IconName } from '@/ui/componen
 import { EstoniaMap } from './shell/EstoniaMap';
 import { ShellPage } from './shell/ShellPage';
 import {
+  careerShiftRegion,
   DATE_PRESETS,
   formatMoney,
   presetHoliday,
   regionSummary,
+  regionUnitsOnDuty,
   resolveDatePreset,
   SHIFT_PRESETS,
   shiftStart,
@@ -65,8 +68,9 @@ export function BriefingScreen() {
   const career = mode === 'career';
 
   const nowHour = wall(Date.now()).hour;
-  const [regionId, setRegionId] = useState<RegionId>(
-    career && profile ? profile.regionId : (briefing.regionId ?? 'pohja'),
+  // Career: the prefecture picked in HQ when it is unlocked, else the home region.
+  const [regionId, setRegionId] = useState<RegionId>(() =>
+    career && profile ? careerShiftRegion(profile, briefing.regionId) : (briefing.regionId ?? 'pohja'),
   );
   const [difficulty, setDifficulty] = useState<Difficulty>(briefing.difficulty ?? 'normal');
   const [shift, setShift] = useState<ShiftPreset>(
@@ -132,11 +136,13 @@ export function BriefingScreen() {
     return f < 0.8 ? 'low' : f < 1.2 ? 'normal' : f < 1.6 ? 'high' : 'extreme';
   }, [start, hours, shift, difficulty]);
 
+  const shiftKind = shiftKindOf(start);
   const roster: RosterUnit[] | null = useMemo(
-    () =>
-      career && profile ? safe(() => rosterFromCareer(profile, shift === 'day' ? 'day' : 'night')) : null,
-    [career, profile, shift],
+    () => (career && profile ? safe(() => rosterFromCareer(profile, shiftKind, regionId)) : null),
+    [career, profile, shiftKind, regionId],
   );
+  // Units actually on duty for this shift and difficulty (not the whole roster file).
+  const unitsOnDuty = useMemo(() => regionUnitsOnDuty(regionId, shiftKind, difficulty), [regionId, shiftKind, difficulty]);
   const rank = useMemo(() => (profile ? safe(() => rankOf(profile.xp)) : null), [profile]);
 
   const begin = () => {
@@ -247,7 +253,7 @@ export function BriefingScreen() {
               <Fact
                 icon="car"
                 label={t('shell.brief.units')}
-                value={career && roster ? roster.length : region.units || '-'}
+                value={career && roster ? roster.length : unitsOnDuty || '-'}
               />
               <Fact icon="layers" label={t('shell.brief.counties')} value={region.counties.length} />
             </div>

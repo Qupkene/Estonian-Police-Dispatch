@@ -4,7 +4,8 @@ import { REGIONS, REGION_IDS } from '@/data/regions';
 import { makeIdcode } from '@/gen/isikukood';
 import { Rng } from '@/sim/rng';
 import { tallinnTime, wall } from '@/sim/time';
-import type { Gender, LngLat, Priority, RegionDef, RegionId, ShiftReport, Text } from '@/sim/types';
+import { rosterSpecsFor } from '@/sim/units';
+import type { CareerProfile, Difficulty, Gender, LngLat, Priority, RegionDef, RegionId, ShiftReport, Text } from '@/sim/types';
 
 export const VERSION = '2.0.0';
 
@@ -253,6 +254,7 @@ export interface RegionSummary {
   hqCity: string;
   counties: string[];
   stations: number;
+  /** Units on duty on a normal-difficulty day shift (see regionUnitsOnDuty). */
   units: number;
   description: Text;
   commander: { name: string; title: Text };
@@ -264,7 +266,8 @@ export interface RegionSummary {
 /** Region data merged with fallbacks, safe while region files are still placeholders. */
 export function regionSummary(id: RegionId): RegionSummary {
   const r = REGIONS[id] as RegionDef | undefined;
-  const fb = REGION_FALLBACK[id];
+  // An id from an old or foreign save must never crash the menu.
+  const fb = REGION_FALLBACK[id] ?? REGION_FALLBACK.pohja;
   const stub = isStub(r);
   const hqStation = r?.stations?.find((s) => s.kind === 'hq');
   return {
@@ -274,13 +277,38 @@ export function regionSummary(id: RegionId): RegionSummary {
     hqCity: !stub && r?.hqCity ? r.hqCity : fb.hqCity,
     counties: r?.counties?.length ? r.counties : fb.counties,
     stations: r?.stations?.length ?? 0,
-    units: r?.roster?.length ?? 0,
+    units: regionUnitsOnDuty(id, 'day', 'normal'),
     description: !stub && r?.description?.et ? r.description : fb.description,
     commander: r?.commander ? { name: r.commander.name, title: r.commander.title } : fb.commander,
     label: fb.label,
     hq: hqStation?.coord ?? fb.hq,
     placeholder: stub,
   };
+}
+
+/**
+ * Units on duty in a prefecture for one shift and difficulty. The roster file also lists the
+ * other shift's units and the extras of harder levels, so its length overstates the force.
+ */
+export function regionUnitsOnDuty(id: RegionId, shift: 'day' | 'night', difficulty: Difficulty): number {
+  const r = REGIONS[id] as RegionDef | undefined;
+  if (!r?.roster?.length) return 0;
+  try {
+    return rosterSpecsFor(r, shift, difficulty).length;
+  } catch {
+    return r.roster.length;
+  }
+}
+
+/** Prefecture of a career shift: the one picked in HQ when the profile has it unlocked, else the home region. */
+export function careerShiftRegion(p: Pick<CareerProfile, 'regionId' | 'unlockedRegions'>, picked?: RegionId): RegionId {
+  const open = p.unlockedRegions?.length ? p.unlockedRegions : [p.regionId];
+  return picked && open.includes(picked) ? picked : p.regionId;
+}
+
+/** Net budget change of a career shift: the sum of its ledger entries (what moves the money). */
+export function ledgerNet(ledger: readonly { amount: number }[]): number {
+  return ledger.reduce((a, l) => a + (Number.isFinite(l.amount) ? l.amount : 0), 0);
 }
 
 /** Prefecture for a county name ("Harju maakond"); region data first, then the fixed fallback mapping. */
