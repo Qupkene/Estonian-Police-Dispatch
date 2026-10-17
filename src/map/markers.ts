@@ -10,7 +10,7 @@ import type { Incident, Lang, LngLat, SimState, Unit } from '@/sim/types';
 import { TEMPLATE_BY_ID } from '@/data/incidents';
 import { t } from '@/i18n';
 import { SIREN_GLYPH, SUSPECT_GLYPH, UNIT_GLYPHS } from './glyphs';
-import { isHidden, isMoving, type PosFn } from './overlays';
+import { isHidden, isMoving, type IncCoordFn, type PosFn } from './overlays';
 
 /** Closed incidents stay on the map (greyed) for this many game-ms, then fade out. */
 export const CLOSED_LINGER_MS = 2 * 60_000;
@@ -22,6 +22,8 @@ export interface MarkerContext {
   lang: Lang;
   bearing: number;
   pos: PosFn;
+  /** Where each incident is shown (null = its building is still being looked up). */
+  incCoord: IncCoordFn;
   selectedUnitId?: string;
   selectedIncidentId?: string;
   highlight: Set<string>;
@@ -238,7 +240,7 @@ export class IncidentMarkers {
     private handlers: MarkerHandlers,
   ) {}
 
-  private create(inc: Incident): IncRec {
+  private create(inc: Incident, at: LngLat): IncRec {
     const id = inc.id;
     const root = makeRoot('incident', () => this.handlers.onIncident(id));
     root.innerHTML =
@@ -247,14 +249,14 @@ export class IncidentMarkers {
       `<span class="epdm-inc__badge">${SIREN_GLYPH}</span><div class="epdm-inc__tip"></div></div>`;
     const inner = root.firstElementChild as HTMLDivElement;
     const rec: IncRec = {
-      marker: new Marker({ element: root, anchor: 'center' }).setLngLat(inc.location.coord).addTo(this.map),
+      marker: new Marker({ element: root, anchor: 'center' }).setLngLat(at).addTo(this.map),
       root,
       inner,
       code: inner.querySelector('.epdm-inc__code') as HTMLSpanElement,
       tip: inner.querySelector('.epdm-inc__tip') as HTMLDivElement,
       key: '',
-      lng: inc.location.coord[0],
-      lat: inc.location.coord[1],
+      lng: at[0],
+      lat: at[1],
     };
     this.recs.set(id, rec);
     return rec;
@@ -282,8 +284,11 @@ export class IncidentMarkers {
           continue;
         }
       }
+      // Shown at its building (or road); a brand-new marker waits a moment until that is known.
+      const at = c.incCoord(inc);
+      if (!at && !existing) continue;
       this.seen.add(id);
-      const rec = existing ?? this.create(inc);
+      const rec = existing ?? this.create(inc, at!);
       if (rec.removeAt !== undefined && !closed) {
         rec.removeAt = undefined;
         rec.inner.classList.remove('is-gone');
@@ -308,11 +313,10 @@ export class IncidentMarkers {
           (backup ? `<em>${esc(t('map.backup', c.lang))}</em>` : '');
         rec.root.style.zIndex = String(sel ? 58 : backup ? 52 : closed ? 15 : 39 + (5 - inc.priority));
       }
-      const [lng, lat] = inc.location.coord;
-      if (!near(lng, rec.lng, 1e-8) || !near(lat, rec.lat, 1e-8)) {
-        rec.lng = lng;
-        rec.lat = lat;
-        rec.marker.setLngLat(inc.location.coord);
+      if (at && (!near(at[0], rec.lng, 1e-8) || !near(at[1], rec.lat, 1e-8))) {
+        rec.lng = at[0];
+        rec.lat = at[1];
+        rec.marker.setLngLat(at);
       }
     }
     for (const [id, rec] of this.recs) {

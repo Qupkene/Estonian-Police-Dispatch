@@ -10,7 +10,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { Protocol } from 'pmtiles';
 import type { FeatureCollection } from 'geojson';
-import type { Lang, LngLat, RegionId, SimState, Unit } from '@/sim/types';
+import type { Incident, Lang, LngLat, RegionId, SimState, Unit } from '@/sim/types';
 import type { MapStyleKey } from '@/store/settings';
 import { REGIONS } from '@/data/regions';
 import { sun, unitPos } from '@/sim/selectors';
@@ -27,7 +27,8 @@ import {
 } from './style';
 import { knownStreetProbe, probeStreetTiles, type StreetProbe } from './streetTiles';
 import { MAX_BOUNDS } from './geodata';
-import { buildHeat, buildPursuits, buildRoutes, buildSearches, buildStations, declutterOffsets, isMoving } from './overlays';
+import { buildHeat, buildPursuits, buildRoutes, buildSearches, buildStations, declutterOffsets, isMoving, remainingPath } from './overlays';
+import { roadDisplay, roadService, type RoadDisplay } from './roads';
 import { IncidentMarkers, SuspectMarkers, UnitMarkers, type MarkerContext } from './markers';
 import { altitudeOf, Atmosphere } from './atmosphere';
 import type { MapViewProps } from './MapView';
@@ -131,6 +132,10 @@ export class MapController {
   private street: StreetProbe | 'idle' | 'pending' = 'idle';
   private probeSeq = 0;
   private readonly streetUrl = streetTilesUrl(this.base);
+  /** Road graph and buildings (units on roads, incidents at buildings); loads in the background. */
+  private readonly roadSvc = roadService(this.base);
+  private stationCoordsFor: RegionId | null = null;
+  private stationCoordsList: LngLat[] = [];
   private rasterErrors: number[] = [];
   private follow = false;
   private followEasing = false;
@@ -384,7 +389,15 @@ export class MapController {
     else this.map.flyTo({ ...opts, center: r.center, zoom: r.zoom });
   }
 
-  focus(coord: LngLat, zoom?: number) {
+  focus(target: LngLat, zoom?: number) {
+    // An incident or unit coordinate goes to where that marker is shown (on its building or road).
+    let coord = target;
+    try {
+      const s = this.getProps().sim;
+      if (s) coord = this.roads(s).focusCoord(s, target, performance.now());
+    } catch {
+      coord = target;
+    }
     const z = zoom ?? Math.max(this.map.getZoom(), 12.5);
     if (this.motionOK) this.map.flyTo({ center: coord, zoom: z, speed: 1.6, curve: 1.3, essential: false });
     else this.map.jumpTo({ center: coord, zoom: z });
@@ -493,6 +506,39 @@ export class MapController {
 
   // ── Frame loop ─────────────────────────────────────────────────────────────
 
+  private roads(s: SimState): RoadDisplay {
+    return roadDisplay(s, this.roadSvc);
+  }
+
+  private stationCoords(): LngLat[] {
+    if (this.stationCoordsFor !== this.regionId) {
+      this.stationCoordsFor = this.regionId;
+      this.stationCoordsList = (REGIONS[this.regionId]?.stations ?? []).map((st) => st.coord);
+    }
+    return this.stationCoordsList;
+  }
+
+  /** Where an incident is shown: on its building or road once the road data knows, else as given. */
+  private incCoord = (inc: Incident): LngLat | null => {
+    const s = this.getProps().sim;
+    try {
+      return this.roads(s).incidentCoord(inc, performance.now());
+    } catch {
+      return inc.location.coord;
+    }
+  };
+
+  /** Remaining route of a moving unit: along the roads when known, else the engine's line. */
+  private remainingOf = (u: Unit, now: number, current: LngLat): LngLat[] => {
+    try {
+      const r = this.roads(this.getProps().sim).remaining(u, now, current);
+      if (r) return r;
+    } catch {
+      /* engine line below */
+    }
+    return remainingPath(u, now, current);
+  };
+
   private posOf = (u: Unit): { pos: LngLat; heading: number } => {
     const p = this.getProps();
     if (performance.now() >= this.unitPosBypassUntil) {
@@ -500,6 +546,13 @@ export class MapController {
         const r = unitPos(p.sim, u);
         if (r && Array.isArray(r.pos) && Number.isFinite(r.pos[0]) && Number.isFinite(r.pos[1])) {
           this.unitPosFails = 0;
+          // On the roads: the same moment of the trip, along the road route.
+          try {
+            const d = this.roads(p.sim).unitPos(p.sim, u, r, this.stationCoords(), performance.now());
+            if (Number.isFinite(d.pos[0]) && Number.isFinite(d.pos[1])) return d;
+          } catch {
+            /* engine position */
+          }
           return r;
         }
       } catch {
@@ -548,6 +601,7 @@ export class MapController {
       lang: this.lang,
       bearing: this.map.getBearing(),
       pos: this.posOf,
+      incCoord: this.incCoord,
       selectedUnitId: p.selectedUnitId,
       selectedIncidentId: p.selectedIncidentId,
       highlight: this.highlight,
@@ -597,7 +651,7 @@ export class MapController {
       let station: string | undefined;
       if (!moving) {
         const inc = u.incidentId ? s.incidents[u.incidentId] : undefined;
-        if (inc && inc.state !== 'closed' && nearKm(pos, inc.location.coord, 0.08)) scene = inc.id;
+        if (inc && inc.state !== 'closed' && nearKm(pos, this.incCoord(inc) ?? inc.location.coord, 0.08)) scene = inc.id;
         else {
           const st = stations.find((x) => x.id === u.stationId) ?? stations.find((x) => nearKm(pos, x.coord, 0.06));
           if (st && nearKm(pos, st.coord, 0.06)) station = st.id;
@@ -629,13 +683,13 @@ export class MapController {
       for (const id of OVERLAY_SOURCES) this.overlayEmpty[id] = false;
       this.setSource(SRC.stations, buildStations(REGIONS[this.regionId], this.lang), true);
     }
-    this.setSource(SRC.routes, buildRoutes(s, this.posOf, p.selectedIncidentId, p.selectedUnitId));
+    this.setSource(SRC.routes, buildRoutes(s, this.posOf, p.selectedIncidentId, p.selectedUnitId, this.remainingOf));
     this.setSource(SRC.pursuit, buildPursuits(s));
     if (realNow - this.lastHeatAt > 500) {
-      this.setSource(SRC.search, buildSearches(s));
+      this.setSource(SRC.search, buildSearches(s, this.incCoord));
       if (this.heat && (s.incidentOrder.length !== this.lastHeatCount || realNow - this.lastHeatAt > 5000)) {
         this.lastHeatCount = s.incidentOrder.length;
-        this.setSource(SRC.heat, buildHeat(s));
+        this.setSource(SRC.heat, buildHeat(s, this.incCoord));
       }
       this.lastHeatAt = realNow;
     }

@@ -216,7 +216,10 @@ Roster: `region.roster` (UnitSpec) or career `RosterUnit[]`. Each unit spawns at
 and drive at 35 km/h without siren (lively map). ETA: straight-line distance × road factor
 (urban 1.35, rural 1.25) ÷ speed (siren: urban 58 km/h, rural 95 km/h; no siren 40/75; heli
 200 km/h straight, no road factor) × weather road factor. Paths: straight segments with a mild
-mid-point bend so movement looks organic (no external routing in the engine). Cross-zone travel
+mid-point bend so movement looks organic (no external routing in the engine). The map draws a
+moving unit at the same fraction of a road route instead (display only, `src/map/roads.ts`, data
+from the self-hosted street map, see SERVER.md 2.1) and incident markers at the nearest building
+or road; without that data it shows the engine's own positions. Cross-zone travel
 (islands) adds `zone.ferryMinutes` or is impossible (`null`) except for heli/boat.
 Fatigue +0.06/h, ×1.5 for P1 work; breaks (`break` 30 min) reset 60 %. Fatigue > 0.8 → mistakes
 (success −0.1). Units `onCall` (K-komando, heli) sit at base until dispatched (activation delay

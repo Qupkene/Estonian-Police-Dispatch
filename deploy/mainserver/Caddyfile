@@ -79,12 +79,24 @@
 	# Kaart: /tiles/estonia.pmtiles -> /srv/tiles/estonia.pmtiles. file_server vastab Range päringule
 	# 206, Content-Length, Accept-Ranges ja püsiva ETag/Last-Modified päisega (encode on välja jäetud).
 	# Fail muutub ainult uue väljavõttega (paigalda.sh --kaart).
+	# Kaardiandmed (teed ja hooned, scripts/build-mapdata.mjs): roads-v1.bin ja buildings-v1.bin
+	# loetakse tervikuna; kõrval olev .gz koopia läheb Content-Encoding: gzip päisega. Puuduv fail
+	# annab 404 (mäng näitab siis autosid nagu varem).
 	handle_path /tiles/* {
 		root * /srv/tiles
 		header Cache-Control "public, max-age=86400"
 		@pmtiles path *.pmtiles
 		header @pmtiles Content-Type "application/octet-stream"
-		file_server
+		@kaardiandmed path *.bin
+		header @kaardiandmed Content-Type "application/octet-stream"
+		handle @kaardiandmed {
+			file_server {
+				precompressed gzip
+			}
+		}
+		handle {
+			file_server
+		}
 	}
 
 	# Vite failid (nimes sisu räsi): aasta vahemälu, aga ainult siis, kui fail on olemas.

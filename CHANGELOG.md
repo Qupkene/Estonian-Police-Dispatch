@@ -8,6 +8,7 @@ Mängu täielik uusversioon. Idee on sama mis 2024. ja 2025. aastal, kuid kõik 
 
 - **Uus alus:** Vite, React ja TypeScript. Mäng töötab ka võrguühenduseta (PWA) ja avaldatakse GitHub Pagesis aadressil [politsei.eu](https://politsei.eu).
 - **Päris Eesti kaart:** võrguühenduseta vektorkaart ning võrgus tänavakaart, hallkaart ja ortofoto. Üksused liiguvad kaardil reaalajas.
+- **Autod sõidavad teid mööda:** marsruudid ja autod järgivad päris teid, väljakutsed on majade ja kaubanduskeskuste juures (teedevõrk ja hooned tehakse serveris tänavakaardist, väliseid teenuseid pole).
 - **Neli prefektuuri:** Põhja, Ida, Lõuna ja Lääne, päris linnade, tänavate ja jaoskondadega.
 - **Üle 150 sündmusetüübi**, sealhulgas kõik 116 algset väljakutset. Kohapealsed otsused, toetuse palved, kiirabi kutsumine, kinnipeetute transport, jälitused ja otsingud.
 - **Andmebaas:** kehtivad isikukoodid, numbrimärgid, juhi- ja relvaload ning karistusregistri kanded viidetega Eesti seadustele. Legendaarsed 2025. aasta tegelased on alles.
@@ -27,6 +28,7 @@ A complete remake. Same idea as in 2024 and 2025, rebuilt from scratch.
 
 - New stack: Vite, React and TypeScript. Works offline (PWA); deployed to GitHub Pages at politsei.eu.
 - Real map of Estonia: offline vector map plus online street, grey-scale and orthophoto layers. Units move on the map in real time.
+- Cars drive on the roads: routes and units follow real roads, calls sit at houses and shopping centres (road graph and buildings are derived on the server from the self-hosted street map, no external service).
 - Four prefectures (Põhja, Ida, Lõuna, Lääne) with real towns, streets and stations.
 - 150+ incident types, including all 116 original calls, with on-scene decisions, backup requests, ambulance requests, detainee transport, pursuits and area searches.
 - Registry (Andmebaas): valid ID codes, plates, licences, weapon permits and criminal records citing Estonian law. The legendary 2025 characters are still there.

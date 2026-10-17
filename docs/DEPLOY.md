@@ -19,7 +19,8 @@ MainServer: konteiner relee-politsei (linuxserver/wireguard, Dockeri võrk veeb,
 konteiner politsei (FrankenPHP, :80)
   +-- /         /opt/stack/politsei/www            ehitatud mäng (dist/), version.txt
   +-- /api/*    /opt/stack/politsei/repo/server    PHP API, andmebaas kaustas data/
-  +-- /tiles/*  /opt/stack/politsei/tiles          estonia.pmtiles (tänavakaart)
+  +-- /tiles/*  /opt/stack/politsei/tiles          estonia.pmtiles (tänavakaart), roads-v1.bin ja
+                                                   buildings-v1.bin (teed ja hooned, vt "Kaardiandmed")
 ```
 
 | Kus | Mis |
@@ -29,7 +30,7 @@ konteiner politsei (FrankenPHP, :80)
 | /opt/stack/politsei/wg/ | wg0.conf, politsei.key (privaatvõti), politsei.pub |
 | /opt/stack/politsei/data/ | epd.sqlite, sessions/, deploy-secret, control/uuenda.json, varu/ (andmebaasi varukoopiad) |
 | /opt/stack/politsei/www.prev/ | eelmine versioon (tagasivõtuks) |
-| /opt/stack/politsei/olek/ | viimane.txt (viimane tulemus), vigased.txt (vahele jäetud commitid) |
+| /opt/stack/politsei/olek/ | viimane.txt (viimane tulemus), vigased.txt (vahele jäetud commitid), kaardiandmed.txt (millest kaardiandmed viimati ehitati) |
 | /opt/stack/politsei/juhised.txt | paigaldaja juhised (a, b, c) uuesti vaatamiseks |
 | /usr/local/sbin/politsei-uuenda.sh | uuendusskript |
 | politsei-uuenda.path, .timer, .service | systemd unitid |
@@ -68,7 +69,9 @@ Paigaldaja (umbes 5 kuni 15 minutit, kaart ja esimene ehitus võtavad kõige kau
 3. loob kaustad, kloonib või uuendab repo, loob WireGuardi võtmepaari ja webhooki saladuse;
 4. kontrollib kõik enne käivitamist (docker compose config, frankenphp validate, php -l,
    wg-quick strip, bash -n);
-5. tõmbab Eesti kaardi: viimane Protomaps v4 päevane build, ala 21.0,57.2,28.6,60.0, suum kuni 15;
+5. tõmbab Eesti kaardi: viimane Protomaps v4 päevane build, ala 21.0,57.2,28.6,60.0, suum kuni 15,
+   ja ehitab sellest kaardiandmed (teed ja hooned, vt "Kaardiandmed"; esimesel paigaldusel teeb
+   selle esimene ehitus);
 6. teeb varukoopia, paigaldab failid, käivitab konteinerid, kontrollib `/api/health`;
 7. ehitab mängu esimest korda (`politsei-uuenda.sh --joud`), käivitab systemd unitid;
 8. prindib kolm plokki: (a) relee, (b) GitHubi webhook, (c) DNS. Need on ka failis
@@ -160,7 +163,9 @@ kus sha on sama mis version.txt; www suunab `https://politsei.eu/` peale.
    - teeb `www.prev` koopia, kopeerib uue versiooni `www/` sisse (`rsync --delete`, kausta sisu,
      mitte kausta), kirjutab `version.txt`, viib repo samale commitile;
    - kontrollib `/version.txt`, avalehte ja `/api/health`;
-   - mis tahes vea korral taastab `www` ja repo eelmisele versioonile.
+   - mis tahes vea korral taastab `www` ja repo eelmisele versioonile;
+   - lõpuks ehitab kaardiandmed (vt "Kaardiandmed"), kui need puuduvad, on kaardist vanemad või
+     ehitusskript muutus. Selle viga ainult logitakse ja teatatakse, uus versioon jääb paigale.
 5. `politsei-uuenda.timer` jooksutab sama skripti 5 min pärast boot'i ja siis iga 10 min järel.
    Kui webhook jäi tulemata, tuleb uuendus sealt.
 6. Konteinereid ei taaskäivitata, kui pole vaja. PHP muutused jõuavad kohe kohale, uus Caddyfile
@@ -185,6 +190,37 @@ ebaõnnestunud:
 ```
 sudo politsei-uuenda.sh --joud
 ```
+
+Ainult kaardiandmed (paigas oleva versiooni skriptiga; ehitab, kui need puuduvad või on
+vananenud, koos `--joud` alati):
+
+```
+sudo politsei-uuenda.sh --kaardiandmed
+sudo politsei-uuenda.sh --kaardiandmed --joud
+```
+
+## Kaardiandmed (teed ja hooned)
+
+Et autod sõidaksid teid mööda ja väljakutsed oleksid majade ja kaubanduskeskuste juures, kasutab
+kaart kahte faili, mis tehakse tänavakaardist `estonia.pmtiles` (väliseid teenuseid pole):
+
+| Fail | Sisu |
+| --- | --- |
+| `tiles/roads-v1.bin` | autoteede graaf (ristmikud, teelõigud kujuga, kiirusklass, ühesuunalisus) |
+| `tiles/buildings-v1.bin` | hoonete keskpunktid (alates 40 m2) suurusega, võrestikuga otsinguks |
+| `*.bin.gz` | samad gzip-ina, Caddy saadab need `Content-Encoding: gzip` päisega |
+
+Need ehitab `scripts/build-mapdata.mjs` (`node:22` konteineris, ilma võrguta, kaart ainult
+lugemiseks): loeb kõik suumi 15 plaadid ükshaaval, lõikab jooned täpselt plaadi piiril, ühendab
+need üle piiride, kirjutab failid ajutise nimega ja nimetab siis ümber (bind mount näeb uut faili).
+Eesti jaoks võtab see eeldatavasti mõne minuti ja alla 1 GB mälu; failid on kokku umbes 10 kuni
+15 MB (gzip 5 kuni 8 MB), brauser hoiab neid ööpäeva vahemälus.
+Uuendus ehitab need siis, kui need puuduvad, on `estonia.pmtiles`-ist vanemad või skript muutus;
+paigaldaja teeb sama pärast kaardi tõmbamist (ka `--kaart`). Viga ei katkesta ega tühista midagi:
+vanad failid jäävad alles.
+
+Mäng loeb failid taustal (töölõimes) ühe korra lehe kohta. Kui neid pole (404), sõidavad autod
+sirgjooni pidi nagu varem ja väljakutsed on oma algsetes punktides.
 
 ## Logid
 
@@ -250,14 +286,15 @@ uuesti loomine, uus pilt või `docker compose down` ei puuduta seda.
 | `www.prev/` | eelmise versiooni koopia | ei muuda |
 | `repo/` | `git checkout` uuele commitile (ka `server/`) | `git fetch` |
 | `conf/` | `Caddyfile`, kui see repos muutus (enne kontroll) | `Caddyfile` |
-| `ehitus/`, `olek/` | ehitus ja olek | ei muuda |
+| `ehitus/`, `olek/` | ehitus ja olek (`olek/kaardiandmed.txt`) | `olek/kaardiandmed.txt` |
 | `compose.yml`, `.env`, `wg/wg0.conf`, systemd unitid, `/usr/local/sbin/politsei-uuenda.sh` | ei muuda | paigaldab (vanad failid `varu/paigaldus-*`) |
 | `data/epd.sqlite` | **ei muuda** (loeb ainult varukoopia jaoks) | **ei muuda** (loeb ainult varukoopia jaoks) |
 | `data/sessions/` | **ei muuda** | **ei muuda** |
 | `data/deploy-secret` | **ei muuda** | loob ainult siis, kui seda pole või see on tühi |
 | `data/control/uuenda.json` | kustutab (uuenduse pilet) | ei muuda |
 | `data/varu/` | uus varukoopia, vanad koristab | uus varukoopia, vanad koristab |
-| `tiles/` | **ei muuda** | `estonia.pmtiles` ainult siis, kui see puudub, ei läbi kontrolli või anti `--kaart`; uus fail kontrollitakse enne asendamist |
+| `tiles/estonia.pmtiles` | **ei muuda** (kaardiandmete konteiner näeb seda ainult lugemiseks) | ainult siis, kui see puudub, ei läbi kontrolli või anti `--kaart`; uus fail kontrollitakse enne asendamist |
+| `tiles/*-v1.bin`, `tiles/*-v1.bin.gz` | kaardiandmed uuesti, kui need puuduvad või on vananenud | sama |
 
 Konteiner `politsei` luuakse uuesti ainult siis, kui `server/` kaust vahetus või `relee-politsei`
 taaskäivitus. Andmed on hostis, need jäävad alles.
@@ -484,6 +521,7 @@ Lõpuks DNS-is politsei.eu ja www A-kirjed ära (või uude kohta) ning GitHubis 
 | Webhook: 200 `{"ignored": ...}` | Normaalne: teine haru, punane CI või muu töövoog. Põhjus on vastuses. |
 | Uuendus ei tule | `sudo journalctl -u politsei-uuenda -n 50 --no-pager`. "Ootan CI-d" = CI käib; "varem ebaõnnestunud" = paranda ja tee uus commit või `sudo politsei-uuenda.sh --joud`; "GitHubi API ei vasta" = võrk või päringulimiit (60 tunnis), taimer proovib uuesti. |
 | Kaart näitab ainult taktikalist vaadet, teade "Tänavakaardi faili ei leitud" | `ls -lh /opt/stack/politsei/tiles/`. Tõmba uuesti: `sudo bash /opt/stack/politsei/repo/deploy/mainserver/paigalda.sh --kaart` |
+| Autod sõidavad sirgjooni pidi, väljakutsed pole majade juures | Kaardiandmed puuduvad. `ls -lh /opt/stack/politsei/tiles/` peab näitama `roads-v1.bin` ja `buildings-v1.bin`. Logi: `sudo journalctl -t politsei-uuenda -n 50 --no-pager \| grep -i kaardiandmed`. Uuesti: `sudo politsei-uuenda.sh --kaardiandmed --joud` |
 | `/api/health` annab 500 | `docker logs politsei --tail 50`. Tavaliselt andmekaust: `sudo ls -la /opt/stack/politsei/data`. |
 | Telefon näitab vana versiooni | index.html ja sw.js on `no-cache`, uus versioon tuleb järgmisel avamisel. Kiiresti: sulge kõik vahelehed või kustuta saidi andmed. |
 | Ehitus kukub mälu tõttu | Ehitus saab 3 GB ja 2 CPU-d. Vaata logi; kui Minecraft võtab kogu mälu, proovi hiljem `sudo politsei-uuenda.sh --joud`. |
@@ -499,6 +537,15 @@ scp magnus@10.10.20.10:/opt/stack/politsei/tiles/estonia.pmtiles public/tiles/
 ```
 
 Ilma failita näitab mäng taktikalist kaarti.
+
+Kaardiandmed (teed ja hooned) samast failist, repo kaustas:
+
+```
+node scripts/build-mapdata.mjs public/tiles/estonia.pmtiles public/tiles/
+```
+
+Ilma nendeta sõidavad autod sirgjooni pidi. Kaardi arendusvaade (`src/map/__dev__/harness.html`)
+näitab `?roads=1` korral teedevõrku ja hooneid kaardi peal.
 
 ## Valikuline: eelvaade github.io-s
 

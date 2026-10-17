@@ -11,8 +11,9 @@
 #
 # Käik: eelkontroll, veeb võrgu vaba IP, WG aadressi kontroll, kaustad, repo, WireGuardi võtmed,
 # webhooki saladus, konfid ajutisse kausta, Dockeri pildid, kontrollid (compose config,
-# frankenphp validate, php -l, wg-quick strip, bash -n), kaart, varukoopiad (andmebaas ja
-# konfid) ja paigaldus, docker compose up, tervisekontroll, esimene ehitus, systemd unitid.
+# frankenphp validate, php -l, wg-quick strip, bash -n), kaart ja kaardiandmed (teed ja hooned),
+# varukoopiad (andmebaas ja konfid) ja paigaldus, docker compose up, tervisekontroll, esimene
+# ehitus, systemd unitid.
 # Vea korral pärast paigalduse algust taastatakse eelmised failid ja konteinerid ise.
 
 set -euo pipefail
@@ -43,7 +44,7 @@ KAART_UUESTI=0
 for arg in "$@"; do
     case "$arg" in
         --kaart) KAART_UUESTI=1 ;;
-        --abi|-h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+        --abi|-h|--help) sed -n '2,18p' "$0"; exit 0 ;;
         *) echo "Tundmatu võti: $arg (vaata --abi)" >&2; exit 2 ;;
     esac
 done
@@ -552,8 +553,16 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 fi
 
 # ================================================================ 10. kaart
-samm "Eesti kaart (Protomaps PMTiles)"
+samm "Eesti kaart (Protomaps PMTiles) ja kaardiandmed (teed ja hooned)"
 kaart || hoiata "kaart jäi tegemata, mäng töötab ka ilma. Hiljem: sudo bash $0 --kaart"
+# Teedevõrk ja hooned kaardist (uue uuendusskriptiga, lukk on juba käes). Ehitab ainult siis, kui
+# failid puuduvad või on kaardist vanemad (ka pärast --kaart). Esimesel paigaldusel teeb selle
+# esimene ehitus (sammus 13), sest npm pakette veel pole.
+if POLITSEI_LUKK_KAES=1 bash "$STAGE/politsei-uuenda.sh" --kaardiandmed; then
+    info "kaardiandmed: korras"
+else
+    hoiata "kaardiandmeid ei ehitatud, mäng töötab ka ilma. Hiljem: sudo politsei-uuenda.sh --kaardiandmed"
+fi
 
 # ================================================================ 11. paigaldus
 samm "Varukoopiad ja paigaldus"

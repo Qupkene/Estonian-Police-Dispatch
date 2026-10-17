@@ -27,7 +27,7 @@ src/net/               frontend API client and account store
 | /opt/stack/politsei/www | /app/www | ro | built frontend (`dist/`), plus `version.txt` (deployed commit) |
 | /opt/stack/politsei/repo/server | /app/server | ro | PHP code from the repository |
 | /opt/stack/politsei/data | /data | rw | `epd.sqlite`, `sessions/`, `deploy-secret`, `control/` (update tickets), `varu/` (SQLite snapshots taken before every update) |
-| /opt/stack/politsei/tiles | /srv/tiles | ro | `estonia.pmtiles` (Protomaps basemap extract of Estonia) |
+| /opt/stack/politsei/tiles | /srv/tiles | ro | `estonia.pmtiles` (Protomaps basemap extract of Estonia), `roads-v1.bin` and `buildings-v1.bin` plus `.gz` copies (map data derived from it, section 2.1) |
 | /opt/stack/politsei/conf | /etc/epd | ro | `Caddyfile` (copied from `deploy/mainserver/Caddyfile`, validated before reload) |
 
 Containers (`/opt/stack/politsei/compose.yml`):
@@ -49,6 +49,37 @@ The client probes the file header with one range request and falls back to the b
 map when it is missing. For `npm run dev` the file can be put in `public/tiles/estonia.pmtiles`
 (ignored by git; Vite serves byte ranges).
 
+### 2.1 Map data (roads and buildings)
+
+So that units drive along real roads and incidents sit at buildings, `scripts/build-mapdata.mjs`
+derives two compact binary files from `estonia.pmtiles` (no external service):
+
+- `roads-v1.bin`: the car road graph (highway, major and minor roads, living streets, service roads
+  except parking aisles; no paths, tracks, rail or ferries), clipped to exact tile bounds, stitched
+  across tile borders, degree-2 chains merged and simplified, one-way and a speed class per edge.
+- `buildings-v1.bin`: area-weighted building centroids (40 m2 and up) with a size class and a grid
+  index; a building cut by tile borders is merged by feature id.
+
+Both formats (versioned, little-endian typed arrays) are documented at the top of the script and
+read by `src/map/roadGraph.ts`. The script reads zoom 15 tile by tile (the only zoom with every
+building), writes each file to a temporary name in the output folder and renames it, also writes
+`.gz` copies, and exits 1 without touching existing files on any failure. Local:
+`node scripts/build-mapdata.mjs public/tiles/estonia.pmtiles public/tiles/`.
+
+On the server `politsei-uuenda.sh` builds them after a successful update when a file is missing,
+older than `estonia.pmtiles`, or the script changed (stamp in `olek/kaardiandmed.txt`), in a
+`node:22` container without network, with the tiles folder mounted read-write and
+`estonia.pmtiles` read-only on top; `paigalda.sh` does the same after the map extract, and
+`politsei-uuenda.sh --kaardiandmed [--joud]` does it by hand. A failure is logged and reported,
+never fatal: the game update stays, the old files stay.
+
+The client (`src/map/roads.ts`, worker `src/map/roadWorker.ts`) fetches both files lazily once per
+page. When they are missing (404, an HTML fallback, a damaged file, a network error) the map shows
+the engine's positions exactly as before. The simulation itself never uses this data: units still
+travel the engine's straight path in the same time; the map draws them at the same fraction of a
+road route (A*), and incident markers at the nearest building (120 m), a real place's most
+prominent building (200 m) or the nearest road (300 m).
+
 Relay VPS: Caddy site `politsei.eu` (and `www.politsei.eu` redirecting to it) →
 `reverse_proxy 10.99.0.5:80`. TLS is terminated on the relay. DNS: A records for `politsei.eu` and
 `www.politsei.eu` → `80.47.227.213`.
@@ -58,7 +89,9 @@ Relay VPS: Caddy site `politsei.eu` (and `www.politsei.eu` redirecting to it) �
 - `/api/*` → PHP, `/app/server/api/index.php` (the router reads the path itself).
 - `/tiles/*` → static files from `/srv/tiles` with HTTP range support (PMTiles reads byte ranges).
   No `encode` on this route: range replies must be `206` with `Content-Length`, `Accept-Ranges: bytes`
-  and a stable `ETag`/`Last-Modified`.
+  and a stable `ETag`/`Last-Modified`. `*.bin` (map data, section 2.1) is served as
+  `application/octet-stream` with `file_server { precompressed gzip }`, so the `.gz` copy goes out
+  with `Content-Encoding: gzip`; a missing file is a plain 404. One day of caching for both.
 - everything else → static from `/app/www`, unknown paths fall back to `/index.html`.
   `index.html` and `sw.js` get `Cache-Control: no-cache`, `/assets/*` get one-year immutable caching.
 
@@ -224,7 +257,8 @@ Deploy hook and health:
    (whatever the ticket says), fetches that commit, checks on the GitHub API that every
    check run of that commit succeeded, builds the frontend in a `node:22` container, copies the result
    into `www/` (contents, not the folder: bind mounts point to the inode), writes `version.txt`, checks
-   `/api/health`, and restores the previous version if anything fails.
+   `/api/health`, and restores the previous version if anything fails. After a successful switch it
+   rebuilds the map data (section 2.1) when needed; that step can never fail or roll back the update.
 5. `politsei-uuenda.timer` runs the same script every 10 minutes as a fallback (compares the deployed
    commit with `git ls-remote origin main`), so a missed webhook only delays an update.
 6. When `/etc/pidu.env` provides a Telegram token and chat id, the script reports the result there.
