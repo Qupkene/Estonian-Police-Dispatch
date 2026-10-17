@@ -10,6 +10,9 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  // Local development: the PHP API (npm run dev:api) answers /api; without it the game runs in guest mode.
+  server: { proxy: { '/api': 'http://127.0.0.1:8787' } },
+  preview: { proxy: { '/api': 'http://127.0.0.1:8787' } },
   build: {
     target: 'es2022',
     chunkSizeWarningLimit: 2500,

@@ -12,12 +12,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "dev:api": "php -S 127.0.0.1:8787 server/dev-router.php"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@protomaps/basemaps": "^5.7.2",
     "maplibre-gl": "^6.14.0",
+    "pmtiles": "^4.5.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "zustand": "^5.0.15"
