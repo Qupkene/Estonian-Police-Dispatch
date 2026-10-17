@@ -528,6 +528,36 @@ export class MapController {
     }
   };
 
+  /** Where a pursued vehicle is shown: driving along the roads once the road data is in, else as given. */
+  private suspectPosOf = (inc: Incident): { pos: LngLat; heading: number } => {
+    const p = inc.pursuit!;
+    try {
+      const d = this.roads(this.getProps().sim).suspectPos(inc, performance.now());
+      if (Number.isFinite(d.pos[0]) && Number.isFinite(d.pos[1]) && Number.isFinite(d.heading)) return d;
+    } catch {
+      /* engine position below */
+    }
+    return { pos: p.suspectPos, heading: p.heading ?? 0 };
+  };
+
+  /** A pursuit's trail along the roads the vehicle was shown on (null = the engine's trail). */
+  private trailOf = (inc: Incident): LngLat[] | null => {
+    try {
+      return this.roads(this.getProps().sim).suspectTrail(inc);
+    } catch {
+      return null;
+    }
+  };
+
+  /** Where a pursuit ended on the map (a search there is drawn around it). */
+  private pursuitEndOf = (inc: Incident): LngLat | null => {
+    try {
+      return this.roads(this.getProps().sim).pursuitEnd(inc, performance.now());
+    } catch {
+      return inc.pursuit?.suspectPos ?? null;
+    }
+  };
+
   /** Remaining route of a moving unit: along the roads when known, else the engine's line. */
   private remainingOf = (u: Unit, now: number, current: LngLat): LngLat[] => {
     try {
@@ -602,6 +632,7 @@ export class MapController {
       bearing: this.map.getBearing(),
       pos: this.posOf,
       incCoord: this.incCoord,
+      suspectPos: this.suspectPosOf,
       selectedUnitId: p.selectedUnitId,
       selectedIncidentId: p.selectedIncidentId,
       highlight: this.highlight,
@@ -684,9 +715,9 @@ export class MapController {
       this.setSource(SRC.stations, buildStations(REGIONS[this.regionId], this.lang), true);
     }
     this.setSource(SRC.routes, buildRoutes(s, this.posOf, p.selectedIncidentId, p.selectedUnitId, this.remainingOf));
-    this.setSource(SRC.pursuit, buildPursuits(s));
+    this.setSource(SRC.pursuit, buildPursuits(s, this.trailOf));
     if (realNow - this.lastHeatAt > 500) {
-      this.setSource(SRC.search, buildSearches(s, this.incCoord));
+      this.setSource(SRC.search, buildSearches(s, this.incCoord, this.pursuitEndOf));
       if (this.heat && (s.incidentOrder.length !== this.lastHeatCount || realNow - this.lastHeatAt > 5000)) {
         this.lastHeatCount = s.incidentOrder.length;
         this.setSource(SRC.heat, buildHeat(s, this.incCoord));

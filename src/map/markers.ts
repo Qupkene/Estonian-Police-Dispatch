@@ -10,7 +10,7 @@ import type { Incident, Lang, LngLat, SimState, Unit } from '@/sim/types';
 import { TEMPLATE_BY_ID } from '@/data/incidents';
 import { t } from '@/i18n';
 import { SIREN_GLYPH, SUSPECT_GLYPH, UNIT_GLYPHS } from './glyphs';
-import { isHidden, isMoving, type IncCoordFn, type PosFn } from './overlays';
+import { isHidden, isMoving, type IncCoordFn, type PosFn, type SuspectPosFn } from './overlays';
 
 /** Closed incidents stay on the map (greyed) for this many game-ms, then fade out. */
 export const CLOSED_LINGER_MS = 2 * 60_000;
@@ -24,6 +24,8 @@ export interface MarkerContext {
   pos: PosFn;
   /** Where each incident is shown (null = its building is still being looked up). */
   incCoord: IncCoordFn;
+  /** Where a pursued vehicle is shown (on the roads); the engine's position when absent. */
+  suspectPos?: SuspectPosFn;
   selectedUnitId?: string;
   selectedIncidentId?: string;
   highlight: Set<string>;
@@ -362,6 +364,7 @@ export class SuspectMarkers {
       const p = inc?.pursuit;
       if (!p?.suspectPos || p.ended || inc.state === 'closed' || isHidden(s, id)) continue;
       this.seen.add(id);
+      const shown = c.suspectPos ? c.suspectPos(inc) : { pos: p.suspectPos, heading: p.heading ?? 0 };
       let rec = this.recs.get(id);
       if (!rec) {
         const root = makeRoot('suspect', () => this.handlers.onIncident(id));
@@ -370,21 +373,21 @@ export class SuspectMarkers {
         root.style.zIndex = '57';
         root.innerHTML = `<div class="epdm-suspect"><span class="epdm-suspect__ring"></span><div class="epdm-suspect__car">${SUSPECT_GLYPH}</div></div>`;
         rec = {
-          marker: new Marker({ element: root, anchor: 'center', subpixelPositioning: true }).setLngLat(p.suspectPos).addTo(this.map),
+          marker: new Marker({ element: root, anchor: 'center', subpixelPositioning: true }).setLngLat(shown.pos).addTo(this.map),
           dir: root.querySelector('.epdm-suspect__car') as HTMLDivElement,
-          lng: p.suspectPos[0],
-          lat: p.suspectPos[1],
+          lng: shown.pos[0],
+          lat: shown.pos[1],
           rot: NaN,
         };
         this.recs.set(id, rec);
       }
-      const [lng, lat] = p.suspectPos;
+      const [lng, lat] = shown.pos;
       if (!near(lng, rec.lng, 1e-7) || !near(lat, rec.lat, 1e-7)) {
         rec.lng = lng;
         rec.lat = lat;
-        rec.marker.setLngLat(p.suspectPos as LngLat);
+        rec.marker.setLngLat(shown.pos as LngLat);
       }
-      const rot = ((((p.heading ?? 0) - c.bearing) % 360) + 360) % 360;
+      const rot = (((shown.heading - c.bearing) % 360) + 360) % 360;
       if (!near(rot, rec.rot, 0.5)) {
         rec.rot = rot;
         rec.dir.style.transform = `rotate(${rot.toFixed(1)}deg)`;

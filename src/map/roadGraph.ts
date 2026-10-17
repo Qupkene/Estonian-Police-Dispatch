@@ -490,6 +490,51 @@ export function nearestEdge(g: RoadGraph, lon: number, lat: number, maxM: number
   return best;
 }
 
+/** The nearest point of one given edge to (lon, lat) (no radius: always an answer). */
+export function snapToEdge(g: RoadGraph, e: number, lon: number, lat: number): EdgeSnap {
+  const kx = M_PER_DEG * Math.cos(lat * DEG);
+  const ky = M_PER_DEG;
+  const a: [number, number] = [0, 0];
+  const b: [number, number] = [0, 0];
+  const n = edgeCount(g, e);
+  let best: EdgeSnap = { edge: e, seg: 0, t: 0, lon: g.nodeLon[g.edgeA[e]], lat: g.nodeLat[g.edgeA[e]], dist: 0, along: 0 };
+  let bestD = Infinity;
+  let walked = 0;
+  edgePt(g, e, 0, a);
+  for (let i = 0; i + 1 < n; i++) {
+    edgePt(g, e, i + 1, b);
+    const ax = (a[0] - lon) * kx;
+    const ay = (a[1] - lat) * ky;
+    const dx = (b[0] - a[0]) * kx;
+    const dy = (b[1] - a[1]) * ky;
+    const l2 = dx * dx + dy * dy;
+    let t = l2 > 0 ? -(ax * dx + ay * dy) / l2 : 0;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const px = ax + t * dx;
+    const py = ay + t * dy;
+    const d = px * px + py * py;
+    const segLen = segLenM(a[0], a[1], b[0], b[1]);
+    if (d < bestD) {
+      bestD = d;
+      best = {
+        edge: e,
+        seg: i,
+        t,
+        lon: a[0] + (b[0] - a[0]) * t,
+        lat: a[1] + (b[1] - a[1]) * t,
+        dist: 0,
+        along: walked + segLen * t,
+      };
+    }
+    walked += segLen;
+    a[0] = b[0];
+    a[1] = b[1];
+  }
+  best.dist = Math.sqrt(bestD);
+  best.along = Math.min(g.edgeLen[e], best.along);
+  return best;
+}
+
 export interface BuildingHit {
   index: number;
   lon: number;
@@ -691,6 +736,9 @@ export interface RouteOptions {
   maxSettled?: number;
   /** Treat one-way roads as two-way (second attempt when the data leaves no legal way). */
   anyDirection?: boolean;
+  /** Already snapped ends (the pursuit display keeps a suspect on the road it chose). */
+  startOn?: EdgeSnap;
+  endOn?: EdgeSnap;
 }
 
 interface Adjacency {
@@ -762,8 +810,8 @@ class PathBuilder {
 export function findRoute(g: RoadGraph, from: LngLat, to: LngLat, o: RouteOptions = {}): RoutePath | null {
   const snapM = o.snapM ?? 2500;
   const maxSettled = o.maxSettled ?? 400_000;
-  const s = nearestEdge(g, from[0], from[1], snapM);
-  const t = nearestEdge(g, to[0], to[1], snapM);
+  const s = o.startOn ?? nearestEdge(g, from[0], from[1], snapM);
+  const t = o.endOn ?? nearestEdge(g, to[0], to[1], snapM);
   if (!s || !t) return null;
   if (g.comp[g.edgeA[s.edge]] !== g.comp[g.edgeA[t.edge]]) return null;
   const kmhOf = (e: number) => g.speedKmh[g.edgeFlags[e] & 15] || 30;
@@ -1051,4 +1099,233 @@ export function computeRoute(
     }
   }
   return { from: f, to: t, path };
+}
+
+// ---------------------------------------------------------------------------- pursuit hops
+
+/**
+ * Anti zig-zag rule for a fleeing suspect: a candidate road point costs its distance plus a penalty,
+ * and the cheapest one wins. The edge it is on and the road going straight on from its end ahead
+ * (the end nearer the engine position) cost nothing extra, the recently driven edges NEAR_EDGE_M,
+ * a turn into a side street TURN_M and any other road STICKY_M. So a parallel road has to be that
+ * much nearer before the suspect changes over to it (and the same again to change back), and a side
+ * street is only taken when the engine position has really left the road.
+ */
+export const STICKY_M = 25;
+/** Penalty (metres) of the recently driven edges. */
+export const NEAR_EDGE_M = 8;
+/** Penalty (metres) of the side streets meeting the current edge (not straight on). */
+export const TURN_M = 20;
+/** Within this angle (degrees) a meeting edge counts as going straight on. */
+const STRAIGHT_ON_DEG = 40;
+/** How many recently driven edges the display remembers. */
+export const HOP_HISTORY = 6;
+/** A hop may go back against the direction of travel by at most this much (metres) ... */
+export const TURN_BACK_M = 10;
+/**
+ * ... unless the engine itself turned back, or the end of the drawn path is this far (metres, or 1.5
+ * engine steps) from the engine position: then the display has to catch up whichever way.
+ */
+export const HOLD_MAX_M = 45;
+/** A hop's road path may be at most 1.6 x the straight distance + this (metres), else it is a detour. */
+export const HOP_DETOUR_M = 60;
+/** Short hops never need a big search: give up after settling this many nodes. */
+const HOP_MAX_SETTLED = 6000;
+/** At most this many candidate road points are tried per hop. */
+const HOP_CANDIDATES = 4;
+/**
+ * A suspect further than this (metres) from every road (a park, a square, open country) is shown
+ * where the engine has it, and is put back on the roads when one is this near again.
+ */
+export const OFF_ROAD_M = 150;
+
+export interface HopRequest {
+  /** Where the previous hop ended (the end of the displayed path). */
+  from: LngLat;
+  /** Edge the previous hop ended on (-1 = not on a road). */
+  fromEdge: number;
+  /** Recently driven edges, oldest first. */
+  history: readonly number[];
+  /** The engine's new position. */
+  to: LngLat;
+  /** Direction of travel at `from` (degrees; absent at the start). */
+  travel?: number;
+  /** The engine position of the previous hop request (absent at the start). */
+  prev?: LngLat;
+}
+
+export interface HopAnswer {
+  from: LngLat;
+  /** Where the hop ends: the chosen road point, or the engine position when no road is near. */
+  to: LngLat;
+  /** Edge of `to` (-1 = not on a road). */
+  edge: number;
+  /** Road path from `from` to `to`, or null = draw the hop straight. */
+  path: RoutePath | null;
+  /** Nothing to draw yet: every road way there turns back (wait for the next engine position). */
+  hold?: boolean;
+}
+
+/** Undirected neighbours of an edge at one of its nodes (or both): the edges sharing that node. */
+export function edgesMeeting(g: RoadGraph, e: number, node?: number): number[] {
+  const adj = undirected(g);
+  const out: number[] = [];
+  for (const n of node === undefined ? [g.edgeA[e], g.edgeB[e]] : [node])
+    for (let k = adj.start[n]; k < adj.start[n + 1]; k++) if (adj.edge[k] !== e && !out.includes(adj.edge[k])) out.push(adj.edge[k]);
+  return out;
+}
+
+const angleBetween = (a: number, b: number) => Math.abs(((b - a + 540) % 360) - 180);
+
+/** Direction (degrees) of edge e at one of its nodes: arriving at the node, or leaving it. */
+function dirAtNode(g: RoadGraph, e: number, node: number, leaving: boolean): number {
+  const n = edgeCount(g, e);
+  const p: [number, number] = [0, 0];
+  const q: [number, number] = [0, 0];
+  const atA = g.edgeA[e] === node;
+  // The node itself and its neighbouring polyline point.
+  edgePt(g, e, atA ? 0 : n - 1, p);
+  edgePt(g, e, atA ? 1 : n - 2, q);
+  return leaving ? bearing([p[0], p[1]], [q[0], q[1]]) : bearing([q[0], q[1]], [p[0], p[1]]);
+}
+
+export interface SnapCandidate {
+  snap: EdgeSnap;
+  /** Distance plus the anti zig-zag penalty (lower is better). */
+  score: number;
+}
+
+/**
+ * Candidate road points for a moving suspect at p, best first (see STICKY_M): `current` is the edge
+ * it is on (-1 = none), `history` the recently driven edges. Only candidates within tolM of the
+ * best score are kept. Empty = no road within maxM metres.
+ */
+export function snapCandidates(
+  g: RoadGraph,
+  p: LngLat,
+  current: number,
+  history: readonly number[],
+  tolM = STICKY_M,
+  maxM: number = SNAP_M.road,
+  limit = HOP_CANDIDATES,
+): SnapCandidate[] {
+  const nearest = nearestEdge(g, p[0], p[1], maxM);
+  if (!nearest) return [];
+  const byEdge = new Map<number, SnapCandidate>();
+  const add = (snap: EdgeSnap, score: number) => {
+    const old = byEdge.get(snap.edge);
+    if (!old || score < old.score) byEdge.set(snap.edge, { snap, score });
+  };
+  add(nearest, nearest.dist + tolM);
+  const consider = (e: number, penalty: number) => {
+    if (!(e >= 0 && e < g.edges)) return;
+    const s = snapToEdge(g, e, p[0], p[1]);
+    if (s.dist <= maxM) add(s, s.dist + penalty);
+  };
+  const near = Math.min(tolM, NEAR_EDGE_M);
+  const turn = Math.min(tolM, TURN_M);
+  if (current >= 0 && current < g.edges) {
+    consider(current, 0);
+    const a = g.edgeA[current];
+    const b = g.edgeB[current];
+    const da = segLenM(g.nodeLon[a], g.nodeLat[a], p[0], p[1]);
+    const db = segLenM(g.nodeLon[b], g.nodeLat[b], p[0], p[1]);
+    const [ahead, behind] = da <= db ? [a, b] : [b, a];
+    const arrive = dirAtNode(g, current, ahead, false);
+    for (const e of edgesMeeting(g, current, ahead)) {
+      const straightOn = angleBetween(arrive, dirAtNode(g, e, ahead, true)) <= STRAIGHT_ON_DEG;
+      consider(e, straightOn ? 0 : turn);
+    }
+    for (const e of edgesMeeting(g, current, behind)) consider(e, turn);
+  }
+  for (const e of history) if (e !== current) consider(e, near);
+  const all = [...byEdge.values()].sort((a, b) => a.score - b.score || a.snap.edge - b.snap.edge);
+  const out = all.filter((c) => c.score <= all[0].score + tolM).slice(0, limit);
+  // The nearest road itself is always among them.
+  if (!out.some((c) => c.snap.edge === nearest.edge)) out.push(byEdge.get(nearest.edge)!);
+  return out;
+}
+
+/** The best candidate of snapCandidates (null = no road near). */
+export function stickySnap(
+  g: RoadGraph,
+  p: LngLat,
+  current: number,
+  history: readonly number[],
+  tolM = STICKY_M,
+  maxM: number = SNAP_M.road,
+): EdgeSnap | null {
+  return snapCandidates(g, p, current, history, tolM, maxM, 1)[0]?.snap ?? null;
+}
+
+/** How far (metres) a path goes back behind its start against the given direction. */
+export function backtrackM(path: DisplayPath, travel: number): number {
+  const n = path.lon.length;
+  if (n < 2) return 0;
+  const ux = Math.sin(travel * DEG);
+  const uy = Math.cos(travel * DEG);
+  const kx = M_PER_DEG * Math.cos(path.lat[0] * DEG);
+  let min = 0;
+  for (let i = 1; i < n; i++) {
+    const d = (path.lon[i] - path.lon[0]) * kx * ux + (path.lat[i] - path.lat[0]) * M_PER_DEG * uy;
+    if (d < min) min = d;
+  }
+  return -min;
+}
+
+/**
+ * One short hop of a fleeing suspect on the map: from the end of the previous hop to a road point of
+ * the engine's new position (see snapCandidates), along the roads, without turning back against the
+ * direction of travel unless the engine did. When every road way there turns back or is a long
+ * detour the answer is to hold (nothing to draw until the next position), unless the drawn path is
+ * already far behind: then a route that turns back is taken, and when there is only a long detour a
+ * straight hop. No road near the engine position: a straight hop to the position itself.
+ */
+export function computeHop(data: RoadData, q: HopRequest): HopAnswer {
+  const g = data.roads;
+  const straight = (to: LngLat, edge: number): HopAnswer => ({ from: q.from, to, edge, path: null });
+  if (!g) return straight(q.to, -1);
+  const cur = q.fromEdge >= 0 && q.fromEdge < g.edges ? q.fromEdge : -1;
+  const cands = snapCandidates(g, q.to, cur, q.history, STICKY_M, OFF_ROAD_M);
+  if (!cands.length) return straight(q.to, -1);
+  const first = cands[0].snap;
+  const firstPt: LngLat = [first.lon, first.lat];
+  const s = cur >= 0 ? snapToEdge(g, cur, q.from[0], q.from[1]) : nearestEdge(g, q.from[0], q.from[1], SNAP_M.road);
+  if (!s) return straight(firstPt, first.edge);
+  const step = q.prev ? segLenM(q.prev[0], q.prev[1], q.to[0], q.to[1]) : 0;
+  const far = segLenM(q.from[0], q.from[1], q.to[0], q.to[1]) > Math.max(HOLD_MAX_M, 1.5 * step);
+  const turned =
+    q.travel === undefined ||
+    !q.prev ||
+    step < 0.5 ||
+    angleBetween(q.travel, bearing(q.prev, q.to)) > 110;
+  const routes: { c: EdgeSnap; path: RoutePath; direct: number }[] = [];
+  for (const { snap: c } of cands) {
+    const target: LngLat = [c.lon, c.lat];
+    let path: RoutePath | null = null;
+    try {
+      path = findRoute(g, q.from, target, { startOn: s, endOn: c, anyDirection: true, maxSettled: HOP_MAX_SETTLED });
+    } catch {
+      path = null;
+    }
+    // No route, or no progress (the end of a dead end, a junction the engine went straight past).
+    if (!path || path.lengthM < 1) continue;
+    const direct = segLenM(q.from[0], q.from[1], target[0], target[1]);
+    routes.push({ c, path, direct });
+    const detour = path.lengthM > 1.6 * direct + HOP_DETOUR_M;
+    const back = !turned && q.travel !== undefined && backtrackM(path, q.travel) > TURN_BACK_M;
+    if (!detour && !back) return { from: q.from, to: target, edge: c.edge, path };
+  }
+  if (!far && cur >= 0) return { from: q.from, to: q.from, edge: cur, path: null, hold: true };
+  // Far behind: catch up with the road point nearest the engine, by a route even if it turns back
+  // but never by a long detour; else straight to it; with no other road point, straight to the
+  // engine position itself (until a road is near it again).
+  routes.sort((a, b) => a.c.dist - b.c.dist);
+  for (const r of routes)
+    if (r.path.lengthM <= 1.6 * r.direct + HOP_DETOUR_M) return { from: q.from, to: [r.c.lon, r.c.lat], edge: r.c.edge, path: r.path };
+  const away = cands
+    .map((c) => c.snap)
+    .filter((c) => segLenM(q.from[0], q.from[1], c.lon, c.lat) >= 1)
+    .sort((a, b) => a.dist - b.dist)[0];
+  return away ? straight([away.lon, away.lat], away.edge) : straight(q.to, -1);
 }
