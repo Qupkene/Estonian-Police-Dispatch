@@ -1,7 +1,23 @@
-// Speech synthesis for radio traffic (Web Speech API). Owned by ui-shell. Keep the exported signatures.
-// Estonian uses an 'et-EE' (or any 'et*') system voice when one exists. Otherwise Estonian text is NOT
-// spoken (an English voice reading Estonian sounds wrong). English uses en-GB → en-US → any en.
+// Speech synthesis for radio traffic. Owned by ui-shell. Keep the exported signatures.
+//
+// Estonian: the neural voice from the game's own server (TartuNLP Neurokõne via POST /api/tts,
+// src/audio/neurokone.ts), one line at a time with a radio sound. When the server is not there or the
+// clip cannot be had, an 'et-EE' (or any 'et*') browser voice reads the line; without one Estonian text
+// is NOT spoken (an English voice reading Estonian sounds wrong). English uses the browser voice:
+// en-GB → en-US → any en.
 import { sfx } from './sfx';
+import { NEUROKONE_NAME, onTtsChange, say, stopTts, ttsReady } from './neurokone';
+import { ttsText, ttsVoice, type TtsSpeaker } from './ttsText';
+
+export interface SpeakOptions {
+  rate?: number;
+  pitch?: number;
+  radio?: boolean;
+  /** Web Speech volume 0..1. The server voice plays through the master volume instead. */
+  volume?: number;
+  /** Who is talking (radio sender, crew gender): picks the Estonian server voice. */
+  speaker?: TtsSpeaker;
+}
 
 export interface VoiceLike {
   lang: string;
@@ -78,6 +94,8 @@ if (typeof window !== 'undefined') {
     else (s as SpeechSynthesis & { onvoiceschanged: (() => void) | null }).onvoiceschanged = onChanged;
   }
 }
+// The server voice coming or going changes what Settings shows, like a new browser voice does.
+onTtsChange(() => listeners.forEach((l) => l()));
 
 /** Subscribe to voice-list changes (voices load asynchronously in most browsers). */
 export function onVoicesChanged(fn: () => void): () => void {
@@ -87,28 +105,27 @@ export function onVoicesChanged(fn: () => void): () => void {
 
 /** Name of the voice that would be used, or null. */
 export function voiceName(lang: 'et' | 'en'): string | null {
+  if (lang === 'et' && ttsReady()) return NEUROKONE_NAME;
   if (!voices.length) refresh();
   return pickVoice(voices, lang)?.name ?? null;
 }
 
 export function speechAvailable(lang: 'et' | 'en'): boolean {
+  if (lang === 'et' && ttsReady()) return true;
   if (!synth()) return false;
   if (!voices.length) refresh();
   return pickVoice(voices, lang) !== null;
 }
 
-export function speak(
-  text: string,
-  lang: 'et' | 'en',
-  opts?: { rate?: number; pitch?: number; radio?: boolean; volume?: number },
-): void {
+/** Web Speech. False when nothing is spoken; `onDone` runs when the utterance ends either way. */
+function webSpeak(text: string, lang: 'et' | 'en', opts: SpeakOptions | undefined, onDone?: () => void): boolean {
   const s = synth();
-  if (!s || !text) return;
+  if (!s || !text) return false;
   if (!voices.length) refresh();
   const voice = pickVoice(voices, lang);
-  if (!voice) return;
+  if (!voice) return false;
   // Radio traffic must stay current: drop lines instead of building a backlog.
-  if (opts?.radio && pending >= 2) return;
+  if (opts?.radio && pending >= 2) return false;
   const u = new SpeechSynthesisUtterance(speechText(text));
   u.voice = voice;
   u.lang = voice.lang;
@@ -116,25 +133,62 @@ export function speak(
   u.pitch = opts?.pitch ?? (opts?.radio ? 0.92 : 1);
   u.volume = Math.max(0, Math.min(1, opts?.volume ?? 1));
   pending++;
-  const done = () => {
+  let finished = false;
+  const finish = (ok: boolean) => {
+    if (finished) return;
+    finished = true;
     pending = Math.max(0, pending - 1);
-    if (opts?.radio) sfx.play('radioOut', { gain: 0.8 });
+    if (ok && opts?.radio) sfx.play('radioOut', { gain: 0.8 });
+    onDone?.();
   };
-  u.onend = done;
-  u.onerror = () => {
-    pending = Math.max(0, pending - 1);
-  };
+  u.onend = () => finish(true);
+  u.onerror = () => finish(false);
   if (opts?.radio) {
     u.onstart = () => sfx.play('radioIn', { gain: 0.8 });
   }
   try {
     s.speak(u);
   } catch {
-    pending = Math.max(0, pending - 1);
+    finish(false);
+    return false;
   }
+  return true;
+}
+
+/** Web Speech as a fallback of the Estonian queue: resolves when the line is over (at most 20 s). */
+function webSpeakDone(text: string, lang: 'et' | 'en', opts: SpeakOptions | undefined): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, 20_000);
+    const done = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    if (!webSpeak(text, lang, opts, done)) done();
+  });
+}
+
+export function speak(text: string, lang: 'et' | 'en', opts?: SpeakOptions): void {
+  if (!text) return;
+  if (lang === 'et') {
+    // Every Estonian line goes through one queue, so the server voice and the browser voice never
+    // talk over each other. When the server voice is known to be unusable, the line goes straight
+    // to the fallback (empty text: no request).
+    const radio = !!opts?.radio;
+    const { voice, speed } = ttsVoice(opts?.speaker, radio);
+    say({
+      text: ttsReady() === false ? '' : ttsText(text),
+      voice,
+      speed,
+      radio,
+      fallback: () => webSpeakDone(text, lang, opts),
+    });
+    return;
+  }
+  webSpeak(text, lang, opts);
 }
 
 export function stopSpeech(): void {
+  stopTts();
   const s = synth();
   pending = 0;
   try {

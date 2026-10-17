@@ -151,7 +151,7 @@ export function SettingsScreen() {
                 disabled={!voiceOk}
                 onClick={() => {
                   sfx.unlock();
-                  speak(t('shell.set.voiceSample'), lang, { radio: true, volume: s.volume });
+                  speak(t('shell.set.voiceSample'), lang, { radio: true, volume: s.volume, speaker: { from: 'PÕHJA 21' } });
                 }}
               >
                 {t('shell.set.test')}

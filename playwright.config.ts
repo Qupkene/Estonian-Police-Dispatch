@@ -25,7 +25,7 @@ export default defineConfig({
       // Its data lives in test-results/, which Playwright empties before every run. -q: no access log.
       command: 'php -q -S 127.0.0.1:8787 server/dev-router.php',
       url: 'http://127.0.0.1:8787/api/health',
-      env: { EPD_DATA: './test-results/epd-data' },
+      env: { EPD_DATA: './test-results/epd-data', EPD_TTS_UPSTREAM: 'off' },
       reuseExistingServer: true,
       timeout: 30_000,
     },

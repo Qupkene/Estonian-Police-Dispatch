@@ -3,7 +3,8 @@
 //
 // Signal chain:  voices → sfxBus ─┐
 //                ring  → ringBus ─┼→ master (volume) → compressor → destination
-//                ambience → ambBus┘
+//                ambience → ambBus┤
+//                radio speech ────┘ (src/audio/neurokone.ts, via sfx.speechOut())
 export type SfxName =
   | 'boot'
   | 'login'
@@ -719,6 +720,14 @@ export const sfx = {
   /** True once an AudioContext exists and is running. */
   isUnlocked(): boolean {
     return !!eng && eng.ctx.state === 'running';
+  },
+  /**
+   * The AudioContext and the node radio speech plays into (the master volume, not the sound-effects
+   * switch: speech has its own setting). Null before the first unlock. The context may be suspended.
+   */
+  speechOut(): { ctx: AudioContext; out: AudioNode } | null {
+    if (!eng || eng.ctx.state === 'closed') return null;
+    return { ctx: eng.ctx, out: eng.master };
   },
   setVolume(v: number): void {
     volume = v;

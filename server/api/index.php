@@ -13,6 +13,7 @@ require_once dirname(__DIR__) . '/lib/auth.php';
 require_once dirname(__DIR__) . '/lib/saves.php';
 require_once dirname(__DIR__) . '/lib/scores.php';
 require_once dirname(__DIR__) . '/lib/hook.php';
+require_once dirname(__DIR__) . '/lib/tts.php';
 
 /**
  * Method, path pattern and handler. Capture groups become handler arguments.
@@ -34,6 +35,7 @@ function epd_routes(): array
         ['POST', '#^/api/score$#', epd_route_score_post(...)],
         ['GET', '#^/api/scores$#', epd_route_scores_get(...)],
         ['POST', '#^/api/deploy-hook$#', epd_route_deploy_hook(...)],
+        ['POST', '#^/api/tts$#', epd_route_tts(...)],
     ];
 }
 

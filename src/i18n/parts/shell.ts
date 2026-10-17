@@ -405,8 +405,8 @@ export default {
   },
   'shell.set.radioVoice': { et: 'Raadiosõnumite ettelugemine', en: 'Read radio messages aloud' },
   'shell.set.radioVoiceDesc': {
-    et: 'Kasutab brauseri kõnesünteesi.',
-    en: "Uses the browser's speech synthesis.",
+    et: 'Eesti keeles loeb TartuNLP Neurokõne mängu serveri kaudu, ilma serverita brauseri kõnesüntees.',
+    en: "Estonian uses TartuNLP Neurokõne through the game server; without the server, the browser's speech synthesis.",
   },
   'shell.set.voice.ok': { et: 'Hääl: {name}', en: 'Voice: {name}' },
   'shell.set.voice.none': {

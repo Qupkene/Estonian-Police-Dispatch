@@ -16,6 +16,7 @@ import {
   rmSync,
   statSync,
   unlinkSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { createServer } from 'node:net';
@@ -948,6 +949,282 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
   });
 });
 
+// ------------------------------------------------------------------ speech synthesis
+
+/**
+ * A stand-in for TartuNLP behind the relay: a `php -S` router that logs every call (path and JSON
+ * body, one line each) and answers by path prefix: /ok/ and /slow/ (after 600 ms) a small valid WAV,
+ * /big/ a 300 kB WAV, /html/ an HTML page with status 200.
+ */
+const FAKE_TTS = `<?php
+declare(strict_types=1);
+$path = (string) parse_url((string) $_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$body = (string) file_get_contents('php://input');
+file_put_contents((string) getenv('FAKE_TTS_LOG'), json_encode(['path' => $path, 'method' => $_SERVER['REQUEST_METHOD'], 'type' => $_SERVER['CONTENT_TYPE'] ?? '', 'body' => $body]) . "\\n", FILE_APPEND | LOCK_EX);
+if (str_starts_with($path, '/html/')) {
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!doctype html><title>Bad gateway</title>';
+    return true;
+}
+if (str_starts_with($path, '/slow/')) {
+    usleep(600000);
+}
+$samples = str_repeat("\\0\\0", str_starts_with($path, '/big/') ? 150000 : 800);
+header('Content-Type: audio/wav');
+echo 'RIFF' . pack('V', 36 + strlen($samples)) . 'WAVEfmt ' . pack('VvvVVvv', 16, 1, 1, 8000, 16000, 2, 16) . 'data' . pack('V', strlen($samples)) . $samples;
+return true;
+`;
+
+interface TtsReply {
+  status: number;
+  headers: Headers;
+  bytes: Buffer;
+  json: Json;
+}
+
+/** POST /api/tts like the game does (X-EPD, JSON body); the reply as bytes. */
+async function ttsPost(base: string, body: unknown, ip: string, opts: { csrf?: boolean; raw?: string } = {}): Promise<TtsReply> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'X-Forwarded-For': ip };
+  if (opts.csrf ?? true) headers['X-EPD'] = '1';
+  const res = await fetch(`${base}/api/tts`, { method: 'POST', headers, body: opts.raw ?? JSON.stringify(body) });
+  const bytes = Buffer.from(await res.arrayBuffer());
+  let json: Json = null;
+  if ((res.headers.get('content-type') ?? '').startsWith('application/json')) json = JSON.parse(bytes.toString('utf8'));
+  return { status: res.status, headers: res.headers, bytes, json };
+}
+
+const clipName = (voice: string, speed: number, text: string) =>
+  createHash('sha256').update(`${voice}|${speed.toFixed(2)}|${text}`).digest('hex');
+
+describe.skipIf(!HAS_PHP)('speech synthesis (POST /api/tts)', { timeout: 60_000 }, () => {
+  let root = '';
+  let fake: PhpServer;
+  let ok: PhpServer;
+  let slow: PhpServer;
+  let html: PhpServer;
+  let down: PhpServer;
+  let off: PhpServer;
+  let big: PhpServer;
+  const data = (name: string) => join(root, name);
+  const clip = (dir: string, voice: string, speed: number, text: string) => {
+    const name = clipName(voice, speed, text);
+    return join(dir, 'tts', name.slice(0, 2), `${name}.wav`);
+  };
+  /** Upstream calls so far, oldest first. */
+  const calls = (): { path: string; method: string; type: string; body: string }[] =>
+    existsSync(data('fake.log'))
+      ? readFileSync(data('fake.log'), 'utf8')
+          .split('\n')
+          .filter(Boolean)
+          .map((l) => JSON.parse(l))
+      : [];
+  const callsTo = (prefix: string) => calls().filter((c) => c.path.startsWith(prefix));
+
+  beforeAll(async () => {
+    root = mkdtempSync(join(tmpdir(), 'epd-tts-test-'));
+    for (const d of ['ok', 'slow', 'html', 'down', 'off', 'big']) mkdirSync(data(d));
+    const fakeDir = data('fake');
+    mkdirSync(fakeDir);
+    writeFileSync(join(fakeDir, 'router.php'), FAKE_TTS);
+    const port = await freePort();
+    const fakeProc = spawn('php', ['-q', '-S', `127.0.0.1:${port}`, join(fakeDir, 'router.php')], {
+      cwd: fakeDir,
+      env: { ...process.env, FAKE_TTS_LOG: data('fake.log') },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    fake = { base: `http://127.0.0.1:${port}`, proc: fakeProc, log: [] };
+    const closed = await freePort();
+    const up = (prefix: string) => `${fake.base}/${prefix}/text-to-speech/v2`;
+    const env = (dir: string, upstream: string, extra: Record<string, string> = {}) => ({
+      EPD_DATA: data(dir),
+      EPD_TRUSTED_PROXY: '127.0.0.1',
+      EPD_TTS_UPSTREAM: upstream,
+      ...extra,
+    });
+    [ok, slow, html, down, off, big] = await Promise.all([
+      startPhp(env('ok', up('ok'), { EPD_TTS_LIMIT: '5' })),
+      // Four workers, so identical requests really run at the same time.
+      startPhp(env('slow', up('slow'), { PHP_CLI_SERVER_WORKERS: '4' })),
+      startPhp(env('html', up('html'))),
+      startPhp(env('down', `http://127.0.0.1:${closed}/text-to-speech/v2`)),
+      startPhp(env('off', 'off')),
+      startPhp(env('big', up('big'), { EPD_TTS_CACHE_MB: '1', EPD_TTS_PRUNE_EVERY: '1' })),
+    ]);
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      try {
+        await fetch(`${fake.base}/ping/`);
+        break;
+      } catch {
+        await sleep(50);
+      }
+    }
+    rmSync(data('fake.log'), { force: true });
+  }, 60_000);
+
+  afterAll(async () => {
+    await Promise.all([fake, ok, slow, html, down, off, big].map((s) => stopPhp(s)));
+    if (root) rmSync(root, { recursive: true, force: true });
+  });
+
+  it('validates text, voice and speed, and needs X-EPD', async () => {
+    const ip = nextIp();
+    const bad = async (body: unknown, code: string, field: string) => {
+      const r = await ttsPost(ok.base, body, ip);
+      expect(r.status, JSON.stringify(body)).toBe(400);
+      expect(r.json, JSON.stringify(body)).toMatchObject({ error: code, field });
+    };
+    await bad({ voice: 'mari' }, 'invalid_text', 'text');
+    await bad({ text: '', voice: 'mari' }, 'invalid_text', 'text');
+    await bad({ text: ' \n\t\u0000 ', voice: 'mari' }, 'invalid_text', 'text');
+    await bad({ text: 42, voice: 'mari' }, 'invalid_text', 'text');
+    await bad({ text: 'ä'.repeat(401), voice: 'mari' }, 'invalid_text', 'text');
+    await bad({ text: 'Tere.' }, 'invalid_voice', 'voice');
+    await bad({ text: 'Tere.', voice: 'robot' }, 'invalid_voice', 'voice');
+    await bad({ text: 'Tere.', voice: 'mari', speed: 0.5 }, 'invalid_speed', 'speed');
+    await bad({ text: 'Tere.', voice: 'mari', speed: 1.4 }, 'invalid_speed', 'speed');
+    await bad({ text: 'Tere.', voice: 'mari', speed: '1' }, 'invalid_speed', 'speed');
+    expect((await ttsPost(ok.base, { text: 'Tere.', voice: 'mari' }, ip, { csrf: false })).status).toBe(403);
+    expect((await ttsPost(ok.base, null, ip, { raw: '{"text": ' })).json.error).toBe('bad_json');
+    const get = await new Client(ok.base, ip).get('/api/tts');
+    expect(get.status).toBe(405);
+    expect(get.headers.get('allow')).toBe('POST');
+    expect(calls()).toHaveLength(0);
+    // 400 characters is still fine.
+    expect((await ttsPost(ok.base, { text: 'ä'.repeat(400), voice: 'mari' }, ip)).status).toBe(200);
+  });
+
+  it('synthesises a line once and serves it from data/tts afterwards', async () => {
+    const before = callsTo('/ok/').length;
+    const ip = nextIp();
+    const line = { text: 'Põhja kakskümmend üks, kohal.', voice: 'mari', speed: 1.08 };
+    const first = await ttsPost(ok.base, line, ip);
+    expect(first.status).toBe(200);
+    expect(first.headers.get('content-type')).toBe('audio/wav');
+    expect(first.headers.get('cache-control')).toBe('private, max-age=604800');
+    expect(first.headers.get('x-epd-tts')).toBe('miss');
+    expect(first.bytes.subarray(0, 4).toString('latin1')).toBe('RIFF');
+    expect(first.bytes.subarray(8, 12).toString('latin1')).toBe('WAVE');
+    const sent = callsTo('/ok/').slice(before);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ method: 'POST', type: 'application/json', path: '/ok/text-to-speech/v2' });
+    expect(JSON.parse(sent[0].body)).toEqual({ text: line.text, speaker: 'mari', speed: 1.08 });
+    // Cached under the persistent data folder, keyed by voice, speed and text.
+    const file = clip(data('ok'), 'mari', 1.08, line.text);
+    expect(existsSync(file)).toBe(true);
+    expect(readFileSync(file).equals(first.bytes)).toBe(true);
+    expect(readdirSync(join(data('ok'), 'tts', clipName('mari', 1.08, line.text).slice(0, 2)))).toEqual([
+      `${clipName('mari', 1.08, line.text)}.wav`,
+    ]);
+    // The same line again (also with extra whitespace and a control character): no upstream call.
+    for (const text of [line.text, `  Põhja kakskümmend üks,\n kohal.\u0007 `]) {
+      const again = await ttsPost(ok.base, { ...line, text }, nextIp());
+      expect(again.status).toBe(200);
+      expect(again.headers.get('x-epd-tts')).toBe('hit');
+      expect(again.bytes.equals(first.bytes)).toBe(true);
+    }
+    expect(callsTo('/ok/').length - before).toBe(1);
+  });
+
+  it('keeps another voice or speed of the same text as its own clip', async () => {
+    const ip = nextIp();
+    const text = 'Lõuna kaksteist, vaba.';
+    const before = callsTo('/ok/').length;
+    for (const [voice, speed] of [
+      ['tambet', 1],
+      ['vesta', 1],
+      ['tambet', 1.1],
+    ] as const) {
+      const r = await ttsPost(ok.base, { text, voice, speed }, ip);
+      expect(r.headers.get('x-epd-tts'), `${voice} ${speed}`).toBe('miss');
+      expect(existsSync(clip(data('ok'), voice, speed, text))).toBe(true);
+    }
+    expect(callsTo('/ok/').slice(before).map((c) => JSON.parse(c.body).speaker)).toEqual(['tambet', 'vesta', 'tambet']);
+    // No speed means 1: the same clip as speed 1.
+    expect((await ttsPost(ok.base, { text, voice: 'tambet' }, ip)).headers.get('x-epd-tts')).toBe('hit');
+    // "kylli" is accepted for külli and sent upstream as "külli".
+    const k = await ttsPost(ok.base, { text, voice: 'kylli' }, ip);
+    expect(k.status).toBe(200);
+    expect(JSON.parse(callsTo('/ok/').at(-1)!.body).speaker).toBe('külli');
+    expect((await ttsPost(ok.base, { text, voice: 'Külli' }, ip)).headers.get('x-epd-tts')).toBe('hit');
+  });
+
+  it('limits uncached synthesis per IP (429), cached clips stay free', async () => {
+    const ip = nextIp();
+    const cached = { text: 'Ida kolmteist, sündmuskohal.', voice: 'kalev' };
+    expect((await ttsPost(ok.base, cached, nextIp())).status).toBe(200);
+    for (let i = 1; i <= 5; i++) {
+      expect((await ttsPost(ok.base, { text: `Rida number ${i}.`, voice: 'meelis' }, ip)).status, `line ${i}`).toBe(200);
+    }
+    const before = calls().length;
+    const limited = await ttsPost(ok.base, { text: 'Rida number 6.', voice: 'meelis' }, ip);
+    expect(limited.status).toBe(429);
+    expect(limited.json).toEqual({ error: 'rate_limited', message: expect.any(String) });
+    expect(limited.headers.get('retry-after')).toBe('60');
+    expect(calls().length).toBe(before);
+    const hit = await ttsPost(ok.base, cached, ip);
+    expect(hit.status).toBe(200);
+    expect(hit.headers.get('x-epd-tts')).toBe('hit');
+    // Another player is not affected.
+    expect((await ttsPost(ok.base, { text: 'Rida number 6.', voice: 'meelis' }, nextIp())).status).toBe(200);
+  });
+
+  it('asks the upstream once when the same line comes in several times at once', async () => {
+    const line = { text: 'Põhja K1, prioriteet üks.', voice: 'indrek' };
+    const replies = await Promise.all([1, 2, 3, 4].map(() => ttsPost(slow.base, line, nextIp())));
+    expect(replies.map((r) => r.status)).toEqual([200, 200, 200, 200]);
+    expect(replies.map((r) => r.headers.get('x-epd-tts')).sort()).toEqual(['hit', 'hit', 'hit', 'miss']);
+    for (const r of replies) expect(r.bytes.equals(replies[0].bytes)).toBe(true);
+    expect(callsTo('/slow/')).toHaveLength(1);
+    // No lock file per clip is left behind.
+    const shard = join(data('slow'), 'tts', clipName('indrek', 1, line.text).slice(0, 2));
+    expect(readdirSync(shard).filter((f) => !f.endsWith('.wav'))).toEqual([]);
+  });
+
+  it('answers 503 at once when the upstream is unreachable, and remembers it for a minute', async () => {
+    const started = Date.now();
+    const r = await ttsPost(down.base, { text: 'Tere.', voice: 'mari' }, nextIp());
+    expect(r.status).toBe(503);
+    expect(r.json).toEqual({ error: 'tts_unavailable', message: expect.any(String) });
+    expect(r.headers.get('retry-after')).toBe('60');
+    expect(Date.now() - started).toBeLessThan(5000);
+    expect(existsSync(join(data('down'), 'tts', '.down'))).toBe(true);
+    expect((await ttsPost(down.base, { text: 'Teine rida.', voice: 'mari' }, nextIp())).status).toBe(503);
+    expect(readdirSync(join(data('down'), 'tts')).filter((f) => /^[0-9a-f]{2}$/.test(f)).flatMap((d) => readdirSync(join(data('down'), 'tts', d)))).toEqual([]);
+  });
+
+  it('answers 503 when the upstream sends something other than audio, without asking again for a minute', async () => {
+    const r = await ttsPost(html.base, { text: 'Tere.', voice: 'mari' }, nextIp());
+    expect(r.status).toBe(503);
+    expect(r.json.error).toBe('tts_unavailable');
+    expect(callsTo('/html/')).toHaveLength(1);
+    const again = await ttsPost(html.base, { text: 'Hoopis teine rida.', voice: 'vesta' }, nextIp());
+    expect(again.status).toBe(503);
+    expect(callsTo('/html/')).toHaveLength(1);
+  });
+
+  it('can be switched off (EPD_TTS_UPSTREAM=off)', async () => {
+    const r = await ttsPost(off.base, { text: 'Tere.', voice: 'mari' }, nextIp());
+    expect(r.status).toBe(503);
+    expect(r.json.error).toBe('tts_unavailable');
+    // Validation still comes first.
+    expect((await ttsPost(off.base, { text: 'Tere.', voice: 'x' }, nextIp())).status).toBe(400);
+  });
+
+  it('prunes the oldest clips when the cache grows over its limit', async () => {
+    const ip = nextIp();
+    const texts = ['Esimene.', 'Teine.', 'Kolmas.', 'Neljas.'];
+    for (const text of texts) expect((await ttsPost(big.base, { text, voice: 'peeter' }, ip)).status).toBe(200);
+    const files = texts.map((text) => clip(data('big'), 'peeter', 1, text));
+    // 4 x 300 kB is over the 1 MB limit; make the age order explicit (oldest first).
+    const now = Date.now() / 1000;
+    files.forEach((f, i) => utimesSync(f, now - 400 + i * 100, now - 400 + i * 100));
+    expect((await ttsPost(big.base, { text: 'Viies.', voice: 'peeter' }, ip)).status).toBe(200);
+    expect(files.map((f) => existsSync(f))).toEqual([false, false, true, true]);
+    expect(existsSync(clip(data('big'), 'peeter', 1, 'Viies.'))).toBe(true);
+  });
+});
+
 // ------------------------------------------------------------------ data from released versions
 
 /**
@@ -1237,6 +1514,18 @@ describe('deploy keeps player data in place', () => {
     expect(compose).toMatch(/^\s*- \.\/data:\/data\s*$/m);
     expect(compose).toMatch(/^\s*EPD_DATA: \/data\s*$/m);
     expect(compose).toMatch(/^\s*- \.\/tiles:\/srv\/tiles:ro\s*$/m);
+    // Speech clips are cached in EPD_DATA/tts, inside the same mount; the upstream is the relay.
+    expect(compose).toMatch(/^\s*EPD_TTS_UPSTREAM: http:\/\/10\.99\.0\.1\/text-to-speech\/v2\s*$/m);
+    expect(read('server/lib/tts.php')).toContain("epd_data_dir() . '/tts'");
+  });
+
+  it('pastes exactly deploy/relee/lisa-tts.sh from docs/DEPLOY.md', () => {
+    const doc = read('docs/DEPLOY.md');
+    const start = "cat > ~/lisa-tts.sh <<'TTS_LISAMINE_LOPP'\n";
+    const from = doc.indexOf(start);
+    expect(from).toBeGreaterThan(0);
+    const body = doc.slice(from + start.length, doc.indexOf('TTS_LISAMINE_LOPP\nsudo bash ~/lisa-tts.sh', from));
+    expect(body).toBe(read('deploy/relee/lisa-tts.sh'));
   });
 
   it('keeps sessions in data/sessions under the same cookie name', () => {

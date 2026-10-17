@@ -12,7 +12,10 @@ const EPD_JSON_FLAGS = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_IN
 /** Default body limit for the small JSON endpoints (login, register, score, ...). */
 const EPD_BODY_LIMIT = 64 * 1024;
 
-/** A finished response: status, already encoded JSON body and extra headers. */
+/**
+ * A finished response: status, already encoded body and extra headers. The body is JSON unless
+ * $contentType says otherwise (POST /api/tts answers with raw audio/wav bytes).
+ */
 final class ApiReply
 {
     /** @param array<string, string> $headers */
@@ -20,6 +23,7 @@ final class ApiReply
         public readonly int $status,
         public readonly string $json,
         public readonly array $headers = [],
+        public readonly string $contentType = 'application/json; charset=utf-8',
     ) {
     }
 }
@@ -208,7 +212,7 @@ function epd_send(ApiReply $reply): void
     if (!headers_sent()) {
         header_remove('X-Powered-By');
         http_response_code($reply->status);
-        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Type: ' . $reply->contentType);
         header('Cache-Control: no-store');
         header('X-Content-Type-Options: nosniff');
         foreach ($reply->headers as $name => $value) {

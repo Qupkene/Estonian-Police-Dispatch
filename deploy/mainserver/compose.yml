@@ -45,6 +45,10 @@ services:
     environment:
       EPD_DATA: /data
       EPD_TRUSTED_PROXY: 10.99.0.1
+      # Raadio eestikeelne kõne (TartuNLP Neurokõne): konteineril pole internetti, relee Caddy
+      # saadab /text-to-speech/* edasi api.tartunlp.ai-le (deploy/relee/lisa-tts.sh).
+      # Helifailide vahemälu on /data/tts (kuni 300 MB).
+      EPD_TTS_UPSTREAM: http://10.99.0.1/text-to-speech/v2
       # Pildi vaikimisi XDG_DATA_HOME on /data, see on siin mängu andmekaust.
       # Caddy oma failid (TLS-i pole, ainult lukud ja autosave) jäävad konteinerisse.
       XDG_CONFIG_HOME: /caddy/config

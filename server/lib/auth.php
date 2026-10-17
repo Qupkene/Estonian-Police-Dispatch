@@ -289,6 +289,22 @@ function epd_rate_clear(PDO $db, string $ip, string $nameKey): void
     $db->prepare("DELETE FROM login_attempts WHERE ip = ? AND name_key = ? AND kind = 'login'")->execute([$ip, $nameKey]);
 }
 
+/** How many $bucket events $ip had in the last $window seconds (table rate_events). */
+function epd_rate_events(PDO $db, string $bucket, string $ip, int $window): int
+{
+    $stmt = $db->prepare('SELECT COUNT(*) FROM rate_events WHERE bucket = ? AND ip = ? AND at > ?');
+    $stmt->execute([$bucket, $ip, time() - $window]);
+    return (int) $stmt->fetchColumn();
+}
+
+/** Count one $bucket event for $ip. Rows older than a day are dropped on the way. */
+function epd_rate_event(PDO $db, string $bucket, string $ip): void
+{
+    $now = time();
+    $db->prepare('INSERT INTO rate_events (bucket, ip, at) VALUES (?, ?, ?)')->execute([$bucket, $ip, $now]);
+    $db->prepare('DELETE FROM rate_events WHERE at < ?')->execute([$now - 86400]);
+}
+
 // ---------------------------------------------------------------- routes
 
 function epd_route_me(): ApiReply
