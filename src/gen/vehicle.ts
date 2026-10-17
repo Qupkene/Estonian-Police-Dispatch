@@ -92,8 +92,8 @@ export const INSPECTION_SCHEDULE: Record<VehicleKind, number[] | null> = {
 
 /**
  * Background chance of a lapsed insurance / test / suspended registration when the spec does not
- * set it (research § 9: per random traffic stop ≈ 8–12 % expired test, 2–4 % uninsured,
- * 0.5–1 % suspended). An explicit spec value (including 0) always wins.
+ * set it (research § 9: per random traffic stop ≈ 8-12 % expired test, 2-4 % uninsured,
+ * 0.5-1 % suspended). An explicit spec value (including 0) always wins.
  */
 const BASE_NO_INSURANCE: Record<VehicleKind, number> = { car: 0.035, van: 0.03, truck: 0.01, bus: 0.005, moto: 0.05, moped: 0.08, quad: 0.08 };
 const BASE_NO_INSPECTION: Record<VehicleKind, number> = { car: 0.09, van: 0.07, truck: 0.03, bus: 0.01, moto: 0.08, moped: 0.03, quad: 0.06 };
@@ -144,7 +144,7 @@ export function formatPlate(s: string): string {
 // VIN (ISO 3779)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** VIN alphabet: digits and A–Z without I, O, Q. */
+/** VIN alphabet: digits and A-Z without I, O, Q. */
 export const VIN_CHARS = 'ABCDEFGHJKLMNPRSTUVWXYZ0123456789';
 /** Model-year codes (position 10), 30-year cycle starting 1980 = 'A'. */
 const YEAR_CODES = 'ABCDEFGHJKLMNPRSTVWXY123456789';
@@ -158,7 +158,7 @@ export function vinYearCode(year: number): string {
   return YEAR_CODES[(((year - 1980) % 30) + 30) % 30];
 }
 
-/** Check digit (position 9) per the North American scheme: '0'–'9' or 'X'. */
+/** Check digit (position 9) per the North American scheme: '0'-'9' or 'X'. */
 export function vinCheckDigit(vin: string): string {
   let sum = 0;
   for (let i = 0; i < 17; i++) {
@@ -250,7 +250,7 @@ function sampleAge(rng: Rng, kind: VehicleKind, stolen: boolean): number {
       if (r < 0.85) return rng.int(5, 10);
       return rng.int(11, 18);
     default:
-      // Estonian passenger-car fleet: one of the oldest in the EU, average age ≈ 14–15 years.
+      // Estonian passenger-car fleet: one of the oldest in the EU, average age ≈ 14-15 years.
       if (r < 0.13) return rng.int(0, 4);
       if (r < 0.35) return rng.int(5, 10);
       if (r < 0.76) return rng.int(11, 20);
@@ -356,7 +356,7 @@ function stolenFlag(rng: Rng, now: number, model: CarModel, rentalCompany: boole
     ? {
         since,
         text: {
-          et: `Varastatud ${date} ajavahemikus ${hm(startMin)}–${hm(endMin)} parklast, avaldus esitatud.`,
+          et: `Varastatud ${date} ajavahemikus ${hm(startMin)}-${hm(endMin)} parklast, avaldus esitatud.`,
           en: `Stolen from a car park on ${date} between ${hm(startMin)} and ${hm(endMin)}; report filed.`,
         },
       }

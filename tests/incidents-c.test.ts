@@ -91,7 +91,7 @@ describe('incidents-C: template validity', () => {
         if (t.expiresMin !== undefined) expect(t.expiresMin, t.id).toBeGreaterThanOrEqual({ 1: 20, 2: 35, 3: 60, 4: 120 }[t.priority]);
       });
 
-      it('has 2–4 summaries in Häirekeskus style and bilingual texts', () => {
+      it('has 2-4 summaries in Häirekeskus style and bilingual texts', () => {
         expect(t.summary.length).toBeGreaterThanOrEqual(2);
         expect(t.summary.length).toBeLessThanOrEqual(4);
         for (const s of t.summary) {
@@ -140,7 +140,7 @@ describe('incidents-C: template validity', () => {
         }
       });
 
-      it('has 1–4 valid beats', () => {
+      it('has 1-4 valid beats', () => {
         const beats = t.beats ?? [];
         expect(beats.length).toBeGreaterThanOrEqual(1);
         expect(beats.length).toBeLessThanOrEqual(4);
@@ -197,7 +197,7 @@ describe('incidents-C: template validity', () => {
         }
       });
 
-      it('has 3–6 outcomes covering the whole success range', () => {
+      it('has 3-6 outcomes covering the whole success range', () => {
         expect(t.outcomes.length).toBeGreaterThanOrEqual(3);
         expect(t.outcomes.length).toBeLessThanOrEqual(6);
         const ids = t.outcomes.map((o) => o.id);

@@ -3,8 +3,8 @@
  * & special days (riigipühad, jaanipäev, vana-aasta öö…).
  *
  * Numbers follow docs/research/112-and-priorities.md §4.3/§5.3: peak nights (New Year's Eve
- * 500+ police call-outs ≈ 1.8× a normal night; jaanipäev 1 200+ call-outs over 23–24 June),
- * weekday trough 05–07, Friday/Saturday 20–04 at 1.6–2.0× of the weekday curve.
+ * 500+ police call-outs ≈ 1.8× a normal night; jaanipäev 1 200+ call-outs over 23-24 June),
+ * weekday trough 05-07, Friday/Saturday 20-04 at 1.6-2.0× of the weekday curve.
  *
  * Owned by engine-systems. Pure functions.
  */
@@ -18,8 +18,8 @@ const T = (et: string, en: string): Text => ({ et, en });
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Multiplier per hour (index = local hour 0..23). Peak 22–02 ≈ 1.6, trough 04–07 ≈ 0.45,
- * morning commute bump (crashes) 07–09, steady afternoon, rising evening.
+ * Multiplier per hour (index = local hour 0..23). Peak 22-02 ≈ 1.6, trough 04-07 ≈ 0.45,
+ * morning commute bump (crashes) 07-09, steady afternoon, rising evening.
  * The mean is ≈ 1.04 (close to 1) so `region.callVolume` stays the true daily average rate.
  */
 export const HOUR_CURVE: readonly number[] = [
@@ -49,7 +49,7 @@ export const HOUR_CURVE: readonly number[] = [
   1.58, // 23
 ];
 
-/** Multiplier on call volume for the hour of day 0..23 (peaks around 22–02). Fractional hours interpolate. */
+/** Multiplier on call volume for the hour of day 0..23 (peaks around 22-02). Fractional hours interpolate. */
 export function hourCurve(hour: number): number {
   const h = ((hour % 24) + 24) % 24;
   const i = Math.floor(h);
@@ -64,8 +64,8 @@ export function hourCurve(hour: number): number {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Multiplier for weekday/weekend. Friday night (Fri 18:00 – Sat 04:00) ×1.38, Saturday night
- * (Sat 18:00 – Sun 04:00) ×1.5, Sunday-morning tail 04–10 ×1.15, Sunday evening domestic bump,
+ * Multiplier for weekday/weekend. Friday night (Fri 18:00 to Sat 04:00) ×1.38, Saturday night
+ * (Sat 18:00 to Sun 04:00) ×1.5, Sunday-morning tail 04-10 ×1.15, Sunday evening domestic bump,
  * quieter Sunday daytime and Monday early hours.
  */
 export function weekdayFactor(t: number): number {
@@ -93,7 +93,7 @@ export function weekdayFactor(t: number): number {
 // Holidays & special days
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Gregorian Easter Sunday (Anonymous Gregorian / Meeus–Jones–Butcher). Returns [month, day]. */
+/** Gregorian Easter Sunday (Anonymous Gregorian / Meeus-Jones-Butcher). Returns [month, day]. */
 export function easterSunday(year: number): [number, number] {
   const a = year % 19;
   const b = Math.floor(year / 100);
@@ -133,7 +133,7 @@ export interface SpecialDay {
 
 /**
  * Laulu- ja tantsupeo years (all-Estonian song & dance festival, early July, Tallinn
- * lauluväljak). 2025 = XXVIII laulupidu "Iseoma" (3–6 July 2025). The festival is held
+ * lauluväljak). 2025 = XXVIII laulupidu "Iseoma" (3-6 July 2025). The festival is held
  * about every five years, so 2030 is an estimate. Adjust when the date is announced.
  */
 export const SONG_FESTIVALS: Record<number, { from: [number, number]; to: [number, number]; estimate?: boolean }> = {

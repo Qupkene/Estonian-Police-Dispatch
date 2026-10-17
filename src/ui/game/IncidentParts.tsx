@@ -241,7 +241,7 @@ export function RecommendBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
                   {t(`game.ushort.${u.type}`)}
                 </span>
                 <span className="gm-rec__km mono">{fmtKm(r.km, lang)}</span>
-                <span className="gm-rec__eta mono">{Number.isFinite(r.etaMin) ? `${fmtNum(r.etaMin, r.etaMin < 10 ? 1 : 0, lang)}′` : '–'}</span>
+                <span className="gm-rec__eta mono">{Number.isFinite(r.etaMin) ? `${fmtNum(r.etaMin, r.etaMin < 10 ? 1 : 0, lang)}′` : '-'}</span>
                 <FitBadge fit={r.fit} />
                 {(other || r.reason) && (
                   <span className="gm-rec__info">
@@ -365,7 +365,7 @@ export function AgencyBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
                     <Icon name="check" size={11} /> {t('game.inc.agencyArrived')}
                   </Badge>
                 ) : (
-                  <span className="gm-agency__eta mono">{t('game.inc.agencyEnroute', { t: left !== null ? countdown(left) : '–' })}</span>
+                  <span className="gm-agency__eta mono">{t('game.inc.agencyEnroute', { t: left !== null ? countdown(left) : '-' })}</span>
                 )}
               </div>
             );

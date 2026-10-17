@@ -75,7 +75,7 @@ describe('ageText / hmText / numbers', () => {
     expect(fmtNum(3.45, 1, 'en')).toBe('3.5');
     expect(fmtKm(3.42, 'et')).toBe('3,4 km');
     expect(fmtKm(12.4, 'en')).toBe('12 km');
-    expect(fmtKm(Number.NaN, 'et')).toBe('–');
+    expect(fmtKm(Number.NaN, 'et')).toBe('-');
   });
   it('money with thin-space thousands', () => {
     expect(fmtMoney(10000)).toBe('10 000 €');

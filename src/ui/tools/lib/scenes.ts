@@ -184,7 +184,7 @@ export const SCENES: Scene[] = [
         pick: { keywords: ['joobes juht', 'joobes', 'drunk', 'roolis'], categories: ['traffic'] },
         where: KUUSALU,
         priority: 2,
-        summary: T('Tallinna–Narva maantee Kuusalu lähistel. Looklevalt sõitev sõiduauto, juht ilmselt joobes, teataja sõidab järel.', 'Tallinn–Narva highway near Kuusalu. A car weaving across lanes, the driver apparently drunk; the caller is following.'),
+        summary: T('Tallinna-Narva maantee Kuusalu lähistel. Looklevalt sõitev sõiduauto, juht ilmselt joobes, teataja sõidab järel.', 'Tallinn-Narva highway near Kuusalu. A car weaving across lanes, the driver apparently drunk; the caller is following.'),
       },
       { at: 9, kind: 'radio', from: 'HK', level: 'routine', text: T('Häirekeskus: jaaniõhtu, kõnesid on kaks korda tavalisest rohkem, järjekord pikeneb.', 'ERC: Midsummer eve, call volume is double the usual, the queue is growing.') },
       {
@@ -220,7 +220,7 @@ export const SCENES: Scene[] = [
     id: 'winter-crash',
     icon: 'snow',
     title: T('Talvine avarii maanteel', 'Winter crash on the highway'),
-    desc: T('Jäine Tallinna–Tartu maantee: sõiduauto ja veoki kokkupõrge, seejärel ahelavarii.', 'Icy Tallinn–Tartu highway: a car and a truck collide, followed by a chain crash.'),
+    desc: T('Jäine Tallinna-Tartu maantee: sõiduauto ja veoki kokkupõrge, seejärel ahelavarii.', 'Icy Tallinn-Tartu highway: a car and a truck collide, followed by a chain crash.'),
     steps: [
       { at: 0, kind: 'focus', where: E263_38, zoom: 12 },
       {
@@ -231,8 +231,8 @@ export const SCENES: Scene[] = [
         priority: 1,
         dispatch: 2,
         summary: T(
-          'Tallinna–Tartu maantee (E263), 38. km. Libedal teel paiskus sõiduauto vastassuunavööndisse ja põrkas kokku veokiga. Sõidukis on kinni kaks inimest.',
-          'Tallinn–Tartu highway (E263), km 38. On the icy road a car slid into the oncoming lane and collided with a truck. Two people are trapped in the car.',
+          'Tallinna-Tartu maantee (E263), 38. km. Libedal teel paiskus sõiduauto vastassuunavööndisse ja põrkas kokku veokiga. Sõidukis on kinni kaks inimest.',
+          'Tallinn-Tartu highway (E263), km 38. On the icy road a car slid into the oncoming lane and collided with a truck. Two people are trapped in the car.',
         ),
       },
       { at: 4, kind: 'radio', from: 'HK', level: 'priority', text: T('Häirekeskus: kiirabi ja pääste on väljasõidul, saabumine umbes 15 minuti pärast.', 'ERC: ambulance and rescue are en route, arriving in about 15 minutes.') },
@@ -243,7 +243,7 @@ export const SCENES: Scene[] = [
         pick: { keywords: ['ahelavarii', 'liiklusõnnetus', 'kokkupõrge', 'crash'], categories: ['traffic'] },
         where: E263_36,
         priority: 2,
-        summary: T('Tallinna–Tartu maantee, 36. km. Seisvale kolonnile sõitis tagant otsa kolm sõidukit, üks inimene kaebab kaelavalu.', 'Tallinn–Tartu highway, km 36. Three cars ran into the back of the stationary queue; one person complains of neck pain.'),
+        summary: T('Tallinna-Tartu maantee, 36. km. Seisvale kolonnile sõitis tagant otsa kolm sõidukit, üks inimene kaebab kaelavalu.', 'Tallinn-Tartu highway, km 36. Three cars ran into the back of the stationary queue; one person complains of neck pain.'),
       },
       { at: 22, kind: 'radio', from: '{u2}', level: 'routine', text: T('{u2}, ümbersõit Kose kaudu on avatud, liiklus liigub aeglaselt.', '{u2}, the diversion via Kose is open, traffic is moving slowly.') },
       { at: 30, kind: 'radio', from: '{u1}', level: 'routine', text: T('{u1}, kannatanud on kiirabile üle antud, ootame teehooldemasinat.', '{u1}, the casualties have been handed over to the ambulance, waiting for the road maintenance truck.') },

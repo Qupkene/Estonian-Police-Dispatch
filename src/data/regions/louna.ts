@@ -5,7 +5,7 @@
  * docs/research/names-demographics.md (Russian-speaker shares), src/data/geo/settlements.json
  * (town/village polygon centroids) and county/land polygons for sanity checks. POI coordinates
  * are hand-placed from map knowledge (no live geocoding was available): town-level placement is
- * reliable, big landmarks are typically within ~100–300 m, minor streets are approximate.
+ * reliable, big landmarks are typically within ~100-300 m, minor streets are approximate.
  *
  * Organisation notes:
  *  - Three jaoskonnad: Tartu (incl. Elva and Jõgeva groups), Kagu (Põlva, Valga, Võru) and
@@ -19,9 +19,9 @@
  * Callsigns are FICTIONAL (PPA does not publish kutsungid). Scheme shared with the other
  * prefectures: "LÕUNA <station digit><crew digit>":
  *   1x Tartu (18 = Elva), 2x Jõgeva, 3x Viljandi, 4x Põlva, 5x Võru, 6x Valga,
- *   7x piirivalve and Peipsi (71 Koidula, 72 Luhamaa, 73 Värska, 75–76 Mehikoorma boats),
+ *   7x piirivalve and Peipsi (71 Koidula, 72 Luhamaa, 73 Värska, 75-76 Mehikoorma boats),
  *   8x prefecture specialists (81/85 kiirreageerijad, 82/86 koerajuht, 83 liiklus, 84 kriminaal),
- *   9x konvoi (91) and abipolitsei (95–96). Community officers (piirkonnapolitseinik) use x9/x3.
+ *   9x konvoi (91) and abipolitsei (95-96). Community officers (piirkonnapolitseinik) use x9/x3.
  */
 import type {
   LngLat,
@@ -2169,7 +2169,7 @@ const PLACES: Place[] = [
   place('lo-pank-lounakeskus', 'Pank (Lõunakeskus)', 'bank', T, 'Ringtee 75', [26.6789, 58.3586], {
     district: 'Ränilinn',
   }),
-  place('lo-tankla-riia', 'Tankla (Riia–Ringtee)', 'gasstation', T, 'Riia 191', [26.6788, 58.3614], {
+  place('lo-tankla-riia', 'Tankla (Riia-Ringtee)', 'gasstation', T, 'Riia 191', [26.6788, 58.3614], {
     district: 'Ränilinn',
   }),
   place('lo-tankla-narva', 'Tankla (Narva mnt)', 'gasstation', T, 'Narva mnt 112', [26.7455, 58.3968], {
@@ -2231,10 +2231,10 @@ const PLACES: Place[] = [
   ),
   place(
     'lo-peipsiaare-tee',
-    'Peipsiääre rannatee (Kallaste–Varnja)',
+    'Peipsiääre rannatee (Kallaste-Varnja)',
     'ruralroad',
     'Kolkja',
-    'Kallaste–Varnja tee',
+    'Kallaste-Varnja tee',
     [27.1985, 58.5805],
   ),
   place(
@@ -2479,10 +2479,10 @@ const PLACES: Place[] = [
   ),
   place(
     'lo-saatse-saabas',
-    'Värska–Saatse tee (Saatse saabas)',
+    'Värska-Saatse tee (Saatse saabas)',
     'ruralroad',
     'Saatse',
-    'Värska–Saatse tee, Setomaa vald',
+    'Värska-Saatse tee, Setomaa vald',
     [27.705, 57.9105],
     { tags: ['border', 'russia'] },
   ),
@@ -2490,7 +2490,7 @@ const PLACES: Place[] = [
   // ── Valga county
   place(
     'lo-valga-valka',
-    'Valga–Valka linnapiir (Riia tn)',
+    'Valga-Valka linnapiir (Riia tn)',
     'border',
     'Valga',
     'Riia tn / Rīgas iela',
@@ -2638,7 +2638,7 @@ const PLACES: Place[] = [
   // ── Highways (km markers approximate, along the real routes)
   place(
     'lo-e263-poltsamaa',
-    'Tallinna–Tartu–Võru–Luhamaa mnt (E263), 127. km',
+    'Tallinna-Tartu-Võru-Luhamaa mnt (E263), 127. km',
     'highway',
     'Põltsamaa',
     'E263, Põltsamaa ristmik',
@@ -2646,7 +2646,7 @@ const PLACES: Place[] = [
   ),
   place(
     'lo-e263-laeva',
-    'Tallinna–Tartu–Võru–Luhamaa mnt (E263), 161. km',
+    'Tallinna-Tartu-Võru-Luhamaa mnt (E263), 161. km',
     'highway',
     'Laeva',
     'E263, Laeva',
@@ -2654,7 +2654,7 @@ const PLACES: Place[] = [
   ),
   place(
     'lo-e263-vahi',
-    'Tallinna–Tartu–Võru–Luhamaa mnt (E263), 182. km',
+    'Tallinna-Tartu-Võru-Luhamaa mnt (E263), 182. km',
     'highway',
     'Vahi',
     'E263, Vahi',
@@ -2662,7 +2662,7 @@ const PLACES: Place[] = [
   ),
   place(
     'lo-e263-ulenurme',
-    'Tallinna–Tartu–Võru–Luhamaa mnt (E263), 193. km',
+    'Tallinna-Tartu-Võru-Luhamaa mnt (E263), 193. km',
     'highway',
     'Ülenurme',
     'E263, Ülenurme',
@@ -2670,7 +2670,7 @@ const PLACES: Place[] = [
   ),
   place(
     'lo-e263-polgaste',
-    'Tallinna–Tartu–Võru–Luhamaa mnt (E263), 246. km',
+    'Tallinna-Tartu-Võru-Luhamaa mnt (E263), 246. km',
     'highway',
     'Põlgaste',
     'E263, Põlgaste',
@@ -2678,7 +2678,7 @@ const PLACES: Place[] = [
   ),
   place(
     'lo-e263-vastseliina',
-    'Tallinna–Tartu–Võru–Luhamaa mnt (E263), 276. km',
+    'Tallinna-Tartu-Võru-Luhamaa mnt (E263), 276. km',
     'highway',
     'Vastseliina',
     'E263, Vastseliina ristmik',
@@ -2686,7 +2686,7 @@ const PLACES: Place[] = [
   ),
   place(
     'lo-t3-korvekula',
-    'Jõhvi–Tartu–Valga mnt (3), 103. km',
+    'Jõhvi-Tartu-Valga mnt (3), 103. km',
     'highway',
     'Kõrveküla',
     'Põhimaantee 3, Kõrveküla',
@@ -2694,7 +2694,7 @@ const PLACES: Place[] = [
   ),
   place(
     'lo-t3-noo',
-    'Jõhvi–Tartu–Valga mnt (3), 148. km',
+    'Jõhvi-Tartu-Valga mnt (3), 148. km',
     'highway',
     'Nõo',
     'Põhimaantee 3, Nõo ristmik',
@@ -2702,7 +2702,7 @@ const PLACES: Place[] = [
   ),
   place(
     'lo-t3-puka',
-    'Jõhvi–Tartu–Valga mnt (3), 189. km',
+    'Jõhvi-Tartu-Valga mnt (3), 189. km',
     'highway',
     'Puka',
     'Põhimaantee 3, Puka',
@@ -2710,7 +2710,7 @@ const PLACES: Place[] = [
   ),
   place(
     'lo-t92-puhja',
-    'Tartu–Viljandi–Kilingi-Nõmme mnt (92), 22. km',
+    'Tartu-Viljandi-Kilingi-Nõmme mnt (92), 22. km',
     'highway',
     'Puhja',
     'Tugimaantee 92, Puhja',
@@ -2718,7 +2718,7 @@ const PLACES: Place[] = [
   ),
   place(
     'lo-t92-viiratsi',
-    'Tartu–Viljandi–Kilingi-Nõmme mnt (92), 74. km',
+    'Tartu-Viljandi-Kilingi-Nõmme mnt (92), 74. km',
     'highway',
     'Viiratsi',
     'Tugimaantee 92, Viiratsi',
@@ -2726,7 +2726,7 @@ const PLACES: Place[] = [
   ),
   place(
     'lo-t45-vonnu',
-    'Tartu–Räpina–Värska mnt (45), 26. km',
+    'Tartu-Räpina-Värska mnt (45), 26. km',
     'highway',
     'Võnnu',
     'Tugimaantee 45, Võnnu',
@@ -2734,7 +2734,7 @@ const PLACES: Place[] = [
   ),
   place(
     'lo-t6-torva',
-    'Valga–Uulu mnt (6), 23. km',
+    'Valga-Uulu mnt (6), 23. km',
     'highway',
     'Tõrva',
     'Põhimaantee 6, Tõrva',

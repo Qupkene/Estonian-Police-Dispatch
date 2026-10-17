@@ -216,7 +216,7 @@ describe('engine-core with fixtures', () => {
     expect(sm.flags.wanted).toBeTruthy();
     expect(ok.notes[0].et).toContain('LEGEND 2025');
     expect(sm.lastName).toContain('ᵛᵉʳᶦᶠᶦᵉᵈ');
-    // Bulletins: 2–4 BOLO + päevakäsk + weather.
+    // Bulletins: 2-4 BOLO + päevakäsk + weather.
     const bolo = s.bulletins.filter((b) => b.kind === 'bolo_person' || b.kind === 'bolo_vehicle');
     expect(bolo.length).toBeGreaterThanOrEqual(2);
     expect(bolo.length).toBeLessThanOrEqual(5);

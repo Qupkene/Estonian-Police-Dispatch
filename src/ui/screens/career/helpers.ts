@@ -42,7 +42,7 @@ const NBSP = ' ';
 const MINUS = '−';
 
 export function fmtNum(n: number, lang: Lang, digits = 0): string {
-  if (!Number.isFinite(n)) return '–';
+  if (!Number.isFinite(n)) return '-';
   const neg = n < 0 && Math.abs(n) >= 0.5 * 10 ** -digits;
   const [int, frac] = Math.abs(n).toFixed(digits).split('.');
   const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, lang === 'et' ? NBSP : ',');

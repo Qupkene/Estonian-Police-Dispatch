@@ -119,7 +119,7 @@ describe('incidents B: property / fraud / alarm / environment / border / easter'
         expect((t.details ?? []).length).toBeLessThanOrEqual(3);
       });
 
-      it('has 3–6 outcomes covering the whole success range', () => {
+      it('has 3-6 outcomes covering the whole success range', () => {
         expect(t.outcomes.length).toBeGreaterThanOrEqual(3);
         expect(t.outcomes.length).toBeLessThanOrEqual(6);
         const ids = new Set(t.outcomes.map((o) => o.id));

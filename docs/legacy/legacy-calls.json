@@ -154,7 +154,7 @@
  {
   "n": 20,
   "title": "Kahtlane draakon",
-  "description": "Metsast kostub veider heli, justkui draakon hingaks tuld – kohalikud on hirmul.",
+  "description": "Metsast kostub veider heli, justkui draakon hingaks tuld, kohalikud on hirmul.",
   "support_need_chance": 0,
   "bonus_officers_type": null,
   "inV1": true
@@ -218,7 +218,7 @@
  {
   "n": 28,
   "title": "Allakukkunud UFO",
-  "description": "Metsas nähti öösel tulukesi ja leitakse kahtlane metallist objekt – kohalikud räägivad UFO-st.",
+  "description": "Metsas nähti öösel tulukesi ja leitakse kahtlane metallist objekt, kohalikud räägivad UFO-st.",
   "support_need_chance": 0,
   "bonus_officers_type": null,
   "inV1": true
@@ -434,7 +434,7 @@
  {
   "n": 55,
   "title": "Pealtnäha mahajäetud maja",
-  "description": "Majas, mis peaks olema tühi, on valgust ja liikumist – naabrid kahtlustavad sissetungi.",
+  "description": "Majas, mis peaks olema tühi, on valgust ja liikumist, naabrid kahtlustavad sissetungi.",
   "support_need_chance": 5,
   "bonus_officers_type": null,
   "inV1": true

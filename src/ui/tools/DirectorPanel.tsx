@@ -171,7 +171,7 @@ function TemplatePicker() {
             </p>
           )}
           <div className="tl-tpl-detail__need">
-            {t('tools.dir.need')}: {tpl.units.need.map((n) => `${n.count}× ${t(`tools.unit.${n.type}`)}`).join(', ') || '–'}
+            {t('tools.dir.need')}: {tpl.units.need.map((n) => `${n.count}× ${t(`tools.unit.${n.type}`)}`).join(', ') || '-'}
           </div>
         </div>
       )}

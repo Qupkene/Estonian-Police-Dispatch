@@ -245,7 +245,7 @@ The standard press wording is **"juht eiras politseinike peatumismärguannet"** 
 | *(JK)* Kopter õhus, kohal kaheksa minutiga. | *(JK)* Helicopter airborne, there in eight minutes. |
 | *(JK)* {callsign}, lõpetage jälitus! Kordan: lõpetage jälitus. | *(JK)* {callsign}, terminate the pursuit! I say again, terminate. |
 
-**Direction reporting format** [PROPOSED]: road → direction (*suunas* + place, or *ida/lääne/põhja/lõuna suunas*) → speed → behaviour. Estonians name roads by the city they lead to: *Tartu maantee*, *Narva maantee*, *Pärnu maantee*, *Peterburi tee*. Highways can be named by number or as *Tallinna–Tartu maantee* [LIKELY].
+**Direction reporting format** [PROPOSED]: road → direction (*suunas* + place, or *ida/lääne/põhja/lõuna suunas*) → speed → behaviour. Estonians name roads by the city they lead to: *Tartu maantee*, *Narva maantee*, *Pärnu maantee*, *Peterburi tee*. Highways can be named by number or as *Tallinna-Tartu maantee* [LIKELY].
 
 #### l) Clearing and closing
 
@@ -294,7 +294,7 @@ The call signs are fictional, following the scheme in `ppa-organisation.md` §9.
 ```
 JK:  Põhja 21, juhtimiskeskus.
 21:  Kuulen, 21.
-JK:  21, sündmus 4512: lähisuhtevägivald, Lasnamäe, Punane 16–45. Naaber kuuleb karjumist ja
+JK:  21, sündmus 4512: lähisuhtevägivald, Lasnamäe, Punane 16-45. Naaber kuuleb karjumist ja
      lõhkumist. Aadressil kolm varasemat LSV-väljakutset. Bravo.
 21:  Selge, 21 suundub, kohal kaheksa minutiga.
 ...
@@ -375,7 +375,7 @@ I-31: Jah, kolleeg räägib vene keelt. Suundume, kohal kuue minutiga.
 
 ### 1.6 Style rules for the chatter generator
 
-1. **Keep it short.** Most real transmissions are 2–8 words: "21 kohal." "Selge." "Vaba." Long lines only for dispatch orders and sitreps.
+1. **Keep it short.** Most real transmissions are 2-8 words: "21 kohal." "Selge." "Vaba." Long lines only for dispatch orders and sitreps.
 2. **Call sign first** on almost every transmission. After the first exchange, crews drop the prefecture word ("Põhja 21" becomes "21").
 3. **No ten-codes or "over/roger"** in Estonian text. The English subtitles may say "copy" and "en route".
 4. **Numbers:** digit by digit for codes and plates, as normal numbers for minutes, speeds and house numbers (see §2.4).
@@ -498,7 +498,7 @@ Other callers say the **Latin letter names in Russian**: "бэ, эл, ка" for 
 | Digits | null, üks, kaks, kolm, neli, viis, kuus, seitse, kaheksa, üheksa | "null" for 0. Never "oo". |
 | Plate `512 BLK` | "viis-üks-kaks, bee-ell-kaa" (radio) or "viissada kaksteist BLK" (casual) | Digit by digit on the radio |
 | Personal code `38506120236` | "kolm-kaheksa-viis, null-kuus-üks-kaks, null-kaks-kolm-kuus" | Grouping 3-4-4 is [PROPOSED]; any grouping works |
-| Phone `5123 4567` | "viis-üks-kaks-kolm, neli-viis-kuus-seitse" | Estonian mobile numbers start with 5 and have 7–8 digits |
+| Phone `5123 4567` | "viis-üks-kaks-kolm, neli-viis-kuus-seitse" | Estonian mobile numbers start with 5 and have 7-8 digits |
 | Time 23.15 | "kakskümmend kolm viisteist" / "veerand kaksteist" (casual: quarter past eleven) | 24-hour clock in official speech; written **23.15** [LIKELY (sibling)] |
 | Speed | "sada nelikümmend" (140) | |
 | Road km | written "38. kilomeetril", spoken "kolmekümne kaheksandal kilomeetril" | Press uses the ordinal |
@@ -573,7 +573,7 @@ Other callers say the **Latin letter names in Russian**: "бэ, эл, ка" for 
 
 | Term | Meaning | Confidence |
 |---|---|---|
-| **väärtegu** | Misdemeanour. Fine 3–300 trahviühikut (1 TÜ = €4), or arest. | [LIKELY (sibling: law-references.md)] |
+| **väärtegu** | Misdemeanour. Fine 3-300 trahviühikut (1 TÜ = €4), or arest. | [LIKELY (sibling: law-references.md)] |
 | **kuritegu** | Crime (criminal offence) | [LIKELY] |
 | **süütegu** | Offence (umbrella term for both) | [LIKELY] |
 | **väärteoprotokoll** | Misdemeanour report | [LIKELY] |
@@ -620,9 +620,9 @@ Other callers say the **Latin letter names in Russian**: "бэ, эл, ка" for 
 ### 4.1 Verified frame (from the sibling notes)
 
 - Working time is **summeeritud tööaeg** (hours averaged over a period), including night work [VERIFIED (sibling: ppa-organisation.md §10)].
-- Officers work about **48 h a week** at a station. **12-hour day and night shifts** (e.g. 07–19 and 19–07) in a 2-on/2-off-style rotation fit this [VERIFIED quote; 12 h pattern LIKELY].
+- Officers work about **48 h a week** at a station. **12-hour day and night shifts** (e.g. 07-19 and 19-07) in a 2-on/2-off-style rotation fit this [VERIFIED quote; 12 h pattern LIKELY].
 - Patrol crews are usually **two officers**. The senior is the **toimkonna vanem** [VERIFIED (older source)].
-- Põhja juhtimiskeskus has **teabegrupid I–IV**, which looks like a 4-crew rotation; Tallinn jaoskonnad have **patrulligrupid I–VIII** [VERIFIED (sibling)].
+- Põhja juhtimiskeskus has **teabegrupid I-IV**, which looks like a 4-crew rotation; Tallinn jaoskonnad have **patrulligrupid I-VIII** [VERIFIED (sibling)].
 
 ### 4.2 Shift timeline [LIKELY in outline; exact local practice varies]
 
@@ -636,9 +636,9 @@ Other callers say the **Latin letter names in Russian**: "бэ, эл, ка" for 
 | Raids | **reid**, **massiline kainuskontroll**, **ühisreid** (joint raid with MTA or Transpordiamet) | Planned operations | Special event days |
 | Breaks | **söögipaus**, **lõunapaus** (day), **öine söögipaus**, **puhkepaus** | Usually at the jaoskond or a petrol station. Often interrupted ("paus katkes"). | Break status; interruptions cost morale |
 | Paperwork | **paberitöö**, **dokumenteerimine**, **protokolli vormistamine**, **seletuste võtmine**, **ettekanne**, MIS-i sisestamine | Hours of each shift; unit unavailable | "paperwork" key exists |
-| Custody runs | **arestimajja toimetamine**, **konvoeerimine**, **haiglas valvamine** | Transport and guard; one call can take a crew out for 1–3 h | Transport status |
+| Custody runs | **arestimajja toimetamine**, **konvoeerimine**, **haiglas valvamine** | Transport and guard; one call can take a crew out for 1-3 h | Transport status |
 | End | **vahetuse lõpp**, **üleandmine** (handover), **relva tagastamine** | Hand over unfinished matters | "shiftEnd" key |
-| Overtime | **ületunnid**, **ületunnitöö**, **lisavahetus** | A chronic complaint given the 200–300 frontline shortage [VERIFIED (sibling)] | Fatigue mechanic |
+| Overtime | **ületunnid**, **ületunnitöö**, **lisavahetus** | A chronic complaint given the 200-300 frontline shortage [VERIFIED (sibling)] | Fatigue mechanic |
 
 ### 4.3 Break and status phrases (non-radio)
 
@@ -655,7 +655,7 @@ Other callers say the **Latin letter names in Russian**: "бэ, эл, ка" for 
 
 - **Time:** "kell 23.15" (period, not colon); "kella 23.15 paiku" / "kella 23 ajal" for approximate times. **Dates:** "17. oktoobril", "laupäeval", "eile õhtul", "ööl vastu pühapäeva".
 - **Ages:** "34-aastane mees", "15-aastane tüdruk", "eakas naine". Names are usually **not** given for suspects, and victims are not named.
-- **Places:** county → municipality → village/street: "Harjumaal Kose vallas", "Tallinnas Lasnamäel Punasel tänaval", "Tallinna–Tartu maantee 38. kilomeetril".
+- **Places:** county → municipality → village/street: "Harjumaal Kose vallas", "Tallinnas Lasnamäel Punasel tänaval", "Tallinna-Tartu maantee 38. kilomeetril".
 - **Passive voice** is very common: "teatati", "peeti kinni", "toimetati", "alustati".
 - **Legal phrasing:** "kriminaalmenetlust alustati karistusseadustiku § 121 alusel, mis käsitleb kehalist väärkohtlemist" or "… kehalise väärkohtlemise tunnustel".
 - **Quotes** use Estonian quotation marks **„…“**, followed by "ütles X" or "sõnas X". Per EKI style the comma goes after the closing mark: „…“, ütles ta. [LIKELY]

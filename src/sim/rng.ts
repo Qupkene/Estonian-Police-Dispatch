@@ -48,7 +48,7 @@ export class Rng {
     return items[items.length - 1];
   }
 
-  /** Approximately normal (Irwin–Hall, 4 samples). */
+  /** Approximately normal (Irwin-Hall, 4 samples). */
   normal(mean = 0, sd = 1): number {
     const s = this.next() + this.next() + this.next() + this.next() - 2;
     return mean + s * sd * 1.732;

@@ -115,8 +115,8 @@ export default {
   },
   'career.onb.intro.staatus.title': { et: 'Staatus', en: 'Status' },
   'career.onb.intro.staatus.text': {
-    et: 'Näitab, kui palju juhtkond ja avalikkus sind usaldavad (0–100, alguses 25). Kiire reageerimine ja õiged otsused tõstavad seda, aegunud väljakutsed ja vead langetavad.',
-    en: 'How much command and the public trust you (0–100, starting at 25). Fast response and the right calls raise it; expired calls and mistakes lower it.',
+    et: 'Näitab, kui palju juhtkond ja avalikkus sind usaldavad (0-100, alguses 25). Kiire reageerimine ja õiged otsused tõstavad seda, aegunud väljakutsed ja vead langetavad.',
+    en: 'How much command and the public trust you (0-100, starting at 25). Fast response and the right calls raise it; expired calls and mistakes lower it.',
   },
   'career.onb.intro.budget.title': { et: 'Eelarve', en: 'Budget' },
   'career.onb.intro.budget.text': {

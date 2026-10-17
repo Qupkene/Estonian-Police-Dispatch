@@ -215,8 +215,8 @@ export default {
     en: 'Director mode for making police films.',
   },
   'shell.menu.tip': {
-    et: 'Vihje: menüüs liigu nooleklahvidega või vajuta numbrit 1–{n}.',
-    en: 'Tip: move through the menu with the arrow keys or press 1–{n}.',
+    et: 'Vihje: menüüs liigu nooleklahvidega või vajuta numbrit 1-{n}.',
+    en: 'Tip: move through the menu with the arrow keys or press 1-{n}.',
   },
 
   // ── Briefing ──
@@ -262,8 +262,8 @@ export default {
   'shell.shift.day': { et: 'Päev', en: 'Day' },
   'shell.shift.night': { et: 'Öö', en: 'Night' },
   'shell.shift.short': { et: 'Lühike', en: 'Short' },
-  'shell.shift.day.time': { et: '07–19 · 12 t', en: '07–19 · 12 h' },
-  'shell.shift.night.time': { et: '19–07 · 12 t', en: '19–07 · 12 h' },
+  'shell.shift.day.time': { et: '07-19 · 12 t', en: '07-19 · 12 h' },
+  'shell.shift.night.time': { et: '19-07 · 12 t', en: '19-07 · 12 h' },
   'shell.shift.short.time': { et: 'alates 22:00 · 4 t', en: 'from 22:00 · 4 h' },
   'shell.brief.date': { et: 'Kuupäev', en: 'Date' },
   'shell.date.today': { et: 'Täna', en: 'Today' },
@@ -474,8 +474,8 @@ export default {
   },
   'shell.cred.original': { et: 'Algne idee ja versioonid', en: 'Original idea and versions' },
   'shell.cred.originalRole': {
-    et: 'EPD 2024–2025 algne idee ja versioonid',
-    en: 'EPD 2024–2025 original idea and versions',
+    et: 'EPD 2024-2025 algne idee ja versioonid',
+    en: 'EPD 2024-2025 original idea and versions',
   },
   'shell.cred.remake': { et: 'EPD 2.0 remake (2026)', en: 'EPD 2.0 remake (2026)' },
   'shell.cred.remakeText': {

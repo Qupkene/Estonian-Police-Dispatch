@@ -109,7 +109,7 @@ export function ReportScreen() {
   return (
     <ShellPage
       title={t('shell.rep.title')}
-      subtitle={`${region.name[lang]} · ${ddmmyyyy(report.start)} ${hhmm(report.start)}–${hhmm(report.end)} · ${t(`shell.mode.${report.mode}`)} · ${t(`shell.diff.${report.difficulty}`)}`}
+      subtitle={`${region.name[lang]} · ${ddmmyyyy(report.start)} ${hhmm(report.start)}-${hhmm(report.end)} · ${t(`shell.mode.${report.mode}`)} · ${t(`shell.diff.${report.difficulty}`)}`}
       icon="newspaper"
       onBack={toMenu}
       actions={
@@ -164,7 +164,7 @@ export function ReportScreen() {
             <Tile
               icon="timer"
               label={t('shell.rep.s.avgResp')}
-              value={avgAll === null ? '–' : `${formatDecimal(avgAll, lang)} min`}
+              value={avgAll === null ? '-' : `${formatDecimal(avgAll, lang)} min`}
             />
             <Tile icon="handcuffs" label={t('shell.rep.s.arrests')} value={st.arrests} />
             <Tile
@@ -177,7 +177,7 @@ export function ReportScreen() {
             <Tile
               icon="fingerprint"
               label={t('shell.rep.s.replies')}
-              value={replies ? `${Math.round((st.repliesCorrect / replies) * 100)}%` : '–'}
+              value={replies ? `${Math.round((st.repliesCorrect / replies) * 100)}%` : '-'}
               sub={t('shell.rep.s.queriesN', { n: st.queries })}
             />
             <Tile
@@ -432,7 +432,7 @@ function RespBar({
         <line x1="100" x2="100" y1="0" y2="14" className="sh-resp__target" />
       </svg>
       <div className="sh-resp__val">
-        <strong className="mono">{actual === undefined ? '–' : `${formatDecimal(actual, lang)} min`}</strong>
+        <strong className="mono">{actual === undefined ? '-' : `${formatDecimal(actual, lang)} min`}</strong>
         <span className="sh-dim">
           {t('shell.rep.target', { min: target })} · {count}/{total}
         </span>

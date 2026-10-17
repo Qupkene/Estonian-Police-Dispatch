@@ -1,6 +1,6 @@
 /**
  * Suurõnnetused, terror, pantvangid, relvastatud kriisid: major incidents (incidents-C).
- * Rare by design (weights 0.0015–0.08). Texts are deliberately sober and factual.
+ * Rare by design (weights 0.0015-0.08). Texts are deliberately sober and factual.
  * Legacy titles covered: Pommiähvardus, Kahtlane pakk rongijaamas, Põgenenud vang,
  * Tehnovõrgu saboteerimine, Lennuki kaaperdamine, Vangla mäss, Kahtlane pakk postkastis,
  * Kahtlustatav kodust väljumata, Tulistamine koolis, Politseinik tapeti kontrolli käigus,

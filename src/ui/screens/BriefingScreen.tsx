@@ -243,11 +243,11 @@ export function BriefingScreen() {
             <p>{region.description[lang]}</p>
             <div className="sh-brief__facts">
               <Fact icon="building" label={t('shell.brief.hq')} value={region.hqCity} />
-              <Fact icon="home" label={t('shell.brief.stations')} value={region.stations || '–'} />
+              <Fact icon="home" label={t('shell.brief.stations')} value={region.stations || '-'} />
               <Fact
                 icon="car"
                 label={t('shell.brief.units')}
-                value={career && roster ? roster.length : region.units || '–'}
+                value={career && roster ? roster.length : region.units || '-'}
               />
               <Fact icon="layers" label={t('shell.brief.counties')} value={region.counties.length} />
             </div>
@@ -263,7 +263,7 @@ export function BriefingScreen() {
               </h2>
               <div className="sh-brief__careerGrid">
                 <Stat label={t('shell.brief.career.name')} value={`${profile.name} · ${profile.badge}`} />
-                <Stat label={t('shell.brief.career.rank')} value={rank ? rank.name[lang] : '–'} />
+                <Stat label={t('shell.brief.career.rank')} value={rank ? rank.name[lang] : '-'} />
                 <Stat label={t('shell.brief.career.day')} value={String(profile.day)} />
                 <Stat label={t('shell.brief.career.money')} value={formatMoney(profile.money, lang)} />
                 <Stat label={t('shell.brief.career.rep')} value={`${Math.round(profile.reputation)} / 100`} />
@@ -388,7 +388,7 @@ export function BriefingScreen() {
               {t('shell.brief.order')}
             </h2>
             <div className="sh-order__body">
-              <p>{t('shell.brief.orderIntro', { name: user?.name ?? profile?.name ?? '–' })}</p>
+              <p>{t('shell.brief.orderIntro', { name: user?.name ?? profile?.name ?? '-' })}</p>
               <ol>
                 <li>
                   {t('shell.brief.orderShift', {
@@ -470,7 +470,7 @@ export function BriefingScreen() {
               {t('shell.brief.start')}
             </Button>
             <span className="sh-dim sh-brief__startHint">
-              {region.short} · {t(`shell.diff.${difficulty}`)} · {startT}–{endT} · {ymdText(date)}
+              {region.short} · {t(`shell.diff.${difficulty}`)} · {startT}-{endT} · {ymdText(date)}
             </span>
           </div>
         </section>

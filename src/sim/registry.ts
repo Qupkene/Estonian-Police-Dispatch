@@ -38,7 +38,7 @@ export function foldName(s: string): string {
 
 /** Plate key for comparisons: upper case, no spaces/dashes ("123 abc" → "123ABC"). */
 export function plateKey(s: string): string {
-  return s.toUpperCase().replace(/[\s\-–.]+/g, '');
+  return s.toUpperCase().replace(/[\s\--.]+/g, '');
 }
 
 const today = (now: number) => isoDate(now);

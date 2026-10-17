@@ -266,7 +266,7 @@ const ROSTER: UnitSpec[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Towns (population ≈ 2024–25, ruShare = share of Russian-speaking residents)
+// Towns (population ≈ 2024-25, ruShare = share of Russian-speaking residents)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const H = 'Harju maakond';
@@ -619,20 +619,20 @@ const PLACES: Place[] = [
   pl('p-pl-kloostrimets', 'Kloostrimets', 'forest', TLN, PIR, 'Kloostrimetsa tee', [24.872, 59.474]),
   pl('p-pl-paljassaare', 'Paljassaare hoiuala', 'park', TLN, PT, 'Paljassaare tee', [24.66, 59.463]),
   pl('p-pl-korvemaa', 'Kõrvemaa matkarajad', 'forest', 'Anija vald', undefined, 'Kõrvemaa, Anija vald', [25.68, 59.3]),
-  pl('p-pl-nabala', 'Nabala–Tuhala maastikukaitseala', 'forest', 'Kiili vald', undefined, 'Nabala küla', [24.87, 59.265]),
+  pl('p-pl-nabala', 'Nabala-Tuhala maastikukaitseala', 'forest', 'Kiili vald', undefined, 'Nabala küla', [24.87, 59.265]),
   pl('p-pl-lahemaa-juminda', 'Lahemaa rahvuspark (Juminda poolsaar)', 'forest', 'Kuusalu vald', undefined, 'Juminda küla', [25.53, 59.61]),
   pl('p-pl-keila-joa', 'Keila juga', 'park', 'Keila-Joa', undefined, 'Keila-Joa alevik', [24.3065, 59.3945], ['tourist']),
   pl('p-pl-pakri', 'Pakri pank ja tuletorn', 'park', 'Paldiski', undefined, 'Pakri poolsaar', [24.04, 59.385], ['tourist']),
 
   // Highways (major roads in Harju)
-  pl('p-pl-e20-18', 'Tallinna–Narva mnt (E20), 18. km', 'highway', 'Jõelähtme vald', undefined, 'Tallinna–Narva mnt (E20), 18. km', [25.05, 59.4475]),
-  pl('p-pl-e20-38', 'Tallinna–Narva mnt (E20), 38. km', 'highway', 'Kuusalu vald', undefined, 'Tallinna–Narva mnt (E20), 38. km', [25.43, 59.438]),
-  pl('p-pl-e263-20', 'Tallinna–Tartu mnt (E263), 20. km', 'highway', 'Rae vald', undefined, 'Tallinna–Tartu mnt (E263), 20. km', [24.97, 59.285]),
-  pl('p-pl-e263-35', 'Tallinna–Tartu mnt (E263), 35. km', 'highway', 'Kose vald', undefined, 'Tallinna–Tartu mnt (E263), 35. km', [25.075, 59.203]),
-  pl('p-pl-e67-25', 'Tallinna–Pärnu mnt (E67), 25. km', 'highway', 'Saue vald', undefined, 'Tallinna–Pärnu mnt (E67), 25. km', [24.53, 59.26]),
+  pl('p-pl-e20-18', 'Tallinna-Narva mnt (E20), 18. km', 'highway', 'Jõelähtme vald', undefined, 'Tallinna-Narva mnt (E20), 18. km', [25.05, 59.4475]),
+  pl('p-pl-e20-38', 'Tallinna-Narva mnt (E20), 38. km', 'highway', 'Kuusalu vald', undefined, 'Tallinna-Narva mnt (E20), 38. km', [25.43, 59.438]),
+  pl('p-pl-e263-20', 'Tallinna-Tartu mnt (E263), 20. km', 'highway', 'Rae vald', undefined, 'Tallinna-Tartu mnt (E263), 20. km', [24.97, 59.285]),
+  pl('p-pl-e263-35', 'Tallinna-Tartu mnt (E263), 35. km', 'highway', 'Kose vald', undefined, 'Tallinna-Tartu mnt (E263), 35. km', [25.075, 59.203]),
+  pl('p-pl-e67-25', 'Tallinna-Pärnu mnt (E67), 25. km', 'highway', 'Saue vald', undefined, 'Tallinna-Pärnu mnt (E67), 25. km', [24.53, 59.26]),
   pl('p-pl-ringtee-juri', 'Tallinna ringtee (11), Jüri liiklussõlm', 'highway', 'Rae vald', undefined, 'Tallinna ringtee (11), Jüri', [24.89, 59.364]),
   pl('p-pl-ringtee-saue', 'Tallinna ringtee (11), Saue', 'highway', 'Saue vald', undefined, 'Tallinna ringtee (11), Saue', [24.585, 59.314]),
-  pl('p-pl-paldiski-mnt-8', 'Tallinna–Paldiski mnt (8), Harku', 'highway', 'Harku vald', undefined, 'Tallinna–Paldiski mnt (8), 12. km', [24.58, 59.408]),
+  pl('p-pl-paldiski-mnt-8', 'Tallinna-Paldiski mnt (8), Harku', 'highway', 'Harku vald', undefined, 'Tallinna-Paldiski mnt (8), 12. km', [24.58, 59.408]),
 
   // Government, embassies, prisons, border
   pl('p-pl-toompea', 'Toompea loss (Riigikogu)', 'government', TLN, KESK, 'Lossi plats 1a', [24.7375, 59.435], ['tourist']),
@@ -742,8 +742,8 @@ export const REGION_POHJA: RegionDef = {
     [25.98, 59.68],
   ],
   description: {
-    et: 'Põhja prefektuur teenindab Harjumaad koos Tallinnaga – ligi 45% Eesti elanikest. Vanalinna ööelu, Lasnamäe ja Mustamäe magalad, sadamad, lennujaam ning tihe liiklus ringteel annavad juhtimiskeskusele riigi suurima väljakutsete voo. Linnast väljas ulatub vastutusala Paldiskist Loksani ja Kõrvemaa metsadeni.',
-    en: "The North Prefecture covers Harju County including Tallinn – nearly 45% of Estonia's population. Old-town nightlife, the Lasnamäe and Mustamäe housing estates, the ports, the airport and heavy ring-road traffic give the command centre the busiest call load in the country. Outside the city the area stretches from Paldiski to Loksa and the Kõrvemaa forests.",
+    et: 'Põhja prefektuur teenindab Harjumaad koos Tallinnaga, kus elab ligi 45% Eesti elanikest. Vanalinna ööelu, Lasnamäe ja Mustamäe magalad, sadamad, lennujaam ning tihe liiklus ringteel annavad juhtimiskeskusele riigi suurima väljakutsete voo. Linnast väljas ulatub vastutusala Paldiskist Loksani ja Kõrvemaa metsadeni.',
+    en: "The North Prefecture covers Harju County including Tallinn, home to nearly 45% of Estonia's population. Old-town nightlife, the Lasnamäe and Mustamäe housing estates, the ports, the airport and heavy ring-road traffic give the command centre the busiest call load in the country. Outside the city the area stretches from Paldiski to Loksa and the Kõrvemaa forests.",
   },
   callVolume: 6,
   zones: [{ id: 'mainland', name: { et: 'Mandriosa', en: 'Mainland' }, ferryMinutes: 0 }],

@@ -65,7 +65,7 @@ export function emptyStats(): ShiftStats {
   };
 }
 
-/** 'day' when the shift starts 06:00–17:59 local time, else 'night'. */
+/** 'day' when the shift starts 06:00-17:59 local time, else 'night'. */
 export function shiftKindOf(start: number): 'day' | 'night' {
   const h = wall(start).hour;
   return h >= 6 && h < 18 ? 'day' : 'night';

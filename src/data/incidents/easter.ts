@@ -1,6 +1,6 @@
 /**
  * Naljakad ja legendaarsed väljakutsed (easter eggs). Funny but plausible: every "mystery" has a
- * sober, real-world explanation in the closing report. Kept rare (weights 0.03–0.04 each,
+ * sober, real-world explanation in the closing report. Kept rare (weights 0.03-0.04 each,
  * well under 1.5 % of all events in total). Category 'easter', `easterEgg: true`.
  * Owned by incidents-B. Legacy titles (2024 list) keep `title.et` verbatim.
  */

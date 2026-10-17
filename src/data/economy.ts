@@ -4,13 +4,13 @@
  * Sources & reasoning (see also docs/research/ppa-organisation.md):
  *  - Police minimum base salary: €1 850 (2025) → €2 035 (2026), 43 % of officers on the lowest
  *    level (ERR via ppa-organisation.md §10). Specialists (rapid response, K9, investigators,
- *    K-komando) earn noticeably more; game range 1 700–3 400 €/month gross.
+ *    K-komando) earn noticeably more; game range 1 700-3 400 €/month gross.
  *  - Patrol car prices are list price + police conversion (lights/siren, partition, ESTER radio
  *    terminal, MDT mount, livery): Škoda Octavia Combi ≈ 38 k€, Toyota RAV4 Hybrid ≈ 45 k€,
  *    BMW 5 Touring traffic car ≈ 70 k€, VW ID.4 GTX ≈ 66 k€ (PPA trial price, research §6.1),
  *    VW Transporter convoy van ≈ 55 k€, Mercedes Sprinter riot van ≈ 100 k€ (PPA paid ~800 k€ for
- *    8 riot vans in 2016–18, research §6.1). Upkeep = service + insurance + tyres + leasing share.
- *  - PPA lennusalk AW139 flight hour ≈ 3–5 k€ (game: monthly retainer), drones: PPA bought 9 ELIX-XL
+ *    8 riot vans in 2016-18, research §6.1). Upkeep = service + insurance + tyres + leasing share.
+ *  - PPA lennusalk AW139 flight hour ≈ 3-5 k€ (game: monthly retainer), drones: PPA bought 9 ELIX-XL
  *    for ≈ 0,5 M€ (≈ 55 k€ each; our prefecture-level DJI-class thermal kit ≈ 15 k€).
  *  - All figures are game-balanced estimates, not official prices.
  */
@@ -365,7 +365,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'call_center', name: T('Kõnekeskus', 'Call centre'), desc: T('Vasta ühe vahetusega 10 interaktiivsele 112-kõnele.', 'Answer 10 interactive 112 calls in one shift.'), icon: 'phone' },
   { id: 'prank_hunter', name: T('Valekõnede kütt', 'Prank hunter'), desc: T('Tuvasta 3 valekõnet.', 'Unmask 3 prank calls.'), icon: 'phone-off' },
   { id: 'safe_shift', name: T('Kõik jõuavad koju', 'Everyone gets home'), desc: T('Vähemalt 20 sündmusega vahetus ilma ühegi vigastatud ametnikuta.', 'A shift with at least 20 incidents and no injured officers.'), icon: 'shield' },
-  { id: 'midsummer', name: T('Jaaniöö ellujääja', 'Midsummer survivor'), desc: T('Tööta läbi jaaniöö (23.–24. juuni).', 'Work through Midsummer night (23–24 June).'), icon: 'fire' },
+  { id: 'midsummer', name: T('Jaaniöö ellujääja', 'Midsummer survivor'), desc: T('Tööta läbi jaaniöö (23.-24. juuni).', 'Work through Midsummer night (23-24 June).'), icon: 'fire' },
   { id: 'new_year', name: T('Vana-aasta öö', "New Year's Eve"), desc: T('Tööta vana-aasta öö vahetus.', "Work the New Year's Eve night shift."), icon: 'star' },
   { id: 'night_owl', name: T('Öökull', 'Night owl'), desc: T('Tööta 10 öövahetust.', 'Work 10 night shifts.'), icon: 'moon' },
   { id: 'first_payday', name: T('Esimene palgapäev', 'First payday'), desc: T('Jõua esimese 30 päeva kuuaruandeni.', 'Reach the first 30-day monthly report.'), icon: 'money' },

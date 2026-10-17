@@ -1,7 +1,7 @@
 /**
  * Vehicle pursuit (jälitus), see DESIGN §4.6.
  *
- * The suspect vehicle moves with heading noise (speed 70–140 km/h on the speedometer; its
+ * The suspect vehicle moves with heading noise (speed 70-140 km/h on the speedometer; its
  * straight-line map speed is ~55 % of that because of the road network and turns), drifts onto
  * nearby main roads, steers away from the nearest pursuing unit, stays on land (Estonia land
  * polygon) and inside the prefecture. Pursuing units (inc.assigned) are re-targeted every
@@ -9,7 +9,7 @@
  *
  * Each game-minute (applied continuously, scaled by dtMin):
  *   pressure += 0.06 × units within 1.5 km + 0.2 with helicopter overhead + 0.35 while spikes bite
- *   risk     += 0.02 × speed factor (speed/100 × night 1.3 × weather 1.15–1.5; ×0.6 with heli)
+ *   risk     += 0.02 × speed factor (speed/100 × night 1.3 × weather 1.15-1.5; ×0.6 with heli)
  * Ends: caught (pressure ≥ 1), crashed (per-minute roll of risk × 0.2), escaped (> 8 km from all
  * units for 3 min, or lost visual contact > 1,5 km for 1,5+ min with a 20 %/min chance, or 25 min
  * without result), terminated (dispatcher command).

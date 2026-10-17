@@ -2,7 +2,7 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
-## 2.0.0 – 2026-10 · EPD 2.0
+## 2.0.0 (2026-10) · EPD 2.0
 
 Mängu täielik uusversioon. Idee on sama mis 2024. ja 2025. aastal, kuid kõik on tehtud uuesti.
 
@@ -63,7 +63,7 @@ The live version (`public/legacy/politseimang-2025.html`): reputation (Staatus),
 
 ## 2024-09 · Prototüüp
 
-Fail [`public/legacy/politseimang-2024.html`](public/legacy/politseimang-2024.html). Valmis 11.–15. septembril 2024.
+Fail [`public/legacy/politseimang-2024.html`](public/legacy/politseimang-2024.html). Valmis 11.-15. septembril 2024.
 
 - Sisselogimine ja „Politsei Andmebaasi“ avaleht.
 - **Aktiivsed kõned:** juhuslikud väljakutsed, nupud „Aktsepteeri“ ja „Keeldu“.
@@ -75,6 +75,6 @@ Fail [`public/legacy/politseimang-2024.html`](public/legacy/politseimang-2024.ht
 <details>
 <summary>English</summary>
 
-The first prototype (`public/legacy/politseimang-2024.html`), built 11–15 September 2024: login, random calls with accept/reject, an officer list with "Send" buttons, person search, a profile page, statistics and 61 call types.
+The first prototype (`public/legacy/politseimang-2024.html`), built 11-15 September 2024: login, random calls with accept/reject, an officer list with "Send" buttons, person search, a profile page, statistics and 61 call types.
 
 </details>

@@ -65,7 +65,7 @@ function dateBetween(rng: Rng, fromMs: number, toMs: number): string {
   return isoUtc(fromMs + rng.int(0, Math.max(0, Math.floor((toMs - fromMs) / DAY))) * DAY);
 }
 
-/** Adult age bands: Estonian demographics, nudged towards the 25–55 who dominate police calls. */
+/** Adult age bands: Estonian demographics, nudged towards the 25-55 who dominate police calls. */
 const AGE_BANDS: [number, number, number][] = [
   [18, 24, 0.1],
   [25, 34, 0.18],
@@ -723,7 +723,7 @@ function licenseCategories(rng: Rng, gender: Gender, job: Occupation): string[] 
   return ['A', 'B', 'BE', 'C', 'CE', 'D'].filter((c) => cats.has(c));
 }
 
-/** Age at first licence: most Estonians get it at 18–19. */
+/** Age at first licence: most Estonians get it at 18-19. */
 const FIRST_LICENSE_AGE: [number, number][] = [
   [18, 0.42],
   [19, 0.18],

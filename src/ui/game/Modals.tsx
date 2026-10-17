@@ -21,7 +21,7 @@ function finishShift(): boolean {
 
 const KEYS: [string, string][] = [
   ['Space', 'game.key.space'],
-  ['1 – 4', 'game.key.speeds'],
+  ['1-4', 'game.key.speeds'],
   ['5', 'game.key.realtime'],
   ['A', 'game.key.ack'],
   ['D', 'game.key.dispatch'],

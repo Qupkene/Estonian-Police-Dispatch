@@ -448,7 +448,7 @@
   --tone: var(--gold);
 }
 
-/* ── Priority chips (P1–P4) ───────────────────────────────────────────────── */
+/* ── Priority chips (P1-P4) ───────────────────────────────────────────────── */
 .ui-prio {
   --pc: var(--p3);
   display: inline-flex;

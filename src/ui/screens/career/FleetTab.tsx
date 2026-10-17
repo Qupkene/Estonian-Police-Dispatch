@@ -52,7 +52,7 @@ export function FleetTab({ profile, rank }: { profile: CareerProfile; rank: Rank
       <div className="cr-stats">
         <Stat icon="car" label={t('career.fleet.count')} value={fmtNum(fleet.length, lang)} />
         <Stat icon="wrench" label={t('career.fleet.upkeep')} value={fmtMoney(upkeep, lang)} sub={t('career.perMonth')} />
-        <Stat icon="gauge" label={t('career.fleet.avgCond')} value={fleet.length ? `${pct(avgCond)} %` : '–'} />
+        <Stat icon="gauge" label={t('career.fleet.avgCond')} value={fleet.length ? `${pct(avgCond)} %` : '-'} />
         <Stat icon="money" label={t('career.fleet.value')} value={fmtMoney(value, lang)} />
       </div>
 

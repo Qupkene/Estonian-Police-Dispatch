@@ -10,7 +10,7 @@ Compiled 2026-10-17.
 
 - **[VERIFIED-local]**: checked in this sandbox (tzdata `zdump`, MapLibre 6.14.0 source code, a Node test run).
 - **[COMPUTED]**: calculated here with the NOAA/Meeus algorithm (§7). Expect about ±1 min accuracy.
-- **[LIKELY]**: strong prior knowledge (training data up to 2025–26) that nothing contradicted. Not checked live.
+- **[LIKELY]**: strong prior knowledge (training data up to 2025-26) that nothing contradicted. Not checked live.
 - **[UNSURE]**: plausible but unconfirmed. Must be tested or checked before shipping.
 - **[ESTIMATE]**: my own game-balancing numbers derived from the above. Never present them as fact.
 
@@ -26,7 +26,7 @@ Compiled 2026-10-17.
 | `foto` | **Maa- ja Ruumiamet `foto@GMC` (JPG) + `hybriid@GMC` (PNG overlay)** | none | yes | **UNSURE** | Same as above; orthophotos are heavy | LIKELY / UNSURE |
 | (fallback street map) | OpenFreeMap `liberty` / `positron` vector styles | none | yes | yes | No SLA (donation-run) | LIKELY |
 | (do not use as primary) | `tile.openstreetmap.org` | none | discouraged | yes | OSMF can block at any time; prefetching banned | LIKELY |
-| Routing (optional "real roads" mode) | Precompute offline from a Geofabrik Estonia extract (§5.4). Live demo servers only for rare, user-triggered requests. | none | – | yes | Demo servers allow 1 req/s and no heavy use | LIKELY |
+| Routing (optional "real roads" mode) | Precompute offline from a Geofabrik Estonia extract (§5.4). Live demo servers only for rare, user-triggered requests. | none | - | yes | Demo servers allow 1 req/s and no heavy use | LIKELY |
 
 **Bottom line for designers:** keep the engine's own straight-line movement (DESIGN.md §"no external routing in the engine") as the default. Treat every online layer as a *visual* enhancement that can fail without harm. Show attribution for whichever layer is active (§6).
 
@@ -66,13 +66,13 @@ https://tiles.maaamet.ee/tm/tms/1.0.0/{layer}@{matrixSet}/{z}/{x}/{y}.{ext}
 | `foto` | Ortofoto | `https://tiles.maaamet.ee/tm/tms/1.0.0/foto@GMC/{z}/{x}/{y}.jpg` | **jpg** | Aerial orthophoto mosaic, updated in regional cycles | LIKELY (jpg: LIKELY) |
 | `hybriid` | Hübriidkaart | `https://tiles.maaamet.ee/tm/tms/1.0.0/hybriid@GMC/{z}/{x}/{y}.png` | png | **Transparent overlay** of roads, street names and place names, drawn on top of `foto` | LIKELY |
 | `reljeef` | Reljeef (shaded relief) | `.../reljeef@GMC/{z}/{x}/{y}.png` | png | Hillshade from the LiDAR elevation model | UNSURE |
-| others | e.g. historical maps, cadastre | – | – | Exist as WMS layers; TMS names unknown | UNSURE |
+| others | e.g. historical maps, cadastre | - | - | Exist as WMS layers; TMS names unknown | UNSURE |
 
-**Zoom range:** GMC tiles cover roughly **z 6–18** for `kaart`/`hallkaart`. `foto` may go to z 19–20 in cities. Set `maxzoom: 18` on the source and let MapLibre overzoom past it. [UNSURE: test z19 for `foto`.]
+**Zoom range:** GMC tiles cover roughly **z 6-18** for `kaart`/`hallkaart`. `foto` may go to z 19-20 in cities. Set `maxzoom: 18` on the source and let MapLibre overzoom past it. [UNSURE: test z19 for `foto`.]
 
 **Coverage:** Estonia only. Outside Estonia's bounding box the server returns 404 or blank tiles. Set `bounds` on the source so MapLibre never requests them:
 
-- Estonia's extent is about lon **21.76–28.21 E**, lat **57.51–59.82 N** (Vilsandi in the west, Narva in the east, Vaindloo in the north, the Latvian border near Ikla/Valga and Ruhnu at 57.78 N). [LIKELY]
+- Estonia's extent is about lon **21.76-28.21 E**, lat **57.51-59.82 N** (Vilsandi in the west, Narva in the east, Vaindloo in the north, the Latvian border near Ikla/Valga and Ruhnu at 57.78 N). [LIKELY]
 - Recommended source `bounds`: `[21.5, 57.3, 28.5, 59.95]`.
 
 **Usage-statistics query string (optional):** Maa-amet's old TMS example appended `&ASUTUS=MAAAMET&KESKKOND=LIVE&IS=TMSNAIDE` (asutus = organisation, keskkond = environment, IS = information system) so the agency could see who uses the service. [UNSURE whether still wanted. The odd `&` without `?` is how I remember it.] If EPD adds it, use honest values such as `?ASUTUS=EPD_FANNIMANG&IS=EPD`. **Never** put PPA or POLITSEI there: the game must not look like the real police in the agency's logs (see §11).
@@ -109,7 +109,7 @@ fetch('https://tiles.maaamet.ee/tm/tms/1.0.0/hallkaart@GMC/10/582/723.png', { mo
 | Link target | `https://www.maaamet.ee/` (probably redirects to the new site) | UNSURE |
 | Usage limits | No published per-user rate limit that I know of. The agency asks very high-volume users (e.g. bulk downloaders) to make an agreement or use the download service instead of the tile service. | UNSURE |
 
-**Do not pre-cache Maa-amet tiles in bulk.** Orthophoto tiles are about 20–60 kB each. The service worker should cache only tiles the user actually viewed, with a size cap (as it already does for CARTO).
+**Do not pre-cache Maa-amet tiles in bulk.** Orthophoto tiles are about 20-60 kB each. The service worker should cache only tiles the user actually viewed, with a size cap (as it already does for CARTO).
 
 ### 1.6 Dark-mode trick for `hallkaart`
 
@@ -202,7 +202,7 @@ A key embedded in a public GitHub Pages bundle is visible to anyone and can be a
 ### 5.4 Recommended approach for EPD
 
 1. **Default:** keep the engine's road-free movement (DESIGN.md: straight segments with a mild bend, `× weather road factor`). Fully offline and deterministic.
-2. **"Real roads" upgrade, no runtime dependency:** at build time, download `https://download.geofabrik.de/europe/estonia-latest.osm.pbf` (roughly 100–150 MB [UNSURE]). Extract the main road network (`motorway … tertiary`, plus `residential` inside the playable towns) into a compact graph JSON, and run A* in a Web Worker. Alternatively, run OSRM locally in Docker (`osrm-extract` / `osrm-contract`) to precompute station-to-district route polylines.
+2. **"Real roads" upgrade, no runtime dependency:** at build time, download `https://download.geofabrik.de/europe/estonia-latest.osm.pbf` (roughly 100-150 MB [UNSURE]). Extract the main road network (`motorway … tertiary`, plus `residential` inside the playable towns) into a compact graph JSON, and run A* in a Web Worker. Alternatively, run OSRM locally in Docker (`osrm-extract` / `osrm-contract`) to precompute station-to-district route polylines.
 3. **Licence consequence:** a road graph extracted from OSM is a **derivative database under the ODbL 1.0**. If shipped in the public bundle, it must be offered under ODbL with the attribution "© OpenStreetMap contributors". Rendered map images and route lines only need attribution (they count as "produced works"). [LIKELY]
 4. **Live demo routers only for rare, player-triggered actions** (e.g. "show the route" on a selected unit). Throttle to 1 request per second globally, cache by origin/destination, and never call them for every simulated unit at sim speed.
 
@@ -222,7 +222,7 @@ MapLibre's `AttributionControl` gathers the `attribution` field of every *visibl
 | OSRM demo | `Routing: <a href="https://project-osrm.org/">OSRM</a>, data © OpenStreetMap contributors` | `Teekonnad: OSRM, andmed © OpenStreetMapi kaastöölised` | recommendation |
 | FOSSGIS routing | `Routing: © <a href="https://routing.openstreetmap.de/about.html">FOSSGIS e.V.</a>, data © OpenStreetMap contributors` | `Teekonnad: © FOSSGIS e.V., andmed © OpenStreetMap` | recommendation |
 | geoBoundaries (offline tactical map) | `Boundaries: <a href="https://www.geoboundaries.org/">geoBoundaries</a> (CC BY 4.0)` | `Piirid: geoBoundaries (CC BY 4.0)` | LIKELY CC BY 4.0. UNSURE for the EST layers, some of which are ODbL; check the dataset metadata. |
-| Natural Earth | Public domain, no attribution required (credit appreciated): `Natural Earth` | – | LIKELY |
+| Natural Earth | Public domain, no attribution required (credit appreciated): `Natural Earth` | - | LIKELY |
 | Open-Meteo (if live weather is ever added) | `Weather data by <a href="https://open-meteo.com/">Open-Meteo.com</a>` (CC BY 4.0) | `Ilmaandmed: Open-Meteo.com` | LIKELY |
 | Bundled OSM road graph (if built) | `Road network © OpenStreetMap contributors, ODbL 1.0` | `Teedevõrk © OpenStreetMapi kaastöölised, ODbL` | LIKELY |
 
@@ -280,7 +280,7 @@ export const SOURCES: Record<string, SourceSpecification> = {
 
 ### 7.1 Algorithm reference
 
-- **NOAA Global Monitoring Laboratory Solar Calculator**: `https://gml.noaa.gov/grad/solcalc/`. Equations are in "General Solar Position Calculations" (`https://gml.noaa.gov/grad/solcalc/solareqns.PDF`) and the spreadsheets `NOAA_Solar_Calculations_day.xls` / `_year.xls`. Based on **Jean Meeus, *Astronomical Algorithms* (2nd ed., 1998)**. NOAA states rise/set accuracy of about **±1 minute** for latitudes within ±72°, which covers Estonia (57.5–59.8° N). [LIKELY]
+- **NOAA Global Monitoring Laboratory Solar Calculator**: `https://gml.noaa.gov/grad/solcalc/`. Equations are in "General Solar Position Calculations" (`https://gml.noaa.gov/grad/solcalc/solareqns.PDF`) and the spreadsheets `NOAA_Solar_Calculations_day.xls` / `_year.xls`. Based on **Jean Meeus, *Astronomical Algorithms* (2nd ed., 1998)**. NOAA states rise/set accuracy of about **±1 minute** for latitudes within ±72°, which covers Estonia (57.5-59.8° N). [LIKELY]
 - Standard altitudes: **−0.833°** for sunrise/sunset (34′ refraction + 16′ solar semidiameter), **−6°** civil twilight, **−12°** nautical, **−18°** astronomical. [LIKELY; standard astronomy]
 - A JS alternative is `suncalc` (mourner/suncalc, BSD-2). DESIGN.md forbids extra runtime dependencies, so use the about 70-line implementation below.
 
@@ -396,16 +396,16 @@ Tartu monthly (15th, rise/set/length): Jan 08:49/15:56/7h07 · Feb 07:45/17:09/9
 
 ### 7.4 White nights (valged ööd) [COMPUTED]
 
-- The sun never goes below **−18°** (no astronomical night) from about **23 Apr to 20 Aug** in Tallinn (27 Apr – 17 Aug in Tartu).
-- It never goes below **−12°** (no nautical night) from about **14 May to 30 Jul** in Tallinn (19 May – 25 Jul in Tartu, 21 May – 23 Jul in Võru).
+- The sun never goes below **−18°** (no astronomical night) from about **23 Apr to 20 Aug** in Tallinn (27 Apr, 17 Aug in Tartu).
+- It never goes below **−12°** (no nautical night) from about **14 May to 30 Jul** in Tallinn (19 May, 25 Jul in Tartu, 21 May, 23 Jul in Võru).
 - **Civil twilight does still end** everywhere in Estonia. Even at midsummer the sun dips to about −7.1° below the horizon at Tallinn's solar midnight (about 01:20 EEST). So "dark" in June means a deep blue twilight from roughly 00:15 to 02:30, never pitch black.
-- In December, civil dusk in Tallinn is about **16:15**, so the evening rush hour is fully dark. Pedestrians must wear a **helkur** (reflector) in the dark, and police run reflector campaigns in October–March. [LIKELY]
+- In December, civil dusk in Tallinn is about **16:15**, so the evening rush hour is fully dark. Pedestrians must wear a **helkur** (reflector) in the dark, and police run reflector campaigns in October-March. [LIKELY]
 
 ---
 
 ## 8. Climate by month (for `weather.ts`)
 
-Normals are from memory of Riigi Ilmateenistus (Estonian Weather Service) 1991–2020 data for Tallinn-Harku and Tartu-Tõravere. **[LIKELY, ±1 °C and ±15 % on precipitation]**. They are fine for game simulation, not for citation.
+Normals are from memory of Riigi Ilmateenistus (Estonian Weather Service) 1991-2020 data for Tallinn-Harku and Tartu-Tõravere. **[LIKELY, ±1 °C and ±15 % on precipitation]**. They are fine for game simulation, not for citation.
 
 | Month | Tallinn mean °C | Tallinn max / min | Tartu mean °C | Tartu max / min | Tallinn precip mm | Tartu precip mm | Sunshine h (Tallinn) |
 |---|---|---|---|---|---|---|---|
@@ -433,22 +433,22 @@ Regional pattern [LIKELY]:
 
 | Phenomenon | Season | Notes for the game |
 |---|---|---|
-| First snow | Usually late Oct – late Nov, melts quickly | **"First snow day" = traffic chaos**: many cars still on summer tyres, crashes ×2 (consistent with `112-and-priorities.md`) |
-| Permanent snow cover | Inland about mid-Dec → late Mar. Tallinn and the coast in shorter, broken spells. Islands least. | Days with snow cover per winter: islands about 50–75, Tallinn about 75–100, Tartu about 100–110, Haanja up to about 130. Mild winters can have only a few weeks. [UNSURE on recent averages, which are falling] |
-| Max snow depth | Feb – early Mar, typically 15–40 cm inland | Snowdrifts (*tuisk*) close rural roads |
-| Black ice (*kiilasjää*) and glaze (*jäide*) | Nov – Mar, worst on thaw-freeze days around 0 °C | Biggest crash multiplier. Pedestrian falls too (ambulance calls, not police) |
-| Ice roads (*jäätee*) | Cold winters only, Jan – Mar (Rohuküla–Heltermaa, Virtsu–Kuivastu, Haapsalu–Noarootsi, Tärkma–Triigi, Lake Peipus) | Opened by Transpordiamet when the ice is thick enough. Rules: drive alone, no seatbelt, keep distance. Rare "car through the ice" incidents. |
-| Lake Peipus ice floes | Feb – Mar | **Ice fishermen stranded on drifting floes** (*jääpangal triivivad kalamehed*) are a classic rescue job with the PPA helicopter (*lennusalk*) and Päästeamet. |
-| Autumn and winter storms | Oct – Feb, W/SW gales, coastal gusts 25–30+ m/s | Fallen trees on roads, power cuts, **Pärnu storm surge** (Jan 2005: about +2.75 m) |
-| Fog | Spring (Apr – May) on coasts, autumn (Oct – Nov) inland | Road speed ×0.8 |
-| Thunderstorms | Jun – Aug, peak July | Lightning fires, sudden downpours |
-| Heat | Jul – Aug, a few 30 °C+ days inland most summers | **Drownings** (alcohol + swimming) and hot-car calls |
+| First snow | Usually late Oct, late Nov, melts quickly | **"First snow day" = traffic chaos**: many cars still on summer tyres, crashes ×2 (consistent with `112-and-priorities.md`) |
+| Permanent snow cover | Inland about mid-Dec → late Mar. Tallinn and the coast in shorter, broken spells. Islands least. | Days with snow cover per winter: islands about 50-75, Tallinn about 75-100, Tartu about 100-110, Haanja up to about 130. Mild winters can have only a few weeks. [UNSURE on recent averages, which are falling] |
+| Max snow depth | Feb, early Mar, typically 15-40 cm inland | Snowdrifts (*tuisk*) close rural roads |
+| Black ice (*kiilasjää*) and glaze (*jäide*) | Nov, Mar, worst on thaw-freeze days around 0 °C | Biggest crash multiplier. Pedestrian falls too (ambulance calls, not police) |
+| Ice roads (*jäätee*) | Cold winters only, Jan, Mar (Rohuküla-Heltermaa, Virtsu-Kuivastu, Haapsalu-Noarootsi, Tärkma-Triigi, Lake Peipus) | Opened by Transpordiamet when the ice is thick enough. Rules: drive alone, no seatbelt, keep distance. Rare "car through the ice" incidents. |
+| Lake Peipus ice floes | Feb, Mar | **Ice fishermen stranded on drifting floes** (*jääpangal triivivad kalamehed*) are a classic rescue job with the PPA helicopter (*lennusalk*) and Päästeamet. |
+| Autumn and winter storms | Oct, Feb, W/SW gales, coastal gusts 25-30+ m/s | Fallen trees on roads, power cuts, **Pärnu storm surge** (Jan 2005: about +2.75 m) |
+| Fog | Spring (Apr, May) on coasts, autumn (Oct, Nov) inland | Road speed ×0.8 |
+| Thunderstorms | Jun, Aug, peak July | Lightning fires, sudden downpours |
+| Heat | Jul, Aug, a few 30 °C+ days inland most summers | **Drownings** (alcohol + swimming) and hot-car calls |
 
-**Tyre law (traffic flavour)** [LIKELY]: winter tyres are **mandatory 1 Dec – 1 Mar**. Studded tyres (*naastrehvid*) are allowed **15 Oct – 31 Mar**, and the dates can be shifted when the weather requires it. Dipped headlights or DRLs are required at all times.
+**Tyre law (traffic flavour)** [LIKELY]: winter tyres are **mandatory 1 Dec, 1 Mar**. Studded tyres (*naastrehvid*) are allowed **15 Oct, 31 Mar**, and the dates can be shifted when the weather requires it. Dipped headlights or DRLs are required at all times.
 
 ### 8.2 Game weather table [ESTIMATE]
 
-Daily weather draw weights in % (rows sum to 100), for an inland/coastal mix. Shift snow +10 points inland in Jan–Feb and −15 points on the islands.
+Daily weather draw weights in % (rows sum to 100), for an inland/coastal mix. Shift snow +10 points inland in Jan-Feb and −15 points on the islands.
 
 | Month | Clear | Cloudy | Rain | Heavy rain / thunder | Snow | Sleet / glaze (*jäide*) | Fog | Storm |
 |---|---|---|---|---|---|---|---|---|
@@ -477,10 +477,10 @@ Suggested `weatherFactor` for road speed [ESTIMATE]: dry 1.00 · wet/rain 0.92 �
 
 | Date | Estonian name | English | 2026 | 2027 | Police load |
 |---|---|---|---|---|---|
-| 1 Jan | uusaasta | New Year's Day | Thu | Fri | **Very high 00:00–06:00** (fireworks injuries, fights, DV, drunk driving the next morning) |
+| 1 Jan | uusaasta | New Year's Day | Thu | Fri | **Very high 00:00-06:00** (fireworks injuries, fights, DV, drunk driving the next morning) |
 | 24 Feb | iseseisvuspäev, **Eesti Vabariigi aastapäev** | Independence Day | Tue | Wed | High: Defence Forces **paraad** (traffic closures; city varies by year [UNSURE]), the President's evening reception (*presidendi vastuvõtt*, broadcast live; VIP security), private parties |
 | movable | **suur reede** | Good Friday | **3 Apr** | **26 Mar** | Long weekend: traffic |
-| movable | ülestõusmispühade 1. püha (lihavõtted) | Easter Sunday | **5 Apr** | **28 Mar** | Low–medium |
+| movable | ülestõusmispühade 1. püha (lihavõtted) | Easter Sunday | **5 Apr** | **28 Mar** | Low-medium |
 | 1 May | kevadpüha | Spring Day | Fri | Sat | **Volbriöö (30 Apr → 1 May)**: student celebrations, especially Tartu Raekoja plats; drinking, noise |
 | movable | nelipühade 1. püha | Pentecost Sunday | **24 May** | **16 May** | Low |
 | 23 Jun | **võidupüha** | Victory Day (Battle of Võnnu/Cēsis, 1919) | Tue | Wed | Kaitseliit **võidupüha paraad** (host town rotates) plus the start of Midsummer |
@@ -511,11 +511,11 @@ Easter dates computed with the Gregorian computus [COMPUTED]:
 | Date | What | Why the police care | Conf. |
 |---|---|---|---|
 | 14 Feb | Sõbrapäev | flavour only | LIKELY |
-| 26–27 Apr | Anniversary of **Pronksiöö** (Bronze Night riots, 2007) | Public-order watch in Tallinn | LIKELY |
+| 26-27 Apr | Anniversary of **Pronksiöö** (Bronze Night riots, 2007) | Public-order watch in Tallinn | LIKELY |
 | Late Apr & early Oct | **Tartu tudengipäevad** (student days): spring and autumn | Noise, drinking, öörahu (night-quiet) complaints in Tartu | LIKELY |
 | **9 May** | Soviet "Victory Day" for parts of the Russian-speaking community | **Public-order operations in Narva and at Maarjamäe (Tallinn)**. Since 2022, displaying symbols that support aggression (St George ribbon, Z) at gatherings is punishable. | LIKELY |
 | Mid-May | Viimane koolikell (last school bell) | Teen parties | LIKELY |
-| Mid–late June | Graduations (*lõpuaktused*), Pärnu *suvepealinn* season opening | Youth drinking, beach town crowds | LIKELY |
+| Mid-late June | Graduations (*lõpuaktused*), Pärnu *suvepealinn* season opening | Youth drinking, beach town crowds | LIKELY |
 | 1 Sep | Teadmistepäev (school start) | PPA school-traffic campaign, speed checks near schools | LIKELY |
 | 2nd Sun of May / Nov | Emadepäev / isadepäev | flavour | LIKELY |
 | 2 Nov | Hingedepäev | flavour (candles, cemetery traffic) | LIKELY |
@@ -525,32 +525,32 @@ Easter dates computed with the Gregorian computus [COMPUTED]:
 
 `112-and-priorities.md` [VERIFIED there]:
 
-- Jaanipäev 2022: **1,200+ call-outs on 23–24 June**, 133 drunk drivers.
-- Jaanipäev 2026 (19–23 June): **317 crime reports, 889 misdemeanours, about 210 DV call-outs**, 38 injury crashes (3 dead), 32,000+ sobriety checks.
+- Jaanipäev 2022: **1,200+ call-outs on 23-24 June**, 133 drunk drivers.
+- Jaanipäev 2026 (19-23 June): **317 crime reports, 889 misdemeanours, about 210 DV call-outs**, 38 injury crashes (3 dead), 32,000+ sobriety checks.
 - Häirekeskus gets **about 1,000 extra calls** and doubles its staff on Midsummer night.
 
-Use these to calibrate the holiday multiplier, e.g. ×2.0–2.5 spawn rate from 23 Jun 18:00 to 24 Jun 08:00 [ESTIMATE].
+Use these to calibrate the holiday multiplier, e.g. ×2.0-2.5 spawn rate from 23 Jun 18:00 to 24 Jun 08:00 [ESTIMATE].
 
 ### 9.4 Big recurring events
 
 | Event | Where | When | Size / police angle | Conf. |
 |---|---|---|---|---|
-| **Üldlaulu- ja tantsupidu** (Song and Dance Celebration) | Tallinna Lauluväljak + Kalevi staadion | Early July, roughly every 5 years. **XXVIII laulupidu "Iseoma": 4–6 July 2025.** The previous one was 2019 "Minu arm" (150th anniversary). Next one probably about **2029–2030**. | Tens of thousands of performers; the procession (*rongkäik*) through central Tallinn; total audience well over 100k across the days. Massive traffic and crowd operation. | LIKELY (2025 dates), UNSURE (next date) |
-| **Noorte laulu- ja tantsupidu** (Youth celebration) | same venues | 2023 "Püha on maa" (about 30 Jun – 2 Jul 2023); next probably about 2028–2029 | Smaller version of the above | UNSURE |
-| **Tartu Maraton** (ski) | Otepää → Elva, 63 km classic | A Sunday in **mid/late February** | About 4–8k skiers, rural road closures. **Cancelled when snow is lacking** (e.g. 2020; possibly also later years [UNSURE]). Game rule: third Sunday of February, 20 % cancellation chance [ESTIMATE]. | LIKELY / UNSURE |
-| Tartu Rattamaraton (MTB) / Tartu Jooksumaraton | Otepää–Elva / Tartu | Rattamaraton in September (bike); running event in late spring or autumn | Road closures | UNSURE (dates) |
-| **SEB Tallinna Maraton** | Central Tallinn (start and finish Vabaduse väljak), Pirita | **2nd weekend of September** (Sat 10 km / Sun marathon and half) | About 15–20k runners across distances. Many road closures, collapsed runners. | LIKELY |
-| **Weekend Festival Baltic** | Pärnu (beach area) | Mid-August, 3 days | Large EDM festival (tens of thousands per day). Drugs, drunk youth, traffic. **2025–26 status UNSURE** (has paused before). | LIKELY (event exists), UNSURE (current status) |
-| **Õllesummer** | Tallinna Lauluväljak | Early July (since 1994) | Was the biggest beer and music festival (about 70k visitors). **Held only irregularly in recent years; 2025–26 status UNSURE.** In 2025 the grounds were taken by the laulupidu. Treat as a fictionalised "suvine õllefestival". | UNSURE |
+| **Üldlaulu- ja tantsupidu** (Song and Dance Celebration) | Tallinna Lauluväljak + Kalevi staadion | Early July, roughly every 5 years. **XXVIII laulupidu "Iseoma": 4-6 July 2025.** The previous one was 2019 "Minu arm" (150th anniversary). Next one probably about **2029-2030**. | Tens of thousands of performers; the procession (*rongkäik*) through central Tallinn; total audience well over 100k across the days. Massive traffic and crowd operation. | LIKELY (2025 dates), UNSURE (next date) |
+| **Noorte laulu- ja tantsupidu** (Youth celebration) | same venues | 2023 "Püha on maa" (about 30 Jun, 2 Jul 2023); next probably about 2028-2029 | Smaller version of the above | UNSURE |
+| **Tartu Maraton** (ski) | Otepää → Elva, 63 km classic | A Sunday in **mid/late February** | About 4-8k skiers, rural road closures. **Cancelled when snow is lacking** (e.g. 2020; possibly also later years [UNSURE]). Game rule: third Sunday of February, 20 % cancellation chance [ESTIMATE]. | LIKELY / UNSURE |
+| Tartu Rattamaraton (MTB) / Tartu Jooksumaraton | Otepää-Elva / Tartu | Rattamaraton in September (bike); running event in late spring or autumn | Road closures | UNSURE (dates) |
+| **SEB Tallinna Maraton** | Central Tallinn (start and finish Vabaduse väljak), Pirita | **2nd weekend of September** (Sat 10 km / Sun marathon and half) | About 15-20k runners across distances. Many road closures, collapsed runners. | LIKELY |
+| **Weekend Festival Baltic** | Pärnu (beach area) | Mid-August, 3 days | Large EDM festival (tens of thousands per day). Drugs, drunk youth, traffic. **2025-26 status UNSURE** (has paused before). | LIKELY (event exists), UNSURE (current status) |
+| **Õllesummer** | Tallinna Lauluväljak | Early July (since 1994) | Was the biggest beer and music festival (about 70k visitors). **Held only irregularly in recent years; 2025-26 status UNSURE.** In 2025 the grounds were taken by the laulupidu. Treat as a fictionalised "suvine õllefestival". | UNSURE |
 | "Hõbelaev" | ? | ? | **I know of no major Estonian festival by this name.** Do not use it as a real event without a source. | UNSURE |
-| Viljandi Pärimusmuusika Festival | Viljandi lossimäed | Late July, 4 days | About 20–25k visitors, a calm crowd | LIKELY |
+| Viljandi Pärimusmuusika Festival | Viljandi lossimäed | Late July, 4 days | About 20-25k visitors, a calm crowd | LIKELY |
 | Tallinna Merepäevad | Tallinn harbour areas | Mid-July | Very large crowds, water incidents | LIKELY |
-| Saaremaa Ooperipäevad / Kuressaare Merepäevad | Kuressaare | July | Ferry queues (Virtsu–Kuivastu) | LIKELY |
+| Saaremaa Ooperipäevad / Kuressaare Merepäevad | Kuressaare | July | Ferry queues (Virtsu-Kuivastu) | LIKELY |
 | Haapsalu Augustibluus | Haapsalu | Early August | Medium | LIKELY |
 | Hard Rock Laager | Vana-Vigala | July | Camping, drinking | LIKELY |
-| **Rally Estonia** | Tartu area forest stages | July | Large spectator crowds, rural traffic, spectator-safety calls. WRC round 2020–2024; **2025–26 championship status UNSURE**. | LIKELY / UNSURE |
+| **Rally Estonia** | Tartu area forest stages | July | Large spectator crowds, rural traffic, spectator-safety calls. WRC round 2020-2024; **2025-26 championship status UNSURE**. | LIKELY / UNSURE |
 | Saaremaa Rally | Saaremaa | October | Regional | UNSURE |
-| Big stadium concerts | Tallinna Lauluväljak (capacity for concerts about 60–100k) | Summer | E.g. Metallica 2019 (about 60k+). Huge one-night crowd operations. | LIKELY |
+| Big stadium concerts | Tallinna Lauluväljak (capacity for concerts about 60-100k) | Summer | E.g. Metallica 2019 (about 60k+). Huge one-night crowd operations. | LIKELY |
 | PÖFF (Black Nights Film Festival) | Tallinn | November | Low police relevance | LIKELY |
 
 ### 9.5 Time zone and DST
@@ -564,16 +564,16 @@ Use these to calibrate the holiday multiplier, e.g. ×2.0–2.5 spawn rate from 
 | **2026** | **29 Mar → 25 Oct** | VERIFIED-local |
 | 2027 | 28 Mar → 31 Oct | VERIFIED-local |
 | 2028 | 26 Mar → 29 Oct | VERIFIED-local |
-| History | Estonia skipped DST in 2000–2001 and resumed it in 2002. The EU plan (2018–19) to abolish clock changes has stalled, and changes are still happening in 2026. | LIKELY |
+| History | Estonia skipped DST in 2000-2001 and resumed it in 2002. The EU plan (2018-19) to abolish clock changes has stalled, and changes are still happening in 2026. | LIKELY |
 
-**Implementation:** store sim time as UTC ms. Render the clock with `Intl.DateTimeFormat('et-EE', { timeZone: 'Europe/Tallinn', hour: '2-digit', minute: '2-digit' })`. Never hard-code +2/+3. On the autumn change night, 03:00–03:59 happens twice; shift reports should show times with "EEST/EET" or as UTC to avoid ambiguity. The Häirekeskus night shift that night is 1 hour longer, a nice flavour line.
+**Implementation:** store sim time as UTC ms. Render the clock with `Intl.DateTimeFormat('et-EE', { timeZone: 'Europe/Tallinn', hour: '2-digit', minute: '2-digit' })`. Never hard-code +2/+3. On the autumn change night, 03:00-03:59 happens twice; shift reports should show times with "EEST/EET" or as UTC to avoid ambiguity. The Häirekeskus night shift that night is 1 hour longer, a nice flavour line.
 
 ---
 
 ## 10. Suggested data shapes (for `calendar.ts` / `weather.ts`)
 
 ```ts
-// [ESTIMATE] values; facts behind them are tagged in §8–9.
+// [ESTIMATE] values; facts behind them are tagged in §8-9.
 export const HOLIDAYS_FIXED = [
   { md: '01-01', id: 'uusaasta', et: 'Uusaasta', en: "New Year's Day", load: 1.8, peakHours: [0, 6] },
   { md: '02-24', id: 'vabariigi_aastapaev', et: 'Eesti Vabariigi aastapäev', en: 'Independence Day', load: 1.4 },
@@ -611,8 +611,8 @@ The user has said the domain will be **politsei.eu** (already in `public/CNAME` 
 5. CARTO free-tier wording ("non-commercial", "75,000 mapviews/month") on carto.com / the `CartoDB/basemap-styles` README.
 6. OpenFreeMap `dark` and `fiord` style URLs and the current ToS.
 7. OSRM demo and FOSSGIS usage-policy wording (both "1 req/s" from memory).
-8. Event statuses for 2025–26: Weekend Festival Baltic, Õllesummer, Rally Estonia (WRC?), the next laulupidu and youth festival years, recent Tartu Maraton cancellations, and the 24 Feb parade city.
-9. Climate normals: replace the §8 table with exact 1991–2020 figures from ilmateenistus.ee if precision matters (it does not for gameplay).
+8. Event statuses for 2025-26: Weekend Festival Baltic, Õllesummer, Rally Estonia (WRC?), the next laulupidu and youth festival years, recent Tartu Maraton cancellations, and the 24 Feb parade city.
+9. Climate normals: replace the §8 table with exact 1991-2020 figures from ilmateenistus.ee if precision matters (it does not for gameplay).
 10. "Hõbelaev": unknown. Ask the designer what was meant.
 
 Things **not** in doubt: DST dates (tzdata), MapLibre's `scheme: 'tms'` / `{ratio}` / `{bbox-epsg-3857}` support and lack of `{s}` / `{-y}` (source code), and the sun tables (NOAA algorithm, tested).

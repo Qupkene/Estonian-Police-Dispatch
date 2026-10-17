@@ -111,7 +111,7 @@ export function vehicleByPlate(s: SimState, plate: string): Vehicle | undefined 
 
 /** "2026-10-17" → "17.10.2026" (Estonian format). */
 export function isoToEt(iso: string | undefined): string {
-  if (!iso) return '–';
+  if (!iso) return '-';
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   return m ? `${m[3]}.${m[2]}.${m[1]}` : iso;
 }

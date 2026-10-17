@@ -120,11 +120,11 @@ documented signature below (stubs exist). Report needed changes instead of editi
 `SimState.now` is game epoch ms. The UI calls `step(state, dtGameMs)` every animation frame with
 `dtGameMs = dtRealMs × speed`. Speeds (game seconds per real second): pause 0, `1×` = 15,
 `2×` = 30, `4×` = 60, `8×` = 120, director "real time" = 1. Shift lengths: 4 h, 8 h, 12 h
-(day 07–19 or night 19–07). Engine internally sub-steps in ≤ 5 game-second slices.
+(day 07-19 or night 19-07). Engine internally sub-steps in ≤ 5 game-second slices.
 
 ### 4.2 Spawning
 Poisson process: rate/h = `region.callVolume × hourCurve[h] × weekdayFactor × holidayFactor ×
-difficultyFactor × weatherFactor`. Default hour curve peaks 22–02 (1.6×), lowest 04–07 (0.45×).
+difficultyFactor × weatherFactor`. Default hour curve peaks 22-02 (1.6×), lowest 04-07 (0.45×).
 Difficulty factor: cadet 0.6, normal 1, veteran 1.35, realistic 1.8.
 Template choice weight = `template.weight × hourProfile(template.hours)[h] × weekendBoost ×
 season/month filter × region filter × place-availability`. Easter eggs (`easterEgg: true`) total
@@ -137,7 +137,7 @@ Location: pick a place kind from `template.places`, then:
 * `village`/`farm`/`summerhouse`/`forest`/`ruralroad`/`lake` → a rural settlement from
   `data/geo/settlements.json` within the region's counties, e.g. "Mäe talu, Kuusiku-Nõmme küla,
   Rapla maakond", jittered up to 600 m,
-* `highway` → point along a Natural Earth road within region bounds, e.g. "Tallinna–Tartu
+* `highway` → point along a Natural Earth road within region bounds, e.g. "Tallinna-Tartu
   maantee (E263), 34. km".
 
 ### 4.3 Incident lifecycle
@@ -148,10 +148,10 @@ Location: pick a place kind from `template.places`, then:
 * **Reject/close without units** (legacy "Keeldu"): `closeIncident(how)`, where `how` is `referral` to an
   agency, `phone` advice, `duplicate` or `prank`. Correct when the template is a referral/prank/
   false alarm or truly P4; wrong for real emergencies (big penalty).
-* Units en route: `move` with siren for P1–P2. On arrival `onscene`. Work progresses at
+* Units en route: `move` with siren for P1-P2. On arrival `onscene`. Work progresses at
   `assigned units on scene × skill factor` unit-minutes per minute until `onSceneMin` is reached
   (+ `effects.time`). Beats fire at their `at` time. Then the outcome is computed and units go
-  `available` (or `transport`/`busy` paperwork 10–30 min after arrests).
+  `available` (or `transport`/`busy` paperwork 10-30 min after arrests).
 * **Need vs ideal**: `need` is the minimum to make progress (e.g. armed robbery needs 2 patrols
   or 1 rapid response); with fewer units on scene work is paused and risk grows. Meeting `ideal`
   gives a bonus (legacy `bonus_officers_type`).
@@ -176,7 +176,7 @@ Each `BeatSpec` in a template becomes a `BeatState`. When it fires:
   (`timeoutMin`). Dispatching a unit matching `need` before timeout → `successEffects`; else
   `failEffects` (legacy: call failed, Staatus −6..−8). While waiting work is paused.
 * `agency` ("vajame kiirabi"): player must press "Teavita Häirekeskust: Kiirabi". Agency arrival
-  time 8–20 min (rural longer).
+  time 8-20 min (rural longer).
 * `transport`: unit status `transport`, drives to arrest house (`region.arrestHouseId`) /
   nearest hospital / station, then `busy` paperwork.
 * `escalate`, `info`, `pursuit` (§4.6), `search` (§4.7).
@@ -196,7 +196,7 @@ outcome 20, safety 10, classification 5). Shift score = weighted average by prio
 SLA defaults (minutes): P1 urban 10 / rural 20; P2 20 / 35; P3 45 / 60; P4 120.
 
 ### 4.6 Pursuit (jälitus)
-Started by a `pursuit` beat or ANPR hit. The suspect vehicle moves (speed 70–140 km/h, random
+Started by a `pursuit` beat or ANPR hit. The suspect vehicle moves (speed 70-140 km/h, random
 heading changes, biased to roads/away from units). Pursuing units follow; each game-minute:
 `pressure += 0.06 × units close (<1.5 km) + 0.2 if heli + 0.35 if spikes ahead` ; `risk += 0.02
 × speed factor` (night, rain, snow raise it). Player actions: request helicopter (if available),
@@ -210,7 +210,7 @@ Search circle on the map. Each assigned unit adds progress per minute (K9 ×2.5,
 
 ### 4.8 Units
 Roster: `region.roster` (UnitSpec) or career `RosterUnit[]`. Each unit spawns at its station.
-`available` units patrol: pick a random waypoint within 3–6 km of their station every 15–40 min
+`available` units patrol: pick a random waypoint within 3-6 km of their station every 15-40 min
 and drive at 35 km/h without siren (lively map). ETA: straight-line distance × road factor
 (urban 1.35, rural 1.25) ÷ speed (siren: urban 58 km/h, rural 95 km/h; no siren 40/75; heli
 200 km/h straight, no road factor) × weather road factor. Paths: straight segments with a mild
@@ -255,15 +255,15 @@ history, achievements, recruit pool.
 * A career shift = one day. After each shift: daily base budget (region-dependent, ~1 600 €)
   + performance bonus (from shift score & reputation delta, like the 2025 formula) − daily
   salaries (monthly/30) − vehicle upkeep − fuel (km × 0.14 €) − overtime.
-* Every 30 days: payday summary, recruit pool refresh (8–10 candidates), month report.
+* Every 30 days: payday summary, recruit pool refresh (8-10 candidates), month report.
 * Hiring: candidates with specialty (patrol, rapid, criminal, k9, traffic, aux…), skill,
-  salary demand (realistic 1 700–3 400 €/month), years of service, bio. Fire staff.
+  salary demand (realistic 1 700-3 400 €/month), years of service, bio. Fire staff.
 * Fleet: buy vehicles from a catalogue (realistic models & prices), each suits unit types.
 * Roster: before a shift the player sees auto-generated crews (2 officers + a vehicle per patrol,
   editable), only `active` staff.
 * Upgrades (data/economy.ts) change engine numbers (see §6). Rank thresholds unlock regions,
   helicopter, K-komando, Director mode is always free.
-* Injured officers are out for 2–10 days.
+* Injured officers are out for 2-10 days.
 
 ## 5. Public APIs (signatures: stubs exist, implementers keep them)
 
@@ -327,7 +327,7 @@ TopBar (logo, prefecture, clock with day/night, weather, speed controls, live st
 money in career) · left: event queue · centre: map · right: context panel (incident / unit /
 Andmebaas / Statistika tabs) · bottom: radio log + unit status board. 112 call = modal-ish
 dock that slides in. Below 1100 px the side panels become tabs.
-Hotkeys: Space pause, 1–5 speed, F2 queue, F3 Andmebaas, F4 units, F6 radio, A acknowledge,
+Hotkeys: Space pause, 1-5 speed, F2 queue, F3 Andmebaas, F4 units, F6 radio, A acknowledge,
 D dispatch recommended, Esc close. Everything keyboard reachable.
 Screens: Boot (fake OS boot log) → Login (ID-kaart / Mobiil-ID / Smart-ID simulation; empty
 user+password = legacy login easter egg "Tere tagasi, 2024!") → Menu (Karjäär, Kiirmäng,

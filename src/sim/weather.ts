@@ -1,5 +1,5 @@
 /**
- * Estonian weather model: monthly climatology (Tallinn 1991–2020 normals, regional offsets for
+ * Estonian weather model: monthly climatology (Tallinn 1991-2020 normals, regional offsets for
  * the colder inland south-east and the milder islands), a diurnal temperature cycle, an AR(1)
  * temperature anomaly and an hourly Markov drift of the weather kind. Road factors follow the
  * DESIGN (snow 1.3, sleet/ice 1.4, rain 1.1, fog 1.15, storm 1.25) plus "libedus": wet roads
@@ -19,9 +19,9 @@ const KINDS: Kind[] = ['clear', 'cloudy', 'rain', 'snow', 'sleet', 'fog', 'storm
 // Climatology
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Monthly mean air temperature, Tallinn (≈ 1991–2020 normals), °C. Index 0 = January. */
+/** Monthly mean air temperature, Tallinn (≈ 1991-2020 normals), °C. Index 0 = January. */
 export const MONTH_MEAN_C = [-2.3, -3.0, -0.3, 5.0, 10.4, 14.7, 17.8, 16.7, 12.1, 6.8, 2.6, -0.4];
-/** Half of the typical daily min–max range, °C (small in the dark, cloudy winter). */
+/** Half of the typical daily min-max range, °C (small in the dark, cloudy winter). */
 const DIURNAL_AMP = [1.8, 2.4, 3.4, 4.5, 5.5, 5.5, 5.4, 5.0, 4.0, 2.8, 1.9, 1.6];
 /** Standard deviation of day-to-day anomalies, °C (winter cold snaps / thaws are large). */
 const ANOMALY_SD = [5.5, 5.5, 4.0, 3.0, 3.0, 2.5, 2.5, 2.5, 2.5, 3.0, 3.5, 4.5];
@@ -38,7 +38,7 @@ const REGION_OFFSET: Record<RegionId, [number, number]> = {
 
 /**
  * Probability of each kind per month [clear, cloudy, rain, snow, sleet, fog, storm].
- * Estonia's Nov–Jan is famously grey (≈ 30 sunshine hours in December); May–July sunny.
+ * Estonia's Nov-Jan is famously grey (≈ 30 sunshine hours in December); May-July sunny.
  */
 const KIND_P: number[][] = [
   [0.12, 0.42, 0.05, 0.28, 0.06, 0.05, 0.02], // Jan

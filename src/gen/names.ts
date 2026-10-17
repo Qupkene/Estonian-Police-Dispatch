@@ -8,7 +8,7 @@ export type NameOrigin = 'et' | 'ru' | 'uk' | 'fi' | 'en' | 'lv' | 'lt';
 type Era = 'old' | 'mid' | 'young' | 'kid';
 
 // prettier-ignore
-// Estonian given names by birth cohort: old ≤1959, mid 1960–84, young 1985–2004, kid ≥2005.
+// Estonian given names by birth cohort: old ≤1959, mid 1960-84, young 1985-2004, kid ≥2005.
 const EST_MALE_ERA: Record<Era, string[]> = {
   old: [
     'Jaan', 'Peeter', 'Toomas', 'Tiit', 'Jüri', 'Rein', 'Mati', 'Ants', 'Enn', 'Tõnu', 'Heino', 'Kalju',

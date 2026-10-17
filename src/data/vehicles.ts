@@ -4,7 +4,7 @@
  *
  * Weights are relative *within a vehicle kind* (the generator picks the kind first). They follow
  * the shape of the Estonian registered fleet (Toyota, VW, Škoda, Audi, Volvo, BMW on top; many
- * 10–20-year-old Avensis/Passat/Octavia/V70 wagons) from prior knowledge, not an official
+ * 10-20-year-old Avensis/Passat/Octavia/V70 wagons) from prior knowledge, not an official
  * statistics pull. `theft` is relative theft attractiveness (Land Cruiser, Lexus, RAV4 highest,
  * since keyless relay thefts are a well-known problem in Estonia).
  */
@@ -398,7 +398,7 @@ export const CAR_MODELS: CarModel[] = [
   quad('Arctic Cat', '700', 0.5, 2008, 2017),
 ];
 
-/** Default VIN World Manufacturer Identifiers per make (positions 1–3). */
+/** Default VIN World Manufacturer Identifiers per make (positions 1-3). */
 export const MAKE_WMI: Record<string, string[]> = {
   Toyota: ['JTD', 'JTE', 'JTN', 'SB1'],
   Lexus: ['JTH', 'JTJ'],

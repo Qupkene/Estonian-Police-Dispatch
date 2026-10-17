@@ -191,7 +191,7 @@ const ZERO: [number, number] = [0, 0];
 
 /**
  * Stacking order: selected unit 60 > emergency 55 > highlighted 50 > assigned to the selected
- * incident 48 > siren 46 > open incidents 40–43 > other active units 36 > idle 30 > off duty 25.
+ * incident 48 > siren 46 > open incidents 40-43 > other active units 36 > idle 30 > off duty 25.
  */
 function unitZ(status: Unit['status'], sel: boolean, hl: boolean, assigned: boolean, siren: boolean): number {
   if (sel) return 60;

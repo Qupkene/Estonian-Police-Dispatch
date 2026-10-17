@@ -2,7 +2,7 @@
  * Estonian law references used by criminal records (`CriminalRecord.lawId`), incident content
  * and the registry UI. Owned by registry-data.
  *
- * Sources: docs/research/law-references.md + prior knowledge of KarS/LS/KorS/NPALS (2024–2025).
+ * Sources: docs/research/law-references.md + prior knowledge of KarS/LS/KorS/NPALS (2024-2025).
  * Paragraph numbers marked `// unverified` could not be checked against Riigi Teataja in this
  * build (no web access). Ids of unverified entries are semantic where possible so they do not
  * have to change when a number is corrected. Punishments are *typical examples* for generated
@@ -142,7 +142,7 @@ export const PUNISH = {
   }),
   /** Hoiatustrahv (on-the-spot warning fine), fixed euros. */
   warning: (eur: number): Text => ({ et: `Hoiatustrahv ${eurEt(eur)}`, en: `Warning fine ${eurEn(eur)}` }),
-  /** Väärteoarest (1–30 days). */
+  /** Väärteoarest (1-30 days). */
   detention: (days: number): Text => ({
     et: `Arest ${days} ${days === 1 ? 'ööpäev' : 'ööpäeva'}`,
     en: `Detention for ${days} ${days === 1 ? 'day' : 'days'}`,
@@ -1006,7 +1006,7 @@ export const LAWS: Law[] = [
     'ls_262_2',
     'LS',
     '§ 262 lg 2',
-    T('Lubatud suurima sõidukiiruse ületamine 21–40 km/h', 'Speeding by 21–40 km/h'),
+    T('Lubatud suurima sõidukiiruse ületamine 21-40 km/h', 'Speeding by 21-40 km/h'),
     M,
     ['traffic'],
     { sev: 1, w: 5 },
@@ -1016,7 +1016,7 @@ export const LAWS: Law[] = [
     'ls_262_3',
     'LS',
     '§ 262 lg 3',
-    T('Lubatud suurima sõidukiiruse ületamine 41–60 km/h', 'Speeding by 41–60 km/h'),
+    T('Lubatud suurima sõidukiiruse ületamine 41-60 km/h', 'Speeding by 41-60 km/h'),
     M,
     ['traffic'],
     { sev: 2, w: 1.2 },

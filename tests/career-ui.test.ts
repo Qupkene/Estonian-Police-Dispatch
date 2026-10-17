@@ -67,7 +67,7 @@ describe('career ui · formatting', () => {
   it('uses a decimal comma in Estonian', () => {
     expect(fmtNum(1234.5, 'et', 1)).toBe(`1${NB}234,5`);
     expect(fmtNum(1234.5, 'en', 1)).toBe('1,234.5');
-    expect(fmtNum(NaN, 'et')).toBe('–');
+    expect(fmtNum(NaN, 'et')).toBe('-');
   });
   it('compacts axis labels', () => {
     expect(fmtCompact(12400, 'en')).toBe('12k');

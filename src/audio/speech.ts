@@ -37,7 +37,7 @@ export function speechText(text: string, max = 170): string {
   let s = text
     .replace(/\[[^\]]*\]/g, ' ')
     .replace(/[«»"„“”]/g, '')
-    .replace(/[^\p{L}\p{N}\s.,:;!?()+\-–/%€]/gu, ' ')
+    .replace(/[^\p{L}\p{N}\s.,:;!?()+\--/%€]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   if (s.length > max) {

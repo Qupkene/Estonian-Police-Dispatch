@@ -210,7 +210,7 @@ function specialtyWeights(p: CareerProfile): [UnitType, number][] {
   ];
 }
 
-/** Salary demand for a specialty / skill / experience (€/month gross, 1 700–3 400). */
+/** Salary demand for a specialty / skill / experience (€/month gross, 1 700-3 400). */
 export function salaryFor(spec: UnitType, skill: number, years: number, noise = 0): number {
   const base = BASE_SALARY[spec] ?? 2035;
   const s = base + Math.max(0, skill - 0.45) * 1400 + Math.min(20, years) * 14 + noise;

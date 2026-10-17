@@ -10,7 +10,7 @@ const digits = (rng: Rng, n: number): string => {
 
 /**
  * Estonian mobile number: mostly 8-digit "+372 5xxx xxxx", older 7-digit "+372 5xx xxxx" (kept by
- * many middle-aged and older people) and newer 8-digit "+372 8xxx xxxx" (81–84 ranges).
+ * many middle-aged and older people) and newer 8-digit "+372 8xxx xxxx" (81-84 ranges).
  */
 export function mobileNumber(rng: Rng, age?: number): string {
   const short = age === undefined ? 0.3 : age >= 45 ? 0.45 : age >= 30 ? 0.3 : 0.1;

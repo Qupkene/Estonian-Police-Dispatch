@@ -178,7 +178,7 @@ export function PersonCard({
         {lic.status !== 'none' ? (
           <KV
             rows={[
-              [t('tools.p.categories'), lic.categories.length ? <span className="mono">{lic.categories.join(', ')}</span> : '–'],
+              [t('tools.p.categories'), lic.categories.length ? <span className="mono">{lic.categories.join(', ')}</span> : '-'],
               [
                 t('tools.p.validUntil'),
                 <span className={isExpired(lic.validUntil, s.now) ? 'tl-bad' : undefined}>
@@ -207,7 +207,7 @@ export function PersonCard({
             rows={[
               [t('tools.v.kind'), tx(p.weaponPermit.kind)],
               [t('tools.p.validUntil'), isoToEt(p.weaponPermit.validUntil)],
-              [t('tools.p.weapons'), p.weaponPermit.weapons.join(', ') || '–'],
+              [t('tools.p.weapons'), p.weaponPermit.weapons.join(', ') || '-'],
             ]}
           />
         </Section>
@@ -261,7 +261,7 @@ export function PersonCard({
                   <button type="button" className="tl-row" onClick={() => onOpenVehicle(pl)}>
                     <Plate plate={pl} size="sm" />
                     <span className="tl-row__main">
-                      {v ? `${v.make} ${v.model}` : '–'}
+                      {v ? `${v.make} ${v.model}` : '-'}
                       {v && <span className="tl-row__sub">{`${v.year} · ${tx(v.color)}`}</span>}
                     </span>
                     {v && <FlagDots flags={vFlags(v, s)} />}

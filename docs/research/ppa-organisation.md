@@ -1,6 +1,6 @@
-# PPA organisation (2024–2026): research notes for EPD
+# PPA organisation (2024-2026): research notes for EPD
 
-Research notes for **EPD**, an unofficial, fan-made Estonian police dispatch simulator. They cover the **Politsei- ja Piirivalveamet (PPA)**, Estonia's Police and Border Guard Board, as of 2024–2026.
+Research notes for **EPD**, an unofficial, fan-made Estonian police dispatch simulator. They cover the **Politsei- ja Piirivalveamet (PPA)**, Estonia's Police and Border Guard Board, as of 2024-2026.
 
 Compiled 2026-10-17. WebFetch was blocked, so every fact comes from web-search result snippets plus prior knowledge. The search budget ran out before the end, so some items (rank insignia, Kärdla/Võru addresses, siren tones) could not be checked again.
 
@@ -26,7 +26,7 @@ Compiled 2026-10-17. WebFetch was blocked, so every fact comes from web-search r
 | Regional units | 4 prefectures (prefektuurid): Põhja, Ida, Lõuna, Lääne | VERIFIED |
 | Emergency number | 112, answered by **Häirekeskus** (a separate agency, the Emergency Response Centre). The police short number 110 stopped working on 1 March 2020. | VERIFIED |
 | State helpline | 1247 | VERIFIED |
-| Staff | About 5,000 employees in total; frontline shortage of 200–300 | VERIFIED |
+| Staff | About 5,000 employees in total; frontline shortage of 200-300 | VERIFIED |
 | Patrol crew | 2 officers. The senior officer is *toimkonna vanem*. | VERIFIED (older source), LIKELY current |
 | Radio | Estonia's TETRA network is **ESTER**, not VIRVE (VIRVE is Finland's network). See §8. | VERIFIED |
 
@@ -34,7 +34,7 @@ Compiled 2026-10-17. WebFetch was blocked, so every fact comes from web-search r
 
 ## 1. Prefectures, counties, HQs
 
-| Prefecture | Counties (maakonnad) | HQ city | HQ address | Prefect (2025–26) | Conf. |
+| Prefecture | Counties (maakonnad) | HQ city | HQ address | Prefect (2025-26) | Conf. |
 |---|---|---|---|---|---|
 | **Põhja prefektuur** (North) | Harju maakond, including Tallinn | Tallinn | Pärnu mnt 139, Tallinn | Ats Kübarsepp (signed orders late 2025; base salary set from 1 Jan 2026) | VERIFIED |
 | **Ida prefektuur** (East) | Ida-Viru maakond, Lääne-Viru maakond | Jõhvi | Rahu tn 38, 41588 Jõhvi | Tarvo Kruup (named in a 2024 presentation) | VERIFIED name; current tenure LIKELY |
@@ -52,7 +52,7 @@ Compiled 2026-10-17. WebFetch was blocked, so every fact comes from web-search r
 - Lääne: take part in detecting sea pollution and guarding the sea border.
 - Põhja: protect protected persons and guard designated objects. Personal protection moved from Keskkriminaalpolitsei to Põhja prefektuur's *julgestusbüroo*.
 
-**Approximate population, for weighting call volume** [LIKELY, rounded, about 2024–25; check stat.ee if exact figures matter]:
+**Approximate population, for weighting call volume** [LIKELY, rounded, about 2024-25; check stat.ee if exact figures matter]:
 
 | County | Pop. | Prefecture |
 |---|---|---|
@@ -104,14 +104,14 @@ Two jaoskonnad cover all of Harju [VERIFIED].
 
 | Unit | Address | Notes | Conf. |
 |---|---|---|---|
-| **Ida-Harju politseijaoskond** | P. Pinna tn 4, Lasnamäe, Tallinn | Has patrullitalitus with **patrulligrupp I–VIII**, a menetlustalitus (isikuvastaste süütegude menetlusgrupp, tänavasüütegude menetlusgrupp) and three district groups (rows below). | VERIFIED |
+| **Ida-Harju politseijaoskond** | P. Pinna tn 4, Lasnamäe, Tallinn | Has patrullitalitus with **patrulligrupp I-VIII**, a menetlustalitus (isikuvastaste süütegude menetlusgrupp, tänavasüütegude menetlusgrupp) and three district groups (rows below). | VERIFIED |
 | ↳ Kesklinna piirkonnagrupp | P. Pinna tn 4 (staff address) | Kesklinn and the Old Town. There was a separate **Kesklinna politseijaoskond** until the late 2010s; its patrol chief Taavi Kirss was quoted by ERR. It is now a district group under Ida-Harju. | VERIFIED; merge date UNSURE |
 | ↳ Ida-Tallinna piirkonnagrupp | P. Pinna tn 4 | Covers Lasnamäe and Pirita | VERIFIED group; area LIKELY |
 | ↳ Ida-Harju piirkonnagrupp | Office at Hariduse tn 1, Kose alevik | Covers eastern rural Harju: Maardu, Rae, Jõelähtme, Kose, Raasiku, Anija (Kehra), Kuusalu | VERIFIED office; area LIKELY |
-| **Lääne-Harju politseijaoskond** | Rahumäe tee 6/1, Kristiine, Tallinn | Has patrullitalitus with **patrulligrupp I–VIII** and four district groups (rows below). An older court ruling mentions a Põhja prefecture arrest house at Rahumäe tee 6. | VERIFIED |
+| **Lääne-Harju politseijaoskond** | Rahumäe tee 6/1, Kristiine, Tallinn | Has patrullitalitus with **patrulligrupp I-VIII** and four district groups (rows below). An older court ruling mentions a Põhja prefecture arrest house at Rahumäe tee 6. | VERIFIED |
 | ↳ Põhja-Tallinna piirkonnagrupp | Kolde pst 65, Põhja-Tallinn | Covers Kalamaja, Kopli, Pelguranna and Merimetsa | VERIFIED address |
 | ↳ Mustamäe-Kristiine piirkonnagrupp | (Kolde pst 65 listed for one officer) | | VERIFIED |
-| ↳ Nõmme-Haabersti piirkonnagrupp | – | | VERIFIED group |
+| ↳ Nõmme-Haabersti piirkonnagrupp | - | | VERIFIED group |
 | ↳ Lääne-Harju piirkonnagrupp | Office at Päästekeskuse tee 1, Tammemäe küla, Saku vald | Covers western and southern rural Harju: Keila, Saue, Harku, Saku, Kiili, Lääne-Harju (Paldiski), Kernu | VERIFIED office; area LIKELY |
 | Operatiivbüroo / **juhtimiskeskus** | Osmussaare tn 2, Lasnamäe, Tallinn | Regional command centre; see §4 | VERIFIED |
 | Teabebüroo / **kinnipidamiskeskus** | Linnaaru tee 5/1, Soodevahe küla, Rae vald | Detention centre; see §3 | VERIFIED |
@@ -124,19 +124,19 @@ Three jaoskonnad plus a piirivalvebüroo [VERIFIED].
 
 | Unit | Address | Notes | Conf. |
 |---|---|---|---|
-| **Narva politseijaoskond** | Vahtra tn 3, Narva (staff pages) | Menetlusgrupp I–III; Sillamäe piirkonnagrupp; "Narva teenindus" service desk | VERIFIED (address from search snippet) |
+| **Narva politseijaoskond** | Vahtra tn 3, Narva (staff pages) | Menetlusgrupp I-III; Sillamäe piirkonnagrupp; "Narva teenindus" service desk | VERIFIED (address from search snippet) |
 | ↳ Sillamäe piirkonnagrupp | Sillamäe | | VERIFIED group |
 | **Jõhvi politseijaoskond** | Rahu tn 38, Jõhvi (prefecture HQ) | Patrullitalitus, Jõhvi piirkonnagrupp, Kohtla-Järve piirkonnagrupp, liiklusgrupp, lubadegrupp, menetlusgrupp II | VERIFIED units; address LIKELY |
 | ↳ Kohtla-Järve office | Järveküla tee 40, Kohtla-Järve | | VERIFIED |
 | ↳ Kiviõli | Joint police and rescue building, planned to open spring 2023 | | VERIFIED plan |
-| **Rakvere politseijaoskond** | F. R. Kreutzwaldi tn 5A, Rakvere | Patrullitalitus with **patrulligrupp I–V**; Rakvere piirkonnagrupp | VERIFIED |
+| **Rakvere politseijaoskond** | F. R. Kreutzwaldi tn 5A, Rakvere | Patrullitalitus with **patrulligrupp I-V**; Rakvere piirkonnagrupp | VERIFIED |
 | ↳ Tapa office | Pikk tn 18A, Tapa | | VERIFIED |
 | ↳ Kunda, Haljala, Väike-Maarja, Tamsalu, Vinni | Community police offices | Probably part-time | UNSURE |
 | **Piirivalvebüroo** | Jõhvi | Has a teabeseiretalitus (surveillance). Field units: **Narva kordon** and **Narva piiripunkt**. **Mustajõe kordon** (Narva-Jõesuu) is closed. **Alajõe teeninduskoht** (Peipus shore) closed to save €80k a year. | VERIFIED |
 
 ### 2.3 Lõuna prefektuur (Tartu, Jõgeva, Põlva, Valga, Võru, Viljandi)
 
-Three jaoskonnad [VERIFIED from a 2020 order, 2024–2026 staff pages and a 2026 page].
+Three jaoskonnad [VERIFIED from a 2020 order, 2024-2026 staff pages and a 2026 page].
 
 | Unit | Address | Notes | Conf. |
 |---|---|---|---|
@@ -178,7 +178,7 @@ Five jaoskonnad [VERIFIED].
   | Lõuna | 141 |
   | Lääne | 127 |
 
-- Jõhvi arrest house: 157 places, but only 5–10% used. Tartu arrest house: 64 places, about 20% used. [VERIFIED]
+- Jõhvi arrest house: 157 places, but only 5-10% used. Tartu arrest house: 64 places, about 20% used. [VERIFIED]
 
 ### 3.2 Reforms: arrest-house work moved to prisons
 - **Tartu and Ida-Viru** [VERIFIED law text; start date LIKELY Jan 2021]: Tartu and Jõhvi arrest-house functions moved to **Tartu Vangla** and **Viru Vangla**. Vangistusseadus § 172⁷ lets these two prisons hold:
@@ -196,14 +196,14 @@ Five jaoskonnad [VERIFIED].
 | Facility | Location | Who goes there (game logic) | Conf. |
 |---|---|---|---|
 | **Tallinna Vangla** (prison, includes eelvangistusosakond and avavangla) | **Linnaaru tee 5, Soodevahe küla, Rae vald, 75322**. On the Tallinn/Rae border off Lagedi tee; bus 160, stop "Vangla". Opened 2018, replacing Magasini street. | Arrested and detained people from the Tallinn/Harju area (since Apr 2025) | VERIFIED |
-| **Põhja prefektuuri kinnipidamiskeskus** | Linnaaru tee 5/1, Soodevahe (next to the prison) | PPA detention centre: valvegrupp I–III, konvoeerimisgrupp (escort), teabegrupp, kainestusmaja grupp. Head Remo Tänav. | VERIFIED |
+| **Põhja prefektuuri kinnipidamiskeskus** | Linnaaru tee 5/1, Soodevahe (next to the prison) | PPA detention centre: valvegrupp I-III, konvoeerimisgrupp (escort), teabegrupp, kainestusmaja grupp. Head Remo Tänav. | VERIFIED |
 | ↳ Konvoeerimisgrupp office | Lubja tn 4, Tallinn (Harju Maakohus courthouse) | Escorts detainees to court | VERIFIED |
 | **Tallinna kainestusmaja** (sobering-up house) | Group leader's office is at **Merelahe tee 4**, Põhja-Tallinn. A 2013 photo labelled "Tallinna kainestusmaja" is filed under Merimetsa. | Drunks from Tallinn and Harju. A health worker assesses them on arrival. **About 6,000 sobering-ups a year** in Põhja prefecture. Group leader: politseimajor Margus Trees. | VERIFIED office/group; site LIKELY |
 | **Tartu Vangla** | Turu 56, 51013 Tartu | Arrested, 48-hour and sobering-up cases from Lõuna prefecture. Half its places were cut; a plan to rent places to Sweden is under discussion. | VERIFIED |
 | **Viru Vangla** | Ülesõidu 1, 41536 Jõhvi | Arrested, 48-hour and sobering-up cases from Ida-Viru | VERIFIED |
 | **Pärnu arestimaja** | Pärnu | Lääne prefecture's main arrest house; also takes sobering-up cases. The Chancellor of Justice inspected it in April 2023. | VERIFIED |
 | Small arrest cells (*arestimaja kambrid*) | Haapsalu, Kärdla, Paide, Viljandi, Võru, Valga (a new Valga arrest house was planned for 2021) | Short holds before transfer | VERIFIED via Chancellor inspection reports; current operation of each UNSURE |
-| Rakvere, Narva, Kuressaare cells | – | Short holds | UNSURE |
+| Rakvere, Narva, Kuressaare cells | - | Short holds | UNSURE |
 | **Harku kinnipidamiskeskus** | Harku vald | Immigration detention for people being deported; not for drunks or arrests | LIKELY |
 
 **Legal hooks** [LIKELY unless marked]:
@@ -229,11 +229,11 @@ Information systems named in a 2026 PPA document [VERIFIED]:
 - **KILP**: PPA's operational system.
 - Navy systems.
 
-### 4.2 Command centres (as listed on politsei.ee, 2024–2026)
+### 4.2 Command centres (as listed on politsei.ee, 2024-2026)
 
 | Prefecture | Centre | Address | Internal structure | Conf. |
 |---|---|---|---|---|
-| Põhja | Juhtimiskeskus (operatiivbüroo) | Osmussaare tn 2, Lasnamäe, Tallinn | Head ("keskuse juht"): Katrin Laasik. **Teabegrupp I–IV**, which looks like four rotating shift crews, each with a *grupijuht* (for example politseikapten Ivar Kärner) and several *operatiivinfo haldurid*. Also acts as the **RCC** (regional coordination centre) for border surveillance, coordinating the local **LCCs** in the EUROSUR model. Handles PPA's international information exchange. | VERIFIED |
+| Põhja | Juhtimiskeskus (operatiivbüroo) | Osmussaare tn 2, Lasnamäe, Tallinn | Head ("keskuse juht"): Katrin Laasik. **Teabegrupp I-IV**, which looks like four rotating shift crews, each with a *grupijuht* (for example politseikapten Ivar Kärner) and several *operatiivinfo haldurid*. Also acts as the **RCC** (regional coordination centre) for border surveillance, coordinating the local **LCCs** in the EUROSUR model. Handles PPA's international information exchange. | VERIFIED |
 | Lõuna | Juhtimiskeskus | Jaama tn 207, Tartu | Head: Ottomar Virk. Teabegrupid (at least III). | VERIFIED |
 | Lääne | Operatiivkeskus | A. H. Tammsaare pst 70, Pärnu | Head: Meelis Peiker | VERIFIED |
 | Ida | No juhtimiskeskus page was found, although the operatiivbüroo exists | Jõhvi? | Ida-Viru may be dispatched from Jõhvi or from the Tallinn centre | UNSURE |
@@ -269,14 +269,14 @@ On older terms: "**operatiivkorrapidaja**" (operational duty officer) and "**kor
 
 | Unit (Estonian) | What it is | Numbers / facts | Conf. |
 |---|---|---|---|
-| **Patrullpolitsei** (patrullitalitus) | General response patrols in each jaoskond: answering calls, public order, misdemeanours, traffic, guarding detainees | 2-officer crews. Tallinn's two jaoskonnad each have **patrulligrupp I–VIII**; Rakvere has I–V. Officers work *summeeritud tööaeg* (hours averaged over a period) with night work. In one recent year there were **about 1,000 hours** when every patrol in a jaoskond was busy on a call. | VERIFIED |
+| **Patrullpolitsei** (patrullitalitus) | General response patrols in each jaoskond: answering calls, public order, misdemeanours, traffic, guarding detainees | 2-officer crews. Tallinn's two jaoskonnad each have **patrulligrupp I-VIII**; Rakvere has I-V. Officers work *summeeritud tööaeg* (hours averaged over a period) with night work. In one recent year there were **about 1,000 hours** when every patrol in a jaoskond was busy on a call. | VERIFIED |
 | **Kiirreageerijad** (kiirreageerimisüksused) | Armed rapid-response teams in each prefecture. They act as extra patrols and take the **most dangerous calls**, and support criminal police in searches and arrests. | 2017 plan to double from 75 to 150: Põhja 65, Lõuna 35, plus new 25-person units in Ida and Lääne; Lääne's is the youngest. Entry test: 14 exercises in 16 minutes, situational tasks, shooting. | VERIFIED (plan figures) |
 | **K-komando** | National tier-1 counter-terror / SWAT unit, founded 1991, based in Tallinn. Members are also trained paramedics: K-komando won the national paramedic championship twice, with Põhja kiirreageerijad second. | Usually placed under Keskkriminaalpolitsei | VERIFIED existence; parent unit LIKELY |
 | **Julgestusbüroo** (Põhja) | Close protection of state leaders and guarding objects | Moved from KKP to Põhja (2025 statute) | VERIFIED |
-| **Koerajuhid** (K9) | Patrol dogs, plus drug, explosive and tracking dogs | **About 70–80 police dogs** nationally; about 2 years of training; Belgian Malinois common. Shortage of handlers. Dog-service lead: Helen Komussar. | VERIFIED |
+| **Koerajuhid** (K9) | Patrol dogs, plus drug, explosive and tracking dogs | **About 70-80 police dogs** nationally; about 2 years of training; Belgian Malinois common. Shortage of handlers. Dog-service lead: Helen Komussar. | VERIFIED |
 | **Liiklusjärelevalve** | Liiklusjärelevalvekeskus (national) plus **liiklusgrupid** in jaoskonnad (for example Jõhvi) | **8 mobile speed cameras** nationwide. Mobile cameras fine at ≥6 km/h over the limit since 1 July (fixed cameras at 3 km/h). Warning signs before mobile cameras required from 1 August. | VERIFIED (years of the threshold and sign rules UNSURE, 2025/26) |
-| **Kriminaalpolitsei** | KKP (national) plus prefecture *kriminaalbüroo* plus jaoskond *menetlustalitus*, *uurimisgrupp* and *menetlusgrupp* | Typical titles: uurija, vanemuurija, menetleja. KKP leadership (Aivar Alavere, Toomas Lõhmus) was removed in the 2025–26 Heldna affair. | VERIFIED |
-| **Piirkonnapolitseinikud** (community police) | District officers in *piirkonnagrupid*; goal of at least one per municipality | 126 officers (about 2017), with +45 planned for 2018–21 (€21.5M programme) | VERIFIED (historic) |
+| **Kriminaalpolitsei** | KKP (national) plus prefecture *kriminaalbüroo* plus jaoskond *menetlustalitus*, *uurimisgrupp* and *menetlusgrupp* | Typical titles: uurija, vanemuurija, menetleja. KKP leadership (Aivar Alavere, Toomas Lõhmus) was removed in the 2025-26 Heldna affair. | VERIFIED |
+| **Piirkonnapolitseinikud** (community police) | District officers in *piirkonnagrupid*; goal of at least one per municipality | 126 officers (about 2017), with +45 planned for 2018-21 (€21.5M programme) | VERIFIED (historic) |
 | **Noorsoopolitsei** (youth police) | Youth crime prevention and juvenile cases, normally inside piirkonnagrupid / prevention | No current numbers found | LIKELY (role); numbers UNSURE |
 | **Abipolitseinikud** (auxiliary volunteers) | Unpaid volunteers in uniform, patrolling with regular officers | **1,235 at end of 2024** (1,184 in 2023; 1,109 in 2022), **159,137 hours** in 2024 (+30%). Over 1,200 and over 170,000 hours in 2025. Target 1,500 by 2029. In 2026 recruitment was paused until a new Abipolitseiniku seadus takes effect (expected autumn 2027). About 1 in 5 may carry a firearm and 1 in 8 may drive with blue lights. In Põhja in 2017 they made up about 3 patrols a day. | VERIFIED |
 | **Piirivalve** (border guard) | Piirivalvebüroo in Ida and Lõuna (and Põhja for port and airport). Border crossings, kordonid, Peipsi. | See §5.1 | VERIFIED |
@@ -290,9 +290,9 @@ On older terms: "**operatiivkorrapidaja**" (operational duty officer) and "**kor
 
 | Crossing | Crossings in 2025 | 2026 hours and status |
 |---|---|---|
-| **Narva-1** (Ida, Narva) | 626,470 | Pedestrian crossing open 07–19 from 15 June 2026. PPA has temporarily closed exit traffic when Russian processing slowed (2024). |
-| **Narva-2** (pedestrian bridge) | – | Closed on 28 November, probably 2022, for border infrastructure rebuilding |
-| **Koidula** (Lõuna, Põlva county; road and rail) | 213,910 | Since **24 Feb 2026**, closed to all traffic at night (open 07:00–19:00). Extended to 31 Aug 2026. Traffic up 6% since the night closure. |
+| **Narva-1** (Ida, Narva) | 626,470 | Pedestrian crossing open 07-19 from 15 June 2026. PPA has temporarily closed exit traffic when Russian processing slowed (2024). |
+| **Narva-2** (pedestrian bridge) | - | Closed on 28 November, probably 2022, for border infrastructure rebuilding |
+| **Koidula** (Lõuna, Põlva county; road and rail) | 213,910 | Since **24 Feb 2026**, closed to all traffic at night (open 07:00-19:00). Extended to 31 Aug 2026. Traffic up 6% since the night closure. |
 | **Luhamaa** (Lõuna, Võru county) | 239,542 | Same night closure and extension as Koidula. Traffic down about 20% since the night closure. |
 
 **Other border features**
@@ -317,13 +317,13 @@ On older terms: "**operatiivkorrapidaja**" (operational duty officer) and "**kor
 - **3 × AgustaWestland (Leonardo) AW139**, registrations **ES-PWA, ES-PWB, ES-PWC**, delivered 2007, 2008 and Feb 2011.
 - **Fixed-wing**: **Beechcraft King Air 350ER** surveillance aircraft (about 2018). It replaced the 35-year-old **Let L-410**, whose last flight was a medical flight from Kuressaare to Tallinn in Dec 2015 and which is now in the Tartu aviation museum. A recent report says the unit has "three helicopters and two airplanes" [VERIFIED as reported; the second plane's type is UNSURE].
 - **Base**: Tallinn airport [LIKELY]. A second, smaller helicopter base at **Tartu airport** was planned. The unit says a helicopter can lift off **from Tallinn within 15 minutes, 24/7**.
-- **Readiness problems**: readiness for flying two helicopters at once fell to 20–25%. A 1,200-hour / 4-year heavy maintenance takes about 5 months at the manufacturer's Belgian facility. The de-icing system is unreliable.
+- **Readiness problems**: readiness for flying two helicopters at once fell to 20-25%. A 1,200-hour / 4-year heavy maintenance takes about 5 months at the manufacturer's Belgian facility. The de-icing system is unreliable.
 - Proposals: expand to **5 helicopters plus another surveillance plane** (about €250M, 2026 debate). Air-ambulance competition with private operators.
 - **Tasks**: SAR, medical evacuation from islands, police support, border surveillance, pollution detection.
 
 ### 5.4 Drones [VERIFIED]
 - Border guard first used about 10 drones (9 backpack type on the eastern border). PPA later bought **9 × ELIX-XL** drones for about €0.5M (EU funds).
-- **Drone wall** (*droonimüür*): about €12M. Fixed counter-drone detection sensors run from the Estonia–Latvia–Russia tripoint to Luhamaa, the whole eastern border is to be covered, and mobile radars were added. Phase 1 target: the external border plus the **four largest cities** covered by drone detection. A draft law would let police bring down non-compliant drones.
+- **Drone wall** (*droonimüür*): about €12M. Fixed counter-drone detection sensors run from the Estonia-Latvia-Russia tripoint to Luhamaa, the whole eastern border is to be covered, and mobile radars were added. Phase 1 target: the external border plus the **four largest cities** covered by drone detection. A draft law would let police bring down non-compliant drones.
 
 ---
 
@@ -331,7 +331,7 @@ On older terms: "**operatiivkorrapidaja**" (operational duty officer) and "**kor
 
 ### 6.1 Fleet facts [VERIFIED unless marked]
 - PPA has **about 1,000 vehicles**, mostly **leased** (*kasutusrent*); cars go back to the lessor at end of term.
-- **Models confirmed in the 2020s**, mainly through donations of retired cars to Ukraine (57 vehicles in total from 2024–2025) and trials:
+- **Models confirmed in the 2020s**, mainly through donations of retired cars to Ukraine (57 vehicles in total from 2024-2025) and trials:
 
 | Model | Use |
 |---|---|
@@ -342,7 +342,7 @@ On older terms: "**operatiivkorrapidaja**" (operational duty officer) and "**kor
 | **Nissan Patrol** | Border guard. 1 donated in 2025. |
 | **Volkswagen ID.4 GTX** | Electric patrol / VIP escort trial, about €66k. Joined a Peugeot electric van already in use. |
 | **Mitsubishi** EVs | 19 admin cars, around 2011 |
-| **Mercedes-Benz Sprinter** | **8 riot vans (märulibussid, 2016–18, €800k)** and **9 detainee convoy vans (konvoibussid)**, rebuilt by a Silberauto (now Veho) subsidiary. They turned out to be over the 3.5 t limit and were banned from use for a while, so PPA rented 3 replacements. |
+| **Mercedes-Benz Sprinter** | **8 riot vans (märulibussid, 2016-18, €800k)** and **9 detainee convoy vans (konvoibussid)**, rebuilt by a Silberauto (now Veho) subsidiary. They turned out to be over the 3.5 t limit and were banned from use for a while, so PPA rented 3 replacements. |
 | **20 new "high-tech" SUVs**, June 2025, €2M | Eastern border patrol and Frontex operations. Model not found [UNSURE]. |
 
 - **Probable but unconfirmed in the 2020s** [UNSURE]: Škoda Superb and Škoda Kodiaq patrol cars, VW Passat (2010s), Toyota Land Cruiser / Hilux (border), unmarked BMW/Audi/Škoda for traffic enforcement, VW Transporter / Crafter vans, police motorcycles.
@@ -367,7 +367,7 @@ On older terms: "**operatiivkorrapidaja**" (operational duty officer) and "**kor
 ## 7. Ranks (eriastmed / teenistusastmed) and job titles
 
 ### 7.1 Rank ladder, lowest to highest
-Source: the Politsei ja piirivalve seadus (PPVS) rank list. The search reached a 2011–2012 version of the text. Use of *vanemkomissar*, *politseikapten* and *politseimajor* is **VERIFIED in 2025–26 politsei.ee staff listings**. Treat the full ladder as LIKELY current; check the consolidated PPVS on riigiteataja.ee.
+Source: the Politsei ja piirivalve seadus (PPVS) rank list. The search reached a 2011-2012 version of the text. Use of *vanemkomissar*, *politseikapten* and *politseimajor* is **VERIFIED in 2025-26 politsei.ee staff listings**. Treat the full ladder as LIKELY current; check the consolidated PPVS on riigiteataja.ee.
 
 | # | Main rank | Parallel ranks at same level (older text) | Tier |
 |---|---|---|---|
@@ -376,20 +376,20 @@ Source: the Politsei ja piirivalve seadus (PPVS) rank list. The search reached a
 | 3 | **vanemkonstaabel** | vanemassistent, vaneminspektor (veebel) | specialist |
 | 4 | **ülemkonstaabel** | ülemassistent, üleminspektor (vanemveebel) | senior specialist |
 | 5 | **komissar** | (ülemveebel) | senior specialist / junior leader |
-| 6 | **vanemkomissar** | – | leader / senior specialist |
-| 7 | **politseileitnant** | – | officer |
-| 8 | **politseikapten** | – | officer |
-| 9 | **politseimajor** | – | officer |
-| 10 | **politseikolonelleitnant** | – | senior officer |
-| 11 | **politseikolonel** | – | senior officer |
-| 12 | **politseikindral** | – | general (Director General) |
+| 6 | **vanemkomissar** | - | leader / senior specialist |
+| 7 | **politseileitnant** | - | officer |
+| 8 | **politseikapten** | - | officer |
+| 9 | **politseimajor** | - | officer |
+| 10 | **politseikolonelleitnant** | - | senior officer |
+| 11 | **politseikolonel** | - | senior officer |
+| 12 | **politseikindral** | - | general (Director General) |
 
 Notes:
 - The veebel ranks applied only to ship specialist posts in the older text [VERIFIED].
-- In older pay tables, politseikolonelleitnant was pay grade 14–15 and politseikolonel 15–16 [VERIFIED].
+- In older pay tables, politseikolonelleitnant was pay grade 14-15 and politseikolonel 15-16 [VERIFIED].
 - The interior minister grants politseileitnant through politseikolonelleitnant (older text) [VERIFIED].
 - Border guard equivalents used to carry a *piirivalve-* prefix (for example piirivalvenooremleitnant = politseileitnant) [VERIFIED historic].
-- Real 2025–26 examples [VERIFIED]: vanemkomissar on a patrol *rühmajuht*, on investigators and on community officers; politseikapten as a command-centre *grupijuht*; politseimajor as head of the kainestusmaja group.
+- Real 2025-26 examples [VERIFIED]: vanemkomissar on a patrol *rühmajuht*, on investigators and on community officers; politseikapten as a command-centre *grupijuht*; politseimajor as head of the kainestusmaja group.
 - Shoulder-board insignia were not found [UNSURE]. Do not draw them as "real".
 
 ### 7.2 Common job titles (ametinimetused)
@@ -478,17 +478,17 @@ Do **not** claim this matches reality.
 |---|---|---|
 | PPA total staff | **About 5,000** (ERR; a 2016 National Audit Office report said about 5,000, 1,000 fewer than in 2010) | VERIFIED |
 | Staff trend | Down about 2,000 over 15 years. PPA took 86% of the public sector's 2,500-person reduction. 615 left vs 260 hired in one year (about 2022). | VERIFIED |
-| Shortage | "Permanently short 200–300 frontline staff" (Belitšev). About 300 vacancies. | VERIFIED |
-| Police officers (ametnikud) | Not found. Order of 3,500–4,000 including border guards. | UNSURE / ESTIMATE |
+| Shortage | "Permanently short 200-300 frontline staff" (Belitšev). About 300 vacancies. | VERIFIED |
+| Police officers (ametnikud) | Not found. Order of 3,500-4,000 including border guards. | UNSURE / ESTIMATE |
 | Pay | Police minimum salary rose from €1,850 to **€2,035** (2026). 43% of officers are on the lowest base pay level. | VERIFIED |
-| Patrols nationally | About **90–100 patrol cars on a normal day** (2020). Raised to 130, and up to 200 on a sunny COVID-restriction day. | VERIFIED |
+| Patrols nationally | About **90-100 patrol cars on a normal day** (2020). Raised to 130, and up to 200 on a sunny COVID-restriction day. | VERIFIED |
 | Harju + Tallinn | **64 patrol cars out at once** during the 2020 surge (about double normal) | VERIFIED |
-| Tallinn per shift (derived) | Normal daytime in Harju is about 30 cars, so **Tallinn ≈ 15–25 patrol crews by day and ≈ 10–18 at night**. Add 1–3 kiirreageerija cars, traffic and K9 units, and on some nights auxiliary-police crews (Põhja averaged about 3 auxiliary patrols a day in 2017). | ESTIMATE |
+| Tallinn per shift (derived) | Normal daytime in Harju is about 30 cars, so **Tallinn ≈ 15-25 patrol crews by day and ≈ 10-18 at night**. Add 1-3 kiirreageerija cars, traffic and K9 units, and on some nights auxiliary-police crews (Põhja averaged about 3 auxiliary patrols a day in 2017). | ESTIMATE |
 | Call volume | Over 0.5 million requests to police a year; about 700 requests in a sample day. ERR also says a patrol goes to calls "on average 144 times a day"; the scope (national or regional) is unclear. | VERIFIED (scope of 144 UNSURE) |
 | Working-time model | *Summeeritud tööaeg* (hours averaged over a period) with night work | VERIFIED |
-| Shift length | Officers work about **48 h/week** at a station; a "short shift week" has only 2 workdays. This fits **12-hour day/night shifts** in a 2-on/2-off style rotation, for example 07–19 and 19–07. | VERIFIED quote; 12 h pattern LIKELY |
-| Command-centre shifts | Põhja juhtimiskeskus has **4 teabegrupid (I–IV)**, consistent with a 4-crew rotation of 12-hour shifts | VERIFIED groups; rotation LIKELY |
-| Patrol groups | Tallinn jaoskonnad have patrulligrupp I–VIII each, so about 8 crews rotate per jaoskond | VERIFIED groups; rotation ESTIMATE |
+| Shift length | Officers work about **48 h/week** at a station; a "short shift week" has only 2 workdays. This fits **12-hour day/night shifts** in a 2-on/2-off style rotation, for example 07-19 and 19-07. | VERIFIED quote; 12 h pattern LIKELY |
+| Command-centre shifts | Põhja juhtimiskeskus has **4 teabegrupid (I-IV)**, consistent with a 4-crew rotation of 12-hour shifts | VERIFIED groups; rotation LIKELY |
+| Patrol groups | Tallinn jaoskonnad have patrulligrupp I-VIII each, so about 8 crews rotate per jaoskond | VERIFIED groups; rotation ESTIMATE |
 
 ---
 
@@ -508,11 +508,11 @@ Do **not** claim this matches reality.
 4. **Special assets** with scarcity:
    - kiirreageerijad: a few per prefecture
    - K-komando: national, slow to mobilise
-   - K9: 70–80 dogs nationally
+   - K9: 70-80 dogs nationally
    - AW139: 3 helicopters, often only 1 available, 15-minute launch from Tallinn
    - abipolitseinikud: evenings and weekends
 5. **Vehicles**: white and blue Škoda Octavia / Scala / VW Tiguan patrol cars, VW Amarok / Nissan Patrol at the border, Mercedes Sprinter convoy and riot vans.
-6. **Border**: Narva-1, Koidula and Luhamaa have 2026 opening hours of 07–19, which allows time-of-day events.
+6. **Border**: Narva-1, Koidula and Luhamaa have 2026 opening hours of 07-19, which allows time-of-day events.
 
 ---
 

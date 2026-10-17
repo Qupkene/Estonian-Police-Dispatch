@@ -94,7 +94,7 @@ export default {
   // ── Event queue ───────────────────────────────────────────────────────────
   'game.queue.title': { et: 'Sündmused', en: 'Events' },
   'game.queue.all': { et: 'Kõik', en: 'All' },
-  'game.queue.p12': { et: 'P1–2', en: 'P1–2' },
+  'game.queue.p12': { et: 'P1-2', en: 'P1-2' },
   'game.queue.unassigned': { et: 'Määramata', en: 'Unassigned' },
   'game.queue.empty': { et: 'Avatud sündmusi pole', en: 'No open events' },
   'game.queue.emptyHint': { et: 'Eeter on vaikne, patrullid on liikvel.', en: 'All quiet. Patrols are out on the streets.' },

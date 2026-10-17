@@ -124,7 +124,7 @@ interface Road {
   total: number;
   rank: number;
   ref?: string;
-  /** Estonian road name without the km, e.g. "Tallinna–Narva maantee (E20)". */
+  /** Estonian road name without the km, e.g. "Tallinna-Narva maantee (E20)". */
   name?: string;
   /** Kilometre at path[0]. */
   kmOffset: number;
@@ -142,15 +142,15 @@ const BIG_TOWNS: { name: string; coord: LngLat }[] = [
 
 /** Named E-roads: the km is counted from `origin` (as on Estonian road markers). */
 const NAMED_ROADS: Record<string, { name: (p: LngLat) => string; origin: LngLat }> = {
-  '20': { name: () => 'Tallinna–Narva maantee (E20)', origin: TALLINN },
-  '67': { name: () => 'Tallinna–Pärnu–Ikla maantee (E67)', origin: TALLINN },
+  '20': { name: () => 'Tallinna-Narva maantee (E20)', origin: TALLINN },
+  '67': { name: () => 'Tallinna-Pärnu-Ikla maantee (E67)', origin: TALLINN },
   '263': {
     name: (p) =>
-      p[1] > 58.42 ? 'Tallinna–Tartu maantee (E263)' : 'Tallinna–Tartu–Võru–Luhamaa maantee (E263)',
+      p[1] > 58.42 ? 'Tallinna-Tartu maantee (E263)' : 'Tallinna-Tartu-Võru-Luhamaa maantee (E263)',
     origin: TALLINN,
   },
-  '264': { name: () => 'Jõhvi–Tartu–Valga maantee (E264)', origin: [27.41, 59.36] },
-  '77': { name: () => 'Riia–Pihkva maantee (E77)', origin: [26.0, 57.45] },
+  '264': { name: () => 'Jõhvi-Tartu-Valga maantee (E264)', origin: [27.41, 59.36] },
+  '77': { name: () => 'Riia-Pihkva maantee (E77)', origin: [26.0, 57.45] },
 };
 
 function lineStrings(g: Geometry): LngLat[][] {
@@ -224,10 +224,10 @@ function allRoads(): Road[] {
   for (const [ref, rs] of byRef) chainKm(rs, NAMED_ROADS[ref].origin);
   for (const r of roads) {
     if (r.name || (r.ref && NAMED_ROADS[r.ref])) continue;
-    // "A–B maantee" after the towns nearest to each end (B must differ from A).
+    // "A-B maantee" after the towns nearest to each end (B must differ from A).
     const a = nearestTown(r.path[0], 25);
     const b = a && nearestTown(r.path[r.path.length - 1], 40, a);
-    if (a && b) r.name = `${genitiveTown(a)}–${b} maantee`;
+    if (a && b) r.name = `${genitiveTown(a)}-${b} maantee`;
   }
   roadsCache = roads;
   return roads;
@@ -523,7 +523,7 @@ function townLocation(rng: Rng, region: RegionDef, placeKind: PlaceKind): Incide
 
 const endsWithVowel = (s: string) => /[aeiouõäöü]$/i.test(s);
 
-/** "Kuusiku–Alu tee, 3. km": a local road towards a neighbouring settlement. */
+/** "Kuusiku-Alu tee, 3. km": a local road towards a neighbouring settlement. */
 function localRoad(rng: Rng, c: RegionCache, from: Settlement): { address: string; coord: LngLat } | null {
   const near = c.rural.filter((s) => {
     const d = haversineKm(s.coord, from.coord);
@@ -534,7 +534,7 @@ function localRoad(rng: Rng, c: RegionCache, from: Settlement): { address: strin
   const t = rng.range(0.15, 0.85);
   const km = haversineKm(from.coord, to.coord) * t * 1.15;
   return {
-    address: `${from.name}–${to.name} tee, ${Math.max(1, Math.round(km))}. km, ${from.county}`,
+    address: `${from.name}-${to.name} tee, ${Math.max(1, Math.round(km))}. km, ${from.county}`,
     coord: jitter(lerp(from.coord, to.coord, t), 0.15, rng.next(), rng.next()),
   };
 }

@@ -1,4 +1,4 @@
-# 112, Häirekeskus and police event priorities (Estonia, 2020–2026)
+# 112, Häirekeskus and police event priorities (Estonia, 2020-2026)
 
 Research notes for **EPD**, an unofficial fan-made dispatch game. EPD is not affiliated with Politsei- ja Piirivalveamet (PPA) or Häirekeskus.
 Compiled 2026-10-17. Sources were web search results (ERR, Riigi Teataja, siseministeerium.ee, 112.ee, politsei.ee, Postimees). Direct page fetches were not possible.
@@ -24,13 +24,13 @@ Compiled 2026-10-17. Sources were web search results (ERR, Riigi Teataja, sisemi
 | Police priority levels | **Alfa, Bravo, Charlie** (Charlie = highest) | [VERIFIED] |
 | 112 call volume | 2023: about 1.16 M contacts. 2024: **989,711 calls** (−14%). Typically up to about 3,000 calls/day, plus about 1,000 on jaanipäev. | [VERIFIED] |
 | Share of 112 events that are police | **About 27%** (medical 60%, rescue 5%, 2023) | [VERIFIED] |
-| Police events/day nationally | About 300–450 per day. 2018: 308/day via 112. 2017: "nearly 400 of about 2,800 daily calls". | [VERIFIED] for those years; current figure [DERIVED] |
+| Police events/day nationally | About 300-450 per day. 2018: 308/day via 112. 2017: "nearly 400 of about 2,800 daily calls". | [VERIFIED] for those years; current figure [DERIVED] |
 | Patrols on duty | National average **62** in 2024 (68 in 2023; target 86). About 112 in 2016. | [VERIFIED] |
 | Response to life/health threats | 2023: 82% reached within **10.5 min** in towns; 74% within **19.5 min** in rural areas | [VERIFIED] |
-| Häirekeskus processing target | ≤ **2 min 15 s** for life/health-threat reports (2025–2028 programme) | [VERIFIED] |
+| Häirekeskus processing target | ≤ **2 min 15 s** for life/health-threat reports (2025-2028 programme) | [VERIFIED] |
 | Top call-out types | Drunk persons, offences against persons (incl. domestic violence), night-quiet violations: about **2/3 of call-outs in larger cities** (2024). Traffic accidents are next. | [VERIFIED] |
 | Domestic violence | About **10,000 call-outs/year** (2025). About 30/day normally, about 50/day on holiday peaks. | [VERIFIED] |
-| Peak nights | New Year's Eve 2025/26: **500+ call-outs**, 70 domestic violence. Jaanipäev 2022: **1,200+ call-outs over 23–24 June**. | [VERIFIED] |
+| Peak nights | New Year's Eve 2025/26: **500+ call-outs**, 70 domestic violence. Jaanipäev 2022: **1,200+ call-outs over 23-24 June**. | [VERIFIED] |
 | Non-emergency line | **1247** riigiinfo (state helpline). 24/7, free, ET/RU/EN. It also took over the environment line 1313 and road info line 1510. | [VERIFIED] |
 | Removal order in domestic violence | *Viibimiskeeld* (KorS § 44) extended from 12 h to **up to 72 h**, in force **17 April 2026** | [VERIFIED]; year [LIKELY] |
 
@@ -61,7 +61,7 @@ Compiled 2026-10-17. Sources were web search results (ERR, Riigi Teataja, sisemi
 
 ### 1.2 Answering 112
 - Target: answer **within 10 seconds** and start handling ("üldjuhul kümne sekundi jooksul"). [VERIFIED]
-  - 2018: 94% answered in 1–10 s [VERIFIED].
+  - 2018: 94% answered in 1-10 s [VERIFIED].
   - Holiday peaks and staff shortages can stretch waits. During IT outages (e.g. 30 June, around 2025) waits reached **about 6 min**, and staff fell back on paper. [VERIFIED]
 - Languages: Estonian, Russian, English as standard. [LIKELY]
 - Channels:
@@ -79,15 +79,15 @@ Compiled 2026-10-17. Sources were web search results (ERR, Riigi Teataja, sisemi
 
 | Year | Calls / contacts to 112 | Events where help was sent | Notes |
 |---|---|---|---|
-| 2017 | 986,402 | – | [VERIFIED] |
-| 2018 | 994,514 | 408,250 | Jan–Aug 2018: 277,722 events; police 27%; **308 police events/day** [VERIFIED] |
+| 2017 | 986,402 | - | [VERIFIED] |
+| 2018 | 994,514 | 408,250 | Jan-Aug 2018: 277,722 events; police 27%; **308 police events/day** [VERIFIED] |
 | 2019 | 726 calls per 1,000 residents | about 65% of calls event-related | Regional share of calls: Põhja 46%, Lõuna 22%, Ida 19%, Lääne 13%. Per 1,000 residents: Ida 908, Põhja 751, Lõuna 663, Lääne 585. [VERIFIED] |
 | 2023 | 1,126,580 mobile + 29,948 landline + 6,501 SMS ≈ **1.16 M** (MoI also gives 1,156,528) | 41% of calls needed urgent help | Events: medical 60%, police 27%, rescue 5%. Lääne region alone: about 35,364 ambulance, just over 12,000 police, just over 4,000 rescue. [VERIFIED] |
-| 2024 | **989,711** (−14% vs 2023) | – | [VERIFIED] |
+| 2024 | **989,711** (−14% vs 2023) | - | [VERIFIED] |
 
 - Daily: "usually **up to 3,000 calls per day**". **Jaanipäev adds about 1,000**, and Häirekeskus rosters about twice the normal staff on Midsummer night. [VERIFIED]
 - Older averages: about 2,725/day with 90% answered within 10 s [VERIFIED, undated]; 2,817/day in 2018 [VERIFIED].
-- **[DERIVED] police events per year, 2023**: 1.16 M × 41% ≈ 475k events × 27% ≈ **128,000 police events (~350/day)**. The Lääne-region figure (about 12k at 13% of calls) suggests the lower end, about **100–130k/year**. For 2024, with 14% fewer calls, roughly **110–125k (~300–340/day)** [UNSURE].
+- **[DERIVED] police events per year, 2023**: 1.16 M × 41% ≈ 475k events × 27% ≈ **128,000 police events (~350/day)**. The Lääne-region figure (about 12k at 13% of calls) suggests the lower end, about **100-130k/year**. For 2024, with 14% fewer calls, roughly **110-125k (~300-340/day)** [UNSURE].
 
 ### 1.4 How a police event goes from Häirekeskus to PPA
 Text of the regulation [VERIFIED]: *"Häirekeskus võtab politsei pädevuses oleva hädaabiteate vastu, töötleb seda ja annab sellele ohuhinnangu ning edastab hädaabiteate Politsei- ja Piirivalveametile edasiseks menetlemiseks."* PPA then gives its own **täiendav ohuhinnang** (additional threat assessment). PPA closes its actions after entering the report and the essential response information into the emergency report database.
@@ -120,11 +120,11 @@ Workflow (model for the game):
 - From 2015, 112 was the only actively used emergency number.
 
 ### 1.5 Fallen-elderly calls (recent real-world change, good flavour)
-- From 2016 police attended people who had fallen at home under a Häirekeskus–PPA working arrangement: about 400–600 call-outs/year. [VERIFIED]
+- From 2016 police attended people who had fallen at home under a Häirekeskus-PPA working arrangement: about 400-600 call-outs/year. [VERIFIED]
 - In 2024 police command centres sent about one third of such reports back to the ambulance service, or brought in an ambulance as well. [VERIFIED]
 - From **1 July 2025** police always involve an ambulance on these calls. [VERIFIED]
 - From **1 September 2026** Häirekeskus may **no longer send police**; it chooses between an ambulance and a municipal social worker. [VERIFIED]
-  - Temporary compromise (5 Sept 2026): weekdays 9–17 the municipality organises help; at other times state services respond. [VERIFIED]
+  - Temporary compromise (5 Sept 2026): weekdays 9-17 the municipality organises help; at other times state services respond. [VERIFIED]
 - Game use: a "fallen elderly person, no danger" event should go to kiirabi or a social worker, not the police queue, from late 2026 on.
 
 ---
@@ -134,7 +134,7 @@ Workflow (model for the game):
 | Number / channel | What | Status | Confidence |
 |---|---|---|---|
 | **112** | Single emergency number: police, rescue, ambulance, sea rescue | Since 2015 the only one in active use | [VERIFIED] |
-| **110** | Old police emergency number | Calls forwarded to 112 2015–Feb 2020. **Closed 1 March 2020** (last day 29 Feb), then an automatic message "dial 112" for 1 year. 110 had been about 1–2% of Häirekeskus calls (20–40k/yr). | [VERIFIED] |
+| **110** | Old police emergency number | Calls forwarded to 112 2015-Feb 2020. **Closed 1 March 2020** (last day 29 Feb), then an automatic message "dial 112" for 1 year. 110 had been about 1-2% of Häirekeskus calls (20-40k/yr). | [VERIFIED] |
 | **+372 6000 112** | Reach Estonian Häirekeskus from abroad | Active | [VERIFIED] |
 | **1247** | *Riigiinfo* / state helpline, run by Häirekeskus | Launched March 2020 as the COVID crisis line, kept as the permanent general state info line. 24/7, free (also from landline), ET/RU/EN, staffed largely by trained volunteers (180 trained in 2020). **Not** an emergency number. | [VERIFIED] |
 | 1313 | Former Keskkonnainspektsioon (environment) hotline | **Merged into 1247** | [VERIFIED] |
@@ -143,7 +143,7 @@ Workflow (model for the game):
 | **612 3000** | PPA general information phone (*infotelefon*) | Only an old (2010) source found. Probably still the PPA switchboard. | [UNSURE] |
 | korruptsioonivihje@politsei.ee / 612 3657 | Keskkriminaalpolitsei corruption tip line | Listed by Transparency International Estonia | [VERIFIED] |
 | *Veebikonstaablid* | PPA "web constables": online tips and advice through social media and the web | Active page on politsei.ee | [VERIFIED] |
-| General police tip line / e-mail (*vihjeliin*) | – | No current dedicated general tip number confirmed. Tips go via 112 (urgent), 1247, politsei.ee forms or web constables. | [UNSURE] |
+| General police tip line / e-mail (*vihjeliin*) | - | No current dedicated general tip number confirmed. Tips go via 112 (urgent), 1247, politsei.ee forms or web constables. | [UNSURE] |
 | 116 111 | Lasteabi (child helpline) | Active | [LIKELY] |
 | 116 006 | Ohvriabi kriisitelefon (victim support) | Active | [LIKELY] |
 | 1220 | Perearsti nõuandeliin (GP advice) | Active | [LIKELY] |
@@ -170,7 +170,7 @@ These definitions come from the **PPA KILP open-data explanatory memo (2024)** a
 - Principle: police must respond to every event without undue delay, but when a higher-priority event arrives, a lower one is normally interrupted unless a free patrol exists. [VERIFIED]
 - **Do not confuse with ambulance codes** (A/B/C/D, see §7.1). Ambulance "Charlie" means something else.
 - No public share of A/B/C was found. [UNSURE]
-  - **[DESIGN] default mix**: Charlie 10–15%, Bravo 35–40%, Alfa 45–55%.
+  - **[DESIGN] default mix**: Charlie 10-15%, Bravo 35-40%, Alfa 45-55%.
 
 ### 3.2 Response-time statistics and targets
 - **2016**: average response time to call-outs **30 min** (3 min faster than 2015). About **112 patrols** worked around the clock. [VERIFIED, Vaher]
@@ -180,17 +180,17 @@ These definitions come from the **PPA KILP open-data explanatory memo (2024)** a
   - Response times were at the level of earlier years even though the average number of patrols fell.
 - **2024**: in towns, **92%** of life/health-threat events were reached within the set limit; in rural areas **80%**. The target is **95%**. [VERIFIED]
   - Whether the 2024 limit is the same 10.5/19.5 min is [UNSURE].
-- **Häirekeskus processing-time target** for life/health-threat reports: **≤ 2 min 15 s** (programme "Kiire ja asjatundlik abi 2025–2028"). Actuals were around 2.2–2.3 min in 2024. [VERIFIED target; actuals UNSURE]
+- **Häirekeskus processing-time target** for life/health-threat reports: **≤ 2 min 15 s** (programme "Kiire ja asjatundlik abi 2025-2028"). Actuals were around 2.2-2.3 min in 2024. [VERIFIED target; actuals UNSURE]
 - **Police helicopters** (PPA lennusalk): readiness to respond within **15 min** (same programme). [VERIFIED]
 - **Patrol strength**:
   - Average daily patrol deployment (*keskmine väljapanek*): **2024: 62; 2023: 68; target 86**. [VERIFIED]
   - Whether 62 means simultaneous patrols or patrol-shifts per day is [UNSURE]. [DESIGN] treat it as the average number of crews on the road nationally at any time.
   - PPA had about 300 unfilled posts and staff about 2,000 lower than 15 years earlier. In 2026 it had about **4,500 staff**, the lowest ever. [VERIFIED]
-- **Ambulance comparison**: ambulance arrival typically **8–15 min** in towns and **25–30+ min** in rural areas. **Police are often first on scene**, and the MoI is training police to give immediate life-saving help. [VERIFIED]
+- **Ambulance comparison**: ambulance arrival typically **8-15 min** in towns and **25-30+ min** in rural areas. **Police are often first on scene**, and the MoI is training police to give immediate life-saving help. [VERIFIED]
 
 **[DESIGN] Response-time model:**
-- Tallinn/Tartu Charlie: median 7–9 min, 80–90th percentile about 10.5 min.
-- Rural Charlie: median 14–16 min, 75th percentile about 19.5 min, long tail 30–60 min on islands and in remote areas.
+- Tallinn/Tartu Charlie: median 7-9 min, 80-90th percentile about 10.5 min.
+- Rural Charlie: median 14-16 min, 75th percentile about 19.5 min, long tail 30-60 min on islands and in remote areas.
 - Bravo: about 2× Charlie.
 - Alfa: 30 min to several hours, or never on busy Friday/Saturday nights. Matches the 2016 average of about 30 min across all calls.
 
@@ -201,9 +201,9 @@ These definitions come from the **PPA KILP open-data explanatory memo (2024)** a
 ### 4.1 National
 - **2015** (PPA Facebook "24 h of calls" campaign): about **4,000 calls/day to 112, nearly 450 needing police**. [VERIFIED, old]
 - **2016** (marathon): 650 posts in 24 h. **2017**: about **2,800 calls/day to 112, nearly 400 needing police**. [VERIFIED]
-- **2018**: **308 police events/day** registered via 112 (Jan–Aug). [VERIFIED]
+- **2018**: **308 police events/day** registered via 112 (Jan-Aug). [VERIFIED]
 - **2016**: call-outs 5% lower than 2015, level with 2014. [VERIFIED]
-- **2023–2024**: about **300–350 police events/day** (≈110–130k/year). [DERIVED, see §1.3]
+- **2023-2024**: about **300-350 police events/day** (≈110-130k/year). [DERIVED, see §1.3]
 - **Registered crimes**: **2023: 27,418; 2024: 28,345** (+3%, driven by property crime). [VERIFIED]
 
 ### 4.2 By region
@@ -222,10 +222,10 @@ Exact county assignment is [LIKELY].
 
 | Prefecture | Normal day | Friday/Saturday |
 |---|---|---|
-| Põhja | 140–160 | 190–220 |
-| Lõuna | 60–75 | 80–100 |
-| Ida | 55–70 | 70–90 |
-| Lääne | 40–50 | 55–70 |
+| Põhja | 140-160 | 190-220 |
+| Lõuna | 60-75 | 80-100 |
+| Ida | 55-70 | 70-90 |
+| Lääne | 40-50 | 55-70 |
 
 ### 4.3 Peak days
 
@@ -234,10 +234,10 @@ Exact county assignment is [LIKELY].
 | **New Year's Eve 2025/26** (likely) | **500+ police call-outs** overnight, "much busier than previous years". **70 domestic violence** responses. Narva stabbing: man killed his mother, wounded his sister and attacked the officer. | [VERIFIED]; year [LIKELY] |
 | NYE (another year, ~2023/24) | 48 domestic violence call-outs | [VERIFIED]; year [LIKELY] |
 | NYE (sobriety checks) | 1,700 drivers checked on 31 Dec, 8 drunk | [VERIFIED] |
-| **Jaanipäev 2021** (likely) | **About 800 higher-priority call-outs over 22–23 June** (about 500 the year before). Patrols **roughly doubled**. DV about **50/day vs 30 normal**. | [VERIFIED]; year [LIKELY] |
-| **Jaanipäev 2022** (likely) | **1,200+ call-outs on 23–24 June**, mostly alcohol and people endangering themselves. 24,000+ sobriety checks, **133 drunk drivers** (81 the year before). 100+ DV. 24 injury crashes, 3 dead. | [VERIFIED]; year [LIKELY] |
+| **Jaanipäev 2021** (likely) | **About 800 higher-priority call-outs over 22-23 June** (about 500 the year before). Patrols **roughly doubled**. DV about **50/day vs 30 normal**. | [VERIFIED]; year [LIKELY] |
+| **Jaanipäev 2022** (likely) | **1,200+ call-outs on 23-24 June**, mostly alcohol and people endangering themselves. 24,000+ sobriety checks, **133 drunk drivers** (81 the year before). 100+ DV. 24 injury crashes, 3 dead. | [VERIFIED]; year [LIKELY] |
 | Jaanipäev 2024 (likely) | 90 people taken to sober up, 105 DV incidents, knife incidents (e.g. Kadrina concert) | [VERIFIED]; year [LIKELY] |
-| **Jaanipäev 2026** (19–23 June) | **317 crime reports, 889 misdemeanours, ~210 DV call-outs** (46 with a child as victim or witness). 38 injury crashes (3 dead, 45 injured). 32,000+ sobriety checks (~80 drunk). 190+ people taken to sober up. | [VERIFIED] |
+| **Jaanipäev 2026** (19-23 June) | **317 crime reports, 889 misdemeanours, ~210 DV call-outs** (46 with a child as victim or witness). 38 injury crashes (3 dead, 45 injured). 32,000+ sobriety checks (~80 drunk). 190+ people taken to sober up. | [VERIFIED] |
 | **Christmas 2025** (likely) | **159 DV responses**. Rescue had 164 call-outs by the morning of 26 Dec. | [VERIFIED]; year [LIKELY] |
 | Häirekeskus on jaanipäev | +about 1,000 calls; staffing doubled for Midsummer night | [VERIFIED] |
 
@@ -260,26 +260,26 @@ Exact county assignment is [LIKELY].
 - **Drunk-driver suspicion reports to 112**: 414 between 1 and 18 January 2020 (vs 288 a year earlier), about **23/day**. Reports spike after high-profile fatal crashes. [VERIFIED]
 - **Weapon-like object waving**: about **2 call-outs/day** nationally, Charlie. [VERIFIED, ~2022]
 - **Bomb suspicions** (abandoned bags etc.): **100+ call-outs over two years** (~1/week). Päästeamet bomb technicians (*demineerijad*) respond. [VERIFIED, 2026 article]
-- **Fallen elderly** (until 2026): ~400–600/year. [VERIFIED]
+- **Fallen elderly** (until 2026): ~400-600/year. [VERIFIED]
 
 ### 5.2 [DESIGN] event-type table for game data
 Shares are per 100 police events nationally. They are blended from the verified anchors above plus judgement, so treat them as design defaults, not statistics.
 
 | Estonian label | English | Default priority | Share | Peak times |
 |---|---|---|---|---|
-| Joobes isik (avalikus kohas, abitu) | Intoxicated person, helpless or disturbing | A (C if on the road or hypothermia risk) | 14% | Fri/Sat 20–04; winter cold raises it to C |
-| Avaliku korra rikkumine (lärm, kaklus, ähvardav käitumine) | Public order disturbance | A/B | 12% | Fri/Sat 22–04 |
-| Öörahu rikkumine | Night-quiet violation (loud music, party) | A | 8% (summer 12%) | Weekdays 23–06, Fri/Sat 24–07 legal window [VERIFIED per ERR, check KorS § 55]; summer |
-| Lähisuhtevägivald | Domestic violence | B (C if ongoing or weapon) | 9% | Evenings 18–02, weekends, holidays (×1.6) |
+| Joobes isik (avalikus kohas, abitu) | Intoxicated person, helpless or disturbing | A (C if on the road or hypothermia risk) | 14% | Fri/Sat 20-04; winter cold raises it to C |
+| Avaliku korra rikkumine (lärm, kaklus, ähvardav käitumine) | Public order disturbance | A/B | 12% | Fri/Sat 22-04 |
+| Öörahu rikkumine | Night-quiet violation (loud music, party) | A | 8% (summer 12%) | Weekdays 23-06, Fri/Sat 24-07 legal window [VERIFIED per ERR, check KorS § 55]; summer |
+| Lähisuhtevägivald | Domestic violence | B (C if ongoing or weapon) | 9% | Evenings 18-02, weekends, holidays (×1.6) |
 | Kehaline väärkohtlemine / kaklus | Assault / fight | B/C | 5% | Night-life hours |
-| Liiklusõnnetus varalise kahjuga | Property-damage traffic collision | A/B | 7% | 07–09, 15–18; first snow/ice days ×2 |
+| Liiklusõnnetus varalise kahjuga | Property-damage traffic collision | A/B | 7% | 07-09, 15-18; first snow/ice days ×2 |
 | Liiklusõnnetus inimkannatanuga | Injury collision | C | 2% | As above, plus summer weekends on highways |
 | Joobes juhi kahtlus / ohtlik juht | Suspected drunk or dangerous driver | B (C if imminent danger) | 5% | Evenings, weekends, holiday mornings |
 | Kahtlane isik / sõiduk | Suspicious person or vehicle | A/B | 5% | Night |
-| Vargus (pood) | Shoplifting (security guard holding suspect) | A | 5% | 11–21 |
+| Vargus (pood) | Shoplifting (security guard holding suspect) | A | 5% | 11-21 |
 | Vargus / sissemurdmine | Theft / burglary report | A/B (B if in progress) | 4% | Burglary in progress: day (homes), night (businesses) |
 | Kadunud isik (laps, dementne eakas) | Missing person | B/C | 2% | Evening |
-| Ähvardamine / relvataoline ese | Threats; weapon-like object | C | 1–2% | Any |
+| Ähvardamine / relvataoline ese | Threats; weapon-like object | C | 1-2% | Any |
 | Enesetapuoht / hädaohus isik | Suicide risk / person in danger | C | 2% | Night |
 | Kelmus (telefonikelmus jne) | Fraud | A (often directed to written report) | 2% | Daytime |
 | Naabrivaidlus | Neighbour dispute | A | 3% | Evening |
@@ -287,15 +287,15 @@ Shares are per 100 police events nationally. They are blended from the verified 
 | Loom teel / ohtlik loom | Animal on the road (cow, elk) | A/B | 1% | Rural, dusk |
 | Surnukeha leidmine | Body found (non-violent unless indicated) | B | 1% | Any |
 | Kahtlane ese / pommiähvardus | Suspicious object / bomb threat | C (B for mass-mail threats) | <0.5% | Any |
-| Muu | Other | – | rest | – |
+| Muu | Other | - | rest | - |
 
 ### 5.3 Time patterns [mix]
 - On a sample Friday-to-Saturday day (PPA 2018 Facebook campaign), alcohol-related events and **noise complaints dominated Saturday night and early morning**. Tallinn's sobering-up house (*kainestusmaja*) reported it was nearly full **after 03:00**. [VERIFIED]
 - Weekend nights and holidays create the backlog in which Alfa calls wait. [VERIFIED]
-- DV and alcohol cases peak on holidays: jaanipäev (23–24 June), Christmas (24–26 Dec), New Year's Eve, long weekends. [VERIFIED]
+- DV and alcohol cases peak on holidays: jaanipäev (23-24 June), Christmas (24-26 Dec), New Year's Eve, long weekends. [VERIFIED]
 - **[DESIGN] hourly load curve**:
-  - Weekday: trough 05–07 (index 0.4), morning rush crashes 07–09 (0.9), steady 10–16 (1.0), rising 17–22 (1.3), late peak 22–02 (1.2), decline 02–05 (0.7).
-  - Friday/Saturday: 20–04 at 1.6–2.0.
+  - Weekday: trough 05-07 (index 0.4), morning rush crashes 07-09 (0.9), steady 10-16 (1.0), rising 17-22 (1.3), late peak 22-02 (1.2), decline 02-05 (0.7).
+  - Friday/Saturday: 20-04 at 1.6-2.0.
   - Sunday: daytime low, evening DV bump.
 - **[DESIGN] seasonality**:
   - Summer: more öörahu, festivals, water incidents, motorcycles; jaanipäev is the biggest day.
@@ -393,7 +393,7 @@ Shares are per 100 police events nationally. They are blended from the verified 
 
 ### 6.4 Writing conventions for in-game text
 - Time is written with a period: **"kell 23.14"**. Dates: **17.10.2026**. [LIKELY]
-- Addresses: "Tallinn, Lasnamäe linnaosa, Punane tn 16-45" (house-apartment). Rural: "Harju maakond, Kose vald, X küla, Y talu". Highways: "Tallinn–Tartu mnt (E263) km 38". [LIKELY]
+- Addresses: "Tallinn, Lasnamäe linnaosa, Punane tn 16-45" (house-apartment). Rural: "Harju maakond, Kose vald, X küla, Y talu". Highways: "Tallinn-Tartu mnt (E263) km 38". [LIKELY]
 - Registration plates: format "123 ABC" (3 digits + 3 letters). [LIKELY]
 
 ---
@@ -468,7 +468,7 @@ Shares are per 100 police events nationally. They are blended from the verified 
 - **Coordinated by Sotsiaalkindlustusamet (SKA)**: it runs the networks, training and quality control. **Ohvriabitöötajad** (victim-support workers) coordinate the core group and represent the victim. [VERIFIED]
 - Members, usually: police, ohvriabi, municipal social worker and child protection, health care, prosecutor's office, women's support centre (*naiste tugikeskus*), sometimes probation and housing. [LIKELY]
 - A risk-assessment questionnaire (DASH-based; Estonian *riskihindamise küsimustik*) is filled in by police or other agencies to flag high-risk cases. [VERIFIED that DASH is used in Estonia]
-- Caseload example: 97 people assisted (97% women, 67% aged 26–45). [VERIFIED]
+- Caseload example: 97 people assisted (97% women, 67% aged 26-45). [VERIFIED]
 - In 2016 MARAC was still being piloted. It was rolled out nationally in later years. [VERIFIED / LIKELY]
 
 ### 8.2 Police on a DV call (typical sequence) [LIKELY unless marked]
@@ -515,10 +515,10 @@ OHUD: joove, külmrelv võimalik, lapsed korteris.
 - **A** | Joobes mees magab bussipeatuse pingil, Mustamäe tee 50 juures, reageerib kõnetamisele, ilm +12.
 - **A** | Öörahu rikkumine: vali muusika ja karjumine korterist, Tartu, Anne tn 57-xx, kestnud kell 23-st. Teataja naaber, ei soovi kohtuda.
 - **B** | LÕ varalise kahjuga, 2 sõiduautot, Tartu mnt 80, kannatanuid pole, sõidukid takistavad liiklust, osalised vaidlevad.
-- **C** | LÕ inimkannatanuga, Tallinn–Narva mnt km 38, sõiduauto katusel kraavis, 1 inimene sees. Kiirabi (D) ja pääste väljas.
+- **C** | LÕ inimkannatanuga, Tallinn-Narva mnt km 38, sõiduauto katusel kraavis, 1 inimene sees. Kiirabi (D) ja pääste väljas.
 - **B** | Joobes juhi kahtlus: hall VW Passat 123 ABC, Tallinnast Tartu suunas, Kose ristmikust möödas, looklev sõit, teataja sõidab järel.
 - **A** | Poevargus: kauplus, Rakvere, turvatöötaja peab kinni mehe (u 30 a), alkohol 38 €, rahulik.
-- **B** | Kaklus ööklubi ees, Tartu, Rüütli tn, 4–5 noormeest, ühel peast veri. Turvamehed juures. *(Upgrade to C if a knife is seen.)*
+- **B** | Kaklus ööklubi ees, Tartu, Rüütli tn, 4-5 noormeest, ühel peast veri. Turvamehed juures. *(Upgrade to C if a knife is seen.)*
 - **C** | Mees vehib püstolitaolise esemega, Narva, bussijaama juures, liigub kesklinna suunas. Tume jope, hall müts, u 25 a.
 - **B** | Kadunud laps: poiss 8 a, pole koolist koju jõudnud (pidi olema kell 15.00), Viljandi. Sinine jope, punane seljakott.
 - **A** | Kahtlane sõiduk seisab tühjal kinnistul, tuled kustus, 2 meest sees, Harjumaa, Saue vald. Teataja kardab vargust.
@@ -536,7 +536,7 @@ OHUD: joove, külmrelv võimalik, lapsed korteris.
 ---
 
 ## 10. Open uncertainties
-1. **Exact 2024–2025 national police event count** and per-prefecture breakdown. Not found; numbers here are derived. PPA open data (the KILP explanatory memo dated 2024-12-12 on politsei.ee) may contain event-level data worth downloading manually.
+1. **Exact 2024-2025 national police event count** and per-prefecture breakdown. Not found; numbers here are derived. PPA open data (the KILP explanatory memo dated 2024-12-12 on politsei.ee) may contain event-level data worth downloading manually.
 2. **Share of Alfa/Bravo/Charlie**. Not public in the search results.
 3. **2024 response limits**: whether the 92%/80% figures use the same 10.5/19.5 min limits.
 4. **Technical hand-off** Häirekeskus → PPA. The regulation and data flow are verified; the system interface and whether calls are ever live-transferred are not public.
@@ -556,7 +556,7 @@ OHUD: joove, külmrelv võimalik, lapsed korteris.
 - Siseministeerium: Siseturvalisuse 2024. aasta tulemusaruanne: https://siseministeerium.ee/sites/default/files/documents/2025-06/Siseturvalisuse%202024.%20aasta%20tulemusaruanne.pdf
 - Siseministeerium: Siseturvalisuse 2023. aasta tulemusaruanne: https://siseministeerium.ee/sites/default/files/documents/2024-06/%E2%80%9ESiseturvalisuse%202023.%20aasta%20tulemusaruanne%E2%80%9C.pdf
 - Siseturvalisuse 2022. aasta tulemusaruanne: https://siseministeerium.ee/sites/default/files/documents/2023-05/Siseturvalisuse%202022.%20aasta%20tulemusaruanne.pdf
-- Programm "Kiire ja asjatundlik abi 2025–2028": https://www.siseministeerium.ee/sites/default/files/documents/2025-01/Lisa%202.%20Programm%20Kiire%20ja%20asjatundlik%20abi%202025-2028.pdf
+- Programm "Kiire ja asjatundlik abi 2025-2028": https://www.siseministeerium.ee/sites/default/files/documents/2025-01/Lisa%202.%20Programm%20Kiire%20ja%20asjatundlik%20abi%202025-2028.pdf
 - PPA: 2024 Avaandmete seletuskiri, KILP: https://www.politsei.ee/files/2025-01/ppa-avaandmete-seletuskiri-kilp-20241212.pdf
 - Riigi Teataja: Politsei taktikalise juhtimise andmekogu põhimäärus: https://www.riigiteataja.ee/akt/121102025017
 - Riigi Teataja: Hädaabiteadete menetlemise kord…: https://www.riigiteataja.ee/akt/122122016013 and https://www.riigiteataja.ee/akt/122062022011
@@ -565,7 +565,7 @@ OHUD: joove, külmrelv võimalik, lapsed korteris.
 - Postimees: Ajajoon: häirekeskus muutis käigult nugadega mehe väljakutse prioriteeti: https://www.postimees.ee/4303469/ajajoon-hairekeskus-muutis-kaigult-nugadega-mehe-valjakutse-prioriteeti
 - ERR: PPA hinnangul on personalikulude kärpimine keeruline: https://www.err.ee/1609361702/ppa-hinnangul-on-personalikulude-karpimine-keeruline
 - ERR: Vaher: mullu oli väljakutseid politseile vähem, reageerimine kiirem: https://www.err.ee/581036/vaher-mullu-oli-valjakutseid-politseile-vahem-reageerimine-kiirem
-- 112.ee structure: https://www.112.ee/en/structure ; trends: https://112.ee/en/trends ; Sündmused – Trendid: https://www.112.ee/et/juhend/trendid/sundmused
+- 112.ee structure: https://www.112.ee/en/structure ; trends: https://112.ee/en/trends ; Sündmused, Trendid: https://www.112.ee/et/juhend/trendid/sundmused
 - 112.ee aasta 2019: https://www.112.ee/files/2020-01/aasta-2019.pdf
 - 112.ee Põhja keskuse põhimäärus: https://www.112.ee/files/2025-10/lisa-4-hairekeskuse-pk-pohimaarus.pdf
 - 112.ee päästekorraldaja ametijuhend: https://www.112.ee/files/2023-02/lisa-1-ametijuhend-paeaestekorraldaja.pdf

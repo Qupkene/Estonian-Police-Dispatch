@@ -1,6 +1,6 @@
 /**
  * Incident lifecycle (engine-core): publish, acknowledgement timeout, expiry, escalation,
- * on-scene work, beats, outcome (DESIGN §4.3–4.5).
+ * on-scene work, beats, outcome (DESIGN §4.3-4.5).
  */
 import { ageOf, describePerson, describeVehicle } from '@/gen/describe';
 import { JK_QUERY_REPLY } from '@/data/radioPhrases';

@@ -217,8 +217,8 @@ export const REGION_FALLBACK: Record<RegionId, RegionFallback> = {
     label: [26.25, 58.1],
     hq: [26.722, 58.378],
     description: {
-      et: 'Tartu ülikoolilinn, Valga–Valka piirilinn ja Lõuna-Eesti metsased külad, kus abi on sageli kaugel.',
-      en: 'University town Tartu, the twin border town Valga–Valka and the forested villages of South Estonia where help is often far away.',
+      et: 'Tartu ülikoolilinn, Valga-Valka piirilinn ja Lõuna-Eesti metsased külad, kus abi on sageli kaugel.',
+      en: 'University town Tartu, the twin border town Valga-Valka and the forested villages of South Estonia where help is often far away.',
     },
     commander: { name: 'Heiki Raudsepp', title: { et: 'Prefekt', en: 'Prefect' } },
   },

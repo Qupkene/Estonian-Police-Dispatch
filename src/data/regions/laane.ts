@@ -6,7 +6,7 @@
  * shares), src/data/geo/settlements.json (town/village polygon centroids) and the county/land
  * polygons (every coastal POI, whether port, beach or lighthouse, was checked to sit on the island it
  * belongs to and within ~250 m of the shoreline). Coordinates are hand-placed (no live geocoding):
- * town-level placement is reliable, landmarks typically within ~100–300 m, minor streets approximate.
+ * town-level placement is reliable, landmarks typically within ~100-300 m, minor streets approximate.
  *
  * Organisation notes:
  *  - Jaoskonnad: Pärnu (HQ, A. H. Tammsaare pst 61, operatiivkeskus at no. 70), Haapsalu
@@ -86,13 +86,13 @@ const HII = 'hiiumaa';
 
 const ZONES: Zone[] = [
   { id: 'mainland', name: t('Mandriosa', 'Mainland'), ferryMinutes: 0 },
-  // Virtsu–Kuivastu ferry (~30 min crossing) + queue + Väinatamm; Muhu belongs to this zone.
+  // Virtsu-Kuivastu ferry (~30 min crossing) + queue + Väinatamm; Muhu belongs to this zone.
   { id: SAA, name: t('Saaremaa ja Muhu', 'Saaremaa and Muhu'), ferryMinutes: 75 },
-  // Rohuküla–Heltermaa ferry (~75 min crossing) + waiting.
+  // Rohuküla-Heltermaa ferry (~75 min crossing) + waiting.
   { id: HII, name: t('Hiiumaa', 'Hiiumaa'), ferryMinutes: 105 },
-  // Rohuküla–Sviby ferry (~45 min).
+  // Rohuküla-Sviby ferry (~45 min).
   { id: 'vormsi', name: t('Vormsi', 'Vormsi'), ferryMinutes: 60 },
-  // Munalaiu–Kihnu ferry (~1 h).
+  // Munalaiu-Kihnu ferry (~1 h).
   { id: 'kihnu', name: t('Kihnu', 'Kihnu'), ferryMinutes: 75 },
   // Ruhnu: no practical road-unit access (seasonal ferry, small plane), so boat or helicopter only.
   { id: 'ruhnu', name: t('Ruhnu', 'Ruhnu'), ferryMinutes: null },
@@ -2253,10 +2253,10 @@ const PLACES: Place[] = [
   place('la-ikla', 'Ikla (Läti piir)', 'border', 'Ikla', 'Ikla küla, Häädemeeste vald', [24.3743, 57.877], {
     tags: ['latvia', 'schengen'],
   }),
-  place('la-e67-are', 'Tallinna–Pärnu–Ikla mnt (E67), 105. km', 'highway', 'Are', 'E67, Are', [24.57, 58.52]),
+  place('la-e67-are', 'Tallinna-Pärnu-Ikla mnt (E67), 105. km', 'highway', 'Are', 'E67, Are', [24.57, 58.52]),
   place(
     'la-e67-uulu',
-    'Tallinna–Pärnu–Ikla mnt (E67), 141. km',
+    'Tallinna-Pärnu-Ikla mnt (E67), 141. km',
     'highway',
     'Uulu',
     'E67, Uulu',
@@ -2264,7 +2264,7 @@ const PLACES: Place[] = [
   ),
   place(
     'la-e67-haademeeste',
-    'Tallinna–Pärnu–Ikla mnt (E67), 166. km',
+    'Tallinna-Pärnu-Ikla mnt (E67), 166. km',
     'highway',
     'Häädemeeste',
     'E67, Häädemeeste',
@@ -2272,7 +2272,7 @@ const PLACES: Place[] = [
   ),
   place(
     'la-t5-vandra',
-    'Pärnu–Rakvere–Sõmeru mnt (5), 46. km',
+    'Pärnu-Rakvere-Sõmeru mnt (5), 46. km',
     'highway',
     'Vändra',
     'Põhimaantee 5, Vändra',
@@ -2388,7 +2388,7 @@ const PLACES: Place[] = [
   }),
   place(
     'la-vainatamm',
-    'Risti–Virtsu–Kuivastu–Kuressaare mnt (10), Väinatamm',
+    'Risti-Virtsu-Kuivastu-Kuressaare mnt (10), Väinatamm',
     'highway',
     'Orissaare',
     'Väinatamm, Saaremaa vald',
@@ -2397,7 +2397,7 @@ const PLACES: Place[] = [
   ),
   place(
     'la-t10-laimjala',
-    'Risti–Virtsu–Kuivastu–Kuressaare mnt (10), 85. km',
+    'Risti-Virtsu-Kuivastu-Kuressaare mnt (10), 85. km',
     'highway',
     'Valjala',
     'Põhimaantee 10, Laimjala',
@@ -2536,7 +2536,7 @@ const PLACES: Place[] = [
   ),
   place(
     'la-t80-hiiumaa',
-    'Heltermaa–Kärdla–Luidja mnt (80), 15. km',
+    'Heltermaa-Kärdla-Luidja mnt (80), 15. km',
     'highway',
     'Hellamaa',
     'Põhimaantee 80, Hellamaa',
@@ -2648,7 +2648,7 @@ const PLACES: Place[] = [
   ),
   place(
     'la-t9-taebla',
-    'Ääsmäe–Haapsalu–Rohuküla mnt (9), 84. km',
+    'Ääsmäe-Haapsalu-Rohuküla mnt (9), 84. km',
     'highway',
     'Taebla',
     'Põhimaantee 9, Taebla',
@@ -2656,7 +2656,7 @@ const PLACES: Place[] = [
   ),
   place(
     'la-t10-lihula',
-    'Risti–Virtsu–Kuivastu–Kuressaare mnt (10), 22. km',
+    'Risti-Virtsu-Kuivastu-Kuressaare mnt (10), 22. km',
     'highway',
     'Lihula',
     'Põhimaantee 10, Lihula',
@@ -2694,7 +2694,7 @@ const PLACES: Place[] = [
   ),
   place(
     'la-e67-marjamaa',
-    'Tallinna–Pärnu–Ikla mnt (E67), 61. km',
+    'Tallinna-Pärnu-Ikla mnt (E67), 61. km',
     'highway',
     'Märjamaa',
     'E67, Märjamaa',
@@ -2702,7 +2702,7 @@ const PLACES: Place[] = [
   ),
   place(
     'la-t15-rapla',
-    'Tallinna–Rapla–Türi mnt (15), 44. km',
+    'Tallinna-Rapla-Türi mnt (15), 44. km',
     'highway',
     'Alu',
     'Põhimaantee 15, Alu',
@@ -2738,7 +2738,7 @@ const PLACES: Place[] = [
   place('la-turi-jaam', 'Türi raudteejaam', 'trainstation', 'Türi', 'Jaama tn 1', [25.427, 58.8135]),
   place(
     'la-e263-mao',
-    'Tallinna–Tartu–Võru–Luhamaa mnt (E263), 89. km',
+    'Tallinna-Tartu-Võru-Luhamaa mnt (E263), 89. km',
     'highway',
     'Mäo',
     'E263, Mäo ristmik',

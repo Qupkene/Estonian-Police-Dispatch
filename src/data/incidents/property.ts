@@ -47,7 +47,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
       T('Nad karjuvad, et kõik heitku põrandale! Palun tulge kiiresti!', 'They’re shouting for everyone to get on the floor! Please come quickly!'),
     ],
     details: [
-      T('Sees on hinnanguliselt 6–8 klienti ja 3 töötajat. Turvakaamerad salvestavad.', 'An estimated 6–8 customers and 3 employees are inside. CCTV is recording.'),
+      T('Sees on hinnanguliselt 6-8 klienti ja 3 töötajat. Turvakaamerad salvestavad.', 'An estimated 6-8 customers and 3 employees are inside. CCTV is recording.'),
       T('Ühel ründajal on pikk relv, teistel püstolid. Üks valvab välisust.', 'One attacker has a long gun, the others pistols. One is guarding the front door.'),
     ],
     beats: [
@@ -1197,7 +1197,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     ],
     outcomes: [
       oc('caught', 2, 'report', 'Kaks noort peeti kinni koos värvipurkidega. Kriminaalmenetlus KarS § 203 järgi, kahju u 900 €.', 'Two youths were caught with spray cans. Criminal proceedings under KarS § 203, damage about €900.', { min: 0.55, arrests: 2, trust: 3 }),
-      oc('minors', 1.5, 'referred', 'Kinni peetud olid 13–15-aastased, nad anti üle vanematele ja materjalid edastati lastekaitsele.', 'Those detained were 13–15 years old; they were handed to their parents and the case passed to child protection.', { min: 0.35 }),
+      oc('minors', 1.5, 'referred', 'Kinni peetud olid 13-15-aastased, nad anti üle vanematele ja materjalid edastati lastekaitsele.', 'Those detained were 13-15 years old; they were handed to their parents and the case passed to child protection.', { min: 0.35 }),
       oc('gone', 2, 'escaped', 'Kahtlustatavaid ei leitud. Kahju fikseeriti, KOV-i teavitati puhastustöödest.', 'The suspects were not found. Damage was recorded and the municipality notified for clean-up.', { max: 0.5 }),
     ],
     expiresMin: 60,

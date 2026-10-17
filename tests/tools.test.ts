@@ -392,7 +392,7 @@ describe('plates & codes', () => {
   });
   it('formats dates, ages and timers', () => {
     expect(isoToEt('2026-10-17')).toBe('17.10.2026');
-    expect(isoToEt(undefined)).toBe('–');
+    expect(isoToEt(undefined)).toBe('-');
     expect(ageAt('1985-06-12', NOW)).toBe(41);
     expect(ageAt('1985-10-18', NOW)).toBe(40);
     expect(mmss(65_000)).toBe('01:05');

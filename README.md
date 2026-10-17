@@ -62,7 +62,7 @@ EPD 2.0 on 2024. ja 2025. aasta brauserimängu „Politsei Andmebaas“ täielik
 | Klahv | Tegevus |
 | --- | --- |
 | <kbd>Space</kbd> | Paus / jätka |
-| <kbd>1</kbd>–<kbd>5</kbd> | Mängu kiirus |
+| <kbd>1</kbd>-<kbd>5</kbd> | Mängu kiirus |
 | <kbd>A</kbd> | Kinnita valitud sündmus |
 | <kbd>D</kbd> | Saada soovitatud üksus |
 | <kbd>F2</kbd> | Sündmuste järjekord |
@@ -200,7 +200,7 @@ EPD 2.0 is a complete remake of the 2024 and 2025 browser game "Politsei Andmeba
 | Key | Action |
 | --- | --- |
 | <kbd>Space</kbd> | Pause / resume |
-| <kbd>1</kbd>–<kbd>5</kbd> | Game speed |
+| <kbd>1</kbd>-<kbd>5</kbd> | Game speed |
 | <kbd>A</kbd> | Acknowledge the selected incident |
 | <kbd>D</kbd> | Dispatch the recommended unit |
 | <kbd>F2</kbd> | Incident queue |

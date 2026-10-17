@@ -1347,7 +1347,7 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
     vehicles: [{ role: 'involved', kind: 'car', driverRole: 'driver', noInspection: 0.15 }],
     summary: [
       T(
-        '{address}. Parklas seisab sõiduauto, mille aknast tuleb kanepisuitsu. Autos 3–4 noort.',
+        '{address}. Parklas seisab sõiduauto, mille aknast tuleb kanepisuitsu. Autos 3-4 noort.',
         '{address}. A car is parked with cannabis smoke coming out of the window. Three or four young people inside.',
       ),
       T(

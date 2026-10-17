@@ -304,7 +304,7 @@ const DESIGNS: Record<SfxName, Design> = {
   hover: (e, t, g) => {
     tone(e, { freq: 3400, at: t, dur: 0.01, gain: 0.01 * g, attack: 0.001 });
   },
-  // Two-tone CAD chime ("ding–dong").
+  // Two-tone CAD chime ("ding-dong").
   newIncident: (e, t, g) => {
     bell(e, 880, t, 0.55, 0.16 * g);
     bell(e, 659.3, t + 0.17, 0.75, 0.16 * g);
@@ -372,7 +372,7 @@ const DESIGNS: Record<SfxName, Design> = {
     beep(e, 1600, t + 0.045, 0.04, 0.045 * g);
     squelch(e, t + 0.09, 0.16, 0.17 * g);
   },
-  // Officer-down / emergency button: alternating hi–lo alarm with a pulsing undertone.
+  // Officer-down / emergency button: alternating hi-lo alarm with a pulsing undertone.
   emergency: (e, t, g) => {
     for (let i = 0; i < 10; i++) {
       const f = i % 2 ? 690 : 1020;

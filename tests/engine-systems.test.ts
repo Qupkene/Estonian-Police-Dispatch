@@ -588,7 +588,7 @@ describe('career', () => {
     expect(out.ledger.some((e) => e.kind === 'budget')).toBe(true);
     expect(out.ledger.some((e) => e.kind === 'salary')).toBe(true);
   });
-  it('injuries keep officers out for 2–10 days', () => {
+  it('injuries keep officers out for 2-10 days', () => {
     const p = newCareer('Test', '777', 'pohja', 42);
     const id = p.staff[0].id;
     const out = applyShiftReport(p, fakeReport({ injuredOfficers: [id], officerXp: { [id]: 20 } }));

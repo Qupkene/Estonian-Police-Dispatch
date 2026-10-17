@@ -147,7 +147,7 @@ function CallCard({ sim, call, waiting }: { sim: SimState; call: ActiveCall; wai
               <div className="tl-call__loc">
                 <Icon name="pin" size={13} />
                 <span className="tl-call__lock">{t('tools.call.location')}:</span>
-                <span>{inc ? (knowsWhere ? inc.location.address : `${inc.location.city} · ${t('tools.call.locationHidden')}`) : '–'}</span>
+                <span>{inc ? (knowsWhere ? inc.location.address : `${inc.location.city} · ${t('tools.call.locationHidden')}`) : '-'}</span>
               </div>
               <div className="tl-call__label">{t('tools.call.questions')}</div>
               <div className="tl-call__qs">

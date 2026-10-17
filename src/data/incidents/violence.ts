@@ -2948,8 +2948,8 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
     ],
     details: [
       T(
-        'Ründajad on 14–15-aastased, üks neist on {suspectName}.',
-        'The attackers are 14–15 years old; one of them is {suspectName}.',
+        'Ründajad on 14-15-aastased, üks neist on {suspectName}.',
+        'The attackers are 14-15 years old; one of them is {suspectName}.',
       ),
       T(
         'Kiusamine on kestnud kuid, kool on varem lastekaitset teavitanud.',

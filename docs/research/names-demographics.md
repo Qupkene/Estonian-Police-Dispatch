@@ -32,9 +32,9 @@ the standard EVS 585.
 1. Pick the **locality** (district, town or rural area). Use the §5.4 table to choose a
    **population group**: Estonian, Russian-speaking resident, Ukrainian (war refugee or recent
    arrival), or other.
-2. Pick **age** (18–80) from the §11 distribution. In Ida-Virumaa and among Russian-speakers,
+2. Pick **age** (18-80) from the §11 distribution. In Ida-Virumaa and among Russian-speakers,
    push the age distribution older.
-3. Pick **sex** (women ~53% of adults; ~60–65% of people over 65).
+3. Pick **sex** (women ~53% of adults; ~60-65% of people over 65).
 4. Pick a **first name**. Filter the name tables to rows whose "peak birth years" include the
    person's birth year ±5 years. Sample by weight. This matters: an 18-year-old *Malle* or a
    75-year-old *Rasmus* looks wrong to Estonians.
@@ -59,12 +59,12 @@ General facts:
 - Across *all* residents, the most common male first name is probably **Aleksandr** and the most
   common female name **Jelena** (both Russian-speaking). **Andres** is the most common
   Estonian-origin male name. [LIKELY]
-- Estonian names are generation-specific. People born in 1940–1960 have short, often
-  "Estonianised" names (Tiit, Jüri, Malle, Tiiu, Ene). People born in 1960–1975 have names like
+- Estonian names are generation-specific. People born in 1940-1960 have short, often
+  "Estonianised" names (Tiit, Jüri, Malle, Tiiu, Ene). People born in 1960-1975 have names like
   Aivar, Urmas, Margus, Tiina, Anne and Piret. The 1980s brought Martin, Kristjan, Kadri and
-  Triin. The 1990s–2000s brought Rasmus, Robin, Karl, Laura, Sofia and Eliise. [LIKELY]
+  Triin. The 1990s-2000s brought Rasmus, Robin, Karl, Laura, Sofia and Eliise. [LIKELY]
 - **Hyphenated double names** (Mari-Liis, Karl-Erik, Hans-Kristjan, Anna-Liisa, Pille-Riin)
-  are common among people born after ~1985 and rare before. [LIKELY] Use them for about 3–5% of
+  are common among people born after ~1985 and rare before. [LIKELY] Use them for about 3-5% of
   people born after 1985 [DESIGN].
 - Some names are shared with the Russian-speaking group (Maria, Anna, Viktor, Aleksander,
   Erik, Artur). These are good for ambiguous callers. [LIKELY]
@@ -74,315 +74,315 @@ General facts:
 Weight: 5 = very common, 3 = common, 1 = occasional. "Peak birth years" means the cohort where
 the name is concentrated. Ages assume the game year 2026.
 
-**Older generation (born ~1935–1960, age ~66–80+)**
+**Older generation (born ~1935-1960, age ~66-80+)**
 
 | Name | Peak birth years | Weight |
 |---|---|---|
-| Jüri | 1940–1965 | 5 |
-| Tiit | 1945–1965 | 5 |
-| Toomas | 1945–1970 | 5 |
-| Rein | 1940–1960 | 4 |
-| Peeter | 1940–1970 | 4 |
-| Jaan | 1935–1965 | 4 |
-| Mati | 1940–1960 | 4 |
-| Tõnu | 1945–1965 | 4 |
-| Mart | 1945–1975 | 4 |
-| Ants | 1935–1960 | 3 |
-| Enn | 1935–1955 | 3 |
-| Arvo | 1935–1960 | 3 |
-| Heino | 1930–1955 | 3 |
-| Kalju | 1930–1955 | 3 |
-| Väino | 1935–1955 | 3 |
-| Ülo | 1935–1955 | 3 |
-| Vello | 1935–1955 | 3 |
-| Olev | 1935–1960 | 3 |
-| Toivo | 1935–1960 | 3 |
-| Aare | 1945–1965 | 3 |
-| Jaak | 1945–1970 | 3 |
-| Kalev | 1940–1960 | 3 |
-| Heiki | 1950–1970 | 3 |
-| Ain | 1950–1970 | 3 |
-| Lembit | 1930–1955 | 2 |
-| Uno | 1930–1955 | 2 |
-| Hillar | 1935–1955 | 2 |
-| Valdo | 1940–1960 | 2 |
-| Endel | 1925–1950 | 2 |
-| Raimond | 1930–1955 | 2 |
-| Harri | 1935–1960 | 2 |
-| Juhan | 1935–1955 | 2 |
-| Enno | 1940–1960 | 2 |
-| Arne | 1940–1960 | 2 |
-| Kaljo | 1930–1955 | 2 |
-| Elmar | 1925–1950 | 2 |
-| Eino | 1930–1950 | 2 |
-| Aleksander | 1930–1960 | 2 |
-| Paul | 1930–1955 | 2 |
-| Viktor | 1940–1965 | 2 |
-| Vambola | 1930–1950 | 1 |
+| Jüri | 1940-1965 | 5 |
+| Tiit | 1945-1965 | 5 |
+| Toomas | 1945-1970 | 5 |
+| Rein | 1940-1960 | 4 |
+| Peeter | 1940-1970 | 4 |
+| Jaan | 1935-1965 | 4 |
+| Mati | 1940-1960 | 4 |
+| Tõnu | 1945-1965 | 4 |
+| Mart | 1945-1975 | 4 |
+| Ants | 1935-1960 | 3 |
+| Enn | 1935-1955 | 3 |
+| Arvo | 1935-1960 | 3 |
+| Heino | 1930-1955 | 3 |
+| Kalju | 1930-1955 | 3 |
+| Väino | 1935-1955 | 3 |
+| Ülo | 1935-1955 | 3 |
+| Vello | 1935-1955 | 3 |
+| Olev | 1935-1960 | 3 |
+| Toivo | 1935-1960 | 3 |
+| Aare | 1945-1965 | 3 |
+| Jaak | 1945-1970 | 3 |
+| Kalev | 1940-1960 | 3 |
+| Heiki | 1950-1970 | 3 |
+| Ain | 1950-1970 | 3 |
+| Lembit | 1930-1955 | 2 |
+| Uno | 1930-1955 | 2 |
+| Hillar | 1935-1955 | 2 |
+| Valdo | 1940-1960 | 2 |
+| Endel | 1925-1950 | 2 |
+| Raimond | 1930-1955 | 2 |
+| Harri | 1935-1960 | 2 |
+| Juhan | 1935-1955 | 2 |
+| Enno | 1940-1960 | 2 |
+| Arne | 1940-1960 | 2 |
+| Kaljo | 1930-1955 | 2 |
+| Elmar | 1925-1950 | 2 |
+| Eino | 1930-1950 | 2 |
+| Aleksander | 1930-1960 | 2 |
+| Paul | 1930-1955 | 2 |
+| Viktor | 1940-1965 | 2 |
+| Vambola | 1930-1950 | 1 |
 
-**Middle generation (born ~1955–1980, age ~46–70)**
-
-| Name | Peak birth years | Weight |
-|---|---|---|
-| Andres | 1955–1980 | 5 |
-| Aivar | 1955–1975 | 5 |
-| Urmas | 1955–1975 | 5 |
-| Margus | 1960–1980 | 5 |
-| Priit | 1960–1985 | 5 |
-| Indrek | 1960–1985 | 5 |
-| Tarmo | 1960–1980 | 4 |
-| Meelis | 1960–1980 | 4 |
-| Raivo | 1955–1975 | 4 |
-| Kalle | 1955–1980 | 4 |
-| Jaanus | 1960–1980 | 4 |
-| Marek | 1965–1985 | 4 |
-| Andrus | 1960–1980 | 4 |
-| Marko | 1970–1990 | 4 |
-| Kristjan | 1970–2000 | 4 |
-| Tanel | 1970–1995 | 4 |
-| Hannes | 1960–1985 | 3 |
-| Allan | 1960–1985 | 3 |
-| Tõnis | 1960–1985 | 3 |
-| Raul | 1960–1980 | 3 |
-| Rene | 1965–1990 | 3 |
-| Sulev | 1950–1970 | 3 |
-| Veiko | 1965–1985 | 3 |
-| Kaido | 1965–1985 | 3 |
-| Alar | 1960–1980 | 3 |
-| Ivar | 1955–1975 | 3 |
-| Madis | 1960–1990 | 3 |
-| Ahto | 1960–1980 | 3 |
-| Janek | 1965–1985 | 3 |
-| Lauri | 1970–1995 | 3 |
-| Erik | 1960–2000 | 3 |
-| Mihkel | 1965–2000 | 3 |
-| Tarvo | 1960–1980 | 2 |
-| Rait | 1965–1985 | 2 |
-| Margo | 1965–1985 | 2 |
-| Erki | 1965–1985 | 2 |
-| Avo | 1950–1970 | 2 |
-| Gunnar | 1960–1980 | 2 |
-| Alo | 1960–1980 | 2 |
-| Vahur | 1960–1980 | 2 |
-| Kaupo | 1965–1985 | 2 |
-| Aivo | 1955–1975 | 2 |
-| Arno | 1955–1975 | 2 |
-| Imre | 1960–1980 | 2 |
-
-**Younger generation (born ~1975–2008, age 18–50)**
+**Middle generation (born ~1955-1980, age ~46-70)**
 
 | Name | Peak birth years | Weight |
 |---|---|---|
-| Martin | 1975–2008 | 5 |
-| Rasmus | 1990–2008 | 5 |
-| Siim | 1975–2000 | 4 |
-| Robin | 1995–2008 | 4 |
-| Karl | 1990–2008 | 4 |
-| Markus | 1995–2008 | 4 |
-| Sander | 1985–2005 | 4 |
-| Kristofer | 1995–2008 | 3 |
-| Oliver | 1995–2008 | 3 |
-| Kevin | 1990–2005 | 3 |
-| Kristo | 1985–2000 | 3 |
-| Taavi | 1980–2000 | 3 |
-| Ott | 1980–2000 | 3 |
-| Mikk | 1980–2005 | 3 |
-| Kaspar | 1980–2005 | 3 |
-| Henri | 1990–2005 | 3 |
-| Joonas | 1990–2005 | 3 |
-| Mattias | 1995–2008 | 3 |
-| Rainer | 1970–1995 | 3 |
-| Sebastian | 1995–2008 | 2 |
-| Artur | 1995–2008 | 2 |
-| Gregor | 1995–2008 | 2 |
-| Joosep | 1995–2008 | 2 |
-| Hendrik | 1985–2005 | 2 |
-| Kenneth | 1990–2005 | 2 |
-| Marten | 1990–2005 | 2 |
-| Romet | 1995–2008 | 2 |
-| Tristan | 1995–2008 | 2 |
-| Ralf | 1995–2008 | 2 |
-| Rauno | 1980–1995 | 2 |
-| Risto | 1980–1995 | 2 |
-| Silver | 1980–1995 | 2 |
-| Argo | 1975–1990 | 2 |
-| Janno | 1975–1995 | 2 |
-| Raido | 1980–1995 | 2 |
-| Kaarel | 1985–2005 | 2 |
-| Kaur | 1985–2000 | 2 |
-| Jakob | 2000–2008 | 2 |
-| Johannes | 1995–2008 | 2 |
-| Oskar | 2000–2008 | 2 |
-| Patrick | 1990–2005 | 2 |
-| Andreas | 1990–2005 | 2 |
-| Robert | 1990–2008 | 2 |
-| Karl-Erik | 1995–2008 | 1 |
-| Hans-Kristjan | 1995–2008 | 1 |
-| Märt | 1985–2000 | 1 |
-| Kermo | 1985–2000 | 1 |
-| Gert | 1985–2000 | 1 |
+| Andres | 1955-1980 | 5 |
+| Aivar | 1955-1975 | 5 |
+| Urmas | 1955-1975 | 5 |
+| Margus | 1960-1980 | 5 |
+| Priit | 1960-1985 | 5 |
+| Indrek | 1960-1985 | 5 |
+| Tarmo | 1960-1980 | 4 |
+| Meelis | 1960-1980 | 4 |
+| Raivo | 1955-1975 | 4 |
+| Kalle | 1955-1980 | 4 |
+| Jaanus | 1960-1980 | 4 |
+| Marek | 1965-1985 | 4 |
+| Andrus | 1960-1980 | 4 |
+| Marko | 1970-1990 | 4 |
+| Kristjan | 1970-2000 | 4 |
+| Tanel | 1970-1995 | 4 |
+| Hannes | 1960-1985 | 3 |
+| Allan | 1960-1985 | 3 |
+| Tõnis | 1960-1985 | 3 |
+| Raul | 1960-1980 | 3 |
+| Rene | 1965-1990 | 3 |
+| Sulev | 1950-1970 | 3 |
+| Veiko | 1965-1985 | 3 |
+| Kaido | 1965-1985 | 3 |
+| Alar | 1960-1980 | 3 |
+| Ivar | 1955-1975 | 3 |
+| Madis | 1960-1990 | 3 |
+| Ahto | 1960-1980 | 3 |
+| Janek | 1965-1985 | 3 |
+| Lauri | 1970-1995 | 3 |
+| Erik | 1960-2000 | 3 |
+| Mihkel | 1965-2000 | 3 |
+| Tarvo | 1960-1980 | 2 |
+| Rait | 1965-1985 | 2 |
+| Margo | 1965-1985 | 2 |
+| Erki | 1965-1985 | 2 |
+| Avo | 1950-1970 | 2 |
+| Gunnar | 1960-1980 | 2 |
+| Alo | 1960-1980 | 2 |
+| Vahur | 1960-1980 | 2 |
+| Kaupo | 1965-1985 | 2 |
+| Aivo | 1955-1975 | 2 |
+| Arno | 1955-1975 | 2 |
+| Imre | 1960-1980 | 2 |
+
+**Younger generation (born ~1975-2008, age 18-50)**
+
+| Name | Peak birth years | Weight |
+|---|---|---|
+| Martin | 1975-2008 | 5 |
+| Rasmus | 1990-2008 | 5 |
+| Siim | 1975-2000 | 4 |
+| Robin | 1995-2008 | 4 |
+| Karl | 1990-2008 | 4 |
+| Markus | 1995-2008 | 4 |
+| Sander | 1985-2005 | 4 |
+| Kristofer | 1995-2008 | 3 |
+| Oliver | 1995-2008 | 3 |
+| Kevin | 1990-2005 | 3 |
+| Kristo | 1985-2000 | 3 |
+| Taavi | 1980-2000 | 3 |
+| Ott | 1980-2000 | 3 |
+| Mikk | 1980-2005 | 3 |
+| Kaspar | 1980-2005 | 3 |
+| Henri | 1990-2005 | 3 |
+| Joonas | 1990-2005 | 3 |
+| Mattias | 1995-2008 | 3 |
+| Rainer | 1970-1995 | 3 |
+| Sebastian | 1995-2008 | 2 |
+| Artur | 1995-2008 | 2 |
+| Gregor | 1995-2008 | 2 |
+| Joosep | 1995-2008 | 2 |
+| Hendrik | 1985-2005 | 2 |
+| Kenneth | 1990-2005 | 2 |
+| Marten | 1990-2005 | 2 |
+| Romet | 1995-2008 | 2 |
+| Tristan | 1995-2008 | 2 |
+| Ralf | 1995-2008 | 2 |
+| Rauno | 1980-1995 | 2 |
+| Risto | 1980-1995 | 2 |
+| Silver | 1980-1995 | 2 |
+| Argo | 1975-1990 | 2 |
+| Janno | 1975-1995 | 2 |
+| Raido | 1980-1995 | 2 |
+| Kaarel | 1985-2005 | 2 |
+| Kaur | 1985-2000 | 2 |
+| Jakob | 2000-2008 | 2 |
+| Johannes | 1995-2008 | 2 |
+| Oskar | 2000-2008 | 2 |
+| Patrick | 1990-2005 | 2 |
+| Andreas | 1990-2005 | 2 |
+| Robert | 1990-2008 | 2 |
+| Karl-Erik | 1995-2008 | 1 |
+| Hans-Kristjan | 1995-2008 | 1 |
+| Märt | 1985-2000 | 1 |
+| Kermo | 1985-2000 | 1 |
+| Gert | 1985-2000 | 1 |
 
 ### 1.2 Women (Estonian): 142 names
 
-**Older generation (born ~1935–1960)**
+**Older generation (born ~1935-1960)**
 
 | Name | Peak birth years | Weight |
 |---|---|---|
-| Malle | 1940–1960 | 5 |
-| Tiiu | 1940–1960 | 5 |
-| Ene | 1940–1960 | 5 |
-| Sirje | 1945–1965 | 5 |
-| Ülle | 1945–1970 | 5 |
-| Anne | 1945–1975 | 5 |
-| Tiina | 1950–1975 | 5 |
-| Eha | 1935–1955 | 4 |
-| Maie | 1940–1960 | 4 |
-| Reet | 1945–1965 | 4 |
-| Helgi | 1930–1955 | 3 |
-| Aino | 1930–1955 | 3 |
-| Silvi | 1935–1955 | 3 |
-| Mare | 1945–1965 | 3 |
-| Laine | 1930–1955 | 3 |
-| Vaike | 1930–1955 | 3 |
-| Aili | 1930–1955 | 3 |
-| Elvi | 1935–1955 | 3 |
-| Evi | 1940–1960 | 3 |
-| Heli | 1945–1965 | 3 |
-| Hille | 1940–1960 | 3 |
-| Maret | 1945–1965 | 3 |
-| Riina | 1950–1970 | 3 |
-| Siiri | 1945–1965 | 3 |
-| Urve | 1940–1960 | 3 |
-| Viivi | 1935–1955 | 3 |
-| Virve | 1935–1955 | 3 |
-| Helle | 1940–1960 | 3 |
-| Lea | 1940–1960 | 3 |
-| Luule | 1935–1955 | 3 |
-| Kaie | 1950–1970 | 3 |
-| Leida | 1925–1945 | 2 |
-| Hilja | 1925–1945 | 2 |
-| Linda | 1925–1945 | 2 |
-| Milvi | 1930–1950 | 2 |
-| Ester | 1930–1950 | 2 |
-| Mall | 1940–1960 | 2 |
-| Meeli | 1945–1965 | 2 |
-| Eda | 1945–1965 | 2 |
-| Inge | 1945–1965 | 2 |
-| Aime | 1935–1955 | 2 |
-| Valve | 1925–1950 | 2 |
-| Imbi | 1940–1960 | 2 |
-| Õie | 1935–1955 | 2 |
-| Eevi | 1935–1955 | 2 |
-| Marju | 1950–1970 | 2 |
-| Ingrid | 1945–1970 | 2 |
+| Malle | 1940-1960 | 5 |
+| Tiiu | 1940-1960 | 5 |
+| Ene | 1940-1960 | 5 |
+| Sirje | 1945-1965 | 5 |
+| Ülle | 1945-1970 | 5 |
+| Anne | 1945-1975 | 5 |
+| Tiina | 1950-1975 | 5 |
+| Eha | 1935-1955 | 4 |
+| Maie | 1940-1960 | 4 |
+| Reet | 1945-1965 | 4 |
+| Helgi | 1930-1955 | 3 |
+| Aino | 1930-1955 | 3 |
+| Silvi | 1935-1955 | 3 |
+| Mare | 1945-1965 | 3 |
+| Laine | 1930-1955 | 3 |
+| Vaike | 1930-1955 | 3 |
+| Aili | 1930-1955 | 3 |
+| Elvi | 1935-1955 | 3 |
+| Evi | 1940-1960 | 3 |
+| Heli | 1945-1965 | 3 |
+| Hille | 1940-1960 | 3 |
+| Maret | 1945-1965 | 3 |
+| Riina | 1950-1970 | 3 |
+| Siiri | 1945-1965 | 3 |
+| Urve | 1940-1960 | 3 |
+| Viivi | 1935-1955 | 3 |
+| Virve | 1935-1955 | 3 |
+| Helle | 1940-1960 | 3 |
+| Lea | 1940-1960 | 3 |
+| Luule | 1935-1955 | 3 |
+| Kaie | 1950-1970 | 3 |
+| Leida | 1925-1945 | 2 |
+| Hilja | 1925-1945 | 2 |
+| Linda | 1925-1945 | 2 |
+| Milvi | 1930-1950 | 2 |
+| Ester | 1930-1950 | 2 |
+| Mall | 1940-1960 | 2 |
+| Meeli | 1945-1965 | 2 |
+| Eda | 1945-1965 | 2 |
+| Inge | 1945-1965 | 2 |
+| Aime | 1935-1955 | 2 |
+| Valve | 1925-1950 | 2 |
+| Imbi | 1940-1960 | 2 |
+| Õie | 1935-1955 | 2 |
+| Eevi | 1935-1955 | 2 |
+| Marju | 1950-1970 | 2 |
+| Ingrid | 1945-1970 | 2 |
 
-**Middle generation (born ~1960–1980)**
-
-| Name | Peak birth years | Weight |
-|---|---|---|
-| Piret | 1960–1980 | 5 |
-| Katrin | 1970–1990 | 5 |
-| Kadri | 1970–1995 | 5 |
-| Kristiina | 1970–1995 | 5 |
-| Anu | 1960–1980 | 4 |
-| Kaja | 1960–1975 | 4 |
-| Merike | 1960–1975 | 4 |
-| Kersti | 1960–1980 | 4 |
-| Pille | 1960–1980 | 4 |
-| Margit | 1965–1985 | 4 |
-| Marika | 1960–1980 | 4 |
-| Kristi | 1970–1990 | 4 |
-| Ave | 1965–1985 | 3 |
-| Eve | 1955–1975 | 3 |
-| Tiia | 1960–1980 | 3 |
-| Krista | 1965–1985 | 3 |
-| Maire | 1955–1975 | 3 |
-| Mari | 1960–1990 | 3 |
-| Signe | 1965–1985 | 3 |
-| Terje | 1960–1980 | 3 |
-| Karin | 1960–1980 | 3 |
-| Merle | 1960–1980 | 3 |
-| Kai | 1965–1985 | 3 |
-| Kairi | 1975–1990 | 3 |
-| Jaana | 1965–1985 | 3 |
-| Evelin | 1975–1995 | 3 |
-| Helen | 1980–2000 | 3 |
-| Marje | 1960–1975 | 2 |
-| Monika | 1965–1990 | 2 |
-| Aune | 1955–1975 | 2 |
-| Annely | 1965–1985 | 2 |
-| Kaire | 1970–1985 | 2 |
-| Janika | 1970–1990 | 2 |
-| Sirli | 1970–1990 | 2 |
-| Marge | 1965–1985 | 2 |
-| Heidi | 1970–1990 | 2 |
-| Anneli | 1970–1990 | 2 |
-| Kaidi | 1975–1995 | 2 |
-
-**Younger generation (born ~1980–2008)**
+**Middle generation (born ~1960-1980)**
 
 | Name | Peak birth years | Weight |
 |---|---|---|
-| Laura | 1985–2008 | 5 |
-| Triin | 1980–1995 | 4 |
-| Liis | 1980–2000 | 4 |
-| Maarja | 1980–2005 | 4 |
-| Mari-Liis | 1985–2005 | 4 |
-| Maria | 1985–2008 | 4 |
-| Anna | 1995–2008 | 4 |
-| Kerli | 1985–2000 | 3 |
-| Annika | 1980–2000 | 3 |
-| Merilin | 1990–2005 | 3 |
-| Kristel | 1980–2000 | 3 |
-| Kristina | 1980–2000 | 3 |
-| Getter | 1990–2005 | 3 |
-| Grete | 1990–2005 | 3 |
-| Hanna | 1990–2008 | 3 |
-| Helena | 1990–2008 | 3 |
-| Sandra | 1990–2005 | 3 |
-| Liisa | 1985–2005 | 3 |
-| Karoliina | 1990–2005 | 3 |
-| Kätlin | 1990–2005 | 3 |
-| Kertu | 1990–2005 | 3 |
-| Eliise | 2000–2008 | 3 |
-| Elisabeth | 1995–2008 | 3 |
-| Sofia | 2000–2008 | 3 |
-| Kati | 1980–1995 | 2 |
-| Jaanika | 1980–1995 | 2 |
-| Marit | 1980–1995 | 2 |
-| Kärt | 1985–2000 | 2 |
-| Kaisa | 1985–2000 | 2 |
-| Sigrid | 1985–2005 | 2 |
-| Liina | 1980–1995 | 2 |
-| Elina | 1985–2005 | 2 |
-| Karmen | 1985–2000 | 2 |
-| Tuuli | 1980–1995 | 2 |
-| Gretel | 1995–2008 | 2 |
-| Johanna | 1995–2008 | 2 |
-| Emma | 2003–2008 | 2 |
-| Mia | 2004–2008 | 2 |
-| Lisandra | 2000–2008 | 2 |
-| Liisi | 1990–2005 | 2 |
-| Marleen | 1995–2008 | 2 |
-| Kirke | 1995–2008 | 2 |
-| Triinu | 1990–2005 | 2 |
-| Viktoria | 1995–2008 | 2 |
-| Kristin | 1990–2005 | 2 |
-| Ketlin | 1990–2005 | 2 |
-| Lisette | 1995–2008 | 2 |
-| Teele | 1990–2005 | 2 |
-| Anette | 1995–2008 | 2 |
-| Kadi | 1985–2000 | 2 |
-| Kaia | 1985–2000 | 2 |
-| Reelika | 1978–1990 | 2 |
-| Elis | 1995–2008 | 2 |
-| Pille-Riin | 1990–2005 | 1 |
-| Anna-Liisa | 1990–2005 | 1 |
-| Keiti | 1995–2008 | 1 |
-| Brigitta | 1995–2008 | 1 |
+| Piret | 1960-1980 | 5 |
+| Katrin | 1970-1990 | 5 |
+| Kadri | 1970-1995 | 5 |
+| Kristiina | 1970-1995 | 5 |
+| Anu | 1960-1980 | 4 |
+| Kaja | 1960-1975 | 4 |
+| Merike | 1960-1975 | 4 |
+| Kersti | 1960-1980 | 4 |
+| Pille | 1960-1980 | 4 |
+| Margit | 1965-1985 | 4 |
+| Marika | 1960-1980 | 4 |
+| Kristi | 1970-1990 | 4 |
+| Ave | 1965-1985 | 3 |
+| Eve | 1955-1975 | 3 |
+| Tiia | 1960-1980 | 3 |
+| Krista | 1965-1985 | 3 |
+| Maire | 1955-1975 | 3 |
+| Mari | 1960-1990 | 3 |
+| Signe | 1965-1985 | 3 |
+| Terje | 1960-1980 | 3 |
+| Karin | 1960-1980 | 3 |
+| Merle | 1960-1980 | 3 |
+| Kai | 1965-1985 | 3 |
+| Kairi | 1975-1990 | 3 |
+| Jaana | 1965-1985 | 3 |
+| Evelin | 1975-1995 | 3 |
+| Helen | 1980-2000 | 3 |
+| Marje | 1960-1975 | 2 |
+| Monika | 1965-1990 | 2 |
+| Aune | 1955-1975 | 2 |
+| Annely | 1965-1985 | 2 |
+| Kaire | 1970-1985 | 2 |
+| Janika | 1970-1990 | 2 |
+| Sirli | 1970-1990 | 2 |
+| Marge | 1965-1985 | 2 |
+| Heidi | 1970-1990 | 2 |
+| Anneli | 1970-1990 | 2 |
+| Kaidi | 1975-1995 | 2 |
+
+**Younger generation (born ~1980-2008)**
+
+| Name | Peak birth years | Weight |
+|---|---|---|
+| Laura | 1985-2008 | 5 |
+| Triin | 1980-1995 | 4 |
+| Liis | 1980-2000 | 4 |
+| Maarja | 1980-2005 | 4 |
+| Mari-Liis | 1985-2005 | 4 |
+| Maria | 1985-2008 | 4 |
+| Anna | 1995-2008 | 4 |
+| Kerli | 1985-2000 | 3 |
+| Annika | 1980-2000 | 3 |
+| Merilin | 1990-2005 | 3 |
+| Kristel | 1980-2000 | 3 |
+| Kristina | 1980-2000 | 3 |
+| Getter | 1990-2005 | 3 |
+| Grete | 1990-2005 | 3 |
+| Hanna | 1990-2008 | 3 |
+| Helena | 1990-2008 | 3 |
+| Sandra | 1990-2005 | 3 |
+| Liisa | 1985-2005 | 3 |
+| Karoliina | 1990-2005 | 3 |
+| Kätlin | 1990-2005 | 3 |
+| Kertu | 1990-2005 | 3 |
+| Eliise | 2000-2008 | 3 |
+| Elisabeth | 1995-2008 | 3 |
+| Sofia | 2000-2008 | 3 |
+| Kati | 1980-1995 | 2 |
+| Jaanika | 1980-1995 | 2 |
+| Marit | 1980-1995 | 2 |
+| Kärt | 1985-2000 | 2 |
+| Kaisa | 1985-2000 | 2 |
+| Sigrid | 1985-2005 | 2 |
+| Liina | 1980-1995 | 2 |
+| Elina | 1985-2005 | 2 |
+| Karmen | 1985-2000 | 2 |
+| Tuuli | 1980-1995 | 2 |
+| Gretel | 1995-2008 | 2 |
+| Johanna | 1995-2008 | 2 |
+| Emma | 2003-2008 | 2 |
+| Mia | 2004-2008 | 2 |
+| Lisandra | 2000-2008 | 2 |
+| Liisi | 1990-2005 | 2 |
+| Marleen | 1995-2008 | 2 |
+| Kirke | 1995-2008 | 2 |
+| Triinu | 1990-2005 | 2 |
+| Viktoria | 1995-2008 | 2 |
+| Kristin | 1990-2005 | 2 |
+| Ketlin | 1990-2005 | 2 |
+| Lisette | 1995-2008 | 2 |
+| Teele | 1990-2005 | 2 |
+| Anette | 1995-2008 | 2 |
+| Kadi | 1985-2000 | 2 |
+| Kaia | 1985-2000 | 2 |
+| Reelika | 1978-1990 | 2 |
+| Elis | 1995-2008 | 2 |
+| Pille-Riin | 1990-2005 | 1 |
+| Anna-Liisa | 1990-2005 | 1 |
+| Keiti | 1995-2008 | 1 |
+| Brigitta | 1995-2008 | 1 |
 
 Note: *Mia*, *Emma* and *Sofia* peak among children born in the 2010s. They are common among
-under-20s but rare in adults. Weight them low for an 18–80 population [LIKELY].
+under-20s but rare in adults. Weight them low for an 18-80 population [LIKELY].
 
 ---
 
@@ -392,7 +392,7 @@ Estonian surnames are **not gendered**: the husband, wife and children are all *
 Married women usually take the husband's surname. Hyphenated double surnames (*Tamm-Saar*) occur
 but are uncommon [LIKELY].
 
-Most surnames come from the 1820s–1830s peasant naming. They fall into a few groups:
+Most surnames come from the 1820s-1830s peasant naming. They fall into a few groups:
 
 - **Nature**: Tamm (oak), Kask (birch), Kuusk (spruce), Mänd (pine), Pärn (linden), Saar
   (island, or ash tree), Lepp (alder).
@@ -590,111 +590,111 @@ weight.
 
 | Estonian form | Cyrillic | ICAO passport | Peak born | W |
 |---|---|---|---|---|
-| Aleksandr | Александр | Aleksandr | 1940–2008 | 5 |
-| Sergei | Сергей | Sergei | 1955–1990 | 5 |
-| Andrei | Андрей | Andrei | 1960–1995 | 5 |
-| Dmitri | Дмитрий | Dmitrii | 1970–2005 | 5 |
-| Vladimir | Владимир | Vladimir | 1940–1975 | 5 |
-| Aleksei | Алексей | Aleksei | 1965–2000 | 4 |
-| Jevgeni | Евгений | Evgenii | 1955–1990 | 4 |
-| Igor | Игорь | Igor | 1955–1985 | 4 |
-| Juri | Юрий | Iurii | 1940–1970 | 4 |
-| Nikolai | Николай | Nikolai | 1935–1965 | 4 |
-| Viktor | Виктор | Viktor | 1940–1970 | 4 |
-| Oleg | Олег | Oleg | 1960–1985 | 4 |
-| Mihhail | Михаил | Mikhail | 1940–1970; 1995–2008 | 4 |
-| Maksim | Максим | Maksim | 1980–2008 | 4 |
-| Artjom | Артём | Artem | 1985–2008 | 4 |
-| Vitali | Виталий | Vitalii | 1965–1990 | 3 |
-| Anatoli | Анатолий | Anatolii | 1935–1960 | 3 |
-| Valeri | Валерий | Valerii | 1945–1970 | 3 |
-| Gennadi | Геннадий | Gennadii | 1940–1965 | 3 |
-| Vadim | Вадим | Vadim | 1965–1990 | 3 |
-| Konstantin | Константин | Konstantin | 1970–1995 | 3 |
-| Roman | Роман | Roman | 1975–2000 | 3 |
-| Deniss | Денис | Denis | 1978–2000 | 3 |
-| Ilja | Илья | Ilia | 1985–2008 | 3 |
-| Kirill | Кирилл | Kirill | 1985–2008 | 3 |
-| Nikita | Никита | Nikita | 1990–2008 | 3 |
-| Daniil | Даниил | Daniil | 1995–2008 | 3 |
-| Jegor | Егор | Egor | 1995–2008 | 3 |
-| Pavel | Павел | Pavel | 1960–1995 | 3 |
-| Anton | Антон | Anton | 1975–2000 | 3 |
-| Vladislav | Владислав | Vladislav | 1985–2005 | 3 |
-| Vjatšeslav | Вячеслав | Viacheslav | 1955–1985 | 3 |
-| Ivan | Иван | Ivan | 1930–1960; 1995–2008 | 3 |
-| Ruslan | Руслан | Ruslan | 1975–1995 | 2 |
-| Boriss | Борис | Boris | 1935–1960 | 2 |
-| Leonid | Леонид | Leonid | 1935–1960 | 2 |
-| Vassili | Василий | Vasilii | 1935–1960 | 2 |
-| Stanislav | Станислав | Stanislav | 1965–1990 | 2 |
-| Eduard | Эдуард | Eduard | 1955–1980 | 2 |
-| Valentin | Валентин | Valentin | 1935–1960 | 2 |
-| Timur | Тимур | Timur | 1980–2005 | 2 |
-| Artur | Артур | Artur | 1980–2005 | 2 |
-| Jaroslav | Ярослав | Iaroslav | 1985–2005 | 2 |
-| Matvei | Матвей | Matvei | 2002–2008 | 2 |
-| Mark | Марк | Mark | 2000–2008 | 2 |
-| Grigori | Григорий | Grigorii | 1930–1955 | 1 |
-| Pjotr | Пётр | Petr | 1930–1955 | 1 |
-| Fjodor | Фёдор | Fedor | 1930–1955 | 1 |
-| Arkadi | Аркадий | Arkadii | 1935–1960 | 1 |
-| Semjon | Семён | Semen | 1930–1955 | 1 |
+| Aleksandr | Александр | Aleksandr | 1940-2008 | 5 |
+| Sergei | Сергей | Sergei | 1955-1990 | 5 |
+| Andrei | Андрей | Andrei | 1960-1995 | 5 |
+| Dmitri | Дмитрий | Dmitrii | 1970-2005 | 5 |
+| Vladimir | Владимир | Vladimir | 1940-1975 | 5 |
+| Aleksei | Алексей | Aleksei | 1965-2000 | 4 |
+| Jevgeni | Евгений | Evgenii | 1955-1990 | 4 |
+| Igor | Игорь | Igor | 1955-1985 | 4 |
+| Juri | Юрий | Iurii | 1940-1970 | 4 |
+| Nikolai | Николай | Nikolai | 1935-1965 | 4 |
+| Viktor | Виктор | Viktor | 1940-1970 | 4 |
+| Oleg | Олег | Oleg | 1960-1985 | 4 |
+| Mihhail | Михаил | Mikhail | 1940-1970; 1995-2008 | 4 |
+| Maksim | Максим | Maksim | 1980-2008 | 4 |
+| Artjom | Артём | Artem | 1985-2008 | 4 |
+| Vitali | Виталий | Vitalii | 1965-1990 | 3 |
+| Anatoli | Анатолий | Anatolii | 1935-1960 | 3 |
+| Valeri | Валерий | Valerii | 1945-1970 | 3 |
+| Gennadi | Геннадий | Gennadii | 1940-1965 | 3 |
+| Vadim | Вадим | Vadim | 1965-1990 | 3 |
+| Konstantin | Константин | Konstantin | 1970-1995 | 3 |
+| Roman | Роман | Roman | 1975-2000 | 3 |
+| Deniss | Денис | Denis | 1978-2000 | 3 |
+| Ilja | Илья | Ilia | 1985-2008 | 3 |
+| Kirill | Кирилл | Kirill | 1985-2008 | 3 |
+| Nikita | Никита | Nikita | 1990-2008 | 3 |
+| Daniil | Даниил | Daniil | 1995-2008 | 3 |
+| Jegor | Егор | Egor | 1995-2008 | 3 |
+| Pavel | Павел | Pavel | 1960-1995 | 3 |
+| Anton | Антон | Anton | 1975-2000 | 3 |
+| Vladislav | Владислав | Vladislav | 1985-2005 | 3 |
+| Vjatšeslav | Вячеслав | Viacheslav | 1955-1985 | 3 |
+| Ivan | Иван | Ivan | 1930-1960; 1995-2008 | 3 |
+| Ruslan | Руслан | Ruslan | 1975-1995 | 2 |
+| Boriss | Борис | Boris | 1935-1960 | 2 |
+| Leonid | Леонид | Leonid | 1935-1960 | 2 |
+| Vassili | Василий | Vasilii | 1935-1960 | 2 |
+| Stanislav | Станислав | Stanislav | 1965-1990 | 2 |
+| Eduard | Эдуард | Eduard | 1955-1980 | 2 |
+| Valentin | Валентин | Valentin | 1935-1960 | 2 |
+| Timur | Тимур | Timur | 1980-2005 | 2 |
+| Artur | Артур | Artur | 1980-2005 | 2 |
+| Jaroslav | Ярослав | Iaroslav | 1985-2005 | 2 |
+| Matvei | Матвей | Matvei | 2002-2008 | 2 |
+| Mark | Марк | Mark | 2000-2008 | 2 |
+| Grigori | Григорий | Grigorii | 1930-1955 | 1 |
+| Pjotr | Пётр | Petr | 1930-1955 | 1 |
+| Fjodor | Фёдор | Fedor | 1930-1955 | 1 |
+| Arkadi | Аркадий | Arkadii | 1935-1960 | 1 |
+| Semjon | Семён | Semen | 1930-1955 | 1 |
 
 **Women (50)**
 
 | Estonian form | Cyrillic | ICAO passport | Peak born | W |
 |---|---|---|---|---|
-| Jelena | Елена | Elena | 1955–1985 | 5 |
-| Tatjana | Татьяна | Tatiana | 1945–1980 | 5 |
-| Olga | Ольга | Olga | 1950–1985 | 5 |
-| Natalja | Наталья | Natalia | 1955–1985 | 5 |
-| Svetlana | Светлана | Svetlana | 1950–1980 | 5 |
-| Irina | Ирина | Irina | 1955–1985 | 5 |
-| Ljudmila | Людмила | Liudmila | 1940–1965 | 4 |
-| Galina | Галина | Galina | 1935–1960 | 4 |
-| Valentina | Валентина | Valentina | 1930–1960 | 4 |
-| Marina | Марина | Marina | 1960–1985 | 4 |
-| Anna | Анна | Anna | 1985–2008 (+older) | 4 |
-| Julia | Юлия | Iuliia | 1980–2000 | 4 |
-| Jekaterina | Екатерина | Ekaterina | 1985–2005 | 4 |
-| Anastassia | Анастасия | Anastasiia | 1985–2008 | 4 |
-| Larissa | Лариса | Larisa | 1950–1975 | 3 |
-| Nadežda | Надежда | Nadezhda | 1935–1965 | 3 |
-| Oksana | Оксана | Oksana | 1970–1990 | 3 |
-| Ljubov | Любовь | Liubov | 1930–1960 | 3 |
-| Tamara | Тамара | Tamara | 1930–1960 | 3 |
-| Nina | Нина | Nina | 1930–1960 | 3 |
-| Aleksandra | Александра | Aleksandra | 1985–2008 | 3 |
-| Viktoria | Виктория | Viktoriia | 1985–2008 | 3 |
-| Kristina | Кристина | Kristina | 1985–2005 | 3 |
-| Darja | Дарья | Daria | 1990–2008 | 3 |
-| Alina | Алина | Alina | 1990–2008 | 3 |
-| Maria | Мария | Mariia | 1990–2008 | 3 |
-| Vera | Вера | Vera | 1930–1960 | 2 |
-| Zoja | Зоя | Zoia | 1925–1955 | 2 |
-| Lidia | Лидия | Lidiia | 1930–1960 | 2 |
-| Raissa | Раиса | Raisa | 1930–1960 | 2 |
-| Antonina | Антонина | Antonina | 1925–1955 | 2 |
-| Polina | Полина | Polina | 1995–2008 | 2 |
-| Anžela | Анжела | Anzhela | 1970–1990 | 2 |
-| Inna | Инна | Inna | 1960–1985 | 2 |
-| Alla | Алла | Alla | 1950–1975 | 2 |
-| Jevgenia | Евгения | Evgeniia | 1970–1995 | 2 |
-| Margarita | Маргарита | Margarita | 1960–1990 | 2 |
-| Veronika | Вероника | Veronika | 1975–2000 | 2 |
-| Ksenia | Ксения | Kseniia | 1985–2005 | 2 |
-| Valeria | Валерия | Valeriia | 1995–2008 | 2 |
-| Diana | Диана | Diana | 1985–2005 | 2 |
-| Jana | Яна | Iana | 1975–1995 | 2 |
-| Jelizaveta | Елизавета | Elizaveta | 2000–2008 | 2 |
-| Sofia | София | Sofiia | 2000–2008 | 2 |
-| Alisa | Алиса | Alisa | 2000–2008 | 2 |
-| Karina | Карина | Karina | 1990–2005 | 2 |
-| Elvira | Эльвира | Elvira | 1950–1975 | 1 |
-| Zinaida | Зинаида | Zinaida | 1925–1950 | 1 |
-| Uljana | Ульяна | Uliana | 2000–2008 | 1 |
-| Milana | Милана | Milana | 2004–2008 | 1 |
+| Jelena | Елена | Elena | 1955-1985 | 5 |
+| Tatjana | Татьяна | Tatiana | 1945-1980 | 5 |
+| Olga | Ольга | Olga | 1950-1985 | 5 |
+| Natalja | Наталья | Natalia | 1955-1985 | 5 |
+| Svetlana | Светлана | Svetlana | 1950-1980 | 5 |
+| Irina | Ирина | Irina | 1955-1985 | 5 |
+| Ljudmila | Людмила | Liudmila | 1940-1965 | 4 |
+| Galina | Галина | Galina | 1935-1960 | 4 |
+| Valentina | Валентина | Valentina | 1930-1960 | 4 |
+| Marina | Марина | Marina | 1960-1985 | 4 |
+| Anna | Анна | Anna | 1985-2008 (+older) | 4 |
+| Julia | Юлия | Iuliia | 1980-2000 | 4 |
+| Jekaterina | Екатерина | Ekaterina | 1985-2005 | 4 |
+| Anastassia | Анастасия | Anastasiia | 1985-2008 | 4 |
+| Larissa | Лариса | Larisa | 1950-1975 | 3 |
+| Nadežda | Надежда | Nadezhda | 1935-1965 | 3 |
+| Oksana | Оксана | Oksana | 1970-1990 | 3 |
+| Ljubov | Любовь | Liubov | 1930-1960 | 3 |
+| Tamara | Тамара | Tamara | 1930-1960 | 3 |
+| Nina | Нина | Nina | 1930-1960 | 3 |
+| Aleksandra | Александра | Aleksandra | 1985-2008 | 3 |
+| Viktoria | Виктория | Viktoriia | 1985-2008 | 3 |
+| Kristina | Кристина | Kristina | 1985-2005 | 3 |
+| Darja | Дарья | Daria | 1990-2008 | 3 |
+| Alina | Алина | Alina | 1990-2008 | 3 |
+| Maria | Мария | Mariia | 1990-2008 | 3 |
+| Vera | Вера | Vera | 1930-1960 | 2 |
+| Zoja | Зоя | Zoia | 1925-1955 | 2 |
+| Lidia | Лидия | Lidiia | 1930-1960 | 2 |
+| Raissa | Раиса | Raisa | 1930-1960 | 2 |
+| Antonina | Антонина | Antonina | 1925-1955 | 2 |
+| Polina | Полина | Polina | 1995-2008 | 2 |
+| Anžela | Анжела | Anzhela | 1970-1990 | 2 |
+| Inna | Инна | Inna | 1960-1985 | 2 |
+| Alla | Алла | Alla | 1950-1975 | 2 |
+| Jevgenia | Евгения | Evgeniia | 1970-1995 | 2 |
+| Margarita | Маргарита | Margarita | 1960-1990 | 2 |
+| Veronika | Вероника | Veronika | 1975-2000 | 2 |
+| Ksenia | Ксения | Kseniia | 1985-2005 | 2 |
+| Valeria | Валерия | Valeriia | 1995-2008 | 2 |
+| Diana | Диана | Diana | 1985-2005 | 2 |
+| Jana | Яна | Iana | 1975-1995 | 2 |
+| Jelizaveta | Елизавета | Elizaveta | 2000-2008 | 2 |
+| Sofia | София | Sofiia | 2000-2008 | 2 |
+| Alisa | Алиса | Alisa | 2000-2008 | 2 |
+| Karina | Карина | Karina | 1990-2005 | 2 |
+| Elvira | Эльвира | Elvira | 1950-1975 | 1 |
+| Zinaida | Зинаида | Zinaida | 1925-1950 | 1 |
+| Uljana | Ульяна | Uliana | 2000-2008 | 1 |
+| Milana | Милана | Milana | 2004-2008 | 1 |
 
 **Patronymics** (isanimi, e.g. *Sergei Ivanovitš*, *Tatjana Petrovna*) are used in Russian
 speech, especially when addressing older people. They are **not** recorded on Estonian ID cards
@@ -950,12 +950,12 @@ Kravchenko, Kovalchuk, Koval, Oliinyk) is [LIKELY].
 ### 4.4 Refugee numbers (approx.)
 
 - Since February 2022, well over 100,000 Ukrainian war refugees have entered or passed through
-  Estonia [LIKELY]. Roughly **35,000–45,000** held temporary protection at any time in
-  2023–2025 [UNSURE exact].
-- Including pre-war residents (~25,000–30,000 ethnic Ukrainians in the 2021 census), people of
-  Ukrainian origin are now ~4–5% of the population [UNSURE].
+  Estonia [LIKELY]. Roughly **35,000-45,000** held temporary protection at any time in
+  2023-2025 [UNSURE exact].
+- Including pre-war residents (~25,000-30,000 ethnic Ukrainians in the 2021 census), people of
+  Ukrainian origin are now ~4-5% of the population [UNSURE].
 - They are concentrated in **Tallinn and Harjumaa**, then Tartu, Pärnu and Ida-Virumaa. In
-  2022–23, Narva-Jõesuu spa hotels housed many refugees [LIKELY].
+  2022-23, Narva-Jõesuu spa hotels housed many refugees [LIKELY].
 - Most speak Russian as well as Ukrainian. Many Ukrainian refugees in Estonia use Russian in
   daily life. Many younger ones also speak English [LIKELY].
 
@@ -970,7 +970,7 @@ Kravchenko, Kovalchuk, Koval, Oliinyk) is [LIKELY].
 | Population, Census 2021 (31.12.2021) | **1,331,824** [LIKELY] |
 | Population, 1 Jan 2025 | **~1.37 million**; growth since 2022 is mostly Ukrainian refugees [LIKELY] |
 | Ethnic Estonians (2021) | ~69% |
-| Ethnic Russians (2021) | ~23–24% (~315,000) |
+| Ethnic Russians (2021) | ~23-24% (~315,000) |
 | Ukrainians (2021; before most refugees were counted) | ~2% |
 | Belarusians | ~0.8% |
 | Finns | ~0.6% |
@@ -987,7 +987,7 @@ mother tongue.
 
 | County | Estonians | Ethnic Russians | Ru-speaking | Conf. |
 |---|---|---|---|---|
-| **Ida-Viru** | ~20% | **~70%** | ~78–80% | [LIKELY] |
+| **Ida-Viru** | ~20% | **~70%** | ~78-80% | [LIKELY] |
 | **Harju** (incl. Tallinn) | ~62% | ~29% | ~33% | [LIKELY] |
 | Harju without Tallinn | ~78% | ~16% | ~18% | [UNSURE] |
 | Valga | ~82% | ~13% | ~15% | [UNSURE] |
@@ -1001,21 +1001,21 @@ mother tongue.
 | Võru | ~94% | ~3% | ~4% | [UNSURE] |
 | Rapla | ~94% | ~3% | ~4% | [UNSURE] |
 | Viljandi | ~95% | ~3% | ~3% | [UNSURE] |
-| Saare | ~97% | ~1–2% | ~2% | [LIKELY] |
-| Hiiu | ~97% | ~1–2% | ~2% | [LIKELY] |
+| Saare | ~97% | ~1-2% | ~2% | [LIKELY] |
+| Hiiu | ~97% | ~1-2% | ~2% | [LIKELY] |
 
 ### 5.3 Cities, towns and Tallinn districts
 
 | Place | Estonians | Ethnic Russians | Ru-speaking | Conf. |
 |---|---|---|---|---|
-| **Narva** | ~4–5% | ~82–87% | **~94–96%** | [LIKELY] |
-| **Sillamäe** | ~4–6% | ~83–87% | ~94% | [LIKELY] |
-| **Kohtla-Järve** | ~18–20% | ~70–74% | ~80% | [LIKELY] |
-| **Maardu** | ~18–22% | ~65–70% | ~78% | [LIKELY] |
-| Narva-Jõesuu (vald) | ~15–20% | ~70–75% | ~80% | [UNSURE] |
-| **Jõhvi** (town) | ~33–38% | ~52–57% | ~60% | [LIKELY] |
+| **Narva** | ~4-5% | ~82-87% | **~94-96%** | [LIKELY] |
+| **Sillamäe** | ~4-6% | ~83-87% | ~94% | [LIKELY] |
+| **Kohtla-Järve** | ~18-20% | ~70-74% | ~80% | [LIKELY] |
+| **Maardu** | ~18-22% | ~65-70% | ~78% | [LIKELY] |
+| Narva-Jõesuu (vald) | ~15-20% | ~70-75% | ~80% | [UNSURE] |
+| **Jõhvi** (town) | ~33-38% | ~52-57% | ~60% | [LIKELY] |
 | Kiviõli | ~45% | ~45% | ~50% | [UNSURE] |
-| Paldiski | ~25–30% | ~55–60% | ~65% | [UNSURE] |
+| Paldiski | ~25-30% | ~55-60% | ~65% | [UNSURE] |
 | Loksa | ~50% | ~40% | ~45% | [UNSURE] |
 | Kallaste (Old Believers) | ~25% | ~70% | ~72% | [UNSURE] |
 | Mustvee (town) | ~50% | ~45% | ~47% | [UNSURE] |
@@ -1023,19 +1023,19 @@ mother tongue.
 | Tapa (town) | ~65% | ~30% | ~32% | [UNSURE] |
 | Kunda | ~65% | ~28% | ~30% | [UNSURE] |
 | Keila | ~80% | ~15% | ~16% | [UNSURE] |
-| **Tallinn** | ~55% | ~33–36% | ~38–41% | [LIKELY] |
-| **Tartu** | ~80% | ~13–15% | ~16% | [LIKELY] |
+| **Tallinn** | ~55% | ~33-36% | ~38-41% | [LIKELY] |
+| **Tartu** | ~80% | ~13-15% | ~16% | [LIKELY] |
 | **Pärnu** (city) | ~85% | ~10% | ~11% | [LIKELY] |
 | Haapsalu | ~85% | ~10% | ~11% | [UNSURE] |
 | Rakvere | ~88% | ~8% | ~9% | [UNSURE] |
 | Viljandi | ~95% | ~3% | ~3% | [LIKELY] |
-| Kuressaare | ~97% | ~1–2% | ~2% | [LIKELY] |
+| Kuressaare | ~97% | ~1-2% | ~2% | [LIKELY] |
 
 **Tallinn districts (linnaosad)**:
 
 | District | Estonians | Russian-speaking | Conf. |
 |---|---|---|---|
-| **Lasnamäe** (largest district, ~120,000 people) | ~30% | **~60–65%** | [LIKELY] |
+| **Lasnamäe** (largest district, ~120,000 people) | ~30% | **~60-65%** | [LIKELY] |
 | Põhja-Tallinn (Kopli, Kalamaja, Pelguranna) | ~45% | ~47% | [UNSURE] |
 | Haabersti (Väike-Õismäe) | ~50% | ~42% | [UNSURE] |
 | Mustamäe | ~55% | ~38% | [UNSURE] |
@@ -1044,7 +1044,7 @@ mother tongue.
 | Pirita | ~80% | ~13% | [UNSURE] |
 | Nõmme | ~85% | ~10% | [UNSURE] |
 
-Within Tartu, **Annelinn** has a clearly higher Russian-speaking share (~25–30%) than the city
+Within Tartu, **Annelinn** has a clearly higher Russian-speaking share (~25-30%) than the city
 average [UNSURE].
 
 Language use matters for gameplay [LIKELY]:
@@ -1119,10 +1119,10 @@ Facts about grey-passport holders [LIKELY]:
 
 | Year / source | Estonian citizens | Undetermined (grey) | Russian citizens | Conf. |
 |---|---|---|---|---|
-| 1992 | – | ~32% of residents had no citizenship | – | [LIKELY] |
-| Census 2011 | ~84% | ~6.5% (~85,000) | ~6–7% (~89,000) | [LIKELY] |
-| Census 2021 | **~85%** | **~5% (~65,000)** | **~5% (~65,000–70,000)** | [LIKELY approx] |
-| ~2024–2025 (ministry / PPA data) | ~83–84% (more foreigners in the population) | **~57,000–62,000 (~4.3%)** | **~70,000–85,000** with residence permits | [UNSURE] |
+| 1992 | - | ~32% of residents had no citizenship | - | [LIKELY] |
+| Census 2011 | ~84% | ~6.5% (~85,000) | ~6-7% (~89,000) | [LIKELY] |
+| Census 2021 | **~85%** | **~5% (~65,000)** | **~5% (~65,000-70,000)** | [LIKELY approx] |
+| ~2024-2025 (ministry / PPA data) | ~83-84% (more foreigners in the population) | **~57,000-62,000 (~4.3%)** | **~70,000-85,000** with residence permits | [UNSURE] |
 
 Counts of Russian citizens vary between sources. Census counts usual residents; residence-permit
 statistics count valid permits.
@@ -1135,11 +1135,11 @@ third-country) citizens [LIKELY]. Transitional rules for grey-passport holders w
 
 | Place | Estonian citizens | Russian citizens | Undetermined |
 |---|---|---|---|
-| Narva | ~50–55% | **~32–36%** | ~12–15% |
-| Sillamäe | ~45–50% | ~35–40% | ~12–15% |
-| Kohtla-Järve | ~65–70% | ~15–20% | ~12–15% |
+| Narva | ~50-55% | **~32-36%** | ~12-15% |
+| Sillamäe | ~45-50% | ~35-40% | ~12-15% |
+| Kohtla-Järve | ~65-70% | ~15-20% | ~12-15% |
 | Maardu | ~65% | ~18% | ~15% |
-| Tallinn | ~83–85% | ~6% | ~6% |
+| Tallinn | ~83-85% | ~6% | ~6% |
 | Lasnamäe | ~70% | ~12% | ~14% |
 
 Tallinn has the largest *absolute* number of grey-passport holders; Ida-Virumaa has the highest
@@ -1150,9 +1150,9 @@ Tallinn has the largest *absolute* number of grey-passport holders; Ida-Virumaa 
 | Group and age | Estonian citizen | Russian citizen | Undetermined | Other |
 |---|---|---|---|---|
 | Estonian (any age) | 99 | 0 | 0 | 1 |
-| Russian-speaking, 18–34 | 85 | 7 | 6 | 2 |
-| Russian-speaking, 35–59 | 58 | 20 | 19 | 3 |
-| Russian-speaking, 60–80 | 40 | 33 | 25 | 2 |
+| Russian-speaking, 18-34 | 85 | 7 | 6 | 2 |
+| Russian-speaking, 35-59 | 58 | 20 | 19 | 3 |
+| Russian-speaking, 60-80 | 40 | 33 | 25 | 2 |
 | Russian-speaking, Narva or Sillamäe (any age) | 50 | 35 | 13 | 2 |
 | Ukrainian refugee | 0 | 0 | 0 | 100 (Ukrainian citizen, temporary protection) |
 | Other | 10 | 0 | 0 | 90 |
@@ -1172,10 +1172,10 @@ The code has **11 digits**, in the form `G YY MM DD SSS C`.
 | Position | Meaning |
 |---|---|
 | **G** (1) | Century of birth and sex (table below) |
-| **YY** (2–3) | Last two digits of birth year |
-| **MM** (4–5) | Birth month |
-| **DD** (6–7) | Birth day |
-| **SSS** (8–10) | Serial number. Before 2013 it encoded the birth hospital or region. From 2013 it is a plain sequence among people born on the same day. |
+| **YY** (2-3) | Last two digits of birth year |
+| **MM** (4-5) | Birth month |
+| **DD** (6-7) | Birth day |
+| **SSS** (8-10) | Serial number. Before 2013 it encoded the birth hospital or region. From 2013 it is a plain sequence among people born on the same day. |
 | **C** (11) | Check digit |
 
 The structure is defined by the Estonian standard **EVS 585** (Isikukood. Struktuur). Codes have
@@ -1187,26 +1187,26 @@ is permanent; a new one is issued only in special cases such as legal gender cha
 
 | G | Sex | Born |
 |---|---|---|
-| 1 | male | 1800–1899 |
-| 2 | female | 1800–1899 |
-| 3 | male | 1900–1999 |
-| 4 | female | 1900–1999 |
-| 5 | male | 2000–2099 |
-| 6 | female | 2000–2099 |
-| 7 | male | 2100–2199 (reserved) |
-| 8 | female | 2100–2199 (reserved) |
+| 1 | male | 1800-1899 |
+| 2 | female | 1800-1899 |
+| 3 | male | 1900-1999 |
+| 4 | female | 1900-1999 |
+| 5 | male | 2000-2099 |
+| 6 | female | 2000-2099 |
+| 7 | male | 2100-2199 (reserved) |
+| 8 | female | 2100-2199 (reserved) |
 
-Odd = male, even = female. Century = 1800 + floor((G − 1) / 2) × 100. For EPD's ages 18–80,
-only **3/4** (born 1946–1999) and **5/6** (born 2000–2008) occur. [LIKELY]
+Odd = male, even = female. Century = 1800 + floor((G − 1) / 2) × 100. For EPD's ages 18-80,
+only **3/4** (born 1946-1999) and **5/6** (born 2000-2008) occur. [LIKELY]
 
 ### 7.2 Check digit algorithm [LIKELY; implementation COMPUTED]
 
 1. Multiply the first 10 digits by the **stage-1 weights `1 2 3 4 5 6 7 8 9 1`**. Sum the
    products and take the remainder mod 11.
-2. If the remainder is **0–9**, that is the check digit.
+2. If the remainder is **0-9**, that is the check digit.
 3. If the remainder is **10**, multiply the first 10 digits by the **stage-2 weights
    `3 4 5 6 7 8 9 1 2 3`**. Sum and take mod 11.
-4. If the stage-2 remainder is 0–9, that is the check digit. If it is **10 again, the check
+4. If the stage-2 remainder is 0-9, that is the check digit. If it is **10 again, the check
    digit is 0**.
 
 **Worked example (stage 1):** `3760503029` (man, born 3 May 1976; the well-known textbook example)
@@ -1257,19 +1257,19 @@ This is the widely circulated table (Estonian Wikipedia "Isikukood"). The overal
 
 | SSS range | Hospital / area |
 |---|---|
-| 001–010 | Kuressaare haigla (Saaremaa) |
-| 011–019 | Tartu Ülikooli Naistekliinik (Tartu) |
-| 021–220 | Ida-Tallinna Keskhaigla, Pelgulinna sünnitusmaja, Hiiu Ravila (Tallinn) |
-| 221–270 | Ida-Viru Keskhaigla (Kohtla-Järve, formerly Järve haigla) |
-| 271–370 | Maarjamõisa Kliinikum (Tartu), Lõuna-Eesti Haigla |
-| 371–420 | Narva haigla |
-| 421–470 | Pärnu haigla |
-| 471–490 | Pelgulinna sünnitusmaja (Tallinn), Haapsalu haigla |
-| 491–520 | Järvamaa haigla (Paide) |
-| 521–570 | Rakvere haigla, Tapa haigla |
-| 571–600 | Valga haigla |
-| 601–650 | Viljandi haigla |
-| 651–700 | Lõuna-Eesti Haigla (Võru), Põlva haigla |
+| 001-010 | Kuressaare haigla (Saaremaa) |
+| 011-019 | Tartu Ülikooli Naistekliinik (Tartu) |
+| 021-220 | Ida-Tallinna Keskhaigla, Pelgulinna sünnitusmaja, Hiiu Ravila (Tallinn) |
+| 221-270 | Ida-Viru Keskhaigla (Kohtla-Järve, formerly Järve haigla) |
+| 271-370 | Maarjamõisa Kliinikum (Tartu), Lõuna-Eesti Haigla |
+| 371-420 | Narva haigla |
+| 421-470 | Pärnu haigla |
+| 471-490 | Pelgulinna sünnitusmaja (Tallinn), Haapsalu haigla |
+| 491-520 | Järvamaa haigla (Paide) |
+| 521-570 | Rakvere haigla, Tapa haigla |
+| 571-600 | Valga haigla |
+| 601-650 | Viljandi haigla |
+| 651-700 | Lõuna-Eesti Haigla (Võru), Põlva haigla |
 
 - **From 1 Jan 2013**, the serial is just the birth order among codes issued for that date
   (001, 002, …). It carries no location [LIKELY].
@@ -1280,20 +1280,20 @@ This is the widely circulated table (Estonian Wikipedia "Isikukood"). The overal
 
 | Birthplace | Serial range |
 |---|---|
-| Tallinn / Harjumaa | 021–220 or 471–490 |
-| Tartu | 011–019 or 271–370 |
-| Narva | 371–420 |
-| Kohtla-Järve, Jõhvi, Sillamäe | 221–270 |
-| Pärnu | 421–470 |
-| Saaremaa | 001–010 |
-| Paide | 491–520 |
-| Rakvere / Tapa | 521–570 |
-| Valga | 571–600 |
-| Viljandi | 601–650 |
-| Võru / Põlva | 651–700 |
-| Haapsalu | 471–490 |
-| Born abroad / immigrant | 700–999 |
-| Born 2013 or later | 001–030 (no location) |
+| Tallinn / Harjumaa | 021-220 or 471-490 |
+| Tartu | 011-019 or 271-370 |
+| Narva | 371-420 |
+| Kohtla-Järve, Jõhvi, Sillamäe | 221-270 |
+| Pärnu | 421-470 |
+| Saaremaa | 001-010 |
+| Paide | 491-520 |
+| Rakvere / Tapa | 521-570 |
+| Valga | 571-600 |
+| Viljandi | 601-650 |
+| Võru / Põlva | 651-700 |
+| Haapsalu | 471-490 |
+| Born abroad / immigrant | 700-999 |
+| Born 2013 or later | 001-030 (no location) |
 
 Never reuse the same code for two people.
 
@@ -1343,7 +1343,7 @@ General rules [LIKELY]:
 |---|---|---|
 | **5xx xxxx** (7 digits) | Older mobile numbers. Still very common among middle-aged and older users. | [LIKELY] |
 | **5xxx xxxx** (8 digits) | Most numbers issued in recent years | [LIKELY] |
-| **8xxx xxxx** (8 digits, typically 81–84…) | Newer mobile ranges | [UNSURE exact sub-ranges] |
+| **8xxx xxxx** (8 digits, typically 81-84…) | Newer mobile ranges | [UNSURE exact sub-ranges] |
 
 - Historically the operator could be read from the prefix: roughly 50/52 = Telia (formerly EMT),
   55/56 = Elisa, 58 = Tele2. Number portability now makes this unreliable [UNSURE].
@@ -1402,7 +1402,7 @@ Typical written formats: `612 3456`, `+372 612 3456`, `735 1234`.
 below in incident text and person records. The real employers in §9.3 are background reference
 only.
 
-### 9.1 Common occupations, with suggested weights for adults 18–80
+### 9.1 Common occupations, with suggested weights for adults 18-80
 
 | Estonian | English | W | Where especially |
 |---|---|---|---|
@@ -1452,7 +1452,7 @@ only.
 
 Context [UNSURE approx.]:
 
-- National unemployment has been roughly 6–8% in 2023–2025.
+- National unemployment has been roughly 6-8% in 2023-2025.
 - Ida-Virumaa has the highest regional rate, often above 10%.
 - There are roughly 300,000 old-age pensioners.
 
@@ -1555,20 +1555,20 @@ Estonian postal codes have 5 digits.
 
 | Area | Codes |
 |---|---|
-| Tallinn | 10xxx–15xxx |
-| Narva | 20xxx–21xxx |
-| Kohtla-Järve | 30xxx–31xxx |
+| Tallinn | 10xxx-15xxx |
+| Narva | 20xxx-21xxx |
+| Kohtla-Järve | 30xxx-31xxx |
 | Jõhvi | 41xxx |
 | Sillamäe | 40xxx |
 | Rakvere | 44xxx |
 | Jõgeva | 48xxx |
-| Tartu | 50xxx–51xxx |
+| Tartu | 50xxx-51xxx |
 | Põlva | 63xxx |
 | Võru | 65xxx |
 | Valga | 68xxx |
 | Viljandi | 71xxx |
 | Paide | 72xxx |
-| Harjumaa outside Tallinn | 74xxx–76xxx |
+| Harjumaa outside Tallinn | 74xxx-76xxx |
 | Rapla | 79xxx |
 | Pärnu | 80xxx |
 | Haapsalu | 90xxx |
@@ -1582,27 +1582,27 @@ Estonian postal codes have 5 digits.
 | Metric | Value | Conf. |
 |---|---|---|
 | Share aged 65+ | ~21% | [LIKELY] |
-| Women, share of total population | ~52–53% | [LIKELY] |
-| Women, share of people over 65 | ~63–65% (large gender gap in life expectancy) | [LIKELY] |
-| Life expectancy | men ~74–75, women ~82–83 | [LIKELY] |
+| Women, share of total population | ~52-53% | [LIKELY] |
+| Women, share of people over 65 | ~63-65% (large gender gap in life expectancy) | [LIKELY] |
+| Life expectancy | men ~74-75, women ~82-83 | [LIKELY] |
 | Median age | ~42; Ida-Virumaa highest (~47+) | [UNSURE] |
 
-[DESIGN] **Adult age distribution (18–80)** for the person generator, reflecting large 1980s
+[DESIGN] **Adult age distribution (18-80)** for the person generator, reflecting large 1980s
 birth cohorts and small 1990s cohorts:
 
 | Age | Share |
 |---|---|
-| 18–24 | 9% |
-| 25–34 | 15% |
-| 35–44 | 19% |
-| 45–54 | 17% |
-| 55–64 | 16% |
-| 65–74 | 15% |
-| 75–80 | 9% |
+| 18-24 | 9% |
+| 25-34 | 15% |
+| 35-44 | 19% |
+| 45-54 | 17% |
+| 55-64 | 16% |
+| 65-74 | 15% |
+| 75-80 | 9% |
 
-For Ida-Virumaa and Russian-speakers, move about 5 points from the 25–44 bands into 55–80.
+For Ida-Virumaa and Russian-speakers, move about 5 points from the 25-44 bands into 55-80.
 
-**Approximate populations (2024–2025)** [LIKELY approx; UNSURE for small towns]:
+**Approximate populations (2024-2025)** [LIKELY approx; UNSURE for small towns]:
 
 | Place | Population |
 |---|---|
@@ -1633,7 +1633,7 @@ For Ida-Virumaa and Russian-speakers, move about 5 points from the 25–44 bands
    against stat.ee (name statistics; Census 2021 ethnicity and citizenship tables by county and
    municipality) and Siseministeerium citizenship data.
 2. **Citizenship counts after 2021.** Russian-citizen counts differ between census and
-   residence-permit data. The grey-passport count for 2025 (~57,000–62,000) is [UNSURE].
+   residence-permit data. The grey-passport count for 2025 (~57,000-62,000) is [UNSURE].
 3. **Hospital serial ranges** (§7.3) follow the commonly cited table, but the exact boundaries
    and the handling of codes assigned retroactively in 1992 are unverified.
 4. **Mobile 8xxx ranges** and the Sillamäe landline prefix (39x) are unverified.

@@ -215,7 +215,7 @@ const ROSTER: UnitSpec[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Towns (population ≈ 2024–25, ruShare = share of Russian-speaking residents)
+// Towns (population ≈ 2024-25, ruShare = share of Russian-speaking residents)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // prettier-ignore
@@ -447,7 +447,7 @@ const PLACES: Place[] = [
   pl('i-pl-viru-vangla', 'Viru Vangla', 'prison', 'Jõhvi', 'Ülesõidu tn 1', [27.404, 59.348]),
   pl('i-pl-johvi-pank', 'Pank (Jõhvi)', 'bank', 'Jõhvi', 'Rakvere tn 7', [27.4175, 59.3592]),
   pl('i-pl-johvi-hotell', 'Hotell (Jõhvi)', 'hotel', 'Jõhvi', 'Narva mnt 12', [27.427, 59.3602]),
-  pl('i-pl-johvi-tankla', 'Tankla (Jõhvi, E20)', 'gasstation', 'Jõhvi', 'Tallinna–Narva mnt, Jõhvi', [27.43, 59.37]),
+  pl('i-pl-johvi-tankla', 'Tankla (Jõhvi, E20)', 'gasstation', 'Jõhvi', 'Tallinna-Narva mnt, Jõhvi', [27.43, 59.37]),
   pl('i-pl-johvi-baar', 'Baar (Jõhvi)', 'bar', 'Jõhvi', 'Keskväljak 4', [27.417, 59.3595], ['nightlife']),
 
   // Kohtla-Järve
@@ -531,15 +531,15 @@ const PLACES: Place[] = [
   pl('i-pl-talu-kiltsi', 'Talu (Kiltsi)', 'farm', 'Väike-Maarja vald', 'Kiltsi alevik', [26.1795, 59.0896]),
 
   // Highways
-  pl('i-pl-e20-85', 'Tallinna–Narva mnt (E20), 85. km', 'highway', 'Haljala vald', 'Tallinna–Narva mnt (E20), 85. km', [26.25, 59.42]),
-  pl('i-pl-e20-100', 'Tallinna–Narva mnt (E20), 100. km', 'highway', 'Rakvere vald', 'Tallinna–Narva mnt (E20), 100. km', [26.43, 59.37]),
-  pl('i-pl-e20-130', 'Tallinna–Narva mnt (E20), 130. km', 'highway', 'Viru-Nigula vald', 'Tallinna–Narva mnt (E20), 130. km', [26.86, 59.425]),
-  pl('i-pl-e20-150', 'Tallinna–Narva mnt (E20), 150. km', 'highway', 'Lüganuse vald', 'Tallinna–Narva mnt (E20), 150. km', [27.05, 59.375]),
-  pl('i-pl-e20-163', 'Tallinna–Narva mnt (E20), 163. km', 'highway', 'Jõhvi vald', 'Tallinna–Narva mnt (E20), 163. km', [27.41, 59.368]),
-  pl('i-pl-e20-185', 'Tallinna–Narva mnt (E20), 185. km', 'highway', 'Sillamäe', 'Tallinna–Narva mnt (E20), 185. km', [27.73, 59.389]),
-  pl('i-pl-e20-200', 'Tallinna–Narva mnt (E20), 200. km', 'highway', 'Narva-Jõesuu', 'Tallinna–Narva mnt (E20), 200. km', [27.88, 59.38]),
-  pl('i-pl-mnt3-iisaku', 'Jõhvi–Tartu–Valga mnt (3), Iisaku', 'highway', 'Alutaguse vald', 'Jõhvi–Tartu–Valga mnt (3), 33. km', [27.315, 59.11]),
-  pl('i-pl-mnt91-kudrukula', 'Narva–Narva-Jõesuu mnt (91), Kudruküla', 'highway', 'Narva-Jõesuu', 'Narva–Narva-Jõesuu mnt (91), Kudruküla', [28.094, 59.432], ['russian']),
+  pl('i-pl-e20-85', 'Tallinna-Narva mnt (E20), 85. km', 'highway', 'Haljala vald', 'Tallinna-Narva mnt (E20), 85. km', [26.25, 59.42]),
+  pl('i-pl-e20-100', 'Tallinna-Narva mnt (E20), 100. km', 'highway', 'Rakvere vald', 'Tallinna-Narva mnt (E20), 100. km', [26.43, 59.37]),
+  pl('i-pl-e20-130', 'Tallinna-Narva mnt (E20), 130. km', 'highway', 'Viru-Nigula vald', 'Tallinna-Narva mnt (E20), 130. km', [26.86, 59.425]),
+  pl('i-pl-e20-150', 'Tallinna-Narva mnt (E20), 150. km', 'highway', 'Lüganuse vald', 'Tallinna-Narva mnt (E20), 150. km', [27.05, 59.375]),
+  pl('i-pl-e20-163', 'Tallinna-Narva mnt (E20), 163. km', 'highway', 'Jõhvi vald', 'Tallinna-Narva mnt (E20), 163. km', [27.41, 59.368]),
+  pl('i-pl-e20-185', 'Tallinna-Narva mnt (E20), 185. km', 'highway', 'Sillamäe', 'Tallinna-Narva mnt (E20), 185. km', [27.73, 59.389]),
+  pl('i-pl-e20-200', 'Tallinna-Narva mnt (E20), 200. km', 'highway', 'Narva-Jõesuu', 'Tallinna-Narva mnt (E20), 200. km', [27.88, 59.38]),
+  pl('i-pl-mnt3-iisaku', 'Jõhvi-Tartu-Valga mnt (3), Iisaku', 'highway', 'Alutaguse vald', 'Jõhvi-Tartu-Valga mnt (3), 33. km', [27.315, 59.11]),
+  pl('i-pl-mnt91-kudrukula', 'Narva-Narva-Jõesuu mnt (91), Kudruküla', 'highway', 'Narva-Jõesuu', 'Narva-Narva-Jõesuu mnt (91), Kudruküla', [28.094, 59.432], ['russian']),
 ];
 
 export const REGION_IDA: RegionDef = {

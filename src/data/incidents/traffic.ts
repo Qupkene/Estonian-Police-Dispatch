@@ -350,7 +350,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
     vehicles: [{ role: 'suspect', kind: 'car', driverRole: 'driver', stolen: 0.04, noInsurance: 0.12, noInspection: 0.15, suspended: 0.05 }],
     summary: [
       T('{address}. Joobes juhi kahtlus: {car}, numbrimärk {plate}, looklev sõit, liigub {direction}. Teataja sõidab järel.', '{address}. Suspected drunk driver: {car}, plate {plate}, weaving, moving {direction}. The caller is following.'),
-      T('{address}. Teataja sõidab sõiduki {plate} taga. Auto kõigub rajalt rajale ja pidurdab põhjuseta. Kiirus 50–110 km/h.', '{address}. The caller is behind {plate}. The car drifts lane to lane and brakes for no reason. Speed 50–110 km/h.'),
+      T('{address}. Teataja sõidab sõiduki {plate} taga. Auto kõigub rajalt rajale ja pidurdab põhjuseta. Kiirus 50-110 km/h.', '{address}. The caller is behind {plate}. The car drifts lane to lane and brakes for no reason. Speed 50-110 km/h.'),
       T('{address}. {car} ({plate}) sõitis teepeenrale ja tagasi, ohustab vastutulijaid. Teataja on liinil.', '{address}. A {car} ({plate}) ran onto the verge and back, endangering oncoming traffic. The caller is on the line.'),
     ],
     callerLines: [
