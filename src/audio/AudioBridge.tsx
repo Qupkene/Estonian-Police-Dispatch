@@ -73,7 +73,8 @@ function handleEvents(events: GameEvent[]) {
   if (has('unit_arrived')) sfx.play('radioOut', { gain: 0.4 });
 
   if (has('radio') || has('radio_emergency')) {
-    const fresh = takeNewRadio(sim).filter((m) => m.from !== 'JK');
+    const all = takeNewRadio(sim);
+    const fresh = all.filter((m) => m.from !== 'JK');
     const now = performance.now();
     if (fresh.some((m) => m.kind === 'backup' && !m.answered)) sfx.play('backup');
     else if (fresh.length && !has('radio_emergency') && now - lastRadioSfx > 1500) {
@@ -86,16 +87,35 @@ function handleEvents(events: GameEvent[]) {
       const pick = [...fresh].sort((a, b) => rank(b) - rank(a))[0];
       const ev = events.find((e) => (e.type === 'radio' || e.type === 'radio_emergency') && e.text);
       const text = pick ? radioLine(pick, st.lang) : ev?.text ? ev.text[st.lang] || ev.text.et : '';
-      if (text) speak(text, st.lang, { radio: true, volume: Math.min(1, st.volume + 0.2) });
+      const msg = pick ?? all.find((m) => m.text === ev?.text);
+      if (text)
+        speak(text, st.lang, {
+          radio: true,
+          volume: Math.min(1, st.volume + 0.2),
+          speaker: msg ? speakerOf(sim, msg) : undefined,
+        });
     }
   }
 }
 
-/** Spoken form of a radio message: the sender is prefixed unless the text already names it. */
+/**
+ * Spoken form of a radio message: the sender is prefixed unless the text already names it, in full
+ * ("PÕHJA 51") or by its short form at the start ("51: sihtkohas").
+ */
 function radioLine(m: RadioMsg, lang: 'et' | 'en'): string {
   const body = m.text[lang] || m.text.et;
   const from = m.from === 'HK' ? t('shell.audio.hk', lang) : m.from;
-  return body.toLowerCase().includes(m.from.toLowerCase()) ? body : `${from}: ${body}`;
+  const lower = body.toLowerCase();
+  if (lower.includes(m.from.toLowerCase())) return body;
+  const short = m.from.split(/\s+/).slice(1).join(' ').toLowerCase();
+  if (/\d/.test(short) && lower.startsWith(short) && /^$|[\s,:.]/.test(lower.charAt(short.length))) return body;
+  return `${from}: ${body}`;
+}
+
+/** Who talks: the sender, and for a unit its crew leader's gender (picks the Estonian voice). */
+function speakerOf(sim: SimState, m: RadioMsg): { from: string; gender?: 'M' | 'F' } {
+  if (m.from === 'JK' || m.from === 'HK' || !m.unitId) return { from: m.from };
+  return { from: m.from, gender: sim.units[m.unitId]?.crew?.[0]?.gender };
 }
 
 const rank = (m: RadioMsg) =>
@@ -126,6 +146,7 @@ function watchCalls(sim: SimState | null, screen: string) {
 export function AudioBridge() {
   const volume = useSettings((s) => s.volume);
   const sfxOn = useSettings((s) => s.sfx);
+  const radioVoice = useSettings((s) => s.radioVoice);
   const ambience = useSettings((s) => s.ambience);
   const reducedMotion = useSettings((s) => s.reducedMotion);
   const screen = useGame((s) => s.screen);
@@ -138,6 +159,11 @@ export function AudioBridge() {
   useEffect(() => {
     document.documentElement.dataset.reducedMotion = String(reducedMotion);
   }, [reducedMotion]);
+
+  // Switching the radio voice off silences it at once (also a line that is still playing).
+  useEffect(() => {
+    if (!radioVoice) stopSpeech();
+  }, [radioVoice]);
 
   // Leaving the shift silences the phone and the radio voice.
   useEffect(() => {

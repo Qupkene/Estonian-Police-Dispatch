@@ -28,13 +28,14 @@ konteiner politsei (FrankenPHP, :80)
 | /opt/stack/politsei/compose.yml | relee-politsei + politsei (repo: deploy/mainserver/compose.yml) |
 | /opt/stack/politsei/conf/Caddyfile | konteineri Caddyfile (repo: deploy/mainserver/Caddyfile) |
 | /opt/stack/politsei/wg/ | wg0.conf, politsei.key (privaatvõti), politsei.pub |
-| /opt/stack/politsei/data/ | epd.sqlite, sessions/, deploy-secret, control/uuenda.json, varu/ (andmebaasi varukoopiad) |
+| /opt/stack/politsei/data/ | epd.sqlite, sessions/, deploy-secret, control/uuenda.json, varu/ (andmebaasi varukoopiad), tts/ (raadio kõne vahemälu) |
 | /opt/stack/politsei/www.prev/ | eelmine versioon (tagasivõtuks) |
 | /opt/stack/politsei/olek/ | viimane.txt (viimane tulemus), vigased.txt (vahele jäetud commitid), kaardiandmed.txt (millest kaardiandmed viimati ehitati) |
 | /opt/stack/politsei/juhised.txt | paigaldaja juhised (a, b, c) uuesti vaatamiseks |
 | /usr/local/sbin/politsei-uuenda.sh | uuendusskript |
 | politsei-uuenda.path, .timer, .service | systemd unitid |
 | relee: /etc/caddy/Caddyfile, /etc/wireguard/wg0.conf | politsei.eu plokk ja peer 10.99.0.5 |
+| relee: /etc/caddy/Caddyfile | `http://10.99.0.1` plokk: TartuNLP vahendaja (vt "Raadio eestikeelne kõne") |
 | relee: /srv/politsei/varu/index.html | "Server on hetkel kättesaamatu" |
 
 Nftables releel ei muutu: 80 ja 443 on juba lahti, Caddy ühendus 10.99.0.5 poole on releelt endalt
@@ -221,6 +222,186 @@ vanad failid jäävad alles.
 
 Mäng loeb failid taustal (töölõimes) ühe korra lehe kohta. Kui neid pole (404), sõidavad autod
 sirgjooni pidi nagu varem ja väljakutsed on oma algsetes punktides.
+
+## Raadio eestikeelne kõne (TartuNLP Neurokõne)
+
+Eesti keeles loeb raadiosõnumeid ette Tartu Ülikooli Neurokõne (TartuNLP). Brauser räägib ainult
+politsei.eu-ga: `POST /api/tts` teeb kõne serveris ja hoiab helifaili vahemälus
+`data/tts/` (kuni 300 MB, vanimad kustuvad ise). Konteineril pole internetti, seega küsib PHP
+releelt (`EPD_TTS_UPSTREAM=http://10.99.0.1/text-to-speech/v2`) ja relee Caddy saadab päringu edasi
+`https://api.tartunlp.ai`. Relee vastab sellele ainult WireGuardi aadressidelt (10.99.0.0/24), teised
+saavad 403. Kuni relee plokki pole, on eestikeelne raadio vait (või brauseri häälega), mäng töötab.
+
+Relee PuTTY aken. Plokk 1 üksinda (küsib sudo parooli):
+
+```
+sudo -v
+```
+
+Plokk 2 (sama mis `deploy/relee/lisa-tts.sh`; varukoopia, kontroll ja taastamine on sees, uuesti
+käivitamine on ohutu):
+
+```
+cat > ~/lisa-tts.sh <<'TTS_LISAMINE_LOPP'
+#!/usr/bin/env bash
+# lisa-tts.sh: lisab relee VPS-i Caddy'sse eestikeelse kõne vahendaja (EPD raadio, TartuNLP Neurokõne).
+#
+# Kleebitav plokk on failis docs/DEPLOY.md, "Raadio eestikeelne kõne" (relee PuTTY aken).
+# Käsitsi: sudo bash lisa-tts.sh
+#
+# MainServeri politsei konteineril pole internetti, ainult WireGuard releele. PHP küsib
+# http://10.99.0.1/text-to-speech/v2, relee Caddy saadab päringu edasi https://api.tartunlp.ai.
+# Plokk vastab ainult WireGuardi aadressidele 10.99.0.0/24 ja ainult teele /text-to-speech/*
+# (keha kuni 64 kB). Kõik teised saavad 403, ka võltsitud Host päisega: see pole avalik proksi.
+#
+# Teeb: varukoopia (/etc/caddy/Caddyfile), Caddy plokk (ainult kui seda veel pole), caddy validate,
+# reload. Vea korral taastab faili ise. Uuesti käivitamine on ohutu.
+#
+# nftables muutust pole vaja: input lubab tcp 80 igal liidesel (ka wg0), ühendus api.tartunlp.ai
+# poole on releelt endalt väljuv liiklus (output policy accept).
+
+set -euo pipefail
+umask 077
+echo "== TTS vahendaja (TartuNLP) lisamine releele =="
+
+# TTS_CADDYFILE on ainult testimiseks, vaikimisi on relee tee.
+CADDYFILE="${TTS_CADDYFILE:-/etc/caddy/Caddyfile}"
+AVALIK_IP=80.47.227.213
+MARK="# EPD TTS (TartuNLP Neurokõne) releel, lisas lisa-tts.sh"
+AEG="$(date +%Y%m%d-%H%M%S)"
+CADDY_VARU="$CADDYFILE.varu-tts-$AEG"
+VALMIS=0
+
+die() {
+    echo "VIGA: $*" >&2
+    exit 1
+}
+
+taasta() {
+    set +e
+    echo "!! Viga, taastan Caddyfile'i"
+    [ -f "$CADDY_VARU" ] && cp -a "$CADDY_VARU" "$CADDYFILE"
+    if caddy validate --config "$CADDYFILE" --adapter caddyfile >/dev/null 2>&1; then
+        systemctl reload caddy
+    fi
+    echo "!! Taastatud. Varukoopia: $CADDY_VARU"
+}
+
+lopp() {
+    local rc=$?
+    trap - EXIT
+    if [ "$rc" -ne 0 ] && [ "$VALMIS" != 1 ]; then
+        taasta
+    fi
+    exit "$rc"
+}
+
+[ "$(id -u)" -eq 0 ] || die "käivita root õigustes: sudo bash $0"
+for kask in caddy systemctl grep mktemp; do
+    command -v "$kask" >/dev/null 2>&1 || die "käsk $kask puudub"
+done
+[ -f "$CADDYFILE" ] || die "$CADDYFILE puudub"
+
+echo "1/4 Varukoopia"
+cp -a "$CADDYFILE" "$CADDY_VARU"
+echo "    $CADDY_VARU"
+trap lopp EXIT
+
+echo "2/4 Caddy plokk"
+if grep -qxF -- "$MARK" "$CADDYFILE"; then
+    echo "    plokk on juba olemas, teist ei lisata"
+elif grep -qE '^[[:space:]]*(https?://)?10\.99\.0\.1(:80)?([[:space:]]*,|[[:space:]]*\{|[[:space:]]*$)' "$CADDYFILE"; then
+    die "Caddyfile'is on juba teine 10.99.0.1 plokk, seda skript ei muuda. Vaata: sudo grep -n 10.99.0.1 $CADDYFILE"
+else
+    cat >> "$CADDYFILE" <<'CADDYPLOKK'
+
+# EPD TTS (TartuNLP Neurokõne) releel, lisas lisa-tts.sh
+# MainServeri politsei konteiner (10.99.0.5) küsib siit eestikeelset kõnet. Ainult WireGuardi
+# aadressid 10.99.0.0/24 ja ainult /text-to-speech/*, kõik muu saab 403 (pole avalik proksi).
+http://10.99.0.1 {
+	@wg remote_ip 10.99.0.0/24
+	handle @wg {
+		handle /text-to-speech/* {
+			request_body {
+				max_size 64KB
+			}
+			reverse_proxy https://api.tartunlp.ai {
+				header_up Host api.tartunlp.ai
+				header_up -X-Forwarded-Host
+				transport http {
+					tls_server_name api.tartunlp.ai
+					dial_timeout 5s
+					response_header_timeout 20s
+				}
+			}
+		}
+		handle {
+			respond "Not found" 404
+		}
+	}
+	handle {
+		respond "Forbidden" 403
+	}
+}
+CADDYPLOKK
+    echo "    lisatud faili lõppu"
+fi
+VALIDATE_LOG="$(mktemp)"
+if ! caddy validate --config "$CADDYFILE" --adapter caddyfile >"$VALIDATE_LOG" 2>&1; then
+    tail -n 5 "$VALIDATE_LOG"
+    rm -f "$VALIDATE_LOG"
+    die "caddy validate ebaõnnestus"
+fi
+rm -f "$VALIDATE_LOG"
+echo "    caddy validate: korras"
+
+echo "3/4 Caddy reload"
+systemctl reload caddy
+VALMIS=1
+echo "    tehtud"
+
+echo "4/4 Kontroll"
+if command -v curl >/dev/null 2>&1; then
+    sleep 2
+    WAV="$(mktemp)"
+    kood="$(curl -s -o "$WAV" -m 30 -w '%{http_code}' -H 'Content-Type: application/json' \
+        --data '{"text":"Tere, siin juhtimiskeskus.","speaker":"mari","speed":1}' \
+        http://10.99.0.1/text-to-speech/v2 || true)"
+    if [ "$kood" = 200 ] && [ "$(head -c 4 "$WAV")" = RIFF ]; then
+        echo "TartuNLP releelt: korras, $(wc -c < "$WAV") baiti WAV"
+    else
+        echo "HOIATUS: TartuNLP vastas ${kood:-000} (ootus 200 ja WAV). Plokk on paigas, proovi hiljem:"
+        echo "  curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' --data '{\"text\":\"Tere.\",\"speaker\":\"mari\"}' http://10.99.0.1/text-to-speech/v2; echo"
+    fi
+    rm -f "$WAV"
+    avalik="$(curl -s -o /dev/null -m 5 -w '%{http_code}' -H 'Host: 10.99.0.1' "http://$AVALIK_IP/text-to-speech/v2" || true)"
+    echo "Avalik aadress võltsitud Host päisega: ${avalik:-000} (403 = korras, pole avalik proksi)"
+else
+    echo "curl puudub, kontrolli MainServerist (docs/DEPLOY.md)"
+fi
+echo
+echo "Valmis. MainServeris küsib politsei konteiner http://10.99.0.1/text-to-speech/v2 (EPD_TTS_UPSTREAM)."
+TTS_LISAMINE_LOPP
+sudo bash ~/lisa-tts.sh
+```
+
+Ootus: `TartuNLP releelt: korras, ... baiti WAV` ja võltsitud Host päisega `403`.
+
+Kontroll MainServeris (MainServer PuTTY aken, sama plokk 1 enne). Esimene rida küsib releelt otse
+konteinerist, teine läbi mängu API:
+
+```
+sudo docker exec politsei php -r '$c = stream_context_create(["http" => ["method" => "POST", "header" => "Content-Type: application/json\r\n", "content" => json_encode(["text" => "Tere, siin juhtimiskeskus.", "speaker" => "mari"]), "timeout" => 15, "ignore_errors" => true]]); $w = @file_get_contents(getenv("EPD_TTS_UPSTREAM") ?: "http://10.99.0.1/text-to-speech/v2", false, $c); echo $http_response_header[0] ?? "vastust pole", ", ", strlen((string) $w), " baiti, ", substr((string) $w, 0, 4) === "RIFF" ? "WAV korras" : "pole WAV", "\n";'
+curl -s -o /dev/null -w '%{http_code} %{content_type}\n' -X POST -H 'X-EPD: 1' -H 'Content-Type: application/json' --data '{"text":"Tere, siin juhtimiskeskus.","voice":"mari"}' "http://$(sed -n 's/^POLITSEI_IP=//p' /opt/stack/politsei/.env)/api/tts"
+```
+
+Ootus: `HTTP/1.1 200 OK, ... baiti, WAV korras` ja `200 audio/wav`. API vastus 503 `tts_unavailable`
+tähendab, et relee või TartuNLP ei vastanud; server proovib siis uuesti alles minuti pärast.
+
+`EPD_TTS_UPSTREAM` on `compose.yml`-is, aga sama väärtus on ka koodis vaikimisi, nii et kõne töötab
+kohe pärast uuendust. Uuendus teatab muutunud `compose.yml`-ist; paigaldaja võib uuesti käivitada
+millal sobib. Eemaldamine: `deploy/relee/eemalda-tts.sh` releel samamoodi (heredoc ja
+`sudo bash`).
 
 ## Logid
 

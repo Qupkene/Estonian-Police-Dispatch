@@ -121,6 +121,18 @@ function epd_migrations(): array
             'CREATE INDEX login_attempts_name ON login_attempts (ip, name_key, at)',
             'CREATE INDEX login_attempts_at ON login_attempts (at)',
         ],
+        // General per-IP limits (first user: uncached speech synthesis, POST /api/tts). Kept apart
+        // from login_attempts so they never count against the login and register limits.
+        2 => [
+            'CREATE TABLE rate_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bucket TEXT NOT NULL,
+                ip TEXT NOT NULL,
+                at INTEGER NOT NULL
+            )',
+            'CREATE INDEX rate_events_ip ON rate_events (bucket, ip, at)',
+            'CREATE INDEX rate_events_at ON rate_events (at)',
+        ],
     ];
 }
 
