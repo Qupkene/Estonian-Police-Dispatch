@@ -132,6 +132,19 @@ describe.skipIf(!ready)('balance harness', () => {
       expect(s.flags.loadFactor).toBeUndefined();
       // State must stay serialisable for autosave.
       expect(() => JSON.parse(JSON.stringify(s))).not.toThrow();
+      // On the air: no law paragraphs, and short closing reports (the full summary is in the timeline).
+      for (const m of s.radio) expect(`${m.text.et} ${m.text.en}`, m.text.et).not.toMatch(/§/);
+      let closings = 0;
+      for (const inc of Object.values(s.incidents)) {
+        if (inc.closedBy !== 'units' || !inc.outcome) continue;
+        for (const m of s.radio) {
+          if (m.incidentId !== inc.id || m.t !== inc.closedAt || m.from === 'JK' || m.from === 'HK') continue;
+          closings++;
+          expect(m.text.et.split(/\s+/).length, m.text.et).toBeLessThanOrEqual(14);
+          expect(m.text.et, m.text.et).not.toBe(inc.outcome.text.et);
+        }
+      }
+      expect(closings).toBeGreaterThan(0);
     }, 120_000);
   }
 

@@ -534,7 +534,7 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
         6,
         [
           T(
-            '{callsign}: isik on psühhoosilaadses seisundis. Kas toimetame kiirabiga haiglasse või peame kinni NPALS väärteo tõttu?',
+            '{callsign}: isik on psühhoosilaadses seisundis. Kiirabiga haiglasse või peame narkoväärteo eest kinni?',
             '{callsign}: subject is in a psychosis-like state. Send to hospital by ambulance, or detain for the drugs offence?',
           ),
         ],

@@ -10,6 +10,7 @@ import { REGIONS } from '@/data/regions';
 import { TEMPLATE_BY_ID, TEMPLATES } from '@/data/incidents';
 import { publishIncidentImpl } from './incidents';
 import { moveUnitToImpl } from './units';
+import { stripLawRefsText } from './radioText';
 import type { GameEvent, Incident, IncidentTemplate, LngLat, RadioMsg, RegionDef, SimState, Text, TimelineEntry, Unit } from './types';
 
 export function regionOf(s: SimState): RegionDef {
@@ -40,7 +41,8 @@ export function emit(s: SimState, ev: Omit<GameEvent, 't'>): void {
 const MAX_RADIO = 300;
 
 export function pushRadio(s: SimState, msg: Omit<RadioMsg, 'id' | 't'> & { t?: number }): RadioMsg {
-  const m: RadioMsg = { id: `r${++s.seq.radio}`, t: msg.t ?? s.now, ...msg };
+  // Law references never go on the air (they stay in the timeline, registry and report).
+  const m: RadioMsg = { id: `r${++s.seq.radio}`, t: msg.t ?? s.now, ...msg, text: stripLawRefsText(msg.text) };
   s.radio.push(m);
   if (s.radio.length > MAX_RADIO) s.radio.splice(0, s.radio.length - MAX_RADIO);
   emit(s, { type: m.level === 'emergency' ? 'radio_emergency' : 'radio', incidentId: m.incidentId, unitId: m.unitId, text: m.text });

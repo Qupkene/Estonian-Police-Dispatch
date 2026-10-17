@@ -3,8 +3,10 @@
 //
 // The radio writes many things in short form. This expands them the way a dispatcher says them on air:
 // personal codes, plates and the emergency number digit by digit, street and unit abbreviations in full,
-// law references as words, event numbers by their running number. TartuNLP reads ordinary numbers
-// itself ("Põhja 21" is "Põhja kakskümmend üks"), so those stay as digits.
+// event numbers by their running number. Law references are not said on the radio at all (they stay in
+// the incident panel and the report). TartuNLP reads ordinary numbers itself ("Põhja 21" is "Põhja
+// kakskümmend üks"), so those stay as digits.
+import { stripLawWords } from '@/sim/radioText';
 
 const DIGITS = ['null', 'üks', 'kaks', 'kolm', 'neli', 'viis', 'kuus', 'seitse', 'kaheksa', 'üheksa'];
 
@@ -14,16 +16,6 @@ const LETTER_NAMES: Record<string, string> = {
   K: 'kaa', L: 'ell', M: 'emm', N: 'enn', O: 'oo', P: 'pee', Q: 'kuu', R: 'err', S: 'ess', Š: 'šaa',
   Z: 'zett', Ž: 'žee', T: 'tee', U: 'uu', V: 'vee', W: 'kaksisvee', Õ: 'õõ', Ä: 'ää', Ö: 'öö', Ü: 'üü',
   X: 'iks', Y: 'igrek',
-};
-
-/** Law abbreviations in the genitive, as they stand before "paragrahv". */
-const LAWS: Record<string, string> = {
-  KarS: 'karistusseadustiku',
-  NPALS: 'narkootiliste ja psühhotroopsete ainete seaduse',
-  LS: 'liiklusseaduse',
-  KorS: 'korrakaitseseaduse',
-  KrMS: 'kriminaalmenetluse seadustiku',
-  VTMS: 'väärteomenetluse seadustiku',
 };
 
 /** All-caps words that are spoken as words (callsign parts and the like), not spelled. */
@@ -50,41 +42,21 @@ function spellNumberRun(run: string): string {
   return groups.map(spellDigits).join(', ');
 }
 
-const fromSuperscript = (s: string) => [...s].map((c) => String(SUPERSCRIPT.indexOf(c))).join('');
-
 /** Whole-word pattern that also respects õ, ä, ö, ü (JavaScript's \b does not). */
 const word = (w: string, flags = 'gu') => new RegExp(`(?<![\\p{L}\\p{N}])${w}(?![\\p{L}\\p{N}])`, flags);
-
-function lawPhrase(law: string, num: string, sup: string, lg: string | undefined, pt: string | undefined, jargi: boolean): string {
-  const g = jargi ? ['paragrahvi', 'lõike', 'punkti'] : ['paragrahv', 'lõige', 'punkt'];
-  let out = `${LAWS[law]} ${g[0]} ${num}`;
-  if (sup) out += ` indeks ${fromSuperscript(sup)}`;
-  if (lg) out += ` ${g[1]} ${lg}`;
-  if (pt) out += ` ${g[2]} ${pt}`;
-  return jargi ? `${out} järgi` : out;
-}
 
 const STREET_TYPES = 'tn|tänav|mnt|maantee|pst|puiestee|tee|allee|põik|väljak|plats|rada|turg|park|kallas';
 
 /**
- * Text for the Estonian neural voice. Drops bracketed notes, quotes and law references in brackets,
- * expands abbreviations and spells what is read digit by digit. Cut at a sentence end near `max`.
+ * Text for the Estonian neural voice. Drops bracketed notes, quotes and law references, expands
+ * abbreviations and spells what is read digit by digit. Cut at a sentence end near `max`.
  */
 export function ttsText(text: string, max = 300): string {
-  let s = ` ${text} `
+  let s = ` ${stripLawWords(text)} `
     .replace(/\[[^\]]*\]/g, ' ')
     .replace(/[«»"„“”]/g, '')
-    // Law references: in brackets they are a note for the reader, inline they are read out.
-    .replace(/\s*\([^()]*§[^()]*\)/g, '')
-    .replace(
-      new RegExp(
-        `(?<![\\p{L}])(${Object.keys(LAWS).join('|')})\\s*§\\s*(\\d+)([${SUPERSCRIPT}]*)(?:\\s*lg\\s*(\\d+))?(?:\\s*p\\s*(\\d+))?(\\s+järgi)?`,
-        'gu',
-      ),
-      (_m, law: string, num: string, sup: string, lg?: string, pt?: string, jargi?: string) =>
-        ` ${lawPhrase(law, num, sup, lg, pt, !!jargi)}`,
-    )
-    .replace(/§\s*(\d+)/g, 'paragrahv $1')
+    // Whatever is left of a law reference ("§ 12") is not said either.
+    .replace(new RegExp(`§+\\s*\\d*[${SUPERSCRIPT}]*`, 'gu'), ' ')
     // Event numbers "PÕ-261016-0004": the running number is what is said.
     .replace(/(?<![\p{L}\p{N}])[A-ZÕÄÖÜ]{2}-\d{6}-0*(\d+)(?![\p{N}])/gu, '$1')
     // Emergency number, also in "112-kõne".

@@ -50,8 +50,8 @@ export function startSearch(s: SimState, inc: Incident, radiusKm: number): void 
     from: lead?.callsign ?? 'JK',
     unitId: lead?.id,
     text: missing
-      ? { et: `Alustame otsinguid ${fmtKm(r)} km raadiuses. Palun saata lisajõude, koerajuht oleks abiks.`, en: `Starting a search within a ${fmtKm(r)} km radius. Requesting more units, a dog handler would help.` }
-      : { et: `Kahtlustatav põgenes jalgsi, kammime piirkonda ${fmtKm(r)} km raadiuses.`, en: `The suspect fled on foot, combing the area within ${fmtKm(r)} km.` },
+      ? { et: `Alustame otsinguid, raadius ${fmtKm(r)} km. Vajame lisajõude ja koerajuhti.`, en: `Starting a search, ${fmtKm(r)} km radius. Need more units and a dog handler.` }
+      : { et: `Kahtlustatav põgenes jalgsi, kammime piirkonda, raadius ${fmtKm(r)} km.`, en: `Suspect fled on foot, combing the area, ${fmtKm(r)} km radius.` },
     level: 'priority',
     kind: 'info',
     incidentId: inc.id,
@@ -121,12 +121,12 @@ export function updateSearch(s: SimState, inc: Incident, dtMin: number): boolean
     unitId: u?.id,
     text: missing
       ? u?.type === 'k9'
-        ? { et: 'Koer võttis jälje ja viis meid otse isiku juurde. Leitud! Elus, alajahtunud, kutsume kiirabi kontrolliks.', en: 'The dog picked up the track and led us straight to the person. Found! Alive, cold, calling an ambulance to check.' }
+        ? { et: 'Isik leitud, koer võttis jälje! Elus, alajahtunud, vajame kiirabi.', en: 'Person found, the dog tracked them! Alive, cold, need an ambulance.' }
         : u?.type === 'heli'
-          ? { et: 'Termokaamera tuvastas isiku, juhatame maapealse ekipaaži kohale. Isik leitud!', en: 'Thermal camera has the person, guiding the ground unit in. Person found!' }
-          : { et: 'Isik leitud! Ta on elus ja kontaktne.', en: 'Person found! Alive and responsive.' }
+          ? { et: 'Isik leitud termokaameraga, juhatame ekipaaži kohale!', en: 'Person found on thermal, guiding the ground unit in!' }
+          : { et: 'Isik leitud, elus ja kontaktne!', en: 'Person found, alive and responsive!' }
       : u?.type === 'k9'
-        ? { et: 'Koer tabas kahtlustatava põõsastest, isik kinni peetud!', en: 'The dog found the suspect hiding in the bushes, detained!' }
+        ? { et: 'Koer leidis kahtlustatava põõsastest, kinni peetud!', en: 'Dog found the suspect in the bushes, detained!' }
         : { et: 'Kahtlustatav leitud ja kinni peetud!', en: 'Suspect found and detained!' },
     level: 'priority',
     kind: 'info',
