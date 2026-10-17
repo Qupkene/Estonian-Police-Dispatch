@@ -6,20 +6,19 @@
  *   navigations              network-first, falls back to the cached page or the cached index
  *   /assets/*, /glyphs/*      cache-first (Vite asset names are content-hashed)
  *   other same-origin GETs   network-first with a cached fallback (favicon, manifest, legacy pages)
- *   CARTO basemap tiles      cache-first, opportunistic, capped at about TILE_LIMIT entries
- *   everything else          not intercepted (non-GET, other hosts, range requests)
+ *   everything else          not intercepted (non-GET, other hosts, range requests, /api/*, /tiles/*)
  *
- * Bump VERSION on a release to drop the old shell and static caches. The tile cache survives.
+ * /api/* carries per-user data and must never land in a cache. /tiles/estonia.pmtiles is read with
+ * HTTP range requests straight from the server.
+ *
+ * Bump VERSION on a release to drop the old shell and static caches.
  */
 'use strict';
 
-const VERSION = '2.0.0-1';
+const VERSION = '2.0.0-2';
 const PREFIX = 'epd-';
 const SHELL_CACHE = `${PREFIX}shell-${VERSION}`;
 const STATIC_CACHE = `${PREFIX}static-${VERSION}`;
-const TILE_CACHE = `${PREFIX}tiles-v1`;
-const TILE_LIMIT = 400;
-const TILE_TRIM_EVERY = 20; // check the tile cache size every N stored tiles
 const MAX_WARM_URLS = 400;
 
 const SCOPE_URL = new URL(self.registration.scope);
@@ -27,7 +26,7 @@ const BASE = SCOPE_URL.pathname; // '/' on politsei.eu, '/<repo>/' on a project 
 const INDEX_URL = SCOPE_URL.href;
 const STATIC_PREFIXES = [`${BASE}assets/`, `${BASE}glyphs/`];
 const SHELL_EXTRAS = ['favicon.svg', 'manifest.webmanifest'].map((p) => new URL(p, SCOPE_URL).href);
-const TILE_HOST = /(^|\.)basemaps\.cartocdn\.com$/i;
+const BYPASS_PREFIXES = [`${BASE}api/`, `${BASE}tiles/`];
 
 const isStatic = (url) =>
   url.origin === self.location.origin && STATIC_PREFIXES.some((p) => url.pathname.startsWith(p));
@@ -75,7 +74,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
-      const keep = new Set([SHELL_CACHE, STATIC_CACHE, TILE_CACHE]);
+      const keep = new Set([SHELL_CACHE, STATIC_CACHE]);
       const names = await caches.keys();
       await Promise.all(names.filter((n) => n.startsWith(PREFIX) && !keep.has(n)).map((n) => caches.delete(n)));
       if (self.registration.navigationPreload) {
@@ -99,6 +98,7 @@ self.addEventListener('fetch', (event) => {
   if (request.headers.has('range')) return;
 
   const url = new URL(request.url);
+  if (url.origin === self.location.origin && BYPASS_PREFIXES.some((p) => url.pathname.startsWith(p))) return;
 
   if (request.mode === 'navigate') {
     if (url.origin === self.location.origin) event.respondWith(handleNavigation(event, url));
@@ -107,11 +107,6 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin === self.location.origin) {
     event.respondWith(isStatic(url) ? cacheFirst(event, STATIC_CACHE) : networkFirst(event, SHELL_CACHE));
-    return;
-  }
-
-  if (TILE_HOST.test(url.hostname)) {
-    event.respondWith(tileCacheFirst(event));
   }
 });
 
@@ -161,41 +156,6 @@ async function networkFirst(event, cacheName) {
     if (cached) return cached;
     throw err;
   }
-}
-
-/* ------------------------------------------------------------------ tiles */
-
-let tilePuts = 0;
-let tileTrim = Promise.resolve();
-
-async function tileCacheFirst(event) {
-  const cache = await caches.open(TILE_CACHE);
-  const cached = await cache.match(event.request);
-  if (cached) return cached;
-  const response = await fetch(event.request);
-  // CARTO sends CORS headers. Opaque responses are skipped: Chrome pads each one to megabytes of quota.
-  if (response.status === 200 && (response.type === 'cors' || response.type === 'basic')) {
-    event.waitUntil(
-      cache
-        .put(event.request, response.clone())
-        .then(() => (++tilePuts % TILE_TRIM_EVERY === 0 ? trimTiles() : undefined))
-        .catch(() => {}),
-    );
-  }
-  return response;
-}
-
-/** Drop the oldest tiles (insertion order) so the cache holds at most TILE_LIMIT entries. */
-function trimTiles() {
-  tileTrim = tileTrim
-    .then(async () => {
-      const cache = await caches.open(TILE_CACHE);
-      const keys = await cache.keys();
-      const excess = keys.length - TILE_LIMIT;
-      if (excess > 0) await Promise.all(keys.slice(0, excess).map((k) => cache.delete(k)));
-    })
-    .catch(() => {});
-  return tileTrim;
 }
 
 /* --------------------------------------------------------------- messages */
