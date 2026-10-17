@@ -1008,6 +1008,8 @@ export interface ShiftReport {
   highlights: { incidentId: string; title: Text; text: Text; good: boolean }[];
   /** Generated newspaper front page. */
   newspaper: { masthead: string; date: string; headline: Text; sub: Text; stories: { title: Text; body: Text }[] };
+  /** `${seed}:${startTime}` of the shift (set by the game store), so one shift is paid out only once. */
+  shiftKey?: string;
 }
 
 export interface SimState {
@@ -1072,6 +1074,8 @@ export interface CareerProfile {
   achievements: string[];
   unlockedRegions: RegionId[];
   stats: { shifts: number; incidents: number; arrests: number; bestScore: number; pursuitsCaught: number };
+  /** ShiftReport.shiftKey of the latest paid shifts (newest last): a replayed save never pays twice. */
+  paidShifts?: string[];
 }
 
 export interface Upgrade {

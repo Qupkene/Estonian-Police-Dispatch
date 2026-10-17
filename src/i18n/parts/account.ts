@@ -11,6 +11,10 @@ export default {
     et: 'Konto hoiab sinu karjääri ja salvestused pilves, igas seadmes.',
     en: 'An account keeps your career and saves in the cloud, on every device.',
   },
+  'account.login.simNote': {
+    et: 'Simulatsioon: päris ID-kaarti, Mobiil-ID-d ega Smart-ID-d ei kasutata. Konto salvestab nime, parooli räsi ja mänguseisu politsei.eu serverisse.',
+    en: 'Simulation: no real ID card, Mobile-ID or Smart-ID is used. An account stores your name, a password hash and your progress on the politsei.eu server.',
+  },
   'account.login.hint': {
     et: 'Kasutajakonto? Logi sisse vahekaardil Klassika.',
     en: 'Have an account? Sign in on the Classic tab.',
@@ -24,8 +28,8 @@ export default {
   'account.rules': { et: 'Nõuded', en: 'Requirements' },
   'account.rule.name': {
     // No-break spaces keep "_ . -" together when the line wraps.
-    et: 'Nimi: 3 kuni 24 märki (tähed, numbrid, _\u00a0.\u00a0-)',
-    en: 'Name: 3 to 24 characters (letters, digits, _\u00a0.\u00a0-)',
+    et: 'Nimi: 3 kuni 24 märki, ladina tähed (ka õ, ä, ö, ü, š, ž), numbrid ja _\u00a0.\u00a0-',
+    en: 'Name: 3 to 24 characters, Latin letters (including õ ä ö ü š ž), digits and _\u00a0.\u00a0-',
   },
   'account.rule.pass': { et: 'Parool: vähemalt 8 märki', en: 'Password: at least 8 characters' },
   'account.rule.repeat': { et: 'Paroolid kattuvad', en: 'Passwords match' },
@@ -38,8 +42,8 @@ export default {
     en: 'The name is too long, 24 characters at most.',
   },
   'account.rule.name.chars': {
-    et: 'Nimes võivad olla ainult tähed, numbrid ja märgid _ . -',
-    en: 'The name may only contain letters, digits and the characters _ . -',
+    et: 'Nimes võivad olla ainult ladina tähed (ka õ, ä, ö, ü, š, ž), numbrid ja märgid _ . -',
+    en: 'The name may only contain Latin letters (including õ ä ö ü š ž), digits and the characters _ . -',
   },
   'account.rule.pass.short': {
     et: 'Parool peab olema vähemalt {n} märki pikk.',
@@ -53,8 +57,8 @@ export default {
   },
   'account.resume.continue': { et: 'Jätka', en: 'Continue' },
   'account.lost': {
-    et: 'Sessioon aegus. Logi uuesti sisse, et pilvesalvestus jätkuks.',
-    en: 'Your session expired. Sign in again to keep saving to the cloud.',
+    et: 'Sessioon lõppes. Logi uuesti sisse, et pilvesalvestus jätkuks.',
+    en: 'Your session ended. Sign in again to keep saving to the cloud.',
   },
 
   // ── Account chip (menu) ──
@@ -79,6 +83,16 @@ export default {
   'account.delete.password': { et: 'Kinnita parooliga', en: 'Confirm with your password' },
   'account.delete.confirm': { et: 'Kustuta jäädavalt', en: 'Delete for good' },
   'account.delete.cancel': { et: 'Loobu', en: 'Cancel' },
+
+  // ── Settings ──
+  'account.set.storage': {
+    et: 'Sinu konto andmed on ka politsei.eu serveris. Kõigi andmete kustutamine logib sind välja ja eemaldab andmed ainult sellest brauserist. Konto kustutamiseks ava peamenüüs konto valikud.',
+    en: 'Your account data is also kept on the politsei.eu server. Deleting all data signs you out and removes the data from this browser only. To delete the account, open the account options in the main menu.',
+  },
+  'account.set.clearAll': {
+    et: 'Sind logitakse välja. Konto ja selle pilvesalvestused jäävad serverisse alles.',
+    en: 'You will be signed out. The account and its cloud saves stay on the server.',
+  },
 
   // ── Guest hint (menu) ──
   'account.guest.title': { et: 'Mängi igas seadmes', en: 'Play on every device' },
@@ -151,8 +165,8 @@ export default {
   'account.err.bad_login': { et: 'Vale kasutajanimi või parool.', en: 'Wrong username or password.' },
   'account.err.name_taken': { et: 'See nimi on juba võetud.', en: 'That name is already taken.' },
   'account.err.invalid_name': {
-    et: 'Nimi peab olema 3 kuni 24 märki pikk ja sisaldama ainult tähti, numbreid ning märke _ . -',
-    en: 'The name must be 3 to 24 characters long and contain only letters, digits and the characters _ . -',
+    et: 'Nimi peab olema 3 kuni 24 märki pikk ja sisaldama ainult ladina tähti (ka õ, ä, ö, ü, š, ž), numbreid ning märke _ . -',
+    en: 'The name must be 3 to 24 characters long and contain only Latin letters (including õ ä ö ü š ž), digits and the characters _ . -',
   },
   'account.err.invalid_password': {
     et: 'Parool peab olema vähemalt 8 märki pikk.',
@@ -164,5 +178,13 @@ export default {
   },
   'account.err.wrong_password': { et: 'Vale parool.', en: 'Wrong password.' },
   'account.err.password_required': { et: 'Kinnitamiseks sisesta oma parool.', en: 'Enter your password to confirm.' },
+  'account.err.user_mismatch': {
+    et: 'Selles brauseris on vahepeal sisse logitud teine konto.',
+    en: 'Another account has signed in to this browser meanwhile.',
+  },
+  'account.err.save_conflict': {
+    et: 'Salvestus on vahepeal teises seadmes muutunud.',
+    en: 'The save has changed on another device meanwhile.',
+  },
   'account.err.unknown': { et: 'Midagi läks valesti. Proovi uuesti.', en: 'Something went wrong. Try again.' },
 } satisfies Dict;

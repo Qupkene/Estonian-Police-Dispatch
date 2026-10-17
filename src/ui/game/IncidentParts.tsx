@@ -8,7 +8,7 @@ import { personFlags, vehicleFlags, type RecordFlag } from '@/sim/registry';
 import { hhmm, MIN } from '@/sim/time';
 import type { Agency, Incident, IncidentTemplate, Person, ScoreBreakdown, SimState, TimelineEntry, Lang } from '@/sim/types';
 import { checkRecord, dispatch, dispatchPicked, pursuitAction, recallUnit, requestAgency, selectUnit } from './actions';
-import { assignedUnits, isIdentified, selRecs, soft } from './data';
+import { assignedUnits, bestFor, isIdentified, selRecs, soft } from './data';
 import { allMet, countdown, fmtKm, fmtNum, needCoverage, unitEtaMin } from './format';
 import { FitBadge, LangFlag, Plate, Section, StatusDot, UnitTypeIcon, useMsg } from './bits';
 import { AGENCIES } from './EventQueue';
@@ -195,7 +195,8 @@ export function RecommendBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
   const error = useGameUi((s) => s.dispatchError[inc.id]);
   const recs = selRecs(sim, inc.id);
   const shown = all ? recs : recs.slice(0, 6);
-  const top = recs.find((r) => r.fit === 'ideal' || r.fit === 'need') ?? recs.find((r) => r.fit === 'weak');
+  // Same rule as the D key: no automatic pick → plain "Saada", disabled until the player picks.
+  const top = bestFor(recs);
 
   return (
     <Section
@@ -384,6 +385,8 @@ export function PursuitBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
   if (!p) return null;
   const live = !p.ended;
   const dur = (sim.now - p.startedAt) / MIN;
+  // Career only: spike strips are an upgrade (the engine sets the flag outside career).
+  const spikesOwned = sim.flags['upg:spikes'] === true;
   return (
     <div className={`gm-pursuit${live ? ' is-live' : ''}`}>
       <header>
@@ -417,7 +420,13 @@ export function PursuitBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
           <Button size="sm" icon="heli" disabled={p.heli} onClick={() => pursuitAction(inc.id, 'heli')}>
             {p.heli ? t('game.pursuit.heliOn') : t('game.pursuit.heli')}
           </Button>
-          <Button size="sm" icon="minus" disabled={p.spikes} onClick={() => pursuitAction(inc.id, 'spikes')}>
+          <Button
+            size="sm"
+            icon="minus"
+            disabled={p.spikes || !spikesOwned}
+            title={!spikesOwned ? t('game.pursuit.spikesLocked') : undefined}
+            onClick={() => pursuitAction(inc.id, 'spikes')}
+          >
             {p.spikes ? t('game.pursuit.spikesOn') : t('game.pursuit.spikes')}
           </Button>
         </div>

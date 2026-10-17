@@ -26,6 +26,8 @@ export function RadioPanel() {
   const selectedInc = useGame((s) => s.selection.incidentId);
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
+  /** scrollTop set by the auto-scroll below when it pinned a tall pending line by its top. */
+  const pinnedTop = useRef<number | null>(null);
   const [unseen, setUnseen] = useState(0);
 
   const total = sim?.radio.length ?? 0;
@@ -37,6 +39,14 @@ export function RadioPanel() {
     if (!el) return;
     if (stick.current) {
       el.scrollTop = el.scrollHeight;
+      pinnedTop.current = null;
+      // A pending request with its reply buttons can be taller than the log: show its question
+      // (name, isikukood, plate) rather than only the bottom row of buttons.
+      const last = el.lastElementChild as HTMLElement | null;
+      if (last?.classList.contains('is-pending') && last.offsetHeight > el.clientHeight) {
+        el.scrollTop = Math.max(0, last.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - 2);
+        pinnedTop.current = el.scrollTop;
+      }
       setUnseen(0);
     } else if (lastId) {
       setUnseen((n) => n + 1);
@@ -53,7 +63,8 @@ export function RadioPanel() {
   const onScroll = () => {
     const el = scroller.current;
     if (!el) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 28;
+    // Staying where the auto-scroll pinned a tall pending line still counts as following the log.
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 28 || (pinnedTop.current !== null && Math.abs(el.scrollTop - pinnedTop.current) < 2);
     stick.current = atBottom;
     if (atBottom && unseen) setUnseen(0);
   };
@@ -162,8 +173,14 @@ function RadioLine({ m, sim, pending, selected }: { m: RadioMsg; sim: SimState; 
           </button>
         )}
         {tx(m.text)}
-        {m.replies && m.replies.length > 0 && <RadioReplies msg={m} sim={sim} compact />}
       </span>
+      {/* Own grid row under the route and text columns: inside the narrow text column the chips
+          wrapped one per row and pushed the question out of the log. */}
+      {m.replies && m.replies.length > 0 && (
+        <div className="gm-rl__replies">
+          <RadioReplies msg={m} sim={sim} compact />
+        </div>
+      )}
     </div>
   );
 }

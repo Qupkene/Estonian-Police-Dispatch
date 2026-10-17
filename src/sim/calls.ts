@@ -16,8 +16,21 @@
  * Owned by engine-systems.
  */
 import { closeIncident } from '@/sim/commands';
-import { ageOf, describePerson, describeVehicle } from '@/gen/describe';
+import { ageOf, describePerson, describeVehicle, withArticleEn } from '@/gen/describe';
 import { addTimeline, emit, publishIncident, regionOf, tplOf } from './internal';
+import { placeText, spokenPlace, spokenPlaceLabel } from './radio';
+import {
+  OPENINGS,
+  P,
+  SITUATION_BY_TEMPLATE,
+  bandFits,
+  genderize,
+  genderizePhrase,
+  spokenStreetGenitive,
+  type Gn,
+  type Phrase as BookPhrase,
+  type Situation,
+} from './callPhrases';
 import { hashString, withRng, type Rng } from './rng';
 import { fill, fillText, type Vars } from './text';
 import { hhmm, wall } from './time';
@@ -52,8 +65,7 @@ export const INTERPRETER_DELAY_MS = 20_000;
 /** Share of interactive P3/P4 non-serious calls that are pranks. */
 export const PRANK_SHARE = 0.04;
 
-type Phrase = { ru: string; et: string; en: string };
-const P = (ru: string, et: string, en: string): Phrase => ({ ru, et, en });
+type Phrase = BookPhrase;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Dispatcher phrasing (standard Estonian call-taking questions)
@@ -65,14 +77,14 @@ export const DISPATCHER_QUESTIONS: Record<CallQuestionId, Phrase> = {
   injured: P('Есть пострадавшие?', 'Kas keegi on vigastatud?', 'Is anyone injured?'),
   weapons: P('У кого-нибудь есть оружие?', 'Kas kellelgi on relv?', 'Does anyone have a weapon?'),
   suspect: P('Опишите, пожалуйста, этого человека.', 'Kirjeldage palun isikut.', 'Please describe the person.'),
-  vehicle: P('У него есть машина? Номер?', 'Kas tal on sõiduk? Number?', 'Does he have a vehicle? The plate number?'),
-  direction: P('В какую сторону он ушёл?', 'Mis suunas ta läks?', 'Which way did he go?'),
+  vehicle: P('У этого человека есть машина? Номер?', 'Kas tal on sõiduk? Number?', 'Does the person have a vehicle? The plate number?'),
+  direction: P('В какую сторону он ушёл?', 'Mis suunas ta läks?', 'Which way did they go?'),
   count: P('Сколько там человек?', 'Kui palju inimesi seal on?', 'How many people are there?'),
   when: P('Когда это произошло?', 'Millal see juhtus?', 'When did this happen?'),
   name: P('Ваше имя, пожалуйста?', 'Teie nimi, palun?', 'Your name, please?'),
   safe: P('Вы сами в безопасном месте?', 'Kas olete ise ohutus kohas?', 'Are you somewhere safe yourself?'),
   children: P('Там есть дети?', 'Kas lapsi on seal?', 'Are there children there?'),
-  intoxicated: P('Он пьян?', 'Kas ta on joobes?', 'Is he drunk?'),
+  intoxicated: P('Этот человек пьян?', 'Kas ta on joobes?', 'Is the person drunk?'),
 };
 
 const GREETING: Phrase = P(
@@ -82,199 +94,86 @@ const GREETING: Phrase = P(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Situations & caller phrasebooks
+// Situations & caller phrasebooks (data in callPhrases.ts)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type Situation =
-  | 'domestic'
-  | 'domestic_neighbour'
-  | 'fight'
-  | 'knife'
-  | 'shots'
-  | 'noise'
-  | 'drunk_person'
-  | 'burglary'
-  | 'burglary_progress'
-  | 'shoplift'
-  | 'theft'
-  | 'car_theft'
-  | 'accident'
-  | 'drunk_driver'
-  | 'traffic'
-  | 'drugs'
-  | 'missing_child'
-  | 'missing_adult'
-  | 'suspicious'
-  | 'alarm'
-  | 'assist'
-  | 'fraud'
-  | 'border'
-  | 'environment'
-  | 'bomb'
-  | 'animal'
-  | 'easter'
-  | 'generic';
+export type { Situation } from './callPhrases';
+export { OPENINGS } from './callPhrases';
 
-/** Built-in caller openings per situation (Russian original + Estonian/English translation). */
-export const OPENINGS: Record<Situation, Phrase[]> = {
-  domestic: [
-    P('Муж опять пьяный, бьёт меня… помогите, пожалуйста!', 'Mees on jälle purjus ja lööb mind… aidake, palun!', 'My husband is drunk again and hitting me… please help!'),
-    P('Он кричит и швыряет вещи, я боюсь, что он меня убьёт!', 'Ta karjub ja loobib asju, ma kardan, et ta tapab mu!', "He's screaming and throwing things, I'm afraid he'll kill me!"),
-  ],
-  domestic_neighbour: [
-    P('У соседей крики, женщина зовёт на помощь!', 'Naabrite juures karjutakse, naine hüüab appi!', "There's screaming at the neighbours', a woman is calling for help!"),
-    P('За стеной что-то падает, бьётся посуда, ребёнок плачет.', 'Seina taga kukub midagi, nõud purunevad, laps nutab.', 'Things are crashing behind the wall, dishes breaking, a child is crying.'),
-  ],
-  fight: [
-    P('Тут драка, мужика бьют ногами!', 'Siin on kaklus, üht meest peksavad jalgadega!', "There's a fight here, they're kicking a man!"),
-    P('Возле бара дерутся, человек пять!', 'Baari ees kakeldakse, umbes viis inimest!', "They're fighting outside the bar, about five people!"),
-  ],
-  knife: [
-    P('У него нож, он угрожает людям!', 'Tal on nuga, ta ähvardab inimesi!', "He's got a knife, he's threatening people!"),
-    P('Человека ударили ножом, тут кровь!', 'Üht inimest pussitati, siin on verd!', "Someone's been stabbed, there's blood!"),
-  ],
-  shots: [
-    P('Я слышал выстрелы! Несколько раз!', 'Ma kuulsin laske! Mitu korda!', 'I heard gunshots! Several!'),
-    P('Там мужчина с пистолетом, он стрелял!', 'Seal on mees püstoliga, ta tulistas!', "There's a man with a gun, he fired it!"),
-  ],
-  noise: [
-    P('Соседи опять врубили музыку, уже третий час ночи!', 'Naabrid panid jälle muusika põhja, kell on juba kolm öösel!', "The neighbours have the music blasting again, it's three in the morning!"),
-    P('Сверху вечеринка, топают и орут, спать невозможно.', 'Ülemisel korrusel on pidu, trampivad ja kisavad, magada ei saa.', "There's a party upstairs, stomping and yelling, I can't sleep."),
-  ],
-  drunk_person: [
-    P('Тут мужчина лежит на остановке, пьяный, не встаёт.', 'Bussipeatuses lamab mees, purjus, ei tõuse püsti.', "There's a man lying at the bus stop, drunk, he won't get up."),
-    P('Пьяный пристаёт к прохожим, кричит на всех.', 'Joobes mees norib möödujate kallal ja karjub kõigi peale.', "A drunk is harassing passers-by and yelling at everyone."),
-  ],
-  burglary: [
-    P('Ко мне в квартиру залезли, дверь взломана!', 'Minu korterisse on sisse murtud, uks on lõhutud!', 'Someone broke into my flat, the door has been forced!'),
-    P('Пришла домой, а всё перевёрнуто, техники нет.', 'Tulin koju ja kõik on pea peale pööratud, tehnika on kadunud.', 'I came home and everything is turned upside down, the electronics are gone.'),
-  ],
-  burglary_progress: [
-    P('Кто-то лезет в окно к соседям, прямо сейчас!', 'Keegi ronib praegu naabrite aknast sisse!', 'Someone is climbing in through the neighbours’ window right now!'),
-    P('В доме напротив фонарик ходит, а хозяева в отъезде.', 'Vastasmajas liigub taskulamp, aga omanikud on ära.', "There's a torch moving around in the house opposite, and the owners are away."),
-  ],
-  shoplift: [
-    P('В магазине поймали вора, охранник его держит.', 'Poes tabati varas, turvatöötaja hoiab teda kinni.', 'We caught a shoplifter, the security guard is holding him.'),
-    P('Мужчина набрал полную сумку и выбежал, не заплатив!', 'Mees toppis koti täis ja jooksis maksmata välja!', 'A man filled a bag and ran out without paying!'),
-  ],
-  theft: [
-    P('У меня украли сумку, прямо из рук вырвали!', 'Mu kott varastati, tõmmati otse käest!', 'My bag was stolen, snatched right out of my hand!'),
-    P('Украли велосипед, замок перерезан.', 'Mu jalgratas varastati, lukk on läbi lõigatud.', 'My bike was stolen, the lock has been cut.'),
-  ],
-  car_theft: [
-    P('Мою машину угнали, стояла во дворе, а теперь нет!', 'Mu auto varastati, seisis hoovis ja nüüd on läinud!', 'My car has been stolen, it was in the yard and now it’s gone!'),
-    P('Кто-то копается в машине у дома, разбил стекло.', 'Keegi sorib maja ees autos, aken on katki löödud.', "Someone is rummaging in a car outside, they've smashed the window."),
-  ],
-  accident: [
-    P('Тут авария, две машины столкнулись!', 'Siin on avarii, kaks autot põrkasid kokku!', "There's been a crash, two cars collided!"),
-    P('Машина вылетела в кювет и перевернулась!', 'Auto sõitis kraavi ja läks katusele!', 'A car went into the ditch and rolled over!'),
-  ],
-  drunk_driver: [
-    P('Впереди меня машина виляет по всей дороге, водитель, похоже, пьяный!', 'Minu ees sõitev auto looklen üle tee, juht on vist purjus!', 'The car in front of me is weaving all over the road, the driver seems drunk!'),
-    P('Мужчина еле стоит на ногах и садится за руль!', 'Mees vaevu seisab jalul ja istub rooli!', 'A man can barely stand and he’s getting behind the wheel!'),
-  ],
-  traffic: [
-    P('Машина стоит посреди дороги, мешает всем.', 'Auto seisab keset teed ja segab kõiki.', 'A car is standing in the middle of the road blocking everyone.'),
-    P('Тут гонщики носятся по двору, дети гуляют!', 'Siin kihutavad autod hoovis ringi, lapsed mängivad!', "Cars are racing around the yard here, kids are playing!"),
-  ],
-  drugs: [
-    P('В подъезде колются, шприцы везде валяются.', 'Trepikojas süstitakse, süstlaid vedeleb igal pool.', "People are injecting in the stairwell, there are needles everywhere."),
-    P('Возле школы парень что-то продаёт подросткам.', 'Kooli juures müüb üks noormees teismelistele midagi.', 'A young man is selling something to teenagers near the school.'),
-  ],
-  missing_child: [
-    P('Мой ребёнок пропал, не вернулся из школы!', 'Mu laps on kadunud, ta ei tulnud koolist koju!', "My child is missing, didn't come home from school!"),
-    P('Сын гулял во дворе, и его нигде нет!', 'Poeg mängis hoovis ja nüüd pole teda kusagil!', 'My son was playing in the yard and now he’s nowhere to be found!'),
-  ],
-  missing_adult: [
-    P('Мама пропала, у неё деменция, ушла из дома!', 'Ema on kadunud, tal on dementsus, ta läks kodust ära!', 'My mother is missing, she has dementia, she wandered off!'),
-    P('Муж ушёл в лес за грибами и не вернулся.', 'Mees läks metsa seenele ega tulnud tagasi.', 'My husband went mushroom picking in the forest and hasn’t come back.'),
-  ],
-  suspicious: [
-    P('Какой-то подозрительный тип ходит вокруг машин.', 'Mingi kahtlane tüüp tiirutab autode ümber.', 'Some suspicious guy is walking around the cars.'),
-    P('Уже час у подъезда стоит машина, внутри кто-то сидит и смотрит.', 'Juba tund aega seisab trepikoja ees auto, keegi istub sees ja vaatab.', "A car has been parked by the entrance for an hour, someone is sitting inside watching."),
-  ],
-  alarm: [
-    P('Сработала сигнализация в магазине, внутри кто-то есть!', 'Poes läks signalisatsioon tööle, sees on keegi!', 'The alarm went off in the shop, someone is inside!'),
-    P('У соседей воет сигнализация, а свет внутри мигает.', 'Naabrite juures huilgab signalisatsioon ja sees vilgub tuli.', 'The neighbours’ alarm is wailing and a light is flickering inside.'),
-  ],
-  assist: [
-    P('Тут человеку плохо, он упал и не двигается!', 'Siin on inimesel halb, ta kukkus ja ei liiguta!', "Someone's unwell here, he fell and isn't moving!"),
-    P('Скорая просит полицию, пациент буйный.', 'Kiirabi palub politseid, patsient on vägivaldne.', 'The ambulance crew is asking for police, the patient is violent.'),
-  ],
-  fraud: [
-    P('Мне позвонили, сказали, что из банка, и я перевела деньги…', 'Mulle helistati, öeldi, et pangast, ja ma kandsin raha üle…', 'They called and said they were from the bank, and I transferred the money…'),
-    P('Звонят и требуют коды от Smart-ID, это мошенники?', 'Helistatakse ja nõutakse Smart-ID koode, kas need on petised?', "Someone keeps calling demanding my Smart-ID codes, are these scammers?"),
-  ],
-  border: [
-    P('Тут какие-то люди с рюкзаками вышли из леса у границы.', 'Siin tulid piiri lähedal metsast välja mingid inimesed seljakottidega.', 'Some people with backpacks just came out of the woods near the border.'),
-    P('Над рекой летает дрон, уже давно.', 'Jõe kohal lendab juba pikalt droon.', "There's been a drone flying over the river for a long time."),
-  ],
-  environment: [
-    P('В реку что-то сливают, вода вся в пятнах.', 'Jõkke lastakse midagi, vesi on laike täis.', "Someone is dumping something into the river, the water is full of slicks."),
-    P('В лесу стреляют, а сейчас не сезон охоты.', 'Metsas lastakse, aga praegu pole jahihooaeg.', "There's shooting in the forest, and it's not hunting season."),
-  ],
-  bomb: [
-    P('На вокзале оставили сумку, хозяина нет уже полчаса.', 'Jaama on jäetud kott, omanikku pole pool tundi näha olnud.', "There's an abandoned bag at the station, no owner for half an hour."),
-    P('Нам позвонили и сказали, что в здании бомба!', 'Meile helistati ja öeldi, et majas on pomm!', 'Someone called us and said there’s a bomb in the building!'),
-  ],
-  animal: [
-    P('На дороге лось, машины еле объезжают!', 'Teel on põder, autod vaevu pääsevad mööda!', "There's an elk on the road, cars can barely get past!"),
-    P('Собака без хозяина бросается на людей!', 'Omanikuta koer ründab inimesi!', 'A dog without its owner is attacking people!'),
-  ],
-  easter: [
-    P('Вы не поверите, но тут что-то светится в небе и садится в поле!', 'Te ei usu, aga siin helendab midagi taevas ja maandub põllule!', "You won't believe it, but something is glowing in the sky and landing in the field!"),
-    P('Тут такое… я даже не знаю, как объяснить.', 'Siin on selline asi… ma ei teagi, kuidas seletada.', "There's this thing here… I don't even know how to explain it."),
-  ],
-  generic: [
-    P('Алло, полиция? Нужна помощь!', 'Halloo, politsei? Mul on abi vaja!', 'Hello, police? I need help!'),
-    P('Здравствуйте, у нас тут проблема, приезжайте.', 'Tere, meil on siin probleem, tulge palun.', 'Hello, we have a problem here, please come.'),
-  ],
-};
-
-/** Situation-free answer phrases. Placeholders: {address} {city} {place} {desc} {car} {plate} {platePart} {dir} {n} {m} {name}. */
+/**
+ * Situation-free answer phrases. Placeholders: {address} {city} {place} {desc} {car} {plate}
+ * {platePart} {dir} {n} {m} {name}. `{m|f}` and `[m|f|n]` pick gendered forms (see callPhrases.ts).
+ */
 export const ANSWERS = {
   where_addr: P('Адрес: {address}, {city}.', 'Aadress on {address}, {city}.', 'The address is {address}, {city}.'),
-  where_place: P('Я возле «{place}», адрес {address}.', 'Ma olen {place} juures, {address}.', "I'm at {place}, {address}."),
-  where_rural: P('Точно не знаю… где-то возле {address}.', 'Täpselt ei tea… kuskil {address} lähedal.', "I'm not sure exactly… somewhere near {address}."),
-  where_road: P('На трассе, {address}.', 'Maantee peal, {address}.', "On the highway, {address}."),
-  injured_yes: P('Да, есть раненый, у него кровь идёт!', 'Jah, üks on vigastatud, ta veritseb!', "Yes, someone's hurt, he's bleeding!"),
+  where_addr_only: P('Адрес: {address}.', 'Aadress on {address}.', 'The address is {address}.'),
+  // "Ma olen {place} juures" would need the genitive of any place name; this word order does not.
+  where_place: P('Адрес: {address}, тут {place}.', 'Aadress on {address}, siin on {place}.', "I'm at {place}, {address}."),
+  where_rural: P('Точно не знаю… где-то тут, ближайший адрес: {address}.', 'Täpselt ei tea… kuskil siin, lähim aadress on {address}.', "I'm not sure exactly… somewhere around here, the nearest address is {address}."),
+  where_road: P('На трассе, {address}.', 'Maantee peal, {address}.', 'On the main road, {address}.'),
+  injured_yes: P('Да, есть пострадавший, идёт кровь!', 'Jah, üks on vigastatud, ta veritseb!', "Yes, someone's hurt, they're bleeding!"),
   injured_no: P('Нет, вроде никто не ранен.', 'Ei, tundub, et keegi pole vigastatud.', 'No, nobody seems to be hurt.'),
   injured_unknown: P('Не знаю, мне отсюда не видно.', 'Ma ei tea, siit ei ole näha.', "I don't know, I can't see from here."),
-  weapon_knife: P('Да, у него нож!', 'Jah, tal on nuga!', 'Yes, he has a knife!'),
-  weapon_gun: P('У него пистолет, я сама видела!', 'Tal on püstol, ma nägin ise!', 'He has a pistol, I saw it myself!'),
-  weapon_maybe: P('Что-то было в руке, может, оружие.', 'Tal oli midagi käes, võib-olla relv.', 'He had something in his hand, maybe a weapon.'),
-  weapon_none: P('Оружия я не видел.', 'Relva ma ei näinud.', "I didn't see any weapon."),
+  weapon_knife: P('Да, у [него|неё] нож!', 'Jah, tal on nuga!', '[Yes, he has|Yes, she has|Yes, they have] a knife!'),
+  weapon_gun: P('У [него|неё] пистолет, я {сам видел|сама видела}!', 'Tal on püstol, ma nägin ise!', '[He has|She has|They have] a pistol, I saw it myself!'),
+  weapon_maybe: P('Что-то было в руке, может, оружие.', 'Tal oli midagi käes, võib-olla relv.', '[He had something in his|She had something in her|They had something in their] hand, maybe a weapon.'),
+  weapon_none: P('Оружия я не {видел|видела}.', 'Relva ma ei näinud.', "I didn't see any weapon."),
   suspect_desc: P('{desc}.', '{desc}.', '{desc}.'),
-  suspect_none: P('Я его не разглядел, было темно.', 'Ma ei näinud teda hästi, oli pime.', "I didn't get a good look, it was dark."),
+  suspect_none: P('Я [его|её] не {разглядел|разглядела}, было темно.', 'Ma ei näinud teda hästi, oli pime.', "I didn't get a good look, it was dark."),
+  suspect_parent: P('Это папа… он очень злой.', 'See on issi… ta on väga vihane.', "It's daddy… he's really angry."),
   suspect_nobody: P('Тут нет никакого подозреваемого.', 'Siin pole kedagi kahtlast.', "There's nobody suspicious here."),
   vehicle_full: P('Да, {car}, номер {plate}.', 'Jah, {car}, number {plate}.', 'Yes, {car}, plate {plate}.'),
-  vehicle_partial: P('{car}, номер… начинается на {platePart}, дальше не запомнил.', '{car}, number… algas {platePart}, edasi ei jäänud meelde.', "{car}, the plate… started with {platePart}, I didn't catch the rest."),
-  vehicle_none: P('Нет, он пешком.', 'Ei, ta oli jala.', 'No, he was on foot.'),
-  direction: P('Он убежал в сторону {dir}.', 'Ta jooksis {dir} suunas.', 'He ran towards {dir}.'),
-  direction_car: P('Уехал в сторону {dir}.', 'Ta sõitis {dir} suunas minema.', 'He drove off towards {dir}.'),
-  direction_here: P('Никуда, он всё ещё здесь!', 'Mitte kuhugi, ta on ikka veel siin!', "Nowhere, he's still here!"),
-  direction_unknown: P('Не видел, куда он делся.', 'Ma ei näinud, kuhu ta kadus.', "I didn't see where he went."),
+  vehicle_partial: P('{car}, номер… начинается на {platePart}, дальше не {запомнил|запомнила}.', '{car}, number… algas {platePart}, edasi ei jäänud meelde.', "{car}, the plate… started with {platePart}, I didn't catch the rest."),
+  vehicle_none: P('Нет, [он|она] пешком.', 'Ei, ta oli jala.', '[No, he was|No, she was|No, they were] on foot.'),
+  vehicle_nobody: P('Нет, тут никого с машиной нет.', 'Ei, siin pole kedagi autoga.', "No, there's nobody here with a vehicle."),
+  direction: P('[Он убежал|Она убежала] в сторону {dir}.', 'Ta jooksis {dir} suunas.', '[He ran|She ran|They ran] towards {dir}.'),
+  direction_car: P('[Уехал|Уехала] в сторону {dir}.', 'Ta sõitis {dir} suunas minema.', '[He drove|She drove|They drove] off towards {dir}.'),
+  direction_here: P('Никуда, [он|она] всё ещё здесь!', 'Mitte kuhugi, ta on ikka veel siin!', "[Nowhere, he's|Nowhere, she's|Nowhere, they're] still here!"),
+  direction_missing: P('Не знаю, куда [он пошёл|она пошла], поэтому и звоню.', 'Ma ei tea, kuhu ta läks, sellepärast helistangi.', "I don't know where [he went|she went|they went], that's why I'm calling."),
+  direction_adrift: P('[Его|Её] уносит всё дальше от берега.', 'Teda viib aina kaugemale kaldast.', '[He is|She is|They are] drifting further and further from the shore.'),
+  direction_drowning: P('[Он был|Она была] вон там, метрах в пятидесяти от берега.', 'Ta oli seal, umbes viiekümne meetri kaugusel kaldast.', '[He was|She was|They were] over there, about fifty metres from the shore.'),
+  direction_nobody: P('Никто никуда не убегал.', 'Keegi pole kuhugi läinud.', 'Nobody has gone anywhere.'),
+  direction_unknown: P('Не {видел|видела}, куда [он делся|она делась].', 'Ma ei näinud, kuhu ta kadus.', "I didn't see where [he|she|they] went."),
   count: P('Их там человек {n}.', 'Neid on seal umbes {n}.', 'There are about {n} of them.'),
   count_one: P('Один человек.', 'Üks inimene.', 'Just one person.'),
   count_many: P('Много, десятки человек!', 'Palju, kümneid inimesi!', 'Lots, dozens of people!'),
   when_now: P('Прямо сейчас, это происходит сейчас!', 'Praegu, see käib praegu!', "Right now, it's happening right now!"),
   when_ago: P('Минут {m} назад, где-то в {time}.', 'Umbes {m} minutit tagasi, kella {time} paiku.', 'About {m} minutes ago, around {time}.'),
-  when_night: P('Ночью, я утром заметил.', 'Öösel, ma märkasin hommikul.', 'During the night, I noticed it in the morning.'),
+  when_night: P('Ночью, я утром {заметил|заметила}.', 'Öösel, ma märkasin hommikul.', 'During the night, I noticed it in the morning.'),
   name: P('Меня зовут {name}.', 'Minu nimi on {name}.', 'My name is {name}.'),
   name_anon: P('Я не хочу называть своё имя.', 'Ma ei taha oma nime öelda.', "I'd rather not give my name."),
-  safe_yes: P('Да, я в безопасности, я у себя дома.', 'Jah, olen ohutus kohas, olen kodus.', "Yes, I'm safe, I'm at home."),
-  safe_hiding: P('Нет! Я заперлась в ванной…', 'Ei! Ma panin end vannituppa lukku…', "No! I've locked myself in the bathroom…"),
-  safe_no: P('Не знаю… он рядом.', 'Ma ei tea… ta on lähedal.', "I don't know… he's close by."),
-  children_yes: P('Да, дети дома, они плачут.', 'Jah, lapsed on kodus, nad nutavad.', "Yes, the kids are at home, they're crying."),
+  safe_yes: P('Да, я в безопасном месте.', 'Jah, olen ohutus kohas.', "Yes, I'm safe."),
+  safe_yes_home: P('Да, я в безопасности, я у себя дома.', 'Jah, olen ohutus kohas, olen kodus.', "Yes, I'm safe, I'm at home."),
+  safe_hiding: P('Нет! Я {спрятался|спряталась}, сижу тихо…', 'Ei! Ma peidan end ja olen vaikselt…', "No! I'm hiding and keeping quiet…"),
+  safe_hiding_home: P('Нет! Я {заперся|заперлась} в ванной…', 'Ei! Ma panin end vannituppa lukku…', "No! I've locked myself in the bathroom…"),
+  safe_no: P('Не знаю… [он|она] рядом.', 'Ma ei tea… ta on lähedal.', "I don't know… [he's|she's|they're] close by."),
+  children_yes: P('Да, тут есть дети.', 'Jah, siin on lapsi.', 'Yes, there are children here.'),
+  children_yes_home: P('Да, дети дома, они плачут.', 'Jah, lapsed on kodus, nad nutavad.', "Yes, the kids are at home, they're crying."),
   children_no: P('Нет, детей нет.', 'Ei, lapsi ei ole.', 'No, there are no children.'),
-  intox_yes: P('Да, он пьяный в стельку.', 'Jah, ta on täiesti purjus.', "Yes, he's completely drunk."),
-  intox_no: P('Нет, трезвый вроде.', 'Ei, tundub kaine.', 'No, he seems sober.'),
+  intox_yes: P('Да, [он пьяный|она пьяная] в стельку.', 'Jah, ta on täiesti purjus.', "[Yes, he's|Yes, she's|Yes, they're] completely drunk."),
+  intox_no: P('Нет, [трезвый|трезвая] вроде.', 'Ei, tundub kaine.', '[No, he seems|No, she seems|No, they seem] sober.'),
   intox_unknown: P('Не знаю, может быть.', 'Ei tea, võib-olla.', "I don't know, maybe."),
-  repeat: P('Я же уже сказал: ', 'Ma juba ütlesin: ', 'I already told you: '),
+  // The caller is the person in trouble (lost in the forest, fallen at home): questions about "the person" are about them.
+  injured_self: P('Я {ушибся|ушиблась}, очень больно.', 'Ma sain haiget, valutab väga.', "I've hurt myself, it really hurts."),
+  injured_self_no: P('Нет, я не {ранен|ранена}, только очень страшно.', 'Ei, viga ma ei saanud, aga mul on väga hirm.', "No, I'm not hurt, but I'm really scared."),
+  vehicle_self: P('Моя машина: {car}, номер {plate}.', 'Minu auto on {car}, number {plate}.', 'My car is a {car}, plate {plate}.'),
+  vehicle_self_none: P('Нет, машины у меня тут нет.', 'Ei, mul pole siin autot.', "No, I don't have a car here."),
+  direction_self: P('Я никуда не ухожу, жду здесь.', 'Ma ei lähe kuhugi, ootan siin.', "I'm not going anywhere, I'm waiting here."),
+  intox_self: P('Нет, я {трезвый|трезвая}.', 'Ei, ma olen kaine.', "No, I'm sober."),
+  repeat: P('Я же уже {сказал|сказала}: ', 'Ma juba ütlesin: ', 'I already told you: '),
   unhelpful_panic: P('Я не знаю, не знаю! Просто приезжайте быстрее!', 'Ma ei tea, ma ei tea! Tulge lihtsalt kiiresti!', "I don't know, I don't know! Just come quickly!"),
-  unhelpful_drunk: P('Какой адрес… щас, погоди… где-то тут.', 'Mis aadress… oot, kohe… kuskil siin.', "What address… hang on… somewhere around here."),
-  unhelpful_confused: P('Ой, я забыла… что вы спросили?', 'Oi, ma unustasin… mida te küsisite?', 'Oh, I forgot… what did you ask?'),
+  unhelpful_drunk: P('Какой адрес… щас, погоди… где-то тут.', 'Mis aadress… oot, kohe… kuskil siin.', 'What address… hang on… somewhere around here.'),
+  unhelpful_confused: P('Ой, я {забыл|забыла}… что вы спросили?', 'Oi, ma unustasin… mida te küsisite?', 'Oh, I forgot… what did you ask?'),
 } satisfies Record<string, Phrase>;
+
+/** Small head counts in words ("Neid on kaks."), not "umbes 2". */
+const FEW: Record<number, Phrase> = {
+  2: P('Их двое.', 'Neid on kaks.', 'There are two of them.'),
+  3: P('Их трое.', 'Neid on kolm.', 'There are three of them.'),
+  4: P('Их четверо.', 'Neid on neli.', 'There are four of them.'),
+  5: P('Их человек пять.', 'Neid on umbes viis.', 'There are about five of them.'),
+  6: P('Их человек шесть.', 'Neid on umbes kuus.', 'There are about six of them.'),
+};
 
 /** Mood fillers wrapped around answers. */
 const MOOD_FILLERS: Partial<Record<CallerMood, { pre: Phrase[]; post: Phrase[]; pPre: number; pPost: number }>> = {
@@ -288,14 +187,14 @@ const MOOD_FILLERS: Partial<Record<CallerMood, { pre: Phrase[]; post: Phrase[]; 
     pre: [P('Слушай, командир… ', 'No kuule, ülemus… ', 'Listen, chief… '), P('Ну это… короче… ', 'Noh… see on nii, et… ', 'Well… the thing is… ')],
     post: [
       P(' …и вообще, чего вы столько спрашиваете?', ' …ja üldse, miks te nii palju küsite?', ' …and why are you asking so many questions anyway?'),
-      P(' Я трезвый, между прочим.', ' Ma olen muide täiesti kaine.', " I'm totally sober, by the way."),
+      P(' Я {трезвый|трезвая}, между прочим.', ' Ma olen muide täiesti kaine.', " I'm totally sober, by the way."),
     ],
     pPre: 0.6,
     pPost: 0.45,
   },
   elderly: {
     pre: [P('Извините, что беспокою… ', 'Vabandage, et tülitan… ', 'Sorry to bother you… '), P('Деточка, ', 'Kullake, ', 'Dear, ')],
-    post: [P(' Спасибо вам, милая.', ' Aitäh teile, kullake.', ' Thank you, dear.'), P(' Я уже старый человек, понимаете.', ' Ma olen juba vana inimene, saate aru.', " I'm an old person, you see.")],
+    post: [P(' Спасибо вам, дай вам бог здоровья.', ' Aitäh teile, kullake.', ' Thank you, dear.'), P(' Я уже старый человек, понимаете.', ' Ma olen juba vana inimene, saate aru.', " I'm an old person, you see.")],
     pPre: 0.45,
     pPost: 0.35,
   },
@@ -318,7 +217,7 @@ const MOOD_FILLERS: Partial<Record<CallerMood, { pre: Phrase[]; post: Phrase[]; 
     pPost: 0.45,
   },
   confused: {
-    pre: [P('Подождите… что вы спросили? ', 'Oot-oot… mis te küsisite? ', 'Wait… what did you ask? '), P('Я не уверена… ', 'Ma pole kindel… ', "I'm not sure… ")],
+    pre: [P('Подождите… что вы спросили? ', 'Oot-oot… mis te küsisite? ', 'Wait… what did you ask? '), P('Я не {уверен|уверена}… ', 'Ma pole kindel… ', "I'm not sure… ")],
     post: [P(' …или это было вчера?', ' …või oli see eile?', ' …or was that yesterday?')],
     pPre: 0.5,
     pPost: 0.3,
@@ -444,60 +343,119 @@ function suspectVehicle(s: SimState, inc: Incident): Vehicle | undefined {
   return s.vehicles[ref.plate] ?? Object.values(s.vehicles).find((v) => v.plate.replace(/\s/g, '') === ref.plate.replace(/\s/g, ''));
 }
 
-/** Map an incident to a phrasebook situation. */
+/**
+ * Map an incident to a phrasebook situation: the curated per-template entry first, then a keyword
+ * guess for templates added later. A guess that would make a calm event sound like an emergency
+ * (or the other way round) falls back to a neutral line, so the caller never misleads the
+ * priority classification.
+ */
 export function situationOf(inc: Incident, tpl?: IncidentTemplate, s?: SimState): Situation {
+  const mapped = SITUATION_BY_TEMPLATE[tpl?.id ?? inc.templateId];
+  if (mapped) return mapped;
+  const sit = guessSituation(inc, tpl, s);
+  if (bandFits(sit, inc.truePriority)) return sit;
+  return inc.truePriority <= 2 ? 'emergency' : 'generic';
+}
+
+function guessSituation(inc: Incident, tpl: IncidentTemplate | undefined, s: SimState | undefined): Situation {
   const txt = textOf(tpl, inc);
   const tags = new Set(tpl?.tags ?? inc.tags);
   const has = (...w: string[]) => w.some((x) => txt.includes(x));
+  const urgent = inc.truePriority <= 2;
+  const gun = tags.has('weapon_gun') || has('tulist', 'shoot');
+  const knife = tags.has('weapon_knife') || has('puss', 'nuga', 'knife');
   switch (inc.category) {
-    case 'domestic':
-      return h01(inc, 'sit') < 0.4 ? 'domestic_neighbour' : 'domestic';
+    case 'domestic': {
+      if (!urgent) return has('jälit', 'ahist', 'stalk') ? 'harassment' : 'domestic_argument';
+      if (knife) return 'domestic';
+      const neighbourCaller = (tpl?.persons ?? []).some((p) => p.role === 'caller' && p.relation === 'neighbour') || has('naab', 'neighbour');
+      return neighbourCaller ? 'domestic_neighbour' : 'domestic';
+    }
     case 'violence':
-      if (tags.has('weapon_gun') || has('tulist', 'lask', 'shoot')) return 'shots';
-      if (tags.has('weapon_knife') || has('puss', 'nuga', 'knife')) return 'knife';
+      if (gun) return 'shots';
+      if (knife) return 'knife';
+      if (!urgent) return has('ähvard', 'threat') ? 'threat' : has('jälit', 'stalk') ? 'stalking' : 'assault_minor';
       return 'fight';
     case 'public_order':
-      if (has('öörahu', 'müra', 'lärm', 'pidu', 'noise', 'sünnipäev', 'muusika')) return 'noise';
-      if (has('joob', 'purjus', 'drunk')) return 'drunk_person';
-      if (tags.has('weapon_knife')) return 'knife';
-      if (has('kahtlane', 'suspicious', 'jälit', 'pildistab')) return 'suspicious';
-      return 'fight';
+      if (!urgent && has('öörahu', 'müra', 'lärm', 'noise', 'muusika', 'pidu')) return 'noise';
+      if (has('joob', 'purjus', 'drunk')) return has('lamab', 'lebab', 'lying') ? 'drunk_lying' : 'drunk_person';
+      if (knife) return 'knife';
+      if (has('kahtlane', 'suspicious', 'pildistab')) return 'suspicious';
+      return urgent ? 'aggressive_person' : 'dispute';
     case 'property':
+      if (has('rööv', 'robbery')) return gun || tags.has('armed') ? 'armed_robbery' : 'robbery';
+      if (has('autost', 'from_car')) return 'theft_from_car';
       if (has('auto', 'sõiduk', 'car_theft')) return 'car_theft';
       if (has('pood', 'kauplus', 'shoplift')) return 'shoplift';
-      if (has('sissemurd', 'murdvargus', 'burglary', 'korteri', 'suvila')) return (inc.truePriority <= 2 || tags.has('in_progress')) ? 'burglary_progress' : 'burglary';
-      if (has('rööv', 'robbery')) return tags.has('weapon_gun') ? 'shots' : 'theft';
-      return 'theft';
+      if (has('sissemurd', 'murdvargus', 'burglary', 'korteri', 'suvila')) return urgent || tags.has('in_progress') ? 'burglary_progress' : 'burglary';
+      if (has('vandal', 'lõhu', 'grafiti')) return urgent ? 'vandalism' : 'vandalism_after';
+      return urgent ? 'theft_progress' : 'theft_after';
     case 'traffic':
-      if (has('joobes juht', 'purjus juht', 'joobes autojuht', 'purjus autojuht', 'drunk_driver', 'drunk driver', 'joobes_juht')) return 'drunk_driver';
-      if (has('õnnetus', 'avarii', 'kokkupõrge', 'accident', 'crash', 'jalakäija')) return 'accident';
-      if (has('põder', 'loom', 'hobune', 'animal')) return 'animal';
+      if (has('joobes juh', 'joobes_juh', 'purjus juh', 'purjus auto', 'autorool', 'joobes koju', 'drunk')) return urgent ? 'drunk_driver' : 'drunk_driver_home';
+      if (has('õnnetus', 'avarii', 'kokkupõrge', 'accident', 'crash', 'jalakäija')) return urgent ? 'accident' : 'fender_bender';
+      if (has('põder', 'põdra', 'elk', 'moose')) return 'elk_road';
+      if (has('loom', 'hobune', 'animal')) return 'animal_road';
+      if (has('kihut', 'ralli', 'racing', 'speed')) return 'racing';
       return 'traffic';
     case 'drugs':
-      return 'drugs';
+      if (has('üledoos', 'overdose')) return 'overdose';
+      if (has('süstal', 'syringe')) return 'syringes';
+      if (has('lõhn', 'smell', 'kanep', 'cannabis')) return 'drug_smell';
+      if (has('leitud', 'found')) return 'drug_found';
+      return urgent ? 'drugged_person' : 'drug_dealing';
     case 'missing': {
+      if (has('dement')) return 'missing_dementia';
+      if (has('ujuja', 'upp', 'drown')) return 'drowning';
       const m = s ? personByRole(s, inc, 'missing', 'victim') : undefined;
-      if (m && s && safe(() => ageOf(m, s.now), 30) < 14) return 'missing_child';
-      return has('laps', 'child', 'koolilaps', 'poeg', 'tütar') ? 'missing_child' : 'missing_adult';
+      if ((m && s && safe(() => ageOf(m, s.now), 30) < 14) || has('laps', 'child', 'koolilaps', 'poeg', 'tütar', 'teismeline')) return 'missing_child';
+      if (has('mets', 'forest', 'seen')) return 'lost_forest';
+      return 'missing_adult';
     }
     case 'alarm':
       return 'alarm';
     case 'assist':
-      if (has('koer', 'loom', 'animal', 'hobune', 'põder')) return 'animal';
-      return 'assist';
+      if (has('koer', 'dog')) return 'dog';
+      if (has('hobune', 'horse')) return 'horse_road';
+      if (has('põder', 'põdra', 'metsloom', 'elk')) return 'elk_road';
+      if (has('loom', 'animal')) return 'animal_road';
+      if (has('enesetap', 'suitsiid', 'suicid')) return 'suicide';
+      if (has('surnu', 'surnud', 'dead')) return 'found_body';
+      if (has('gaas', 'gas')) return 'gas';
+      if (has('tulekahju', 'põleng', 'sütti', 'fire')) return 'fire';
+      if (has('laps', 'child')) return urgent ? 'child_alone' : 'child_screams';
+      return urgent ? 'unwell' : 'person_lying';
     case 'fraud':
-      return 'fraud';
+      if (has('võlts', 'counterfeit')) return has('dokument', 'pass', 'document') ? 'forgery' : 'counterfeit';
+      if (has('küber', 'cyber')) return 'cyber';
+      if (has('takso', 'taxi', 'palk', 'wage')) return 'fraud_generic';
+      return 'scam';
     case 'border':
-      return 'border';
+      if (has('droon', 'drone')) return 'drone';
+      if (has('paat', 'boat')) return 'border_boat';
+      if (has('salavedu', 'smuggl', 'salakaub')) return 'smuggling';
+      if (has('dokument', 'pass', 'document')) return 'border_check';
+      return 'border_crossing';
     case 'environment':
-      if (has('koer', 'loom', 'animal')) return 'animal';
-      return 'environment';
+      if (has('reost', 'pollut', 'õli')) return 'pollution';
+      if (has('prügi', 'waste', 'dump')) return 'dumping';
+      if (has('raie', 'logging')) return 'logging';
+      if (has('salakütt', 'poach', 'jaht')) return 'poaching';
+      if (has('kalast', 'fishing', 'võrk')) return 'illegal_fishing';
+      if (has('lõke', 'tuli', 'fire')) return 'fire_outdoor';
+      if (has('koer', 'loom', 'animal', 'hunt', 'põder', 'wolf')) return 'wildlife';
+      return 'suspicious';
     case 'major':
-      if (has('pomm', 'lõhke', 'bomb', 'pakk')) return 'bomb';
-      if (tags.has('weapon_gun') || has('tulist', 'lask', 'relv')) return 'shots';
-      return 'knife';
+      if (has('pomm', 'lõhke', 'bomb', 'pakk')) return has('ähvard', 'threat') ? 'bomb_threat' : 'suspicious_item';
+      if (has('pantvang', 'hostage', 'kaaper')) return 'hostage';
+      if (gun || has('relv')) return 'shots';
+      if (has('põgen', 'escape')) return 'escape';
+      if (has('mäss', 'riot')) return has('vangla', 'prison') ? 'prison_riot' : 'riot';
+      if (has('leke', 'kemik', 'hazmat', 'leak')) return 'hazard';
+      if (has('tulekahju', 'fire')) return 'fire';
+      if (has('õnnetus', 'accident', 'crash', 'tungle')) return 'major_accident';
+      return 'emergency';
     case 'easter':
-      return 'easter';
+      return has('ufo', 'tulnuk', 'alien') ? 'ufo' : 'easter';
   }
   return 'generic';
 }
@@ -615,7 +573,8 @@ function directionPhrase(s: SimState, inc: Incident): Phrase {
   const streets = (region?.streets ?? []).filter((x) => x.city === inc.location.city && x.name !== street);
   if (streets.length > 0) {
     const st = streets[Math.floor(h01(inc, 'dir') * streets.length)];
-    return P(st.name, st.name, st.name);
+    // Estonian "suunas" takes the genitive, and a caller says the street type in full: "Pika tänava suunas".
+    return P(st.name, spokenStreetGenitive(st.name), st.name);
   }
   const opts: Phrase[] = [
     P('центра', 'kesklinna', 'the town centre'),
@@ -641,7 +600,34 @@ interface Facts {
   minutesAgo: number;
 }
 
-function factsOf(inc: Incident, tpl?: IncidentTemplate): Facts {
+/** Situations whose lines name a firearm or a knife: the weapon answer must agree. */
+const GUN_SITUATIONS = new Set<Situation>(['shots', 'gun_threat', 'armed_robbery', 'weapon_deal']);
+/** The person the caller talks about has left the scene. */
+const FLED_SITUATIONS = new Set<Situation>(['scam_door', 'hit_and_run', 'abduction', 'escape', 'fleeing_vehicle', 'street_robbery', 'robbery']);
+/** The person the caller talks about is still there (held, locked in, at the door, lying on the ground…). */
+const STAYED_SITUATIONS = new Set<Situation>([
+  'shoplift',
+  'fare_refusal',
+  'hostage',
+  'barricaded',
+  'prison_riot',
+  'held_captive',
+  'order_breach',
+  'domestic',
+  'domestic_child',
+  'domestic_neighbour',
+  'aggressive_person',
+  'drunk_person',
+  'drunk_lying',
+  'person_lying',
+  'person_on_road',
+  'pestering',
+  'suicide',
+  'driver_asleep',
+  'drugged_person',
+]);
+
+function factsOf(inc: Incident, tpl: IncidentTemplate | undefined, sit: Situation): Facts {
   const tags = new Set([...(tpl?.tags ?? []), ...inc.tags]);
   const txt = textOf(tpl, inc);
   const kiirabi = inc.agencyNeeds.some((a) => a.agency === 'kiirabi') || (tpl?.agencies ?? []).some((a) => a.agency === 'kiirabi' && a.chance >= 0.5);
@@ -652,8 +638,8 @@ function factsOf(inc: Incident, tpl?: IncidentTemplate): Facts {
   else if (inc.category === 'traffic' && txt.includes('õnnetus')) injured = h01(inc, 'inj') < 0.35 ? 'yes' : 'no';
 
   let weapon: Facts['weapon'] = 'none';
-  if (tags.has('weapon_gun')) weapon = 'gun';
-  else if (tags.has('weapon_knife')) weapon = 'knife';
+  if (tags.has('weapon_gun') || GUN_SITUATIONS.has(sit)) weapon = 'gun';
+  else if (tags.has('weapon_knife') || sit === 'knife') weapon = 'knife';
   else if (tags.has('armed') || tags.has('weapon')) weapon = h01(inc, 'wpn') < 0.5 ? 'maybe' : 'knife';
   else if ((inc.category === 'domestic' || inc.category === 'violence') && h01(inc, 'wpn') < 0.12) weapon = 'maybe';
 
@@ -672,29 +658,40 @@ function factsOf(inc: Incident, tpl?: IncidentTemplate): Facts {
   else if (inc.category === 'fraud' || inc.category === 'missing' || inc.category === 'alarm') intoxicated = 'no';
 
   const inProgress = inc.truePriority <= 2 || tags.has('in_progress');
-  const fled = tags.has('fled') || tags.has('vehicle_flee') || tags.has('escaped') || tags.has('bolo') || inc.category === 'property' || (inc.category === 'violence' && h01(inc, 'fled') < 0.4);
+  // A suspect the caller is holding (shop security, a taxi driver with a passenger) has not fled anywhere.
+  const scriptTxt = low([...(tpl?.call?.opening ?? []), ...(tpl?.callerLines ?? [])].map((l) => l.et).join(' '));
+  const held = tags.has('detained') || /hoiab teda kinni|hoiame teda|kinni peetud|pidasime kinni|turvaruum|lukustanud uksed/.test(scriptTxt);
+  const fled =
+    !held &&
+    !STAYED_SITUATIONS.has(sit) &&
+    (FLED_SITUATIONS.has(sit) || tags.has('fled') || tags.has('vehicle_flee') || tags.has('escaped') || tags.has('bolo') || inc.category === 'property' || (inc.category === 'violence' && h01(inc, 'fled') < 0.4));
   const byCar = tags.has('vehicle_flee') || inc.vehicles.some((v) => v.role === 'suspect');
   const minutesAgo = inProgress ? 0 : inc.truePriority === 3 ? 10 + Math.floor(h01(inc, 'ago') * 35) : 30 + Math.floor(h01(inc, 'ago') * 150);
   return { injured, weapon, count, children, intoxicated, inProgress, fled, byCar, minutesAgo };
 }
 
+/**
+ * Placeholder values for template lines a CALLER speaks: spoken forms, not card notation (a witness
+ * description instead of "mees, 35a", the place without its bracketed qualifier).
+ */
 function varsFor(s: SimState, inc: Incident): Vars {
   const suspect = personByRole(s, inc, 'suspect', 'missing');
   const victim = personByRole(s, inc, 'victim');
   const v = suspectVehicle(s, inc);
-  const short = (p: Person | undefined): string | Text | undefined => {
+  // Template lines start a sentence with {suspect} ("{suspect}. Valged tossud."), hence capitalised.
+  const spoken = (p: Person | undefined): Text | undefined => {
     if (!p) return undefined;
-    const age = safe(() => ageOf(p, s.now), 35);
-    return p.gender === 'M' ? { et: `mees, ${age}a`, en: `man, ${age}` } : { et: `naine, ${age}a`, en: `woman, ${age}` };
+    const w = witnessDescription(p, s.now, true);
+    return { et: cap1(w.et), en: cap1(w.en) };
   };
   return {
     address: inc.location.address,
-    place: inc.location.placeName ?? inc.location.address,
+    place: spokenPlaceLabel(inc.location),
     city: inc.location.city,
     district: inc.location.district ?? inc.location.city,
-    suspect: short(suspect),
+    suspect: spoken(suspect),
     suspectName: suspect ? `${suspect.firstName} ${suspect.lastName}` : undefined,
-    victim: short(victim),
+    victim: spoken(victim),
     victimName: victim ? `${victim.firstName} ${victim.lastName}` : undefined,
     caller: inc.caller?.name,
     plate: v?.plate ?? inc.vehicles[0]?.plate,
@@ -707,6 +704,12 @@ function varsFor(s: SimState, inc: Incident): Vars {
     })(),
     age: suspect ? String(safe(() => ageOf(suspect, s.now), 35)) : undefined,
   };
+}
+
+/** Fill a template line the caller speaks; the first letter is capitalised ("{car}, number {plate}."). */
+function fillCaller(t: Text, s: SimState, inc: Incident): Text {
+  const f = fillText(t, varsFor(s, inc));
+  return { et: cap1(f.et), en: cap1(f.en) };
 }
 
 /** Fill {placeholders}; a value of '§' is replaced per language from `per` (e.g. a vehicle description). */
@@ -726,6 +729,21 @@ function capPhrase(p: Phrase): Phrase {
 
 // ── Mood & language ──────────────────────────────────────────────────────────
 
+/** Situations reported by someone calling in a professional role. */
+const PROFESSIONAL_SITUATIONS = new Set<Situation>([
+  'ambulance_help',
+  'child_injured',
+  'customs',
+  'border_check',
+  'prison_riot',
+  'escape',
+  'missing_patient',
+  'child_not_collected',
+  'cyber',
+  'sabotage',
+  'drone',
+]);
+
 function deriveMood(s: SimState, inc: Incident, tpl: IncidentTemplate | undefined, rng: Rng): CallerMood {
   if (tpl?.call?.mood) return tpl.call.mood;
   const caller = callerPerson(s, inc);
@@ -735,6 +753,8 @@ function deriveMood(s: SimState, inc: Incident, tpl: IncidentTemplate | undefine
   const victimAge = victim ? safe(() => ageOf(victim, s.now), 30) : 30;
   if (victimAge < 12 && caller === undefined && rng.chance(0.25)) return 'child';
   if (age >= 72) return inc.category === 'missing' || rng.chance(0.25) ? (rng.chance(0.7) ? 'elderly' : 'confused') : 'elderly';
+  // Paramedics, customs officers, prison and hospital staff report calmly (and never drunk).
+  if (PROFESSIONAL_SITUATIONS.has(situationOf(inc, tpl, s))) return 'calm';
   const hour = wall(s.now).hour;
   const night = hour >= 22 || hour < 5;
   if (inc.truePriority === 1) {
@@ -827,7 +847,38 @@ function pushCaller(s: SimState, call: ActiveCall, p: Phrase, rng: Rng): void {
 /** Answers that already sound hesitant or are plain facts get no leading filler. */
 const NO_PRE = /^(Ma ei tea|Ma pole|Ei[ ,.!]|Minu nimi|Jah[,.!…]|Üks inimene|Mitte kuhugi|Oi, ma|Mis aadress|Oot)/;
 
-function styled(call: ActiveCall, p: Phrase, rng: Rng, q?: CallQuestionId): Phrase {
+/**
+ * Lower-case an answer's first letter after a filler ("Kuulge… relva ma ei näinud"), except after a
+ * full stop or question mark, for English "I", for acronyms and for two-word names ("Toyota Corolla").
+ */
+export function lcAfter(x: string, prev = ''): string {
+  // After a sentence end or a stage direction ("(sosinal) ") the answer starts a new sentence.
+  if (!x || /[.!?)]\s*$/.test(prev)) return x;
+  if (/^I\b/.test(x) || /^[A-ZÕÄÖÜŠŽА-ЯЁ]{2}/.test(x)) return x;
+  const [first, second] = x.split(/\s+/);
+  const lc = x.charAt(0).toLowerCase() + x.slice(1);
+  if (COLOUR_START.test(first)) return lc; // "Kullake, sinine Mercedes-Benz…"
+  if (second && !/[:,]$/.test(first) && /^[A-ZÕÄÖÜŠŽА-ЯЁ]/.test(second)) return x;
+  return lc;
+}
+
+/** Colour adjectives that start a vehicle description ("Hall Toyota") are common words, not names. */
+const COLOUR_START = /^((tume|hele)?(sinine|must|valge|hõbe\w*|hall|punane|bordoo|veinipunane|roheline|kollane|oranž|pruun|beež|lilla|kuldne)|(dark|light)?(blue|black|white|silver|grey|red|burgundy|green|yellow|orange|brown|beige|purple|gold\w*)|тёмно-синий|голубой|синий|чёрный|белый|серебристый|серый|красный|бордовый|зелёный|жёлтый|оранжевый|коричневый|бежевый|фиолетовый|золотистый)$/i;
+
+/** Genders that pick the `{m|f}` (caller) and `[m|f|n]` (person talked about) forms. */
+interface Genders {
+  caller: Gn;
+  subject: Gn;
+}
+
+function gendersOf(s: SimState, inc: Incident): Genders {
+  const caller = callerPerson(s, inc);
+  if (SELF_SITUATIONS.has(situationOf(inc, tplOf(inc), s))) return { caller: caller?.gender, subject: caller?.gender };
+  const subject = personByRole(s, inc, 'suspect', 'missing', 'driver', 'victim', 'deceased');
+  return { caller: caller?.gender, subject: subject?.gender };
+}
+
+function styled(call: ActiveCall, p: Phrase, rng: Rng, q?: CallQuestionId, g: Genders = { caller: undefined, subject: undefined }): Phrase {
   const f = MOOD_FILLERS[call.mood];
   if (!f) return p;
   let out = { ...p };
@@ -836,14 +887,15 @@ function styled(call: ActiveCall, p: Phrase, rng: Rng, q?: CallQuestionId): Phra
     out = { ru: frag(out.ru), et: frag(out.et), en: frag(out.en) };
   }
   const skipPre = q === 'name' || NO_PRE.test(p.et);
+  // A filler the line already contains ("Vabandage, et tülitan…") is not said twice.
+  const says = (x: Phrase) => low(p.et).includes(low(x.et).replace(/^[\s(]+|[\s….,!?)]+$/g, ''));
   if (!skipPre && rng.chance(f.pPre)) {
-    const pre = rng.pick(f.pre);
-    const lc = (x: string) => (x.length > 1 && x[1] === x[1].toLowerCase() ? x[0].toLowerCase() + x.slice(1) : x);
-    out = { ru: pre.ru + lc(out.ru), et: pre.et + lc(out.et), en: pre.en + lc(out.en) };
+    const pre = genderizePhrase(rng.pick(f.pre), g.caller, g.subject);
+    if (!says(pre)) out = { ru: pre.ru + lcAfter(out.ru, pre.ru), et: pre.et + lcAfter(out.et, pre.et), en: pre.en + lcAfter(out.en, pre.en) };
   }
   if (rng.chance(f.pPost)) {
-    const post = rng.pick(f.post);
-    out = { ru: out.ru + post.ru, et: out.et + post.et, en: out.en + post.en };
+    const post = genderizePhrase(rng.pick(f.post), g.caller, g.subject);
+    if (!says(post)) out = { ru: out.ru + post.ru, et: out.et + post.et, en: out.en + post.en };
   }
   return out;
 }
@@ -860,30 +912,117 @@ const fact = (et: string, en: string): Text => ({ et: `Helistaja: ${et}`, en: `C
 
 function openingPhrase(s: SimState, call: ActiveCall, inc: Incident, tpl: IncidentTemplate | undefined, rng: Rng): Phrase {
   if (call.prank) return rng.pick(PRANK_OPENINGS);
-  const vars = varsFor(s, inc);
   const sit = situationOf(inc, tpl, s);
   const built = rng.pick(OPENINGS[sit]);
   if (call.lang === 'ru') {
     const ruLines = tpl?.call?.openingRu ?? [];
-    if (ruLines.length > 0) {
-      const i = rng.int(0, ruLines.length - 1);
-      const tr = tpl?.call?.opening[i] ?? tpl?.call?.opening[0] ?? tpl?.callerLines?.[0] ?? built;
-      const trf = fillText({ et: tr.et, en: tr.en }, vars);
-      return { ru: fill(ruLines[i], vars), et: trf.et, en: trf.en };
-    }
+    if (ruLines.length > 0) return scriptedRu(s, inc, tpl!, rng.int(0, ruLines.length - 1));
+    // No Russian script: the situation line for THIS incident (original and translation match).
     return built;
   }
   const pool = tpl?.call?.opening?.length ? tpl.call.opening : tpl?.callerLines?.length ? tpl.callerLines : undefined;
   if (pool) {
-    const t = fillText(rng.pick(pool), vars);
+    const t = fillCaller(rng.pick(pool), s, inc);
     return { ru: built.ru, et: t.et, en: t.en };
   }
   return built;
 }
 
+/** Scripted Russian line `i` with its Estonian/English translation (template `call.opening[i]`). */
+function scriptedRu(s: SimState, inc: Incident, tpl: IncidentTemplate, i: number): Phrase {
+  const ruLines = tpl.call?.openingRu ?? [];
+  const tr = tpl.call?.opening[i] ?? tpl.call?.opening[0] ?? tpl.callerLines?.[0] ?? { et: ruLines[i], en: ruLines[i] };
+  const trf = fillCaller({ et: tr.et, en: tr.en }, s, inc);
+  return { ru: fill(ruLines[i], varsFor(s, inc)), et: trf.et, en: trf.en };
+}
+
+/**
+ * Card wording a caller would never use: labels ("Kirjeldus: …"), the caller in the third person
+ * ("teataja", "kadunu", "eakas"), reported speech ("naabrite sõnul", "video järgi"), police and
+ * registry knowledge (patrols, records, operators, ANPR), legal or explanatory notes and card
+ * abbreviations ("u 300 €", "1,5 km raadiuses").
+ */
+const CARD_WORDING: RegExp[] = [
+  /: /,
+  /\(/,
+  /^(teataja|helistaja|häirekeskus|hk|valvekeskus|kannatanu|tunnistaja|kahtlustatav|isik|patsient|klient)\b/i,
+  /§|\b(KorS|KarS|LSV|PPA|ANPR)\b/,
+  /teataja|helistaja|kannatanu|tunnistaja|kahtlusalune|kahtlustata|kinnipeetu\b|\bisik(ud|ul|ut|ute)?\b|\bkadunu(l|t|le|ga)?\b|\beaka(t|le|l)?\b/i,
+  /\bsõnul\b|\bjärgi\b|andmetel|teadaolevalt|\bjuhtum/i,
+  /häirekeskus|politsei|patrull|ekipaa|päästeamet|päästjad|lastekaitse|kriminaal|mobiili|operaator|tuvasta|registreer|edastat|edastati|teavita|menetl|väljakutse|andmebaas|register|sündmuskoh|\bleiti\b/i,
+  /pädevus|järelevalve|väärteg|süüvõime|kohaldati|keelatud|lubatud|hinnanguliselt|läheneda|ettevaatlikult|ümbersõit|tuleb hoida|sihtmärgiks|mõnikord|kontrolljoon|varem kasutatud|\bsarnane\b|sama skeemi|sama sõiduk|eelmisel kuul|piirkonnas (on viimase|mitu|asub)|teatati|laekunud|veebikonstaab|kasutajakonto|võib häirida|peetakse\b/i,
+  /\bu \d|€|\d+(,\d+)? ?(km|m|m\/s)\b|\d+\. (jaanuar|veebruar|märts|aprill|mai|juuni|juuli|august|september|oktoober|november|detsember)/i,
+];
+
+/** Whether a hidden card detail reads as something the caller could say (card notes stay on the card). */
+export function speakableDetail(d: Text): boolean {
+  const et = d.et.trim();
+  return !!et && !CARD_WORDING.some((re) => re.test(et));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Answers
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** Someone is missing: the caller does not know where they went (that is why they call). */
+const MISSING_SITUATIONS = new Set<Situation>(['missing_child', 'lost_child', 'missing_youth', 'missing_adult', 'missing_dementia', 'missing_patient', 'lost_forest']);
+
+/** Situations in which the caller is the person in trouble. */
+const SELF_SITUATIONS = new Set<Situation>(['lost_self', 'fallen_self']);
+
+/** Answers about "the person" when the caller is that person. */
+function selfAnswer(s: SimState, inc: Incident, q: CallQuestionId, f: Facts): Answer | undefined {
+  switch (q) {
+    case 'injured':
+      return f.injured === 'yes'
+        ? { phrase: ANSWERS.injured_self, informative: true, fact: fact('on ise vigastatud', 'is injured themselves') }
+        : { phrase: ANSWERS.injured_self_no, informative: true, fact: fact('ise vigastusteta', 'not injured') };
+    case 'suspect':
+      return { phrase: ANSWERS.suspect_nobody, informative: true };
+    case 'vehicle': {
+      const veh = suspectVehicle(s, inc);
+      if (!veh) return { phrase: ANSWERS.vehicle_self_none, informative: true, fact: fact('sõidukit ei ole', 'no vehicle') };
+      const vp = vehiclePhrase(veh);
+      return { phrase: fillPhrase(ANSWERS.vehicle_self, { car: '§', plate: veh.plate }, vp), informative: true, fact: { et: `Helistaja sõiduk: ${vp.et}, reg nr ${veh.plate}`, en: `Caller's vehicle: ${vp.en}, plate ${veh.plate}` } };
+    }
+    case 'direction':
+      return { phrase: ANSWERS.direction_self, informative: true, fact: fact('ootab kohapeal', 'waiting where they are') };
+    case 'intoxicated':
+      return { phrase: ANSWERS.intox_self, informative: true, fact: fact('kaine', 'sober') };
+  }
+  return undefined;
+}
+
+/** Situations in which a caller at a residential address is calling from home. */
+const HOME_SITUATIONS = new Set<Situation>([
+  'domestic',
+  'domestic_neighbour',
+  'domestic_child',
+  'domestic_argument',
+  'harassment',
+  'order_breach',
+  'child_neglect',
+  'noise',
+  'nuisance',
+  'burglary',
+  'burglary_progress',
+  'intrusion',
+  'welfare',
+  'drunk_driver_home',
+  'scam',
+  'scam_ongoing',
+  'fallen_self',
+  'animal_cruelty',
+  'drug_smell',
+  'threat',
+]);
+/** Family situations where "the children are at home" is the natural answer. */
+const FAMILY_SITUATIONS = new Set<Situation>(['domestic', 'domestic_neighbour', 'domestic_child', 'domestic_argument', 'order_breach', 'child_neglect']);
+
+/** Is the caller at home (a residential address and a situation people report from home)? */
+function callerAtHome(inc: Incident, sit: Situation): boolean {
+  return (inc.location.placeKind === 'residential' || inc.location.placeKind === 'house') && HOME_SITUATIONS.has(sit);
+}
 
 interface Answer {
   phrase: Phrase;
@@ -907,48 +1046,77 @@ function generateAnswer(s: SimState, call: ActiveCall, inc: Incident, tpl: Incid
   const v: Record<string, string> = {
     address: loc.address,
     city: loc.city,
-    place: loc.placeName ?? loc.address,
   };
   const ruCity = RU_CITY[loc.city];
 
   // Template-scripted answers (Estonian callers; Russian callers keep the phrasebook so original & translation match).
   const scripted = tpl?.call?.answers?.[q];
   if (scripted?.length && call.lang !== 'ru') {
-    const t = fillText(rng.pick(scripted), varsFor(s, inc));
+    const t = fillCaller(rng.pick(scripted), s, inc);
     return { phrase: { ru: t.et, et: t.et, en: t.en }, informative: true, fact: { et: `Helistaja: ${t.et}`, en: `Caller: ${t.en}` } };
   }
 
-  const f = factsOf(inc, tpl);
+  const f = factsOf(inc, tpl, situationOf(inc, tpl, s));
+  if (SELF_SITUATIONS.has(situationOf(inc, tpl, s))) {
+    const self = selfAnswer(s, inc, q, f);
+    if (self) return self;
+  }
   switch (q) {
     case 'where': {
       const k = loc.placeKind;
       if (k === 'highway') return { phrase: fillPhrase(ANSWERS.where_road, v), informative: true, fact: fact(`asukoht ${loc.address}`, `location ${loc.address}`) };
-      if (['forest', 'lake', 'ruralroad', 'farm', 'summerhouse', 'village'].includes(k) && rng.chance(0.4)) {
+      // Someone in a forest or on a lake does not know an address; elsewhere in the country most still do.
+      if (k === 'forest' || k === 'lake' || (['ruralroad', 'farm', 'summerhouse', 'village'].includes(k) && rng.chance(0.4))) {
         return { phrase: fillPhrase(ANSWERS.where_rural, v), informative: true, fact: fact(`asukoht ligikaudu ${loc.address}`, `approximate location ${loc.address}`) };
       }
-      if (loc.placeName && loc.placeName !== loc.address) {
-        return { phrase: fillPhrase(ANSWERS.where_place, v), informative: true, fact: fact(`aadress kinnitatud: ${loc.placeName}, ${loc.address}`, `address confirmed: ${loc.placeName}, ${loc.address}`) };
+      const place = spokenPlace(loc);
+      if (place) {
+        const label = placeText(loc);
+        const en = typeof label === 'string' ? label : label.en;
+        return {
+          phrase: fillPhrase(ANSWERS.where_place, { ...v, place: '§' }, place),
+          informative: true,
+          fact: fact(`aadress kinnitatud: ${loc.placeName}, ${loc.address}`, `address confirmed: ${en}, ${loc.address}`),
+        };
       }
-      const addr = fillPhrase(ANSWERS.where_addr, v);
-      if (ruCity) addr.ru = addr.ru.replace(`, ${loc.city}.`, `, ${ruCity}.`);
+      // Rural addresses already name the village ("Varangu küla, Lääne-Viru maakond"): no town after them.
+      const withCity = !loc.address.includes(loc.city);
+      const addr = fillPhrase(withCity ? ANSWERS.where_addr : ANSWERS.where_addr_only, v);
+      if (ruCity && withCity) addr.ru = addr.ru.replace(`, ${loc.city}.`, `, ${ruCity}.`);
       return { phrase: addr, informative: true, fact: fact(`aadress kinnitatud: ${loc.address}, ${loc.city}`, `address confirmed: ${loc.address}, ${loc.city}`) };
     }
     case 'what': {
       const sit = situationOf(inc, tpl, s);
       const opening = call.lines.find((l) => l.who === 'caller');
+      // Fillers and panic fragments change the opening's punctuation: compare letters only.
+      const norm = (x: string) => low(x).replace(/[^\p{L}\p{N}]+/gu, '');
+      const pending = opening ? s.flags[trKey(call.id, call.lines.indexOf(opening))] : undefined; // translation not yet shown
+      const heard = norm(`${opening?.ru ?? ''} ${opening?.text.et ?? ''} ${typeof pending === 'string' ? pending : ''}`);
+      const g = gendersOf(s, inc);
+      const said = (x: string) => !!opening && heard.includes(norm(genderize(x, g.caller, g.subject)).slice(0, 24));
       let ph: Phrase | undefined;
       if (call.lang !== 'ru' && tpl?.callerLines?.length) {
-        const pool = tpl.callerLines.filter((l) => l.et !== opening?.text.et);
-        const t = fillText(rng.pick(pool.length ? pool : tpl.callerLines), varsFor(s, inc));
-        ph = { ru: t.et, et: t.et, en: t.en };
+        const pool = tpl.callerLines.filter((l) => !said(fill(l.et, varsFor(s, inc))));
+        if (pool.length) {
+          const t = fillCaller(rng.pick(pool), s, inc);
+          ph = { ru: t.et, et: t.et, en: t.en };
+        }
+      }
+      if (!ph && call.lang === 'ru' && tpl && (tpl.call?.openingRu?.length ?? 0) > 1) {
+        // Another scripted Russian line (the one not used as the opening), with its own translation.
+        const idx = (tpl.call?.openingRu ?? []).map((_, i) => i).filter((i) => !said(fill(tpl.call!.openingRu![i], varsFor(s, inc))) && tpl.call?.opening[i]);
+        if (idx.length) ph = scriptedRu(s, inc, tpl, rng.pick(idx));
       }
       if (!ph) {
-        const pool = OPENINGS[sit].filter((x) => x.ru !== opening?.ru && x.et !== opening?.text.et);
-        ph = rng.pick(pool.length ? pool : OPENINGS[sit]);
+        // The situation lines describe this incident too; only when everything has been said is a line repeated.
+        const pool = OPENINGS[sit].filter((x) => !said(x.ru) && !said(x.et));
+        const scriptedEt = call.lang !== 'ru' && tpl?.callerLines?.length ? fillCaller(rng.pick(tpl.callerLines), s, inc) : undefined;
+        ph = pool.length ? rng.pick(pool) : scriptedEt ? { ru: scriptedEt.et, et: scriptedEt.et, en: scriptedEt.en } : rng.pick(OPENINGS[sit]);
       }
-      // Estonian callers may add one detail the HK card does not show yet.
-      const extra = call.lang !== 'ru' && inc.hiddenDetails[0] ? fillText(inc.hiddenDetails[0], varsFor(s, inc)) : undefined;
-      if (extra) ph = { ru: ph.ru, et: `${ph.et} Ja veel: ${lcFirst(extra.et)}`, en: `${ph.en} And also, ${lcFirst(extra.en)}` };
+      // Estonian callers may add one detail the HK card does not show yet, if it reads as speech.
+      const hd = call.lang !== 'ru' ? inc.hiddenDetails.find(speakableDetail) : undefined;
+      const extra = hd ? fillCaller(hd, s, inc) : undefined;
+      if (extra) ph = { ru: ph.ru, et: `${ph.et} Ja veel üks asi. ${extra.et}`, en: `${ph.en} And one more thing. ${extra.en}` };
       return { phrase: ph, informative: true, fact: extra ? { et: `Helistaja lisab: ${extra.et}`, en: `Caller adds: ${extra.en}` } : undefined };
     }
     case 'injured':
@@ -963,22 +1131,28 @@ function generateAnswer(s: SimState, call: ActiveCall, inc: Incident, tpl: Incid
     case 'suspect': {
       const p = personByRole(s, inc, 'suspect', 'missing', 'driver');
       if (!p) return { phrase: ANSWERS.suspect_nobody, informative: true };
+      // A child reporting violence at home does not give a witness description of their own father.
+      if (situationOf(inc, tpl, s) === 'domestic_child') return { phrase: ANSWERS.suspect_parent, informative: true, fact: fact('ründaja on lapse isa', "the attacker is the child's father") };
       const hour = wall(s.now).hour;
       if ((hour >= 22 || hour < 5) && inc.category !== 'missing' && h01(inc, 'dark') < 0.2) return { phrase: ANSWERS.suspect_none, informative: true, fact: fact('isikut ei näinud', 'did not see the person') };
       const w = witnessDescription(p, s.now, call.lang !== 'ru');
       let desc: Phrase = w;
+      let card: Text = { et: w.et, en: w.en };
       if (call.lang !== 'ru') {
-        const d = safe(() => describePerson(p, s.now), { et: w.et, en: w.en });
-        desc = { ru: w.ru, et: d.et, en: d.en };
+        card = safe(() => describePerson(p, s.now), card);
+        // Spoken, the card abbreviations are said in full and English needs its article ("A man, about 30…").
+        desc = { ru: w.ru, et: card.et.replace(/\bu (\d)/g, 'umbes $1'), en: withArticleEn(card.en.replace(/\bapprox\. /g, 'about ')) };
       }
       return {
         phrase: capPhrase(fillPhrase(ANSWERS.suspect_desc, { desc: '§' }, desc)),
         informative: true,
-        fact: { et: `Kirjeldus: ${desc.et}`, en: `Description: ${desc.en}` },
+        fact: { et: `Kirjeldus: ${card.et}`, en: `Description: ${card.en}` },
       };
     }
     case 'vehicle': {
       const veh = suspectVehicle(s, inc);
+      const nobody = !personByRole(s, inc, 'suspect', 'missing', 'driver');
+      if (!veh && nobody) return { phrase: ANSWERS.vehicle_nobody, informative: true, fact: fact('sõidukit ei ole', 'no vehicle') };
       if (!veh || (!f.byCar && inc.category !== 'traffic')) return { phrase: ANSWERS.vehicle_none, informative: true, fact: fact('sõidukit ei ole / jalgsi', 'no vehicle / on foot') };
       const vp = vehiclePhrase(veh);
       const full = h01(inc, 'plate') < 0.6 || inc.category === 'traffic';
@@ -997,6 +1171,11 @@ function generateAnswer(s: SimState, call: ActiveCall, inc: Incident, tpl: Incid
       };
     }
     case 'direction': {
+      const sit = situationOf(inc, tpl, s);
+      if (sit === 'adrift') return { phrase: ANSWERS.direction_adrift, informative: true, fact: fact('kantakse kaldast eemale', 'drifting away from the shore') };
+      if (sit === 'drowning') return { phrase: ANSWERS.direction_drowning, informative: true, fact: fact('kadus vee alla u 50 m kaldast', 'went under about 50 m from the shore') };
+      if (MISSING_SITUATIONS.has(sit)) return { phrase: ANSWERS.direction_missing, informative: true, fact: fact('liikumissuund teadmata', 'direction unknown') };
+      if (!personByRole(s, inc, 'suspect', 'missing', 'driver') && !suspectVehicle(s, inc)) return { phrase: ANSWERS.direction_nobody, informative: true };
       if (!f.fled) return { phrase: ANSWERS.direction_here, informative: true, fact: fact('kahtlustatav on endiselt kohal', 'suspect still on scene') };
       if (h01(inc, 'dirk') < 0.15) return { phrase: ANSWERS.direction_unknown, informative: true, fact: fact('liikumissuund teadmata', 'direction unknown') };
       const d = directionPhrase(s, inc);
@@ -1009,6 +1188,7 @@ function generateAnswer(s: SimState, call: ActiveCall, inc: Incident, tpl: Incid
     case 'count':
       if (f.count >= 20) return { phrase: ANSWERS.count_many, informative: true, fact: fact('palju inimesi (kümneid)', 'many people (dozens)') };
       if (f.count === 1) return { phrase: ANSWERS.count_one, informative: true, fact: fact('üks isik', 'one person') };
+      if (FEW[f.count]) return { phrase: FEW[f.count], informative: true, fact: fact(`isikuid ${f.count}`, `${f.count} people`) };
       return { phrase: fillPhrase(ANSWERS.count, { n: String(f.count) }), informative: true, fact: fact(`isikuid umbes ${f.count}`, `about ${f.count} people`) };
     case 'when': {
       if (f.inProgress) return { phrase: ANSWERS.when_now, informative: true, fact: fact('toimub praegu', 'happening right now') };
@@ -1027,14 +1207,18 @@ function generateAnswer(s: SimState, call: ActiveCall, inc: Incident, tpl: Incid
     }
     case 'safe': {
       const danger = (inc.category === 'domestic' || inc.category === 'violence' || inc.category === 'major') && inc.truePriority <= 2;
-      if (danger && call.mood === 'whisper') return { phrase: ANSWERS.safe_hiding, informative: true, fact: fact('peidab end, ei ole ohutus kohas', 'hiding, not safe') };
+      const home = callerAtHome(inc, situationOf(inc, tpl, s));
+      if (danger && call.mood === 'whisper') return { phrase: home ? ANSWERS.safe_hiding_home : ANSWERS.safe_hiding, informative: true, fact: fact('peidab end, ei ole ohutus kohas', 'hiding, not safe') };
       if (danger && h01(inc, 'safe') < 0.4) return { phrase: ANSWERS.safe_no, informative: true, fact: fact('ei ole ohutus kohas, ründaja lähedal', 'not safe, attacker nearby') };
+      if (home) return { phrase: ANSWERS.safe_yes_home, informative: true, fact: fact('on ohutus kohas (kodus)', 'is in a safe place (at home)') };
       return { phrase: ANSWERS.safe_yes, informative: true, fact: fact('on ohutus kohas', 'is in a safe place') };
     }
-    case 'children':
-      return f.children
-        ? { phrase: ANSWERS.children_yes, informative: true, fact: fact('kohal on LAPSED', 'CHILDREN present') }
-        : { phrase: ANSWERS.children_no, informative: true, fact: fact('lapsi kohal ei ole', 'no children present') };
+    case 'children': {
+      if (!f.children) return { phrase: ANSWERS.children_no, informative: true, fact: fact('lapsi kohal ei ole', 'no children present') };
+      const sit = situationOf(inc, tpl, s);
+      const homeKids = callerAtHome(inc, sit) && FAMILY_SITUATIONS.has(sit);
+      return { phrase: homeKids ? ANSWERS.children_yes_home : ANSWERS.children_yes, informative: true, fact: fact('kohal on LAPSED', 'CHILDREN present') };
+    }
     case 'intoxicated':
       if (f.intoxicated === 'yes') return { phrase: ANSWERS.intox_yes, informative: true, fact: fact('isik on joobes', 'person is intoxicated') };
       if (f.intoxicated === 'no') return { phrase: ANSWERS.intox_no, informative: true, fact: fact('isik tundub kaine', 'person seems sober') };
@@ -1043,9 +1227,6 @@ function generateAnswer(s: SimState, call: ActiveCall, inc: Incident, tpl: Incid
   return { phrase: ANSWERS.injured_unknown, informative: false };
 }
 
-function lcFirst(x: string): string {
-  return x ? x.charAt(0).toLowerCase() + x.slice(1) : x;
-}
 function cap1(x: string): string {
   return x ? x.charAt(0).toUpperCase() + x.slice(1) : x;
 }
@@ -1081,7 +1262,7 @@ export function maybeCreateCall(s: SimState, inc: Incident, tpl: IncidentTemplat
     inc.source = 'call';
     s.flags[`hidden:${inc.id}`] = true;
     s.calls.push(call);
-    emit(s, { type: 'call_ring', incidentId: inc.id, text: { et: 'Häirekeskus ühendab kõnet', en: 'Emergency centre transferring a call' } });
+    emit(s, { type: 'call_ring', incidentId: inc.id, text: { et: 'Häirekeskus ühendab kõnet', en: 'ERC transferring a call' } });
     return call;
   });
 }
@@ -1099,11 +1280,11 @@ export function updateCalls(s: SimState): void {
     if (call.answeredAt === undefined) {
       if (s.now - call.ringingSince > RING_TIMEOUT_MS) {
         call.endedAt = s.now;
-        pushSystem(s, call, { et: 'Kõnele ei vastatud. Häirekeskus edastas sündmuse kaardina.', en: 'Call not answered. The emergency centre forwarded the event as a card.' });
+        pushSystem(s, call, { et: 'Kõnele ei vastatud. Häirekeskus edastas sündmuse kaardina.', en: 'Call not answered. The ERC forwarded the event as a card.' });
         inc.source = 'hk';
         if (!inc.tags.includes('call:missed')) inc.tags.push('call:missed');
         s.stats.callsMissed++;
-        addTimeline(s, inc, 'hk', { et: 'Häirekeskus: 112-kõne jäi juhtimiskeskuses vastamata, sündmus edastati kaardina.', en: 'Emergency centre: the 112 transfer went unanswered, event forwarded as a card.' });
+        addTimeline(s, inc, 'hk', { et: 'Häirekeskus: 112-kõne jäi juhtimiskeskuses vastamata, sündmus edastati kaardina.', en: 'ERC: the 112 transfer went unanswered, event forwarded as a card.' });
         emit(s, { type: 'call_missed', incidentId: inc.id, text: { et: 'Vastamata 112-kõne', en: 'Missed 112 call' } });
         // publishIncident clears the hidden flag itself (and shifts expiry timers by the ring time).
         safe(() => publishIncident(s, inc), undefined);
@@ -1114,7 +1295,7 @@ export function updateCalls(s: SimState): void {
     // Answered but abandoned by the dispatcher → caller hangs up, HK creates the card with its own priority.
     const lastDispatcher = Math.max(call.answeredAt, ...call.lines.filter((l) => l.who === 'dispatcher').map((l) => l.t));
     if (s.now - lastDispatcher > IDLE_HANGUP_MS) {
-      pushSystem(s, call, { et: 'Helistaja katkestas kõne. Häirekeskus vormistas sündmuse.', en: 'The caller hung up. The emergency centre filed the event.' });
+      pushSystem(s, call, { et: 'Helistaja katkestas kõne. Häirekeskus vormistas sündmuse.', en: 'The caller hung up. The ERC filed the event.' });
       if (!inc.tags.includes('call:abandoned')) inc.tags.push('call:abandoned');
       const tpl = tplOf(inc);
       finishCreate(s, call, inc, tpl, tpl?.priority ?? inc.priority, false);
@@ -1142,14 +1323,15 @@ export function callAnswer(s: SimState, callId: string): void {
     s,
     call,
     call.lang === 'ru'
-      ? { et: 'Häirekeskus ühendas kõne. Helistaja räägib vene keeles.', en: 'Call connected by the emergency centre. The caller speaks Russian.' }
-      : { et: 'Häirekeskus ühendas kõne.', en: 'Call connected by the emergency centre.' },
+      ? { et: 'Häirekeskus ühendas kõne. Helistaja räägib vene keeles.', en: 'Call connected by the Emergency Response Centre (ERC). The caller speaks Russian.' }
+      : { et: 'Häirekeskus ühendas kõne.', en: 'Call connected by the Emergency Response Centre (ERC).' },
   );
   pushDispatcher(s, call, GREETING);
   if (!inc) return;
   withRng(s, (rng) => {
-    const opening = openingPhrase(s, call, inc, tplOf(inc), rng);
-    pushCaller(s, call, styled(call, opening, rng), rng);
+    const g = gendersOf(s, inc);
+    const opening = genderizePhrase(openingPhrase(s, call, inc, tplOf(inc), rng), g.caller, g.subject);
+    pushCaller(s, call, styled(call, opening, rng, undefined, g), rng);
   });
   addTimeline(s, inc, 'hk', { et: '112-kõne ühendati juhtimiskeskusega.', en: '112 call connected to the command centre.' });
 }
@@ -1165,10 +1347,11 @@ export function callAsk(s: SimState, callId: string, q: CallQuestionId): void {
   pushDispatcher(s, call, DISPATCHER_QUESTIONS[q]);
   withRng(s, (rng) => {
     const ans = generateAnswer(s, call, inc, tpl, q, rng);
-    let phrase = styled(call, ans.phrase, rng, q);
+    const g = gendersOf(s, inc);
+    let phrase = styled(call, genderizePhrase(ans.phrase, g.caller, g.subject), rng, q, g);
     if (askedBefore && call.learned.includes(q) && !call.prank && call.mood !== 'confused') {
-      const r = ANSWERS.repeat;
-      phrase = { ru: r.ru + lcFirst(phrase.ru), et: r.et + lcFirst(phrase.et), en: r.en + lcFirst(phrase.en) };
+      const r = genderizePhrase(ANSWERS.repeat, g.caller, g.subject);
+      phrase = { ru: r.ru + lcAfter(phrase.ru, r.ru), et: r.et + lcAfter(phrase.et, r.et), en: r.en + lcAfter(phrase.en, r.en) };
     }
     pushCaller(s, call, phrase, rng);
     if (!askedBefore) call.asked.push(q);

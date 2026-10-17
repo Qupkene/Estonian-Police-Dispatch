@@ -4,6 +4,9 @@
  * positions are read every frame from `getProps().sim`, never from React state.
  */
 import { addProtocol, Map as MlMap, setWorkerUrl, type AddProtocolAction, type GeoJSONSource, type MapMouseEvent } from 'maplibre-gl';
+// The stylesheet travels with the map (the in-shift chunk), not with the boot screen's entry chunk.
+import 'maplibre-gl/dist/maplibre-gl.css';
+// Emitted as assets/maplibre-gl-worker-<hash>.mjs; public/sw.js precaches it (vite.config.ts stamps the list).
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { Protocol } from 'pmtiles';
 import type { FeatureCollection } from 'geojson';

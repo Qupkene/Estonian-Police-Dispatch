@@ -2,7 +2,7 @@
  * Incident lifecycle (engine-core): publish, acknowledgement timeout, expiry, escalation,
  * on-scene work, beats, outcome (DESIGN §4.3-4.5).
  */
-import { ageOf, describePerson, describeVehicle } from '@/gen/describe';
+import { ageOf, describePerson, vehicleName, withArticleEn } from '@/gen/describe';
 import { JK_QUERY_REPLY } from '@/data/radioPhrases';
 import { bearing, destination, haversineKm } from './geo';
 import { addTimeline, emit, publishIncident, regionOf, tplOf } from './internal';
@@ -35,7 +35,7 @@ import {
   ZERO_BREAKDOWN,
 } from './scoring';
 import { startSearch, updateSearch } from './search';
-import { fillText, type Vars } from './text';
+import { fillText, genitiveName, type Vars } from './text';
 import { hhmm, isoDate, MIN } from './time';
 import {
   arrestHouse,
@@ -147,10 +147,12 @@ function fullName(p: Person | undefined): string | undefined {
 function safeDescribe(p: Person | undefined, now: number): Text | undefined {
   if (!p) return undefined;
   try {
-    return describePerson(p, now);
+    // Templates put {suspect} inside English sentences ("the attacker is a man, about 30…").
+    const d = describePerson(p, now);
+    return T(d.et, withArticleEn(d.en));
   } catch {
     const age = safeAge(p, now);
-    return p.gender === 'M' ? T(`mees, u ${age}a`, `man, about ${age}`) : T(`naine, u ${age}a`, `woman, about ${age}`);
+    return p.gender === 'M' ? T(`mees, u ${age}a`, `a man, about ${age}`) : T(`naine, u ${age}a`, `a woman, about ${age}`);
   }
 }
 
@@ -162,26 +164,28 @@ function safeAge(p: Person, now: number): number {
   }
 }
 
+/** {car}: colour, make and model without the plate ("hall Toyota Avensis"); templates add {plate} themselves. */
 export function safeCar(s: SimState, plate: string | undefined): Text | undefined {
   if (!plate) return undefined;
   const v = s.vehicles[plate];
-  if (!v) return T(plate, plate);
+  if (!v) return T('sõiduk', 'vehicle');
   try {
-    return describeVehicle(v);
+    return vehicleName(v);
   } catch {
-    return T(`${v.color?.et ?? ''} ${v.make} ${v.model} (${v.plate})`.trim(), `${v.color?.en ?? ''} ${v.make} ${v.model} (${v.plate})`.trim());
+    return T(`${v.color?.et?.toLowerCase() ?? ''} ${v.make} ${v.model}`.trim(), `${v.color?.en?.toLowerCase() ?? ''} ${v.make} ${v.model}`.trim());
   }
 }
 
+// Bare English directions: the templates supply the verb ("moving {direction}", "Heading {direction}").
 const COMPASS: Text[] = [
-  T('põhja suunas', 'heading north'),
-  T('kirde suunas', 'heading north-east'),
-  T('ida suunas', 'heading east'),
-  T('kagu suunas', 'heading south-east'),
-  T('lõuna suunas', 'heading south'),
-  T('edela suunas', 'heading south-west'),
-  T('lääne suunas', 'heading west'),
-  T('loode suunas', 'heading north-west'),
+  T('põhja suunas', 'north'),
+  T('kirde suunas', 'north-east'),
+  T('ida suunas', 'east'),
+  T('kagu suunas', 'south-east'),
+  T('lõuna suunas', 'south'),
+  T('edela suunas', 'south-west'),
+  T('lääne suunas', 'west'),
+  T('loode suunas', 'north-west'),
 ];
 
 /** Deterministic direction of travel for {direction} (derived from the incident id). */
@@ -194,14 +198,15 @@ export function directionText(s: SimState, inc: Pick<Incident, 'id' | 'location'
     const streets = region.streets.filter((st) => st.city === inc.location.city && st.points.length && haversineKm(st.points[0], here) < 4);
     if (streets.length) {
       const st = r.pick(streets);
-      return T(`${st.name} suunas`, `towards ${st.name}`);
+      return T(`${genitiveName(st.name)} suunas`, `towards ${st.name}`);
     }
   }
   if (roll < 0.8) {
     const towns = region.towns.filter((t) => t.name !== inc.location.city && haversineKm(t.coord, here) < 60);
     if (towns.length) {
       const t = r.pick(towns.slice(0, 12));
-      return T(`${t.name} suunas`, `towards ${t.name}`);
+      // "suunas" takes the genitive: "Tallinna suunas", "Tõnismäe suunas".
+      return T(`${genitiveName(t.name)} suunas`, `towards ${t.name}`);
     }
     if (region.towns.length > 1 && roll < 0.6) return T('kesklinna suunas', 'towards the town centre');
   }
@@ -229,7 +234,7 @@ export function incidentVars(s: SimState, inc: Incident): Vars {
     victimName: fullName(victim) ?? T('kannatanu', 'the victim'),
     caller: inc.caller?.name ?? T('teataja', 'the caller'),
     plate: veh?.plate ?? T('teadmata', 'unknown'),
-    car: safeCar(s, veh?.plate) ?? T('sõiduk', 'a vehicle'),
+    car: safeCar(s, veh?.plate) ?? T('sõiduk', 'vehicle'),
     direction: directionText(s, inc),
     age: ageP ? String(safeAge(ageP, now)) : String(r.int(20, 50)),
     n: String(2 + (hashString(inc.id) % 5)),
@@ -329,7 +334,7 @@ function updateIncident(s: SimState, inc: Incident, dtMs: number): void {
     const rq = n.requested;
     if (rq && !rq.arrived && now >= rq.arriveAt) {
       rq.arrived = true;
-      addTimeline(s, inc, 'agency', fillText(T('{agency} saabus', '{agency} arrived'), { agency: agencyName(n.agency) }));
+      addTimeline(s, inc, 'agency', fillText(T('Kohale jõudis: {agency}', 'Arrived on scene: {agency}'), { agency: agencyName(n.agency) }));
       const u = speakerOf(s, inc);
       if (u && u.status === 'onscene') unitPhrase(s, u, 'agencyArrive', inc, { agency: agencyName(n.agency) });
     }
@@ -390,7 +395,7 @@ function updateIncident(s: SimState, inc: Incident, dtMs: number): void {
     const left = getIF(s, inc, 'left');
     if (left === undefined) setIF(s, inc, 'left', now);
     else if (now - Number(left) > ABANDON_MS) {
-      expireIncident(s, inc);
+      expireIncident(s, inc, 'abandoned');
       return;
     }
   } else if (getIF(s, inc, 'left') !== undefined) delIF(s, inc, 'left');
@@ -946,7 +951,7 @@ export function requestAgencyInternal(s: SimState, inc: Incident, agency: Agency
   }
   need.requested = rq;
   hkPhrase(s, 'agencyRequested', inc, { agency: agencyName(agency), n: String(mins) });
-  addTimeline(s, inc, 'agency', fillText(T('Häirekeskust teavitatud: {agency}', 'Emergency Response Centre notified: {agency}'), { agency: agencyName(agency) }));
+  addTimeline(s, inc, 'agency', fillText(T('Häirekeskust teavitatud: {agency}', 'ERC notified: {agency}'), { agency: agencyName(agency) }));
   const tpl = tplOf(inc);
   const b = inc.beats.find((x) => x.status === 'active' && tpl?.beats?.[x.index]?.kind === 'agency' && (tpl.beats![x.index] as AgencyBeat).agency === agency);
   if (b) {
@@ -1090,6 +1095,8 @@ export function finalizeClose(s: SimState, inc: Incident, closedBy: NonNullable<
   inc.closedBy = closedBy;
   inc.state = 'closed';
   inc.closedAt = s.now;
+  // Story beats that never ran (or were still waiting for an answer) end with the event.
+  for (const b of inc.beats) if (b.status === 'active' || b.status === 'pending') b.status = 'skipped';
   for (const id of [...inc.assigned]) {
     const u = s.units[id];
     if (!u) continue;
@@ -1120,17 +1127,29 @@ export function finalizeClose(s: SimState, inc: Incident, closedBy: NonNullable<
   updateShiftScore(s);
 }
 
-export function expireIncident(s: SimState, inc: Incident): void {
+/**
+ * Close an event that lapsed: 'expired' when nobody ever arrived, 'abandoned' when units did
+ * arrive but were all recalled before the job was done (and nobody came back in time). Both
+ * cost the same Staatus; only the wording differs.
+ */
+export function expireIncident(s: SimState, inc: Incident, reason: 'expired' | 'abandoned' = 'expired'): void {
   // Legacy "Staatus −7" for a missed emergency; low-priority events cost less.
   const pen: Record<Priority, number> = { 1: -7, 2: -4, 3: -2, 4: -1 };
   s.stats.expired++;
   addTrust(s, pen[inc.truePriority]);
-  hkPhrase(s, 'hkExpired', inc);
-  addTimeline(s, inc, 'hk', T('Sündmus aegus: keegi ei jõudnud kohale', 'Event lapsed: nobody arrived'));
+  const abandoned = reason === 'abandoned';
+  if (abandoned) {
+    addTimeline(s, inc, 'system', T('Sündmus jäi pooleli: üksused lahkusid enne lõpetamist', 'Event abandoned: units left before it was resolved'));
+  } else {
+    hkPhrase(s, 'hkExpired', inc);
+    addTimeline(s, inc, 'hk', T('Sündmus aegus: keegi ei jõudnud kohale', 'Event lapsed: nobody arrived'));
+  }
   inc.outcome = {
-    id: 'expired',
+    id: abandoned ? 'abandoned' : 'expired',
     result: 'unfounded',
-    text: T('Sündmus aegus: politsei ei jõudnud kohale.', 'Event lapsed: police never arrived.'),
+    text: abandoned
+      ? T('Sündmus jäi pooleli: politsei lahkus enne, kui töö sai tehtud.', 'Event abandoned: the police left before the job was done.')
+      : T('Sündmus aegus: politsei ei jõudnud kohale.', 'Event lapsed: police never arrived.'),
     success: 0,
     arrests: 0,
     injuries: 0,
@@ -1278,7 +1297,8 @@ function startTransport(s: SimState, inc: Incident, u: Unit, dest: TransportBeat
   let place = '';
   let key = dest === 'home' ? 'transportHome' : 'transportStation';
   if (dest === 'arrest') {
-    const st = arrestHouse(s);
+    // Island arrests go to the island's own holding cells, not over the ferry to the mainland.
+    const st = arrestHouse(s, inc.location.zone);
     if (st) {
       to = st.coord;
       place = st.name.et;

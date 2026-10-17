@@ -219,7 +219,7 @@ export function personFlags(p: Person, now: number): RecordFlag[] {
     out.push({
       id: 'records',
       severity: crimes > 0 ? 'warn' : 'info',
-      text: { et: `KARISTATUD (${p.records.length} korda)`, en: `PRIOR RECORD (${p.records.length} ${p.records.length === 1 ? 'entry' : 'entries'})` },
+      text: { et: `KARISTATUD (${p.records.length} ${p.records.length === 1 ? 'kord' : 'korda'})`, en: `PRIOR RECORD (${p.records.length} ${p.records.length === 1 ? 'entry' : 'entries'})` },
     });
   }
   return out;
@@ -257,7 +257,8 @@ export function vehicleFlagsIn(s: SimState, v: Vehicle): RecordFlag[] {
   return vehicleFlags(v, s.now, v.ownerId ? s.persons[v.ownerId] : undefined);
 }
 
-function fmtDate(iso: string): string {
+/** "2026-10-11" → "11.10.2026" (Estonian date format, DESIGN §8); other strings unchanged. */
+export function fmtDate(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   return m ? `${m[3]}.${m[2]}.${m[1]}` : iso;
 }

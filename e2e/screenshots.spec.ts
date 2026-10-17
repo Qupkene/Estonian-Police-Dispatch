@@ -71,6 +71,8 @@ test('capture README screenshots', async ({ page }) => {
        .sort((a, b) => a.priority - b.priority)[0];
      if (pick) { g.select({ incidentId: pick.id }, 'incident'); g.focusMap(pick.location.coord, 12.5); }`,
   );
+  // The map chunk loads with the shift and the fly-to needs fresh tiles: give the software renderer time.
+  await page.waitForTimeout(3500);
   await shot(page, 'game');
 
   // Andmebaas: the 2025 legend.

@@ -12,12 +12,16 @@
   --line-3: #3a4e66;
   --text-0: #eaf1f8;
   --text-1: #c0ccd9;
-  --text-2: #8595a8;
-  --text-3: #5b6a7d;
+  --text-2: #93a2b4;
+  /* Faintest ink still readable: at least 4.5:1 on --bg-0 to --bg-3. */
+  --text-3: #8090a4;
   --accent: #3d8bff;
   --accent-2: #00d0ff;
   --accent-soft: rgba(61, 139, 255, 0.16);
   --gold: #f2c14e;
+  /* Dark ink for text and icons on bright fills (warn, gold, status colours). Not themed: the
+     fills stay bright in the light theme too, where --bg-0 would be near-white on amber. */
+  --ink-on-bright: #10151c;
 
   --p1: #ff3b4e;
   --p2: #ff9a1f;
@@ -41,6 +45,20 @@
   --st-break: #14b8a6;
   --st-offduty: #475569;
   --st-emergency: #ff2d55;
+
+  /* Status colours used as text or icon colour (not as fills). Same as the fill in the dark
+     theme; the light theme deepens them below so they keep 4.5:1 on its pale surfaces. */
+  --warn-ink: var(--warn);
+  --gold-ink: var(--gold);
+  --ok-ink: var(--ok);
+  --danger-ink: var(--danger);
+  --info-ink: var(--info);
+  --p1-ink: var(--p1);
+  --p2-ink: var(--p2);
+  --p3-ink: var(--p3);
+  --p4-ink: var(--p4);
+  --st-enroute-ink: var(--st-enroute);
+  --st-onscene-ink: var(--st-onscene);
 
   --font-ui: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
@@ -90,11 +108,25 @@
   --line-3: #a9b7c8;
   --text-0: #0d1622;
   --text-1: #263445;
-  --text-2: #55667b;
-  --text-3: #7d8da1;
+  --text-2: #4b5c71;
+  --text-3: #55657a;
   --accent: #1f6fe5;
+  /* The dark theme's #00d0ff cyan is about 1.7:1 on these surfaces. */
+  --accent-2: #076f8c;
   --accent-soft: rgba(31, 111, 229, 0.12);
   --shadow-2: 0 8px 24px rgba(15, 30, 50, 0.12);
+  /* Mixed with --text-0 rather than fixed values, so the colour-blind palette carries through. */
+  --warn-ink: color-mix(in srgb, var(--warn) 50%, var(--text-0));
+  --gold-ink: color-mix(in srgb, var(--gold) 45%, var(--text-0));
+  --ok-ink: color-mix(in srgb, var(--ok) 52%, var(--text-0));
+  --danger-ink: color-mix(in srgb, var(--danger) 72%, var(--text-0));
+  --info-ink: color-mix(in srgb, var(--info) 50%, var(--text-0));
+  --p1-ink: color-mix(in srgb, var(--p1) 65%, var(--text-0));
+  --p2-ink: color-mix(in srgb, var(--p2) 47%, var(--text-0));
+  --p3-ink: color-mix(in srgb, var(--p3) 37%, var(--text-0));
+  --p4-ink: color-mix(in srgb, var(--p4) 57%, var(--text-0));
+  --st-enroute-ink: color-mix(in srgb, var(--st-enroute) 64%, var(--text-0));
+  --st-onscene-ink: color-mix(in srgb, var(--st-onscene) 50%, var(--text-0));
 }
 
 :root[data-colorblind='true'] {

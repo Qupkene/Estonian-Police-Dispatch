@@ -212,7 +212,12 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
       attribution: '<a href="https://www.geoboundaries.org" target="_blank" rel="noopener">geoBoundaries</a> · Natural Earth',
     },
     [SRC.lakes]: { type: 'geojson', data: g.lakes, maxzoom: 12 },
-    [SRC.countyLines]: { type: 'geojson', data: g.countyLines, maxzoom: 12 },
+    [SRC.countyLines]: {
+      type: 'geojson',
+      data: g.countyLines,
+      maxzoom: 12,
+      attribution: 'Maa- ja Ruumiamet (<a href="https://whosonfirst.org/docs/licenses/" target="_blank" rel="noopener">Who\'s On First</a>)',
+    },
     [SRC.districts]: { type: 'geojson', data: g.districts, maxzoom: 13 },
     [SRC.roads]: { type: 'geojson', data: g.roads, maxzoom: 12 },
     [SRC.rail]: { type: 'geojson', data: g.rail, maxzoom: 12 },

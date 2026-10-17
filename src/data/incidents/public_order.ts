@@ -85,7 +85,7 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
         1,
         T(
           'Isik osutas vastupanu ja ähvardas töötajaid edasi, ta peeti kinni ja toimetati arestimajja.',
-          'The man resisted and kept threatening staff; he was detained and taken to the detention house.',
+          'The man resisted and kept threatening staff; he was detained and taken to the arrest house.',
         ),
         { arrests: 1 },
       ),
@@ -1021,7 +1021,7 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
     details: [
       T('Kirjeldus: {suspect}.', 'Description: {suspect}.'),
       T(
-        'Mees istus hiljem autosse {car} ja jäi parklasse.',
+        'Mees istus hiljem autosse ({car}) ja jäi parklasse.',
         'The man later got into a {car} and stayed in the car park.',
       ),
     ],
@@ -2196,7 +2196,7 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
         3,
         T(
           'Isik toimetati ohu vältimiseks kainenema, arstlik kontroll tehti arestimajas.',
-          'The man was taken to sober up for his own safety and checked by a medic at the detention house.',
+          'The man was taken to sober up for his own safety and checked by a medic at the arrest house.',
         ),
       ),
       oc(

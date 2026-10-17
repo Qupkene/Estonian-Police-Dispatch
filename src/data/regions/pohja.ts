@@ -121,14 +121,13 @@ const STATIONS: Station[] = [
   },
   {
     id: 'pohja-arest',
-    name: {
-      et: 'Põhja prefektuuri kinnipidamiskeskus (Tallinna Vangla juures)',
-      en: 'North Prefecture detention centre (at Tallinn Prison)',
-    },
-    short: 'Kinnipidamiskeskus',
+    // Since 1 April 2025 Tallinna Vangla holds Harju arrestees and 48-hour detainees
+    // (docs/research/ppa-organisation.md §3); sobering-up stays with PPA (pohja-kainestus).
+    name: { et: 'Tallinna Vangla (arestimaja ülesanded)', en: 'Tallinn Prison (arrest-house duties)' },
+    short: 'Tallinna Vangla',
     kind: 'arrest',
     city: 'Rae vald',
-    address: 'Linnaaru tee 5/1, Soodevahe küla',
+    address: 'Linnaaru tee 5, Soodevahe küla',
     coord: [24.891, 59.4158],
   },
   {
@@ -756,7 +755,7 @@ export const REGION_POHJA: RegionDef = {
   radioName: 'Põhja',
   commander: {
     name: 'Liisa Tamm',
-    title: { et: 'Prefekt, politseikindral', en: 'Prefect, police general' },
+    title: { et: 'Prefekt, politseikolonel', en: 'Prefect, Police Colonel' },
     badge: '002',
     gender: 'F',
   },

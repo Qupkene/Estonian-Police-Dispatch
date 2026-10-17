@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useSettings, type MapStyleKey } from '@/store/settings';
 import { useCareer } from '@/store/career';
 import { useGame } from '@/store/game';
+import { useAccount } from '@/net/account';
 import { useLang, useT } from '@/i18n';
 import { sfx } from '@/audio/sfx';
 import { onVoicesChanged, speak, speechAvailable, voiceName } from '@/audio/speech';
@@ -26,13 +27,24 @@ export function SettingsScreen() {
   const resetCareer = useCareer((c) => c.reset);
   const hasCareer = useCareer((c) => !!c.profile);
   const [confirm, setConfirm] = useState<'career' | 'all' | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const accountUser = useAccount((a) => a.user);
   const toast = useToast();
   useVoices();
 
   const voiceOk = speechAvailable(lang);
   const vName = voiceName(lang);
 
-  const doClearAll = () => {
+  const doClearAll = async () => {
+    if (clearing) return;
+    setClearing(true);
+    // "Sign-in" is part of what this deletes: end the account session first (pending cloud uploads go
+    // out before), or the reload would pull the cloud data straight back and stay signed in.
+    try {
+      await useAccount.getState().forget();
+    } catch {
+      /* offline: nothing to end */
+    }
     try {
       useGame.getState().quitShift();
       clearEpdStorage(localStorage);
@@ -215,7 +227,7 @@ export function SettingsScreen() {
         </Section>
 
         <Section icon="lock" title={t('shell.set.sec.data')}>
-          <p className="sh-set__note">{t('shell.set.storage')}</p>
+          <p className="sh-set__note">{t(accountUser ? 'account.set.storage' : 'shell.set.storage')}</p>
           <Row label={t('shell.set.resetCareer')} desc={t('shell.set.resetCareerDesc')}>
             <Button
               variant="secondary"
@@ -249,8 +261,9 @@ export function SettingsScreen() {
             <Button
               variant="danger"
               icon="check"
+              loading={clearing}
               onClick={() => {
-                if (confirm === 'all') doClearAll();
+                if (confirm === 'all') void doClearAll();
                 else {
                   resetCareer();
                   setConfirm(null);
@@ -266,6 +279,7 @@ export function SettingsScreen() {
         <p className="sh-set__confirm">
           {confirm === 'all' ? t('shell.set.clearAllConfirm') : t('shell.set.resetCareerConfirm')}
         </p>
+        {confirm === 'all' && accountUser && <p className="sh-set__confirm">{t('account.set.clearAll')}</p>}
       </Modal>
     </ShellPage>
   );

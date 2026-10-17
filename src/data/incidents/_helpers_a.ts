@@ -309,11 +309,11 @@ export const toArrest = (
     o.radio ?? [
       T(
         '{callsign}: üks isik kinni peetud, toimetame arestimajja.',
-        '{callsign}: one person detained, transporting to the detention house.',
+        '{callsign}: one person detained, transporting to the arrest house.',
       ),
       T(
         'Juhtimine, {callsign}. Kahtlustatav käeraudades, sõidame arestimajja.',
-        'Control, {callsign}. Suspect cuffed, heading to the detention house.',
+        'Control, {callsign}. Suspect cuffed, heading to the arrest house.',
       ),
     ],
     o.paperwork ?? [15, 30],

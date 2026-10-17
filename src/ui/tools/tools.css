@@ -59,7 +59,7 @@
   font-size: var(--fs-sm);
 }
 .tl-bad {
-  color: var(--danger);
+  color: var(--danger-ink);
 }
 .tl-nowrap {
   white-space: nowrap;
@@ -103,7 +103,7 @@
 }
 .tl-chipbtn.is-on {
   border-color: var(--gold);
-  color: var(--gold);
+  color: var(--gold-ink);
   background: color-mix(in srgb, var(--gold) 12%, transparent);
 }
 .ui-iconbtn.is-on {
@@ -249,18 +249,18 @@
 }
 .tl-flag--danger {
   color: #fff;
-  background: var(--danger);
-  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 80%, #000);
+  border-color: color-mix(in srgb, var(--danger) 80%, #000);
   box-shadow: 0 0 0 0 var(--p1-soft);
   animation: tl-flag-pulse 2.2s var(--ease) infinite;
 }
 .tl-flag--warn {
-  color: var(--warn);
+  color: var(--warn-ink);
   border-color: var(--warn);
   background: color-mix(in srgb, var(--warn) 12%, transparent);
 }
 .tl-flag--info {
-  color: var(--info);
+  color: var(--info-ink);
   border-color: var(--info);
   background: color-mix(in srgb, var(--info) 10%, transparent);
 }
@@ -290,15 +290,15 @@
   background: var(--danger);
 }
 .tl-dot--warn {
-  color: var(--warn);
+  color: var(--warn-ink);
   background: color-mix(in srgb, var(--warn) 16%, transparent);
 }
 .tl-dot--info {
-  color: var(--info);
+  color: var(--info-ink);
   background: color-mix(in srgb, var(--info) 14%, transparent);
 }
 .tl-dot--gold {
-  color: var(--bg-0);
+  color: var(--ink-on-bright);
   background: var(--gold);
 }
 
@@ -454,7 +454,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 .tl-pendq__n {
   margin-left: auto;
@@ -533,7 +533,7 @@
   font-size: var(--fs-xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 .tl-waiting__from {
   margin-left: auto;
@@ -595,7 +595,7 @@
   padding: 1px 6px;
   border: 2px solid var(--danger);
   border-radius: 3px;
-  color: var(--danger);
+  color: var(--danger-ink);
   background: color-mix(in srgb, var(--bg-0) 70%, transparent);
   font-size: 10px;
   font-weight: 900;
@@ -650,7 +650,7 @@
   padding: 3px 0;
   text-align: center;
   background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 85%, #fff), var(--gold), color-mix(in srgb, var(--gold) 80%, #000));
-  color: var(--bg-0);
+  color: var(--ink-on-bright);
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.14em;
@@ -787,13 +787,13 @@
   background: var(--bg-2);
 }
 .tl-status-row.is-ok > .ui-icon {
-  color: var(--ok);
+  color: var(--ok-ink);
 }
 .tl-status-row.is-bad {
   background: color-mix(in srgb, var(--danger) 10%, var(--bg-2));
 }
 .tl-status-row.is-bad > .ui-icon {
-  color: var(--danger);
+  color: var(--danger-ink);
 }
 .tl-status-row__k {
   font-weight: 600;
@@ -898,6 +898,8 @@
   box-shadow: var(--shadow-2), 0 0 0 1px rgba(0, 0, 0, 0.2);
   animation: tl-call-in var(--dur-3) var(--ease);
   overflow: hidden;
+  /* Its width is set above, never by its content: safe as a size container for the header rules. */
+  container: tl-call / inline-size;
 }
 @keyframes tl-call-in {
   from {
@@ -984,7 +986,7 @@
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--ok);
+  color: var(--ok-ink);
 }
 .tl-call__title {
   font-size: var(--fs-lg);
@@ -1025,7 +1027,7 @@
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ok);
+  color: var(--ok-ink);
 }
 .tl-call__rec {
   width: 8px;
@@ -1137,7 +1139,7 @@
   overflow: hidden;
 }
 .tl-facts li.is-known {
-  color: var(--ok);
+  color: var(--ok-ink);
   font-weight: 600;
 }
 .tl-call__decide {
@@ -1222,7 +1224,7 @@
 }
 .tl-call__prank {
   margin-left: auto;
-  color: var(--danger);
+  color: var(--danger-ink);
 }
 .tl-bubble {
   max-width: 88%;
@@ -1400,7 +1402,7 @@
   color: var(--text-3);
 }
 .tl-kpi.is-alert .tl-kpi__sub {
-  color: var(--p1);
+  color: var(--p1-ink);
   font-weight: 600;
 }
 .tl-stats__note {
@@ -1653,13 +1655,13 @@
   color: var(--text-2);
 }
 .tl-sla--ok .ui-icon {
-  color: var(--ok);
+  color: var(--ok-ink);
 }
 .tl-sla--warn .ui-icon {
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 .tl-sla--danger .ui-icon {
-  color: var(--danger);
+  color: var(--danger-ink);
 }
 .tl-area {
   opacity: 0.32;
@@ -2023,7 +2025,7 @@
 }
 .tl-dir__note {
   font-size: var(--fs-xs);
-  color: var(--ok);
+  color: var(--ok-ink);
 }
 .tl-dir__toggles {
   display: grid;
@@ -2101,6 +2103,22 @@
 }
 
 /* ── narrow / reduced motion ────────────────────────────────────────────── */
+/* Narrow call card (1280-1366 px laptops): keep the header on one row so the minimise chevron is
+   not orphaned on a second line. The waveform is decoration; the caller's number is also on the
+   ringing card and in the event. */
+@container tl-call (max-width: 700px) {
+  .tl-call__head {
+    gap: var(--sp-2);
+  }
+  .tl-call__head .tl-wave {
+    display: none;
+  }
+}
+@container tl-call (max-width: 580px) {
+  .tl-call__head .tl-call__num {
+    display: none;
+  }
+}
 @media (max-width: 899px) {
   .tl-call {
     bottom: 64px;
@@ -2147,20 +2165,11 @@
 }
 
 /* ── light theme contrast tweaks ────────────────────────────────────────── */
+/* Status colours as text already use the --*-ink tokens (tokens.css), deepened in this theme. */
 :root[data-theme='light'] .tl-idcode,
 :root[data-theme='light'] .tl-linkbtn,
 :root[data-theme='light'] .tl-bubble--me .tl-bubble__who {
-  color: var(--accent);
-}
-:root[data-theme='light'] .tl-flag--warn,
-:root[data-theme='light'] .tl-pendq__head,
-:root[data-theme='light'] .tl-waiting__head,
-:root[data-theme='light'] .tl-dot--warn {
-  color: color-mix(in srgb, var(--warn) 62%, var(--text-0));
-}
-:root[data-theme='light'] .tl-flag--info,
-:root[data-theme='light'] .tl-dot--info {
-  color: color-mix(in srgb, var(--info) 60%, var(--text-0));
+  color: color-mix(in srgb, var(--accent) 82%, var(--text-0));
 }
 :root[data-theme='light'] .tl-wave i {
   background: var(--accent);

@@ -267,7 +267,9 @@ const HOMAGE_2024: { firstName: string; lastName: string; badge: string; gender:
   { firstName: 'Toomas', lastName: 'Perk', badge: '570', gender: 'M', specialty: 'rapid', years: 11, skill: 0.8 },
 ];
 
-const START_SPECIALTIES: UnitType[] = ['patrol', 'patrol', 'patrol', 'patrol', 'patrol', 'criminal', 'rapid', 'traffic'];
+/** Extra starting officers in every prefecture (Põhja adds them to the 2024 homage crew): two more patrol cars. */
+const EXTRA_START: UnitType[] = ['patrol', 'patrol', 'patrol', 'patrol'];
+const START_SPECIALTIES: UnitType[] = ['patrol', 'patrol', 'patrol', 'patrol', 'patrol', 'criminal', 'rapid', 'traffic', ...EXTRA_START];
 
 function makeStaff(
   id: string,
@@ -323,23 +325,28 @@ export function newCareer(name: string, badge: string, regionId: RegionId, seed:
       used.add(h.badge);
       staff.push(makeStaff(`staff-${i + 1}`, { ...h, avatarSeed: hashString(`${h.firstName} ${h.lastName}`) & 0x7fffffff }, 1));
     });
-  } else {
-    const ruP = regionId === 'ida' ? 0.4 : 0.06;
-    START_SPECIALTIES.forEach((spec, i) => {
-      const gender: Gender = rng.chance(0.35) ? 'F' : 'M';
-      const lang: SpeakerLang = rng.chance(ruP) ? 'ru' : 'et';
-      const years = i === 0 ? rng.int(9, 15) : rng.int(1, 12);
-      const nm = randomName(rng, lang, gender, new Date().getUTCFullYear() - (22 + years));
-      const skill = r2(clamp(0.45 + years * 0.02 + rng.normal(0, 0.05), 0.4, 0.85));
-      staff.push(makeStaff(`staff-${i + 1}`, { ...nm, badge: uniqueBadge(rng, used), gender, specialty: spec, years, skill, avatarSeed: rng.int(1, 0x7fffffff) }, 1));
-    });
   }
+  const ruP = regionId === 'ida' ? 0.4 : regionId === 'pohja' ? 0.25 : 0.06;
+  const offset = staff.length;
+  (regionId === 'pohja' ? EXTRA_START : START_SPECIALTIES).forEach((spec, j) => {
+    const i = offset + j;
+    const gender: Gender = rng.chance(0.35) ? 'F' : 'M';
+    const lang: SpeakerLang = rng.chance(ruP) ? 'ru' : 'et';
+    const years = i === 0 ? rng.int(9, 15) : rng.int(1, 12);
+    const nm = randomName(rng, lang, gender, new Date().getUTCFullYear() - (22 + years));
+    const skill = r2(clamp(0.45 + years * 0.02 + rng.normal(0, 0.05), 0.4, 0.85));
+    staff.push(makeStaff(`staff-${i + 1}`, { ...nm, badge: uniqueBadge(rng, used), gender, specialty: spec, years, skill, avatarSeed: rng.int(1, 0x7fffffff) }, 1));
+  });
   const fleet: FleetVehicle[] = [
     fleetVehicle('veh-1', 'skoda_octavia_combi', makePlate(rng), 1),
     fleetVehicle('veh-2', 'skoda_octavia_combi', makePlate(rng), 1),
     // Starting cars cover every starting specialty (patrol, rapid, criminal, traffic).
     fleetVehicle('veh-3', 'skoda_superb_combi', makePlate(rng), 1),
     fleetVehicle('veh-4', 'skoda_scala', makePlate(rng), 1),
+    // Two more patrol cars and a spare, for the extra starting officers.
+    fleetVehicle('veh-5', 'skoda_octavia_combi', makePlate(rng), 1),
+    fleetVehicle('veh-6', 'skoda_octavia_combi', makePlate(rng), 1),
+    fleetVehicle('veh-7', 'skoda_scala', makePlate(rng), 1),
   ];
   const base: CareerProfileX = {
     version: 1,
@@ -403,9 +410,9 @@ function toOfficer(m: StaffMember): Officer {
   };
 }
 
-/** Callsign/station allocator that reuses the prefecture roster's scheme. */
-function allocator(p: CareerProfile, shift: 'day' | 'night') {
-  const region = regionOf(p.regionId);
+/** Callsign/station allocator that reuses the roster scheme of the prefecture the shift runs in. */
+function allocator(regionId: RegionId, shift: 'day' | 'night') {
+  const region = regionOf(regionId);
   const specs: UnitSpec[] = (region?.roster ?? []).filter((x) => (x.shift ?? 'both') === 'both' || x.shift === shift);
   const allSpecs: UnitSpec[] = region?.roster ?? [];
   const stations = (region?.stations ?? []).filter((x) => x.kind === 'station' || x.kind === 'hq' || x.kind === 'post');
@@ -429,8 +436,8 @@ function allocator(p: CareerProfile, shift: 'day' | 'night') {
         const m = /^(.*?)(\d+)$/.exec(proto.callsign)!;
         sign = `${m[1]}${Number(m[2]) + n}`;
       } else if (type === 'special') sign = n === 1 ? 'K-KOMANDO' : `K-KOMANDO ${n}`;
-      else if (type === 'patrol') sign = `${PREFIX[p.regionId]}${(rr % 3) + 1}-${20 + n}`;
-      else sign = `${FALLBACK_CODE[type]}${PREFIX[p.regionId]}${n}`;
+      else if (type === 'patrol') sign = `${PREFIX[regionId]}${(rr % 3) + 1}-${20 + n}`;
+      else sign = `${FALLBACK_CODE[type]}${PREFIX[regionId]}${n}`;
     }
     usedSigns.add(sign);
     return { callsign: sign, stationId: proto?.stationId && !station ? proto.stationId : station?.id ?? proto?.stationId ?? '', zone: station?.zone };
@@ -458,9 +465,11 @@ const ASSIGN_ORDER: UnitType[] = ['patrol', 'rapid', 'patrol', 'criminal', 'k9',
  * Crews of 2 (patrol) etc. from active staff + fleet for the given shift. Patrol crews are
  * formed first and vehicles are handed out round-robin (patrol, rapid, patrol, criminal, K9…)
  * so a small fleet yields a balanced shift; staff without a vehicle take a third seat in a
- * patrol car (or ride with an investigator). Officer ids equal staff ids.
+ * patrol car (or ride with an investigator). Officer ids equal staff ids. `regionId` is the
+ * prefecture the shift runs in (an unlocked one, default the home region): callsigns and stations
+ * come from its roster.
  */
-export function rosterFromCareer(p: CareerProfile, shift: 'day' | 'night'): RosterUnit[] {
+export function rosterFromCareer(p: CareerProfile, shift: 'day' | 'night', regionId: RegionId = p.regionId): RosterUnit[] {
   const owns = (id: string) => p.upgrades.includes(id);
   const active = p.staff.filter((m) => m.status === 'active').sort((a, b) => b.skill - a.skill);
   const pool = new Map<UnitType, StaffMember[]>();
@@ -474,7 +483,7 @@ export function rosterFromCareer(p: CareerProfile, shift: 'day' | 'night'): Rost
     if (spec === 'special' && !owns('kkomando')) spec = 'rapid';
     if (spec === 'heli' && !owns('heli_hours')) continue; // pilots fly only with helicopter hours
     if (spec === 'community' && shift === 'night') spec = 'patrol';
-    if (spec === 'border' && p.regionId !== 'ida' && p.regionId !== 'louna') spec = 'patrol';
+    if (spec === 'border' && regionId !== 'ida' && regionId !== 'louna') spec = 'patrol';
     if (spec === 'boat' && !p.fleet.some((v) => v.suits.includes('boat'))) spec = 'patrol';
     take(spec).push(m);
   }
@@ -492,7 +501,7 @@ export function rosterFromCareer(p: CareerProfile, shift: 'day' | 'night'): Rost
     }
     return undefined;
   };
-  const alloc = allocator(p, shift);
+  const alloc = allocator(regionId, shift);
   const units: (RosterUnit & { _staff: StaffMember[] })[] = [];
   const add = (type: UnitType, crew: StaffMember[], vehicle: string, onCall?: boolean) => {
     const a = alloc(type);

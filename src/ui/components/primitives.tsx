@@ -559,13 +559,16 @@ export function TextField({
           className={cx('ui-field__input', mono && 'mono')}
           value={value}
           aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${fid}-err` : undefined}
           onChange={(e) => onChange(e.target.value)}
           {...rest}
         />
         {trailing}
       </div>
       {error ? (
-        <div className="ui-field__error">{error}</div>
+        <div className="ui-field__error" id={`${fid}-err`} role="alert">
+          {error}
+        </div>
       ) : hint ? (
         <div className="ui-field__hint">{hint}</div>
       ) : null}

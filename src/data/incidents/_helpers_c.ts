@@ -65,7 +65,7 @@ function withChance<B extends { chance?: number }>(b: B, chance: number | undefi
 export const R_DRIVER: Text[] = [
   T('Juhtimiskeskus, {callsign}. Palun kontrolli juhti: {name}, isikukood {idcode}.', 'Control, {callsign}. Please check the driver: {name}, ID code {idcode}.'),
   T('{callsign}: juht on {name}, isikukood {idcode}. Kas juhtimisõigus kehtib, kas on tagaotsitav?', '{callsign}: the driver is {name}, ID code {idcode}. Is the licence valid, any warrants?'),
-  T('JK, {callsign}. Juhil dokumente kaasas pole, ütleb end olevat {name}. Kontrolli palun andmebaasist.', 'Control, {callsign}. The driver has no documents, says he is {name}. Please run it.'),
+  T('JK, {callsign}. Juhil dokumente kaasas pole, ütleb end olevat {name}. Kontrolli palun andmebaasist.', 'Control, {callsign}. The driver has no documents, gives the name {name}. Please run it.'),
 ];
 
 export const R_PLATE: Text[] = [

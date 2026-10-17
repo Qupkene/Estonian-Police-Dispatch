@@ -7,6 +7,7 @@ import { correctReply, foldName, personFlags, searchPersons, searchVehicles, veh
 import { gradeOf, buildReport, inessive, type ShiftReportX } from '@/sim/report';
 import { callAnswer, callAsk, callEnd, callInterpreter, maybeCreateCall, updateCalls } from '@/sim/calls';
 import { isOnLand, pursuitCommand, startPursuit, updatePursuit } from '@/sim/pursuit';
+import { waterBodiesNear, waterBodyAt } from '@/sim/land';
 import { startSearch, updateSearch } from '@/sim/search';
 import {
   applyShiftReport,
@@ -343,6 +344,18 @@ describe('pursuit', () => {
     expect(isOnLand([24.5, 59.7])).toBe(false); // Gulf of Finland
     expect(isOnLand([22.5, 58.3])).toBe(true); // Saaremaa
   });
+  it('water bodies: sea, Peipsi and Võrtsjärv apart; Estonian and foreign land are not water', () => {
+    expect(waterBodyAt([24.5, 59.7])).toBe('sea'); // Gulf of Finland
+    expect(waterBodyAt([23.6, 58.0])).toBe('sea'); // Gulf of Riga
+    expect(waterBodyAt([27.5, 58.75])).toBe('peipsi');
+    expect(waterBodyAt([27.9, 57.95])).toBe('peipsi'); // Pihkva järv: same body as Peipsi
+    expect(waterBodyAt([26.0, 58.28])).toBe('vortsjarv');
+    expect(waterBodyAt([24.75, 59.43])).toBeNull(); // Tallinn
+    expect(waterBodyAt([28.6, 59.3])).toBeNull(); // Russia, east of Narva
+    expect(waterBodyAt([25.4, 57.5])).toBeNull(); // Latvia
+    expect(waterBodiesNear([24.75, 59.43], 1).size).toBe(0);
+    expect([...waterBodiesNear([24.5, 59.45], 2)]).toContain('sea'); // Tallinn bay shore
+  });
   it('runs deterministically to an end', () => {
     const a = runPursuit(777);
     const b = runPursuit(777);
@@ -473,10 +486,38 @@ describe('report', () => {
     }
     expect(np.stories.length).toBeGreaterThanOrEqual(3);
     expect(np.stories.length).toBeLessThanOrEqual(4);
-    expect(np.stories.some((x) => x.body.et.includes('teatati Häirekeskusele'))).toBe(true);
-    expect(np.stories.some((x) => x.body.et.includes('Tallinnas Lasnamäel aadressil Punane tn 16-45'))).toBe(true);
+    expect(np.stories.some((x) => x.body.et.includes('kutsuti politsei Tallinnas Lasnamäel aadressile Punane tn 16-45.'))).toBe(true);
+    expect(np.stories.some((x) => x.body.en.includes('police were called to Punane tn 16-45, Lasnamäe, Tallinn.'))).toBe(true);
     expect(r.officerXp['u1-o1']).toBeGreaterThan(0);
     expect(r.extras?.resolvedByDistrict['Lasnamäe']).toBe(1);
+  });
+  it('an abandoned P1 (units came, then left) is not reported as "police never arrived"', () => {
+    const lapsed = (arrived: boolean): ShiftReportX => {
+      const s = makeState({ now: T0 + 8 * 3_600_000 });
+      addIncident(
+        s,
+        makeIncident('x', {
+          state: 'closed',
+          closedBy: 'expired',
+          truePriority: 1,
+          priority: 1,
+          ...(arrived ? { firstArrivalAt: T0 + 9 * 60_000 } : {}),
+          outcome: { id: arrived ? 'abandoned' : 'expired', result: 'unfounded', text: { et: 'x', en: 'x' }, success: 0, arrests: 0, injuries: 0, officerInjured: false, score: 0, breakdown: { response: 0, resources: 0, decisions: 0, outcome: 0, safety: 0, classification: 0, total: 0 } },
+        }),
+      );
+      s.stats.incidents = 1;
+      s.stats.closed = 1;
+      s.stats.expired = 1;
+      return buildReport(s) as ShiftReportX;
+    };
+    const never = lapsed(false);
+    expect(never.newspaper.headline.et).toMatch(/Politsei ei jõudnudki kohale/);
+    expect(never.highlights.some((h) => /ei jõudnud kohale/.test(h.text.et))).toBe(true);
+    const left = lapsed(true);
+    expect(left.newspaper.headline.et).not.toMatch(/ei jõudnudki kohale/);
+    expect(left.highlights.length).toBeGreaterThan(0);
+    for (const h of left.highlights) expect(h.text.et).not.toMatch(/ei jõudnud kohale/);
+    expect(left.highlights.some((h) => /käis kohal, kuid lahkus/.test(h.text.et))).toBe(true);
   });
   it('empty shift still produces a calm-night paper', () => {
     const s = makeState({ now: T0 + 4 * 3_600_000 });
@@ -516,13 +557,13 @@ describe('economy data', () => {
 describe('career', () => {
   it('newCareer is valid (Põhja homage staff)', () => {
     const p = newCareer('Test', '777', 'pohja', 42);
-    expect(p.money).toBe(10000);
+    expect(p.money).toBe(40000);
     expect(p.reputation).toBe(25);
     expect(p.day).toBe(1);
-    expect(p.staff).toHaveLength(8);
+    expect(p.staff).toHaveLength(12); // the 2024 homage crew plus four more patrol officers
     expect(p.staff.find((m) => m.badge === '085')?.lastName).toBe('Rebane');
     expect(p.staff.filter((m) => m.specialty === 'patrol').length).toBeGreaterThanOrEqual(5);
-    expect(p.fleet).toHaveLength(4);
+    expect(p.fleet).toHaveLength(7);
     expect(p.recruits).toHaveLength(8);
     expect(p.unlockedRegions).toEqual(['pohja']);
     for (const m of p.staff) {
@@ -530,8 +571,8 @@ describe('career', () => {
       expect(m.salary).toBeLessThanOrEqual(3400);
     }
     const ida = newCareer('Test', '777', 'ida', 42);
-    expect(ida.staff).toHaveLength(8);
-    expect(new Set(ida.staff.map((m) => m.badge)).size).toBe(8);
+    expect(ida.staff).toHaveLength(12);
+    expect(new Set(ida.staff.map((m) => m.badge)).size).toBe(12);
   });
   it('rosterFromCareer builds crews from staff and fleet', () => {
     const p = newCareer('Test', '777', 'pohja', 42);
@@ -544,8 +585,8 @@ describe('career', () => {
       if (u.type === 'patrol') expect(u.crew.length).toBeGreaterThanOrEqual(2);
       if (u.type === 'criminal') expect(u.crew.length).toBeLessThanOrEqual(2);
     }
-    expect(officerIds).toHaveLength(8); // everyone seated with the starting fleet
-    expect(roster.filter((u) => u.type === 'patrol').length).toBeGreaterThanOrEqual(2);
+    expect(officerIds).toHaveLength(12); // everyone seated with the starting fleet
+    expect(roster.filter((u) => u.type === 'patrol').length).toBeGreaterThanOrEqual(4);
     expect(new Set(roster.map((u) => u.callsign)).size).toBe(roster.length);
     expect(roster.some((u) => u.type === 'k9')).toBe(false);
   });
@@ -554,19 +595,20 @@ describe('career', () => {
     const c = p.recruits[0];
     const r = hire(p, c.id);
     expect(r.error).toBeUndefined();
-    expect(r.profile.staff).toHaveLength(9);
+    expect(r.profile.staff).toHaveLength(13);
     expect(r.profile.money).toBe(p.money - c.salary);
     expect(r.profile.recruits.find((x) => x.id === c.id)).toBeUndefined();
-    expect(p.staff).toHaveLength(8); // input untouched
+    expect(p.staff).toHaveLength(12); // input untouched
     const broke = { ...p, money: 100 };
     expect(buyVehicle(broke, 'skoda_octavia_combi').error).toBeDefined();
     expect(buyUpgrade(broke, 'bodycam').error).toBeDefined();
     expect(buyVehicle(p, 'bmw_530d_touring').error?.et).toMatch(/auaste/);
     const bought = buyVehicle({ ...p, money: 50000 }, 'skoda_octavia_combi');
     expect(bought.error).toBeUndefined();
-    expect(bought.profile.fleet).toHaveLength(5);
-    const sold = sellVehicle(bought.profile, bought.profile.fleet[4].id);
-    expect(sold.money).toBe(bought.profile.money + Math.round(38000 * 0.6));
+    expect(bought.profile.fleet).toHaveLength(p.fleet.length + 1);
+    const sold = sellVehicle(bought.profile, bought.profile.fleet[p.fleet.length].id);
+    const octavia = VEHICLE_CATALOG.find((v) => v.id === 'skoda_octavia_combi')!;
+    expect(sold.money).toBe(bought.profile.money + Math.round(octavia.price * 0.6));
     const upg = buyUpgrade(p, 'bodycam');
     expect(upg.profile.upgrades).toContain('bodycam');
     expect(buyUpgrade(upg.profile, 'bodycam').error).toBeDefined();

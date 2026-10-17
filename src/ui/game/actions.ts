@@ -5,7 +5,7 @@
 import * as C from '@/sim/commands';
 import { useGame } from '@/store/game';
 import type { Agency, Priority, SimState, Text } from '@/sim/types';
-import { activeBackup, bestFor, dispatchable, selQueue, selRecs, type QuerySubject } from './data';
+import { activeBackup, bestFor, selQueue, selRecs, type QuerySubject } from './data';
 import { useGameUi } from './uiStore';
 
 function errText(err: unknown): string {
@@ -71,13 +71,17 @@ export function dispatch(incidentId: string, unitIds: string[]): { ok: boolean; 
   return r;
 }
 
-/** D hotkey / "Saada": send the picked units, or the top recommendation when nothing is picked. */
+/**
+ * D hotkey / "Saada": send the picked units, or the automatic pick (bestFor) when nothing is
+ * picked. With no automatic pick (need already covered, only specialists or ferry crossings left)
+ * it sends nothing and says so: the player picks by hand.
+ */
 export function dispatchPicked(incidentId: string): boolean {
   const s = useGame.getState().sim;
   if (!s || !s.incidents[incidentId] || s.incidents[incidentId].state === 'closed') return false;
   const picks = useGameUi.getState().picks[incidentId] ?? [];
   if (picks.length) return dispatch(incidentId, picks).ok;
-  const best = bestFor(selRecs(s, incidentId)) ?? dispatchable(selRecs(s, incidentId))[0];
+  const best = bestFor(selRecs(s, incidentId));
   if (!best) {
     useGameUi.getState().set({
       dispatchError: { ...useGameUi.getState().dispatchError, [incidentId]: 'game.inc.noneAvailable' },

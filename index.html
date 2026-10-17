@@ -3,17 +3,119 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EPD · Eesti Politsei Dispetšer: politseimäng brauseris</title>
+    <meta name="description" content="Ole politsei dispetšer päris Eesti kaardil: võta vastu 112-kõned, saada patrullid välja ja otsi andmebaasist. Tasuta simulaator, mitteametlik fännimäng." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://politsei.eu/" />
     <meta name="theme-color" content="#06090d" />
-    <meta name="description" content="EPD on realistlik Eesti politsei juhtimiskeskuse simulaator. Mitteametlik fännimäng, ei ole seotud PPA-ga." />
+    <meta name="author" content="Qupkene" />
+    <meta name="application-name" content="EPD" />
+    <meta name="apple-mobile-web-app-title" content="EPD" />
+
+    <!-- Icons (docs/SEO.md): PNG for Safari, Google and older browsers, SVG for the rest. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta property="og:title" content="EPD · Eesti Politsei Dispetšer" />
-    <meta property="og:description" content="Realistlik Eesti politsei juhtimiskeskuse simulaator. Mitteametlik fännimäng." />
-    <title>EPD · Eesti Politsei Dispetšer</title>
+
+    <!-- Link previews: Open Graph (Facebook, Discord, Slack, WhatsApp, Telegram, LinkedIn) and X/Twitter. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://politsei.eu/" />
+    <meta property="og:site_name" content="EPD · Eesti Politsei Dispetšer" />
+    <meta property="og:title" content="EPD · Eesti Politsei Dispetšer: politseimäng brauseris" />
+    <meta property="og:description" content="Ole politsei dispetšer päris Eesti kaardil: võta vastu 112-kõned, saada patrullid välja ja otsi andmebaasist. Tasuta simulaator, mitteametlik fännimäng." />
+    <meta property="og:locale" content="et_EE" />
+    <meta property="og:locale:alternate" content="en_GB" />
+    <meta property="og:image" content="https://politsei.eu/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content="EPD logo ja pealkiri Eesti Politsei Dispetšer, kõrval mängu juhtimiskeskuse vaade: Tallinna kaart, sündmuste nimekiri ja üksuste tabel." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="EPD · Eesti Politsei Dispetšer: politseimäng brauseris" />
+    <meta name="twitter:description" content="Ole politsei dispetšer päris Eesti kaardil: võta vastu 112-kõned, saada patrullid välja ja otsi andmebaasist. Tasuta simulaator, mitteametlik fännimäng." />
+    <meta name="twitter:image" content="https://politsei.eu/og-image.png" />
+    <meta name="twitter:image:alt" content="EPD logo ja pealkiri Eesti Politsei Dispetšer, kõrval mängu juhtimiskeskuse vaade: Tallinna kaart, sündmuste nimekiri ja üksuste tabel." />
+
+    <!-- Structured data for search engines (a data block: not executed, so the CSP does not apply). -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://politsei.eu/#website",
+            "url": "https://politsei.eu/",
+            "name": "EPD · Eesti Politsei Dispetšer",
+            "alternateName": ["EPD", "Eesti Politsei Dispetšer", "Estonian Police Dispatch"],
+            "inLanguage": ["et", "en"],
+            "publisher": { "@type": "Person", "@id": "https://politsei.eu/#qupkene", "name": "Qupkene", "url": "https://github.com/Qupkene" }
+          },
+          {
+            "@type": ["VideoGame", "WebApplication"],
+            "@id": "https://politsei.eu/#game",
+            "name": "EPD · Eesti Politsei Dispetšer",
+            "alternateName": "Estonian Police Dispatch",
+            "url": "https://politsei.eu/",
+            "image": "https://politsei.eu/og-image.png",
+            "screenshot": ["https://politsei.eu/screenshots/game.webp", "https://politsei.eu/screenshots/call.webp", "https://politsei.eu/screenshots/menu.webp"],
+            "description": "Politsei juhtimiskeskuse simulaator päris Eesti kaardil: võta vastu 112-kõned, saada patrullid välja, kontrolli inimesi andmebaasist ja juhi oma prefektuuri. Eesti ja inglise keeles, tasuta otse brauseris.",
+            "disambiguatingDescription": "Mitteametlik fännimäng, ei ole seotud Politsei- ja Piirivalveametiga (PPA).",
+            "inLanguage": ["et", "en"],
+            "genre": "Simulation",
+            "gamePlatform": "Web browser",
+            "playMode": "https://schema.org/SinglePlayer",
+            "applicationCategory": "GameApplication",
+            "operatingSystem": "Any (web browser)",
+            "browserRequirements": "Requires JavaScript and a modern web browser.",
+            "isAccessibleForFree": true,
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR", "availability": "https://schema.org/InStock", "url": "https://politsei.eu/" },
+            "author": { "@type": "Person", "@id": "https://politsei.eu/#qupkene", "name": "Qupkene", "url": "https://github.com/Qupkene" },
+            "creator": { "@type": "Person", "@id": "https://politsei.eu/#qupkene", "name": "Qupkene", "url": "https://github.com/Qupkene" },
+            "isPartOf": { "@id": "https://politsei.eu/#website" }
+          }
+        ]
+      }
+    </script>
+
+    <!-- Loading splash inside #root (React replaces it). System fonts only, nothing to download. -->
+    <style>
+      .epd-splash{position:fixed;inset:0;overflow:auto;display:grid;place-items:center;padding:32px 16px 96px;background:radial-gradient(70% 55% at 72% 16%,rgba(61,139,255,.16),transparent 70%),radial-gradient(50% 40% at 8% 100%,rgba(0,208,255,.07),transparent 70%),#06090d;color:#c0ccd9;font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;text-align:center}
+      .epd-splash__in{max-width:560px}
+      .epd-splash img{display:block;margin:0 auto 18px;filter:drop-shadow(0 8px 22px rgba(61,139,255,.45))}
+      .epd-splash p{margin:0}
+      .epd-splash__kicker{color:#00d0ff;font-size:12px;font-weight:700;letter-spacing:.24em;text-transform:uppercase}
+      .epd-splash h1{margin:10px 0 0;color:#eaf1f8;font-size:clamp(24px,5.4vw,36px);font-weight:700;line-height:1.15;letter-spacing:-.01em}
+      .epd-splash h1 span{display:block;margin-bottom:6px;color:#eaf1f8;font-size:clamp(64px,15vw,104px);font-weight:800;line-height:.95;letter-spacing:.03em}
+      @supports ((-webkit-background-clip:text) or (background-clip:text)){.epd-splash h1 span{background:linear-gradient(100deg,#fff 0%,#eaf1f8 40%,#00d0ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent}}
+      .epd-splash p.epd-splash__lead{margin:16px auto 0;max-width:30em;font-size:16px;text-wrap:balance}
+      .epd-splash p.epd-splash__load{margin-top:28px;color:#93a2b4;font-size:13px;letter-spacing:.04em}
+      .epd-splash__load::before{content:"";display:block;width:180px;height:3px;margin:0 auto 12px;border-radius:3px;background:linear-gradient(90deg,transparent,#3d8bff,#00d0ff,transparent) 0 0/45% 100% no-repeat #17222f;animation:epd-load 1.3s ease-in-out infinite}
+      @keyframes epd-load{from{background-position:-90% 0}to{background-position:190% 0}}
+      @media (prefers-reduced-motion:reduce){.epd-splash__load::before{animation:none;background-position:50% 0}}
+      .epd-splash p.epd-splash__note{margin-top:24px;color:#8090a4;font-size:12px}
+      .epd-splash__note span{white-space:nowrap}
+      .epd-noscript{position:fixed;left:16px;right:16px;bottom:16px;z-index:1;max-width:560px;margin:0 auto;padding:12px 16px;border:1px solid #3a4e66;border-radius:12px;background:#111a24;color:#eaf1f8;font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;text-align:center}
+    </style>
+    <!-- Without JavaScript: no loader, and room at the bottom so the fixed note never covers the disclaimer. -->
+    <noscript><style>.epd-splash__load{display:none}.epd-splash{padding-bottom:200px}@media (min-width:600px){.epd-splash{padding-bottom:140px}}</style></noscript>
   </head>
   <body>
-    <div id="root"></div>
-    <noscript>EPD vajab töötamiseks JavaScripti. / EPD requires JavaScript.</noscript>
+    <!-- Painted before the entry bundle has loaded; React replaces it with the boot screen. -->
+    <div id="root">
+      <div class="epd-splash">
+        <div class="epd-splash__in">
+          <img src="/favicon.svg" width="72" height="72" alt="" />
+          <p class="epd-splash__kicker">Juhtimiskeskuse simulaator</p>
+          <h1><span>EPD</span> Eesti Politsei Dispetšer</h1>
+          <p class="epd-splash__lead">Võta vastu 112-kõned, saada patrullid välja ja kontrolli inimesi andmebaasist. Päris Eesti kaart, tasuta ja otse brauseris.</p>
+          <p class="epd-splash__load" role="status">Laadimine…</p>
+          <p class="epd-splash__note">Mitteametlik fännimäng, ei ole seotud <span>Politsei- ja Piirivalveametiga</span>.</p>
+        </div>
+      </div>
+    </div>
+    <noscript><p class="epd-noscript">EPD on politsei juhtimiskeskuse simulaator, mis töötab brauseris. Mängimiseks lülita JavaScript sisse. / EPD is a police dispatch simulator that runs in the browser. Turn on JavaScript to play.</p></noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

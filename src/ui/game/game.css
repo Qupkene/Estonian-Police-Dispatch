@@ -29,6 +29,14 @@
 .gm--dock-closed {
   --gm-dock-h: 36px;
 }
+/* Short laptop screens (1280x720, 1366x768): while a 112 call is in progress the dock gives the
+   map row about 115 px, so the call card shows its questions instead of a 150 px sliver. The dock
+   comes back when the call ends or is minimised. */
+@media (min-width: 900px) and (max-height: 800px) {
+  .gm:not(.gm--dock-closed):has(.tl-call:not(.is-ringing):not(.is-collapsed)) {
+    --gm-dock-h: 150px;
+  }
+}
 .gm--nosim {
   display: flex;
   flex-direction: column;
@@ -211,7 +219,7 @@
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.14em;
-  color: var(--gold);
+  color: var(--gold-ink);
   border: 1px solid var(--gold);
   border-radius: var(--r-sm);
   padding: 2px 6px;
@@ -244,7 +252,7 @@
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.14em;
-  color: var(--bg-0);
+  color: var(--ink-on-bright);
   background: var(--warn);
   border-radius: 3px;
   padding: 1px 5px;
@@ -259,7 +267,7 @@
 }
 .gm-top__holiday {
   margin-left: 4px;
-  color: var(--gold);
+  color: var(--gold-ink);
   font-weight: 600;
 }
 .gm-top__env {
@@ -273,7 +281,7 @@
   color: var(--text-1);
 }
 .gm-top__sun .is-day {
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 .gm-top__sun .is-night {
   color: var(--accent-2);
@@ -292,13 +300,13 @@
   font-weight: 600;
 }
 .gm-top__road--wet {
-  color: var(--info);
+  color: var(--info-ink);
 }
 .gm-top__road--slippery {
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 .gm-top__road--icy {
-  color: var(--danger);
+  color: var(--danger-ink);
   font-weight: 700;
 }
 .gm-top__shift,
@@ -392,7 +400,7 @@
 .gm-speed.is-pause.is-active {
   background: var(--warn);
   border-color: var(--warn);
-  color: var(--bg-0);
+  color: var(--ink-on-bright);
   box-shadow: 0 0 12px -2px color-mix(in srgb, var(--warn) 70%, transparent);
 }
 .gm-speed--rt {
@@ -403,7 +411,7 @@
 .gm-speed--rt.is-active {
   background: var(--gold);
   border-color: var(--gold);
-  color: var(--bg-0);
+  color: var(--ink-on-bright);
 }
 .gm-top__stats,
 .gm-top__career {
@@ -435,17 +443,17 @@
   font-weight: 500;
 }
 .gm-stat__v.is-neg {
-  color: var(--danger);
+  color: var(--danger-ink);
 }
 .gm-stat--p1 .gm-stat__v {
-  color: var(--p1);
+  color: var(--p1-ink);
   text-shadow: 0 0 10px color-mix(in srgb, var(--p1) 60%, transparent);
 }
 .gm-stat--warn .gm-stat__v {
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 .gm-top__career .gm-stat__v svg {
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 .gm-top__end {
   margin-left: auto;
@@ -745,7 +753,7 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  color: var(--warn);
+  color: var(--warn-ink);
   font-weight: 700;
   animation: epd-blink 1.2s steps(2, jump-none) infinite;
 }
@@ -753,14 +761,14 @@
   font-size: 9.5px;
   font-weight: 800;
   letter-spacing: 0.1em;
-  color: var(--p1);
+  color: var(--p1-ink);
   border: 1px solid var(--p1);
   border-radius: 3px;
   padding: 0 4px;
   animation: epd-blink 0.8s steps(2, jump-none) infinite;
 }
 .gm-card__esc {
-  color: var(--danger);
+  color: var(--danger-ink);
 }
 .gm-card__units {
   margin-left: auto;
@@ -812,7 +820,7 @@
   color: var(--text-0);
 }
 .gm-card__backup svg {
-  color: var(--p1);
+  color: var(--p1-ink);
   animation: epd-blink 0.7s steps(2, jump-none) infinite;
 }
 .gm-card__backup-label {
@@ -820,7 +828,7 @@
   font-size: var(--fs-xs);
   font-weight: 800;
   letter-spacing: 0.1em;
-  color: var(--p1);
+  color: var(--p1-ink);
 }
 .gm-card__backup-cd {
   font-weight: 700;
@@ -841,7 +849,7 @@
   white-space: nowrap;
 }
 .gm-helpenroute svg {
-  color: var(--st-enroute);
+  color: var(--st-enroute-ink);
 }
 .gm-backup__foot-actions {
   display: flex;
@@ -864,11 +872,11 @@
   color: var(--text-1);
 }
 .gm-sla--warn {
-  color: var(--warn);
+  color: var(--warn-ink);
   border-color: color-mix(in srgb, var(--warn) 50%, transparent);
 }
 .gm-sla--danger {
-  color: var(--p1);
+  color: var(--p1-ink);
   border-color: color-mix(in srgb, var(--p1) 60%, transparent);
 }
 .gm-sla--over {
@@ -899,19 +907,19 @@
   border-color: color-mix(in srgb, var(--accent-2) 45%, transparent);
 }
 .gm-src--anpr {
-  color: var(--gold);
+  color: var(--gold-ink);
   border-color: color-mix(in srgb, var(--gold) 45%, transparent);
 }
 .gm-src--alarm {
-  color: var(--warn);
+  color: var(--warn-ink);
   border-color: color-mix(in srgb, var(--warn) 45%, transparent);
 }
 .gm-src--field {
-  color: var(--ok);
+  color: var(--ok-ink);
   border-color: color-mix(in srgb, var(--ok) 45%, transparent);
 }
 .gm-src--director {
-  color: var(--gold);
+  color: var(--gold-ink);
   border-color: var(--gold);
 }
 
@@ -982,13 +990,13 @@
   text-align: right;
 }
 .gm-tone--ok {
-  color: var(--ok);
+  color: var(--ok-ink);
 }
 .gm-tone--warn {
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 .gm-tone--danger {
-  color: var(--danger);
+  color: var(--danger-ink);
 }
 .gm-tone--muted {
   color: var(--text-3);
@@ -1052,7 +1060,7 @@
   cursor: not-allowed;
 }
 .gm-menu__item--danger {
-  color: var(--danger);
+  color: var(--danger-ink);
 }
 .gm-menu__label {
   flex: 1;
@@ -1194,7 +1202,7 @@
   border-radius: var(--r-sm);
   border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent);
   background: color-mix(in srgb, var(--danger) 12%, transparent);
-  color: var(--danger);
+  color: var(--danger-ink);
   font-size: var(--fs-sm);
 }
 
@@ -1376,7 +1384,7 @@
   color: var(--text-2);
 }
 .gm-inc__expires.is-urgent {
-  color: var(--danger);
+  color: var(--danger-ink);
   font-weight: 700;
 }
 .gm-inc__summary {
@@ -1473,7 +1481,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--p1);
+  color: var(--p1-ink);
 }
 .gm-backup__head svg {
   animation: epd-blink 0.7s steps(2, jump-none) infinite;
@@ -1509,7 +1517,7 @@
   background: color-mix(in srgb, var(--warn) 6%, transparent);
 }
 .gm-sec--pending .gm-sec__head {
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 .gm-pend + .gm-pend {
   margin-top: 8px;
@@ -1528,7 +1536,7 @@
   color: var(--accent-2);
 }
 .gm-pend--emergency .gm-pend__from {
-  color: var(--p1);
+  color: var(--p1-ink);
 }
 
 /* Reply buttons */
@@ -1562,7 +1570,7 @@
   color: var(--text-2);
 }
 .gm-replies__cd.is-urgent {
-  color: var(--p1);
+  color: var(--p1-ink);
   font-weight: 700;
   animation: epd-blink 0.9s steps(2, jump-none) infinite;
 }
@@ -1621,7 +1629,7 @@
   background: color-mix(in srgb, var(--ok) 9%, var(--bg-2));
 }
 .gm-need.is-met svg:last-child {
-  color: var(--ok);
+  color: var(--ok-ink);
 }
 .gm-need--ideal:not(.is-met) {
   border-color: var(--line-2);
@@ -1630,14 +1638,14 @@
 }
 .gm-needs__state {
   font-size: var(--fs-xs);
-  color: var(--danger);
+  color: var(--danger-ink);
   font-weight: 600;
 }
 .gm-needs__state.is-ok {
   color: var(--text-2);
 }
 .gm-needs__state.is-ideal {
-  color: var(--ok);
+  color: var(--ok-ink);
 }
 
 /* Recommendations */
@@ -1727,7 +1735,7 @@
   color: var(--text-3);
 }
 .gm-rec__divert {
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 .gm-rec__km,
 .gm-rec__eta {
@@ -1801,11 +1809,11 @@
   text-align: right;
   white-space: nowrap;
   font-size: var(--fs-xs);
-  color: var(--st-enroute);
+  color: var(--st-enroute-ink);
   font-weight: 700;
 }
 .gm-asg--onscene .gm-asg__eta {
-  color: var(--st-onscene);
+  color: var(--st-onscene-ink);
 }
 
 /* Agencies */
@@ -1832,13 +1840,13 @@
   background: color-mix(in srgb, var(--warn) 8%, var(--bg-2));
 }
 .gm-agency.is-needed > svg {
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 .gm-agency.is-enroute > svg {
-  color: var(--info);
+  color: var(--info-ink);
 }
 .gm-agency.is-arrived > svg {
-  color: var(--ok);
+  color: var(--ok-ink);
 }
 .gm-agency__body {
   flex: 1;
@@ -1857,7 +1865,7 @@
 }
 .gm-agency__eta {
   font-size: var(--fs-xs);
-  color: var(--info);
+  color: var(--info-ink);
   white-space: nowrap;
 }
 
@@ -1884,12 +1892,12 @@
   font-size: var(--fs-sm);
 }
 .gm-pursuit header strong {
-  color: var(--p1);
+  color: var(--p1-ink);
   letter-spacing: 0.14em;
   font-weight: 800;
 }
 .gm-pursuit.is-live header svg {
-  color: var(--p1);
+  color: var(--p1-ink);
   animation: epd-blink 0.6s steps(2, jump-none) infinite;
 }
 .gm-pursuit header .mono,
@@ -1957,16 +1965,16 @@
   color: var(--text-2);
 }
 .gm-role--suspect {
-  color: var(--p1);
+  color: var(--p1-ink);
 }
 .gm-role--victim {
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 .gm-role--caller {
   color: var(--accent-2);
 }
 .gm-role--missing {
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 .gm-person__who {
   min-width: 0;
@@ -2188,20 +2196,20 @@
   color: var(--text-3);
 }
 .gm-tl--dispatch > svg {
-  color: var(--st-enroute);
+  color: var(--st-enroute-ink);
 }
 .gm-tl--status > svg {
-  color: var(--st-onscene);
+  color: var(--st-onscene-ink);
 }
 .gm-tl--outcome > svg,
 .gm-tl--outcome .gm-tl__text {
-  color: var(--ok);
+  color: var(--ok-ink);
 }
 .gm-tl--hk > svg {
   color: var(--accent-2);
 }
 .gm-tl--agency > svg {
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 
 /* ───────────────────────────── Unit panel ───────────────────────────── */
@@ -2322,7 +2330,7 @@
 }
 .gm-unit__eta {
   margin-left: auto;
-  color: var(--st-enroute);
+  color: var(--st-enroute-ink);
   font-weight: 700;
   font-size: var(--fs-sm);
 }
@@ -2444,7 +2452,7 @@
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 800;
-  color: var(--bg-0);
+  color: var(--ink-on-bright);
   background: var(--st-busy);
 }
 .gm-scode--lg {
@@ -2472,7 +2480,7 @@
 }
 .gm-scode--offduty {
   background: var(--st-offduty);
-  color: var(--text-1);
+  color: #e2e8f0;
 }
 .gm-scode--emergency {
   background: var(--st-emergency);
@@ -2567,7 +2575,7 @@
 }
 .gm-seg__n--warn {
   background: var(--warn);
-  color: var(--bg-0);
+  color: var(--ink-on-bright);
 }
 .gm-seg__n--danger {
   background: var(--danger);
@@ -2611,7 +2619,7 @@
 .gm-rl {
   display: grid;
   grid-template-columns: 62px 132px minmax(0, 1fr);
-  gap: 8px;
+  gap: 2px 8px;
   align-items: start;
   padding: 3px 10px 3px 10px;
   line-height: 1.45;
@@ -2660,14 +2668,21 @@ button.gm-rl__from:hover {
   color: var(--text-1);
   min-width: 0;
 }
+.gm-rl__replies {
+  grid-column: 2 / -1;
+  min-width: 0;
+}
+.gm-rl__replies .gm-replies {
+  margin-top: 0;
+}
 .gm-rl--jk .gm-rl__from {
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 .gm-rl--jk .gm-rl__text {
   color: var(--text-0);
 }
 .gm-rl--hk .gm-rl__from {
-  color: var(--info);
+  color: var(--info-ink);
 }
 .gm-rl--k-status .gm-rl__text {
   color: var(--text-2);
@@ -2687,7 +2702,7 @@ button.gm-rl__from:hover {
 }
 .gm-rl--emergency .gm-rl__text,
 .gm-rl--emergency .gm-rl__from {
-  color: var(--p1);
+  color: var(--p1-ink);
   font-weight: 700;
 }
 @keyframes gm-emerg-line {
@@ -2718,11 +2733,11 @@ button.gm-rl__from:hover {
 }
 .gm-rl__inc--p1 {
   border-color: var(--p1);
-  color: var(--p1);
+  color: var(--p1-ink);
 }
 .gm-rl__inc--p2 {
   border-color: var(--p2);
-  color: var(--p2);
+  color: var(--p2-ink);
 }
 .gm-rl__inc:hover {
   background: var(--bg-3);
@@ -2816,7 +2831,7 @@ button.gm-rl__from:hover {
 .gm-table__eta {
   width: 62px;
   text-align: right;
-  color: var(--st-enroute);
+  color: var(--st-enroute-ink);
   font-weight: 700;
 }
 th.gm-table__eta {
@@ -2900,10 +2915,10 @@ td.gm-table__ty svg {
   margin-right: 2px;
 }
 .gm-board__inc--p1 b {
-  color: var(--p1);
+  color: var(--p1-ink);
 }
 .gm-board__inc--p2 b {
-  color: var(--p2);
+  color: var(--p2-ink);
 }
 .gm-board__inc:hover {
   color: var(--accent-2);
@@ -2939,9 +2954,17 @@ td.gm-table__task .muted {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 8px;
+  gap: 6px;
   width: 340px;
   pointer-events: none;
+}
+/* While a 112 call card is up (z-index 40 in tools.css) the toasts move to the top of the map, clear
+   of the toolbar, and drop below the card: Answer and the decision buttons are never covered. */
+.gm:has(.tl-call) .gm-toasts {
+  z-index: 30;
+  top: calc(var(--topbar-h) + var(--gm-gap) + 10px);
+  bottom: auto;
+  right: calc(var(--gm-side-w) + var(--gm-gap) * 2 + 54px);
 }
 .gm-toast {
   pointer-events: auto;
@@ -3005,19 +3028,47 @@ td.gm-table__task .muted {
 }
 .gm-toast__sub {
   font-size: var(--fs-xs);
-  color: var(--text-3);
+  color: var(--text-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .gm-toast__x {
+  flex: none;
   border: 0;
   background: none;
-  color: var(--text-3);
+  color: var(--text-2);
   padding: 2px;
 }
 .gm-toast__x:hover {
   color: var(--text-0);
+}
+/* Older toasts: one line (icon, title, location). The newest one keeps its full text. */
+.gm-toast.is-compact {
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 10px;
+  box-shadow: var(--shadow-1);
+}
+.gm-toast.is-compact .gm-toast__icon {
+  width: 22px;
+  height: 22px;
+}
+.gm-toast.is-compact .gm-toast__body {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.gm-toast.is-compact .gm-toast__body strong {
+  flex: none;
+}
+.gm-toast.is-compact .gm-toast__text {
+  display: none;
+}
+.gm-toast.is-compact .gm-toast__sub {
+  min-width: 0;
 }
 .gm-toast--p1,
 .gm-toast--backup,
@@ -3030,7 +3081,7 @@ td.gm-table__task .muted {
 .gm-toast--emergency .gm-toast__icon,
 .gm-toast--error .gm-toast__icon {
   background: var(--p1-soft);
-  color: var(--p1);
+  color: var(--p1-ink);
 }
 .gm-toast--emergency {
   background: color-mix(in srgb, var(--p1) 22%, var(--bg-1));
@@ -3039,7 +3090,11 @@ td.gm-table__task .muted {
     epd-pulse 1.2s infinite;
 }
 .gm-toast--emergency strong {
-  color: var(--p1);
+  /* Lifted (dark theme) or deepened (light theme) red: plain --p1 on the red-tinted card is under 4.5:1. */
+  color: color-mix(in srgb, var(--p1) 75%, #fff);
+}
+:root[data-theme='light'] .gm-toast--emergency strong {
+  color: color-mix(in srgb, var(--p1) 62%, #000);
 }
 .gm-toast--escalated,
 .gm-toast--missed,
@@ -3050,7 +3105,7 @@ td.gm-table__task .muted {
 .gm-toast--missed .gm-toast__icon,
 .gm-toast--pursuit .gm-toast__icon {
   background: color-mix(in srgb, var(--warn) 16%, transparent);
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 .gm-toast--achievement,
 .gm-toast--shift {
@@ -3059,7 +3114,7 @@ td.gm-table__task .muted {
 .gm-toast--achievement .gm-toast__icon,
 .gm-toast--shift .gm-toast__icon {
   background: color-mix(in srgb, var(--gold) 16%, transparent);
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 .gm-toast--ok,
 .gm-toast--pursuitEnd {
@@ -3068,7 +3123,7 @@ td.gm-table__task .muted {
 .gm-toast--ok .gm-toast__icon,
 .gm-toast--pursuitEnd .gm-toast__icon {
   background: color-mix(in srgb, var(--ok) 16%, transparent);
-  color: var(--ok);
+  color: var(--ok-ink);
 }
 
 /* ───────────────────────────── Director bits ───────────────────────────── */
@@ -3092,7 +3147,7 @@ td.gm-table__task .muted {
   animation: epd-fade-in var(--dur-2) var(--ease);
 }
 .gm-placing > svg {
-  color: var(--gold);
+  color: var(--gold-ink);
 }
 .gm-placing__esc {
   color: var(--text-3);
@@ -3243,7 +3298,7 @@ td.gm-table__task .muted {
   letter-spacing: 0.06em;
 }
 .gm-end__stats .is-warn b {
-  color: var(--warn);
+  color: var(--warn-ink);
 }
 
 /* ───────────────────────────── Responsive ───────────────────────────── */
@@ -3294,7 +3349,7 @@ td.gm-table__task .muted {
   }
   .gm-rl {
     grid-template-columns: 56px 108px minmax(0, 1fr);
-    gap: 6px;
+    gap: 2px 6px;
   }
 }
 @media (max-width: 1360px) {
@@ -3497,6 +3552,17 @@ td.gm-table__task .muted {
   .gm-top__time {
     font-size: var(--fs-xl);
   }
+  /* The PAUSED badge goes under the clock: next to it, it pushed the speed buttons off screen. */
+  .gm-top__clock .gm-top__time {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    line-height: 1;
+  }
+  .gm-top__paused {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
   .gm-speed {
     min-width: 28px;
     padding: 0 5px;
@@ -3505,11 +3571,39 @@ td.gm-table__task .muted {
   .gm-top__menu .ui-kbd {
     display: none;
   }
+  /* The speed group gives way first: the menu button (pause menu: save, quit, settings) must
+     always stay on screen, there is no Esc key on a phone. */
+  .gm-top__speed {
+    min-width: 0;
+    flex-shrink: 1;
+    overflow: hidden;
+  }
+  .gm-top__end {
+    flex-shrink: 0;
+  }
+  .gm-board .ui-panel__actions,
+  .gm-board__filters {
+    flex: 1;
+    min-width: 0;
+  }
+  .gm-board__filters {
+    flex-wrap: wrap;
+  }
+  .gm-board__type {
+    flex: 1 1 110px;
+    min-width: 0;
+    max-width: none;
+  }
   .gm-toasts {
     right: 8px;
     left: 8px;
     bottom: 66px;
     width: auto;
+  }
+  .gm:has(.tl-call) .gm-toasts {
+    top: calc(var(--topbar-h) + 8px);
+    bottom: auto;
+    right: 52px;
   }
   .gm-dock__toggle {
     display: none;
@@ -3529,6 +3623,19 @@ td.gm-table__task .muted {
   .gm-speed:nth-child(4),
   .gm-speed:nth-child(5) {
     display: none;
+  }
+}
+@media (max-width: 380px) {
+  /* 360 px phones: tighter top bar so the director realtime button still fits next to the menu. */
+  .gm-top > * {
+    padding: 0 5px;
+  }
+  .gm-speed {
+    min-width: 26px;
+    padding: 0 4px;
+  }
+  .gm-speed--rt {
+    margin-left: 3px;
   }
 }
 

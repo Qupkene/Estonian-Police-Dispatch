@@ -133,6 +133,37 @@ describe('laws', () => {
     expect(lawById('nonexistent_law')).toBeUndefined();
   });
 
+  it('cites the paragraphs courts apply (realism review)', () => {
+    const cite = (id: string) => lawCitation(lawById(id)!);
+    expect(cite('ls_red_light')).toBe('LS § 221 lg 1');
+    expect(cite('ls_seatbelt')).toBe('LS § 239 lg 1 p 1');
+    expect(cite('ls_201')).toBe('LS § 201 lg 1');
+    expect(cite('ls_201_ban')).toBe('LS § 201 lg 2');
+    expect(cite('kors_56')).toBe('KorS § 56 lg 2');
+    // A false emergency call is KarS § 278, not § 262; old record ids still resolve.
+    expect(lawById('kars_262_112')?.id).toBe('kars_278');
+    expect(cite('kars_278')).toBe('KarS § 278 lg 1');
+    expect(lawById('kars_278')!.title.et).toBe('Valeväljakutse');
+    // KorS § 54 only defines a public place: conduct breaches are punished under KarS § 262.
+    expect(LAWS.some((l) => l.act === 'KorS' && l.para.startsWith('§ 54'))).toBe(false);
+    expect(lawById('kors_54')?.id).toBe('kars_262');
+    expect(lawById('kors_public_order')?.id).toBe('kars_262');
+    expect(lawById('kars_262')!.weight).toBe(7);
+  });
+
+  it('keeps red-light fines within the 50 fine-unit maximum', () => {
+    for (const p of lawById('ls_red_light')!.punishments) {
+      const units = Number(/Rahatrahv (\d+) trahviühikut/.exec(p.et)?.[1]);
+      expect(units, p.et).toBeLessThanOrEqual(50);
+    }
+  });
+
+  it('does not let two KorS entries or the hoax-call entry claim the same paragraph', () => {
+    const kors = LAWS.filter((l) => l.act === 'KorS').map((l) => l.para);
+    expect(new Set(kors).size).toBe(kors.length);
+    expect(LAWS.filter((l) => lawCitation(l) === 'KarS § 262').map((l) => l.id)).toEqual(['kars_262']);
+  });
+
   it('fine texts use the fine unit value', () => {
     const p = lawById('kars_218')!.punishments[0];
     expect(p.et).toBe(`Rahatrahv 30 trahviühikut (${30 * FINE_UNIT_EUR} €)`);

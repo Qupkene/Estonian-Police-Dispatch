@@ -15,7 +15,7 @@ import { Rng, withRng } from './rng';
 import { defaultSla, slaFor } from './scoring';
 import { fillText } from './text';
 import { HOUR, isoDate, MIN, seasonOf, wall } from './time';
-import { zoneAt } from './units';
+import { rosterSpecsFor, stationById, zoneAt } from './units';
 import { weatherCallFactor, weatherTrafficFactor } from './weather';
 import type {
   Difficulty,
@@ -34,17 +34,21 @@ import type {
   SimState,
   SpeakerLang,
   Text,
+  UnitType,
 } from './types';
 
 const T = (et: string, en: string): Text => ({ et, en });
 
-export const DIFFICULTY_FACTOR: Record<Difficulty, number> = { cadet: 0.6, normal: 1, veteran: 1.35, realistic: 1.8 };
+// Tuned for fun over realism: a normal shift leaves time to read the calls, the registry and the newspaper.
+export const DIFFICULTY_FACTOR: Record<Difficulty, number> = { cadet: 0.4, normal: 0.65, veteran: 0.9, realistic: 1.25 };
 
 /** Event-number prefixes per prefecture ("PÕ-261017-0042"). */
 export const NUMBER_PREFIX: Record<RegionId, string> = { pohja: 'PÕ', ida: 'ID', louna: 'LÕ', laane: 'LÄ' };
 
 /** Caller gives up after this many minutes by default (template.expiresMin overrides). */
 export const DEFAULT_EXPIRES_MIN: Record<Priority, number> = { 1: 45, 2: 75, 3: 150, 4: 240 };
+/** Game balance: callers wait this much longer than the template says, so a busy dispatcher can catch up. */
+export const CALLER_PATIENCE = 1.4;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Rate
@@ -61,8 +65,56 @@ export function spawnRatePerHour(s: SimState, t: number): number {
     (dayInfo(t).factor || 1) *
     DIFFICULTY_FACTOR[s.difficulty] *
     weatherCallFactor(s.weather);
+  if (s.mode === 'career') r *= careerLoadFactor(s);
   if (s.mode === 'tutorial') r *= 0.5;
   return Math.max(0.05, r);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Career load (DESIGN §4.12)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Unit types that answer general calls. The career load is measured in these. */
+const RESPONSE_TYPES: ReadonlySet<UnitType> = new Set<UnitType>(['patrol', 'rapid', 'aux', 'traffic', 'k9', 'border', 'community']);
+
+/** Lowest career load factor, so a shift with a single crew left still gets calls. */
+export const CAREER_LOAD_FLOOR = 0.1;
+
+/**
+ * Career mode: scale the prefecture's call volume to the force actually on duty. A new career has
+ * 3 response crews where the regular roster has 11-17, so the full volume would bury it.
+ * Computed once at shift creation (after the units exist) and stored in `s.flags`, JSON-safe:
+ * - `loadFactor`: square root of (response units on duty ÷ response units of the regular
+ *   normal-difficulty roster for this shift), clamped to [CAREER_LOAD_FLOOR, 1]. The difficulty factor still applies on top,
+ *   so veteran and realistic careers stay harder than normal ones.
+ * - `skipZones`: comma-separated zones that the regular roster staffs but this force does not
+ *   (e.g. Saaremaa and Hiiumaa before the player has an island crew). New calls there are moved
+ *   to a covered zone, because a 75-105 min ferry trip would expire every one of them.
+ */
+export function initCareerLoad(s: SimState): void {
+  const region = regionOf(s);
+  if (!region) return;
+  const shift = s.flags.shiftKind === 'night' ? 'night' : 'day';
+  const regular = rosterSpecsFor(region, shift, 'normal').filter((sp) => !sp.onCall && RESPONSE_TYPES.has(sp.type));
+  const mine = s.unitOrder.map((id) => s.units[id]).filter((u) => !!u && !u.onCall && RESPONSE_TYPES.has(u.type));
+  // Square root: a small force gets fewer calls, but not so few that the shift turns dull.
+  const factor = regular.length ? Math.sqrt(mine.length / regular.length) : 1;
+  s.flags.loadFactor = Math.round(Math.max(CAREER_LOAD_FLOOR, Math.min(1, factor)) * 1000) / 1000;
+  const covered = new Set(mine.map((u) => u.zone || 'mainland'));
+  const staffed = new Set(regular.map((sp) => sp.zone ?? stationById(region, sp.stationId)?.zone ?? 'mainland'));
+  s.flags.skipZones = covered.size ? [...staffed].filter((z) => !covered.has(z)).join(',') : '';
+}
+
+/** Career call-volume multiplier (1 outside career or before initCareerLoad ran). */
+export function careerLoadFactor(s: SimState): number {
+  const f = Number(s.flags.loadFactor);
+  return s.mode === 'career' && f > 0 ? Math.min(1, f) : 1;
+}
+
+/** Zones where no new calls spawn this shift (career only, see initCareerLoad). */
+export function skippedZones(s: SimState): Set<string> {
+  const raw = s.mode === 'career' ? s.flags.skipZones : undefined;
+  return new Set(typeof raw === 'string' && raw ? raw.split(',') : []);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -180,7 +232,7 @@ export function templateWeight(s: SimState, tpl: IncidentTemplate, ctx: PickCtx)
   return w;
 }
 
-/** Weighted template pick with the easter-egg budget (≤ 1.5 % of events). */
+/** Weighted template pick with the easter-egg budget (about 4 % of events, never more than 7 %). */
 export function pickTemplate(s: SimState, r: Rng, templates: IncidentTemplate[], t: number): IncidentTemplate | undefined {
   const ctx = pickCtx(s, t);
   const ws = templates.map((tpl) => templateWeight(s, tpl, ctx));
@@ -191,12 +243,13 @@ export function pickTemplate(s: SimState, r: Rng, templates: IncidentTemplate[],
     else normal += ws[i];
   });
   const easterCount = Number(s.flags.easterCount) || 0;
-  const tooMany = (easterCount + 1) / (s.stats.incidents + 1) > 0.03 && s.stats.incidents > 0;
+  const tooMany = (easterCount + 1) / (s.stats.incidents + 1) > 0.07 && s.stats.incidents > 0;
   let easterScale = 1;
   if (tooMany || normal <= 0) easterScale = normal <= 0 ? 1 : 0;
   else if (easter > 0) {
-    const target = (0.015 / (1 - 0.015)) * normal;
-    if (easter > target) easterScale = target / easter;
+    // Scale both ways: the templates' own weights are tiny, the budget lifts them to about 4 %.
+    const target = (0.04 / (1 - 0.04)) * normal;
+    easterScale = target / easter;
   }
   let total = 0;
   for (let i = 0; i < ws.length; i++) {
@@ -231,6 +284,29 @@ function fallbackLocation(r: Rng, region: RegionDef, kinds: PlaceKind[]): Incide
   }
   const coord = destination(region.center, r.range(0, 4), r.range(0, 360));
   return { address: coordText(coord), coord, city: '', placeKind: kind, zone: region.zones[0]?.id ?? 'mainland' };
+}
+
+/** A location for a template's place kinds, with its zone filled in. */
+function templateLocation(r: Rng, region: RegionDef, tpl: IncidentTemplate): IncidentLocation {
+  let location: IncidentLocation;
+  try {
+    location = pickLocation(r, region, tpl.places.length ? tpl.places : ['street']);
+  } catch {
+    location = fallbackLocation(r, region, tpl.places);
+  }
+  return location.zone ? location : { ...location, zone: zoneAt(region, location.coord) };
+}
+
+/**
+ * Career: a location outside the skipped zones (a few re-picks), or undefined when the template
+ * only fits places there (e.g. an island ferry port), in which case the call is not spawned.
+ */
+function coveredLocation(r: Rng, region: RegionDef, tpl: IncidentTemplate, skip: Set<string>): IncidentLocation | undefined {
+  for (let i = 0; i < 8; i++) {
+    const loc = templateLocation(r, region, tpl);
+    if (!skip.has(loc.zone ?? 'mainland')) return loc;
+  }
+  return undefined;
 }
 
 function coordText(c: LngLat): string {
@@ -372,14 +448,7 @@ export function createIncident(s: SimState, tpl: IncidentTemplate, o: CreateOpts
   const seq = ++s.seq.incident;
   const r = withRng(s, (rr) => rr.fork(seq));
   const now = s.now;
-  let location = o.location;
-  if (!location) {
-    try {
-      location = pickLocation(r, region, tpl.places.length ? tpl.places : ['street']);
-    } catch {
-      location = fallbackLocation(r, region, tpl.places);
-    }
-  }
+  let location = o.location ?? templateLocation(r, region, tpl);
   if (!location.zone) location = { ...location, zone: zoneAt(region, location.coord) };
   const truePriority = o.priority ?? tpl.priority;
   const w = wall(now);
@@ -419,7 +488,7 @@ export function createIncident(s: SimState, tpl: IncidentTemplate, o: CreateOpts
   inc.slaMin = slaFor(s, inc, truePriority, tpl);
   // Rural callers wait longer: distances are bigger and they know it (DESIGN §4.3).
   const ruralWait = inc.slaMin > defaultSla(truePriority, true) ? 1.6 : 1;
-  inc.expiresAt = now + (tpl.expiresMin ?? DEFAULT_EXPIRES_MIN[truePriority]) * ruralWait * MIN;
+  inc.expiresAt = now + (tpl.expiresMin ?? DEFAULT_EXPIRES_MIN[truePriority]) * ruralWait * CALLER_PATIENCE * MIN;
   if (tpl.escalation) inc.escalateAt = now + tpl.escalation.afterMin * MIN;
   for (const a of tpl.agencies ?? []) if (r.chance(a.chance)) inc.agencyNeeds.push({ agency: a.agency, reason: a.reason });
   if (tpl.referral && r.chance(tpl.referral.chance)) inc.referral = tpl.referral.agency;
@@ -589,10 +658,15 @@ export function updateSpawner(s: SimState): void {
     return;
   }
   let n = 0;
+  const skip = skippedZones(s);
   while (s.now >= s.nextSpawnAt && s.nextSpawnAt < s.endTime && n < 4) {
     const t = s.nextSpawnAt;
     const tpl = withRng(s, (r) => pickTemplate(s, r, allTemplates(), t));
-    if (tpl) spawnIncident(s, tpl);
+    if (tpl && !skip.size) spawnIncident(s, tpl);
+    else if (tpl) {
+      const location = withRng(s, (r) => coveredLocation(r, regionOf(s), tpl, skip));
+      if (location) spawnIncident(s, tpl, { location });
+    }
     const rate = spawnRatePerHour(s, t) / HOUR;
     s.nextSpawnAt = t + Math.max(10_000, withRng(s, (r) => r.exp(rate)));
     n++;

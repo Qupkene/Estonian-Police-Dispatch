@@ -283,7 +283,7 @@ export function ShiftBand({ profile }: { profile: CareerProfile }) {
   useEffect(() => {
     if (!unlocked.includes(region)) setRegion(profile.regionId);
   }, [unlocked, region, profile.regionId]);
-  const roster = useMemo(() => safe(() => rules.rosterFromCareer(profile, 'day'), null), [profile]);
+  const roster = useMemo(() => safe(() => rules.rosterFromCareer(profile, 'day', region), null), [profile, region]);
   const ready = readiness(profile, roster);
   const history = profile.history ?? [];
   const recent = history.slice(-12);

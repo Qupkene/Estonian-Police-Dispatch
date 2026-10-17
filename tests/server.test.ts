@@ -333,6 +333,7 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
         'slash/name',
         'emoji😀x',
         'Привет',
+        'José',
         '',
         42,
         null,
@@ -342,6 +343,8 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
         expect(r.status, `name ${JSON.stringify(name)}`).toBe(400);
         expect(r.json.error).toBe('invalid_name');
         expect(r.json.message).not.toMatch(DASHES);
+        // 'Привет' and 'José' consist of letters only: the message must say which letters are allowed.
+        expect(r.json.message).toContain('ladina tähti (ka õ, ä, ö, ü, š, ž)');
       }
     });
 
@@ -546,16 +549,97 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       expect(Object.keys(r.json.updated).sort()).toEqual(['autosave', 'career', 'settings']);
     });
 
-    it('deletes a slot', async () => {
+    it('deletes a slot, leaving a marker with its own version so other devices see the deletion', async () => {
       expect((await alice.del('/api/save/career', undefined, { csrf: false })).status).toBe(403);
+      const before = (await alice.get('/api/save')).json.updated.career;
       const r = await alice.del('/api/save/career');
       expect(r.status).toBe(200);
-      expect(r.json).toEqual({ ok: true });
+      expect(r.json).toEqual({ ok: true, updated: expect.any(Number) });
+      expect(r.json.updated).toBeGreaterThan(before);
       const after = await alice.get('/api/save');
       expect(after.json.career).toBeNull();
-      expect(after.json.updated.career).toBeUndefined();
+      expect(after.json.updated.career).toBe(r.json.updated);
       expect(after.json.autosave).not.toBeNull();
-      expect((await alice.del('/api/save/career')).status).toBe(200);
+      const again = await alice.del('/api/save/career');
+      expect(again.status).toBe(200);
+      expect(again.json.updated).toBeGreaterThan(r.json.updated);
+    });
+
+    it('versions only grow, also for writes in the same millisecond', async () => {
+      const versions: number[] = [];
+      for (let i = 0; i < 5; i++) versions.push((await alice.put('/api/save/settings', { body: { n: i } })).json.updated);
+      for (let i = 1; i < versions.length; i++) expect(versions[i]).toBeGreaterThan(versions[i - 1]);
+    });
+
+    it('writes with ?base= only while the server still has that version (409 save_conflict otherwise)', async () => {
+      const cur = (await alice.get('/api/save')).json.updated.settings as number;
+      // The desktop saves on top of the current version.
+      const desk = await alice.put(`/api/save/settings?base=${cur}`, { body: { from: 'desktop' } });
+      expect(desk.status).toBe(200);
+      // A stale laptop tab still builds on the old version: refused, nothing written.
+      const stale = await alice.put(`/api/save/settings?base=${cur}`, { body: { from: 'stale laptop' } });
+      expect(stale.status).toBe(409);
+      expect(stale.json.error).toBe('save_conflict');
+      expect(stale.json.updated).toBe(desk.json.updated);
+      expect((await alice.get('/api/save')).json.settings).toEqual({ from: 'desktop' });
+      // A stale delete cannot wipe the newer save either.
+      const staleDelete = await alice.del(`/api/save/settings?base=${cur}`);
+      expect(staleDelete.status).toBe(409);
+      expect((await alice.get('/api/save')).json.settings).toEqual({ from: 'desktop' });
+      // After reading the cloud again, the laptop can save on top of the newest version.
+      const ok = await alice.put(`/api/save/settings?base=${desk.json.updated}`, { body: { from: 'laptop' } });
+      expect(ok.status).toBe(200);
+      // A conditional delete on the current version leaves a marker.
+      const del = await alice.del(`/api/save/settings?base=${ok.json.updated}`);
+      expect(del.status).toBe(200);
+      const after = await alice.get('/api/save');
+      expect(after.json.settings).toBeNull();
+      expect(after.json.updated.settings).toBe(del.json.updated);
+      // The marker is a version like any other: writing on top of it works, on top of the old one not.
+      expect((await alice.put(`/api/save/settings?base=${ok.json.updated}`, { body: { x: 1 } })).status).toBe(409);
+      expect((await alice.put(`/api/save/settings?base=${del.json.updated}`, { body: { x: 1 } })).status).toBe(200);
+    });
+
+    it('base 0 means "the server has no such slot yet"', async () => {
+      const c = client();
+      expect((await register(c, 'BaseZero')).status).toBe(200);
+      expect((await c.put('/api/save/autosave?base=5', { body: { a: 1 } })).status).toBe(409);
+      const first = await c.put('/api/save/autosave?base=0', { body: { a: 1 } });
+      expect(first.status).toBe(200);
+      expect((await c.put('/api/save/autosave?base=0', { body: { a: 2 } })).status).toBe(409);
+      expect((await c.get('/api/save')).json.autosave).toEqual({ a: 1 });
+    });
+
+    it('rejects a malformed base', async () => {
+      for (const bad of ['-1', 'abc', '1.5', '', '12345678901234567']) {
+        const r = await alice.put(`/api/save/settings?base=${encodeURIComponent(bad)}`, { body: {} });
+        expect(r.status, bad).toBe(400);
+        expect(r.json.error).toBe('bad_base');
+      }
+    });
+
+    it('answers only the versions with ?versions=1', async () => {
+      const full = await alice.get('/api/save');
+      const v = await alice.get('/api/save?versions=1');
+      expect(v.status).toBe(200);
+      expect(v.json).toEqual({ updated: full.json.updated });
+      expect((await client().get('/api/save?versions=1')).status).toBe(401);
+    });
+
+    it('refuses requests that expect another account (X-EPD-User): 409 user_mismatch', async () => {
+      const me = (await alice.get('/api/me')).json.user;
+      const wrong = { headers: { 'X-EPD-User': String(me.id + 1000) } };
+      const put = await alice.put('/api/save/career', { body: { name: 'Mallory' }, ...wrong });
+      expect(put.status).toBe(409);
+      expect(put.json.error).toBe('user_mismatch');
+      expect((await alice.get('/api/save', wrong)).status).toBe(409);
+      expect((await alice.del('/api/save/autosave', undefined, wrong)).status).toBe(409);
+      expect((await alice.post('/api/score', SHIFT, wrong)).status).toBe(409);
+      expect((await alice.get('/api/save')).json.career).toBeNull();
+      // The right account (or no header) works as before.
+      const right = await alice.put('/api/save/career', { body: { name: 'Alice' }, headers: { 'X-EPD-User': String(me.id) } });
+      expect(right.status).toBe(200);
+      expect((await alice.get('/api/save')).json.career).toEqual({ name: 'Alice' });
     });
   });
 

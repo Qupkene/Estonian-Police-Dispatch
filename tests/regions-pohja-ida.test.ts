@@ -332,11 +332,31 @@ describe('Põhja prefektuur', () => {
     expect(r.zoom).toBeGreaterThanOrEqual(10.5);
     expect(r.commander).toEqual({
       name: 'Liisa Tamm',
-      title: { et: 'Prefekt, politseikindral', en: 'Prefect, police general' },
+      title: { et: 'Prefekt, politseikolonel', en: 'Prefect, Police Colonel' },
       badge: '002',
       gender: 'F',
     });
     expect(r.stations.some((s) => s.kind === 'airbase')).toBe(true);
+  });
+
+  it('gives prefects the colonel rank (politseikindral is the Director General)', () => {
+    for (const reg of [REGION_POHJA, REGION_IDA]) {
+      expect(reg.commander?.title.et, reg.id).toBe('Prefekt, politseikolonel');
+    }
+  });
+
+  it('takes arrestees to Tallinna Vangla (arrest-house duties since 1 April 2025)', () => {
+    const arrest = r.stations.find((s) => s.id === r.arrestHouseId);
+    expect(arrest?.kind).toBe('arrest');
+    expect(arrest?.name).toEqual({
+      et: 'Tallinna Vangla (arestimaja ülesanded)',
+      en: 'Tallinn Prison (arrest-house duties)',
+    });
+    expect(arrest?.short).toBe('Tallinna Vangla');
+    expect(arrest?.address).toBe('Linnaaru tee 5, Soodevahe küla');
+    expect(arrest?.city).toBe('Rae vald');
+    // No PPA "kinnipidamiskeskus" (in PPA usage that is the Harku centre for foreigners).
+    for (const s of r.stations) expect(s.name.et.toLowerCase(), s.id).not.toContain('kinnipidamiskeskus');
   });
 
   it('has the realistic normal roster', () => {

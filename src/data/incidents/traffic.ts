@@ -28,8 +28,8 @@ const B_PATROL = [
 ];
 
 const T_ARREST = [
-  T('{callsign}: toimetame kinnipeetu arestimajja.', '{callsign}: taking the detainee to the custody suite.'),
-  T('{callsign}, kinnipeetu peal, suundume arestimaja poole.', '{callsign}, detainee on board, heading for the custody suite.'),
+  T('{callsign}: toimetame kinnipeetu arestimajja.', '{callsign}: taking the detainee to the arrest house.'),
+  T('{callsign}, kinnipeetu peal, suundume arestimaja poole.', '{callsign}, detainee on board, heading for the arrest house.'),
 ];
 
 const A_KIIRABI = [
@@ -351,7 +351,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
     summary: [
       T('{address}. Joobes juhi kahtlus: {car}, numbrimärk {plate}, looklev sõit, liigub {direction}. Teataja sõidab järel.', '{address}. Suspected drunk driver: {car}, plate {plate}, weaving, moving {direction}. The caller is following.'),
       T('{address}. Teataja sõidab sõiduki {plate} taga. Auto kõigub rajalt rajale ja pidurdab põhjuseta. Kiirus 50-110 km/h.', '{address}. The caller is behind {plate}. The car drifts lane to lane and brakes for no reason. Speed 50-110 km/h.'),
-      T('{address}. {car} ({plate}) sõitis teepeenrale ja tagasi, ohustab vastutulijaid. Teataja on liinil.', '{address}. A {car} ({plate}) ran onto the verge and back, endangering oncoming traffic. The caller is on the line.'),
+      T('{address}. Teataja sõnul sõitis {car} ({plate}) teepeenrale ja tagasi, ohustab vastutulijaid. Teataja on liinil.', '{address}. According to the caller, a {car} ({plate}) ran onto the verge and back, endangering oncoming traffic. The caller is on the line.'),
     ],
     callerLines: [
       T('Ma sõidan ühe auto taga, ta on kindlasti purjus! Kogu aeg üle keskjoone!', 'I am driving behind a car, he is definitely drunk! Over the centre line all the time!'),
@@ -413,7 +413,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
     ],
     vehicles: [{ role: 'suspect', kind: 'car', driverRole: 'driver', noInsurance: 0.1, noInspection: 0.15 }],
     summary: [
-      T('{address}. Tankla müüja teatel ostis tugevas joobes mees alkoholi ja istus sõiduauto {car} rooli. Mootor käib.', '{address}. The petrol station clerk reports a heavily drunk man bought alcohol and got behind the wheel of a {car}. Engine running.'),
+      T('{address}. Tankla müüja teatel ostis tugevas joobes mees alkoholi ja istus auto rooli. Mootor käib. Auto: {car}.', '{address}. The petrol station clerk reports a heavily drunk man bought alcohol and got behind the wheel of a {car}. Engine running.'),
       T('{address}. Poe parklas istub joobes juht autos {plate}, üritab ära sõita. Müüja võttis tal võtmed ära, mees nõuab neid tagasi.', '{address}. In the shop car park a drunk driver sits in car {plate} trying to leave. The clerk took his keys, he is demanding them back.'),
       T('{address}. Klient ei suutnud kaardiga maksta, komistas ja sõitis seejärel parkimisplatsil vastu prügikasti. Auto {car}.', '{address}. A customer could not manage to pay by card, stumbled, then drove into a bin in the car park. Car: {car}.'),
     ],
@@ -833,7 +833,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
       T('Vastassuunas sõitja, ma vaevu jõudsin kõrvale põigata!', 'Wrong-way driver, I barely managed to swerve!'),
     ],
     details: [
-      T('Häirekeskus on saanud viis teadet kolme minuti jooksul.', 'The emergency centre has received five reports within three minutes.'),
+      T('Häirekeskus on saanud viis teadet kolme minuti jooksul.', 'The ERC has received five reports within three minutes.'),
       T('Üks teataja arvab, et roolis on eakas inimene.', 'One caller thinks an elderly person is at the wheel.'),
     ],
     beats: [
@@ -1059,7 +1059,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
       { agency: 'sotsiaal', chance: 0.5, reason: T('Lastekaitse teavitamine', 'Notify child protection') },
     ],
     summary: [
-      T('{address}. Parklas päikese käes seisvas autos {car} on väike laps üksi, aknad suletud. Laps nutab, välistemperatuur +28.', '{address}. A small child is alone in a {car} parked in the sun, windows closed. The child is crying, it is +28 outside.'),
+      T('{address}. Parklas päikese käes seisvas autos on väike laps üksi, aknad suletud. Laps nutab, välistemperatuur +28. Auto: {car}.', '{address}. A small child is alone in a {car} parked in the sun, windows closed. The child is crying, it is +28 outside.'),
       T('{address}. Lukustatud sõiduautos magab umbes 2-aastane laps, higine ja punane. Vanemat pole näha juba 20 minutit.', '{address}. A child of about 2 is asleep in a locked car, sweaty and flushed. No parent seen for 20 minutes.'),
     ],
     callerLines: [
@@ -1119,7 +1119,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
     ],
     vehicles: [{ role: 'suspect', kind: 'car', driverRole: 'driver', noInsurance: 0.2, noInspection: 0.25 }],
     summary: [
-      T('{address}. Teataja sõnul juhib tuttav mees, kellelt juhtimisõigus kohtuotsusega ära võeti, taas autot {car}, numbrimärk {plate}. Liigub {direction}.', '{address}. The caller says a man he knows, who was disqualified by a court, is driving again: {car}, plate {plate}. Moving {direction}.'),
+      T('{address}. Teataja sõnul juhib tuttav mees, kellelt juhtimisõigus kohtuotsusega ära võeti, taas autot: {car}, numbrimärk {plate}. Liigub {direction}.', '{address}. The caller says a man he knows, who was disqualified by a court, is driving again: {car}, plate {plate}. Moving {direction}.'),
       T('{address}. Külas sõidab noormees ilma lubadeta ema autoga, on mitu korda nähtud. Praegu pargib poe ees.', '{address}. A young man is driving his mother’s car in the village without a licence, seen several times. Currently parking outside the shop.'),
     ],
     callerLines: [
@@ -1282,7 +1282,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
     summary: [
       T('{address}. Patrull teatab: {car}, numbrimärk {plate}, eiras peatumismärguannet ja põgeneb {direction}.', '{address}. A patrol reports: {car}, plate {plate}, ignored the stop signal and is fleeing {direction}.'),
       T('{address}. ANPR-kaamera tuvastas sõiduki {plate}, patrull andis peatumismärguande, kuid juht kiirendas ja lülitas tuled välja.', '{address}. ANPR flagged vehicle {plate}; the patrol signalled it to stop, but the driver accelerated and switched off his lights.'),
-      T('{address}. Liikluskontrollis pööras {car} ümber ja põgenes, kiirus üle 120 km/h.', '{address}. At a traffic checkpoint a {car} turned around and fled at over 120 km/h.'),
+      T('{address}. Liikluskontrollis pööras {car} ({plate}) ümber ja põgenes, kiirus üle 120 km/h.', '{address}. At a traffic checkpoint a {car} ({plate}) turned around and fled at over 120 km/h.'),
     ],
     details: [
       T('Sõidukis on vähemalt kaks inimest.', 'There are at least two people in the car.'),

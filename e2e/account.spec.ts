@@ -177,6 +177,8 @@ test.describe.serial('accounts', () => {
     await page.getByLabel('Parool', { exact: true }).fill('vale-parool-123');
     await page.locator('form.sh-legacy button[type="submit"]').click();
     await expect(page.locator('.sh-legacy__err')).toHaveText('Vale kasutajanimi või parool.');
+    // Focus goes back to the password (the inputs are not remounted), so the next try can be typed at once.
+    await expect(page.getByLabel('Parool', { exact: true })).toBeFocused();
     expect(await screen(page)).toBe('login');
     await page.context().close();
   });
@@ -197,7 +199,8 @@ test('an account can be deleted from the chip menu, confirmed with the password'
   await page.getByRole('menuitem', { name: 'Kustuta konto' }).click();
   await page.getByLabel('Kinnita parooliga').fill('vale-parool-1');
   await page.getByRole('button', { name: 'Kustuta jäädavalt' }).click();
-  await expect(page.getByText('Vale parool.')).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'Vale parool.' })).toBeVisible();
+  await expect(page.getByLabel('Kinnita parooliga')).toBeFocused();
   expect(await screen(page)).toBe('menu');
 
   await page.getByLabel('Kinnita parooliga').fill(PASS);
@@ -205,6 +208,38 @@ test('an account can be deleted from the chip menu, confirmed with the password'
   await expect.poll(() => screen(page), { timeout: 15_000 }).toBe('login');
   const relogin = await page.request.post('/api/login', { headers: { 'X-EPD': '1' }, data: { name, password: PASS } });
   expect(relogin.status()).toBe(401);
+});
+
+test('"Delete all data" signs out: the reload neither stays signed in nor pulls the cloud data back', async ({ page }) => {
+  const name = `clr_${Date.now().toString(36)}`;
+  await boot(page);
+  await openClassic(page);
+  await page.getByRole('button', { name: 'Pole veel kontot? Loo konto' }).click();
+  await page.getByLabel('Kasutajanimi').fill(name);
+  await page.getByLabel('Parool', { exact: true }).fill(PASS);
+  await page.getByLabel('Korda parooli').fill(PASS);
+  await page.locator('form.sh-legacy button[type="submit"]').click();
+  await expect.poll(() => screen(page), { timeout: 20_000 }).toBe('menu');
+  await page.evaluate(() => (window as unknown as EpdWindow).__epd.career.getState().create('Mari Pilv', '4711', 'pohja'));
+  await expect
+    .poll(async () => (await (await page.request.get('/api/save')).json()).career?.profile?.name, { timeout: 20_000 })
+    .toBe('Mari Pilv');
+
+  await page.getByRole('button', { name: /Seaded/ }).first().click();
+  await expect(page.getByText(/Sinu konto andmed on ka politsei\.eu serveris/)).toBeVisible();
+  await page.getByRole('button', { name: /^Kustuta$/ }).click();
+  const reloaded = page.waitForEvent('load');
+  await page.getByRole('button', { name: /Kinnita/ }).click();
+  await reloaded;
+  await page.keyboard.press('Space');
+  await expect.poll(() => screen(page), { timeout: 15_000 }).toBe('login');
+  expect((await (await page.request.get('/api/me')).json()).user).toBeNull();
+  await expect(page.getByText(/Sisse logitud:/)).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as EpdWindow).__epd.career.getState().profile)).toBeNull();
+  // The account itself and its cloud career are still there.
+  const relogin = await page.request.post('/api/login', { headers: { 'X-EPD': '1' }, data: { name, password: PASS } });
+  expect(relogin.status()).toBe(200);
+  expect((await (await page.request.get('/api/save')).json()).career?.profile?.name).toBe('Mari Pilv');
 });
 
 test('the 2024 easter egg still works with the API online', async ({ page }) => {

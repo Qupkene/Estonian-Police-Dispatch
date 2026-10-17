@@ -125,10 +125,12 @@ documented signature below (stubs exist). Report needed changes instead of editi
 ### 4.2 Spawning
 Poisson process: rate/h = `region.callVolume × hourCurve[h] × weekdayFactor × holidayFactor ×
 difficultyFactor × weatherFactor`. Default hour curve peaks 22-02 (1.6×), lowest 04-07 (0.45×).
-Difficulty factor: cadet 0.6, normal 1, veteran 1.35, realistic 1.8.
+Difficulty factor (tuned for fun over realism): cadet 0.4, normal 0.65, veteran 0.9, realistic 1.25.
+Career shifts also multiply by the career `loadFactor` (§4.12). Callers wait `CALLER_PATIENCE`
+(1.4) times the template's expiry.
 Template choice weight = `template.weight × hourProfile(template.hours)[h] × weekendBoost ×
-season/month filter × region filter × place-availability`. Easter eggs (`easterEgg: true`) total
-≤ 1.5 % of events. `legacy: true` templates are normal content.
+season/month filter × region filter × place-availability`. Easter eggs (`easterEgg: true`) are
+scaled to about 4 % of events (never more than 7 %). `legacy: true` templates are normal content.
 
 Location: pick a place kind from `template.places`, then:
 * a curated `Place` of that kind in the region (preferred when available), else
@@ -250,7 +252,7 @@ but translates.
 
 ### 4.12 Career & economy (2025 idea, expanded)
 Persistent profile (localStorage): name, badge number, home region, career day, **money**
-(start 10 000 €), **Staatus** (start 25, 0..100), rank, xp, staff, fleet, upgrades, ledger,
+(start 40 000 €, 12 officers, 7 cars), **Staatus** (start 25, 0..100), rank, xp, staff, fleet, upgrades, ledger,
 history, achievements, recruit pool.
 * A career shift = one day. After each shift: daily base budget (region-dependent, ~1 600 €)
   + performance bonus (from shift score & reputation delta, like the 2025 formula) − daily
@@ -264,6 +266,12 @@ history, achievements, recruit pool.
 * Upgrades (data/economy.ts) change engine numbers (see §6). Rank thresholds unlock regions,
   helicopter, K-komando, Director mode is always free.
 * Injured officers are out for 2-10 days.
+* Call load follows the force on duty (computed once in `createShift`, kept in `SimState.flags`):
+  the spawn rate is multiplied by `loadFactor` = the square root of (response units on duty ÷
+  response units of the regular normal-difficulty roster for that shift: patrol, rapid, aux,
+  traffic, K9, border, community), clamped to 0.1..1; the difficulty factor still applies on top. Zones the regular
+  roster staffs but the career force does not (`skipZones`, e.g. Saaremaa and Hiiumaa before an
+  island crew exists) get no calls; the briefing bulletins say so.
 
 ## 5. Public APIs (signatures: stubs exist, implementers keep them)
 
@@ -305,7 +313,13 @@ getRegion(s): RegionDef
 templateOf(s, inc): IncidentTemplate | undefined
 ```
 `Recommendation = { unit: Unit; etaMin: number; km: number; fit: 'ideal' | 'need' | 'weak' |
-'unavailable' | 'unreachable'; reason?: Text }`.
+'unavailable' | 'unreachable'; reason?: Text; manual?: boolean }`. Ranking: fit first ('ideal' and
+'need' only for units that fill a remaining need slot; ideal-only types such as an investigator or
+the helicopter are 'weak' until the basic need is covered), then effective ETA (drive time plus a
+penalty for pulling a unit off a less urgent job or a break). `manual` marks units the D key never
+sends on its own: specialists (heli, boat, special, criminal, transport) on routine calls, units
+beyond an already covered need, and crews across a ferry (except a mainland crew for a P1 on an
+island with no local crew free). Boats are 'unreachable' away from their own water body.
 
 Registry (`sim/registry.ts`): `searchPersons(s, q): Person[]`, `searchVehicles(s, q): Vehicle[]`,
 `personFlags(p, now): RecordFlag[]`, `vehicleFlags(v, now): RecordFlag[]`
@@ -344,3 +358,69 @@ appi. Vägivald käimas. Relvad teadmata." English is a faithful, natural transl
 No gore; serious events are described soberly. No real private persons (except the two
 legacy easter eggs above); no real company names in crimes (use generic: "kaubanduskeskus",
 "pank", "tankla"). Real *place* names (streets, malls as locations) are fine.
+
+## 9. Salvestuste ühilduvus
+
+Mängija juba mängitud andmed ei tohi ühegi uuendusega kaduda: ei brauseris ega pilves, ei uue
+versiooni ega tagasipööramise (rollback) korral.
+
+| Kus | Mis | Kood |
+| --- | --- | --- |
+| `epd:career` | karjäär: `{ state: { profile, inbox }, version }` | `src/store/career.ts` |
+| `epd:settings` | seaded: `{ state: { lang, volume, ... }, version }` | `src/store/settings.ts` |
+| `epd:autosave` | pooleli vahetus (SimState JSON, `version: 2`) | `src/store/game.ts` |
+| `epd:sync` | pilvesünkroonimise märk (vorming 1 või 2) | `src/net/account.ts`, `src/net/sync.ts` |
+| serveri `saves` tabel | kontokasutajate `career`, `settings`, `autosave` muutmata JSON-ina | `server/lib/saves.php` |
+| `epd:backup.*` | varukoopiad, vaata allpool | `src/store/migrate.ts` |
+
+**Kuidas laadimine andmeid hoiab** (`src/store/migrate.ts`):
+* zustand 5 viskab salvestatud oleku ise ära, kui versioon erineb ja `migrate` puudub (logib vea,
+  jätab vaikeväärtused ja järgmine muudatus kirjutab vana üle), samuti loetamatu JSON-i või vigase
+  `migrate` korral. Seepärast kasutavad `useCareer` ja `useSettings` funktsiooni `guardedPersist`:
+  vanem versioon viiakse samm-sammult üles (originaal jääb varukoopiasse), uuemat või tundmatut
+  versiooni loetakse mängimiseks, aga selle võtit ei kirjutata selles seansis kunagi üle, ja
+  loetamatu JSON pannakse enne vaikeväärtusi varukoopiasse. Kui varukoopiat ei saa kirjutada, ei
+  kirjutata üle ka põhivõtit.
+* Salvestatud olek liidetakse praeguste vaikeväärtuste peale: uued väljad saavad vaikeväärtuse,
+  tundmatud (uuema versiooni) väljad jäävad alles ja kirjutatakse tagasi.
+* `normalizeCareerProfile` teeb igast salvestatud profiilist kuju, millega mäng töötab: puuduvad
+  loendid ja objektid saavad vaikeväärtuse, vigased kirjed visatakse välja ükshaaval (mitte kogu
+  loend), arvud jäävad arvudeks. Sama normaliseerijat kasutab pilvest tulev karjäär
+  (`src/net/account.ts`). Kui midagi tuli välja jätta, jääb originaal `epd:backup.career.repaired`.
+* Vahetuse salvestus viiakse sammudega (`SIM_STEPS`) praeguse SimState versioonini. Kui seda ei saa
+  jätkata, liigub see oma varukoopiavõtmesse ja põhivõti vabaneb; ilma koopiata ei kustutata seda
+  kunagi. Ainult vahetus, mille aruanne on juba olemas, eemaldatakse lihtsalt.
+* Enne kui pilvekoopia, uus karjäär, karjääri kustutamine või uus vahetus asendab brauseri andmed
+  teistsugustega, jääb eelmine väärtus varukoopiasse.
+
+**Varukoopiad** (kõik eemaldab ainult „Kustuta kõik andmed”):
+* `epd:backup.career` ja `epd:backup.career.prev`: kaks viimast asendatud karjääri. Andmed, mida
+  mujal pole (külalise karjäär, üleslaadimata muudatused), jäävad teiste ees alles.
+* `epd:backup.settings`, `epd:backup.autosave`: viimane asendatud koopia.
+* `epd:backup.<slot>.v<n>`: teise versiooni salvestus baidi täpsusega (vanem enne migratsiooni,
+  uuem lisaks puutumata põhivõtmele); `.unknown`, kui versioon puudub.
+* `epd:backup.<slot>.invalid`: loetamatu JSON. `epd:backup.<slot>.repaired`: originaal enne parandust.
+* `epd:backup.autosave.unresumable`: sama versiooni vahetus, mida ei saa jätkata (nt tundmatu
+  prefektuur). `epd:backup.autosave.cloud`: pilve vahetus, mida see versioon ei jätka.
+
+Baidi täpsusega koopia taastamiseks kopeeri väärtus tagasi oma võtmesse; teiste puhul on andmed väljas
+`data` (`{ at, reason, unique, owner, data }`).
+
+**Kuidas salvestuse kuju turvaliselt muuta:**
+1. Eelista uut valikulist välja: see ei vaja versiooni tõstmist. Lisa selle vaikeväärtus
+   normaliseerijasse (`normalizeCareerProfile`, `SETTING_RULES`), mitte ainult tüüpi.
+2. Kui olemasoleva välja kuju või tähendus muutub, tõsta versiooni (`CAREER_VERSION`,
+   `SETTINGS_VERSION` või `SimState.version` koos `SIM_VERSION`-iga) ja lisa samm
+   (`CAREER_STEPS[v]`, `SETTINGS_STEPS[v]`, `SIM_STEPS[v]`), mis teeb versioonist v versiooni v + 1.
+   Samm on puhas funktsioon, ei eelda andmetest midagi ja viskab erindi, kui andmed on
+   kasutuskõlbmatud (siis jääb originaal alles).
+3. Ära nimeta välja ümber ega kustuta seda ilma sammuta: samm loeb vana välja ja kannab selle üle.
+4. Lisa uus kuldfiksatuuride komplekt `tests/fixtures/saves/<commit>/`, mille on kirjutanud
+   **eelmise väljalaske** kood (generaator ja juhend on komplekti juures), koos README-ga. Vanu
+   komplekte ei muudeta ega kustutata kunagi; `tests/saves-upgrade.test.ts` käib kõik läbi.
+5. Tagasipööramine: 92ed7f5 kood ei tunne seda kaitset. Kui `epd:career` või `epd:settings` versioon
+   tõuseb ja server pööratakse 92ed7f5 peale tagasi, kaotab see brauser oma andmed. Ära tõsta neid
+   versioone, kui saab ilma. Alates sellest versioonist jätab vanem kood uuema versiooni andmed
+   puutumata.
+6. Pilvekoopiad on sama JSON: kui kuju muutub, peab ka pilvest tulev koopia läbima sama sammu ja
+   normaliseerija (`validAutosave`, `normalizeCareerState`, `sanitizeSettings`).

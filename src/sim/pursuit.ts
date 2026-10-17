@@ -16,13 +16,15 @@
  *
  * Owned by engine-systems. Bookkeeping lives in s.flags under `pursuit:<incidentId>:*`.
  */
-import landData from '@/data/geo/land_ee.json';
 import roadsData from '@/data/geo/roads.json';
 import { dispatchUnits } from '@/sim/commands';
 import { bearing, destination, haversineKm, pointInBounds } from './geo';
 import { addTimeline, emit, moveUnitTo, pushRadio, regionOf, tplOf } from './internal';
+import { isOnLand } from './land';
+import { releaseUnit } from './units';
 import { withRng, type Rng } from './rng';
 import { sunAltitude } from './sun';
+import { genitiveName } from './text';
 import { MIN } from './time';
 import type { Incident, LngLat, PursuitState, SimState, Text, Unit } from './types';
 
@@ -65,72 +67,10 @@ export const PURSUIT = {
 const HELI_BASE: LngLat = [24.8328, 59.4133];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Land polygon (point-in-polygon with bbox pre-check)
+// Land polygon: shared with the unit model, see ./land
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Ring = number[][];
-interface PolyIdx {
-  bbox: [number, number, number, number];
-  rings: Ring[];
-}
-
-let LAND: PolyIdx[] | null = null;
-
-function landIndex(): PolyIdx[] {
-  if (LAND) return LAND;
-  const fc = landData as unknown as { features?: { geometry: { type: string; coordinates: unknown } }[]; type?: string; coordinates?: unknown };
-  const geoms = fc.features ? fc.features.map((f) => f.geometry) : [fc as { type: string; coordinates: unknown }];
-  const out: PolyIdx[] = [];
-  for (const g of geoms) {
-    const polys = (g.type === 'MultiPolygon' ? g.coordinates : [g.coordinates]) as Ring[][];
-    for (const rings of polys) {
-      let minX = Infinity;
-      let minY = Infinity;
-      let maxX = -Infinity;
-      let maxY = -Infinity;
-      for (const [x, y] of rings[0]) {
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-        if (x > maxX) maxX = x;
-        if (y > maxY) maxY = y;
-      }
-      out.push({ bbox: [minX, minY, maxX, maxY], rings });
-    }
-  }
-  LAND = out;
-  return out;
-}
-
-function inRing(p: LngLat, ring: Ring): boolean {
-  let inside = false;
-  const [x, y] = p;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const xi = ring[i][0];
-    const yi = ring[i][1];
-    const xj = ring[j][0];
-    const yj = ring[j][1];
-    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi || 1e-12) + xi) inside = !inside;
-  }
-  return inside;
-}
-
-/** True if the point is on Estonian land (mainland or an island, not in a lake hole). */
-export function isOnLand(p: LngLat): boolean {
-  for (const poly of landIndex()) {
-    const [a, b, c, d] = poly.bbox;
-    if (p[0] < a || p[0] > c || p[1] < b || p[1] > d) continue;
-    if (!inRing(p, poly.rings[0])) continue;
-    let hole = false;
-    for (let i = 1; i < poly.rings.length; i++) {
-      if (inRing(p, poly.rings[i])) {
-        hole = true;
-        break;
-      }
-    }
-    if (!hole) return true;
-  }
-  return false;
-}
+export { isOnLand };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Roads (gentle bias onto Natural Earth main roads)
@@ -213,7 +153,9 @@ export function onStreet(street: string): Text {
     const et = t === 'tee' ? `${m[1]} teel` : t === 'pst' || t === 'puiestee' ? `${m[1]} puiesteel` : `${m[1]} maanteel`;
     return { et, en: `on ${street}` };
   }
-  return { et: `${street} piirkonnas`, en: `in the ${street} area` };
+  // One-word roads: "Tallinna ringtee" → "Tallinna ringteel", "Keskpuiestee" → "Keskpuiesteel".
+  if (/tee$/.test(street.trim())) return { et: `${street.trim()}l`, en: `on ${street}` };
+  return { et: `${genitiveName(street)} piirkonnas`, en: `in the ${street} area` };
 }
 
 function nearestStreetName(s: SimState, p: LngLat, inc: Incident): string {
@@ -236,7 +178,20 @@ function nearestStreetName(s: SimState, p: LngLat, inc: Incident): string {
     }
   }
   if (name) return name;
-  return inc.location.address.split(/\s\d/)[0] || inc.location.city;
+  return roadOfAddress(inc.location.address) || inc.location.city;
+}
+
+/**
+ * The road itself, without house number, km post, county or route number:
+ * "Simmuli-Nooska tee, 4. km, Võru maakond" → "Simmuli-Nooska tee", "Tartu mnt 57" → "Tartu mnt",
+ * "Tallinna-Tartu maantee (E263), 16. km" → "Tallinna-Tartu maantee".
+ */
+export function roadOfAddress(address: string): string {
+  return address
+    .split(',')[0]
+    .replace(/\s*\([^)]*\)/g, '')
+    .replace(/\s+\d.*$/, '')
+    .trim();
 }
 
 /** True when an active template beat of this kind started the mechanic (engine-core already radioed/counted it). */
@@ -563,7 +518,15 @@ function endPursuit(s: SimState, inc: Incident, how: NonNullable<PursuitState['e
   // Units: to the stop/crash site to deal with the driver, otherwise back to the original scene.
   const dest = how === 'caught' || how === 'crashed' ? pos : inc.location.coord;
   for (const u of pursuers(s, inc)) {
-    if (u.type === 'heli') continue;
+    if (u.type === 'heli') {
+      // The helicopter has no work on the ground: it leaves the event and flies back to base.
+      // (Left assigned with a 'pursuit' purpose it would hover 'en route' forever and keep the
+      // event open once the ground units are recalled.)
+      inc.assigned = inc.assigned.filter((id) => id !== u.id);
+      if (u.incidentId === inc.id) delete u.incidentId;
+      releaseUnit(s, u, true, inc);
+      continue;
+    }
     try {
       moveUnitTo(s, u, dest, 'incident', false);
     } catch {
@@ -594,18 +557,18 @@ export function pursuitCommand(s: SimState, inc: Incident, a: 'terminate' | 'hel
       pushRadio(s, { from: 'JK', text: { et: 'Helikopter on juba teel.', en: 'The helicopter is already on its way.' }, level: 'routine', kind: 'system', incidentId: inc.id });
       return;
     }
-    const heli = Object.values(s.units).find((u) => u.type === 'heli' && (u.status === 'available' || u.onCall) && !u.incidentId);
+    // Only a helicopter that can actually take the job: free (or on a break that gets cut short),
+    // never one that is off duty, in an emergency or busy elsewhere.
+    const heli = Object.values(s.units).find((u) => u.type === 'heli' && (u.status === 'available' || u.status === 'break') && !u.incidentId);
+    let ok = false;
     if (heli) {
-      let ok = false;
       try {
-        ok = dispatchUnits(s, inc.id, [heli.id]).ok;
+        ok = dispatchUnits(s, inc.id, [heli.id]).ok && inc.assigned.includes(heli.id);
       } catch {
         ok = false;
       }
-      if (!ok && !inc.assigned.includes(heli.id)) {
-        inc.assigned.push(heli.id);
-        if (!inc.unitHistory.includes(heli.id)) inc.unitHistory.push(heli.id);
-      }
+    }
+    if (heli && ok) {
       try {
         moveUnitTo(s, heli, p.suspectPos, 'pursuit', true);
       } catch {

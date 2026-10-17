@@ -20,8 +20,47 @@ export interface Toast {
   createdAt: number;
 }
 
-const TOAST_TTL: Partial<Record<ToastKind, number>> = { emergency: 14_000, backup: 12_000, p1: 10_000, error: 6_000, ok: 3_500 };
-const MAX_TOASTS = 5;
+/** How long each kind stays up (real ms). Kinds not listed stay 8 s. */
+export const TOAST_TTL: Partial<Record<ToastKind, number>> = {
+  emergency: 14_000,
+  backup: 12_000,
+  p1: 10_000,
+  error: 6_000,
+  achievement: 6_000,
+  pursuitEnd: 5_000,
+  ok: 3_500,
+};
+/**
+ * At most this many toasts are on screen. A burst of P1 events must not bury the map (or the 112
+ * card), and the queue lists every event anyway.
+ */
+export const MAX_TOASTS = 3;
+/** Which toast goes first when the stack is full: lower rank first, then the oldest. */
+const TOAST_RANK: Record<ToastKind, number> = {
+  emergency: 3,
+  backup: 2,
+  p1: 2,
+  error: 2,
+  escalated: 1,
+  missed: 1,
+  pursuit: 1,
+  shift: 1,
+  pursuitEnd: 0,
+  achievement: 0,
+  ok: 0,
+};
+
+/** Trim the stack to `max`, dropping the least important (then oldest) toasts. Keeps the order. */
+export function capToasts(list: Toast[], max = MAX_TOASTS): Toast[] {
+  const out = list.slice();
+  while (out.length > max) {
+    let drop = 0;
+    for (let i = 1; i < out.length; i++) if (TOAST_RANK[out[i].kind] < TOAST_RANK[out[drop].kind]) drop = i;
+    out.splice(drop, 1);
+  }
+  return out;
+}
+
 let toastSeq = 0;
 
 interface GameUi {
@@ -73,7 +112,7 @@ export const useGameUi = create<GameUi>()((set, get) => ({
     );
     if (dup) return;
     const toast: Toast = { ...t, id: ++toastSeq, createdAt: now };
-    set({ toasts: [...get().toasts, toast].slice(-MAX_TOASTS) });
+    set({ toasts: capToasts([...get().toasts, toast]) });
     const ttl = TOAST_TTL[t.kind] ?? 8_000;
     setTimeout(() => get().dismissToast(toast.id), ttl);
   },

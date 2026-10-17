@@ -2,19 +2,11 @@ import { useMemo, useState } from 'react';
 import { useCareer } from '@/store/career';
 import { useGame } from '@/store/game';
 import { useLang, useT } from '@/i18n';
-import { DAILY_BUDGET, RANKS } from '@/data/economy';
-import * as economy from '@/data/economy';
+import { DAILY_BUDGET } from '@/data/economy';
 import { Button, Emblem, Icon, IconButton, TextField, type IconName } from '@/ui/components';
 import type { RegionId } from '@/sim/types';
 import { fmtMoney, randomBadge, REGION_ORDER, validateOnboarding } from './helpers';
 import { useToast } from './Toasts';
-
-/** Optional rank requirement per prefecture, if engine-systems exposes one in data/economy.ts. */
-function regionMinRank(id: RegionId): number {
-  const table = (economy as unknown as Record<string, unknown>).REGION_MIN_RANK as Partial<Record<RegionId, number>> | undefined;
-  const v = table?.[id];
-  return typeof v === 'number' ? v : 0;
-}
 
 const INTRO: { icon: IconName; key: string }[] = [
   { icon: 'star', key: 'staatus' },
@@ -115,22 +107,19 @@ export function Onboarding() {
             <legend className="cr-field__label">{t('career.onb.region')}</legend>
             <div className="cr-regiongrid">
               {REGION_ORDER.map((id) => {
-                const minRank = regionMinRank(id);
-                const locked = minRank > 0;
+                // Any prefecture can be the home region; the others unlock with rank (EXTRA_REGION_RANKS).
                 const selected = region === id;
                 return (
                   <button
                     key={id}
                     type="button"
-                    className={`cr-regioncard cr-regioncard--${id}${selected ? ' is-selected' : ''}${locked ? ' is-locked' : ''}`}
+                    className={`cr-regioncard cr-regioncard--${id}${selected ? ' is-selected' : ''}`}
                     aria-pressed={selected}
-                    disabled={locked}
                     onClick={() => setRegion(id)}
                   >
                     <span className="cr-regioncard__top">
                       <span className="cr-regioncard__name">{t(`career.region.${id}.name`)}</span>
-                      {selected && !locked && <Icon name="check" size={16} />}
-                      {locked && <Icon name="lock" size={14} />}
+                      {selected && <Icon name="check" size={16} />}
                     </span>
                     <span className="cr-regioncard__hq">
                       <Icon name="building" size={12} /> {t(`career.region.${id}.hq`)}
@@ -142,11 +131,6 @@ export function Onboarding() {
                         {t('career.onb.dailyBudget')} <strong>{fmtMoney(DAILY_BUDGET[id] ?? 0, lang)}</strong>
                       </span>
                     </span>
-                    {locked && (
-                      <span className="cr-regioncard__lock">
-                        {t('career.lock.rank', { rank: RANKS[minRank]?.name[lang] ?? String(minRank + 1) })}
-                      </span>
-                    )}
                   </button>
                 );
               })}

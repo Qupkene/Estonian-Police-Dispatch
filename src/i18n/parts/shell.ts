@@ -493,8 +493,8 @@ export default {
   'shell.cred.data': { et: 'Andmeallikad', en: 'Data sources' },
   'shell.cred.libs': { et: 'Fondid ja tarkvara', en: 'Fonts and software' },
   'shell.cred.src.geob': {
-    et: 'Maakondade ja omavalitsuste piirid.',
-    en: 'County and municipality boundaries.',
+    et: 'Asustusüksused ja nende piirid.',
+    en: 'Settlements and their boundaries.',
   },
   'shell.cred.src.ne': {
     et: 'Rannajoon, järved, maanteed ja raudteed.',
@@ -509,8 +509,8 @@ export default {
     en: 'Street map vector tiles and style, served by the game server.',
   },
   'shell.cred.src.maaamet': {
-    et: 'Hallkaart ja ortofotod (WMTS).',
-    en: 'Grey base map and orthophotos (WMTS).',
+    et: "Hallkaart ja ortofotod (WMTS); maakondade piirid (Who's On First kaudu).",
+    en: "Grey base map and orthophotos (WMTS); county boundaries (via Who's On First).",
   },
   'shell.cred.src.noto': { et: 'Kaardi kirjad.', en: 'Map labels.' },
   'shell.cred.src.inter': { et: 'Liidese kiri.', en: 'Interface typeface.' },
@@ -614,6 +614,7 @@ export default {
   'shell.rep.e.overtime': { et: 'Ületunnid', en: 'Overtime' },
   'shell.rep.e.fines': { et: 'Trahvid ja nõuded', en: 'Fines and claims' },
   'shell.rep.e.total': { et: 'Vahetuse tulem', en: 'Shift result' },
+  'shell.rep.e.net': { et: 'Eelarve muutus kokku', en: 'Net budget change' },
   'shell.rep.ledger': { et: 'Kanded', en: 'Ledger' },
   'shell.rep.inbox': { et: 'Postkast', en: 'Inbox' },
   'shell.rep.markRead': { et: 'Märgi loetuks', en: 'Mark as read' },

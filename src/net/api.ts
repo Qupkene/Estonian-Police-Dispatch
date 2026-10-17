@@ -17,12 +17,16 @@ export class ApiError extends Error {
   /** The server's own message (Estonian) when it sent one. */
   readonly serverMessage: string | null;
 
-  constructor(status: number, code: string, message: string, serverMessage: string | null = null) {
+  /** The parsed error body (e.g. `updated` of a 409 save_conflict), when there was one. */
+  readonly body: Record<string, unknown> | null;
+
+  constructor(status: number, code: string, message: string, serverMessage: string | null = null, body: Record<string, unknown> | null = null) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
     this.serverMessage = serverMessage;
+    this.body = body;
   }
 
   /** Worth trying again later: no connection, timeouts, rate limits and server trouble. */
@@ -39,6 +43,22 @@ export interface RequestOptions {
   /** Pre-serialised JSON body (skips JSON.stringify, e.g. for the autosave string). */
   rawBody?: string;
 }
+
+/**
+ * The account this tab syncs with (set by src/net/account.ts), sent as `X-EPD-User`. The session cookie
+ * is shared by every tab of the browser: when another tab logs in as someone else, the server answers
+ * 409 `user_mismatch` instead of writing this tab's data into that account.
+ */
+let boundUser: number | null = null;
+
+export function bindUser(id: number | null): void {
+  boundUser = id;
+}
+
+export const apiHooks: {
+  /** Called when the server says the session cookie now belongs to another account. */
+  onUserMismatch?: () => void;
+} = {};
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v : null);
@@ -64,6 +84,7 @@ export async function request<T>(method: HttpMethod, path: string, body?: unknow
 
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (method !== 'GET') headers['X-EPD'] = '1';
+  if (boundUser !== null) headers['X-EPD-User'] = String(boundUser);
   let payload: string | undefined;
   if (opts.rawBody !== undefined) payload = opts.rawBody;
   else if (body !== undefined) payload = JSON.stringify(body);
@@ -105,7 +126,9 @@ export async function request<T>(method: HttpMethod, path: string, body?: unknow
     if (!res.ok) {
       const obj = parsed && isObj(data) ? data : {};
       const serverMessage = str(obj.message);
-      throw new ApiError(res.status, str(obj.error) ?? `http_${res.status}`, serverMessage ?? `HTTP ${res.status}`, serverMessage);
+      const code = str(obj.error) ?? `http_${res.status}`;
+      if (res.status === 409 && code === 'user_mismatch') apiHooks.onUserMismatch?.();
+      throw new ApiError(res.status, code, serverMessage ?? `HTTP ${res.status}`, serverMessage, isObj(data) ? data : null);
     }
     if (!parsed) throw new ApiError(res.status, 'bad_response', 'The server did not answer with JSON');
     return data as T;

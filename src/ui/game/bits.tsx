@@ -8,7 +8,7 @@ import { MIN } from '@/sim/time';
 import type { Incident, RadioMsg, SimState, SpeakerLang, Text, UnitStatus, UnitType, Weather } from '@/sim/types';
 import { STATUS_CODE } from '@/sim/types';
 import { checkRecord, replyRadio } from './actions';
-import { querySubject } from './data';
+import { answeredReply, querySubject } from './data';
 import { countdown } from './format';
 
 /** Re-render on every sim tick and return the live (mutable) sim object. */
@@ -142,8 +142,10 @@ export function RadioReplies({ msg, sim, compact }: { msg: RadioMsg; sim: SimSta
   const tx = useTx();
   if (!msg.replies?.length) return null;
   if (msg.answered) {
-    const r = msg.replies.find((x) => x.id === msg.answered);
-    return <div className="gm-replies gm-replies--done">{t('game.radio.answered', { r: r ? tx(r.label) : msg.answered })}</div>;
+    const r = answeredReply(msg);
+    // Not one of the replies: the engine closed it ('timeout', or 'closed' with its event).
+    if (!r) return <div className="gm-replies gm-replies--done">{t('game.radio.expired')}</div>;
+    return <div className="gm-replies gm-replies--done">{t('game.radio.answered', { r: tx(r.label) })}</div>;
   }
   const left = msg.expiresAt !== undefined ? (msg.expiresAt - sim.now) / MIN : null;
   if (left !== null && left <= 0) return <div className="gm-replies gm-replies--done">{t('game.radio.expired')}</div>;

@@ -2,3 +2,8 @@
 # Mitteametlik fännimäng. Unofficial fan game, not affiliated with PPA.
 User-agent: *
 Allow: /
+# API vastused on kasutajapõhised, kaardifail on suur binaarfail (Range päringud).
+Disallow: /api/
+Disallow: /tiles/
+
+Sitemap: https://politsei.eu/sitemap.xml

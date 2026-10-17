@@ -78,16 +78,22 @@
   background: color-mix(in srgb, var(--bg-0) 35%, transparent);
   border-color: color-mix(in srgb, currentColor 30%, transparent);
   color: inherit;
-  opacity: 0.75;
+  opacity: 0.9;
+}
+/* Dark-ink buttons: a light key cap, the default dark one would sink the dark label to under 4:1. */
+.ui-btn--success .ui-kbd,
+.ui-btn--warning .ui-kbd {
+  background: color-mix(in srgb, #fff 28%, transparent);
 }
 .ui-btn__iconr {
   margin-right: -3px;
   opacity: 0.8;
 }
 
+/* Filled buttons sit a shade below the raw accent/danger colour so white labels keep 4.5:1. */
 .ui-btn--primary {
-  --btn-bg: var(--accent);
-  --btn-bg-hover: color-mix(in srgb, var(--accent) 85%, white 15%);
+  --btn-bg: color-mix(in srgb, var(--accent) 76%, #000);
+  --btn-bg-hover: color-mix(in srgb, var(--accent) 84%, #000);
   --btn-border: color-mix(in srgb, var(--accent) 70%, white 30%);
   --btn-fg: #fff;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
@@ -99,8 +105,8 @@
     0 6px 20px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 .ui-btn--danger {
-  --btn-bg: var(--danger);
-  --btn-bg-hover: color-mix(in srgb, var(--danger) 85%, white 15%);
+  --btn-bg: color-mix(in srgb, var(--danger) 78%, #000);
+  --btn-bg-hover: color-mix(in srgb, var(--danger) 86%, #000);
   --btn-border: color-mix(in srgb, var(--danger) 70%, white 30%);
   --btn-fg: #fff;
 }
@@ -473,6 +479,8 @@
 }
 .ui-prio--1 {
   --pc: var(--p1);
+  /* A deeper red than the other chips: white P1 on raw --p1 is only 3.5:1. */
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 86%, black), color-mix(in srgb, var(--pc) 76%, black));
   color: #fff;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
   box-shadow:
@@ -555,6 +563,10 @@
   inset: 0;
   z-index: 1000;
   display: grid;
+  /* One track as wide as the padded viewport: the card's inline width (Modal `width`) is then
+     clamped by its max-width:100%. With an auto track it resolved against the card itself and a
+     560-620 px card ran off a phone screen. */
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: 16px;
   background: color-mix(in srgb, var(--bg-0) 70%, transparent);
@@ -567,6 +579,7 @@
   flex-direction: column;
   max-width: 100%;
   max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   overflow: hidden;
   background: linear-gradient(180deg, color-mix(in srgb, var(--bg-2) 94%, white 6%), var(--bg-2) 80px);
   border: 1px solid var(--line-2);
@@ -1006,6 +1019,15 @@
   filter: drop-shadow(0 4px 14px rgba(29, 79, 216, 0.35));
 }
 
+/* The light theme's accent is already deeper: only a touch darker for 4.5:1 across the gradient. */
+:root[data-theme='light'] .ui-btn--primary {
+  --btn-bg: color-mix(in srgb, var(--accent) 90%, #000);
+  --btn-bg-hover: color-mix(in srgb, var(--accent) 96%, #000);
+}
+/* Light theme: badge text mixed further towards the ink, the dark theme's 85% tone is about 2.5:1 on white. */
+:root[data-theme='light'] .ui-badge {
+  color: color-mix(in srgb, var(--tone) 45%, var(--text-0));
+}
 :root[data-theme='light'] .ui-btn--ghost:hover:not(:disabled) {
   background: var(--bg-4);
 }

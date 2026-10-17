@@ -12,7 +12,8 @@
  *    8 riot vans in 2016-18, research §6.1). Upkeep = service + insurance + tyres + leasing share.
  *  - PPA lennusalk AW139 flight hour ≈ 3-5 k€ (game: monthly retainer), drones: PPA bought 9 ELIX-XL
  *    for ≈ 0,5 M€ (≈ 55 k€ each; our prefecture-level DJI-class thermal kit ≈ 15 k€).
- *  - All figures are game-balanced estimates, not official prices.
+ *  - All figures are game-balanced estimates, not official prices. Vehicle prices in the catalogue
+ *    are about 60 % of the real figures above, so a starting prefecture can grow within a few shifts.
  */
 import type { Achievement, CatalogVehicle, Rank, RegionId, UnitType, Upgrade } from '@/sim/types';
 
@@ -212,7 +213,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     id: 'skoda_scala',
     model: 'Škoda Scala',
     suits: ['community', 'aux', 'criminal'],
-    price: 27000,
+    price: 16000,
     upkeep: 320,
     minRank: 0,
     desc: T('Väike ja ökonoomne piirkonnapolitseiniku auto.', 'Small, economical community officer car.'),
@@ -221,7 +222,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     id: 'skoda_octavia_combi',
     model: 'Škoda Octavia Combi',
     suits: ['patrol', 'community', 'aux', 'traffic'],
-    price: 38000,
+    price: 23000,
     upkeep: 450,
     minRank: 0,
     desc: T('Klassikaline valge-sinine patrullauto, töökindel ja mahukas.', 'The classic white-and-blue patrol car, reliable and roomy.'),
@@ -230,7 +231,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     id: 'toyota_rav4_hybrid',
     model: 'Toyota RAV4 Hybrid AWD',
     suits: ['patrol', 'community', 'k9'],
-    price: 45000,
+    price: 27000,
     upkeep: 470,
     minRank: 0,
     desc: T('Nelikveoline hübriid, mis sobib maapiirkondadesse ja talve.', 'All-wheel-drive hybrid, good for rural areas and winter.'),
@@ -239,7 +240,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     id: 'vw_transporter',
     model: 'Volkswagen Transporter T6.1',
     suits: ['transport', 'patrol', 'aux'],
-    price: 55000,
+    price: 33000,
     upkeep: 600,
     minRank: 0,
     desc: T('Kinnipeetavate veoks ehitatud kaubik, kaks kambrit.', 'Van converted for detainee transport, two cells.'),
@@ -248,7 +249,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     id: 'bmw_r1250rtp',
     model: 'BMW R 1250 RT-P',
     suits: ['traffic'],
-    price: 32000,
+    price: 19000,
     upkeep: 300,
     minRank: 1,
     desc: T('Politsei mootorratas liiklusjärelevalveks ja ummikutes liikumiseks.', 'Police motorcycle for traffic enforcement and moving through jams.'),
@@ -257,7 +258,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     id: 'skoda_superb_combi',
     model: 'Škoda Superb Combi 4x4',
     suits: ['patrol', 'rapid', 'traffic'],
-    price: 46000,
+    price: 27500,
     upkeep: 520,
     minRank: 1,
     desc: T('Võimsam ja kiirem patrullauto maanteedele.', 'A faster, more powerful patrol car for highways.'),
@@ -266,7 +267,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     id: 'vw_id4_gtx',
     model: 'Volkswagen ID.4 GTX',
     suits: ['patrol', 'community'],
-    price: 66000,
+    price: 39500,
     upkeep: 380,
     minRank: 1,
     desc: T('Elektriline patrullauto (PPA katsetas samasugust): odav sõita, kallis osta.', 'Electric patrol car (PPA trialled the same): cheap to run, pricey to buy.'),
@@ -275,7 +276,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     id: 'skoda_kodiaq_rs',
     model: 'Škoda Kodiaq RS 4x4',
     suits: ['rapid', 'patrol', 'special'],
-    price: 54000,
+    price: 32500,
     upkeep: 560,
     minRank: 2,
     desc: T('Kiirreageerijate maastur: varustus ballistilistele kaitsevahenditele.', 'Rapid-response SUV with room for ballistic protection gear.'),
@@ -284,7 +285,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     id: 'skoda_kodiaq_k9',
     model: 'Škoda Kodiaq K9',
     suits: ['k9'],
-    price: 58000,
+    price: 35000,
     upkeep: 600,
     minRank: 2,
     desc: T('Koerapuuride, kliimaseadme ja kaugavaga pagasiruumiga koerajuhi auto.', 'Dog handler car with kennels, climate control and remote door release.'),
@@ -293,7 +294,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     id: 'audi_a6_unmarked',
     model: 'Audi A6 Avant (märgistamata)',
     suits: ['criminal', 'traffic'],
-    price: 62000,
+    price: 37000,
     upkeep: 650,
     minRank: 2,
     desc: T('Märgistamata auto kriminaalpolitseile ja varjatud liiklusjärelevalveks.', 'Unmarked car for detectives and covert traffic enforcement.'),
@@ -302,7 +303,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     id: 'bmw_530d_touring',
     model: 'BMW 530d xDrive Touring',
     suits: ['traffic', 'rapid'],
-    price: 70000,
+    price: 42000,
     upkeep: 750,
     minRank: 3,
     desc: T('Kiire liiklusjärelevalve auto, videosüsteemiga.', 'Fast traffic-enforcement car with a speed video system.'),
@@ -311,7 +312,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     id: 'toyota_land_cruiser',
     model: 'Toyota Land Cruiser',
     suits: ['border', 'patrol', 'rapid'],
-    price: 78000,
+    price: 47000,
     upkeep: 720,
     minRank: 3,
     desc: T('Maastur piiriäärsetele ja metsaradadele.', 'Off-roader for border strips and forest tracks.'),
@@ -320,7 +321,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     id: 'mb_sprinter_riot',
     model: 'Mercedes-Benz Sprinter märulibuss',
     suits: ['rapid', 'special', 'transport'],
-    price: 100000,
+    price: 60000,
     upkeep: 850,
     minRank: 4,
     desc: T('Avaliku korra üksuse buss kuni üheksale ametnikule.', 'Public-order van for up to nine officers.'),
@@ -329,7 +330,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     id: 'patrol_boat',
     model: 'Patrullkaater (Peipsi / rannik)',
     suits: ['boat'],
-    price: 180000,
+    price: 108000,
     upkeep: 1500,
     minRank: 5,
     desc: T('Kiirkaater järve- ja rannikuvalveks, uppumisohu ja salakaubaveo juhtumiteks.', 'Fast boat for lake and coastal patrol, drownings and smuggling.'),
@@ -338,7 +339,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     id: 'mb_sprinter_armoured',
     model: 'Soomustatud Mercedes-Benz Sprinter',
     suits: ['special'],
-    price: 230000,
+    price: 138000,
     upkeep: 1800,
     minRank: 6,
     desc: T('K-komando soomusbuss relvastatud olukordadeks.', 'K-komando armoured van for armed situations.'),
@@ -388,8 +389,8 @@ export const ACHIEVEMENTS: Achievement[] = [
  * Daily base budget per prefecture (€). Põhja handles ~46 % of 112 calls (research
  * 112-and-priorities.md §1.3), so it gets the most; Lääne the least.
  */
-export const DAILY_BUDGET: Record<RegionId, number> = { pohja: 1600, ida: 1250, louna: 1250, laane: 1100 };
-export const START_MONEY = 10000;
+export const DAILY_BUDGET: Record<RegionId, number> = { pohja: 2000, ida: 1600, louna: 1600, laane: 1400 };
+export const START_MONEY = 40000;
 export const START_REPUTATION = 25;
 /** Hiring cost = first month's salary paid up front (incl. uniform & gear), as in the 2025 version. */
 export const HIRE_COST_MONTHS = 1;

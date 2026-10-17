@@ -106,9 +106,9 @@ export const ACT_NAMES: Record<LawAct, Text> = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Value of one trahviühik (fine unit) in euros, KarS § 47 lg 1.
- * unverified: it was 4 € for years; a doubling to 8 € from 2025 was reported but could not be
- * confirmed in this build. Every fine text below is computed from this constant, so change it here.
+ * Value of one trahviühik (fine unit) in euros, KarS § 47 lg 1: 8 € since 1 January 2025 (it was
+ * 4 € before; a 2025 court decision fined 10 units = 80 €). Every fine text below is computed from
+ * this constant, so change it here.
  */
 export const FINE_UNIT_EUR = 8;
 
@@ -521,21 +521,23 @@ export const LAWS: Law[] = [
   ),
 
   // ── Avalik kord, riigivõim, õigusemõistmine ─────────────────────────────
-  law('kars_262', 'KarS', '§ 262', T('Avaliku korra rikkumine', 'Breach of public order'), M, ['order'], { sev: 1, w: 5 }, [
+  // KorS § 54 only defines "avalik koht"; breaking the general rules of conduct in a public place
+  // is punished under KarS § 262, so the old kors_54 entry is now an alias of this one.
+  law('kars_262', 'KarS', '§ 262', T('Avaliku korra rikkumine', 'Breach of public order'), M, ['order'], { sev: 1, w: 7 }, [
     P.fine(30),
     P.fine(50),
     P.detention(3),
     P.fine(80),
   ]),
   law(
-    'kars_262_112',
+    'kars_278',
     'KarS',
-    '§ 262', // unverified (which act punishes hoax emergency calls)
-    T('Avaliku korra rikkumine (pahatahtlik valeväljakutse hädaabinumbrile)', 'Breach of public order (malicious hoax call to the emergency number)'),
+    '§ 278 lg 1', // a false emergency call is its own misdemeanour (15 days' arrest in a 2021 decision)
+    T('Valeväljakutse', 'False emergency call'),
     M,
     ['order'],
     { sev: 1, w: 0.3 },
-    [P.fine(50), P.fine(100), P.detention(5)],
+    [P.fine(50), P.fine(100), P.detention(15)],
   ),
   law(
     'kars_263',
@@ -975,7 +977,7 @@ export const LAWS: Law[] = [
   law(
     'ls_201',
     'LS',
-    '§ 201', // unverified
+    '§ 201 lg 1',
     T('Mootorsõiduki juhtimine juhtimisõiguseta isiku poolt', 'Driving a motor vehicle without a driving licence'),
     M,
     ['traffic'],
@@ -985,7 +987,7 @@ export const LAWS: Law[] = [
   law(
     'ls_201_ban',
     'LS',
-    '§ 201', // unverified
+    '§ 201 lg 2',
     T('Mootorsõiduki juhtimine juhtimisõiguse äravõtmise ajal', 'Driving while disqualified'),
     M,
     ['traffic'],
@@ -1035,12 +1037,12 @@ export const LAWS: Law[] = [
   law(
     'ls_red_light',
     'LS',
-    '§ 242', // unverified
-    T('Valgusfoori keelava tule eiramine', 'Running a red light'),
+    '§ 221 lg 1', // with the § 58 lg 3 duty; the maximum is 50 fine units
+    T('Foori keelava tule ajal ristmikule või ülekäigurajale sõitmine', 'Entering a junction or crossing against a red light'),
     M,
     ['traffic'],
     { sev: 1, w: 2 },
-    [P.fine(40), P.fine(80), P.fine(120)],
+    [P.fine(20), P.fine(30), P.fine(50)],
   ),
   law(
     'ls_phone',
@@ -1055,12 +1057,12 @@ export const LAWS: Law[] = [
   law(
     'ls_seatbelt',
     'LS',
-    '§ 263', // unverified
+    '§ 239 lg 1 p 1',
     T('Turvavöö kasutamata jätmine', 'Not wearing a seat belt'),
     M,
     ['traffic'],
     { sev: 1, w: 2 },
-    [P.warning(30), P.fine(10), P.fine(20)],
+    [P.warning(30), P.fine(20), P.fine(25)],
   ),
   law(
     'ls_no_inspection',
@@ -1125,16 +1127,6 @@ export const LAWS: Law[] = [
 
   // ── Korrakaitseseadus, alkohol ───────────────────────────────────────────
   law(
-    'kors_54',
-    'KorS',
-    '§ 54', // unverified
-    T('Avalikus kohas käitumise üldnõuete rikkumine', 'Violation of the general rules of conduct in a public place'),
-    M,
-    ['order'],
-    { sev: 1, w: 2 },
-    [P.fine(20), P.fine(40), P.fine(60)],
-  ),
-  law(
     'kors_55',
     'KorS',
     '§ 55', // unverified
@@ -1147,7 +1139,7 @@ export const LAWS: Law[] = [
   law(
     'kors_56',
     'KorS',
-    '§ 56', // unverified
+    '§ 56 lg 2', // night-time noise: 22-06, or 00-07 before a rest day
     T('Öörahu rikkumine', 'Disturbing the night-time peace'),
     M,
     ['order'],
@@ -1197,7 +1189,9 @@ export const LAW_ALIASES: Record<string, string> = {
   ls_no_licence: 'ls_201',
   ls_dui: 'ls_224',
   lkindls: 'lkindls_no_insurance',
-  kors_public_order: 'kors_54',
+  kors_public_order: 'kars_262',
+  kors_54: 'kars_262',
+  kars_262_112: 'kars_278',
   kors_public_drinking: 'kors_55',
   kors_night_quiet: 'kors_56',
   relvs_misd: 'relvs_handling',

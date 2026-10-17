@@ -22,6 +22,13 @@ import {
   validateOnboarding,
 } from '@/ui/screens/career/helpers';
 import { DICT } from '@/i18n';
+import SHELL_DICT from '@/i18n/parts/shell';
+import { careerShiftRegion, ledgerNet, regionSummary, regionUnitsOnDuty } from '@/ui/screens/shell/helpers';
+import { applyShiftReport, newCareer, rosterFromCareer } from '@/sim/career';
+import { createShift, finalizeShift, step } from '@/sim/engine';
+import { rosterSpecsFor } from '@/sim/units';
+import { REGIONS } from '@/data/regions';
+import { tallinnTime, MIN } from '@/sim/time';
 
 const NB = ' ';
 const MINUS = '−';
@@ -212,5 +219,77 @@ describe('career ui · i18n', () => {
     for (const k of ['budget', 'bonus', 'salary', 'hire', 'vehicle', 'upgrade', 'upkeep', 'fuel', 'overtime', 'fine', 'other']) expect(DICT[`career.kind.${k}`], k).toBeDefined();
     for (const s of ['active', 'injured', 'vacation', 'training']) expect(DICT[`career.status.${s}`], s).toBeDefined();
     for (const s of ['ok', 'accent', 'warn', 'danger']) expect(DICT[`career.staatus.${s}`], s).toBeDefined();
+  });
+});
+
+describe('career ui · shift region', () => {
+  it('starts the briefing in the prefecture picked in HQ when it is unlocked', () => {
+    const p = { regionId: 'pohja' as const, unlockedRegions: ['pohja', 'ida'] as ('pohja' | 'ida')[] };
+    expect(careerShiftRegion(p, 'ida')).toBe('ida');
+    expect(careerShiftRegion(p, 'laane')).toBe('pohja'); // still locked
+    expect(careerShiftRegion(p, undefined)).toBe('pohja');
+    expect(careerShiftRegion({ regionId: 'louna', unlockedRegions: [] }, 'louna')).toBe('louna');
+  });
+  it('builds a shift in another unlocked prefecture with that prefecture\'s callsigns and stations', () => {
+    const p = { ...newCareer('Mari Maasikas', '123', 'pohja', 5), unlockedRegions: ['pohja', 'ida'] as ('pohja' | 'ida')[] };
+    const ida = rosterFromCareer(p, 'day', 'ida');
+    const idaStations = new Set(REGIONS.ida.stations.map((st) => st.id));
+    expect(ida.length).toBeGreaterThanOrEqual(4);
+    for (const u of ida) {
+      expect(u.callsign, u.callsign).not.toMatch(/PÕHJA/);
+      expect(idaStations.has(u.stationId), `${u.callsign} ${u.stationId}`).toBe(true);
+    }
+    // The default is still the home region.
+    expect(rosterFromCareer(p, 'day').every((u) => u.callsign.startsWith('PÕHJA'))).toBe(true);
+    // The engine places the units at real Ida stations.
+    const s = createShift({ seed: 1, regionId: 'ida', mode: 'career', difficulty: 'normal', start: tallinnTime(2026, 10, 16, 7, 0), hours: 4, playerName: 'Mari', roster: ida });
+    for (const id of s.unitOrder) expect(idaStations.has(s.units[id].stationId)).toBe(true);
+  });
+});
+
+describe('career ui · briefing unit count', () => {
+  it('counts the units on duty for the shift and difficulty, not the whole roster file', () => {
+    for (const id of ['pohja', 'ida', 'louna', 'laane'] as const) {
+      const r = REGIONS[id];
+      const day = regionUnitsOnDuty(id, 'day', 'normal');
+      expect(day, id).toBe(rosterSpecsFor(r, 'day', 'normal').length);
+      expect(day, id).toBeLessThan(r.roster.length);
+      expect(regionUnitsOnDuty(id, 'night', 'realistic')).toBeGreaterThanOrEqual(regionUnitsOnDuty(id, 'night', 'normal'));
+      expect(regionSummary(id).units, id).toBe(day);
+    }
+    // The started shift has exactly that many units.
+    const s = createShift({ seed: 2, regionId: 'ida', mode: 'free', difficulty: 'normal', start: tallinnTime(2026, 10, 16, 7, 0), hours: 4, playerName: 'X' });
+    expect(s.unitOrder.length).toBe(regionUnitsOnDuty('ida', 'day', 'normal'));
+  });
+});
+
+describe('career ui · shift report budget', () => {
+  it('shows the ledger net, which is the real change of the career budget', () => {
+    const p = newCareer('Mari Maasikas', '123', 'pohja', 9);
+    const s = createShift({
+      seed: 9,
+      regionId: 'pohja',
+      mode: 'career',
+      difficulty: 'normal',
+      start: tallinnTime(2026, 10, 16, 7, 0),
+      hours: 1,
+      playerName: 'Mari',
+      roster: rosterFromCareer(p, 'day'),
+      upgrades: p.upgrades,
+      reputation: p.reputation,
+    });
+    for (let i = 0; i < 90 && !s.ended; i++) step(s, MIN);
+    const report = finalizeShift(s);
+    const out = applyShiftReport(p, report);
+    expect(ledgerNet(out.ledger)).toBe(out.profile.money - p.money);
+    // earnings.total leaves out the daily budget, salaries and upkeep, so it is not the budget change.
+    expect(ledgerNet(out.ledger)).not.toBe(report.earnings.total);
+    expect(out.ledger.some((l) => l.kind === 'budget')).toBe(true);
+    expect(ledgerNet([])).toBe(0);
+    expect(ledgerNet([{ amount: 100 }, { amount: -40 }, { amount: Number.NaN }])).toBe(60);
+  });
+  it('has the net row label in both languages', () => {
+    expect(SHELL_DICT['shell.rep.e.net']?.et).toBe('Eelarve muutus kokku');
+    expect(SHELL_DICT['shell.rep.e.net']?.en).toBe('Net budget change');
   });
 });

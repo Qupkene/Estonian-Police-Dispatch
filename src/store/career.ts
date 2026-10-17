@@ -3,6 +3,9 @@ import { persist } from 'zustand/middleware';
 import * as rules from '@/sim/career';
 import type { CareerProfile, LedgerEntry, RegionId, ShiftReport, Text } from '@/sim/types';
 
+/** How many paid shift keys the profile remembers (CareerProfile.paidShifts). */
+const PAID_SHIFTS_KEPT = 60;
+
 interface CareerStore {
   profile: CareerProfile | null;
   /** Messages from the last applied shift (payday, injuries, promotions…) to show once. */
@@ -38,6 +41,8 @@ export const useCareer = create<CareerStore>()(
       applyReport: (r) => {
         const p = get().profile;
         if (!p) return [];
+        // One shift pays once, even when an old copy of its save comes back (another device, a stale cloud copy).
+        if (r.shiftKey && p.paidShifts?.includes(r.shiftKey)) return [];
         let legacyLogin = false;
         try {
           legacyLogin = localStorage.getItem('epd:legacyLogin') === '1';
@@ -45,7 +50,8 @@ export const useCareer = create<CareerStore>()(
           /* storage blocked */
         }
         const out = rules.applyShiftReport(p, r, { legacyLogin });
-        set({ profile: out.profile, inbox: out.messages });
+        const profile = r.shiftKey ? { ...out.profile, paidShifts: [...(p.paidShifts ?? []), r.shiftKey].slice(-PAID_SHIFTS_KEPT) } : out.profile;
+        set({ profile, inbox: out.messages });
         return out.ledger;
       },
       clearInbox: () => set({ inbox: [] }),

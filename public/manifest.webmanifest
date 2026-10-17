@@ -1,7 +1,8 @@
 {
+  "id": "/",
   "name": "EPD · Eesti Politsei Dispetšer",
   "short_name": "EPD",
-  "description": "Realistlik Eesti politsei juhtimiskeskuse simulaator. Mitteametlik fännimäng, ei ole seotud PPA-ga.",
+  "description": "Politsei juhtimiskeskuse simulaator päris Eesti kaardil: võta vastu 112-kõned, saada patrullid välja ja kontrolli inimesi andmebaasist. Mitteametlik fännimäng, ei ole seotud PPA-ga.",
   "lang": "et",
   "dir": "ltr",
   "start_url": "./",
@@ -9,13 +10,34 @@
   "display": "standalone",
   "theme_color": "#06090d",
   "background_color": "#06090d",
-  "categories": ["games", "entertainment"],
+  "categories": ["games", "simulation", "entertainment"],
   "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "screenshots": [
     {
-      "src": "favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "screenshots/game.webp",
+      "sizes": "1600x900",
+      "type": "image/webp",
+      "form_factor": "wide",
+      "label": "Juhtimiskeskus: sündmused, Tallinna kaart ja üksuste tabel"
+    },
+    {
+      "src": "screenshots/call.webp",
+      "sizes": "1600x900",
+      "type": "image/webp",
+      "form_factor": "wide",
+      "label": "112-kõne: küsi helistajalt, määra prioriteet ja loo sündmus"
+    },
+    {
+      "src": "screenshots/menu.webp",
+      "sizes": "1600x900",
+      "type": "image/webp",
+      "form_factor": "wide",
+      "label": "Peamenüü: karjäär, kiirmäng ja režissööri režiim"
     }
   ]
 }
