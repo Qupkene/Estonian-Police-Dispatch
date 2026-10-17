@@ -10,6 +10,7 @@
 # Teed (docs/SERVER.md, punkt 3):
 #   /api/*    PHP, /app/server/api/index.php (ruuter loeb REQUEST_URI-st algse tee)
 #   /tiles/*  /srv/tiles failid, Range päringud (PMTiles)
+#   robots.txt, sitemap.xml, og-image.png, /icons/*, /screenshots/*: /app/www failid, puuduv annab 404
 #   muu       /app/www, tundmatu tee annab /index.html
 
 {
@@ -68,6 +69,8 @@
 			max_size 8MB
 		}
 		header ?Cache-Control "no-store"
+		# Kasutajapõhised vastused ei kuulu otsingutulemustesse (robots.txt keelab ka roomamise).
+		header X-Robots-Tag "noindex"
 		root * /app/server
 		rewrite * /api/index.php
 		php
@@ -95,6 +98,24 @@
 		file_server
 	}
 
+	# robots.txt ja sitemap.xml (docs/SEO.md): päris failid, tund vahemälus. Puuduv fail annab 404,
+	# mitte index.html-i, mida otsingumootor prooviks sitemapina lugeda.
+	@seo path /robots.txt /sitemap.xml
+	handle @seo {
+		root * /app/www
+		header Cache-Control "public, max-age=3600"
+		file_server
+	}
+
+	# Jagamispilt, ikoonid ja manifesti ekraanipildid: ööpäev vahemälus (nimes pole räsi, uus pilt
+	# jõuab kohale päevaga). Puuduv fail annab 404, mitte index.html-i.
+	@pildid path /og-image.png /icons/* /screenshots/*
+	handle @pildid {
+		root * /app/www
+		header Cache-Control "public, max-age=86400"
+		file_server
+	}
+
 	# Kõik muu: index.html, sw.js, manifest.webmanifest, glyphs, legacy, 404.html.
 	# Iga serveeritav HTML ja service worker: Cache-Control no-cache (reegel 83).
 	handle {
@@ -112,6 +133,7 @@
 		@api path /api/*
 		handle @api {
 			header Content-Type "application/json; charset=utf-8"
+			header X-Robots-Tag "noindex"
 			@liigasuur expression {err.status_code} == 413
 			handle @liigasuur {
 				respond `{"error":"too_large","message":"Andmed on liiga suured."}` 413
