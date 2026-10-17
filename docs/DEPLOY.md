@@ -129,7 +129,7 @@ GitHub saadab kohe `ping` sündmuse. **Recent Deliveries** all peab see olema 20
 
 ### 5. Kontroll
 
-MainServer PuTTY (või ükskõik milline arvuti):
+MainServer PuTTY aken:
 
 ```
 curl -sI https://politsei.eu | head -n 5
@@ -186,12 +186,18 @@ sudo politsei-uuenda.sh --joud
 
 ## Logid
 
-MainServer PuTTY:
+MainServer PuTTY aken. Plokk 1 üksinda (küsib sudo parooli):
+
+```
+sudo -v
+```
+
+Plokk 2:
 
 ```
 sudo journalctl -u politsei-uuenda -n 50 --no-pager
 sudo journalctl -t politsei-uuenda -n 50 --no-pager
-cat /opt/stack/politsei/olek/viimane.txt
+sudo cat /opt/stack/politsei/olek/viimane.txt
 systemctl list-timers politsei-uuenda.timer --no-pager
 docker logs politsei --tail 30
 docker logs relee-politsei --tail 30
@@ -204,15 +210,22 @@ docker logs relee-politsei --tail 30
 Ebaõnnestunud uuendus võetakse tagasi automaatselt. Kui uus versioon töötab tehniliselt, aga on
 mängus katki, on õige tee GitHubis `git revert` ja push: see läheb läbi CI ja jõuab saidile ise.
 
-Kiire käsitsi tagasivõtt eelmisele versioonile (MainServer PuTTY). Viimane rida paneb praeguse
-tipu vahelejäetute nimekirja, et taimer seda kohe tagasi ei paneks; järgmine uus commit läheb jälle
-automaatselt.
+Kiire käsitsi tagasivõtt eelmisele versioonile. Esimene rida paneb praeguse tipu vahelejäetute
+nimekirja, et taimer seda kohe tagasi ei paneks; järgmine uus commit läheb jälle automaatselt.
+
+MainServer PuTTY aken. Plokk 1 üksinda (küsib sudo parooli):
 
 ```
+sudo -v
+```
+
+Plokk 2:
+
+```
+git ls-remote https://github.com/Qupkene/Estonian-Police-Dispatch.git refs/heads/main | cut -f1 | sudo tee -a /opt/stack/politsei/olek/vigased.txt
 sudo rsync -a --delete /opt/stack/politsei/www.prev/ /opt/stack/politsei/www/
 sudo git -c safe.directory=/opt/stack/politsei/repo -C /opt/stack/politsei/repo checkout -q -f -B main "$(cat /opt/stack/politsei/www/version.txt)"
 cd /opt/stack/politsei && sudo docker compose up -d --force-recreate politsei
-git ls-remote https://github.com/Qupkene/Estonian-Police-Dispatch.git refs/heads/main | cut -f1 | sudo tee -a /opt/stack/politsei/olek/vigased.txt
 curl -s -m 5 "http://$(sed -n 's/^POLITSEI_IP=//p' /opt/stack/politsei/.env)/api/health"
 ```
 
@@ -220,7 +233,13 @@ curl -s -m 5 "http://$(sed -n 's/^POLITSEI_IP=//p' /opt/stack/politsei/.env)/api
 
 ## Kõige eemaldamine
 
-MainServer PuTTY, plokk 1 (konteinerid, unitid, skript, ehituse vahemälu; andmed jäävad alles):
+MainServer PuTTY aken. Plokk 1 üksinda (küsib sudo parooli):
+
+```
+sudo -v
+```
+
+Plokk 2 (konteinerid, unitid, skript, ehituse vahemälu; andmed jäävad alles):
 
 ```
 sudo systemctl disable --now politsei-uuenda.path politsei-uuenda.timer
@@ -230,7 +249,7 @@ sudo systemctl daemon-reload
 sudo docker volume rm politsei-node-modules politsei-npm-cache
 ```
 
-Plokk 2 kustutab ka kontod, salvestused, võtmed ja kaardi. Ära käivita, kui andmeid on veel vaja:
+Plokk 3 kustutab ka kontod, salvestused, võtmed ja kaardi. Ära käivita, kui andmeid on veel vaja:
 
 ```
 sudo rm -rf /opt/stack/politsei
@@ -343,14 +362,14 @@ Lõpuks DNS-is politsei.eu ja www A-kirjed ära (või uude kohta) ning GitHubis 
 | Sümptom | Põhjus ja lahendus |
 | --- | --- |
 | Leht "Server on hetkel kättesaamatu" või API 503 `offline` | Relee ei saa koju. Releel `sudo wg show`: peeri 10.99.0.5 `latest handshake` peab olema alla 2 min. MainServeris `docker ps`, `docker exec relee-politsei wg show`, `docker logs relee-politsei --tail 30`. Kui relee-politsei taaskäivitus eraldi: `cd /opt/stack/politsei && docker compose up -d --force-recreate politsei` (taimer teeb sama 10 min jooksul). |
-| Kätlus puudub üldse | Võtmed ei klapi: `cat /opt/stack/politsei/wg/politsei.pub` peab olema releel `sudo wg show` all. Vajadusel käivita relee plokk (`sudo cat /opt/stack/politsei/juhised.txt`) uuesti. |
+| Kätlus puudub üldse | Võtmed ei klapi: `sudo cat /opt/stack/politsei/wg/politsei.pub` peab olema releel `sudo wg show` all. Vajadusel käivita relee plokk (`sudo cat /opt/stack/politsei/juhised.txt`) uuesti. |
 | Brauser: sertifikaadi viga | DNS pole veel releel: `dig +short politsei.eu` peab andma ainult `80.47.227.213`. Releel `sudo journalctl -u caddy -n 50 --no-pager \| grep -i politsei`. |
 | Webhook: 401 `bad_signature` | Saladus ei klapi. `sudo cat /opt/stack/politsei/data/deploy-secret`, kleebi GitHubi webhooki Secret väljale, siis Recent Deliveries > Redeliver. |
 | Webhook: 503 `not_configured` | `data/deploy-secret` puudub: käivita paigaldaja uuesti. |
 | Webhook: 200 `{"ignored": ...}` | Normaalne: teine haru, punane CI või muu töövoog. Põhjus on vastuses. |
 | Uuendus ei tule | `sudo journalctl -u politsei-uuenda -n 50 --no-pager`. "Ootan CI-d" = CI käib; "varem ebaõnnestunud" = paranda ja tee uus commit või `sudo politsei-uuenda.sh --joud`; "GitHubi API ei vasta" = võrk või päringulimiit (60 tunnis), taimer proovib uuesti. |
 | Kaart näitab ainult taktikalist vaadet, teade "Tänavakaardi faili ei leitud" | `ls -lh /opt/stack/politsei/tiles/`. Tõmba uuesti: `sudo bash /opt/stack/politsei/repo/deploy/mainserver/paigalda.sh --kaart` |
-| `/api/health` annab 500 | `docker logs politsei --tail 50`. Tavaliselt andmekaust: `ls -la /opt/stack/politsei/data`. |
+| `/api/health` annab 500 | `docker logs politsei --tail 50`. Tavaliselt andmekaust: `sudo ls -la /opt/stack/politsei/data`. |
 | Telefon näitab vana versiooni | index.html ja sw.js on `no-cache`, uus versioon tuleb järgmisel avamisel. Kiiresti: sulge kõik vahelehed või kustuta saidi andmed. |
 | Ehitus kukub mälu tõttu | Ehitus saab 3 GB ja 2 CPU-d. Vaata logi; kui Minecraft võtab kogu mälu, proovi hiljem `sudo politsei-uuenda.sh --joud`. |
 

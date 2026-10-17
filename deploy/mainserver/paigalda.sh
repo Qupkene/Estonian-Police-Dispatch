@@ -65,6 +65,9 @@ PAIGALDUS_ALANUD=0
 VALMIS=0
 OLEMAS_ENNE=0
 JOOKSIS_ENNE=0
+VANA_WG_IMG=""
+VANA_PHP_IMG=""
+UUS_VOTI=0
 VARU="$JUUR/varu/paigaldus-$AEG"
 STAGE="$JUUR/varu/uus-$AEG"
 
@@ -103,7 +106,7 @@ taasta() {
     echo "!! Viga paigalduse ajal, taastan eelmise seisu"
     for i in "${!SIHID[@]}"; do
         if [ "${OLID[$i]:-0}" = 1 ]; then
-            cp -a "$VARU/$i" "${SIHID[$i]}"
+            cp -a --remove-destination "$VARU/$i" "${SIHID[$i]}"
         else
             rm -f "${SIHID[$i]}"
         fi
@@ -111,6 +114,9 @@ taasta() {
     systemctl daemon-reload
     if [ "$OLEMAS_ENNE" = 1 ] && [ -f "$JUUR/compose.yml" ]; then
         if [ "$JOOKSIS_ENNE" = 1 ]; then
+            # Uued pildid võisid olla vea põhjus: vanad sildid tagasi enne taaskäivitust.
+            if [ -n "$VANA_WG_IMG" ]; then docker tag "$VANA_WG_IMG" "$WG_PILT"; fi
+            if [ -n "$VANA_PHP_IMG" ]; then docker tag "$VANA_PHP_IMG" "$PHP_PILT"; fi
             docker compose -f "$JUUR/compose.yml" up -d --force-recreate
         else
             docker compose -f "$JUUR/compose.yml" stop
@@ -405,6 +411,9 @@ fi
 if [ "$(docker inspect -f '{{.State.Running}}' politsei 2>/dev/null || echo false)" = true ]; then
     JOOKSIS_ENNE=1
 fi
+# Töötavate konteinerite pildid enne docker pulli, et taastamine saaks neile tagasi minna.
+VANA_WG_IMG="$(docker inspect -f '{{.Image}}' relee-politsei 2>/dev/null || true)"
+VANA_PHP_IMG="$(docker inspect -f '{{.Image}}' politsei 2>/dev/null || true)"
 
 # Uuendusskript ei tohi paigalduse ajal joosta.
 mkdir -p /run/lock
@@ -460,6 +469,7 @@ else
     [[ "$priv" =~ $VOTME_RE ]] || die "wg genkey ebaõnnestus"
     ( umask 077; printf '%s\n' "$priv" > "$VOTMEFAIL" )
     unset priv
+    UUS_VOTI=1
     info "uus võti loodud"
 fi
 chmod 0600 "$VOTMEFAIL"
@@ -554,6 +564,8 @@ for i in "${!SIHID[@]}"; do
 done
 cmp -s "$STAGE/wg/wg0.conf" "$JUUR/wg/wg0.conf" || MUUTUS_WG=1
 cmp -s "$STAGE/conf/Caddyfile" "$JUUR/conf/Caddyfile" || MUUTUS_CADDY=1
+# Uus privaatvõti jõuab külgkonteinerisse ainult PostUp kaudu, seega konteiner tuleb uuesti luua.
+if [ "$UUS_VOTI" = 1 ]; then MUUTUS_WG=1; fi
 PAIGALDUS_ALANUD=1
 for i in "${!SIHID[@]}"; do
     install -m "${OIGUSED[$i]}" "${ALLIKAD[$i]}" "${SIHID[$i]}"
@@ -596,11 +608,17 @@ if [ -f "$JUUR/repo/server/api/index.php" ]; then
         || die "/api/health ei anna ok:true (docker logs politsei): ${api:0:200}"
     info "/api/health: $api"
 fi
-if docker exec relee-politsei wg show wg0 >/dev/null 2>&1; then
-    info "WireGuard wg0 töötab konteineris (kätlus tekib pärast relee plokki)"
-else
-    die "relee-politsei konteineris pole wg0 liidest (docker logs relee-politsei)"
-fi
+# linuxserver/wireguard tõstab wg0 alles oma init-ahela lõpus, seega oota kuni 60 s.
+ok=0
+for _ in $(seq 1 30); do
+    if docker exec relee-politsei wg show wg0 >/dev/null 2>&1; then
+        ok=1
+        break
+    fi
+    sleep 2
+done
+[ "$ok" = 1 ] || die "relee-politsei konteineris pole wg0 liidest (docker logs relee-politsei)"
+info "WireGuard wg0 töötab konteineris (kätlus tekib pärast relee plokki)"
 
 # ================================================================ 13. esimene ehitus
 samm "Esimene ehitus (politsei-uuenda.sh)"

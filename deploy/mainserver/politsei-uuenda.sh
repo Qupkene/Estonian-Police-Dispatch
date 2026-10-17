@@ -434,7 +434,7 @@ ebaonnestus() {
     fi
     margi_vigaseks "$SIHT_SHA"
     kirjuta_olek "viga $SIHT_SHA $pohjus"
-    teata "politsei.eu: uuendus $(lyhike "$SIHT_SHA") ebaõnnestus ($pohjus). Jääb $(lyhike "${EELMINE_SHA:-${paigas:-eelmine}}"). Logi: journalctl -t politsei-uuenda"
+    teata "politsei.eu: uuendus $(lyhike "$SIHT_SHA") ebaõnnestus ($pohjus). Jääb $(lyhike "${EELMINE_SHA:-${paigas:-eelmine}}"). Logi: journalctl -t politsei-uuenda. Uuesti: sudo politsei-uuenda.sh --joud"
     exit 1
 }
 
@@ -519,10 +519,12 @@ else
         ok:*) logi "CI: ${seis#ok:}" ;;
         ootel:*) logi "Ootan CI-d ($(lyhike "$tipp")): ${seis#ootel:}"; exit 0 ;;
         *)
-            logi "CI kukkus ($(lyhike "$tipp")): ${seis#viga:}. Jätan selle commiti vahele."
-            margi_vigaseks "$tipp"
+            # Ei märgi vigaseks: kui CI uuesti käivitada ja see läheb roheliseks, tuleb commit ikkagi peale.
+            logi "CI kukkus ($(lyhike "$tipp")): ${seis#viga:}. Praegu ei uuenda."
+            if ! grep -q " vahele $tipp " "$OLEK/viimane.txt" 2>/dev/null; then
+                teata "politsei.eu: $(lyhike "$tipp") CI kukkus (${seis#viga:}), uuendust ei tehtud"
+            fi
             kirjuta_olek "vahele $tipp CI ${seis#viga:}"
-            teata "politsei.eu: $(lyhike "$tipp") CI kukkus (${seis#viga:}), uuendust ei tehtud"
             exit 0
             ;;
     esac
@@ -533,12 +535,23 @@ logi "Uuendan: $(lyhike "${paigas:-tühi}") -> $(lyhike "$tipp")"
 
 # 6. Too commit ära. Aadress on kindel, repo origin seadistusest ei sõltuta.
 timeout 300 git -c safe.directory="$REPO" -C "$REPO" fetch -q "$GH_URL" "+refs/heads/$HARU:refs/remotes/origin/$HARU" \
-    || ebaonnestus "git fetch ebaõnnestus"
-g cat-file -e "$tipp^{commit}" 2>/dev/null || ebaonnestus "commit $tipp puudub pärast fetchi"
+    || { logi "git fetch ebaõnnestus, proovin järgmisel korral"; exit 0; }
+g cat-file -e "$tipp^{commit}" 2>/dev/null || { logi "commit $tipp puudub pärast fetchi, proovin järgmisel korral"; exit 0; }
 teema="$(g log -1 --format=%s "$tipp" | cut -c1-120)"
 
 # 7. Ehitus ja kontrollid (töötav sait jääb puutumata).
-ehita "$tipp" || ebaonnestus "ehitus ebaõnnestus (npm ci või npm run build)"
+# Esimene ehitusviga võib olla ajutine (npm või DNS): märgi vigaseks alles teisel korral.
+if ! ehita "$tipp"; then
+    if grep -qx "$tipp" "$OLEK/ehitus-kukkus.txt" 2>/dev/null; then
+        ebaonnestus "ehitus ebaõnnestus teist korda (npm ci või npm run build)"
+    fi
+    mkdir -p "$OLEK"
+    printf '%s\n' "$tipp" > "$OLEK/ehitus-kukkus.txt"
+    logi "Ehitus ebaõnnestus ($(lyhike "$tipp")), proovin järgmisel korral uuesti"
+    teata "politsei.eu: $(lyhike "$tipp") ehitus ebaõnnestus, proovin 10 minuti pärast uuesti"
+    KASITLETUD=1
+    exit 1
+fi
 kontrolli_dist || ebaonnestus "dist kontroll"
 kontrolli_php || ebaonnestus "php -l"
 kontrolli_caddy || ebaonnestus "Caddyfile kontroll"
