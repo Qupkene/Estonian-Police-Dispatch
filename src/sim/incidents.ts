@@ -1,6 +1,6 @@
 /**
  * Incident lifecycle (engine-core): publish, acknowledgement timeout, expiry, escalation,
- * on-scene work, beats, outcome — DESIGN §4.3–4.5.
+ * on-scene work, beats, outcome (DESIGN §4.3–4.5).
  */
 import { ageOf, describePerson, describeVehicle } from '@/gen/describe';
 import { JK_QUERY_REPLY } from '@/data/radioPhrases';
@@ -81,7 +81,7 @@ const T = (et: string, en: string): Text => ({ et, en });
 
 const openCache = new WeakMap<SimState, { len: number; ids: string[] }>();
 
-/** Ids of incidents that are not closed (derived cache — JSON-safe, rebuilt after load). */
+/** Ids of incidents that are not closed (derived cache: JSON-safe, rebuilt after load). */
 export function openIncidentIds(s: SimState): string[] {
   let c = openCache.get(s);
   if (!c || c.len > s.incidentOrder.length) {
@@ -625,7 +625,7 @@ export function expectedReply(
   try {
     r = correctReply(s, subj, ctx);
   } catch {
-    /* registry not available — fall back */
+    /* registry not available, fall back */
   }
   if (typeof r !== 'string' || !r) return truthReply(s, subj);
   // 'missing' ranks right after 'wanted' (until registry returns it itself).
@@ -1051,7 +1051,7 @@ function onPursuitEnded(s: SimState, inc: Incident, tpl: IncidentTemplate | unde
       inc.effects.success += 0.2;
       inc.effects.arrests = Math.max(1, inc.effects.arrests);
       s.stats.pursuitsCaught++;
-      addTimeline(s, inc, 'outcome', T('Jälitus lõppes — kahtlustatav peeti kinni', 'Pursuit ended — suspect caught'));
+      addTimeline(s, inc, 'outcome', T('Jälitus lõppes kahtlustatava kinnipidamisega', 'Pursuit ended with the suspect caught'));
       break;
     case 'crashed':
       inc.effects.success -= 0.15;
@@ -1126,7 +1126,7 @@ export function expireIncident(s: SimState, inc: Incident): void {
   s.stats.expired++;
   addTrust(s, pen[inc.truePriority]);
   hkPhrase(s, 'hkExpired', inc);
-  addTimeline(s, inc, 'hk', T('Sündmus aegus — keegi ei jõudnud kohale', 'Event lapsed — nobody arrived'));
+  addTimeline(s, inc, 'hk', T('Sündmus aegus: keegi ei jõudnud kohale', 'Event lapsed: nobody arrived'));
   inc.outcome = {
     id: 'expired',
     result: 'unfounded',
@@ -1321,7 +1321,7 @@ function startTransport(s: SimState, inc: Incident, u: Unit, dest: TransportBeat
     return;
   }
   unitSay(s, u, phrase(s, key, radioVars(s, u, inc, { place })), inc);
-  addTimeline(s, inc, 'status', fillText(T('{callsign}: transport — {place}', '{callsign}: transport — {place}'), radioVars(s, u, inc, { place })));
+  addTimeline(s, inc, 'status', fillText(T('{callsign}: transport, sihtkoht {place}', '{callsign}: transport to {place}'), radioVars(s, u, inc, { place })));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

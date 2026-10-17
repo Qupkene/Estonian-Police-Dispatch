@@ -1,7 +1,7 @@
 /**
- * Keskkond ja loomad — poaching, fires in the forest, pollution, animal welfare, wildlife.
+ * Keskkond ja loomad: poaching, fires in the forest, pollution, animal welfare, wildlife.
  * Many of these belong to Keskkonnaamet (via 1247) or the veterinary authority; police attend
- * when there is danger (weapons, fire, traffic) — see `referral`.
+ * when there is danger (weapons, fire, traffic). See `referral`.
  * Owned by incidents-B. Legacy titles (2024 list) keep `title.et` verbatim.
  */
 import type { IncidentTemplate } from '@/sim/types';
@@ -36,7 +36,7 @@ export const TEMPLATES_ENVIRONMENT: IncidentTemplate[] = [
     ],
     details: [
       T('Piirkond on looduskaitseala, jahipidamine on keelatud.', 'The area is a nature reserve; hunting is prohibited.'),
-      T('Isikud on relvastatud — läheneda ettevaatlikult.', 'The persons are armed — approach with caution.'),
+      T('Isikud on relvastatud. Läheneda ettevaatlikult.', 'The persons are armed. Approach with caution.'),
     ],
     beats: [
       qVehicle('arrive', 0.8, [

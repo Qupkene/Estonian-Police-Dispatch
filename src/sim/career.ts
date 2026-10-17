@@ -137,7 +137,7 @@ function bioFor(rng: Rng, spec: UnitType, years: number, lang: SpeakerLang, regi
         years < 2
           ? rng.pick([
               T('Sisekaitseakadeemia värske lõpetaja, motiveeritud ja kiire õppija.', 'Fresh graduate of the Academy of Security Sciences, motivated and a fast learner.'),
-              T('Noor patrullpolitseinik, endine kiirabi tehnik — ei kaota kriisis pead.', 'Young patrol officer and former ambulance technician — keeps a cool head in a crisis.'),
+              T('Noor patrullpolitseinik, endine kiirabi tehnik, kes ei kaota kriisis pead.', 'Young patrol officer and former ambulance technician who keeps a cool head in a crisis.'),
             ])
           : rng.pick([
               T(`${years} aastat patrullis, tunneb ${city} tänavaid peast.`, `${years} years on patrol, knows the streets of ${city} by heart.`),
@@ -451,7 +451,7 @@ const VEHICLE_PREF: Partial<Record<UnitType, UnitType[]>> = {
   boat: ['boat'],
 };
 
-/** Round-robin order in which crews get vehicles — patrol first, specialists interleaved. */
+/** Round-robin order in which crews get vehicles: patrol first, specialists interleaved. */
 const ASSIGN_ORDER: UnitType[] = ['patrol', 'rapid', 'patrol', 'criminal', 'k9', 'patrol', 'traffic', 'border', 'community', 'patrol', 'aux', 'transport', 'boat'];
 
 /**
@@ -730,7 +730,7 @@ export function applyShiftReport(
       delete m.statusUntil;
       messages.push(T(`${m.firstName} ${m.lastName} on tagasi teenistuses.`, `${m.firstName} ${m.lastName} is back on duty.`));
     }
-    if (m.morale < 0.3 && worked) messages.push(T(`${m.firstName} ${m.lastName} moraal on madal — kaalu psühholoogi või paremat palka.`, `${m.firstName} ${m.lastName}'s morale is low — consider a psychologist or a raise.`));
+    if (m.morale < 0.3 && worked) messages.push(T(`${m.firstName} ${m.lastName} moraal on madal. Kaalu psühholoogi või paremat palka.`, `${m.firstName} ${m.lastName}'s morale is low. Consider a psychologist or a raise.`));
   }
 
   // ── Fleet wear ────────────────────────────────────────────────────────────
@@ -772,7 +772,7 @@ export function applyShiftReport(
       ),
     );
     p.recruits = generateCandidates(rng, rng.int(8, 10), p);
-    messages.push(T('Värbamisnimekiri on uuendatud — uued kandidaadid ootavad.', 'The recruitment list has been refreshed — new candidates are waiting.'));
+    messages.push(T('Värbamisnimekiri on uuendatud. Uued kandidaadid ootavad.', 'The recruitment list has been refreshed. New candidates are waiting.'));
   }
 
   for (const e of ledger) pushLedger(p, e);

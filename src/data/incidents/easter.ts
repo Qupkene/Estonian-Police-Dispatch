@@ -1,5 +1,5 @@
 /**
- * Naljakad ja legendaarsed väljakutsed — easter eggs. Funny but plausible: every "mystery" has a
+ * Naljakad ja legendaarsed väljakutsed (easter eggs). Funny but plausible: every "mystery" has a
  * sober, real-world explanation in the closing report. Kept rare (weights 0.03–0.04 each,
  * well under 1.5 % of all events in total). Category 'easter', `easterEgg: true`.
  * Owned by incidents-B. Legacy titles (2024 list) keep `title.et` verbatim.
@@ -25,7 +25,7 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
       { role: 'suspect', gender: 'M', age: [25, 60], intoxicated: 0.8, record: 0.2 },
     ],
     summary: [
-      T('{address}. Metsast kostub veider heli, justkui draakon hingaks tuld — kohalikud on hirmul.', '{address}. A strange sound is coming from the forest, as if a dragon were breathing fire — the locals are frightened.'),
+      T('{address}. Metsast kostub veider heli, justkui draakon hingaks tuld. Kohalikud on hirmul.', '{address}. A strange sound is coming from the forest, as if a dragon were breathing fire. The locals are frightened.'),
       T('{address}. Teataja nägi metsa kohal tulesähvatusi ja kuulis mürinat, „nagu suur loom puhiseks“.', '{address}. The caller saw flashes of fire above the forest and heard a roar, “like a big animal snorting”.'),
     ],
     callerLines: [
@@ -41,7 +41,7 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
     ],
     outcomes: [
       oc('leaf_blower', 3, 'warning', '„Draakoni hingeõhu“ tekitas joobes külaelanik, kes puhus lehepuhuriga lõkkesse ja vehkis signaaltõrvikuga. Lõke kustutati, mehele tehti hoiatus.', 'The “dragon’s breath” was a drunk villager blowing a leaf blower into a bonfire and waving a signal flare. The fire was put out and the man warned.'),
-      oc('fire_show', 2, 'resolved', '„Draakon“ osutus tuleshow trupi proovideks — tulepuhujad harjutasid jaanipäevaks. Vallast oli luba olemas, kohalikke rahustati.', 'The “dragon” turned out to be a fire-show troupe rehearsing for Midsummer. They had a permit from the municipality; the locals were reassured.', { min: 0.4, trust: 2 }),
+      oc('fire_show', 2, 'resolved', '„Draakon“ osutus tuleshow trupi proovideks: tulepuhujad harjutasid jaanipäevaks. Vallast oli luba olemas, kohalikke rahustati.', 'The “dragon” turned out to be a fire-show troupe rehearsing for Midsummer. They had a permit from the municipality; the locals were reassured.', { min: 0.4, trust: 2 }),
       oc('gas_burner', 1, 'unfounded', 'Talunik põletas gaasipõletiga umbrohtu. Hääl kandus kaugele, kuritegu ei toimunud.', 'A farmer was burning weeds with a gas torch. The sound carried far; no crime occurred.', { max: 0.6 }),
     ],
     expiresMin: 60,
@@ -75,14 +75,14 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
     onScene: [20, 45],
     persons: [{ role: 'caller', gender: 'any', age: [18, 80] }],
     summary: [
-      T('{address}. Metsas nähti öösel tulukesi ja leiti kahtlane metallist objekt — kohalikud räägivad UFO-st.', '{address}. Lights were seen in the forest at night and a suspicious metal object found — locals are talking about a UFO.'),
+      T('{address}. Metsas nähti öösel tulukesi ja leiti kahtlane metallist objekt. Kohalikud räägivad UFO-st.', '{address}. Lights were seen in the forest at night and a suspicious metal object found. Locals are talking about a UFO.'),
       T('{address}. Põllule kukkus vilkuvate tuledega ese, mille küljes on langevari ja „tundmatu kirjaga“ karp.', '{address}. An object with blinking lights fell onto a field; it has a parachute attached and a box with “unknown writing”.'),
     ],
     callerLines: [
       T('Taevast kukkus midagi vilkuvat ja nüüd see piiksub põllul!', 'Something blinking fell from the sky and now it’s beeping in the field!'),
       T('Seal on mingi karp antenniga. Kas ma tohin seda puutuda?', 'There’s some kind of box with an antenna. Am I allowed to touch it?'),
     ],
-    details: [T('Objektil on kiri „Weather instrument — harmless“.', 'The object is labelled “Weather instrument — harmless”.')],
+    details: [T('Objektil on kiri „Harmless weather instrument“.', 'The object is labelled “Harmless weather instrument”.')],
     beats: [
       info('arrive', [T('{callsign}: leidsime objekti. Karbil on kiri „ilmavaatlusseade, ohutu“ ja telefoninumber.', '{callsign}: we found the object. The box says “weather observation device, harmless” and has a phone number.')]),
       agencyBeat('paaste', 8, [T('{callsign}: objektist eraldub kerget suitsu, palun päästjad igaks juhuks.', '{callsign}: the object is giving off a little smoke; firefighters please, just in case.')], { chance: 0.2, timeoutMin: 15 }),
@@ -91,7 +91,7 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
       oc('radiosonde', 3, 'resolved', '„UFO“ osutus meteoroloogilise õhupalli raadiosondiks. Seade anti üle ilmateenistusele, leidjat tänati.', 'The “UFO” turned out to be a weather balloon radiosonde. The device was handed to the weather service and the finder thanked.', { trust: 1 }),
       oc('drone_show', 1.5, 'resolved', 'Lähedal toimunud droonietenduse üks droon kaotas ühenduse ja kukkus metsa. Korraldaja viis selle ära.', 'One drone from a nearby drone show lost its link and fell into the forest. The organiser collected it.', { min: 0.3 }),
       oc('rocket_debris', 0.3, 'referred', 'Metallobjekt osutus kanderaketi detailiks. Ala piirati ja leid anti üle Päästeametile.', 'The metal object turned out to be a piece of a launch vehicle. The area was cordoned off and the find handed to the Rescue Board.', { min: 0.6 }),
-      oc('tinfoil', 1, 'unfounded', 'Kohale jõudes leiti vaid fooliumist ja jõulutuledest meisterdatud „lendav taldrik“ — naabripoiste kunstiprojekt.', 'On arrival there was only a “flying saucer” made of tinfoil and Christmas lights — the neighbours’ boys’ art project.', { max: 0.6 }),
+      oc('tinfoil', 1, 'unfounded', 'Kohale jõudes leiti vaid fooliumist ja jõulutuledest meisterdatud „lendav taldrik“, naabripoiste kunstiprojekt.', 'On arrival there was only a “flying saucer” made of tinfoil and Christmas lights, the neighbours’ boys’ art project.', { max: 0.6 }),
     ],
     expiresMin: 120,
     interactiveChance: 0.35,
@@ -142,7 +142,7 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
     ],
     outcomes: [
       oc('balloon', 3, 'resolved', '„Tulnukad“ olid kuumaõhupalli meeskond, kes tegi heinamaale hädamaandumise. Õhupallurite traditsiooni kohaselt sai maaomanik šampanjat ja kahju hüvitati.', 'The “aliens” were a hot-air balloon crew who made an emergency landing in the hayfield. Following balloonists’ tradition the landowner received champagne and the damage was compensated.', { min: 0.3, trust: 2 }),
-      oc('crop_circle', 1, 'warning', 'Heinamaale oli niidetud viljaring — külanoorte öine kunstiprojekt. Noortele tehti hoiatus.', 'A crop circle had been mown into the hayfield — the village youths’ night-time art project. The youngsters were warned.'),
+      oc('crop_circle', 1, 'warning', 'Heinamaale oli niidetud viljaring. See osutus külanoorte öiseks kunstiprojektiks. Noortele tehti hoiatus.', 'A crop circle had been mown into the hayfield. It turned out to be the village youths’ night-time art project. The youngsters were warned.'),
       oc('paraglider', 1, 'unfounded', 'Maandunud oli helendava vestiga mootorvarjur. Rikkumisi ei tuvastatud.', 'A powered paraglider pilot in a glowing vest had landed. No violations found.', { max: 0.6 }),
     ],
     expiresMin: 90,
@@ -187,7 +187,7 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
     outcomes: [
       oc('referred', 3, 'referred', 'Teade edastati Päästeametile, päästjad tõid kassipoja redeliga alla.', 'The report was passed to the Rescue Board; firefighters brought the kitten down with a ladder.'),
       oc('came_down', 2, 'resolved', 'Patrulli saabudes ronis kassipoeg ise alla ja jooksis otse politseiauto soojale kapotile. Omanik õnnelik.', 'When the patrol arrived the kitten climbed down by itself and ran straight onto the police car’s warm bonnet. The owner is delighted.', { trust: 2 }),
-      oc('advice', 1, 'referred', 'Omanikule soovitati jätta puu alla toitu ja anda kassile aega — enamasti tulevad nad ise alla.', 'The owner was advised to leave food under the tree and give the cat time — most of them come down on their own.'),
+      oc('advice', 1, 'referred', 'Omanikule soovitati jätta puu alla toitu ja anda kassile aega, sest enamasti tulevad nad ise alla.', 'The owner was advised to leave food under the tree and give the cat time, as most of them come down on their own.'),
     ],
     expiresMin: 240,
     interactiveChance: 0.35,
@@ -314,7 +314,7 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
       opening: [T('Tere. Ma tean, et see kõlab nagu anekdoot, aga kana ületab maanteed.', 'Hello. I know this sounds like a joke, but a chicken is crossing the highway.')],
       answers: {
         count: [T('Üks kana. Kukk vaatab kraavist.', 'One chicken. A rooster is watching from the ditch.')],
-        direction: [T('Ta liigub teisele poole. Miks — ei tea.', 'It’s heading to the other side. Why — no idea.')],
+        direction: [T('Ta liigub teisele poole. Ei tea, miks.', 'It’s heading to the other side. No idea why.')],
       },
     },
     easterEgg: true,
@@ -345,7 +345,7 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
     ],
     details: [T('On jaaniõhtu, küla lõke põleb kilomeetri kaugusel.', 'It is Midsummer Eve; the village bonfire is burning a kilometre away.')],
     beats: [
-      info('arrive', [T('{callsign}: Kalevipoeg leitud — istub lõkke ääres pingil, pärg peas.', '{callsign}: Kalevipoeg found — sitting on a bench by the bonfire, wearing a wreath.')]),
+      info('arrive', [T('{callsign}: Kalevipoeg leitud. Istub lõkke ääres pingil, pärg peas.', '{callsign}: Kalevipoeg found. Sitting on a bench by the bonfire, wearing a wreath.')]),
       qPerson('suspect', 5, 0.7, [
         T('{callsign}: üks kandjatest tunnistas. Kontrolli: {name}, {idcode}.', '{callsign}: one of the carriers has confessed. Check: {name}, {idcode}.'),
       ]),
@@ -386,7 +386,7 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
       agencyBeat('keskkonnaamet', 10, [T('{callsign}: põder ei lahku, palun teavitage Keskkonnaametit.', '{callsign}: the elk won’t leave; please notify Keskkonnaamet.')], { chance: 0.35, timeoutMin: 30 }),
     ],
     outcomes: [
-      oc('left', 3, 'resolved', 'Põder vaatas oma peegelpilti, sõi ära kaks dekoratiivpõõsast ja lahkus metsa suunas — ostukorvita.', 'The elk admired its reflection, ate two ornamental shrubs and left towards the forest — without a shopping basket.', { trust: 2 }),
+      oc('left', 3, 'resolved', 'Põder vaatas oma peegelpilti, sõi ära kaks dekoratiivpõõsast ja lahkus metsa suunas, ostukorvita.', 'The elk admired its reflection, ate two ornamental shrubs and left towards the forest, without a shopping basket.', { trust: 2 }),
       oc('guided', 1, 'referred', 'Keskkonnaameti spetsialist suunas põdra rahulikult metsa.', 'A Keskkonnaamet specialist calmly guided the elk back to the forest.', { min: 0.3 }),
       oc('inside', 0.5, 'report', 'Põder astus fuajeesse ja lõhkus lillepoe väljapaneku, seejärel lahkus. Inimesi ei vigastatud.', 'The elk stepped into the lobby and wrecked the florist’s display, then left. Nobody was hurt.', { max: 0.4 }),
     ],
@@ -432,8 +432,8 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
       ),
     ],
     outcomes: [
-      oc('singing', 3, 'unfounded', 'Abihüüded osutusid naabrimehe saunalauluks — „Kungla rahvas“ täiel häälel. Laulja lubas järgmisel korral vaiksemalt laulda ja pakkus patrullile vihta.', 'The cries turned out to be the neighbour’s sauna singing — a folk song at full volume. The singer promised to sing more quietly next time and offered the patrol a sauna whisk.', { trust: 1 }),
-      oc('stuck_door', 1.5, 'resolved', 'Sauna uks oli paisunud ja kinni kiilunud. Mees vabastati — tervis korras, väga puhas.', 'The sauna door had swollen and jammed. The man was freed — healthy and very clean.', { min: 0.3, trust: 3 }),
+      oc('singing', 3, 'unfounded', 'Abihüüded osutusid naabrimehe saunalauluks: „Kungla rahvas“ täiel häälel. Laulja lubas järgmisel korral vaiksemalt laulda ja pakkus patrullile vihta.', 'The cries turned out to be the neighbour’s sauna singing: a folk song at full volume. The singer promised to sing more quietly next time and offered the patrol a sauna whisk.', { trust: 1 }),
+      oc('stuck_door', 1.5, 'resolved', 'Sauna uks oli paisunud ja kinni kiilunud. Mees vabastati. Tervis korras, väga puhas.', 'The sauna door had swollen and jammed. The man was freed, healthy and very clean.', { min: 0.3, trust: 3 }),
       oc('kiirabi', 0.5, 'hospital', 'Mees oli saunas kuumarabanduse saanud ja hüüdis appi. Talle anti esmaabi ja kiirabi viis ta haiglasse.', 'The man had suffered heatstroke in the sauna and was calling for help. He was given first aid and the ambulance took him to hospital.', { max: 0.4, injuries: 1 }),
     ],
     expiresMin: 60,
@@ -479,7 +479,7 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
     ],
     outcomes: [
       oc('borrowed', 3, 'resolved', 'Naabrilapsed olid nuku laenanud, et sellega mardisandiks käia. Nukk tagastati koos kommikotiga hüvitiseks.', 'The neighbours’ kids had borrowed the doll to go mumming with. It was returned along with a bag of sweets as compensation.', { trust: 2 }),
-      oc('wind', 1, 'unfounded', 'Mardisant leiti kraavist — tuul oli ta väravapostilt minema kandnud.', 'The mardisant was found in the ditch — the wind had blown him off the gatepost.'),
+      oc('wind', 1, 'unfounded', 'Mardisant leiti kraavist. Tuul oli ta väravapostilt minema kandnud.', 'The mardisant was found in the ditch. The wind had blown him off the gatepost.'),
       oc('advice', 1, 'referred', 'Teatajale selgitati, et asi lahendatakse naabritega omavahel, ja anti nõu kinnitada nukk paremini.', 'The caller was told to sort it out with the neighbours and advised to fix the doll more securely.', { max: 0.6 }),
     ],
     expiresMin: 120,
@@ -504,7 +504,7 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
       { role: 'caller', gender: 'any', age: [30, 70] },
     ],
     summary: [
-      T('{address}. Turul vaidlevad kaks kalamüüjat valju häälega, kumb on parem — kilu või räim. Ostjad on kogunenud.', '{address}. Two fish sellers at the market are loudly arguing which is better — sprat or Baltic herring. Shoppers have gathered.'),
+      T('{address}. Turul vaidlevad kaks kalamüüjat valju häälega, kumb on parem: kilu või räim. Ostjad on kogunenud.', '{address}. Two fish sellers at the market are loudly arguing which is better: sprat or Baltic herring. Shoppers have gathered.'),
       T('{address}. Turuletis käib äge sõnelus, üks müüja vehib suitsuräimega.', '{address}. A heated argument at a market stall; one seller is brandishing a smoked herring.'),
     ],
     callerLines: [
@@ -648,7 +648,7 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
       info('arrive', [T('{callsign}: robot tuvastatud. Ta kannab kolme pitsat ja ootab rohelist tuld.', '{callsign}: robot identified. It is carrying three pizzas and waiting for the green light.')]),
     ],
     outcomes: [
-      oc('same_route', 3, 'unfounded', 'Robot sõitis lihtsalt samas suunas — teataja naabrile pitsat viima. Teatajale tutvustati robotit, ta lehvitas sellele hüvastijätuks.', 'The robot was simply going the same way — delivering pizza to the caller’s neighbour. The robot was introduced to the caller, who waved it goodbye.', { trust: 2 }),
+      oc('same_route', 3, 'unfounded', 'Robot sõitis lihtsalt samas suunas: see viis teataja naabrile pitsat. Teatajale tutvustati robotit, ta lehvitas sellele hüvastijätuks.', 'The robot was simply going the same way, delivering pizza to the caller’s neighbour. The robot was introduced to the caller, who waved it goodbye.', { trust: 2 }),
       oc('stuck', 1.5, 'resolved', 'Robot oli äärekivi taha kinni jäänud. Patrull aitas ta üle, ettevõtet teavitati. Robot tänas viisakalt.', 'The robot was stuck behind a kerb. The patrol helped it over and the company was notified. The robot said thank you politely.', { min: 0.3 }),
       oc('blocking', 1, 'referred', 'Seisma jäänud robot ummistas ülekäiguraja. Info edastati teenusepakkujale, kes saatis tehniku.', 'The stalled robot was blocking the crossing. The service provider was informed and sent a technician.', { max: 0.6 }),
     ],
@@ -668,7 +668,7 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
     id: 'easter_purring_call',
     category: 'easter',
     code: 'KT',
-    title: T('Vaikne hädaabikõne — taustal nurrumine', 'Silent emergency call — purring in the background'),
+    title: T('Vaikne hädaabikõne: taustal nurrumine', 'Silent emergency call: purring in the background'),
     priority: 3,
     weight: 0.035,
     hours: 'flat',
@@ -691,7 +691,7 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
     outcomes: [
       oc('cat', 3, 'unfounded', 'Kõned tegi kass, kes kõndis üle omaniku telefoni hädaabinupu. Omanikule õpetati lukustusfunktsiooni, kassile tehti suuline hoiatus.', 'The calls were made by a cat walking over the owner’s phone emergency button. The owner was shown the lock feature; the cat received a verbal warning.', { trust: 2 }),
       oc('pocket', 1, 'unfounded', 'Kõned tulid kogemata taskust, omanik ei olnud märganud. Kõik korras.', 'The calls were pocket dials the owner hadn’t noticed. All in order.'),
-      oc('real_need', 0.6, 'hospital', 'Selgus, et omanik oli kukkunud ega saanud rääkida — kass „helistas“ abi. Kiirabi viis ta haiglasse.', 'It turned out the owner had fallen and couldn’t speak — the cat had “called” for help. The ambulance took her to hospital.', { min: 0.4, injuries: 1, trust: 4 }),
+      oc('real_need', 0.6, 'hospital', 'Selgus, et omanik oli kukkunud ega saanud rääkida. Kass „helistas“ abi. Kiirabi viis ta haiglasse.', 'It turned out the owner had fallen and couldn’t speak. The cat had “called” for help. The ambulance took her to hospital.', { min: 0.4, injuries: 1, trust: 4 }),
     ],
     expiresMin: 60,
     interactiveChance: 0.4,

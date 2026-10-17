@@ -197,7 +197,7 @@ export function autosave(sim: SimState) {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(sim));
   } catch {
-    /* storage full or blocked — ignore */
+    /* storage full or blocked: ignore */
   }
 }
 

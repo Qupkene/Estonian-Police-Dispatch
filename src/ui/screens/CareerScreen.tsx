@@ -1,4 +1,4 @@
-// Career / HQ management screen ("Prefektuuri juhtimine") — owned by ui-career.
+// Career / HQ management screen ("Prefektuuri juhtimine"). Owned by ui-career.
 import { Component, useState, type ReactNode } from 'react';
 import { useCareer } from '@/store/career';
 import { useGame } from '@/store/game';

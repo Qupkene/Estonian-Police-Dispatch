@@ -379,8 +379,8 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
       qPerson('suspect', 20, {
         radio: [
           T(
-            'Juhtimiskeskus, {callsign}. Naabrid nimetavad peretuttavat — {name}, isikukood {idcode}. Palun kontrolli, kas on tagaotsitav.',
-            'Control, {callsign}. Neighbours name a family acquaintance — {name}, ID code {idcode}. Please check for warrants.',
+            'Juhtimiskeskus, {callsign}. Naabrid nimetavad peretuttavat: {name}, isikukood {idcode}. Palun kontrolli, kas on tagaotsitav.',
+            'Control, {callsign}. Neighbours name a family acquaintance: {name}, ID code {idcode}. Please check for warrants.',
           ),
         ],
       }),
@@ -2090,8 +2090,8 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
         'They are beating a man at the bus stop! He is on the ground and they are kicking him in the head!',
       ),
       T(
-        'Ma olen bussis, nägin aknast — kolm tüüpi ründasid üht vanemat meest. Juht peatas bussi.',
-        'I am on the bus, saw it through the window — three guys attacked an older man. The driver has stopped the bus.',
+        'Ma olen bussis. Nägin aknast, kuidas kolm tüüpi ründasid üht vanemat meest. Juht peatas bussi.',
+        'I am on the bus. Through the window I saw three guys attack an older man. The driver has stopped the bus.',
       ),
     ],
     details: [

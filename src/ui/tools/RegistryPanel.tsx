@@ -1,4 +1,4 @@
-// "Andmebaas" — homage to the 2024 "Politsei Andmebaas". Owned by ui-tools. Reads everything from the stores.
+// "Andmebaas": homage to the 2024 "Politsei Andmebaas". Owned by ui-tools. Reads everything from the stores.
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { Person, RadioMsg, SimState, Vehicle } from '@/sim/types';
 import { markChecked } from '@/sim/commands';

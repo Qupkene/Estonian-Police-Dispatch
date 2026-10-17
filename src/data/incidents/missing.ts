@@ -1,5 +1,5 @@
 /**
- * Kadunud isikud — missing persons, searches, water and ice rescues (incidents-C).
+ * Kadunud isikud: missing persons, searches, water and ice rescues (incidents-C).
  * Legacy titles covered: Kadunud laps, Isik metsa eksinud, Koolilapse kadumine hommikul,
  * Lapse röövimine mänguväljakult.
  */
@@ -165,7 +165,7 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
     ],
     outcomes: [
       out('mall', 'resolved', [0.45, 1], 4, T('Laps leiti kaubanduskeskusest, kus ta oli koos sõbraga koolist poppi teinud. Ta toimetati vanema juurde.', 'The child was found at the shopping centre, skipping school with a friend, and was handed over to a parent.')),
-      out('bully', 'referred', [0.35, 1], 2, T('Laps leiti peidus garaažide juures — ta kartis kooli minna kiusamise tõttu. Info edastati koolile ja noorsoopolitseinikule.', 'The child was found hiding by the garages — afraid to go to school because of bullying. The school and youth officer were informed.')),
+      out('bully', 'referred', [0.35, 1], 2, T('Laps leiti peidus garaažide juures. Ta kartis kooli minna kiusamise tõttu. Info edastati koolile ja noorsoopolitseinikule.', 'The child was found hiding by the garages, afraid to go to school because of bullying. The school and youth officer were informed.')),
       out('found_late', 'resolved', [0.2, 0.6], 2, T('Laps tuli pärastlõunal ise koju. Ta oli veetnud päeva sõbra juures.', 'The child came home on their own in the afternoon after spending the day at a friend’s.')),
       out('ongoing', 'report', [0, 0.3], 1, T('Last ei leitud vahetuse jooksul. Kuulutati välja kadunud isiku otsingud, kaasati meedia.', 'The child was not found during the shift. A missing-person appeal was issued with media involvement.')),
     ],
@@ -208,14 +208,14 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
     ],
     callerLines: [
       T('Üks mees haaras lapse ja tõstis ta autosse, laps karjus! Nad sõitsid minema!', 'A man grabbed a child and put them in a car, the child was screaming! They drove off!'),
-      T('Ma nägin numbrit osaliselt — {plate}. {car}, sõitis {direction}.', 'I saw part of the plate — {plate}. A {car}, went {direction}.'),
+      T('Ma nägin numbrit osaliselt: {plate}. {car}, sõitis {direction}.', 'I saw part of the plate: {plate}. A {car}, went {direction}.'),
     ],
     details: [
       T('Lapse ema on sündmuskohal ja annab kirjelduse.', 'The child’s mother is at the scene giving a description.'),
       T('Kõigile ekipaažidele on edastatud sõiduki ja kahtlustatava kirjeldus.', 'The vehicle and suspect description has gone to all units.'),
     ],
     beats: [
-      qVehicle('arrive', { radio: [T('{callsign}: kontrolli kiiresti sõidukit {plate} — {car}. Kellele kuulub?', '{callsign}: run {plate} — {car} — urgently. Who is the keeper?')] }),
+      qVehicle('arrive', { radio: [T('{callsign}: kontrolli kiiresti sõidukit {plate}, {car}. Kellele kuulub?', '{callsign}: urgently run {plate}, {car}. Who is the keeper?')] }),
       info(2, [T('{callsign}: ema sõnul võib tegu olla lapse isaga, kellel on lähenemiskeeld. Kontrollige!', '{callsign}: the mother says it may be the child’s father, who is under a restraining order. Check it!')], 0.4),
       pursuit(4, [T('{callsign}: märkasime kirjeldusele vastavat sõidukit {direction}, ei peatu! Jälitame!', '{callsign}: we have eyes on a matching vehicle {direction}, it will not stop! In pursuit!')], 0.6),
       backup(0.91, u('rapid'), [T('{callsign}: sõiduk peatus metsateel, kahtlustatav barrikadeerus. Vajame kiirreageerijaid!', '{callsign}: the car stopped on a forest track and the suspect has barricaded himself in. We need rapid response!')], { at: 10, timeoutMin: 8 }),
@@ -380,7 +380,7 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
       { role: 'missing', gender: 'any', age: [13, 17], intoxicated: 0.3 },
       { role: 'caller', gender: 'any', age: [35, 55], relation: 'parent', known: true },
     ],
-    agencies: [{ agency: 'sotsiaal', chance: 0.4, reason: T('Korduvad kodust lahkumised — lastekaitse teavitamine', 'Repeated running away — notify child protection') }],
+    agencies: [{ agency: 'sotsiaal', chance: 0.4, reason: T('Korduvad kodust lahkumised: lastekaitse teavitamine', 'Repeated running away: notify child protection') }],
     summary: [
       T('{address}. {age}-aastane noor pidi olema kodus kell 22, telefon välja lülitatud. Vanemad on sõpradele helistanud tulemusteta.', '{address}. A {age}-year-old was due home at 22:00; phone switched off. The parents have called friends without success.'),
       T('{address}. Ema teatel ei ole tütar koolist saadik koju tulnud, sotsiaalmeedias viimati aktiivne kell {time}.', '{address}. The mother says her daughter has not been home since school; last active on social media at {time}.'),

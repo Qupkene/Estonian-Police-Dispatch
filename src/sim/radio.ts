@@ -141,7 +141,7 @@ export function unitPhrase(s: SimState, u: Unit, key: string, inc?: Incident, ex
   return unitSay(s, u, phrase(s, key, radioVars(s, u, inc, extra)), inc, o);
 }
 
-/** The dispatcher (JK) speaks — to a unit or to everyone. */
+/** The dispatcher (JK) speaks to a unit or to everyone. */
 export function jkSay(s: SimState, text: Text, o: MsgOpts & { unit?: Unit; inc?: Incident } = {}): RadioMsg {
   return pushRadio(s, {
     from: 'JK',
@@ -174,21 +174,21 @@ export function hkPhrase(s: SimState, key: string, inc?: Incident, extra: Vars =
   });
 }
 
-/** Reply buttons for registry checks (ids are fixed — see DESIGN §4.4). */
+/** Reply buttons for registry checks (ids are fixed, see DESIGN §4.4). */
 export const PERSON_REPLIES: RadioReply[] = [
-  { id: 'clean', label: { et: 'Puhas — märkeid pole', en: 'Clean — nothing on file' } },
-  { id: 'wanted', label: { et: 'Tagaotsitav — pidage kinni', en: 'Wanted — detain' } },
-  { id: 'missing', label: { et: 'Kadunuks tunnistatud — otsitav', en: 'Reported missing' } },
+  { id: 'clean', label: { et: 'Puhas, märkeid pole', en: 'Clean, nothing on file' } },
+  { id: 'wanted', label: { et: 'Tagaotsitav, pidage kinni', en: 'Wanted, detain' } },
+  { id: 'missing', label: { et: 'Kadunuks tunnistatud, otsitav', en: 'Reported missing' } },
   { id: 'restraining', label: { et: 'Kehtib lähenemiskeeld', en: 'Restraining order in force' } },
   { id: 'nolicense', label: { et: 'Juhtimisõigus puudub', en: 'No valid driving licence' } },
-  { id: 'weapon', label: { et: 'Relvaluba — ettevaatust', en: 'Firearms permit — caution' } },
+  { id: 'weapon', label: { et: 'Relvaluba, ettevaatust', en: 'Firearms permit, caution' } },
   { id: 'probation', label: { et: 'Katseajal', en: 'On probation' } },
   { id: 'notfound', label: { et: 'Registris ei leidu', en: 'Not found in registry' } },
 ];
 
 export const VEHICLE_REPLIES: RadioReply[] = [
   { id: 'clean', label: { et: 'Sõiduk korras', en: 'Vehicle clean' } },
-  { id: 'stolen', label: { et: 'Varastatud — peatage', en: 'Stolen — stop it' } },
+  { id: 'stolen', label: { et: 'Varastatud, peatage', en: 'Stolen, stop it' } },
   { id: 'noinsurance', label: { et: 'Liikluskindlustus puudub', en: 'No motor insurance' } },
   { id: 'noinspection', label: { et: 'Tehnoülevaatus puudub', en: 'No valid inspection' } },
   { id: 'suspended', label: { et: 'Registreering peatatud', en: 'Registration suspended' } },

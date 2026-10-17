@@ -392,7 +392,7 @@ describe('plates & codes', () => {
   });
   it('formats dates, ages and timers', () => {
     expect(isoToEt('2026-10-17')).toBe('17.10.2026');
-    expect(isoToEt(undefined)).toBe('—');
+    expect(isoToEt(undefined)).toBe('–');
     expect(ageAt('1985-06-12', NOW)).toBe(41);
     expect(ageAt('1985-10-18', NOW)).toBe(40);
     expect(mmss(65_000)).toBe('01:05');
@@ -613,7 +613,8 @@ describe('tools i18n', () => {
 describe('flag text split', () => {
   it('splits engine flag texts into head and detail', async () => {
     const { splitFlagText } = await import('@/ui/tools/lib/helpers');
-    expect(splitFlagText('TAGAOTSITAV — Rööv (Harju Maakohus, alates 01.02.2026)')).toEqual({ head: 'TAGAOTSITAV', rest: 'Rööv (Harju Maakohus, alates 01.02.2026)' });
+    expect(splitFlagText('TAGAOTSITAV: Rööv (Harju Maakohus, alates 01.02.2026)')).toEqual({ head: 'TAGAOTSITAV', rest: 'Rööv (Harju Maakohus, alates 01.02.2026)' });
+    expect(splitFlagText('LÄHENEMISKEELD (kaitstav: Mari Tamm)')).toEqual({ head: 'LÄHENEMISKEELD', rest: 'kaitstav: Mari Tamm' });
     expect(splitFlagText('KARISTATUD (3 korda)')).toEqual({ head: 'KARISTATUD', rest: '3 korda' });
     expect(splitFlagText('RELVALUBA')).toEqual({ head: 'RELVALUBA', rest: '' });
   });

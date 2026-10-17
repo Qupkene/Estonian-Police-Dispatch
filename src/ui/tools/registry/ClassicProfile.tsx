@@ -1,4 +1,4 @@
-// "Klassikaline vaade" — the person rendered like the 2024 "Politsei Andmebaas" profile (nostalgia).
+// "Klassikaline vaade": the person rendered like the 2024 "Politsei Andmebaas" profile (nostalgia).
 import type { Person, SimState } from '@/sim/types';
 import { lawById } from '@/data/laws';
 import { Avatar } from '@/ui/components';

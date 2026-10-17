@@ -38,7 +38,13 @@ export const useCareer = create<CareerStore>()(
       applyReport: (r) => {
         const p = get().profile;
         if (!p) return [];
-        const out = rules.applyShiftReport(p, r);
+        let legacyLogin = false;
+        try {
+          legacyLogin = localStorage.getItem('epd:legacyLogin') === '1';
+        } catch {
+          /* storage blocked */
+        }
+        const out = rules.applyShiftReport(p, r, { legacyLogin });
         set({ profile: out.profile, inbox: out.messages });
         return out.ledger;
       },

@@ -1,5 +1,5 @@
 /**
- * Ida prefektuur — Ida-Viru maakond + Lääne-Viru maakond (HQ Jõhvi).
+ * Ida prefektuur: Ida-Viru maakond + Lääne-Viru maakond (HQ Jõhvi).
  *
  * Sources: docs/research/ppa-organisation.md (Narva/Jõhvi/Rakvere jaoskonnad, Kohtla-Järve and
  * Tapa offices, Viru Vangla taking over arrest-house duties, Narva-1 checkpoint and Narva
@@ -7,7 +7,7 @@
  * geodata in src/data/geo (county polygons, Kohtla-Järve district polygons, settlement
  * centroids). Points are checked in tests/regions-pohja-ida.test.ts.
  *
- * ── Radio callsigns (FICTIONAL, same scheme as Põhja — see pohja.ts) ───────────────────
+ * ── Radio callsigns (FICTIONAL, same scheme as Põhja, see pohja.ts) ────────────────────
  *   "IDA xy"            patrol crew: x = base, y = crew number
  *       1y  Narva jaoskond          2y  Jõhvi jaoskond (prefecture HQ)
  *       3y  Kohtla-Järve (Järve/Ahtme)   4y  Sillamäe
@@ -171,7 +171,7 @@ const STATIONS: Station[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Roster — normal: 8 patrols (day 6 / night 7), rapid, K9, traffic, criminal,
+// Roster (normal): 8 patrols (day 6 / night 7), rapid, K9, traffic, criminal,
 // 2 border patrols, a patrol boat and detainee transport.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -259,7 +259,7 @@ const TOWNS: Town[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Streets — points ordered by house number. Kohtla-Järve streets carry the
+// Streets: points ordered by house number. Kohtla-Järve streets carry the
 // linnaosa (Järve / Ahtme) as district.
 // ─────────────────────────────────────────────────────────────────────────────
 

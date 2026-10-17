@@ -86,8 +86,8 @@ export function StaffTab({ profile, goRecruit }: { profile: CareerProfile; goRec
         <Stat icon="users" label={t('career.staff.headcount')} value={fmtNum(staff.length, lang)} />
         <Stat icon="check" label={t('career.staff.active')} value={fmtNum(staff.filter((m) => m.status === 'active').length, lang)} />
         <Stat icon="ambulance" label={t('career.staff.injured')} value={fmtNum(staff.filter((m) => m.status === 'injured').length, lang)} tone="danger" />
-        <Stat icon="gauge" label={t('career.staff.avgSkill')} value={staff.length ? String(pct(avgSkill)) : '—'} />
-        <Stat icon="star" label={t('career.staff.avgMorale')} value={staff.length ? `${pct(avgMorale)} %` : '—'} />
+        <Stat icon="gauge" label={t('career.staff.avgSkill')} value={staff.length ? String(pct(avgSkill)) : '–'} />
+        <Stat icon="star" label={t('career.staff.avgMorale')} value={staff.length ? `${pct(avgMorale)} %` : '–'} />
         <Stat icon="money" label={t('career.staff.payroll')} value={fmtMoney(payroll, lang)} sub={t('career.perMonth')} />
       </div>
 
@@ -204,7 +204,7 @@ export function StaffTab({ profile, goRecruit }: { profile: CareerProfile; goRec
                   {u.onCall && <Badge tone="warn">{t('career.roster.onCall')}</Badge>}
                 </div>
                 <div className="cr-crew__veh dim">
-                  <Icon name="car" size={12} /> {u.vehicle || '—'}
+                  <Icon name="car" size={12} /> {u.vehicle || '–'}
                 </div>
                 <div className="cr-crew__members">
                   {u.crew.map((o) => (

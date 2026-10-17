@@ -1,4 +1,4 @@
-/* EPD map — classes prefixed `epdm`. Colours come from tokens.css (--st-*, --p1..--p4). */
+/* EPD map: classes prefixed `epdm`. Colours come from tokens.css (--st-*, --p1..--p4). */
 
 .epdm {
   position: relative;

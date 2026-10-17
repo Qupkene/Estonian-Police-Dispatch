@@ -137,7 +137,7 @@ const INESSIVE: Record<string, string> = {
   Lilleküla: 'Lillekülas',
 };
 
-/** Estonian inessive ("Tallinnas", "Lasnamäel") for a place name — dictionary + simple rules. */
+/** Estonian inessive ("Tallinnas", "Lasnamäel") for a place name, via a dictionary + simple rules. */
 export function inessive(name: string): string {
   if (!name) return name;
   if (INESSIVE[name]) return INESSIVE[name];
@@ -574,7 +574,7 @@ function buildNewspaper(
     if (slow) {
       lead = slow;
       const m = Math.round(responseMin(slow)!);
-      headline = T(`Abi jõudis kohale alles ${m} minutiga — elanikud ootavad selgitust`, `Help took ${m} minutes to arrive — residents want answers`);
+      headline = T(`Abi jõudis kohale alles ${m} minutiga: elanikud ootavad selgitust`, `Help took ${m} minutes to arrive: residents want answers`);
     } else if (top && top.easterEgg) {
       const l = loc(top);
       headline = T(`Kummaline ${period.et} ${l.et}: politsei kontrollis teadet „${top.title.et}“`, `A strange ${period.en} in ${l.en}: police checked a report of “${top.title.en}”`);

@@ -1,4 +1,4 @@
-// 112 transfer from Häirekeskus — docked overlay card (mount inside the map area, which must be position: relative).
+// 112 transfer from Häirekeskus: docked overlay card (mount inside the map area, which must be position: relative).
 // Owned by ui-tools. Reads everything from the stores.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ActiveCall, Agency, CallerMood, CallQuestionId, Incident, Priority, SimState } from '@/sim/types';
@@ -56,7 +56,7 @@ function CallCard({ sim, call, waiting }: { sim: SimState; call: ActiveCall; wai
 
   const ringing = !call.answeredAt;
 
-  // Put keyboard focus on "Vasta" so Enter answers — but never steal focus from a text field.
+  // Put keyboard focus on "Vasta" so Enter answers, but never steal focus from a text field.
   useEffect(() => {
     if (!ringing) return;
     const ae = document.activeElement as HTMLElement | null;
@@ -147,7 +147,7 @@ function CallCard({ sim, call, waiting }: { sim: SimState; call: ActiveCall; wai
               <div className="tl-call__loc">
                 <Icon name="pin" size={13} />
                 <span className="tl-call__lock">{t('tools.call.location')}:</span>
-                <span>{inc ? (knowsWhere ? inc.location.address : `${inc.location.city} · ${t('tools.call.locationHidden')}`) : '—'}</span>
+                <span>{inc ? (knowsWhere ? inc.location.address : `${inc.location.city} · ${t('tools.call.locationHidden')}`) : '–'}</span>
               </div>
               <div className="tl-call__label">{t('tools.call.questions')}</div>
               <div className="tl-call__qs">
@@ -231,7 +231,7 @@ function CallCard({ sim, call, waiting }: { sim: SimState; call: ActiveCall; wai
 
 // ── conversation ─────────────────────────────────────────────────────────────
 
-/** When each line first became visible (real ms) — survives re-mounts so the typewriter never restarts. */
+/** When each line first became visible (real ms). Survives re-mounts so the typewriter never restarts. */
 const firstSeen = new Map<string, number>();
 
 function Conversation({ sim, call }: { sim: SimState; call: ActiveCall }) {

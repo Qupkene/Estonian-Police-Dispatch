@@ -96,7 +96,7 @@ export function Plate({ plate }: { plate: string }) {
   return (
     <span className="cr-plate" aria-label={plate}>
       <span className="cr-plate__eu">EST</span>
-      <span className="cr-plate__num">{plate || '— —'}</span>
+      <span className="cr-plate__num">{plate || '– –'}</span>
     </span>
   );
 }

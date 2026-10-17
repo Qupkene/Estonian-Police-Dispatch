@@ -73,7 +73,7 @@ export interface Law {
   severity?: number;
   /**
    * Relative frequency for randomly generated background records (≈ Estonian crime statistics).
-   * 0 = never picked at random (sexual offences, terrorism) — only used explicitly.
+   * 0 = never picked at random (sexual offences, terrorism), only used explicitly.
    */
   weight?: number;
 }
@@ -108,7 +108,7 @@ export const ACT_NAMES: Record<LawAct, Text> = {
 /**
  * Value of one trahviühik (fine unit) in euros, KarS § 47 lg 1.
  * unverified: it was 4 € for years; a doubling to 8 € from 2025 was reported but could not be
- * confirmed in this build. Every fine text below is computed from this constant — change it here.
+ * confirmed in this build. Every fine text below is computed from this constant, so change it here.
  */
 export const FINE_UNIT_EUR = 8;
 
@@ -1215,10 +1215,10 @@ export function lawCitation(l: Law): string {
   return `${l.act} ${l.para}`;
 }
 
-/** "KarS § 121 lg 1 — Kehaline väärkohtlemine" (bilingual). */
+/** "KarS § 121 lg 1: Kehaline väärkohtlemine" (bilingual). */
 export function lawLabel(l: Law): Text {
   const c = lawCitation(l);
-  return { et: `${c} — ${l.title.et}`, en: `${c} — ${l.title.en}` };
+  return { et: `${c}: ${l.title.et}`, en: `${c}: ${l.title.en}` };
 }
 
 export function lawsByTag(tag: string): Law[] {

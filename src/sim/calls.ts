@@ -7,7 +7,7 @@
  *  - `ActiveCall.lines[i].t` may lie in the future (caller still "talking"); show only lines
  *    with `t <= s.now`.
  *  - Russian callers: every caller line carries the original in `ru`. While no interpreter is on
- *    the call, `text` ALSO holds the Russian original (both et/en) — so the UI can always render
+ *    the call, `text` ALSO holds the Russian original (both et/en), so the UI can always render
  *    `text`. Switching the interpreter on translates earlier lines in place and later answers
  *    arrive translated (+20 game-s each, −75 % with the `interpreter_line` upgrade).
  *  - Facts the caller gives (address confirmed, weapon, description, plate…) are appended to
@@ -147,7 +147,7 @@ export const OPENINGS: Record<Situation, Phrase[]> = {
   ],
   burglary: [
     P('Ко мне в квартиру залезли, дверь взломана!', 'Minu korterisse on sisse murtud, uks on lõhutud!', 'Someone broke into my flat, the door has been forced!'),
-    P('Пришла домой — всё перевёрнуто, техники нет.', 'Tulin koju — kõik on pea peale pööratud, tehnika on kadunud.', 'I came home and everything is turned upside down, the electronics are gone.'),
+    P('Пришла домой, а всё перевёрнуто, техники нет.', 'Tulin koju ja kõik on pea peale pööratud, tehnika on kadunud.', 'I came home and everything is turned upside down, the electronics are gone.'),
   ],
   burglary_progress: [
     P('Кто-то лезет в окно к соседям, прямо сейчас!', 'Keegi ronib praegu naabrite aknast sisse!', 'Someone is climbing in through the neighbours’ window right now!'),
@@ -233,7 +233,7 @@ export const OPENINGS: Record<Situation, Phrase[]> = {
 
 /** Situation-free answer phrases. Placeholders: {address} {city} {place} {desc} {car} {plate} {platePart} {dir} {n} {m} {name}. */
 export const ANSWERS = {
-  where_addr: P('Адрес — {address}, {city}.', 'Aadress on {address}, {city}.', 'The address is {address}, {city}.'),
+  where_addr: P('Адрес: {address}, {city}.', 'Aadress on {address}, {city}.', 'The address is {address}, {city}.'),
   where_place: P('Я возле «{place}», адрес {address}.', 'Ma olen {place} juures, {address}.', "I'm at {place}, {address}."),
   where_rural: P('Точно не знаю… где-то возле {address}.', 'Täpselt ei tea… kuskil {address} lähedal.', "I'm not sure exactly… somewhere near {address}."),
   where_road: P('На трассе, {address}.', 'Maantee peal, {address}.', "On the highway, {address}."),
@@ -927,11 +927,11 @@ function generateAnswer(s: SimState, call: ActiveCall, inc: Incident, tpl: Incid
         return { phrase: fillPhrase(ANSWERS.where_rural, v), informative: true, fact: fact(`asukoht ligikaudu ${loc.address}`, `approximate location ${loc.address}`) };
       }
       if (loc.placeName && loc.placeName !== loc.address) {
-        return { phrase: fillPhrase(ANSWERS.where_place, v), informative: true, fact: fact(`aadress kinnitatud — ${loc.placeName}, ${loc.address}`, `address confirmed — ${loc.placeName}, ${loc.address}`) };
+        return { phrase: fillPhrase(ANSWERS.where_place, v), informative: true, fact: fact(`aadress kinnitatud: ${loc.placeName}, ${loc.address}`, `address confirmed: ${loc.placeName}, ${loc.address}`) };
       }
       const addr = fillPhrase(ANSWERS.where_addr, v);
       if (ruCity) addr.ru = addr.ru.replace(`, ${loc.city}.`, `, ${ruCity}.`);
-      return { phrase: addr, informative: true, fact: fact(`aadress kinnitatud — ${loc.address}, ${loc.city}`, `address confirmed — ${loc.address}, ${loc.city}`) };
+      return { phrase: addr, informative: true, fact: fact(`aadress kinnitatud: ${loc.address}, ${loc.city}`, `address confirmed: ${loc.address}, ${loc.city}`) };
     }
     case 'what': {
       const sit = situationOf(inc, tpl, s);
@@ -948,7 +948,7 @@ function generateAnswer(s: SimState, call: ActiveCall, inc: Incident, tpl: Incid
       }
       // Estonian callers may add one detail the HK card does not show yet.
       const extra = call.lang !== 'ru' && inc.hiddenDetails[0] ? fillText(inc.hiddenDetails[0], varsFor(s, inc)) : undefined;
-      if (extra) ph = { ru: ph.ru, et: `${ph.et} Ja veel — ${lcFirst(extra.et)}`, en: `${ph.en} And also — ${lcFirst(extra.en)}` };
+      if (extra) ph = { ru: ph.ru, et: `${ph.et} Ja veel: ${lcFirst(extra.et)}`, en: `${ph.en} And also, ${lcFirst(extra.en)}` };
       return { phrase: ph, informative: true, fact: extra ? { et: `Helistaja lisab: ${extra.et}`, en: `Caller adds: ${extra.en}` } : undefined };
     }
     case 'injured':

@@ -1,5 +1,5 @@
 /**
- * Spawning (engine-core) — DESIGN §4.2: Poisson process, template choice, incident generation
+ * Spawning (engine-core, DESIGN §4.2): Poisson process, template choice, incident generation
  * (location, persons, vehicles, texts, SLA, beats…).
  */
 import { pickLocation } from '@/gen/address';

@@ -111,7 +111,7 @@ Two jaoskonnad cover all of Harju [VERIFIED].
 | **Lääne-Harju politseijaoskond** | Rahumäe tee 6/1, Kristiine, Tallinn | Has patrullitalitus with **patrulligrupp I–VIII** and four district groups (rows below). An older court ruling mentions a Põhja prefecture arrest house at Rahumäe tee 6. | VERIFIED |
 | ↳ Põhja-Tallinna piirkonnagrupp | Kolde pst 65, Põhja-Tallinn | Covers Kalamaja, Kopli, Pelguranna and Merimetsa | VERIFIED address |
 | ↳ Mustamäe-Kristiine piirkonnagrupp | (Kolde pst 65 listed for one officer) | | VERIFIED |
-| ↳ Nõmme-Haabersti piirkonnagrupp | — | | VERIFIED group |
+| ↳ Nõmme-Haabersti piirkonnagrupp | – | | VERIFIED group |
 | ↳ Lääne-Harju piirkonnagrupp | Office at Päästekeskuse tee 1, Tammemäe küla, Saku vald | Covers western and southern rural Harju: Keila, Saue, Harku, Saku, Kiili, Lääne-Harju (Paldiski), Kernu | VERIFIED office; area LIKELY |
 | Operatiivbüroo / **juhtimiskeskus** | Osmussaare tn 2, Lasnamäe, Tallinn | Regional command centre; see §4 | VERIFIED |
 | Teabebüroo / **kinnipidamiskeskus** | Linnaaru tee 5/1, Soodevahe küla, Rae vald | Detention centre; see §3 | VERIFIED |
@@ -203,7 +203,7 @@ Five jaoskonnad [VERIFIED].
 | **Viru Vangla** | Ülesõidu 1, 41536 Jõhvi | Arrested, 48-hour and sobering-up cases from Ida-Viru | VERIFIED |
 | **Pärnu arestimaja** | Pärnu | Lääne prefecture's main arrest house; also takes sobering-up cases. The Chancellor of Justice inspected it in April 2023. | VERIFIED |
 | Small arrest cells (*arestimaja kambrid*) | Haapsalu, Kärdla, Paide, Viljandi, Võru, Valga (a new Valga arrest house was planned for 2021) | Short holds before transfer | VERIFIED via Chancellor inspection reports; current operation of each UNSURE |
-| Rakvere, Narva, Kuressaare cells | — | Short holds | UNSURE |
+| Rakvere, Narva, Kuressaare cells | – | Short holds | UNSURE |
 | **Harku kinnipidamiskeskus** | Harku vald | Immigration detention for people being deported; not for drunks or arrests | LIKELY |
 
 **Legal hooks** [LIKELY unless marked]:
@@ -291,7 +291,7 @@ On older terms: "**operatiivkorrapidaja**" (operational duty officer) and "**kor
 | Crossing | Crossings in 2025 | 2026 hours and status |
 |---|---|---|
 | **Narva-1** (Ida, Narva) | 626,470 | Pedestrian crossing open 07–19 from 15 June 2026. PPA has temporarily closed exit traffic when Russian processing slowed (2024). |
-| **Narva-2** (pedestrian bridge) | — | Closed on 28 November, probably 2022, for border infrastructure rebuilding |
+| **Narva-2** (pedestrian bridge) | – | Closed on 28 November, probably 2022, for border infrastructure rebuilding |
 | **Koidula** (Lõuna, Põlva county; road and rail) | 213,910 | Since **24 Feb 2026**, closed to all traffic at night (open 07:00–19:00). Extended to 31 Aug 2026. Traffic up 6% since the night closure. |
 | **Luhamaa** (Lõuna, Võru county) | 239,542 | Same night closure and extension as Koidula. Traffic down about 20% since the night closure. |
 
@@ -376,13 +376,13 @@ Source: the Politsei ja piirivalve seadus (PPVS) rank list. The search reached a
 | 3 | **vanemkonstaabel** | vanemassistent, vaneminspektor (veebel) | specialist |
 | 4 | **ülemkonstaabel** | ülemassistent, üleminspektor (vanemveebel) | senior specialist |
 | 5 | **komissar** | (ülemveebel) | senior specialist / junior leader |
-| 6 | **vanemkomissar** | — | leader / senior specialist |
-| 7 | **politseileitnant** | — | officer |
-| 8 | **politseikapten** | — | officer |
-| 9 | **politseimajor** | — | officer |
-| 10 | **politseikolonelleitnant** | — | senior officer |
-| 11 | **politseikolonel** | — | senior officer |
-| 12 | **politseikindral** | — | general (Director General) |
+| 6 | **vanemkomissar** | – | leader / senior specialist |
+| 7 | **politseileitnant** | – | officer |
+| 8 | **politseikapten** | – | officer |
+| 9 | **politseimajor** | – | officer |
+| 10 | **politseikolonelleitnant** | – | senior officer |
+| 11 | **politseikolonel** | – | senior officer |
+| 12 | **politseikindral** | – | general (Director General) |
 
 Notes:
 - The veebel ranks applied only to ship specialist posts in the older text [VERIFIED].

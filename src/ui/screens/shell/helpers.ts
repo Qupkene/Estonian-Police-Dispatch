@@ -1,4 +1,4 @@
-// Pure helpers for the shell screens (no DOM / React) — unit-tested in tests/shell.test.ts.
+// Pure helpers for the shell screens (no DOM / React), unit-tested in tests/shell.test.ts.
 import countiesGeo from '@/data/geo/counties.json';
 import { REGIONS, REGION_IDS } from '@/data/regions';
 import { makeIdcode } from '@/gen/isikukood';
@@ -125,7 +125,7 @@ export function looksLikeIdcode(s: string): boolean {
   return /^[1-8]\d{10}$/.test(s.replace(/\s/g, ''));
 }
 
-/** "+372 5123 4567" — accepts with or without spaces/+372. */
+/** Mobile numbers like "+372 5123 4567", with or without spaces/+372. */
 export function looksLikeEstonianMobile(s: string): boolean {
   const digits = s.replace(/[\s-]/g, '').replace(/^\+?372/, '');
   return /^5\d{6,7}$/.test(digits);
@@ -470,7 +470,7 @@ export function presetHoliday(date: YMD): Text | undefined {
 
 // ── Report helpers ───────────────────────────────────────────────────────────
 
-/** Default response-time targets (urban SLA, minutes) — DESIGN §4.5. */
+/** Default response-time targets (urban SLA, minutes), see DESIGN §4.5. */
 export const SLA_TARGETS: Record<Priority, number> = { 1: 10, 2: 20, 3: 45, 4: 120 };
 
 export type Tone = 'gold' | 'ok' | 'accent' | 'warn' | 'danger' | 'neutral';

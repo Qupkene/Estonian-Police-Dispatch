@@ -2,7 +2,7 @@
  * Estonian weather model: monthly climatology (Tallinn 1991–2020 normals, regional offsets for
  * the colder inland south-east and the milder islands), a diurnal temperature cycle, an AR(1)
  * temperature anomaly and an hourly Markov drift of the weather kind. Road factors follow the
- * DESIGN (snow 1.3, sleet/ice 1.4, rain 1.1, fog 1.15, storm 1.25) plus "libedus" — wet roads
+ * DESIGN (snow 1.3, sleet/ice 1.4, rain 1.1, fog 1.15, storm 1.25) plus "libedus": wet roads
  * freezing after rain or sleet (1.35).
  *
  * Owned by engine-systems. Randomness only via Rng / withRng.
@@ -244,7 +244,7 @@ export function isBadWeather(w: Weather): boolean {
 }
 
 /**
- * Called every game hour: slowly drift weather. Safe to call more often — it only acts when
+ * Called every game hour: slowly drift weather. Safe to call more often: it only acts when
  * ≥ 50 game-minutes have passed since the last update (tracked in `s.flags['wx:last']`).
  * Set `s.flags['wx:locked'] = true` (director / forced weather) to freeze the weather.
  */
@@ -302,7 +302,7 @@ export function updateWeather(s: SimState): void {
         title: becameIcy
           ? { et: 'Libedushoiatus', en: 'Ice warning' }
           : next.kind === 'fog'
-            ? { et: 'Udu — halb nähtavus', en: 'Fog — poor visibility' }
+            ? { et: 'Udu: halb nähtavus', en: 'Fog: poor visibility' }
             : { et: 'Ilmahoiatus', en: 'Weather warning' },
         text: {
           et: `${next.text.et}. Ekipaažidel arvestada pikema sõiduajaga, sõita ettevaatlikult.`,

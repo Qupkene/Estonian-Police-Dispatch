@@ -1,5 +1,5 @@
 // Director-mode UI state shared by DirectorPanel (ui-tools, owner) and GameScreen/MapView (ui-game). Keep this API.
-// Extensions (ui-tools): `commitPlacing(coord)` — one call for MapView onMapClick that performs the pending
+// Extensions (ui-tools): `commitPlacing(coord)`, one call for MapView onMapClick that performs the pending
 // placement (directorSpawn with priority/summary overrides, or directorMoveUnit) and resets `placing`;
 // `scene` progress for the "Stseenid" presets; `lastSpawned` incident id.
 import { create } from 'zustand';

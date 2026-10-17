@@ -115,7 +115,7 @@ export function isOnlineStyle(key: MapStyleKey): key is Exclude<MapStyleKey, 'ta
 }
 
 export interface BuildStyleOptions {
-  /** App base URL (import.meta.env.BASE_URL, ideally absolute) — glyphs are served from `${base}glyphs/`. */
+  /** App base URL (import.meta.env.BASE_URL, ideally absolute). Glyphs are served from `${base}glyphs/`. */
   base: string;
   /** Hide labels (cinematic mode). */
   cinematic?: boolean;

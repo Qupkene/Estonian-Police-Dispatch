@@ -87,7 +87,7 @@ export function dispatchPicked(incidentId: string): boolean {
   return dispatch(incidentId, [best.unit.id]).ok;
 }
 
-/** "Saada abi!" — send the best unit matching the active backup request. */
+/** "Saada abi!": send the best unit matching the active backup request. */
 export function sendBackup(incidentId: string): boolean {
   const s = useGame.getState().sim;
   const inc = s?.incidents[incidentId];

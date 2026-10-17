@@ -20,7 +20,7 @@ const LEGACY_C = assignment.C as string[];
 
 const ALLOWED = new Set<string>(TEMPLATE_PLACEHOLDERS);
 const SUCCESS_GRID = Array.from({ length: 21 }, (_, i) => i / 20);
-/** Unit types not present in every prefecture's roster — never a hard requirement (ideal only). */
+/** Unit types not present in every prefecture's roster, so never a hard requirement (ideal only). */
 const NATIONAL_ONLY = new Set<string>(['special', 'heli', 'boat']);
 /** Place kinds whose locations always carry a placeName (curated-only kinds in sim/spawner.ts, plus lakes). */
 const NAMED_PLACE_KINDS = new Set<string>([

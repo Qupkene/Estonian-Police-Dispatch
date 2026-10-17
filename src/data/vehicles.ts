@@ -5,8 +5,8 @@
  * Weights are relative *within a vehicle kind* (the generator picks the kind first). They follow
  * the shape of the Estonian registered fleet (Toyota, VW, Škoda, Audi, Volvo, BMW on top; many
  * 10–20-year-old Avensis/Passat/Octavia/V70 wagons) from prior knowledge, not an official
- * statistics pull. `theft` is relative theft attractiveness (Land Cruiser, Lexus, RAV4 highest —
- * keyless relay thefts are a well-known problem in Estonia).
+ * statistics pull. `theft` is relative theft attractiveness (Land Cruiser, Lexus, RAV4 highest,
+ * since keyless relay thefts are a well-known problem in Estonia).
  */
 import type { Text, VehicleKind } from '@/sim/types';
 

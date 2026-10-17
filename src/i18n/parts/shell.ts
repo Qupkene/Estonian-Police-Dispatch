@@ -5,17 +5,17 @@ export default {
   // ── Shared primitives ──
   'shell.ui.close': { et: 'Sulge', en: 'Close' },
   'shell.prio.1': {
-    et: 'P1 (PPA „Charlie“) — elu on otseses ohus, sõit kohe',
-    en: 'P1 (PPA “Charlie”) — life in immediate danger, respond now',
+    et: 'P1 (PPA „Charlie“): elu on otseses ohus, sõit kohe',
+    en: 'P1 (PPA “Charlie”): life in immediate danger, respond now',
   },
   'shell.prio.2': {
-    et: 'P2 (PPA „Bravo“) — kiireloomuline, olukord võib eskaleeruda',
-    en: 'P2 (PPA “Bravo”) — urgent, the situation may escalate',
+    et: 'P2 (PPA „Bravo“): kiireloomuline, olukord võib eskaleeruda',
+    en: 'P2 (PPA “Bravo”): urgent, the situation may escalate',
   },
-  'shell.prio.3': { et: 'P3 (PPA „Alfa“) — tavaline väljakutse', en: 'P3 (PPA “Alfa”) — routine call-out' },
+  'shell.prio.3': { et: 'P3 (PPA „Alfa“): tavaline väljakutse', en: 'P3 (PPA “Alfa”): routine call-out' },
   'shell.prio.4': {
-    et: 'P4 — ootab või lahendatav telefoni teel',
-    en: 'P4 — can wait or be handled by phone',
+    et: 'P4: ootab või lahendatav telefoni teel',
+    en: 'P4: can wait or be handled by phone',
   },
 
   'shell.back': { et: 'Tagasi', en: 'Back' },
@@ -51,8 +51,8 @@ export default {
   'shell.boot.ok': { et: 'OK', en: 'OK' },
   'shell.boot.offline': { et: 'OFFLINE', en: 'OFFLINE' },
   'shell.boot.offlineNote': {
-    et: 'Võrguühendus puudub — kasutan võrguühenduseta kaarti',
-    en: 'No connection — using the offline map',
+    et: 'Võrguühendus puudub, kasutan võrguühenduseta kaarti',
+    en: 'No connection, using the offline map',
   },
   'shell.boot.skip': { et: 'Vajuta suvalist klahvi, et jätkata', en: 'Press any key to continue' },
 
@@ -90,8 +90,8 @@ export default {
   'shell.login.id.owner': { et: 'Kaardi omanik', en: 'Card holder' },
   'shell.login.id.pin': { et: 'Sisesta PIN1', en: 'Enter PIN1' },
   'shell.login.id.pinHint': {
-    et: 'Simulatsioon — sobib iga neljakohaline kood.',
-    en: 'Simulation — any four-digit code works.',
+    et: 'Simulatsioon: sobib iga neljakohaline kood.',
+    en: 'Simulation: any four-digit code works.',
   },
   'shell.login.id.pad': { et: 'Numbriklahvistik', en: 'Number pad' },
   'shell.login.id.erase': { et: 'Kustuta', en: 'Delete' },
@@ -338,8 +338,8 @@ export default {
   'shell.brief.career.staff': { et: 'Töötajad tööl', en: 'Staff on duty' },
   'shell.brief.career.roster': { et: 'Vahetuse koosseis', en: 'Shift roster' },
   'shell.brief.career.noRoster': {
-    et: 'Koosseisu ei saanud koostada — kasutatakse prefektuuri vaikimisi üksusi.',
-    en: "Couldn't build a roster — the prefecture's default units will be used.",
+    et: 'Koosseisu ei saanud koostada. Kasutatakse prefektuuri vaikimisi üksusi.',
+    en: "Couldn't build a roster. The prefecture's default units will be used.",
   },
   'shell.brief.career.noProfileTitle': { et: 'Karjääriprofiili pole', en: 'No career profile' },
   'shell.brief.career.noProfile': {
@@ -522,8 +522,8 @@ export default {
     en: 'Realism is based on public sources (ERR, politsei.ee, Riigi Teataja). All people, names, numbers and incidents in the game are fictional.',
   },
   'shell.cred.emblem': {
-    et: 'EPD embleem (kilp, rukkilill ja monogramm) on mängu jaoks loodud originaal — see ei ole PPA ega Eesti riigi sümbol.',
-    en: 'The EPD emblem (shield, cornflower and monogram) is an original made for the game — it is not a PPA or Estonian state symbol.',
+    et: 'EPD embleem (kilp, rukkilill ja monogramm) on mängu jaoks loodud originaal. See ei ole PPA ega Eesti riigi sümbol.',
+    en: 'The EPD emblem (shield, cornflower and monogram) is an original made for the game. It is not a PPA or Estonian state symbol.',
   },
 
   // ── Legacy ──
@@ -555,8 +555,8 @@ export default {
   'shell.leg.v2025f3': { et: '„Toetust vajab“ häire', en: 'The "Backup needed" alarm' },
   'shell.leg.open': { et: 'Ava', en: 'Open' },
   'shell.leg.note': {
-    et: 'Vanad failid laadisid pilte ja helisid välistest teenustest — osa neist ei pruugi enam töötada.',
-    en: 'The old files loaded images and sounds from external services — some of them may no longer work.',
+    et: 'Vanad failid laadisid pilte ja helisid välistest teenustest. Osa neist ei pruugi enam töötada.',
+    en: 'The old files loaded images and sounds from external services. Some of them may no longer work.',
   },
 
   // ── Report ──
@@ -596,8 +596,8 @@ export default {
   },
   'shell.rep.highlights': { et: 'Olulisemad hetked', en: 'Highlights' },
   'shell.rep.noHighlights': {
-    et: 'Vaikne vahetus — midagi erilist ei juhtunud.',
-    en: 'A quiet shift — nothing special happened.',
+    et: 'Vaikne vahetus: midagi erilist ei juhtunud.',
+    en: 'A quiet shift: nothing special happened.',
   },
   'shell.rep.injuries': { et: 'Vigastatud ametnikud', en: 'Injured officers' },
   'shell.rep.noInjuries': { et: 'Keegi ei saanud viga. Hea töö!', en: 'Nobody got hurt. Good job!' },

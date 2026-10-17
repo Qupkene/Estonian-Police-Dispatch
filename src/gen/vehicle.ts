@@ -93,7 +93,7 @@ export const INSPECTION_SCHEDULE: Record<VehicleKind, number[] | null> = {
 /**
  * Background chance of a lapsed insurance / test / suspended registration when the spec does not
  * set it (research § 9: per random traffic stop ≈ 8–12 % expired test, 2–4 % uninsured,
- * 0.5–1 % suspended). An explicit spec value — including 0 — always wins.
+ * 0.5–1 % suspended). An explicit spec value (including 0) always wins.
  */
 const BASE_NO_INSURANCE: Record<VehicleKind, number> = { car: 0.035, van: 0.03, truck: 0.01, bus: 0.005, moto: 0.05, moped: 0.08, quad: 0.08 };
 const BASE_NO_INSPECTION: Record<VehicleKind, number> = { car: 0.09, van: 0.07, truck: 0.03, bus: 0.01, moto: 0.08, moped: 0.03, quad: 0.06 };
@@ -444,8 +444,8 @@ export function generateVehicle(rng: Rng, o: VehicleGenOptions): Vehicle {
     if (c.cat === 'taxi') notes.push({ et: 'Kasutatakse taksoveoks.', en: 'Used as a taxi.' });
     if (c.cat === 'rental')
       notes.push({
-        et: 'Rendisõiduk — rentniku andmed rendileandjalt.',
-        en: 'Rental vehicle — renter details available from the rental company.',
+        et: 'Rendisõiduk. Rentniku andmed saab rendileandjalt.',
+        en: 'Rental vehicle. Renter details are available from the rental company.',
       });
   }
 
@@ -511,7 +511,7 @@ export function generateVehicle(rng: Rng, o: VehicleGenOptions): Vehicle {
   return v;
 }
 
-/** "hall Toyota Avensis" / "grey Toyota Avensis" — for the {car} placeholder. */
+/** "hall Toyota Avensis" / "grey Toyota Avensis", used for the {car} placeholder. */
 export function describeVehicle(v: Pick<Vehicle, 'color' | 'make' | 'model'>): Text {
   return { et: `${v.color.et} ${v.make} ${v.model}`, en: `${v.color.en} ${v.make} ${v.model}` };
 }

@@ -73,7 +73,7 @@ export function CountryFlag({ code, size = 18 }: { code: Citizenship | string; s
       </>
     );
   } else {
-    // XXA — määratlemata kodakondsus ("grey passport")
+    // XXA: määratlemata kodakondsus ("grey passport")
     body = (
       <>
         <rect width={18} height={12} style={v('--tl-flag-grey')} />

@@ -1,5 +1,5 @@
-// EPD sound effects — everything is synthesised with the Web Audio API (no audio files).
-// Owned by ui-shell. Public API (SfxName, sfx.*) is used by other modules — keep it stable.
+// EPD sound effects: everything is synthesised with the Web Audio API (no audio files).
+// Owned by ui-shell. Public API (SfxName, sfx.*) is used by other modules, so keep it stable.
 //
 // Signal chain:  voices → sfxBus ─┐
 //                ring  → ringBus ─┼→ master (volume) → compressor → destination
@@ -52,7 +52,7 @@ export const SFX_NAMES: SfxName[] = [
 /** Ring cadence (seconds). CEPT/European style single long ring; the off-time is shortened for gameplay. */
 export const RING_CADENCE = { on: 1.0, off: 2.0 } as const;
 
-/** Burst start times/durations for `count` rings (pure — used by the scheduler and tests). */
+/** Burst start times/durations for `count` rings (pure, used by the scheduler and tests). */
 export function ringSchedule(
   count: number,
   cadence: { on: number; off: number } = RING_CADENCE,
@@ -399,7 +399,7 @@ const DESIGNS: Record<SfxName, Design> = {
     });
     squelch(e, t + 1.5, 0.15, 0.12 * g);
   },
-  // "Toetust vajab" — homage to the 2025 supportNeededSound: three urgent rising sweeps + double beep.
+  // "Toetust vajab" is a homage to the 2025 supportNeededSound: three urgent rising sweeps + double beep.
   backup: (e, t, g) => {
     for (let i = 0; i < 3; i++) {
       tone(e, {

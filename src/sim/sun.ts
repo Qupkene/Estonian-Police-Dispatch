@@ -1,5 +1,5 @@
 /**
- * Solar position — NOAA "General Solar Position" equations (the same maths as the NOAA
+ * Solar position: NOAA "General Solar Position" equations (the same maths as the NOAA
  * solar calculator spreadsheet). Accurate to well under a minute for sunrise/sunset at
  * Estonian latitudes, which is what the day/night cycle, the map shading and the
  * pursuit/search night modifiers need.
@@ -11,7 +11,7 @@ import { DAY, MIN, wall } from './time';
 const RAD = Math.PI / 180;
 const DEG = 180 / Math.PI;
 
-/** Tallinn city centre (Raekoja plats) — default observer for the whole game. */
+/** Tallinn city centre (Raekoja plats): the default observer for the whole game. */
 export const TALLINN: { lat: number; lon: number } = { lat: 59.437, lon: 24.745 };
 
 /** Zenith for official sunrise/sunset: 90° + 50′ (refraction 34′ + solar radius 16′). */
@@ -107,7 +107,7 @@ export function sunTimes(t: number, lat: number, lon: number): { sunrise: number
   return { sunrise: midnight - 2 * 60 * MIN, sunset: midnight + DAY - 2 * 60 * MIN };
 }
 
-/** Civil twilight (sun 6° below the horizon) for the day containing t — street lights etc. */
+/** Civil twilight (sun 6° below the horizon) for the day containing t, used for street lights etc. */
 export function civilTwilight(t: number, lat: number, lon: number): { dawn: number; dusk: number } {
   const midnight = utcMidnightOfLocalDay(t);
   const dawn = eventMinutes(midnight, lat, lon, -1, 96);
@@ -147,7 +147,7 @@ export function isDaylight(t: number, lat = TALLINN.lat, lon = TALLINN.lon): boo
   return sunAltitude(t, lat, lon) > -0.833;
 }
 
-/** Light level 0 (night) … 1 (full day), smooth through civil twilight — for map shading / night modifiers. */
+/** Light level 0 (night) … 1 (full day), smooth through civil twilight. Used for map shading / night modifiers. */
 export function daylightFactor(t: number, lat = TALLINN.lat, lon = TALLINN.lon): number {
   const alt = sunAltitude(t, lat, lon);
   if (alt >= 6) return 1;

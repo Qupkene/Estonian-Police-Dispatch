@@ -1,16 +1,16 @@
 /**
- * Põhja prefektuur — Harju maakond incl. Tallinn.
+ * Põhja prefektuur: Harju maakond incl. Tallinn.
  *
  * Sources: docs/research/ppa-organisation.md (stations, custody, units, vehicles), prior
  * geographic knowledge, and the processed geodata in src/data/geo (district polygons of
  * Tallinn, settlement centroids). Every Tallinn street/place point is checked against
  * tallinn_districts.json in tests/regions-pohja-ida.test.ts.
  *
- * ── Radio callsigns (FICTIONAL — PPA does not publish its real kutsungid) ──────────────
+ * ── Radio callsigns (FICTIONAL: PPA does not publish its real kutsungid) ───────────────
  *   "PÕHJA xy"           patrol crew: x = area / base, y = crew number
  *       1y  Kesklinn (prefecture HQ, Pärnu mnt 139)
- *       2y  Ida-Harju jaoskond (Lasnamäe, Pirita, east Tallinn) — P. Pinna 4
- *       3y  Lääne-Harju jaoskond (Kristiine, Mustamäe, Nõmme, Haabersti) — Rahumäe tee
+ *       2y  Ida-Harju jaoskond (Lasnamäe, Pirita, east Tallinn), P. Pinna 4
+ *       3y  Lääne-Harju jaoskond (Kristiine, Mustamäe, Nõmme, Haabersti), Rahumäe tee
  *       4y  Põhja-Tallinn (Kolde pst)
  *       5y  rural east Harju (Kose office)
  *       6y  rural west/south Harju (Tammemäe/Saku office)
@@ -152,14 +152,14 @@ const STATIONS: Station[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Roster — 'normal' is the default; minDifficulty adds units for harder levels.
+// Roster: 'normal' is the default; minDifficulty adds units for harder levels.
 // Normal: 12 patrols (day 9 / night 12), 2 rapid, K9, traffic, criminal, community,
 // transport, K-komando (on call), helicopter (on call), 1 auxiliary night crew.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // prettier-ignore
 const ROSTER: UnitSpec[] = [
-  // Patrols — Kesklinn / prefecture HQ (the original 2024 officers ride here)
+  // Patrols: Kesklinn / prefecture HQ (the original 2024 officers ride here)
   {
     callsign: 'PÕHJA 11',
     type: 'patrol',
@@ -312,7 +312,7 @@ const TOWNS: Town[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Streets — points are ordered by house number. Districts use the official
+// Streets: points are ordered by house number. Districts use the official
 // linnaosa names (Kesklinn, Lasnamäe, Mustamäe, Põhja-Tallinn, Haabersti,
 // Kristiine, Nõmme, Pirita). Streets crossing a district border are split.
 // ─────────────────────────────────────────────────────────────────────────────

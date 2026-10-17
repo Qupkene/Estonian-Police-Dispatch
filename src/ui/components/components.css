@@ -1,4 +1,4 @@
-/* EPD design system — shared primitives (owned by ui-shell). Tokens only (see styles/tokens.css). */
+/* EPD design system: shared primitives (owned by ui-shell). Tokens only (see styles/tokens.css). */
 
 /* ── Focus ring shared by interactive primitives ──────────────────────────── */
 .ui-btn:focus-visible,

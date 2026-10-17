@@ -129,7 +129,7 @@
   color: var(--text-2);
 }
 .sh-mapstyle__prev {
-  /* Preview palettes (illustrative only — real styles live in src/map). */
+  /* Preview palettes (illustrative only, real styles live in src/map). */
   --mp-bg: #0d1117;
   --mp-road: #2b3442;
   --mp-road2: #3a4556;

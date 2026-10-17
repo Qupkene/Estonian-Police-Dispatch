@@ -1,10 +1,10 @@
-# EPD 2.0 — Eesti Politsei Dispetšer
+# EPD 2.0: Eesti Politsei Dispetšer
 
 > Mitteametlik fännimäng. Ei ole seotud Politsei- ja Piirivalveametiga (PPA).
 > Domeen: **politsei.eu**
 
 This is the game design + architecture spec. Every module author must read it. Types live in
-`src/sim/types.ts` (the contract — do not change existing fields; adding optional fields is OK
+`src/sim/types.ts` (the contract: do not change existing fields; adding optional fields is OK
 if you coordinate in your report).
 
 ## 1. Vision
@@ -14,9 +14,9 @@ The 2024 prototype (`public/legacy/politseimang-2024.html`) and the 2025 live ve
 "Send" buttons, a person search, a rating ("Staatus"), money, hiring officers, backup requests
 ("Toetust vajab → Saada abi!") and bonus for the right officer type.
 
-EPD 2.0 keeps **exactly that idea** — you are the dispatcher at a police command centre
+EPD 2.0 keeps **exactly that idea**: you are the dispatcher at a police command centre
 (*juhtimiskeskus*), calls come in, you send officers, you look people up in the database, you
-grow your prefecture — and makes it a modern, realistic, hyper-detailed CAD
+grow your prefecture. It turns that idea into a modern, realistic, hyper-detailed CAD
 (computer-aided dispatch) simulator:
 
 * A real map of Estonia (offline vector map built from geoBoundaries + Natural Earth; online
@@ -25,13 +25,13 @@ grow your prefecture — and makes it a modern, realistic, hyper-detailed CAD
 * 150+ incident types (all 116 legacy calls included, flagged `legacy: true`), with on-scene
   "beats": registry checks, decisions, backup requests, ambulance/rescue requests, transports
   to the arrest house, pursuits and area searches.
-* A living registry ("Andmebaas" — homage to the original "Politsei Andmebaas"): people with
+* A living registry ("Andmebaas", a homage to the original "Politsei Andmebaas"): people with
   valid isikukood, addresses, driving licences, weapon permits, criminal records citing real
   Estonian law paragraphs, wanted flags, restraining orders; vehicles with plates, VIN,
   insurance, inspection and stolen flags. Procedural SVG portraits.
 * Interactive 112 transfers: Häirekeskus connects a caller, you ask questions, classify, create
   the event. Russian-speaking callers in Ida-Virumaa (interpreter option). Prank calls.
-* Radio log (ESTER TETRA-style — Estonia’s emergency-services network; VIRVE is Finland’s) with replies, procedural radio/phone sounds, optional speech synthesis.
+* Radio log styled on ESTER, Estonia’s TETRA emergency-services network (VIRVE is Finland’s), with replies, procedural radio/phone sounds, optional speech synthesis.
 * Day/night (real sunrise/sunset for 59°N), seasons, weather, holidays (jaanipäev, New Year).
 * Career with economy (from the 2025 version): reputation **Staatus**, **budget (€)**, monthly
   funding based on performance, **hire officers** (salary, skill, specialty), buy vehicles and
@@ -145,8 +145,8 @@ Location: pick a place kind from `template.places`, then:
 (≥1 unit assigned and en route) → `onscene` (≥1 unit arrived) → `closed`.
 
 * **Acknowledge** within ~2 game-min or trust drops (legacy "Aktsepteeri").
-* **Reject/close without units** (legacy "Keeldu"): `closeIncident(how)` — `referral` to an
-  agency, `phone` advice, `duplicate`, `prank`. Correct when the template is a referral/prank/
+* **Reject/close without units** (legacy "Keeldu"): `closeIncident(how)`, where `how` is `referral` to an
+  agency, `phone` advice, `duplicate` or `prank`. Correct when the template is a referral/prank/
   false alarm or truly P4; wrong for real emergencies (big penalty).
 * Units en route: `move` with siren for P1–P2. On arrival `onscene`. Work progresses at
   `assigned units on scene × skill factor` unit-minutes per minute until `onSceneMin` is reached
@@ -162,7 +162,7 @@ Location: pick a place kind from `template.places`, then:
 
 ### 4.4 Beats (on-scene interactions)
 Each `BeatSpec` in a template becomes a `BeatState`. When it fires:
-* `query` — unit radios "kontrolli isikut, isikukood 38506120236" (or plate). A `RadioMsg` with
+* `query`: unit radios "kontrolli isikut, isikukood 38506120236" (or plate). A `RadioMsg` with
   `replies` is created. Reply ids for person: `clean`, `wanted`, `restraining`, `nolicense`,
   `weapon`, `probation`, `notfound`; for vehicle: `clean`, `stolen`, `noinsurance`,
   `noinspection`, `suspended`, `ownerwanted`, `notfound`. The engine knows the truth from the
@@ -171,13 +171,13 @@ Each `BeatSpec` in a template becomes a `BeatState`. When it fires:
   answers. Correct → `success +0.15`; wrong → `success −0.2`, possibly `trust −5` (e.g. released
   a wanted person). No answer within 6 game-min → officers check themselves slowly (`time +8`,
   `success −0.05`) unless the MDT upgrade is owned.
-* `choice` — radio message with option replies; `defaultOption` applied on timeout.
-* `backup` — legacy "Toetust vajab": the incident card turns red, alarm sound, countdown
+* `choice`: radio message with option replies; `defaultOption` applied on timeout.
+* `backup` (legacy "Toetust vajab"): the incident card turns red, alarm sound, countdown
   (`timeoutMin`). Dispatching a unit matching `need` before timeout → `successEffects`; else
   `failEffects` (legacy: call failed, Staatus −6..−8). While waiting work is paused.
-* `agency` — "vajame kiirabi": player must press "Teavita Häirekeskust: Kiirabi". Agency arrival
+* `agency` ("vajame kiirabi"): player must press "Teavita Häirekeskust: Kiirabi". Agency arrival
   time 8–20 min (rural longer).
-* `transport` — unit status `transport`, drives to arrest house (`region.arrestHouseId`) /
+* `transport`: unit status `transport`, drives to arrest house (`region.arrestHouseId`) /
   nearest hospital / station, then `busy` paperwork.
 * `escalate`, `info`, `pursuit` (§4.6), `search` (§4.7).
 
@@ -233,7 +233,7 @@ easter-egg persons from the 2025 version are always present: **Rainer Okimum** (
 kirjutaja", records: "Kriminaalne mittepeatumine", "Tule avamine relvast avalikus kohas",
 "Kehavigastuste tekitamine", wanted) and **Magnus Sarmert 「✔ ᵛᵉʳᶦᶠᶦᵉᵈ」** (age 438,
 "Hesburgeri klienditeenindaja", records "Mõrvakatse", "Toidumürgitamine", "Relvastatud
-Hesburgerirööv", wanted) — shown with a gold "LEGEND 2025" ribbon.
+Hesburgerirööv", wanted). Both are shown with a gold "LEGEND 2025" ribbon.
 Search: by isikukood (exact), by name (case/diacritic-insensitive substring), by plate
 (normalise spaces/case), by VIN. Every query is logged (`QueryLog`).
 
@@ -265,7 +265,7 @@ history, achievements, recruit pool.
   helicopter, K-komando, Director mode is always free.
 * Injured officers are out for 2–10 days.
 
-## 5. Public APIs (signatures — stubs exist, implementers keep them)
+## 5. Public APIs (signatures: stubs exist, implementers keep them)
 
 ```ts
 // sim/engine.ts
@@ -343,4 +343,4 @@ dates `17.10.2026`, decimal comma in prose). Häirekeskus summaries are terse, p
 appi. Vägivald käimas. Relvad teadmata." English is a faithful, natural translation.
 No gore; serious events are described soberly. No real private persons (except the two
 legacy easter eggs above); no real company names in crimes (use generic: "kaubanduskeskus",
-"pank", "tankla") — real *place* names (streets, malls as locations) are fine.
+"pank", "tankla"). Real *place* names (streets, malls as locations) are fine.

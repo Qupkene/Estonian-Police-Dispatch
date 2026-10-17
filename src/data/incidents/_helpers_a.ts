@@ -76,8 +76,8 @@ const Q_RADIO: Partial<Record<PersonRole, Text[]>> = {
       'Control, {callsign}. The victim is {name}, ID code {idcode}. Please check the record.',
     ),
     T(
-      '{callsign}: kannatanu andmed — {name}, isikukood {idcode}. Kontrolli palun.',
-      '{callsign}: victim details — {name}, ID code {idcode}. Please check.',
+      '{callsign}: kannatanu {name}, isikukood {idcode}. Kontrolli palun.',
+      '{callsign}: victim {name}, ID code {idcode}. Please check.',
     ),
   ],
   driver: [
@@ -131,7 +131,7 @@ const QV_RADIO: Text[] = [
     'Juhtimiskeskus, {callsign}. Palun kontrolli sõidukit, number {plate}.',
     'Control, {callsign}. Please run plate {plate}.',
   ),
-  T('{callsign}: palun kontrolli sõidukit {plate} — {car}.', '{callsign}: please run {plate} — {car}.'),
+  T('{callsign}: palun kontrolli sõidukit {plate} ({car}).', '{callsign}: please run {plate} ({car}).'),
   T(
     'Juhtimine, {callsign}. Palun sõidukipäring: {plate}.',
     'Control, {callsign}. Vehicle query please: {plate}.',
@@ -418,7 +418,7 @@ export function choice(
   return b;
 }
 
-/** Standard "suspect fled on foot — send a dog handler?" decision. */
+/** Standard "suspect fled on foot: send a dog handler?" decision. */
 export function k9Choice(at: BeatAt, chance?: number): ChoiceBeat {
   return choice(
     at,

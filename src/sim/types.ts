@@ -1,5 +1,5 @@
 /**
- * EPD core types — the contract between the simulation engine, content data and UI.
+ * EPD core types: the contract between the simulation engine, content data and UI.
  *
  * Rules:
  *  - SimState must stay fully JSON-serialisable (no classes, Maps, Sets, functions) so a
@@ -82,7 +82,7 @@ export interface Place {
   address: string;
   coord: LngLat;
   tags?: string[];
-  /** Movement zone id (mainland / island) — see RegionDef.zones. Defaults to 'mainland'. */
+  /** Movement zone id (mainland / island), see RegionDef.zones. Defaults to 'mainland'. */
   zone?: string;
 }
 
@@ -431,7 +431,7 @@ export interface InfoBeat extends BeatBase {
   kind: 'info';
 }
 
-/** Escalation: situation gets worse — new priority and optional extra need. */
+/** Escalation: situation gets worse (new priority and optional extra need). */
 export interface EscalateBeat extends BeatBase {
   kind: 'escalate';
   toPriority: Priority;
@@ -933,7 +933,7 @@ export interface NewShiftOptions {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Career & economy (persistent between shifts — stored by store/career.ts)
+// Career & economy (persistent between shifts, stored by store/career.ts)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface StaffMember extends Officer {

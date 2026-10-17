@@ -1,5 +1,5 @@
 /**
- * Piir ja toll — border crossings, smuggling, illegal crossings on the Narva river / Lake Peipus,
+ * Piir ja toll: border crossings, smuggling, illegal crossings on the Narva river / Lake Peipus,
  * drones over the EU external border, forged travel documents.
  * Mostly Ida and Lõuna prefectures (`regions`). Owned by incidents-B.
  */
@@ -214,7 +214,7 @@ export const TEMPLATES_BORDER: IncidentTemplate[] = [
     ],
     callerLines: [
       T('Jõe kohal lendas midagi suminaga, vilkuvate tuledega, ja maandus põllu taga.', 'Something buzzing with blinking lights flew over the river and landed behind the field.'),
-      T('See pole esimene kord, ikka öösel ja ikka samas kohas.', 'It’s not the first time — always at night and always in the same place.'),
+      T('See pole esimene kord, ikka öösel ja ikka samas kohas.', 'It’s not the first time, always at night and always in the same place.'),
     ],
     details: [T('Piiriäärsetes külades on varem kasutatud droone sigarettide toimetamiseks.', 'Drones have been used before in border villages to deliver cigarettes.')],
     beats: [

@@ -1,4 +1,4 @@
-// Original EPD emblem — NOT the PPA logo and NOT the Estonian coat of arms.
+// Original EPD emblem: NOT the PPA logo and NOT the Estonian coat of arms.
 // A heater shield carrying a stylised cornflower (rukkilill, Estonia's national flower) above an
 // "EPD" monogram drawn as strokes (no font dependency). The same artwork lives in public/favicon.svg.
 import { useId } from 'react';

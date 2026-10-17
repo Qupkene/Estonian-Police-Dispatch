@@ -103,8 +103,8 @@ export function recommendUnits(s: SimState, incidentId: string): Recommendation[
     else if (needLeft.some((n) => typeFits(n.type, u.type))) fit = specialist ? 'weak' : 'need';
     else fit = 'weak';
     let reason: Text | undefined;
-    if (u.status === 'enroute') reason = T('Teel teisele sündmusele — suunatakse ümber', 'En route to another event — will be reassigned');
-    else if (u.status === 'break') reason = T('Pausil — paus katkestatakse', 'On break — break will be interrupted');
+    if (u.status === 'enroute') reason = T('Teel teisele sündmusele, suunatakse ümber', 'En route to another event, will be reassigned');
+    else if (u.status === 'break') reason = T('Pausil, paus katkestatakse', 'On break, break will be interrupted');
     else if (u.onCall && !u.move) reason = T('Valves baasis, väljub 5 min jooksul', 'On call at base, departs within 5 min');
     else if (u.fatigue > 0.8) reason = T('Väga väsinud', 'Very tired');
     if ((u.status === 'enroute' || u.status === 'break') && fit === 'ideal') fit = 'need';

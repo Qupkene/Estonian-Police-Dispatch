@@ -1,5 +1,5 @@
 /**
- * Director "Stseenid" — scripted sequences of incidents & radio lines for filming.
+ * Director "Stseenid": scripted sequences of incidents & radio lines for filming.
  * Templates are resolved at play time by tags/keywords/category (content lands concurrently),
  * coordinates are real Tallinn/Harjumaa spots in Põhja and region-centre offsets elsewhere.
  */
@@ -166,7 +166,7 @@ export const SCENES: Scene[] = [
     id: 'jaaniöö',
     icon: 'fire',
     title: T('Jaaniöö kaos', 'Midsummer night chaos'),
-    desc: T('Lõkked, kaklused ja joobes juhid üle kogu piirkonna — kõik korraga.', 'Bonfires, fights and drunk drivers all over the region — all at once.'),
+    desc: T('Lõkked, kaklused ja joobes juhid üle kogu piirkonna, kõik korraga.', 'Bonfires, fights and drunk drivers all over the region, all at once.'),
     steps: [
       { at: 0, kind: 'focus', where: PIRITA, zoom: 10.5 },
       {

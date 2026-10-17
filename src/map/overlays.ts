@@ -10,7 +10,7 @@ export type PosFn = (u: Unit) => { pos: LngLat; heading: number };
 const R_KM = 6371.0088;
 const RAD = Math.PI / 180;
 
-/** Closed 64-gon (or n-gon) approximating a geodesic circle — turf-free. */
+/** Closed 64-gon (or n-gon) approximating a geodesic circle (turf-free). */
 export function circlePolygon(center: LngLat, radiusKm: number, n = 64): LngLat[] {
   const out: LngLat[] = [];
   const lat1 = center[1] * RAD;

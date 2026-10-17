@@ -1,5 +1,5 @@
 /**
- * Varavastased süüteod — property crime: thefts, burglaries, robberies, vandalism.
+ * Varavastased süüteod (property crime): thefts, burglaries, robberies, vandalism.
  * Owned by incidents-B. Legacy titles (2024 list) keep `title.et` verbatim.
  */
 import type { IncidentTemplate } from '@/sim/types';
@@ -398,7 +398,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     outcomes: [
       oc('weapons_found', 1, 'arrest', 'Sõidukist leiti maskid ja loata gaasirelv. Mehed peeti kinni, info edastati kriminaalpolitseile ja alustati menetlust relvaseaduse rikkumise asjas.', 'Masks and an unlicensed gas pistol were found in the car. The men were detained, criminal police were informed and proceedings opened for weapons offences.', { min: 0.7, arrests: 2, trust: 6 }),
       oc('intel', 3, 'referred', 'Isikud tuvastati ja info edastati kriminaalpolitseile jälgimiseks. Panka teavitati, turvet tugevdati.', 'The persons were identified and the information passed to criminal police for surveillance. The bank was notified and security stepped up.', { min: 0.35 }),
-      oc('grudge', 1, 'unfounded', 'Vihje osutus kättemaksuks endisele äripartnerile — autos olid ehitusmehed, kes ootasid tööandjat. Alust menetluseks ei ole.', 'The tip turned out to be revenge on a former business partner — the car held builders waiting for their employer. No grounds for proceedings.'),
+      oc('grudge', 1, 'unfounded', 'Vihje osutus kättemaksuks endisele äripartnerile. Autos olid ehitusmehed, kes ootasid tööandjat. Alust menetluseks ei ole.', 'The tip turned out to be revenge on a former business partner. The car held builders waiting for their employer. No grounds for proceedings.'),
       oc('gone', 2, 'escaped', 'Sõiduk lahkus enne patrulli saabumist. Info edastati kriminaalpolitseile, panga turvet tugevdati.', 'The vehicle left before the patrol arrived. The information was passed to criminal police and bank security stepped up.', { max: 0.4 }),
     ],
     expiresMin: 120,
@@ -569,7 +569,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
       }),
     ],
     outcomes: [
-      oc('misplaced', 1.2, 'unfounded', 'Ehted leiti teise toa kummutisahtlist — teataja oli need enne pidu ise ära peitnud. Menetlust ei alustatud.', 'The jewellery was found in a chest of drawers in another room — the caller had hidden it herself before the party. No proceedings opened.'),
+      oc('misplaced', 1.2, 'unfounded', 'Ehted leiti teise toa kummutisahtlist. Teataja oli need enne pidu ise ära peitnud. Menetlust ei alustatud.', 'The jewellery was found in a chest of drawers in another room. The caller had hidden it herself before the party. No proceedings opened.'),
       oc('returned', 2, 'report', 'Külaline tunnistas, et võttis ehted, ja tagastas need. Kriminaalmenetlus KarS § 199 järgi, kannatanu soovib menetlust jätkata.', 'The guest admitted taking the jewellery and returned it. Criminal proceedings under KarS § 199; the victim wants the case to continue.', { min: 0.6, trust: 3 }),
       oc('report', 2, 'report', 'Kriminaalmenetlus KarS § 199 järgi. Ehete kirjeldused ja fotod edastati pandimajadele.', 'Criminal proceedings under KarS § 199. Descriptions and photos of the jewellery were sent to pawnshops.', { max: 0.65 }),
     ],
@@ -593,7 +593,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
       { role: 'caller', gender: 'any', age: [30, 75], relation: 'neighbour' },
     ],
     summary: [
-      T('{address}. Majas, mis peaks olema tühi, on valgust ja liikumist — naabrid kahtlustavad sissetungi.', '{address}. There is light and movement in a house that should be empty — neighbours suspect an intrusion.'),
+      T('{address}. Majas, mis peaks olema tühi, on valgust ja liikumist. Naabrid kahtlustavad sissetungi.', '{address}. There is light and movement in a house that should be empty. Neighbours suspect an intrusion.'),
       T('{address}. Mahajäetud eramus vilgub taskulambi valgus ja kostab kolinat. Omanik elab välismaal.', '{address}. A torch is flickering in an abandoned house and there are noises. The owner lives abroad.'),
     ],
     callerLines: [
@@ -708,7 +708,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
       qVehicle(6, 0.7, [
         T('{callsign}: kaamerapildil on põgenemisauto number {plate}. Kontrolli sõidukit.', '{callsign}: the CCTV shows the getaway car’s plate, {plate}. Check the vehicle.'),
       ]),
-      pursuit(15, [T('ANPR tabas sõiduki {plate}, {callsign} on selle järel — sõiduk ei peatu!', 'ANPR hit on {plate}; {callsign} is behind it — the vehicle won’t stop!')], 0.25),
+      pursuit(15, [T('ANPR tabas sõiduki {plate}, {callsign} on selle järel. Sõiduk ei peatu!', 'ANPR hit on {plate}; {callsign} is behind it. The vehicle won’t stop!')], 0.25),
     ],
     outcomes: [
       oc('arrested', 3, 'arrest', 'Kaks kahtlustatavat peeti kinni, kassa sisu leiti autost. Töötaja toimetati haiglasse. Kriminaalmenetlus KarS § 200 lg 2 järgi.', 'Two suspects were detained and the cash found in the car. The attendant was taken to hospital. Criminal proceedings under KarS § 200(2).', { min: 0.65, arrests: 2, injuries: 1, trust: 7 }),
@@ -767,7 +767,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     id: 'property_shoplifting_detained',
     category: 'property',
     code: 'VG',
-    title: T('Poevargus — turvatöötaja pidas kinni', 'Shoplifting — suspect held by security'),
+    title: T('Poevargus: turvatöötaja pidas kinni', 'Shoplifting: suspect held by security'),
     priority: 3,
     weight: 2.1,
     hours: 'business',
@@ -785,7 +785,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     ],
     callerLines: [
       T('Meil on poevaras kinni, istub turvaruumis. Palun saatke patrull.', 'We’ve got a shoplifter held, sitting in the security room. Please send a patrol.'),
-      T('Sama mees on juba kolmas kord sel kuul, täna pani viinapudeli jope alla.', 'Same man for the third time this month — today he put a bottle of vodka under his jacket.'),
+      T('Sama mees on juba kolmas kord sel kuul, täna pani viinapudeli jope alla.', 'Same man for the third time this month. Today he put a bottle of vodka under his jacket.'),
     ],
     details: [
       T('Kaamerasalvestis vargusest on olemas. Kauba väärtus kassatšeki järgi.', 'CCTV of the theft is available. Value per the till receipt.'),
@@ -800,7 +800,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     ],
     outcomes: [
       oc('misdemeanour', 4, 'fine', 'Alustati väärteomenetlust KarS § 218 järgi, kahju 34 €. Kaup tagastati kauplusele.', 'Misdemeanour proceedings opened under KarS § 218, loss €34. The goods were returned to the shop.', { min: 0.35, trust: 1 }),
-      oc('repeat_crime', 2, 'arrest', 'Isik on varem väheses ulatuses vargustega karistatud — kriminaalmenetlus KarS § 199 järgi, kahtlustatav peeti kinni.', 'The person has previous petty-theft convictions — criminal proceedings under KarS § 199, suspect detained.', { min: 0.55, arrests: 1, trust: 2 }),
+      oc('repeat_crime', 2, 'arrest', 'Isik on varem väheses ulatuses vargustega karistatud. Alustati kriminaalmenetlust KarS § 199 järgi ja kahtlustatav peeti kinni.', 'The person has previous petty-theft convictions. Criminal proceedings were opened under KarS § 199 and the suspect was detained.', { min: 0.55, arrests: 1, trust: 2 }),
       oc('wanted_caught', 1, 'arrest', 'Kontrollil selgus, et isik on tagaotsitav. Ta peeti kinni ja toimetati arestimajja, lisaks väärteomenetlus KarS § 218 järgi.', 'The check showed the person is wanted. They were detained and taken to the arrest house, plus misdemeanour proceedings under KarS § 218.', { min: 0.6, arrests: 1, trust: 3 }),
       oc('paid_warning', 1.5, 'warning', 'Kahju oli väike ja isikul varasemaid rikkumisi pole. Kaup tasuti, kauplus ei soovinud menetlust, isikule tehti hoiatus.', 'The loss was small and the person had no previous offences. The goods were paid for, the shop did not want proceedings and the person was warned.', { min: 0.3 }),
       oc('released_left', 1.5, 'escaped', 'Turvatöötaja ei saanud isikut kauem kinni hoida ja too lahkus enne patrulli saabumist. Kaamerasalvestis edastati menetlejale.', 'The guard could not hold the person any longer and they left before the patrol arrived. The footage was passed to the case officer.', { max: 0.4, trust: -2 }),
@@ -969,7 +969,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     id: 'property_fuel_driveoff',
     category: 'property',
     code: 'VG',
-    title: T('Kütusevargus tanklas — lahkus maksmata', 'Fuel drive-off at a petrol station'),
+    title: T('Kütusevargus tanklas: lahkus maksmata', 'Fuel drive-off at a petrol station'),
     priority: 3,
     weight: 0.8,
     hours: 'flat',
@@ -994,7 +994,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
       qVehicle('arrive', 1, [
         T('Juhtimiskeskus, {callsign}. Tankla kaamera salvestas numbri {plate}. Kontrolli sõidukit.', 'Control, {callsign}. The station camera recorded plate {plate}. Check the vehicle.'),
       ]),
-      pursuit(10, [T('ANPR tabas sõiduki {plate} — {callsign} annab peatumismärguande, sõiduk ei peatu ja kiirendab {direction}!', 'ANPR hit on {plate} — {callsign} signals it to stop; the vehicle ignores it and speeds up {direction}!')], 0.1),
+      pursuit(10, [T('ANPR tabas sõiduki {plate}. {callsign} annab peatumismärguande, sõiduk ei peatu ja kiirendab {direction}!', 'ANPR hit on {plate}. {callsign} signals it to stop; the vehicle ignores it and speeds up {direction}!')], 0.1),
       qPerson('driver', 14, 0.45, [
         T('{callsign}: sõiduki omanik on telefoni teel kättesaadav. Kontrolli juhti: {name}, {idcode}.', '{callsign}: the vehicle owner is reachable by phone. Check the driver: {name}, {idcode}.'),
       ]),
@@ -1046,7 +1046,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     details: [T('Mopeed on punane, pagasikastil kleebised.', 'The moped is red with stickers on the top box.')],
     beats: [
       qVehicle('arrive', 0.5, [
-        T('{callsign}: kontrolli mopeedi {plate}, kas on varem tagaotsitavaks kuulutatud või ANPR tabamusi.', '{callsign}: check moped {plate} — previously listed as wanted, or any ANPR hits?'),
+        T('{callsign}: kontrolli mopeedi {plate}, kas on varem tagaotsitavaks kuulutatud või ANPR tabamusi.', '{callsign}: check moped {plate}. Was it listed as wanted before, or are there any ANPR hits?'),
       ]),
       qPerson('suspect', 20, 0.35, [
         T('{callsign}: garaažide juures on kaks noormeest punase mopeediga. Kontrolli juhti: {name}, {idcode}.', '{callsign}: two young men with a red moped by the garages. Check the rider: {name}, {idcode}.'),
@@ -1245,7 +1245,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     id: 'property_street_robbery',
     category: 'property',
     code: 'RÖ',
-    title: T('Tänavarööv — telefon', 'Street robbery — phone'),
+    title: T('Tänavarööv: telefon', 'Street robbery: phone'),
     priority: 2,
     weight: 0.3,
     hours: 'nightlife',
@@ -1377,7 +1377,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     id: 'property_copper_cable_theft',
     category: 'property',
     code: 'VG',
-    title: T('Metallivargus — vasekaabel', 'Metal theft — copper cable'),
+    title: T('Metallivargus: vasekaabel', 'Metal theft: copper cable'),
     priority: 2,
     weight: 0.15,
     hours: 'night',
@@ -1434,7 +1434,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
       T('{address}. Trepikojast kaob regulaarselt pakke, teataja kahtlustab naabrit.', '{address}. Parcels regularly disappear from the stairwell; the caller suspects a neighbour.'),
     ],
     callerLines: [
-      T('Pakk oli ukse taga, kulleri rakendus näitab fotot. Nüüd on see läinud.', 'The parcel was outside the door — the courier app even shows a photo. Now it’s gone.'),
+      T('Pakk oli ukse taga, kulleri rakendus näitab fotot. Nüüd on see läinud.', 'The parcel was outside the door, and the courier app even shows a photo. Now it’s gone.'),
       T('See on juba kolmas pakk sel kuul!', 'That’s the third parcel this month!'),
     ],
     details: [T('Naabri uksekell salvestab videot.', 'A neighbour’s doorbell records video.')],

@@ -1,5 +1,5 @@
 /**
- * Area search (piirkonna läbikammimine) — DESIGN §4.7.
+ * Area search (piirkonna läbikammimine), see DESIGN §4.7.
  *
  * Progress per game-minute = Σ unit weights × SEARCH_K / radius² (km), where the weights are
  * K9 2.5, helicopter 4 (thermal camera, unaffected by darkness), patrol 1, aux 1.2 (many eyes),
@@ -121,7 +121,7 @@ export function updateSearch(s: SimState, inc: Incident, dtMin: number): boolean
     unitId: u?.id,
     text: missing
       ? u?.type === 'k9'
-        ? { et: 'Koer võttis jälje ja viis meid otse isiku juurde — leitud! Elus, alajahtunud, kutsume kiirabi kontrolliks.', en: 'The dog picked up the track and led us straight to the person — found! Alive, cold, calling an ambulance to check.' }
+        ? { et: 'Koer võttis jälje ja viis meid otse isiku juurde. Leitud! Elus, alajahtunud, kutsume kiirabi kontrolliks.', en: 'The dog picked up the track and led us straight to the person. Found! Alive, cold, calling an ambulance to check.' }
         : u?.type === 'heli'
           ? { et: 'Termokaamera tuvastas isiku, juhatame maapealse ekipaaži kohale. Isik leitud!', en: 'Thermal camera has the person, guiding the ground unit in. Person found!' }
           : { et: 'Isik leitud! Ta on elus ja kontaktne.', en: 'Person found! Alive and responsive.' }

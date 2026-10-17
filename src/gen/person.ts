@@ -902,8 +902,8 @@ interface WantedReason {
 const WANTED_REASONS: WantedReason[] = [
   {
     reason: {
-      et: 'Vahistamismäärus — kahtlustatav röövimises (KarS § 200)',
-      en: 'Arrest warrant — suspected of robbery (Penal Code § 200)',
+      et: 'Vahistamismäärus, kahtlustatav röövimises (KarS § 200)',
+      en: 'Arrest warrant, suspected of robbery (Penal Code § 200)',
     },
     by: 'court',
     w: 1,
@@ -919,8 +919,8 @@ const WANTED_REASONS: WantedReason[] = [
   },
   {
     reason: {
-      et: 'Vahistamismäärus — kahtlustatav raske tervisekahjustuse tekitamises (KarS § 118)',
-      en: 'Arrest warrant — suspected of causing serious harm to health (Penal Code § 118)',
+      et: 'Vahistamismäärus, kahtlustatav raske tervisekahjustuse tekitamises (KarS § 118)',
+      en: 'Arrest warrant, suspected of causing serious harm to health (Penal Code § 118)',
     },
     by: 'court',
     w: 0.6,
@@ -929,8 +929,8 @@ const WANTED_REASONS: WantedReason[] = [
   },
   {
     reason: {
-      et: 'Vahistamismäärus — kahtlustatav narkootilise aine suures koguses käitlemises (KarS § 184)',
-      en: 'Arrest warrant — suspected of handling a large quantity of drugs (Penal Code § 184)',
+      et: 'Vahistamismäärus, kahtlustatav narkootilise aine suures koguses käitlemises (KarS § 184)',
+      en: 'Arrest warrant, suspected of handling a large quantity of drugs (Penal Code § 184)',
     },
     by: 'court',
     w: 0.8,
@@ -939,8 +939,8 @@ const WANTED_REASONS: WantedReason[] = [
   },
   {
     reason: {
-      et: 'Vahistamismäärus — kahtlustatav varguste toimepanemises (KarS § 199)',
-      en: 'Arrest warrant — suspected of a series of thefts (Penal Code § 199)',
+      et: 'Vahistamismäärus, kahtlustatav varguste toimepanemises (KarS § 199)',
+      en: 'Arrest warrant, suspected of a series of thefts (Penal Code § 199)',
     },
     by: 'court',
     w: 1,
@@ -949,8 +949,8 @@ const WANTED_REASONS: WantedReason[] = [
   },
   {
     reason: {
-      et: 'Vahistamismäärus — kahtlustatav kelmuses (KarS § 209)',
-      en: 'Arrest warrant — suspected of fraud (Penal Code § 209)',
+      et: 'Vahistamismäärus, kahtlustatav kelmuses (KarS § 209)',
+      en: 'Arrest warrant, suspected of fraud (Penal Code § 209)',
     },
     by: 'court',
     w: 0.6,
@@ -959,8 +959,8 @@ const WANTED_REASONS: WantedReason[] = [
   },
   {
     reason: {
-      et: 'Tagaotsitav — kriminaalmenetlusest kõrvalehoidumine',
-      en: 'Wanted — evading criminal proceedings',
+      et: 'Tagaotsitav kriminaalmenetlusest kõrvalehoidumise tõttu',
+      en: 'Wanted for evading criminal proceedings',
     },
     by: 'prosecutor',
     w: 1,
@@ -969,8 +969,8 @@ const WANTED_REASONS: WantedReason[] = [
   },
   {
     reason: {
-      et: 'Vahistamismäärus — kahtlustatav tapmises (KarS § 113)',
-      en: 'Arrest warrant — suspected of manslaughter (Penal Code § 113)',
+      et: 'Vahistamismäärus, kahtlustatav tapmises (KarS § 113)',
+      en: 'Arrest warrant, suspected of manslaughter (Penal Code § 113)',
     },
     by: 'court',
     w: 0.15,
@@ -979,8 +979,8 @@ const WANTED_REASONS: WantedReason[] = [
   },
   {
     reason: {
-      et: 'Vahistamismäärus — lähenemiskeelu korduv rikkumine (KarS § 331²)',
-      en: 'Arrest warrant — repeated breach of a restraining order (Penal Code § 331²)',
+      et: 'Vahistamismäärus lähenemiskeelu korduva rikkumise tõttu (KarS § 331²)',
+      en: 'Arrest warrant for repeated breach of a restraining order (Penal Code § 331²)',
     },
     by: 'court',
     w: 0.5,
@@ -989,8 +989,8 @@ const WANTED_REASONS: WantedReason[] = [
   },
   {
     reason: {
-      et: 'Sundtoomine — korduv kohtuistungilt puudumine',
-      en: 'Compulsory attendance — repeatedly failed to appear in court',
+      et: 'Sundtoomine korduva kohtuistungilt puudumise tõttu',
+      en: 'Compulsory attendance for repeatedly failing to appear in court',
     },
     by: 'court',
     w: 0.6,

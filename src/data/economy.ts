@@ -19,7 +19,7 @@ import type { Achievement, CatalogVehicle, Rank, RegionId, UnitType, Upgrade } f
 const T = (et: string, en: string) => ({ et, en });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Ranks — real PPVS special-rank ladder (eriastmed), lowest to highest
+// Ranks: real PPVS special-rank ladder (eriastmed), lowest to highest
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const RANKS: Rank[] = [
@@ -34,7 +34,7 @@ export const RANKS: Rank[] = [
   { name: T('Politseimajor', 'Police Major'), xp: 18000, unlocks: [T('Prefektuuri büroo juht', 'Head of a prefecture bureau')] },
   { name: T('Politseikolonelleitnant', 'Police Lieutenant Colonel'), xp: 24500, unlocks: [T('Prefekti asetäitja', 'Deputy prefect')] },
   { name: T('Politseikolonel', 'Police Colonel'), xp: 32500, unlocks: [T('Prefekt', 'Prefect')] },
-  { name: T('Politseikindral', 'Police General'), xp: 42000, unlocks: [T('Peadirektor — legend', 'Director General — a legend')] },
+  { name: T('Politseikindral', 'Police General'), xp: 42000, unlocks: [T('Peadirektor (legend)', 'Director General (a legend)')] },
 ];
 
 /** Rank indices at which the 2nd, 3rd and 4th prefecture unlock (home region is always open). */
@@ -71,7 +71,7 @@ export const OVERTIME_PER_HOUR = 20;
 export const FUEL_PER_KM = 0.14;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Upgrades (DESIGN §6) — ids are read by the engine as s.flags['upg:<id>']
+// Upgrades (DESIGN §6): ids are read by the engine as s.flags['upg:<id>']
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const UPGRADES: Upgrade[] = [
@@ -87,7 +87,7 @@ export const UPGRADES: Upgrade[] = [
   {
     id: 'spikes',
     name: T('Naelamatid', 'Spike strips'),
-    desc: T('Patrull- ja liiklusautodes on naelamatid — jälitusi saab peatada sõiduki rehve tühjendades.', 'Patrol and traffic cars carry spike strips — pursuits can be stopped by deflating tyres.'),
+    desc: T('Patrull- ja liiklusautodes on naelamatid, nii et jälitusi saab peatada sõiduki rehve tühjendades.', 'Patrol and traffic cars carry spike strips, so pursuits can be stopped by deflating tyres.'),
     price: 3500,
     upkeep: 40,
     minRank: 1,
@@ -105,7 +105,7 @@ export const UPGRADES: Upgrade[] = [
   {
     id: 'mdt',
     name: T('Mobiilne andmeterminal (MDT)', 'Mobile data terminals (MDT)'),
-    desc: T('Ekipaažid teevad registripäringud ise — vastamata päringud ei too karistust.', 'Crews run registry checks themselves — unanswered queries carry no penalty.'),
+    desc: T('Ekipaažid teevad registripäringud ise, nii et vastamata päringud ei too karistust.', 'Crews run registry checks themselves, so unanswered queries carry no penalty.'),
     price: 9000,
     upkeep: 250,
     minRank: 1,
@@ -123,7 +123,7 @@ export const UPGRADES: Upgrade[] = [
   {
     id: 'anpr',
     name: T('ANPR numbrituvastus', 'ANPR plate recognition'),
-    desc: T('Autokaamerad tuvastavad otsitavaid ja varastatud sõidukeid — rohkem tabamusi ja BOLO-jälitusi.', 'In-car cameras flag wanted and stolen vehicles — more hits and BOLO pursuits.'),
+    desc: T('Autokaamerad tuvastavad otsitavaid ja varastatud sõidukeid. Rohkem tabamusi ja BOLO-jälitusi.', 'In-car cameras flag wanted and stolen vehicles. More hits and BOLO pursuits.'),
     price: 18000,
     upkeep: 300,
     minRank: 2,
@@ -159,7 +159,7 @@ export const UPGRADES: Upgrade[] = [
   {
     id: 'k9kennel',
     name: T('Koerte kennel', 'K9 kennel'),
-    desc: T('Teenistuskoerad ja koerajuhi väljaõpe — K9-ekipaažid otsingutel ja kinnipidamisel.', 'Service dogs and handler training — K9 crews for searches and arrests.'),
+    desc: T('Teenistuskoerad ja koerajuhi väljaõpe. K9-ekipaažid otsingutel ja kinnipidamisel.', 'Service dogs and handler training. K9 crews for searches and arrests.'),
     price: 25000,
     upkeep: 600,
     minRank: 3,
@@ -177,7 +177,7 @@ export const UPGRADES: Upgrade[] = [
   {
     id: 'extra_station',
     name: T('Lisapolitseipunkt', 'Extra police post'),
-    desc: T('Uus piirkonnapolitsei punkt — ekipaažid alustavad hajusamalt ja jõuavad kiiremini kohale.', 'A new community police post — crews start more spread out and arrive sooner.'),
+    desc: T('Uus piirkonnapolitsei punkt. Ekipaažid alustavad hajusamalt ja jõuavad kiiremini kohale.', 'A new community police post. Crews start more spread out and arrive sooner.'),
     price: 60000,
     upkeep: 900,
     minRank: 4,
@@ -233,7 +233,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     price: 45000,
     upkeep: 470,
     minRank: 0,
-    desc: T('Nelikveoline hübriid — sobib maapiirkondadesse ja talve.', 'All-wheel-drive hybrid — good for rural areas and winter.'),
+    desc: T('Nelikveoline hübriid, mis sobib maapiirkondadesse ja talve.', 'All-wheel-drive hybrid, good for rural areas and winter.'),
   },
   {
     id: 'vw_transporter',
@@ -269,7 +269,7 @@ export const VEHICLE_CATALOG: CatalogVehicle[] = [
     price: 66000,
     upkeep: 380,
     minRank: 1,
-    desc: T('Elektriline patrullauto (PPA katsetas samasugust) — odav sõita, kallis osta.', 'Electric patrol car (PPA trialled the same) — cheap to run, pricey to buy.'),
+    desc: T('Elektriline patrullauto (PPA katsetas samasugust): odav sõita, kallis osta.', 'Electric patrol car (PPA trialled the same): cheap to run, pricey to buy.'),
   },
   {
     id: 'skoda_kodiaq_rs',
@@ -355,7 +355,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'grade_a_streak', name: T('Stabiilne tegija', 'Steady hand'), desc: T('Viis vahetust järjest vähemalt hindega A.', 'Five shifts in a row graded A or better.'), icon: 'trophy' },
   { id: 'pursuit_master', name: T('Jälitusmeister', 'Pursuit master'), desc: T('Peata karjääri jooksul 5 jälitust kinnipidamisega.', 'End 5 pursuits with an arrest over your career.'), icon: 'siren' },
   { id: 'people_reader', name: T('Inimeste tundja', 'People reader'), desc: T('10 õiget registripäringu vastust järjest.', '10 correct registry replies in a row.'), icon: 'id' },
-  { id: 'nostalgia_2024', name: T('2024 nostalgia', '2024 nostalgia'), desc: T('Logisid sisse vanal moel — tühja kasutajanime ja parooliga.', 'Logged in the old way — empty username and password.'), icon: 'keyboard' },
+  { id: 'nostalgia_2024', name: T('2024 nostalgia', '2024 nostalgia'), desc: T('Logisid sisse vanal moel, tühja kasutajanime ja parooliga.', 'Logged in the old way, with an empty username and password.'), icon: 'keyboard' },
   { id: 'legend_2025', name: T('Legendide jälil', 'On the legends’ trail'), desc: T('Otsi andmebaasist üles mõni 2025. aasta legend.', 'Look up one of the 2025 legends in the database.'), icon: 'search' },
   { id: 'lasnamae_legend', name: T('Lasnamäe legend', 'Lasnamäe legend'), desc: T('Lahenda ühe vahetusega 8 sündmust Lasnamäel.', 'Resolve 8 incidents in Lasnamäe in one shift.'), icon: 'building' },
   { id: 'island_guard', name: T('Saarte valvur', 'Guardian of the islands'), desc: T('Lahenda ühe vahetusega 5 sündmust Saaremaal, Hiiumaal või Muhus.', 'Resolve 5 incidents on Saaremaa, Hiiumaa or Muhu in one shift.'), icon: 'boat' },

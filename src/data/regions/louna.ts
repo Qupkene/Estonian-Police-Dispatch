@@ -11,7 +11,7 @@
  *  - Three jaoskonnad: Tartu (incl. Elva and Jõgeva groups), Kagu (Põlva, Valga, Võru) and
  *    Viljandi. HQ Riia tn 132, Tartu; the command centre (juhtimiskeskus) sits at Jaama 207.
  *  - Since 2021 arrest-house work (arrest, 48 h detention, sobering-up) is done by Tartu Vangla,
- *    Turu 56 — so arrestHouseId points at the prison, not at a PPA arestimaja.
+ *    Turu 56, so arrestHouseId points at the prison, not at a PPA arestimaja.
  *  - No PPA helicopter is based in the south (the lennusalk flies from Tallinn; a Tartu airport
  *    base has only been planned), so the roster has no heli. K-komando is Tallinn-based and is not
  *    listed either; the prefecture's own kiirreageerijad cover the dangerous calls.
@@ -217,7 +217,7 @@ const STATIONS: Station[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Roster — normal ≈ 9 patrols per shift + specialists; extras via minDifficulty.
+// Roster: normal ≈ 9 patrols per shift + specialists; extras via minDifficulty.
 // Vehicles follow the research notes: Škoda Octavia/Scala/Superb, VW Tiguan, VW Amarok and
 // Nissan Patrol at the border, Mercedes-Benz Sprinter convoy vans, a Peipsi patrol boat.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -428,7 +428,7 @@ const ROSTER: UnitSpec[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Towns — every 'linn' of the six counties + the bigger alevikud. Populations rounded (≈2024).
+// Towns: every 'linn' of the six counties + the bigger alevikud. Populations rounded (≈2024).
 // ruShare from docs/research/names-demographics.md §5 (Peipsi Old Believer settlements high).
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -567,7 +567,7 @@ const TOWNS: Town[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Streets — polylines ordered by house number (low numbers at the town-centre end).
+// Streets: polylines ordered by house number (low numbers at the town-centre end).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const T = 'Tartu';

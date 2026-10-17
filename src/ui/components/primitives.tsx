@@ -1,4 +1,4 @@
-// Shared UI primitives — API owned by core, visual polish owned by ui-shell. Keep prop names stable
+// Shared UI primitives. API owned by core, visual polish owned by ui-shell. Keep prop names stable
 // (new props are optional additions only).
 import {
   useEffect,

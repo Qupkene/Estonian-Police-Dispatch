@@ -70,7 +70,7 @@ export const R_DRIVER: Text[] = [
 
 export const R_PLATE: Text[] = [
   T('Juhtimiskeskus, {callsign}. Palun kontrolli sõidukit, numbrimärk {plate}, {car}.', 'Control, {callsign}. Please run plate {plate}, {car}.'),
-  T('{callsign}: numbrimärk {plate} — {car}. Kas sõiduk on korras, kindlustus ja ülevaatus?', '{callsign}: plate {plate} — {car}. Is the vehicle clear, insurance and inspection?'),
+  T('{callsign}: numbrimärk {plate}, {car}. Kas sõiduk on korras, kindlustus ja ülevaatus?', '{callsign}: plate {plate}, {car}. Is the vehicle clear, insurance and inspection?'),
 ];
 
 export const R_SUSPECT: Text[] = [
@@ -80,7 +80,7 @@ export const R_SUSPECT: Text[] = [
 
 export const R_VICTIM: Text[] = [
   T('Juhtimiskeskus, {callsign}. Kannatanu on {name}, isikukood {idcode}. Kontrolli palun andmeid.', 'Control, {callsign}. The casualty is {name}, ID code {idcode}. Please check the record.'),
-  T('{callsign}: kannatanu andmed — {name}, isikukood {idcode}.', '{callsign}: casualty details — {name}, ID code {idcode}.'),
+  T('{callsign}: kannatanu {name}, isikukood {idcode}.', '{callsign}: casualty {name}, ID code {idcode}.'),
 ];
 
 export const R_MISSING: Text[] = [
@@ -118,7 +118,7 @@ export function qVehicle(at: BeatAt = 'arrive', o: { chance?: number; radio?: Te
 
 // ─── Backup / agencies / transport ──────────────────────────────────────────
 
-/** Legacy "Toetust vajab" — `chance` comes from support_need_chance / 100. */
+/** Legacy "Toetust vajab": `chance` comes from support_need_chance / 100. */
 export function backup(
   chance: number | undefined,
   need: UnitNeed,
@@ -206,7 +206,7 @@ export function escalate(
 
 // ─── Reusable choice: refusal to take a breath test ─────────────────────────
 
-/** "Juht keeldub puhumast — kas toimetame vereanalüüsile?" */
+/** "Juht keeldub puhumast. Kas toimetame vereanalüüsile?" */
 export function breathRefusal(at: BeatAt, chance = 0.3): ChoiceBeat {
   return choice(
     at,
@@ -223,7 +223,7 @@ export function breathRefusal(at: BeatAt, chance = 0.3): ChoiceBeat {
   );
 }
 
-/** "Jälitatav sõidab linna poole — jätkame või lõpetame jälituse ohutuse huvides?" */
+/** "Jälitatav sõidab linna poole. Kas jätkame või lõpetame jälituse ohutuse huvides?" */
 export function pursuitDecision(at: BeatAt, chance = 0.5): ChoiceBeat {
   return choice(
     at,

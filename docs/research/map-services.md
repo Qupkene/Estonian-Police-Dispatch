@@ -26,7 +26,7 @@ Compiled 2026-10-17.
 | `foto` | **Maa- ja Ruumiamet `foto@GMC` (JPG) + `hybriid@GMC` (PNG overlay)** | none | yes | **UNSURE** | Same as above; orthophotos are heavy | LIKELY / UNSURE |
 | (fallback street map) | OpenFreeMap `liberty` / `positron` vector styles | none | yes | yes | No SLA (donation-run) | LIKELY |
 | (do not use as primary) | `tile.openstreetmap.org` | none | discouraged | yes | OSMF can block at any time; prefetching banned | LIKELY |
-| Routing (optional "real roads" mode) | Precompute offline from a Geofabrik Estonia extract (§5.4). Live demo servers only for rare, user-triggered requests. | none | — | yes | Demo servers allow 1 req/s and no heavy use | LIKELY |
+| Routing (optional "real roads" mode) | Precompute offline from a Geofabrik Estonia extract (§5.4). Live demo servers only for rare, user-triggered requests. | none | – | yes | Demo servers allow 1 req/s and no heavy use | LIKELY |
 
 **Bottom line for designers:** keep the engine's own straight-line movement (DESIGN.md §"no external routing in the engine") as the default. Treat every online layer as a *visual* enhancement that can fail without harm. Show attribution for whichever layer is active (§6).
 
@@ -66,7 +66,7 @@ https://tiles.maaamet.ee/tm/tms/1.0.0/{layer}@{matrixSet}/{z}/{x}/{y}.{ext}
 | `foto` | Ortofoto | `https://tiles.maaamet.ee/tm/tms/1.0.0/foto@GMC/{z}/{x}/{y}.jpg` | **jpg** | Aerial orthophoto mosaic, updated in regional cycles | LIKELY (jpg: LIKELY) |
 | `hybriid` | Hübriidkaart | `https://tiles.maaamet.ee/tm/tms/1.0.0/hybriid@GMC/{z}/{x}/{y}.png` | png | **Transparent overlay** of roads, street names and place names, drawn on top of `foto` | LIKELY |
 | `reljeef` | Reljeef (shaded relief) | `.../reljeef@GMC/{z}/{x}/{y}.png` | png | Hillshade from the LiDAR elevation model | UNSURE |
-| others | e.g. historical maps, cadastre | — | — | Exist as WMS layers; TMS names unknown | UNSURE |
+| others | e.g. historical maps, cadastre | – | – | Exist as WMS layers; TMS names unknown | UNSURE |
 
 **Zoom range:** GMC tiles cover roughly **z 6–18** for `kaart`/`hallkaart`. `foto` may go to z 19–20 in cities. Set `maxzoom: 18` on the source and let MapLibre overzoom past it. [UNSURE: test z19 for `foto`.]
 
@@ -153,7 +153,7 @@ tiles: ['a', 'b', 'c', 'd'].map((s) => `https://${s}.basemaps.cartocdn.com/dark_
 | CORS | Yes | LIKELY |
 | Attribution (from their styles) | `<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> <a href="https://www.openmaptiles.org/" target="_blank">© OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>` | LIKELY |
 
-**Fit with EPD's local glyphs (DESIGN.md):** EPD serves only Noto Sans **Regular / Medium / Italic**, ranges 0-255, 256-511 and 8192-8447. If EPD loads an OpenFreeMap style but points `glyphs` at `/glyphs/{fontstack}/{range}.pbf` (for offline use), it must rewrite every `text-font` that says "Noto Sans Bold" to "Noto Sans Medium". The ranges are enough for Estonian: õ ä ö ü are U+00F5/E4/F6/FC (0-255), š ž are U+0161/017E (256-511), and „ “ – — are in 8192-8447. **Cyrillic (1024-1279) is missing.** OSM `name` tags in Ida-Viru are mostly Estonian, but some shop and POI names are in Russian and would render blank. Add range 1024-1279 if POI labels are shown. [VERIFIED-local for the code points; LIKELY for the Ida-Viru data]
+**Fit with EPD's local glyphs (DESIGN.md):** EPD serves only Noto Sans **Regular / Medium / Italic**, ranges 0-255, 256-511 and 8192-8447. If EPD loads an OpenFreeMap style but points `glyphs` at `/glyphs/{fontstack}/{range}.pbf` (for offline use), it must rewrite every `text-font` that says "Noto Sans Bold" to "Noto Sans Medium". The ranges are enough for Estonian: õ ä ö ü are U+00F5/E4/F6/FC (0-255), š ž are U+0161/017E (256-511), and the quotes „ “ plus the en and em dashes (U+2013/2014) are in 8192-8447. **Cyrillic (1024-1279) is missing.** OSM `name` tags in Ida-Viru are mostly Estonian, but some shop and POI names are in Russian and would render blank. Add range 1024-1279 if POI labels are shown. [VERIFIED-local for the code points; LIKELY for the Ida-Viru data]
 
 ---
 
@@ -222,7 +222,7 @@ MapLibre's `AttributionControl` gathers the `attribution` field of every *visibl
 | OSRM demo | `Routing: <a href="https://project-osrm.org/">OSRM</a>, data © OpenStreetMap contributors` | `Teekonnad: OSRM, andmed © OpenStreetMapi kaastöölised` | recommendation |
 | FOSSGIS routing | `Routing: © <a href="https://routing.openstreetmap.de/about.html">FOSSGIS e.V.</a>, data © OpenStreetMap contributors` | `Teekonnad: © FOSSGIS e.V., andmed © OpenStreetMap` | recommendation |
 | geoBoundaries (offline tactical map) | `Boundaries: <a href="https://www.geoboundaries.org/">geoBoundaries</a> (CC BY 4.0)` | `Piirid: geoBoundaries (CC BY 4.0)` | LIKELY CC BY 4.0. UNSURE for the EST layers, some of which are ODbL; check the dataset metadata. |
-| Natural Earth | Public domain, no attribution required (credit appreciated): `Natural Earth` | — | LIKELY |
+| Natural Earth | Public domain, no attribution required (credit appreciated): `Natural Earth` | – | LIKELY |
 | Open-Meteo (if live weather is ever added) | `Weather data by <a href="https://open-meteo.com/">Open-Meteo.com</a>` (CC BY 4.0) | `Ilmaandmed: Open-Meteo.com` | LIKELY |
 | Bundled OSM road graph (if built) | `Road network © OpenStreetMap contributors, ODbL 1.0` | `Teedevõrk © OpenStreetMapi kaastöölised, ODbL` | LIKELY |
 

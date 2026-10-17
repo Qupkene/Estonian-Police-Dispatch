@@ -1,4 +1,4 @@
-// Map view — owned by map. Props interface is a public contract (used by ui-game).
+// Map view (owned by map). Props interface is a public contract (used by ui-game).
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Lang, LngLat, RegionId, SimState } from '@/sim/types';
 import { useSettings, type MapStyleKey } from '@/store/settings';
@@ -169,7 +169,7 @@ export function MapView(p: MapViewProps) {
           onStyle={pickStyle}
         />
       )}
-      {!glError && offline && styleKey !== 'tactical' && (
+      {!glError && offline && styleKey !== 'tactical' && !p.cinematic && (
         <button type="button" className="epdm-offline" onClick={() => ctlRef.current?.retryOnline()} title={tr('map.offlineHint')}>
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
             <path d="M5 12.5a10 10 0 0 1 4-2.3M12 8.5a10 10 0 0 1 7 4M8.5 16a5 5 0 0 1 7 0M12 19.5h.01M3 3l18 18" strokeLinecap="round" />

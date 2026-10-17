@@ -55,7 +55,7 @@ export function fmtNum(n: number, digits: number, lang: Lang): string {
 
 /** "3,4 km" / "12 km" (one decimal below 10 km). */
 export function fmtKm(km: number, lang: Lang): string {
-  if (!Number.isFinite(km)) return '—';
+  if (!Number.isFinite(km)) return '–';
   return `${fmtNum(km, km < 10 ? 1 : 0, lang)} km`;
 }
 

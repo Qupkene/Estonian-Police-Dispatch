@@ -210,11 +210,11 @@ Format: shortName | full Estonian name | act & paragraph | kuritegu/väärtegu |
 
 | Measured value | Blood (‰ = mg/g) | Breath (mg/l) | Offence | Law | Typical outcome in records | Confidence |
 |---|---|---|---|---|---|---|
-| Below the limit | < 0.20 | < 0.10 | none | — | — | [LIKELY] |
+| Below the limit | < 0.20 | < 0.10 | none | – | – | [LIKELY] |
 | Väärtegu band | 0.20–1.49 | 0.10–0.74 | väärtegu | LS § 224 | "Rahatrahv 150–300 TÜ (€600–1,200)" or "Arest 5–20 ööpäeva", plus "Juhtimisõiguse äravõtmine 3–12 kuuks" | §[LIKELY]; typical values [DESIGN] |
 | Criminal band | ≥ 1.50 | ≥ 0.75 | kuritegu | KarS § 424 | First offence: "Rahaline karistus 60–150 pm" or "Tingimisi vangistus 6 k – 1 a, katseaeg 2–3 a", plus "Juhtimisõiguse äravõtmine 1–2 a". Repeat: real prison of months, plus "Sõiduki konfiskeerimine". | §[LIKELY]; typical values [DESIGN] |
 | Repeat at any level ≥ 0.20 (earlier punishment still on record) | ≥ 0.20 | ≥ 0.10 | kuritegu | KarS § 424 | as the criminal band | [UNSURE] on structure |
-| Drugs detected | — | — | väärtegu or kuritegu | LS § 224 / KarS § 424 | treat as the väärtegu band unless repeated | [UNSURE] |
+| Drugs detected | – | – | väärtegu or kuritegu | LS § 224 / KarS § 424 | treat as the väärtegu band unless repeated | [UNSURE] |
 
 Breath and blood values convert at roughly 1 : 2000 (0.75 mg/l ≈ 1.5 ‰). [LIKELY]
 Refusing the breath test leads to a blood sample at a medical facility. The legal consequence of refusing everything was not determined. [UNSURE]
@@ -260,7 +260,7 @@ Use these strings in `CriminalRecord.punishment` (`Text`). [DESIGN], built on [L
 - `Relva konfiskeerimine` / `Weapon confiscated`
 
 **Citation format in the UI**
-`KarS § 199 lg 2 p 2 — Vargus` · `LS § 224 lg 1 — Joobes juhtimine` · `KarS § 25 lg 2, § 114 — Mõrvakatse` · `KarS § 331² — Lähenemiskeelu rikkumine`
+`KarS § 199 lg 2 p 2: Vargus` · `LS § 224 lg 1: Joobes juhtimine` · `KarS § 25 lg 2, § 114: Mõrvakatse` · `KarS § 331²: Lähenemiskeelu rikkumine`
 
 ---
 

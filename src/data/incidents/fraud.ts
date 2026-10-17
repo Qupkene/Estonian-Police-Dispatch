@@ -1,5 +1,5 @@
 /**
- * Kelmused ja võltsimised — fraud, forgery, counterfeit money, cybercrime, scams.
+ * Kelmused ja võltsimised: fraud, forgery, counterfeit money, cybercrime, scams.
  * Owned by incidents-B. Legacy titles (2024 list) keep `title.et` verbatim.
  */
 import type { IncidentTemplate } from '@/sim/types';
@@ -408,7 +408,7 @@ export const TEMPLATES_FRAUD: IncidentTemplate[] = [
     id: 'fraud_grandchild_scam',
     category: 'fraud',
     code: 'KE',
-    title: T('Telefonikelmus eakale — „lapselaps hädas“', 'Phone scam on an elderly person — “grandchild in trouble”'),
+    title: T('Telefonikelmus eakale: „lapselaps hädas“', 'Phone scam on an elderly person: “grandchild in trouble”'),
     priority: 2,
     weight: 0.35,
     hours: 'day',
@@ -614,7 +614,7 @@ export const TEMPLATES_FRAUD: IncidentTemplate[] = [
     id: 'fraud_taxi_overcharge',
     category: 'fraud',
     code: 'KE',
-    title: T('Taksopettus — turistilt küsiti mitmekordset hinda', 'Taxi scam — tourist charged many times the fare'),
+    title: T('Taksopettus: turistilt küsiti mitmekordset hinda', 'Taxi scam: tourist charged many times the fare'),
     priority: 3,
     weight: 0.1,
     hours: 'evening',

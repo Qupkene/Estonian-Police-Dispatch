@@ -1,6 +1,6 @@
 /**
  * Shift time-series for the Statistika tab: unit status counts + trust sampled every 10 game-minutes
- * into a module-level ring buffer keyed by the shift (seed + start). Pure — the subscription that
+ * into a module-level ring buffer keyed by the shift (seed + start). Pure: the subscription that
  * feeds it lives in StatsPanel.tsx so sampling runs even while the tab is closed.
  */
 import type { SimState, UnitStatus } from '@/sim/types';

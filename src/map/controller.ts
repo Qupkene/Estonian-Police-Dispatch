@@ -1,5 +1,5 @@
 /**
- * MapController — owns the maplibre map, DOM markers, overlay sources, atmosphere and the
+ * MapController owns the maplibre map, DOM markers, overlay sources, atmosphere and the
  * animation-frame loop. MapView (React) creates one per mount and forwards prop changes; live
  * positions are read every frame from `getProps().sim`, never from React state.
  */

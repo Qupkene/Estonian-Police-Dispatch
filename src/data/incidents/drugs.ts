@@ -1114,8 +1114,8 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
     ],
     callerLines: [
       T(
-        'Ma nägin täiesti selgelt — tal oli pagasnikus püstol ja teine mees andis talle raha.',
-        'I saw it clearly — he had a pistol in the boot and the other man gave him money.',
+        'Ma nägin täiesti selgelt: tal oli pagasnikus püstol ja teine mees andis talle raha.',
+        'I saw it clearly: he had a pistol in the boot and the other man gave him money.',
       ),
       T(
         'Ma ei ütle oma nime. Aga kui te kohe tulete, on nad veel seal.',

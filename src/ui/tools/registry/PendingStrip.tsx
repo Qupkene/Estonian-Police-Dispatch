@@ -1,4 +1,4 @@
-// "Ametnik ootab vastust" — reply strip shown on a record that an officer is asking about.
+// "Ametnik ootab vastust": reply strip shown on a record that an officer is asking about.
 import type { RadioMsg } from '@/sim/types';
 import { replyRadio } from '@/sim/commands';
 import { hhmm } from '@/sim/time';

@@ -1119,7 +1119,7 @@ Facts about grey-passport holders [LIKELY]:
 
 | Year / source | Estonian citizens | Undetermined (grey) | Russian citizens | Conf. |
 |---|---|---|---|---|
-| 1992 | — | ~32% of residents had no citizenship | — | [LIKELY] |
+| 1992 | – | ~32% of residents had no citizenship | – | [LIKELY] |
 | Census 2011 | ~84% | ~6.5% (~85,000) | ~6–7% (~89,000) | [LIKELY] |
 | Census 2021 | **~85%** | **~5% (~65,000)** | **~5% (~65,000–70,000)** | [LIKELY approx] |
 | ~2024–2025 (ministry / PPA data) | ~83–84% (more foreigners in the population) | **~57,000–62,000 (~4.3%)** | **~70,000–85,000** with residence permits | [UNSURE] |

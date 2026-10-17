@@ -134,7 +134,7 @@ export interface SpecialDay {
 /**
  * Laulu- ja tantsupeo years (all-Estonian song & dance festival, early July, Tallinn
  * lauluväljak). 2025 = XXVIII laulupidu "Iseoma" (3–6 July 2025). The festival is held
- * about every five years, so 2030 is an estimate — adjust when the date is announced.
+ * about every five years, so 2030 is an estimate. Adjust when the date is announced.
  */
 export const SONG_FESTIVALS: Record<number, { from: [number, number]; to: [number, number]; estimate?: boolean }> = {
   2025: { from: [7, 3], to: [7, 6] },

@@ -448,7 +448,7 @@ Standard Estonian plates use only basic Latin letters. Õ Ä Ö Ü Š Ž **never
 
 **Game recommendation:**
 - Default radio reading: **Estonian letter names**.
-- When a plate query fails (e.g. a "notfound" result), have the unit repeat it with clarification: *"Korrake tähthaaval. — Bee nagu Bruno, ell nagu Lembit, kaa nagu Kalle."*
+- When a plate query fails (e.g. a "notfound" result), have the unit repeat it with clarification. The request *"Korrake tähthaaval."* gets the reply *"Bee nagu Bruno, ell nagu Lembit, kaa nagu Kalle."*
 - Let traffic, border and helicopter units use **NATO words**: *"Bravo-Lima-Kilo"*.
 
 **[PROPOSED] Estonian clarification words for the game.** These are flavour only and do not claim to be a real standard. They use common, unambiguous Estonian first names, with ordinary words where no name fits.

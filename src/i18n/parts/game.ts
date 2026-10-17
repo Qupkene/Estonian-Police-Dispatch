@@ -97,7 +97,7 @@ export default {
   'game.queue.p12': { et: 'P1–2', en: 'P1–2' },
   'game.queue.unassigned': { et: 'Määramata', en: 'Unassigned' },
   'game.queue.empty': { et: 'Avatud sündmusi pole', en: 'No open events' },
-  'game.queue.emptyHint': { et: 'Eeter on vaikne — patrullid on liikvel.', en: 'All quiet — patrols are out on the streets.' },
+  'game.queue.emptyHint': { et: 'Eeter on vaikne, patrullid on liikvel.', en: 'All quiet. Patrols are out on the streets.' },
   'game.queue.emptyFilter': { et: 'Selle filtriga sündmusi pole.', en: 'No events match this filter.' },
   'game.queue.accept': { et: 'Võta vastu', en: 'Accept' },
   'game.queue.reject': { et: 'Keeldu…', en: 'Decline…' },
@@ -166,7 +166,7 @@ export default {
   'game.closedBy.phone': { et: 'Nõuanne telefonitsi', en: 'Advice by phone' },
   'game.closedBy.duplicate': { et: 'Topeltteade', en: 'Duplicate report' },
   'game.closedBy.prank': { et: 'Valekõne', en: 'Hoax call' },
-  'game.closedBy.expired': { et: 'Aegus — keegi ei jõudnud kohale', en: 'Expired — nobody arrived' },
+  'game.closedBy.expired': { et: 'Aegus (keegi ei jõudnud kohale)', en: 'Expired (nobody arrived)' },
   'game.closedBy.director': { et: 'Režissööri lõpetatud', en: 'Closed by the director' },
 
   // ── Incident panel ────────────────────────────────────────────────────────
@@ -184,7 +184,7 @@ export default {
   'game.inc.vehicles': { et: 'Sõidukid', en: 'Vehicles' },
   'game.inc.check': { et: 'Kontrolli', en: 'Check' },
   'game.inc.checked': { et: 'Kontrollitud', en: 'Checked' },
-  'game.inc.unidentified': { et: 'Isik on tuvastamata — oota patrulli päringut', en: 'Not identified yet — wait for the patrol to ask' },
+  'game.inc.unidentified': { et: 'Isik on tuvastamata, oota patrulli päringut', en: 'Not identified yet, wait for the patrol to ask' },
   'game.inc.unknownPerson': { et: 'Tundmatu isik', en: 'Unknown person' },
   'game.inc.needs': { et: 'Vajalik', en: 'Required' },
   'game.inc.ideal': { et: 'Ideaalne', en: 'Ideal' },

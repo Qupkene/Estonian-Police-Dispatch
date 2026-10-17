@@ -1,5 +1,5 @@
 /**
- * Andmebaas — registry search (rahvastikuregister / liiklusregister / karistusregister mock),
+ * Andmebaas: registry search (rahvastikuregister / liiklusregister / karistusregister mock),
  * record flags for the UI and the "correct reply" truth for query beats (DESIGN §4.4, §4.10).
  *
  * Owned by engine-systems.
@@ -65,7 +65,7 @@ export function searchPersons(s: SimState, q: string): Person[] {
   if (/^\d{11}$/.test(digits)) {
     out = Object.values(s.persons).filter((p) => p.idcode === digits);
   } else if (/^\d{5,10}$/.test(digits)) {
-    // Partial isikukood prefix (e.g. birth-date part) — handy when a unit reads it out slowly.
+    // Partial isikukood prefix (e.g. birth-date part), handy when a unit reads it out slowly.
     out = Object.values(s.persons)
       .filter((p) => p.idcode.startsWith(digits))
       .sort((a, b) => a.idcode.localeCompare(b.idcode))
@@ -172,20 +172,20 @@ export function personFlags(p: Person, now: number): RecordFlag[] {
       id: 'wanted',
       severity: 'danger',
       text: {
-        et: `TAGAOTSITAV — ${f.wanted.reason.et} (${f.wanted.authority}, alates ${fmtDate(f.wanted.since)})`,
-        en: `WANTED — ${f.wanted.reason.en} (${f.wanted.authority}, since ${fmtDate(f.wanted.since)})`,
+        et: `TAGAOTSITAV: ${f.wanted.reason.et} (${f.wanted.authority}, alates ${fmtDate(f.wanted.since)})`,
+        en: `WANTED: ${f.wanted.reason.en} (${f.wanted.authority}, since ${fmtDate(f.wanted.since)})`,
       },
     });
     if (f.wanted.dangerous || f.wanted.armed) {
       out.push({ id: 'armed', severity: 'danger', text: { et: 'RELVASTATUD JA OHTLIK', en: 'ARMED AND DANGEROUS' } });
     }
   }
-  if (f.sis) out.push({ id: 'sis', severity: 'danger', text: { et: `SIS-TABAMUS — ${f.sis.et}`, en: `SIS HIT — ${f.sis.en}` } });
+  if (f.sis) out.push({ id: 'sis', severity: 'danger', text: { et: `SIS-TABAMUS: ${f.sis.et}`, en: `SIS HIT: ${f.sis.en}` } });
   if (f.missing) {
     out.push({
       id: 'missing',
       severity: 'warn',
-      text: { et: `KADUNUD ISIK — ${f.missing.text.et} (alates ${fmtDate(f.missing.since)})`, en: `MISSING PERSON — ${f.missing.text.en} (since ${fmtDate(f.missing.since)})` },
+      text: { et: `KADUNUD ISIK: ${f.missing.text.et} (alates ${fmtDate(f.missing.since)})`, en: `MISSING PERSON: ${f.missing.text.en} (since ${fmtDate(f.missing.since)})` },
     });
   }
   if (f.restrainingOrder && active(f.restrainingOrder.until, now)) {
@@ -210,7 +210,7 @@ export function personFlags(p: Person, now: number): RecordFlag[] {
       id: 'weapon',
       severity: valid ? 'warn' : 'info',
       text: valid
-        ? { et: `RELVALUBA — ${p.weaponPermit.kind.et}`, en: `FIREARMS PERMIT — ${p.weaponPermit.kind.en}` }
+        ? { et: `RELVALUBA: ${p.weaponPermit.kind.et}`, en: `FIREARMS PERMIT: ${p.weaponPermit.kind.en}` }
         : { et: 'RELVALUBA AEGUNUD', en: 'FIREARMS PERMIT EXPIRED' },
     });
   }
@@ -241,10 +241,10 @@ export function vehicleFlags(v: Vehicle, now: number, owner?: Person): RecordFla
     out.push({
       id: 'stolen',
       severity: 'danger',
-      text: { et: `VARASTATUD — ${v.flags.stolen.text.et} (alates ${fmtDate(v.flags.stolen.since)})`, en: `STOLEN — ${v.flags.stolen.text.en} (since ${fmtDate(v.flags.stolen.since)})` },
+      text: { et: `VARASTATUD: ${v.flags.stolen.text.et} (alates ${fmtDate(v.flags.stolen.since)})`, en: `STOLEN: ${v.flags.stolen.text.en} (since ${fmtDate(v.flags.stolen.since)})` },
     });
   }
-  if (v.flags.wanted) out.push({ id: 'wanted', severity: 'danger', text: { et: `OTSITAV — ${v.flags.wanted.et}`, en: `WANTED VEHICLE — ${v.flags.wanted.en}` } });
+  if (v.flags.wanted) out.push({ id: 'wanted', severity: 'danger', text: { et: `OTSITAV: ${v.flags.wanted.et}`, en: `WANTED VEHICLE: ${v.flags.wanted.en}` } });
   if (owner?.flags.wanted) out.push({ id: 'ownerwanted', severity: 'danger', text: { et: 'OMANIK TAGAOTSITAV', en: 'OWNER WANTED' } });
   if (v.flags.suspended) out.push({ id: 'suspended', severity: 'warn', text: { et: 'REGISTREERING PEATATUD', en: 'REGISTRATION SUSPENDED' } });
   if (!v.insurance.valid || v.insurance.until < today(now)) out.push({ id: 'noinsurance', severity: 'warn', text: { et: 'KINDLUSTUS PUUDUB', en: 'NO INSURANCE' } });

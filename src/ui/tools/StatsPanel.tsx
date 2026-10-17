@@ -1,4 +1,4 @@
-// "Statistika" — the tab that was empty in 2024. Live shift dashboard. Owned by ui-tools.
+// "Statistika": the tab that was empty in 2024. Live shift dashboard. Owned by ui-tools.
 import type { IncidentCategory, Priority, SimState } from '@/sim/types';
 import { HOUR, MIN, hhmm, wall } from '@/sim/time';
 import { useGame } from '@/store/game';
@@ -111,7 +111,7 @@ function Dashboard({ sim: s, lang }: { sim: SimState; lang: 'et' | 'en' }) {
       value: avg,
       target,
       tone,
-      valueText: avg === null ? '—' : `${dec(avg, 1, lang)} min`,
+      valueText: avg === null ? '–' : `${dec(avg, 1, lang)} min`,
       status: (
         <span className={`tl-sla tl-sla--${tone}`}>
           {statusIcon && <Icon name={statusIcon} size={11} />}
@@ -120,8 +120,8 @@ function Dashboard({ sim: s, lang }: { sim: SimState; lang: 'et' | 'en' }) {
       ),
       tipTitle: `P${p} · ${t('tools.stats.sla', { n: target })}`,
       tipRows: [
-        { color: 'var(--text-1)', label: t('tools.stats.kpi.avgResp'), value: avg === null ? '—' : `${dec(avg, 1, lang)} min` },
-        { color: 'var(--text-2)', label: t('tools.stats.median'), value: med === null ? '—' : `${dec(med, 1, lang)} min` },
+        { color: 'var(--text-1)', label: t('tools.stats.kpi.avgResp'), value: avg === null ? '–' : `${dec(avg, 1, lang)} min` },
+        { color: 'var(--text-2)', label: t('tools.stats.median'), value: med === null ? '–' : `${dec(med, 1, lang)} min` },
         { color: 'var(--text-3)', label: t('tools.stats.n', { n: resp[p].length }), value: String(resp[p].length) },
       ],
     };
@@ -146,7 +146,7 @@ function Dashboard({ sim: s, lang }: { sim: SimState; lang: 'et' | 'en' }) {
   // areas
   const areaCount = new Map<string, number>();
   for (const i of incs) {
-    const k = i.location.district || i.location.city || '—';
+    const k = i.location.district || i.location.city || '–';
     areaCount.set(k, (areaCount.get(k) ?? 0) + 1);
   }
   const areas = [...areaCount.entries()]
@@ -162,7 +162,7 @@ function Dashboard({ sim: s, lang }: { sim: SimState; lang: 'et' | 'en' }) {
       <div className="tl-kpis">
         <Kpi label={t('tools.stats.kpi.incidents')} value={String(incs.length)} sub={`${closed} ${t('tools.stats.kpi.closed')}`} />
         <Kpi label={t('tools.stats.kpi.open')} value={String(open.length)} sub={t('tools.stats.kpi.p1', { n: p1open })} alert={p1open > 0} />
-        <Kpi label={t('tools.stats.kpi.avgResp')} value={avgAll === null ? '—' : `${dec(avgAll, 1, lang)}`} unit={avgAll === null ? undefined : 'min'} />
+        <Kpi label={t('tools.stats.kpi.avgResp')} value={avgAll === null ? '–' : `${dec(avgAll, 1, lang)}`} unit={avgAll === null ? undefined : 'min'} />
         <Kpi label={t('tools.stats.kpi.arrests')} value={String(st?.arrests ?? 0)} />
         <Kpi label={t('tools.stats.kpi.calls')} value={String(st?.callsAnswered ?? 0)} sub={t('tools.stats.kpi.callsSub', { m: st?.callsMissed ?? 0 })} />
         <Kpi label={t('tools.stats.kpi.trust')} value={String(trust)} meter={{ v: trust / 100, tone: trustTone }} />

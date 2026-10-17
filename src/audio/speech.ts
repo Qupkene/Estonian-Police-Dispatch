@@ -1,5 +1,5 @@
 // Speech synthesis for radio traffic (Web Speech API). Owned by ui-shell. Keep the exported signatures.
-// Estonian uses an 'et-EE' (or any 'et*') system voice when one exists — otherwise Estonian text is NOT
+// Estonian uses an 'et-EE' (or any 'et*') system voice when one exists. Otherwise Estonian text is NOT
 // spoken (an English voice reading Estonian sounds wrong). English uses en-GB → en-US → any en.
 import { sfx } from './sfx';
 
@@ -14,7 +14,7 @@ const EN_ORDER = ['en-gb', 'en-ie', 'en-us', 'en-au', 'en-ca'];
 
 const norm = (l: string) => l.toLowerCase().replace('_', '-');
 
-/** Best voice for a UI language (pure — exported for tests). */
+/** Best voice for a UI language (pure, exported for tests). */
 export function pickVoice<V extends VoiceLike>(list: readonly V[], lang: 'et' | 'en'): V | null {
   if (!list?.length) return null;
   if (lang === 'et') {

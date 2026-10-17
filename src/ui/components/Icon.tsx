@@ -1,4 +1,4 @@
-// EPD icon set — hand-drawn 24 × 24 stroke icons (1.8 px, round caps/joins).
+// EPD icon set: hand-drawn 24 × 24 stroke icons (1.8 px, round caps/joins).
 // API (ICON_NAMES, IconName, <Icon name size className />) is shared by every module; keep it stable.
 import type { ReactNode } from 'react';
 

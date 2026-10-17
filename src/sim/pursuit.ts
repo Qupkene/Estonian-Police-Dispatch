@@ -1,5 +1,5 @@
 /**
- * Vehicle pursuit (jälitus) — DESIGN §4.6.
+ * Vehicle pursuit (jälitus), see DESIGN §4.6.
  *
  * The suspect vehicle moves with heading noise (speed 70–140 km/h on the speedometer; its
  * straight-line map speed is ~55 % of that because of the road network and turns), drifts onto
@@ -61,7 +61,7 @@ export const PURSUIT = {
   heliKmh: 200,
 } as const;
 
-/** Tallinn airport — PPA lennusalk base (virtual helicopter origin when no heli unit exists). */
+/** Tallinn airport: PPA lennusalk base (virtual helicopter origin when no heli unit exists). */
 const HELI_BASE: LngLat = [24.8328, 59.4133];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -205,7 +205,7 @@ function compass(h: number): Text {
   return { et: `${COMPASS_ET[i]} suunas`, en: `heading ${COMPASS_EN[i]}` };
 }
 
-/** "Laagna teel" / "Narva maanteel" — adessive for common street types, otherwise "… piirkonnas". */
+/** "Laagna teel" / "Narva maanteel": adessive for common street types, otherwise "… piirkonnas". */
 export function onStreet(street: string): Text {
   const m = /^(.*?)\s+(tee|mnt|maantee|pst|puiestee)$/i.exec(street.trim());
   if (m) {

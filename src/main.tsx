@@ -9,9 +9,17 @@ import { registerSW } from './pwa';
 import { useGame } from './store/game';
 import { useCareer } from './store/career';
 import { useSettings } from './store/settings';
+import { step } from './sim/engine';
+import * as cmd from './sim/commands';
+import * as sel from './sim/selectors';
 
 // Console handle for power users, filmmakers and end-to-end tests (single-player game, nothing secret).
-(window as unknown as { __epd: unknown }).__epd = { game: useGame, career: useCareer, settings: useSettings };
+(window as unknown as { __epd: unknown }).__epd = {
+  game: useGame,
+  career: useCareer,
+  settings: useSettings,
+  engine: { step, cmd, sel },
+};
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

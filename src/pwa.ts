@@ -1,7 +1,7 @@
 /**
  * Offline / PWA support: registers `public/sw.js` (served at `${BASE_URL}sw.js`).
  *
- * Only runs in production builds — in `npm run dev` a service worker would cache Vite's
+ * Only runs in production builds. In `npm run dev` a service worker would cache Vite's
  * dev modules and get in the way of HMR.
  *
  * Usage (main.tsx): `import { registerSW } from './pwa'; registerSW();`
@@ -17,7 +17,7 @@ export function registerSW(): void {
       .then(() => navigator.serviceWorker.ready)
       .then((reg) => warmCache(reg.active))
       .catch((err: unknown) => {
-        // Offline support is a bonus — never break the game because of it.
+        // Offline support is a bonus, so never break the game because of it.
         console.warn('[EPD] Service worker registration failed:', err);
       });
   };
@@ -42,6 +42,6 @@ function warmCache(worker: ServiceWorker | null): void {
       .filter((url) => url.startsWith(location.origin));
     worker.postMessage({ type: 'EPD_CACHE_URLS', urls });
   } catch {
-    // performance API unavailable — runtime caching will fill the cache instead.
+    // performance API unavailable: runtime caching will fill the cache instead.
   }
 }

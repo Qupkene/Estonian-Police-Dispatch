@@ -4,7 +4,7 @@
  * Sources: docs/research/ppa-organisation.md (five jaoskonnad, addresses, custody, sea rescue
  * groups, patrol boats Terje and Tuul), docs/research/names-demographics.md (Russian-speaker
  * shares), src/data/geo/settlements.json (town/village polygon centroids) and the county/land
- * polygons (every coastal POI — ports, beaches, lighthouses — was checked to sit on the island it
+ * polygons (every coastal POI, whether port, beach or lighthouse, was checked to sit on the island it
  * belongs to and within ~250 m of the shoreline). Coordinates are hand-placed (no live geocoding):
  * town-level placement is reliable, landmarks typically within ~100–300 m, minor streets approximate.
  *
@@ -81,7 +81,7 @@ const SAA = 'saaremaa';
 const HII = 'hiiumaa';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Zones — extra minutes for road units crossing from the mainland (ferry + waiting).
+// Zones: extra minutes for road units crossing from the mainland (ferry + waiting).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ZONES: Zone[] = [
@@ -94,7 +94,7 @@ const ZONES: Zone[] = [
   { id: 'vormsi', name: t('Vormsi', 'Vormsi'), ferryMinutes: 60 },
   // Munalaiu–Kihnu ferry (~1 h).
   { id: 'kihnu', name: t('Kihnu', 'Kihnu'), ferryMinutes: 75 },
-  // Ruhnu: no practical road-unit access (seasonal ferry, small plane) — boat or helicopter only.
+  // Ruhnu: no practical road-unit access (seasonal ferry, small plane), so boat or helicopter only.
   { id: 'ruhnu', name: t('Ruhnu', 'Ruhnu'), ferryMinutes: null },
 ];
 
@@ -227,7 +227,7 @@ const STATIONS: Station[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Roster — normal: 8 patrols by day / 9 by night (2 on Saaremaa, 1 on Hiiumaa) + specialists.
+// Roster (normal): 8 patrols by day / 9 by night (2 on Saaremaa, 1 on Hiiumaa) + specialists.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ROSTER: UnitSpec[] = [
@@ -446,7 +446,7 @@ const ROSTER: UnitSpec[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Towns — every 'linn' of the six counties (+ Kuressaare, which settlements.json lists as a
+// Towns: every 'linn' of the six counties (+ Kuressaare, which settlements.json lists as a
 // küla) + alevid and the bigger alevikud. Island towns carry their zone. Populations ≈2024.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -638,7 +638,7 @@ const TOWNS: Town[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Streets — polylines ordered by house number (low numbers at the town-centre end).
+// Streets: polylines ordered by house number (low numbers at the town-centre end).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const P = 'Pärnu';

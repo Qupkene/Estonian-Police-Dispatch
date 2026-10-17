@@ -1,6 +1,6 @@
 /**
  * Pure helpers for the ui-tools panels (Andmebaas, 112, Statistika, Teated, Režissöör).
- * No React / DOM imports here — everything is unit-tested in tests/tools.test.ts.
+ * No React / DOM imports here. Everything is unit-tested in tests/tools.test.ts.
  */
 import type {
   Agency,
@@ -20,7 +20,7 @@ import type {
 } from '@/sim/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Safety: the engine lands concurrently — stubs throw. Panels must never crash.
+// Safety: the engine lands concurrently (stubs throw). Panels must never crash.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function safe<T>(fn: () => T, fallback: T): T {
@@ -111,7 +111,7 @@ export function vehicleByPlate(s: SimState, plate: string): Vehicle | undefined 
 
 /** "2026-10-17" → "17.10.2026" (Estonian format). */
 export function isoToEt(iso: string | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return '–';
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   return m ? `${m[3]}.${m[2]}.${m[1]}` : iso;
 }
@@ -201,11 +201,15 @@ export function sortFlags<F extends FlagLike>(flags: F[]): F[] {
   return [...flags].sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]);
 }
 
-/** "TAGAOTSITAV — põhjus (asutus)" → { head: "TAGAOTSITAV", rest: "põhjus (asutus)" }. */
+/**
+ * Flag text "TAGAOTSITAV <em dash> põhjus (asutus)", as src/sim/registry.ts writes it (the separator is
+ * spelled as an escape below) → { head: "TAGAOTSITAV", rest: "põhjus (asutus)" }.
+ */
 export function splitFlagText(text: string): { head: string; rest: string } {
-  const dash = text.indexOf(' — ');
-  if (dash > 0) return { head: text.slice(0, dash).trim(), rest: text.slice(dash + 3).trim() };
+  // Engine flags read "HEAD: detail"; a colon inside a parenthesis ("LÄHENEMISKEELD (kaitstav: …)") is not a separator.
   const par = text.indexOf(' (');
+  const colon = text.indexOf(': ');
+  if (colon > 0 && (par < 0 || colon < par)) return { head: text.slice(0, colon).trim(), rest: text.slice(colon + 2).trim() };
   if (par > 0 && text.endsWith(')')) return { head: text.slice(0, par).trim(), rest: text.slice(par + 2, -1).trim() };
   return { head: text.trim(), rest: '' };
 }
@@ -474,5 +478,5 @@ export const PLACEHOLDER_LABEL: Record<string, Text> = {
   agency: { et: 'asutus', en: 'agency' },
 };
 
-/** Default SLA minutes (DESIGN §4.5, urban) — used when no incident data yet. */
+/** Default SLA minutes (DESIGN §4.5, urban), used when there is no incident data yet. */
 export const DEFAULT_SLA: Record<Priority, number> = { 1: 10, 2: 20, 3: 45, 4: 120 };

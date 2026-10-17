@@ -1,4 +1,4 @@
-// Pure helpers for the career (HQ management) screen. No React / DOM imports — unit-tested in tests/career-ui.test.ts.
+// Pure helpers for the career (HQ management) screen. No React / DOM imports. Unit-tested in tests/career-ui.test.ts.
 import * as rules from '@/sim/career';
 import * as economy from '@/data/economy';
 import { DAILY_BUDGET, RANKS, UPGRADES } from '@/data/economy';
@@ -22,7 +22,7 @@ export const UNIT_TYPES: UnitType[] = [
   'boat',
 ];
 
-/** Run a career rule that may still be a stub (throws) — return the fallback instead of crashing the UI. */
+/** Run a career rule that may still be a stub (throws) and return the fallback instead of crashing the UI. */
 export function safe<T>(fn: () => T, fallback: T): T {
   try {
     const v = fn();
@@ -42,7 +42,7 @@ const NBSP = ' ';
 const MINUS = '−';
 
 export function fmtNum(n: number, lang: Lang, digits = 0): string {
-  if (!Number.isFinite(n)) return '—';
+  if (!Number.isFinite(n)) return '–';
   const neg = n < 0 && Math.abs(n) >= 0.5 * 10 ** -digits;
   const [int, frac] = Math.abs(n).toFixed(digits).split('.');
   const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, lang === 'et' ? NBSP : ',');
@@ -182,7 +182,7 @@ export type Affordability = 'ok' | 'tight' | 'no';
 
 /**
  * Can the HQ afford a new monthly cost (salary / upkeep) and an up-front price?
- * `no` — not enough cash right now; `tight` — monthly costs would exceed the base budget.
+ * `no`: not enough cash right now; `tight`: monthly costs would exceed the base budget.
  */
 export function affordability(p: CareerProfile, monthly: number, upfront: number, costs: MonthlyCosts, budget: number): Affordability {
   if (upfront > p.money || (upfront === 0 && monthly > p.money)) return 'no';

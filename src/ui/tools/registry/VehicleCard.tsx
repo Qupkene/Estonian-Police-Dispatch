@@ -48,7 +48,7 @@ export function VehicleCard({
         <div className="tl-alerts">
           {v.flags.stolen && (
             <div className="tl-alert tl-alert--danger">
-              <strong>{t('tools.v.stolen', { date: isoToEt(v.flags.stolen.since) })}</strong> — {tx(v.flags.stolen.text)}
+              <strong>{t('tools.v.stolen', { date: isoToEt(v.flags.stolen.since) })}</strong>: {tx(v.flags.stolen.text)}
             </div>
           )}
           {v.flags.wanted && <div className="tl-alert tl-alert--danger">{tx(v.flags.wanted)}</div>}

@@ -1,4 +1,4 @@
-// "Teated" — BOLO, päevakäsk, ilmahoiatused, üritused. Owned by ui-tools. Reads everything from the stores.
+// "Teated": BOLO, päevakäsk, ilmahoiatused, üritused. Owned by ui-tools. Reads everything from the stores.
 import type { Bulletin, SimState } from '@/sim/types';
 import { MIN, ddmmyyyy, hhmm } from '@/sim/time';
 import { useGame } from '@/store/game';

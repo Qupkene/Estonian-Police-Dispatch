@@ -1,5 +1,5 @@
 /**
- * Liiklus — traffic incidents (incidents-C).
+ * Liiklus: traffic incidents (incidents-C).
  * Legacy titles covered: Autoavarii, Purjus autojuht, Loata rallivõistlus, Jalakäija vigastamine,
  * Valgustamata jalgrattur öösel, Rongilt alla kukkunud inimene.
  */
@@ -82,7 +82,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
     outcomes: [
       out('crime', 'arrest', [0.55, 1], 4, T('Juhi joove tuvastati (1,8 promilli). Alustati kriminaalmenetlust KarS § 424 järgi, juht toimetati arestimajja ja sõiduk teisaldati.', 'The driver was found to be over the limit (1.8 per mille). Criminal proceedings were opened under Penal Code § 424, the driver was taken into custody and the car towed.'), { arrests: 1 }),
       out('misd', 'report', [0.35, 0.85], 3, T('Juhi joove jäi väärteo piiridesse. Alustati väärteomenetlust LS § 224 järgi, juhtimisõigus peatati, õnnetus vormistati.', 'The driver was over the limit within the misdemeanour range. Proceedings under Traffic Act § 224, licence suspended, the collision was recorded.')),
-      out('sober', 'resolved', [0.3, 1], 1, T('Joovet ei tuvastatud — juht oli šokis. Osalised vormistasid liiklusõnnetuse kokkuleppel, liiklus taastati.', 'No intoxication found — the driver was in shock. The parties recorded the collision by mutual agreement and traffic was restored.')),
+      out('sober', 'resolved', [0.3, 1], 1, T('Joovet ei tuvastatud, juht oli šokis. Osalised vormistasid liiklusõnnetuse kokkuleppel, liiklus taastati.', 'No intoxication found: the driver was in shock. The parties recorded the collision by mutual agreement and traffic was restored.')),
       out('fled', 'escaped', [0, 0.4], 2, T('Joobes juht lahkus enne patrulli saabumist jalgsi. Sõiduk teisaldati, omaniku tuvastamiseks alustati menetlust.', 'The drunk driver left on foot before the patrol arrived. The car was towed and proceedings opened to identify him.')),
       out('hurt', 'hospital', [0, 0.25], 1, T('Kannatanu kaebas hiljem kaelavalu ja viidi kiirabiga haiglasse. Süüdlane osutas kinnipidamisel vastupanu.', 'The other driver later complained of neck pain and was taken to hospital. The at-fault driver resisted arrest.'), { injuries: 1, arrests: 1 }),
     ],
@@ -260,7 +260,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
       T('{address}. Valgustamata jalgrattur looklevalt maanteel, autod on teda viimasel hetkel märganud. Liigub {direction}.', '{address}. Unlit cyclist weaving on the highway; cars have spotted him at the last moment. Moving {direction}.'),
     ],
     callerLines: [
-      T('Ma peaaegu sõitsin talle otsa — mustad riided, ei mingit tuld, sõidab keset teed!', 'I nearly hit him — dark clothes, no light, riding in the middle of the road!'),
+      T('Ma peaaegu sõitsin talle otsa! Mustad riided, ei mingit tuld, sõidab keset teed!', 'I nearly hit him! Dark clothes, no light, riding in the middle of the road!'),
       T('Siin maanteel loksub üks rattur, tundub purjus, varsti saab keegi talle otsa.', 'There is a cyclist wobbling on the main road, looks drunk, someone is going to hit him soon.'),
     ],
     details: [T('Rattal on ostukotid sangadel, sõit on ebakindel.', 'Shopping bags are hanging off the handlebars; the riding is unsteady.')],
@@ -350,11 +350,11 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
     vehicles: [{ role: 'suspect', kind: 'car', driverRole: 'driver', stolen: 0.04, noInsurance: 0.12, noInspection: 0.15, suspended: 0.05 }],
     summary: [
       T('{address}. Joobes juhi kahtlus: {car}, numbrimärk {plate}, looklev sõit, liigub {direction}. Teataja sõidab järel.', '{address}. Suspected drunk driver: {car}, plate {plate}, weaving, moving {direction}. The caller is following.'),
-      T('{address}. Teataja sõidab sõiduki {plate} taga — auto kõigub rajalt rajale ja pidurdab põhjuseta. Kiirus 50–110 km/h.', '{address}. The caller is behind {plate} — the car drifts lane to lane and brakes for no reason. Speed 50–110 km/h.'),
+      T('{address}. Teataja sõidab sõiduki {plate} taga. Auto kõigub rajalt rajale ja pidurdab põhjuseta. Kiirus 50–110 km/h.', '{address}. The caller is behind {plate}. The car drifts lane to lane and brakes for no reason. Speed 50–110 km/h.'),
       T('{address}. {car} ({plate}) sõitis teepeenrale ja tagasi, ohustab vastutulijaid. Teataja on liinil.', '{address}. A {car} ({plate}) ran onto the verge and back, endangering oncoming traffic. The caller is on the line.'),
     ],
     callerLines: [
-      T('Ma sõidan ühe auto taga, ta on kindlasti purjus — kogu aeg üle keskjoone!', 'I am driving behind a car, he is definitely drunk — over the centre line all the time!'),
+      T('Ma sõidan ühe auto taga, ta on kindlasti purjus! Kogu aeg üle keskjoone!', 'I am driving behind a car, he is definitely drunk! Over the centre line all the time!'),
       T('Number on {plate}. Ta just sõitis peaaegu kraavi ja jätkab, me oleme {direction}.', 'The plate is {plate}. He nearly went into the ditch and carried on, we are heading {direction}.'),
       T('Ma ei taha lähemale minna, aga ta sõidab nagu oleks magama jäämas.', 'I do not want to get closer, but he drives like he is falling asleep.'),
     ],
@@ -488,7 +488,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
     outcomes: [
       out('report', 'report', [0.55, 1], 3, T('Tunnistajate ütluste ja kaamerasalvestise põhjal alustati menetlust joobes juhtimise asjas.', 'Proceedings for drunk driving were opened on the basis of witness statements and camera footage.')),
       out('nolicense', 'report', [0.45, 1], 2, T('Selgus, et juhil puudub juhtimisõigus. Koostati väärteoprotokoll, auto võtmed jäid abikaasale.', 'It turned out the driver has no licence. Misdemeanour report filed; the car keys stayed with his wife.')),
-      out('feud', 'unfounded', [0, 0.7], 3, T('Kohapeal teadet kinnitada ei õnnestunud — tegemist oli naabrite omavahelise tüliga. Osalisi hoiatati.', 'The report could not be confirmed on scene — it was a quarrel between neighbours. Both were warned.')),
+      out('feud', 'unfounded', [0, 0.7], 3, T('Kohapeal teadet kinnitada ei õnnestunud. Tegemist oli naabrite omavahelise tüliga. Osalisi hoiatati.', 'The report could not be confirmed on scene. It was a quarrel between neighbours. Both were warned.')),
       out('sleeping', 'warning', [0, 0.45], 1, T('Juht ei avanud ust. Info edastati piirkonnapolitseinikule.', 'The driver did not open the door. The information was passed to the community officer.')),
     ],
     falseAlarmChance: 0.25,
@@ -542,7 +542,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
       T('Sadama väravakaamera tuvastab numbrimärgi väljasõidul.', 'The port gate camera will read the plate on the way out.'),
     ],
     beats: [
-      qVehicle('arrive', { radio: [T('{callsign}: oleme kail. Kontrolli palun sõidukit {plate} — {car}.', '{callsign}: we are at the quay. Please run {plate} — {car}.')] }),
+      qVehicle('arrive', { radio: [T('{callsign}: oleme kail. Kontrolli palun sõidukit {plate}, {car}.', '{callsign}: we are at the quay. Please run {plate}, {car}.')] }),
       qPerson('driver', 2),
       breathRefusal(5, 0.3),
     ],
@@ -790,7 +790,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
       T('{address}. Sõiduauto {plate} kihutab ja teeb järske möödasõite, liigub {direction}.', '{address}. Car {plate} is speeding and making sharp overtakes, moving {direction}.'),
     ],
     callerLines: [
-      T('Iga õhtu sama asi — üks poiss sõidab siit läbi nagu rajal, kunagi jääb laps alla!', 'Every evening the same thing — a lad drives through here like it is a racetrack, one day a child will get hit!'),
+      T('Iga õhtu sama asi: üks poiss sõidab siit läbi nagu rajal, kunagi jääb laps alla!', 'Every evening the same thing: a lad drives through here like it is a racetrack, one day a child will get hit!'),
       T('Ta möödus minust pidevjoonel ja kihutas vähemalt 150-ga!', 'He overtook me on a solid line doing at least 150!'),
     ],
     details: [T('Sõidukil on vali summuti ja toonitud esiklaasid.', 'The car has a loud exhaust and tinted front windows.')],
@@ -918,7 +918,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
     vehicles: [{ role: 'involved', kind: 'car', driverRole: 'driver', noInsurance: 0.05 }],
     agencies: [
       { agency: 'kiirabi', chance: 0.3, reason: T('Juhi vigastuste kontroll', 'Check the driver for injuries') },
-      { agency: 'transpordiamet', chance: 0.4, reason: T('Klaasjää — teehooldusele libedustõrje tellimine', 'Black ice — request gritting from road maintenance') },
+      { agency: 'transpordiamet', chance: 0.4, reason: T('Klaasjää: teehooldusele libedustõrje tellimine', 'Black ice: request gritting from road maintenance') },
     ],
     summary: [
       T('{address}. Sõiduauto libises jäisel teel kraavi ja jäi külili. Juht väljas, kaebab käevalu.', '{address}. A car slid on the icy road into the ditch and is on its side. The driver is out and complaining of arm pain.'),
@@ -1028,7 +1028,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
       qPerson('driver', 6, { chance: 0.7 }),
     ],
     outcomes: [
-      out('fined', 'fine', [0.5, 1], 4, T('Mootorrattur peatati. Määrati trahv kiiruseületamise eest LS § 262 järgi, A-kategooria juhtimisõigus puudus — sõiduk teisaldati.', 'The motorcyclist was stopped. Fined for speeding under Traffic Act § 262; he had no category A licence, so the bike was impounded.')),
+      out('fined', 'fine', [0.5, 1], 4, T('Mootorrattur peatati. Määrati trahv kiiruseületamise eest LS § 262 järgi, A-kategooria juhtimisõigus puudus, mistõttu sõiduk teisaldati.', 'The motorcyclist was stopped. Fined for speeding under Traffic Act § 262; he had no category A licence, so the bike was impounded.')),
       out('warned', 'warning', [0.3, 0.8], 2, T('Rattureid hoiatati, tehnilised puudused fikseeriti. Piirkonda lisati liiklusjärelevalve.', 'The riders were warned and defects noted. Traffic enforcement added to the area.')),
       out('gone', 'escaped', [0, 0.4], 2, T('Mootorratturid lahkusid enne patrulli saabumist.', 'The motorcyclists left before the patrol arrived.')),
       out('crash', 'hospital', [0, 0.2], 1, T('Põgenev mootorrattur kukkus kurvis. Ta toimetati raskes seisundis haiglasse.', 'The fleeing motorcyclist crashed on a bend. He was taken to hospital in a serious condition.'), { injuries: 1 }),
@@ -1119,7 +1119,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
     ],
     vehicles: [{ role: 'suspect', kind: 'car', driverRole: 'driver', noInsurance: 0.2, noInspection: 0.25 }],
     summary: [
-      T('{address}. Teataja sõnul juhib tuttav mees, kellelt juhtimisõigus kohtuotsusega ära võeti, taas autot {car}, numbrimärk {plate}. Liigub {direction}.', '{address}. The caller says a man he knows, who was disqualified by a court, is driving again — {car}, plate {plate}. Moving {direction}.'),
+      T('{address}. Teataja sõnul juhib tuttav mees, kellelt juhtimisõigus kohtuotsusega ära võeti, taas autot {car}, numbrimärk {plate}. Liigub {direction}.', '{address}. The caller says a man he knows, who was disqualified by a court, is driving again: {car}, plate {plate}. Moving {direction}.'),
       T('{address}. Külas sõidab noormees ilma lubadeta ema autoga, on mitu korda nähtud. Praegu pargib poe ees.', '{address}. A young man is driving his mother’s car in the village without a licence, seen several times. Currently parking outside the shop.'),
     ],
     callerLines: [
@@ -1154,7 +1154,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
     units: { need: [u('patrol')], ideal: [u('traffic')] },
     onScene: [30, 60],
     persons: [{ role: 'caller', gender: 'any', age: [20, 75] }],
-    agencies: [{ agency: 'kov', chance: 0.8, reason: T('Valgusfoori remont — linna teehoolduse teavitamine', 'Traffic light repair — notify city road maintenance') }],
+    agencies: [{ agency: 'kov', chance: 0.8, reason: T('Valgusfoori remont: linna teehoolduse teavitamine', 'Traffic light repair: notify city road maintenance') }],
     referral: { agency: 'kov', chance: 0.3 },
     summary: [
       T('{address}. Suurel ristmikul ei tööta valgusfoorid, tipptunnil liiklus kaootiline, mitu peaaegu-kokkupõrget.', '{address}. The traffic lights at a major junction are out; rush-hour traffic is chaotic with several near misses.'),
@@ -1281,7 +1281,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
     vehicles: [{ role: 'suspect', kind: 'car', driverRole: 'driver', stolen: 0.3, noInsurance: 0.25, noInspection: 0.3, suspended: 0.1 }],
     summary: [
       T('{address}. Patrull teatab: {car}, numbrimärk {plate}, eiras peatumismärguannet ja põgeneb {direction}.', '{address}. A patrol reports: {car}, plate {plate}, ignored the stop signal and is fleeing {direction}.'),
-      T('{address}. ANPR-kaamera tuvastas sõiduki {plate}, patrull andis peatumismärguande — juht kiirendas ja lülitas tuled välja.', '{address}. ANPR flagged vehicle {plate}; the patrol signalled it to stop — the driver accelerated and switched off his lights.'),
+      T('{address}. ANPR-kaamera tuvastas sõiduki {plate}, patrull andis peatumismärguande, kuid juht kiirendas ja lülitas tuled välja.', '{address}. ANPR flagged vehicle {plate}; the patrol signalled it to stop, but the driver accelerated and switched off his lights.'),
       T('{address}. Liikluskontrollis pööras {car} ümber ja põgenes, kiirus üle 120 km/h.', '{address}. At a traffic checkpoint a {car} turned around and fled at over 120 km/h.'),
     ],
     details: [

@@ -9,7 +9,7 @@ import type { SimState, Weather } from '@/sim/types';
 
 const RAD = Math.PI / 180;
 
-/** Approximate solar altitude (degrees) — fallback until the engine's `sun()` is available. */
+/** Approximate solar altitude (degrees), a fallback until the engine's `sun()` is available. */
 export function solarAltitude(t: number, lat: number, lon: number): number {
   const d = t / 86_400_000 + 2440587.5 - 2451545.0;
   const g = (357.529 + 0.98560028 * d) * RAD;

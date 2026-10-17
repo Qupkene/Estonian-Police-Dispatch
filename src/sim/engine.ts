@@ -193,7 +193,7 @@ function populateRegistry(s: SimState, r: Rng, region: RegionDef): void {
 
 // ── The two legends from the 2025 version ───────────────────────────────────
 
-const LEGEND_NOTE = T('LEGEND 2025 — EPD 2025. aasta versiooni legendaarne tagaotsitav.', 'LEGEND 2025 — legendary wanted person from the 2025 version of EPD.');
+const LEGEND_NOTE = T('LEGEND 2025: EPD 2025. aasta versiooni legendaarne tagaotsitav.', 'LEGEND 2025: legendary wanted person from the 2025 version of EPD.');
 
 function legendPerson(base: Omit<Person, 'notes' | 'vehicles' | 'flags'> & { flags: Person['flags']; extra: Text[] }): Person {
   const { extra, ...p } = base;
@@ -225,9 +225,9 @@ export function addLegends(s: SimState): void {
     },
     license: { status: 'suspended', categories: ['B'] },
     records: [
-      { date: '2024-11-02', lawId: 'ls_fleeing', kind: 'misdemeanour', punishment: T('„Kriminaalne mittepeatumine“ — juhtimisõiguse peatamine', '“Criminal failure to stop” — licence suspended') },
-      { date: '2025-02-14', lawId: 'kars_263', kind: 'crime', punishment: T('„Tule avamine relvast avalikus kohas“ — 2 a vangistust', '“Opening fire in a public place” — 2 years in prison') },
-      { date: '2025-06-23', lawId: 'kars_121', kind: 'crime', punishment: T('„Kehavigastuste tekitamine“ — tingimisi vangistus', '“Causing bodily injuries” — suspended sentence') },
+      { date: '2024-11-02', lawId: 'ls_fleeing', kind: 'misdemeanour', punishment: T('„Kriminaalne mittepeatumine“: juhtimisõiguse peatamine', '“Criminal failure to stop”: licence suspended') },
+      { date: '2025-02-14', lawId: 'kars_263', kind: 'crime', punishment: T('„Tule avamine relvast avalikus kohas“: 2 a vangistust', '“Opening fire in a public place”: 2 years in prison') },
+      { date: '2025-06-23', lawId: 'kars_121', kind: 'crime', punishment: T('„Kehavigastuste tekitamine“: tingimisi vangistus', '“Causing bodily injuries”: suspended sentence') },
     ],
     flags: {
       wanted: {
@@ -265,9 +265,9 @@ export function addLegends(s: SimState): void {
     },
     license: { status: 'expired', categories: ['B'], validUntil: '1999-12-31' },
     records: [
-      { date: '2023-05-05', lawId: 'kars_25_114', kind: 'crime', punishment: T('„Mõrvakatse“ — 8 a vangistust', '“Attempted murder” — 8 years in prison') },
-      { date: '2024-08-17', lawId: 'kars_118', kind: 'crime', punishment: T('„Toidumürgitamine“ — 3 a vangistust', '“Food poisoning” — 3 years in prison') },
-      { date: '2025-03-30', lawId: 'kars_200_2', kind: 'crime', punishment: T('„Relvastatud Hesburgerirööv“ — tagaotsitav', '“Armed Hesburger robbery” — wanted') },
+      { date: '2023-05-05', lawId: 'kars_25_114', kind: 'crime', punishment: T('„Mõrvakatse“: 8 a vangistust', '“Attempted murder”: 8 years in prison') },
+      { date: '2024-08-17', lawId: 'kars_118', kind: 'crime', punishment: T('„Toidumürgitamine“: 3 a vangistust', '“Food poisoning”: 3 years in prison') },
+      { date: '2025-03-30', lawId: 'kars_200_2', kind: 'crime', punishment: T('„Relvastatud Hesburgerirööv“: tagaotsitav', '“Armed Hesburger robbery”: wanted') },
     ],
     flags: {
       wanted: {
@@ -415,15 +415,15 @@ function addBulletins(s: SimState, r: Rng, region: RegionDef): void {
   } catch {
     holiday = undefined;
   }
-  if (holiday) focus.push(T(`${holiday.et} — eeldada tavapärasest suuremat koormust`, `${holiday.en} — expect a heavier load than usual`));
+  if (holiday) focus.push(T(`${holiday.et}: eeldada tavapärasest suuremat koormust`, `${holiday.en}: expect a heavier load than usual`));
   const cmd = region.commander;
   const sig = cmd ? T(`${cmd.title.et} ${cmd.name}`, `${cmd.title.en} ${cmd.name}`) : T(`${region.name.et}, prefekt`, `${region.name.en}, prefect`);
   pushBulletin(s, {
     kind: 'order',
     title: T(`Päevakäsk ${ddmmyyyy(now)}`, `Orders of the day ${ddmmyyyy(now)}`),
     text: {
-      et: `${region.name.et}. Vahetus algab kell ${hhmm(now)}, teenistuses ${s.unitOrder.length} üksust. Vahetuse operatiivinfo haldur: ${s.playerName}. Erilist tähelepanu: ${focus.map((f) => f.et).join('; ')}. Kõik ekipaažid kannavad kehakaameraid, ohutus ennekõike. — ${sig.et}`,
-      en: `${region.name.en}. Shift starts at ${hhmm(now)}, ${s.unitOrder.length} units on duty. Dispatcher on shift: ${s.playerName}. Special attention: ${focus.map((f) => f.en).join('; ')}. All crews wear body cameras, safety first. — ${sig.en}`,
+      et: `${region.name.et}. Vahetus algab kell ${hhmm(now)}, teenistuses ${s.unitOrder.length} üksust. Vahetuse operatiivinfo haldur: ${s.playerName}. Erilist tähelepanu: ${focus.map((f) => f.et).join('; ')}. Kõik ekipaažid kannavad kehakaameraid, ohutus ennekõike. Allkiri: ${sig.et}`,
+      en: `${region.name.en}. Shift starts at ${hhmm(now)}, ${s.unitOrder.length} units on duty. Dispatcher on shift: ${s.playerName}. Special attention: ${focus.map((f) => f.en).join('; ')}. All crews wear body cameras, safety first. Signed: ${sig.en}`,
     },
   });
   // Weather.
@@ -435,8 +435,8 @@ function addBulletins(s: SimState, r: Rng, region: RegionDef): void {
     kind: 'weather',
     title: T('Ilm ja teeolud', 'Weather and road conditions'),
     text: {
-      et: `${sentence(wx.text.et)}${temp(wx.text.et, 'et')} Tuul ${Math.round(wx.windMs)} m/s.${icy ? ' Teed on libedad — arvestage pikema sõiduajaga.' : ''}`,
-      en: `${sentence(wx.text.en)}${temp(wx.text.en, 'en')} Wind ${Math.round(wx.windMs)} m/s.${icy ? ' Roads are slippery — expect longer travel times.' : ''}`,
+      et: `${sentence(wx.text.et)}${temp(wx.text.et, 'et')} Tuul ${Math.round(wx.windMs)} m/s.${icy ? ' Teed on libedad. Arvestage pikema sõiduajaga.' : ''}`,
+      en: `${sentence(wx.text.en)}${temp(wx.text.en, 'en')} Wind ${Math.round(wx.windMs)} m/s.${icy ? ' Roads are slippery. Expect longer travel times.' : ''}`,
     },
   });
   if (holiday) {

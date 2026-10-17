@@ -172,7 +172,7 @@ Rough shares inferred from prior knowledge of Estonian registration statistics a
 | 38 | Subaru | Forester / Outback | 2000–2022 | 0.6 | Rural favourite |
 | 39 | Toyota | C-HR | 2017–2025 | 0.6 | |
 | 40 | Tesla / BYD / MG (EVs) | Model 3 / Model Y / Atto 3 / MG4 | 2019–2026 | 0.5 | New, mostly Tallinn |
-| — | **Long tail** | Lada Niva / 2107, Mitsubishi Outlander / Lancer, Citroën C4 / C5, Seat Leon, Dacia Duster, Nissan X-Trail, Audi A3 / Q5 / Q7, BMW X5, Mercedes-Benz ML / GLE, Mini, Jeep Grand Cherokee | | about 32 | Use make-level weights (2.3) to fill the tail |
+| – | **Long tail** | Lada Niva / 2107, Mitsubishi Outlander / Lancer, Citroën C4 / C5, Seat Leon, Dacia Duster, Nissan X-Trail, Audi A3 / Q5 / Q7, BMW X5, Mercedes-Benz ML / GLE, Mini, Jeep Grand Cherokee | | about 32 | Use make-level weights (2.3) to fill the tail |
 
 **Make-level shares** (for the long tail and the "make only" witness reports) [DESIGN, ordering LIKELY]:
 Toyota 15 · Volkswagen 11 · Škoda 7.5 · Audi 6.5 · BMW 6.5 · Volvo 6 · Opel 5 · Ford 5 · Mercedes-Benz 4.5 · Nissan 3.5 · Honda 3 · Mazda 2.5 · Peugeot 2.5 · Renault 2.5 · Kia 2.5 · Hyundai 2 · Lexus 1.5 · Subaru 1.5 · Citroën 1.5 · Mitsubishi 1.5 · Seat 1 · Lada 0.8 · Dacia 0.7 · Tesla 0.5 · other 3
@@ -192,10 +192,10 @@ The term in Estonia: **sõiduki vargus / auto ärandamine** (theft, KarS § 199)
 | 4 | Toyota Highlander / C-HR / Camry | Same attack methods | [UNSURE] |
 | 5 | Older **Audi A4 / A6**, **BMW 3 / 5**, **VW Passat** | Stolen for parts or joyriding. Older locks; sometimes the key is stolen in a burglary. | [LIKELY] |
 | 6 | Mazda CX-5 / 6, Honda CR-V | Keyless relay attacks | [UNSURE] |
-| — | **Catalytic converters** (*katalüsaatorite vargus*), from Toyota Prius / Auris hybrids and vans | Peaked about 2021–22 | [LIKELY] |
-| — | **Diesel siphoning** (*kütusevargus*) from trucks, forestry and farm machinery | Rural and industrial areas | [LIKELY] |
-| — | **Tools from vans** (*tööriistade vargus kaubikust*) | Construction sites, overnight in housing areas | [LIKELY] |
-| — | Motorcycles, mopeds, e-scooters (*kergliikurid*), **bicycles** | Summer peak. Bicycle theft is a huge volume crime | [LIKELY] |
+| – | **Catalytic converters** (*katalüsaatorite vargus*), from Toyota Prius / Auris hybrids and vans | Peaked about 2021–22 | [LIKELY] |
+| – | **Diesel siphoning** (*kütusevargus*) from trucks, forestry and farm machinery | Rural and industrial areas | [LIKELY] |
+| – | **Tools from vans** (*tööriistade vargus kaubikust*) | Construction sites, overnight in housing areas | [LIKELY] |
+| – | Motorcycles, mopeds, e-scooters (*kergliikurid*), **bicycles** | Summer peak. Bicycle theft is a huge volume crime | [LIKELY] |
 
 - **Volume.** Estonia has a low car-theft rate today compared with the 1990s–2000s. Roughly **a few hundred cars a year** (perhaps 300–600). [UNSURE]
   - [DESIGN] About 1–2 car-theft reports per in-game day nationally. Tallinn and Harju make up about half.
@@ -310,7 +310,7 @@ Couriers seen in towns: Omniva, DPD, Itella (Smartpost), Venipak, Wolt/Bolt food
 | **Maanteeamet** (Road Administration) | 2009–2020 | ARK merged into it on 1 Jan 2009 | [LIKELY] |
 | **Transpordiamet** (Transport Administration) | **1 Jan 2021 onward** | Merger of Maanteeamet, Veeteede Amet and Lennuamet. Keeps **liiklusregister**, runs driving exams, service bureaus (*teenindusbürood*) and the e-service (*e-teenindus*). | [LIKELY] |
 | **Liikluskindlustuse Fond (LKF)** | Since 2001 | Compulsory motor insurance register and guarantee fund; lkf.ee | [LIKELY] |
-| **Kaitsevägi** | — | Own register for military vehicles | [LIKELY] |
+| **Kaitsevägi** | – | Own register for military vehicles | [LIKELY] |
 
 Older people still call it "ARK" or "Maanteeamet". Good flavour for NPC dialogue. [DESIGN]
 
@@ -329,7 +329,7 @@ Older people still call it "ARK" or "Maanteeamet". Good flavour for NPC dialogue
 |---|---|---|---|
 | A | Registreerimisnumber | Registration number | `512 BLK` |
 | B | Esmane registreerimine | Date of first registration (anywhere) | 2014-03-11 |
-| — | Registreeritud Eestis | First registered in Estonia | 2019-06-04 (used import) |
+| – | Registreeritud Eestis | First registered in Estonia | 2019-06-04 (used import) |
 | C.1 | Vastutav kasutaja (nimi, aadress) | Responsible user | Mari Tamm, Tartu |
 | C.2 | Omanik | Owner | SEB Liising AS / private person |
 | D.1 | Mark | Make | TOYOTA |
@@ -339,16 +339,16 @@ Older people still call it "ARK" or "Maanteeamet". Good flavour for NPC dialogue
 | F.1 | Täismass | Max permissible mass | 2,135 kg |
 | G | Tühimass | Kerb mass | 1,655 kg |
 | J | Kategooria | Category | M1 |
-| — | Keretüüp | Body type | AC universaal / AF mahtuniversaal / AA sedaan / AB luukpära |
+| – | Keretüüp | Body type | AC universaal / AF mahtuniversaal / AA sedaan / AB luukpära |
 | P.1 | Mootori maht | Engine capacity | 2,494 cm³ |
 | P.2 | Võimsus | Power | 131 kW |
 | P.3 | Kütus | Fuel | bensiin-hübriid / diisel / elekter |
 | R | Värvus | Colour | HALL |
 | S.1 | Istekohti | Seats | 5 |
-| — | Tehnoülevaatus kehtib kuni | Inspection valid until | 2027-05-31 |
-| — | Liikluskindlustus | Insurance status (from LKF) | Kehtiv kuni 2027-01-14, If P&C |
-| — | Registreeringu staatus | Registration status | Registreeritud / Peatatud / Registrist kustutatud |
-| — | Piirangud / märked | Restrictions / notes | Kohtutäituri keelumärge, Tagaotsitav |
+| – | Tehnoülevaatus kehtib kuni | Inspection valid until | 2027-05-31 |
+| – | Liikluskindlustus | Insurance status (from LKF) | Kehtiv kuni 2027-01-14, If P&C |
+| – | Registreeringu staatus | Registration status | Registreeritud / Peatatud / Registrist kustutatud |
+| – | Piirangud / märked | Restrictions / notes | Kohtutäituri keelumärge, Tagaotsitav |
 
 **Category codes** [LIKELY]:
 - M1 = sõiduauto (car); M2/M3 = buss (bus).
@@ -363,7 +363,7 @@ Older people still call it "ARK" or "Maanteeamet". Good flavour for NPC dialogue
 | **Registreeritud** | Normal | `clean` | [LIKELY] |
 | **Registreering peatatud** | Suspended, either at the owner's request (car laid up, sold abroad, being repaired) or by the authority (unpaid car tax? missing documents?). **Must not be driven on public roads**; insurance and inspection not needed meanwhile. | `suspended` | [LIKELY] concept; [UNSURE] automatic triggers |
 | **Registrist kustutatud** | Deregistered (scrapped, exported, destroyed). A deregistered car on the road means false plates. | `deregistered` (suggest adding) | [LIKELY] |
-| **Ajutine registreerimine** | Temporary registration (transit) | — | [UNSURE] |
+| **Ajutine registreerimine** | Temporary registration (transit) | – | [UNSURE] |
 | **Tagaotsitav** (wanted) / **varastatud** (stolen) | Police note for a stolen vehicle or stolen plates; also an SIS alert | `stolen` | [LIKELY] concept; [UNSURE] exact register wording |
 | **Kohtutäituri keelumärge / arest** | Bailiff's prohibition on disposal: the owner can't sell it. Police may be asked to seize the car (*sõiduki arestimine*). | `seizure` (suggest adding) | [LIKELY] |
 | **Omandireservatsioon / liising** | Leasing company keeps ownership | ownerCompany | [LIKELY] |
@@ -391,11 +391,11 @@ Carried out at private inspection stations (*ülevaatuspunktid*) licensed by Tra
 | Vehicle | First inspection | Then | Game default [DESIGN] |
 |---|---|---|---|
 | Car (M1) and van (N1) | About **4 years** after first registration (some sources may say 3) | Every **2 years**; **every year** once older than about 8–10 years | New car: first at 4 y, then every 2 y until 10 y old, then yearly |
-| Taxi, driving-school car, rental car, ambulance | — | **Yearly** | Yearly |
+| Taxi, driving-school car, rental car, ambulance | – | **Yearly** | Yearly |
 | Truck (N2/N3), bus (M2/M3), heavy trailer (O3/O4) | 1 year | **Yearly** | Yearly |
 | Motorcycle (L3e) | About 4 years | Every 2 years | Every 2 years |
-| Moped, light trailer (O1) | Probably none or simplified | — | No inspection |
-| Historic vehicle | Special, longer intervals | — | Every 2 years |
+| Moped, light trailer (O1) | Probably none or simplified | – | No inspection |
+| Historic vehicle | Special, longer intervals | – | Every 2 years |
 
 - The inspection date and validity are in the register. Police see them during a plate check, and ANPR can flag them. [LIKELY]
 - Driving without a valid inspection is a misdemeanour (see `law-references.md`, *no_inspection*, [UNSURE] §). [VERIFIED*: the item exists in law-references.md]
@@ -450,7 +450,7 @@ Estonia follows the EU licence directive (2006/126/EC) and adds national tractor
 | **D1 / D1E** | Minibuses ≤ 16 passengers | 21 | |
 | **D / DE** | Buses | 24 (21 with CPC) | |
 | **T** (national) | Tractors, self-propelled machinery | 16 [UNSURE] | National category; details [UNSURE] |
-| **R** (national?) | Road trains, tractor + trailer? | — | [UNSURE] whether it still exists |
+| **R** (national?) | Road trains, tractor + trailer? | – | [UNSURE] whether it still exists |
 
 **Esmane juhiluba (probationary first licence)** [LIKELY unless marked]:
 - Issued for **2 years** for A1, A2, A, B1 and B.

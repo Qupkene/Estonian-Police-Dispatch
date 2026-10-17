@@ -1,5 +1,5 @@
 /**
- * Outcome & score (engine-core) — DESIGN §4.5.
+ * Outcome & score (engine-core), see DESIGN §4.5.
  */
 import { sunAltitude } from './sun';
 import { regionOf } from './internal';

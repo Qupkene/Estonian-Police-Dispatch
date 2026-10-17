@@ -1,6 +1,6 @@
 /**
  * Small constructors shared by the "B" incident files (property, fraud, alarm, environment,
- * border, easter). They only build plain IncidentTemplate data — no logic, no randomness.
+ * border, easter). They only build plain IncidentTemplate data: no logic, no randomness.
  */
 import type {
   Agency,
@@ -171,8 +171,8 @@ export function minorChoice(at: BeatAt, chance: number, who: Text = T('Kinnipeet
     at,
     [
       T(
-        `{callsign}: ${who.et} on alaealine — kas kutsume lapsevanema ja teavitame lastekaitset või toimetame jaoskonda?`,
-        `{callsign}: ${who.en} is a minor — do we call a parent and notify child protection, or take them to the station?`,
+        `{callsign}: ${who.et} on alaealine. Kas kutsume lapsevanema ja teavitame lastekaitset või toimetame jaoskonda?`,
+        `{callsign}: ${who.en} is a minor. Do we call a parent and notify child protection, or take them to the station?`,
       ),
     ],
     [

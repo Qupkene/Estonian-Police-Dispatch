@@ -160,7 +160,7 @@ export function TopBar() {
         </div>
         <div className="gm-stat">
           <span className="gm-stat__k">{t('game.stats.avg')}</span>
-          <span className="gm-stat__v mono">{stats.avgResponse === null ? '—' : `${fmtNum(stats.avgResponse, 1, lang)}′`}</span>
+          <span className="gm-stat__v mono">{stats.avgResponse === null ? '–' : `${fmtNum(stats.avgResponse, 1, lang)}′`}</span>
         </div>
         <div className={`gm-stat${stats.unitsFree === 0 ? ' gm-stat--warn' : ''}`} title={t('game.stats.unitsTitle')}>
           <span className="gm-stat__k">{t('game.stats.units')}</span>

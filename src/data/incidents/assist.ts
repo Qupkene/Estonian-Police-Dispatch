@@ -1,5 +1,5 @@
 /**
- * Abistamine ja muu — assistance to other services, people in need, animals, hazards (incidents-C).
+ * Abistamine ja muu: assistance to other services, people in need, animals, hazards (incidents-C).
  * Legacy titles covered: Maja süttimine, Agressiivne koer, Kontserdil vigastatu, Põgenenud hobune,
  * Mehe enesetapukatse, Surnud isik hotellitoas, Suitsiidikatse kõrghoones, Teismelised ronivad
  * kraanadele, Lastekarjeid mänguväljakult, Koer ründas teist koera, Kahtlane lõhn trepikojas,
@@ -887,7 +887,7 @@ export const TEMPLATES_ASSIST: IncidentTemplate[] = [
     ],
     callerLines: [
       T('Koer jooksis väravast välja ja hammustas mind jalga. Omanik ütleb, et ise olen süüdi!', 'The dog ran out of the gate and bit my leg. The owner says it is my own fault!'),
-      T('Mu last hammustas naabri koer, kas koer on vaktsineeritud?', 'The neighbour’s dog bit my child — is the dog vaccinated?'),
+      T('Mu last hammustas naabri koer, kas koer on vaktsineeritud?', 'The neighbour’s dog bit my child. Is the dog vaccinated?'),
     ],
     details: [T('Kannatanu soovib teada, kas koer on marutaudi vastu vaktsineeritud.', 'The victim wants to know if the dog is vaccinated against rabies.')],
     beats: [
@@ -1039,14 +1039,14 @@ export const TEMPLATES_ASSIST: IncidentTemplate[] = [
     units: { need: [u('patrol')] },
     onScene: [40, 90],
     persons: [{ role: 'caller', gender: 'any', age: [25, 80] }],
-    agencies: [{ agency: 'paaste', chance: 1, reason: T('Demineerimiskeskus — lõhkekeha kahjutustamine', 'Bomb disposal centre — making the ordnance safe') }],
+    agencies: [{ agency: 'paaste', chance: 1, reason: T('Demineerimiskeskus: lõhkekeha kahjutustamine', 'Bomb disposal centre: making the ordnance safe') }],
     summary: [
       T('{address}. Aiamaad kaevates leiti roostes mürsk, umbes 40 cm pikk. Teataja tõstis selle aia äärde.', '{address}. While digging the garden a rusty shell about 40 cm long was found. The caller has moved it to the edge of the garden.'),
       T('{address}. Ehitustööde käigus kaevati välja Teise maailmasõja aegsed miinid, töö peatatud.', '{address}. Second World War mines were dug up during construction work; work has stopped.'),
       T('{address}. Metsast leiti käsigranaat, seeneline jättis selle paigale ja märgistas koha.', '{address}. A hand grenade was found in the forest; the mushroom picker left it in place and marked the spot.'),
     ],
     callerLines: [
-      T('Kaevasime kartulimaad ja labidas käis vastu mingit rauda — see on mürsk!', 'We were digging the potato patch and the spade hit some metal — it is a shell!'),
+      T('Kaevasime kartulimaad ja labidas käis vastu mingit rauda. See on mürsk!', 'We were digging the potato patch and the spade hit some metal. It is a shell!'),
       T('Ma ei puutunud seda, aga see näeb välja nagu granaat.', 'I did not touch it, but it looks like a grenade.'),
     ],
     details: [T('Lähim elumaja on 30 meetri kaugusel.', 'The nearest house is 30 metres away.')],

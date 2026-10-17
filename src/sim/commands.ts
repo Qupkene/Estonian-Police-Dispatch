@@ -225,10 +225,10 @@ export function closeIncident(
   const labels: Record<typeof how, Text> = {
     referral: fillText(T('Suunatud: {agency}', 'Referred to {agency}'), { agency: agencyName(agency ?? inc.referral) }),
     phone: T('Lahendatud telefoni teel (nõuanne)', 'Resolved by phone (advice)'),
-    duplicate: T('Topeltteade — liidetud varasema sündmusega', 'Duplicate — merged with an earlier event'),
+    duplicate: T('Topeltteade, liidetud varasema sündmusega', 'Duplicate, merged with an earlier event'),
     prank: T('Valeväljakutse / pahatahtlik kõne', 'False / prank call'),
   };
-  const text = correct ? labels[how] : T(`${labels[how].et} — vale otsus`, `${labels[how].en} — wrong decision`);
+  const text = correct ? labels[how] : T(`${labels[how].et} (vale otsus)`, `${labels[how].en} (wrong decision)`);
   closeWithoutUnits(s, inc, how, correct, text);
 }
 

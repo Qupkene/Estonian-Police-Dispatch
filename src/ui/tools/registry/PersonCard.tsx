@@ -92,7 +92,7 @@ export function PersonCard({
         <div className="tl-alerts">
           {p.flags.wanted && (
             <div className="tl-alert tl-alert--danger">
-              <strong>{t('tools.p.wanted')}</strong> — {tx(p.flags.wanted.reason)}
+              <strong>{t('tools.p.wanted')}</strong>: {tx(p.flags.wanted.reason)}
               <div className="tl-alert__sub">
                 {t('tools.p.since', { date: isoToEt(p.flags.wanted.since) })} · {t('tools.p.authority')}: {p.flags.wanted.authority}
               </div>
@@ -100,7 +100,7 @@ export function PersonCard({
           )}
           {p.flags.sis && (
             <div className="tl-alert tl-alert--danger">
-              <strong>{t('tools.p.sis')}</strong> — {tx(p.flags.sis)}
+              <strong>{t('tools.p.sis')}</strong>: {tx(p.flags.sis)}
             </div>
           )}
           {p.flags.restrainingOrder && (
@@ -113,7 +113,7 @@ export function PersonCard({
           )}
           {p.flags.missing && (
             <div className="tl-alert tl-alert--warn">
-              <strong>{t('tools.p.missing', { date: isoToEt(p.flags.missing.since) })}</strong> — {tx(p.flags.missing.text)}
+              <strong>{t('tools.p.missing', { date: isoToEt(p.flags.missing.since) })}</strong>: {tx(p.flags.missing.text)}
             </div>
           )}
           {p.flags.probation && (
@@ -178,7 +178,7 @@ export function PersonCard({
         {lic.status !== 'none' ? (
           <KV
             rows={[
-              [t('tools.p.categories'), lic.categories.length ? <span className="mono">{lic.categories.join(', ')}</span> : '—'],
+              [t('tools.p.categories'), lic.categories.length ? <span className="mono">{lic.categories.join(', ')}</span> : '–'],
               [
                 t('tools.p.validUntil'),
                 <span className={isExpired(lic.validUntil, s.now) ? 'tl-bad' : undefined}>
@@ -207,7 +207,7 @@ export function PersonCard({
             rows={[
               [t('tools.v.kind'), tx(p.weaponPermit.kind)],
               [t('tools.p.validUntil'), isoToEt(p.weaponPermit.validUntil)],
-              [t('tools.p.weapons'), p.weaponPermit.weapons.join(', ') || '—'],
+              [t('tools.p.weapons'), p.weaponPermit.weapons.join(', ') || '–'],
             ]}
           />
         </Section>
@@ -261,7 +261,7 @@ export function PersonCard({
                   <button type="button" className="tl-row" onClick={() => onOpenVehicle(pl)}>
                     <Plate plate={pl} size="sm" />
                     <span className="tl-row__main">
-                      {v ? `${v.make} ${v.model}` : '—'}
+                      {v ? `${v.make} ${v.model}` : '–'}
                       {v && <span className="tl-row__sub">{`${v.year} · ${tx(v.color)}`}</span>}
                     </span>
                     {v && <FlagDots flags={vFlags(v, s)} />}

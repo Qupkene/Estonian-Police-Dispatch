@@ -1,5 +1,5 @@
 /**
- * Suurõnnetused, terror, pantvangid, relvastatud kriisid — major incidents (incidents-C).
+ * Suurõnnetused, terror, pantvangid, relvastatud kriisid: major incidents (incidents-C).
  * Rare by design (weights 0.0015–0.08). Texts are deliberately sober and factual.
  * Legacy titles covered: Pommiähvardus, Kahtlane pakk rongijaamas, Põgenenud vang,
  * Tehnovõrgu saboteerimine, Lennuki kaaperdamine, Vangla mäss, Kahtlane pakk postkastis,
@@ -18,7 +18,7 @@ const T_ARREST = [
 ];
 
 const A_KIIRABI = [
-  T('{callsign}: on vigastatuid, kinnitage kiirabi — mitu brigaadi!', '{callsign}: there are casualties, confirm ambulances — several crews!'),
+  T('{callsign}: on vigastatuid, kinnitage kiirabi, mitu brigaadi!', '{callsign}: there are casualties, confirm ambulances, several crews!'),
   T('JK, {callsign}. Vajame kiirabi, anname esmaabi.', 'Control, {callsign}. We need ambulances, giving first aid.'),
 ];
 
@@ -59,7 +59,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
       { role: 'caller', gender: 'any', age: [30, 60], relation: 'employee' },
       { role: 'suspect', gender: 'M', age: [14, 40], record: 0.2 },
     ],
-    agencies: [{ agency: 'paaste', chance: 0.9, reason: T('Demineerimiskeskus — hoone kontroll', 'Bomb disposal centre — building search') }],
+    agencies: [{ agency: 'paaste', chance: 0.9, reason: T('Demineerimiskeskus: hoone kontroll', 'Bomb disposal centre: building search') }],
     summary: [
       T('{address}. Administraator sai tundmatult numbrilt kõne pommiähvardusega, evakuatsioon on alustatud.', '{address}. The administrator received a call from an unknown number with a bomb threat; evacuation has begun.'),
       T('{address}. Asutuse üldmeilile saabus ähvardus, et hoonesse on paigutatud lõhkekeha. Hoone evakueeritakse.', '{address}. A threat arrived at the general e-mail address saying an explosive device has been placed in the building. The building is being evacuated.'),
@@ -84,7 +84,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
     ],
     outcomes: [
       out('hoax', 'false_alarm', [0, 1], 6, T('Hoone kontrolliti, lõhkekeha ei leitud. Ähvarduse suhtes alustati kriminaalmenetlust KarS § 263 järgi.', 'The building was searched and no device was found. Criminal proceedings for the threat were opened under Penal Code § 263.')),
-      out('caught', 'arrest', [0.5, 1], 2, T('Ähvarduse tegija tuvastati — 15-aastane õpilane, kes soovis kontrolltööst pääseda. Juhtum anti alaealiste asjade menetlejale.', 'The person behind the threat was identified — a 15-year-old pupil trying to get out of a test. The case went to the juvenile investigator.'), { arrests: 1 }),
+      out('caught', 'arrest', [0.5, 1], 2, T('Ähvarduse tegija tuvastati: 15-aastane õpilane, kes soovis kontrolltööst pääseda. Juhtum anti alaealiste asjade menetlejale.', 'The person behind the threat was identified as a 15-year-old pupil trying to get out of a test. The case went to the juvenile investigator.'), { arrests: 1 }),
       out('device', 'resolved', [0.6, 1], 1, T('Keldrist leiti kahtlane ese, demineerijad kahjutustasid selle. Alustati kriminaalmenetlust, uurimist juhib kriminaalpolitsei.', 'A suspicious object was found in the basement and made safe by bomb disposal. Criminal proceedings opened, led by the criminal police.')),
       out('panic', 'report', [0, 0.35], 1, T('Evakuatsioon oli korraldamatu, trepil sai kaks inimest kergelt viga. Lõhkekeha ei leitud.', 'The evacuation was disorderly and two people were slightly hurt on the stairs. No device was found.'), { injuries: 2 }),
     ],
@@ -111,7 +111,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
       { role: 'suspect', gender: 'any', age: [12, 25], record: 0.1 },
     ],
     agencies: [
-      { agency: 'paaste', chance: 1, reason: T('Demineerimiskeskus — koolihoone kontroll', 'Bomb disposal centre — school building search') },
+      { agency: 'paaste', chance: 1, reason: T('Demineerimiskeskus: koolihoone kontroll', 'Bomb disposal centre: school building search') },
       { agency: 'kov', chance: 0.4, reason: T('Laste ajutine majutus ja vanemate teavitamine', 'Temporary shelter for pupils and informing parents') },
     ],
     summary: [
@@ -162,7 +162,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
       { role: 'witness', gender: 'any', age: [25, 60], relation: 'employee' },
       { role: 'suspect', gender: 'any', age: [18, 80] },
     ],
-    agencies: [{ agency: 'paaste', chance: 1, reason: T('Demineerimiskeskus — mahajäetud kohvri kontroll', 'Bomb disposal centre — check the abandoned suitcase') }],
+    agencies: [{ agency: 'paaste', chance: 1, reason: T('Demineerimiskeskus: mahajäetud kohvri kontroll', 'Bomb disposal centre: check the abandoned suitcase') }],
     summary: [
       T('{place}, {address}. Rongijaamas on maha jäetud suur kohver, keegi pole sellele ligi astunud. Omanikku pole 40 minutit.', '{place}, {address}. A large suitcase has been abandoned at the station and nobody has gone near it. No owner for 40 minutes.'),
       T('{place}, {address}. Perroonil pingi all must kott, millest turvatöötaja sõnul kostab piiksumist.', '{place}, {address}. A black bag under a bench on the platform; the security guard says it is beeping.'),
@@ -182,7 +182,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
     ],
     outcomes: [
       out('forgotten', 'false_alarm', [0, 1], 6, T('Kohver kuulus reisijale, kes unustas selle rongi oodates. Omanik tuvastati, ohtu ei olnud.', 'The suitcase belonged to a passenger who forgot it while waiting for a train. The owner was identified; there was no danger.')),
-      out('cleared', 'resolved', [0.4, 1], 2, T('Demineerijad kontrollisid koti röntgeniga — sees olid riided ja äratuskell. Jaam avati 40 minuti pärast.', 'Bomb disposal X-rayed the bag — clothes and an alarm clock. The station reopened after 40 minutes.')),
+      out('cleared', 'resolved', [0.4, 1], 2, T('Demineerijad kontrollisid koti röntgeniga. Sees olid riided ja äratuskell. Jaam avati 40 minuti pärast.', 'Bomb disposal X-rayed the bag. It held clothes and an alarm clock. The station reopened after 40 minutes.')),
       out('disrupted', 'report', [0, 0.35], 1, T('Rongiliiklus seisis üle tunni, jaam evakueeriti korratult. Ohtlikku eset ei leitud.', 'Rail traffic was halted for over an hour and the station evacuation was disorderly. Nothing dangerous was found.')),
     ],
     falseAlarmChance: 0.9,
@@ -206,7 +206,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
       { role: 'suspect', gender: 'M', age: [20, 50], record: 0.4, wanted: 0.1 },
     ],
     agencies: [
-      { agency: 'paaste', chance: 1, reason: T('Demineerimiskeskus — lõhkekeha kahtlus', 'Bomb disposal centre — suspected explosive device') },
+      { agency: 'paaste', chance: 1, reason: T('Demineerimiskeskus: lõhkekeha kahtlus', 'Bomb disposal centre: suspected explosive device') },
       { agency: 'kapo', chance: 0.3, reason: T('Võimalik terroriakt', 'Possible act of terrorism') },
     ],
     summary: [
@@ -228,7 +228,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
       qPerson('suspect', 20, { chance: 0.4 }),
     ],
     outcomes: [
-      out('empty', 'false_alarm', [0, 1], 5, T('Demineerijad kahjutustasid koti — sees olid elektroonikajäätmed. Koti jätnud mees tuvastati, ta oli kodutu. Ohtu ei olnud.', 'Bomb disposal neutralised the bag — it held electronic scrap. The man who left it was identified as homeless. There was no danger.')),
+      out('empty', 'false_alarm', [0, 1], 5, T('Demineerijad kahjutustasid koti. Sees olid elektroonikajäätmed. Koti jätnud mees tuvastati, ta oli kodutu. Ohtu ei olnud.', 'Bomb disposal neutralised the bag. It held electronic scrap. The man who left it was identified as homeless. There was no danger.')),
       out('caught', 'arrest', [0.55, 1], 2, T('Kotis oli lõhkeseadeldise makett. Kahtlustatav peeti kinni, alustati kriminaalmenetlust, kaasati Kaitsepolitsei.', 'The bag contained a mock-up of an explosive device. The suspect was detained, criminal proceedings opened and the Internal Security Service brought in.'), { arrests: 1 }),
       out('real', 'arrest', [0.65, 1], 1, T('Kotis oli toimiv lõhkeseadeldis, demineerijad kahjutustasid selle. Kahtlustatav peeti kinni, uurimine anti üle Kaitsepolitseile.', 'The bag held a working explosive device, which bomb disposal made safe. The suspect was detained and the case handed to the Internal Security Service.'), { arrests: 1, trust: 3 }),
       out('fled', 'escaped', [0, 0.4], 1, T('Ohtlikku eset ei leitud, kuid koti jätnud mees jäi tabamata. Otsingud jätkuvad kaamerasalvestiste põhjal.', 'No dangerous item was found, but the man who left the bag was not caught. The search continues using CCTV.')),
@@ -250,7 +250,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
     units: { need: [u('patrol')], ideal: [u('patrol', 2)] },
     onScene: [30, 70],
     persons: [{ role: 'caller', gender: 'any', age: [25, 80] }],
-    agencies: [{ agency: 'paaste', chance: 1, reason: T('Demineerimiskeskus — postisaadetise kontroll', 'Bomb disposal centre — check the package') }],
+    agencies: [{ agency: 'paaste', chance: 1, reason: T('Demineerimiskeskus: postisaadetise kontroll', 'Bomb disposal centre: check the package') }],
     summary: [
       T('{address}. Postkastis on leitud kahtlane pakk, millel puuduvad saatja andmed. Pakist eritub õlist vedelikku.', '{address}. A suspicious package with no sender details has been found in a mailbox. An oily liquid is leaking from it.'),
       T('{address}. Asutuse postiruumi saabus käsitsi kirjutatud aadressiga pakk, sees midagi raske ja kõlisev.', '{address}. A package with a handwritten address arrived in the post room; something heavy and rattling inside.'),
@@ -269,7 +269,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
       info(20, [T('{callsign}: demineerijad viisid paki kontrollimiseks ära.', '{callsign}: bomb disposal have taken the package away for examination.')], 0.6),
     ],
     outcomes: [
-      out('harmless', 'false_alarm', [0, 1], 6, T('Pakis oli sugulase saadetud kodune kraam — õli oli lekkinud konservipurgist. Ohtu ei olnud.', 'The package contained homemade food sent by a relative — the oil had leaked from a jar. There was no danger.')),
+      out('harmless', 'false_alarm', [0, 1], 6, T('Pakis oli sugulase saadetud kodune kraam. Õli oli lekkinud konservipurgist. Ohtu ei olnud.', 'The package contained homemade food sent by a relative. The oil had leaked from a jar. There was no danger.')),
       out('threat', 'report', [0.4, 1], 2, T('Pakist leiti ähvarduskiri, kuid lõhkeainet ei olnud. Alustati kriminaalmenetlust ähvardamise asjas.', 'A threatening letter was found in the package but no explosives. Criminal proceedings for threats were opened.')),
       out('real', 'resolved', [0.6, 1], 1, T('Pakis oli improviseeritud süüteseade, demineerijad kahjutustasid selle. Uurimine anti üle kriminaalpolitseile.', 'The package held an improvised incendiary device, which bomb disposal made safe. The case was passed to the criminal police.')),
       out('disrupted', 'report', [0, 0.35], 1, T('Trepikoda evakueeriti hilinemisega ja elanikud tungisid piiratud alale. Ohtlikku eset ei leitud, korraldust analüüsitakse.', 'The stairwell was evacuated late and residents walked into the cordoned area. Nothing dangerous was found; the response is being reviewed.')),
@@ -295,7 +295,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
       { role: 'witness', gender: 'any', age: [25, 80], relation: 'neighbour' },
     ],
     agencies: [
-      { agency: 'paaste', chance: 1, reason: T('Demineerimiskeskus — lõhkeainete eemaldamine', 'Bomb disposal centre — removing the explosives') },
+      { agency: 'paaste', chance: 1, reason: T('Demineerimiskeskus: lõhkeainete eemaldamine', 'Bomb disposal centre: removing the explosives') },
       { agency: 'kapo', chance: 0.6, reason: T('Võimalik terrorismi ettevalmistamine', 'Possible preparation of terrorism') },
     ],
     summary: [
@@ -501,7 +501,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
     outcomes: [
       out('surrender', 'arrest', [0.45, 1], 5, T('Kahtlustatav andis end pärast tunniajalist läbirääkimist üle. Ta toimetati arestimajja.', 'The suspect surrendered after an hour of negotiation and was taken to the custody suite.'), { arrests: 1 }),
       out('entry', 'arrest', [0.4, 1], 2, T('Kiirreageerijad sisenesid korterisse ja pidasid kahtlustatava kinni. Kedagi ei vigastatud.', 'Rapid response entered the flat and detained the suspect. Nobody was injured.'), { arrests: 1 }),
-      out('empty', 'unfounded', [0, 0.6], 1, T('Korteris kahtlustatavat ei olnud — ta oli varem tagaukse kaudu lahkunud.', 'The suspect was not in the flat — he had left earlier through the back door.')),
+      out('empty', 'unfounded', [0, 0.6], 1, T('Korteris kahtlustatavat ei olnud. Ta oli varem tagaukse kaudu lahkunud.', 'The suspect was not in the flat. He had left earlier through the back door.')),
       out('injury', 'hospital', [0, 0.25], 1, T('Kinnipidamisel osutas kahtlustatav vastupanu, üks politseinik sai vigastada. Kahtlustatav peeti kinni.', 'The suspect resisted arrest and an officer was injured. The suspect was detained.'), { arrests: 1 }),
     ],
     expiresMin: 240,
@@ -586,7 +586,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
     beats: [
       backup(1, u('rapid', 2), B_SPECIAL, { at: 2, timeoutMin: 15 }),
       choice(15, [T('{callsign}: röövlid nõuavad autot ja vaba väljapääsu, lubavad vabastada kaks pantvangi. Kas lubame?', '{callsign}: the robbers want a car and free passage and offer to release two hostages. Do we agree?')], [
-        opt('trade', T('Vahetame — vabastagu pantvangid', 'Trade — they release hostages'), T('{callsign}, läbirääkija lubab auto pärast pantvangide vabastamist, eriüksus valmis.', '{callsign}, the negotiator promises the car once the hostages are freed; the special unit stands ready.'), { success: 0.15, time: 30 }),
+        opt('trade', T('Vahetame: vabastagu pantvangid', 'Trade: they release hostages'), T('{callsign}, läbirääkija lubab auto pärast pantvangide vabastamist, eriüksus valmis.', '{callsign}, the negotiator promises the car once the hostages are freed; the special unit stands ready.'), { success: 0.15, time: 30 }),
         opt('refuse', T('Ei, jätkame läbirääkimist', 'No, keep negotiating'), T('{callsign}, autot ei anta, läbirääkimised jätkuvad.', '{callsign}, no car; negotiations continue.'), { success: 0, time: 45, risk: 0.05 }),
         opt('storm', T('Eriüksus sekkub', 'Special unit intervenes'), T('{callsign}, eriüksus sekkub esimesel võimalusel.', '{callsign}, the special unit intervenes at the first opportunity.'), { success: 0.05, risk: 0.2, time: -30 }),
       ], 'refuse', { timeoutMin: 6 }),
@@ -632,13 +632,13 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
     beats: [
       backup(0.86, u('rapid'), B_RAPID, { at: 1, timeoutMin: 8 }),
       search(3, 1, [T('{callsign}: otsime relvaga isikut kooli ümbrusest, kool jääb lukustatuks.', '{callsign}: searching for the armed person around the school; the school stays in lockdown.')]),
-      qPerson('suspect', 12, { chance: 0.6, radio: [T('{callsign}: isik peatatud, relv kontrolli all. Kontrolli: {name}, isikukood {idcode}, kas on relvaluba?', '{callsign}: subject stopped, weapon secured. Check: {name}, ID code {idcode} — any firearms permit?')] }),
+      qPerson('suspect', 12, { chance: 0.6, radio: [T('{callsign}: isik peatatud, relv kontrolli all. Kontrolli: {name}, isikukood {idcode}, kas on relvaluba?', '{callsign}: subject stopped, weapon secured. Check: {name}, ID code {idcode}. Any firearms permit?')] }),
     ],
     outcomes: [
       out('airsoft', 'report', [0.4, 1], 4, T('Relvaga isik oli 16-aastane, kellel oli õhkrelvakoopia. Alustati menetlust, vanemaid ja kooli teavitati.', 'The armed person was a 16-year-old with a replica airsoft gun. Proceedings were opened and the parents and school informed.')),
       out('hunter', 'resolved', [0.4, 1], 2, T('Tegu oli jahimehega, kes liikus jahialale. Relvaluba kehtis, talle tehti hoiatus relva kandmise kohta koolialal.', 'It was a hunter on his way to the hunting ground. His permit was valid; he was warned about carrying a weapon near a school.')),
       out('arrest', 'arrest', [0.5, 1], 1, T('Relvastatud mees peeti kinni enne koolimajja jõudmist. Tal oli ebaseaduslik tulirelv, alustati kriminaalmenetlust.', 'The armed man was detained before he reached the school building. He had an illegal firearm; criminal proceedings opened.'), { arrests: 1, trust: 3 }),
-      out('nothing', 'unfounded', [0, 1], 2, T('Kooli ümbrus kontrolliti, relvaga isikut ei leitud — õpilased olid näinud pika vihmavarjuga meest. Lukustus lõpetati.', 'The school grounds were checked and no armed person was found — the pupils had seen a man with a long umbrella. The lockdown was lifted.')),
+      out('nothing', 'unfounded', [0, 1], 2, T('Kooli ümbrus kontrolliti, relvaga isikut ei leitud. Õpilased olid näinud pika vihmavarjuga meest. Lukustus lõpetati.', 'The school grounds were checked and no armed person was found. The pupils had seen a man with a long umbrella. The lockdown was lifted.')),
       out('gone', 'escaped', [0, 0.35], 1, T('Isikut ei leitud. Kool hoiti lukus kaks tundi, õhtuks lisati koolide juurde patrullid.', 'The person was not found. The school stayed locked down for two hours and patrols were added near schools for the evening.')),
     ],
     falseAlarmChance: 0.5,
@@ -868,9 +868,9 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
     ],
     beats: [
       agency('kiirabi', A_KIIRABI, { timeoutMin: 3 }),
-      pursuit(2, [T('{callsign}: näeme kahtlusaluse sõidukit {plate}, sõidab {direction}! Jälitame, ettevaatust — relvastatud!', '{callsign}: eyes on the suspect vehicle {plate}, heading {direction}! In pursuit — caution, armed!')], 0.7),
+      pursuit(2, [T('{callsign}: näeme kahtlusaluse sõidukit {plate}, sõidab {direction}! Jälitame! Ettevaatust, relvastatud!', '{callsign}: eyes on the suspect vehicle {plate}, heading {direction}! In pursuit! Caution, armed!')], 0.7),
       backup(1, u('rapid', 2), B_RAPID, { at: 1, timeoutMin: 6 }),
-      qVehicle(4, { radio: [T('{callsign}: kontrolli kohe sõidukit {plate} — {car}. Kellele kuulub, kas on varastatud?', '{callsign}: run {plate} — {car} — now. Who is the keeper, is it stolen?')] }),
+      qVehicle(4, { radio: [T('{callsign}: kontrolli kohe sõidukit {plate}, {car}. Kellele kuulub, kas on varastatud?', '{callsign}: run {plate} now, {car}. Who is the keeper, is it stolen?')] }),
     ],
     outcomes: [
       out('caught', 'arrest', [0.55, 1], 4, T('Kahtlusalune tabati pärast jälitust ja peeti kinni. Alustati kriminaalmenetlust politseiniku tapmise asjas. Langenud kolleegi mälestatakse.', 'The suspect was caught after a pursuit and detained. Criminal proceedings for the killing of a police officer were opened. The fallen colleague will be remembered.'), { arrests: 1 }),
@@ -926,7 +926,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
     outcomes: [
       out('drunk', 'arrest', [0.4, 1], 5, T('Ähvardaja oli joobes reisija, lõhkekeha ei olnud. Ta peeti kinni, alustati kriminaalmenetlust, uurimist juhib Kaitsepolitsei.', 'The person making threats was an intoxicated passenger with no device. He was detained; criminal proceedings opened, led by the Internal Security Service.'), { arrests: 1 }),
       out('mental', 'arrest', [0.35, 1], 2, T('Reisijal ilmnesid vaimse tervise probleemid. Ta toimetati politsei valve all haiglasse.', 'The passenger showed signs of a mental health crisis and was taken to hospital under police guard.'), { arrests: 1 }),
-      out('misheard', 'false_alarm', [0, 1], 1, T('Selgus, et meeskond oli reisija sõnu valesti mõistnud — ähvardust ei olnud. Reisija vabastati pärast kontrolli.', 'It turned out the crew had misunderstood the passenger — there was no threat. The passenger was released after checks.')),
+      out('misheard', 'false_alarm', [0, 1], 1, T('Selgus, et meeskond oli reisija sõnu valesti mõistnud. Ähvardust ei olnud. Reisija vabastati pärast kontrolli.', 'It turned out the crew had misunderstood the passenger. There was no threat. The passenger was released after checks.')),
       out('evac', 'report', [0, 0.4], 2, T('Lennuk evakueeriti, mitu reisijat sai liulaskmisel kergelt viga. Lõhkekeha ei leitud.', 'The aircraft was evacuated and several passengers were slightly hurt on the slides. No device was found.'), { injuries: 3, arrests: 1 }),
     ],
     falseAlarmChance: 0.2,
@@ -951,7 +951,7 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
       { role: 'witness', gender: 'any', age: [25, 65], relation: 'employee' },
     ],
     agencies: [
-      { agency: 'kapo', chance: 0.7, reason: T('Elutähtsa teenuse ründamine — võimalik riigivastane kuritegu', 'Attack on a vital service — possible crime against the state') },
+      { agency: 'kapo', chance: 0.7, reason: T('Elutähtsa teenuse ründamine, võimalik riigivastane kuritegu', 'Attack on a vital service, possible crime against the state') },
       { agency: 'kov', chance: 0.5, reason: T('Elanike teavitamine ja kriisijuhtimine', 'Informing residents and crisis management') },
     ],
     summary: [

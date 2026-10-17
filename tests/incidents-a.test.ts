@@ -79,7 +79,7 @@ function strings(v: unknown, path: string, out: [string, string][] = []): [strin
 const eligible = (o: IncidentTemplate['outcomes'][number], s: number) =>
   (o.minSuccess ?? 0) <= s + 1e-9 && s <= (o.maxSuccess ?? 1) + 1e-9;
 
-describe('incidents A — violence / domestic / public_order / drugs', () => {
+describe('incidents A: violence / domestic / public_order / drugs', () => {
   it('has at least 60 templates across the four files', () => {
     expect(ALL.length).toBeGreaterThanOrEqual(60);
   });
