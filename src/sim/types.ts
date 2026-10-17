@@ -150,6 +150,8 @@ export interface UnitSpec {
   /** Starts on-call at the station (special units / helicopter). */
   onCall?: boolean;
   zone?: string;
+  /** Named crew (e.g. the original 2024 officers). Missing members are generated. */
+  crewNames?: { firstName: string; lastName: string; badge: string; gender: Gender }[];
 }
 
 export interface Zone {
@@ -181,6 +183,8 @@ export interface RegionDef {
   places: Place[];
   /** Radio prefix used in chatter, e.g. "Põhja". */
   radioName: string;
+  /** Prefecture commander NPC who signs the shift briefing ("päevakäsk"). */
+  commander?: { name: string; title: Text; badge: string; gender: Gender };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
