@@ -38,7 +38,7 @@ EPD 2.0 on 2024. ja 2025. aasta brauserimängu „Politsei Andmebaas“ täielik
 
 - **Päris Eesti kaart.** Võrguühenduseta töötav vektorkaart (geoBoundaries, Natural Earth) ning võrgus tänavakaardi, hallkaardi ja ortofoto kihid (CARTO, Maa- ja Ruumiamet). Üksused liiguvad kaardil reaalajas.
 - **Neli prefektuuri:** Põhja, Ida, Lõuna ja Lääne, päris linnade, tänavate ja jaoskondadega.
-- **Üle 150 sündmusetüübi**, nende hulgas kõik 116 väljakutset algsetest versioonidest. Kohapeal tuleb teha otsuseid, saata toetust, kutsuda kiirabi, toimetada kinnipeetuid arestimajja, juhtida jälitusi ja otsinguid.
+- **260 sündmusetüüpi**, nende hulgas kõik 116 väljakutset algsetest versioonidest. Kohapeal tuleb teha otsuseid, saata toetust, kutsuda kiirabi, toimetada kinnipeetuid arestimajja, juhtida jälitusi ja otsinguid.
 - **Andmebaas**, austusavaldus algsele „Politsei Andmebaasile“. Isikutel on kehtiv isikukood, aadress, juhiluba, relvaluba ja karistusregistri kanded, mis viitavad Eesti seaduste paragrahvidele. Sõidukitel on numbrimärk, VIN-kood, kindlustus, tehnoülevaatus ja vajaduse korral tagaotsimise märge.
 - **Interaktiivsed 112 kõned.** Häirekeskus ühendab helistaja sinuga: esita küsimusi, hinda olukorda ja määra prioriteet. Ida-Virumaal helistavad ka venekeelsed inimesed, appi saab võtta tõlgi. Ära tunda tuleb ka pahatahtlikud kõned.
 - **Raadioside** TETRA-võrgu (ESTER) stiilis: üksused annavad teada, küsivad ja ootavad vastust. Raadio- ja telefonihelid sünteesitakse protseduuriliselt (Web Audio), helifaile ei ole.
@@ -176,7 +176,7 @@ EPD 2.0 is a complete remake of the 2024 and 2025 browser game "Politsei Andmeba
 
 - **A real map of Estonia.** An offline vector map (geoBoundaries, Natural Earth), plus online street, grey-scale and orthophoto layers (CARTO, Maa- ja Ruumiamet) when you are connected. Units drive on the map in real time.
 - **Four prefectures:** Põhja (North), Ida (East), Lõuna (South) and Lääne (West), with real towns, streets and police stations.
-- **More than 150 incident types**, including all 116 calls from the original versions. On scene you make decisions, send backup, call an ambulance, take detainees to the arrest house, and run pursuits and area searches.
+- **260 incident types**, including all 116 calls from the original versions. On scene you make decisions, send backup, call an ambulance, take detainees to the arrest house, and run pursuits and area searches.
 - **The registry (Andmebaas)**, a homage to the original "Politsei Andmebaas". People have valid Estonian personal ID codes (isikukood), addresses, driving licences, weapon permits and criminal records that cite real paragraphs of Estonian law. Vehicles have plates, VINs, insurance, roadworthiness tests and, sometimes, a stolen flag.
 - **Interactive 112 transfers.** The Emergency Response Centre puts the caller through to you: ask questions, assess the situation and set the priority. In Ida-Virumaa some callers speak Russian, and you can bring in an interpreter. You also have to spot prank calls.
 - **TETRA-style radio** modelled on Estonia's ESTER network: units report in, ask questions and wait for your reply. Radio and phone sounds are synthesised procedurally (Web Audio), with no audio files.
