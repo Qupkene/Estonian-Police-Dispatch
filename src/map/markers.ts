@@ -176,11 +176,6 @@ export class UnitMarkers {
     }
   }
 
-  /** Screen-independent position of a unit marker (for follow mode). */
-  get size(): number {
-    return this.recs.size;
-  }
-
   destroy(): void {
     for (const rec of this.recs.values()) rec.marker.remove();
     this.recs.clear();

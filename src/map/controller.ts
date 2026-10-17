@@ -10,7 +10,7 @@ import type { Lang, LngLat, RegionId, SimState, Unit } from '@/sim/types';
 import type { MapStyleKey } from '@/store/settings';
 import { REGIONS } from '@/data/regions';
 import { sun, unitPos } from '@/sim/selectors';
-import { buildStyle, isOnlineStyle, OVERLAY_SOURCES, SRC, type OverlaySourceId } from './style';
+import { buildStyle, isOnlineStyle, isRasterSource, OVERLAY_SOURCES, SRC, type OverlaySourceId } from './style';
 import { MAX_BOUNDS } from './geodata';
 import { buildHeat, buildPursuits, buildRoutes, buildSearches, buildStations, declutterOffsets, isMoving } from './overlays';
 import { IncidentMarkers, SuspectMarkers, UnitMarkers, type MarkerContext } from './markers';
@@ -307,7 +307,7 @@ export class MapController {
   // ── Events ─────────────────────────────────────────────────────────────────
 
   private onError = (e: { error?: { message?: string; status?: number }; sourceId?: string }) => {
-    if (e.sourceId === SRC.raster) {
+    if (isRasterSource(e.sourceId)) {
       const now = performance.now();
       this.rasterErrors.push(now);
       while (this.rasterErrors.length && now - this.rasterErrors[0] > RASTER_ERR_WINDOW_MS) this.rasterErrors.shift();

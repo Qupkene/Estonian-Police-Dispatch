@@ -2,7 +2,7 @@
  * Pure maplibre style builder for EPD.
  *
  * Every style contains the offline "tactical" base (built from src/data/geo) so the map always
- * works without network; online styles add one raster base map above the land layers and fade the
+ * works without network; online styles add raster base map(s) above the land layers and fade the
  * tactical roads out where the raster has its own detail. Overlay sources (stations, routes,
  * pursuit trails, search areas, heat) are part of every style so a style swap keeps them.
  *
@@ -11,7 +11,7 @@
 import type { Map as MlMap } from 'maplibre-gl';
 import type { FeatureCollection } from 'geojson';
 import type { MapStyleKey } from '@/store/settings';
-import { ESTONIA_BBOX, geoData } from './geodata';
+import { geoData } from './geodata';
 
 export type StyleSpecification = Exclude<Parameters<MlMap['setStyle']>[0], string | null | undefined>;
 export type LayerSpecification = StyleSpecification['layers'][number];
@@ -54,8 +54,10 @@ export const HEAT_LAYER = 'heat';
 export const RASTER_LAYER = 'raster';
 
 /**
- * Online raster base maps. Maa- ja Ruumiamet (formerly Maa-amet) serves Google-Mercator tiles in TMS
- * row order from tiles.maaamet.ee; CARTO serves XYZ tiles on four sub-domains.
+ * Online raster base maps (see docs/research/map-services.md). Maa- ja Ruumiamet (formerly Maa-amet)
+ * serves Google-Mercator ("GMC") tiles in TMS row order from tiles.maaamet.ee; CARTO serves XYZ
+ * tiles on four sub-domains (MapLibre has no {s}, so they are expanded; {ratio} → "@2x" on HiDPI).
+ * A style may stack several rasters (orthophoto + transparent "hybriid" label overlay).
  */
 export interface RasterService {
   tiles: string[];
@@ -69,40 +71,43 @@ export interface RasterService {
   paint?: Record<string, number>;
 }
 
-const MAAAMET_ATTR = '© <a href="https://maaruum.ee" target="_blank" rel="noopener">Maa- ja Ruumiamet</a>';
+export const MAAAMET_TILE_BASE = 'https://tiles.maaamet.ee/tm/tms/1.0.0';
+export const ESTONIA_RASTER_BOUNDS: [number, number, number, number] = [21.5, 57.3, 28.5, 59.95];
+const MAARU_ATTR = '© <a href="https://www.maaamet.ee/" target="_blank" rel="noopener">Maa- ja Ruumiamet</a>';
+const CARTO_ATTR =
+  '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>';
 
-export const RASTER_SERVICES: Record<Exclude<MapStyleKey, 'tactical'>, RasterService> = {
-  dark: {
-    tiles: ['a', 'b', 'c', 'd'].map((s) => `https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png`),
-    scheme: 'xyz',
-    tileSize: 256,
-    minzoom: 0,
-    maxzoom: 20,
-    attribution:
-      '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
-    paint: { 'raster-saturation': -0.15, 'raster-contrast': 0.08 },
-  },
-  maaamet: {
-    tiles: ['https://tiles.maaamet.ee/tm/tms/1.0.0/hallkaart@GMC/{z}/{x}/{y}.png'],
-    scheme: 'tms',
-    tileSize: 256,
-    minzoom: 6,
-    maxzoom: 18,
-    bounds: ESTONIA_BBOX,
-    attribution: MAAAMET_ATTR,
-    paint: { 'raster-brightness-max': 0.93 },
-  },
-  foto: {
-    tiles: ['https://tiles.maaamet.ee/tm/tms/1.0.0/foto@GMC/{z}/{x}/{y}.jpg'],
-    scheme: 'tms',
-    tileSize: 256,
-    minzoom: 6,
-    maxzoom: 18,
-    bounds: ESTONIA_BBOX,
-    attribution: MAAAMET_ATTR,
-    paint: { 'raster-saturation': -0.1, 'raster-brightness-max': 0.9 },
-  },
+const maaamet = (layer: string, ext: 'png' | 'jpg', paint?: Record<string, number>): RasterService => ({
+  tiles: [`${MAAAMET_TILE_BASE}/${layer}@GMC/{z}/{x}/{y}.${ext}`],
+  scheme: 'tms',
+  tileSize: 256,
+  minzoom: 6,
+  maxzoom: 18,
+  bounds: ESTONIA_RASTER_BOUNDS,
+  attribution: MAARU_ATTR,
+  paint,
+});
+
+export const RASTER_SERVICES: Record<Exclude<MapStyleKey, 'tactical'>, RasterService[]> = {
+  dark: [
+    {
+      tiles: ['a', 'b', 'c', 'd'].map((s) => `https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{ratio}.png`),
+      scheme: 'xyz',
+      tileSize: 256,
+      minzoom: 0,
+      maxzoom: 20,
+      attribution: CARTO_ATTR,
+      paint: { 'raster-saturation': -0.1, 'raster-contrast': 0.06 },
+    },
+  ],
+  maaamet: [maaamet('hallkaart', 'png', { 'raster-brightness-max': 0.92 })],
+  foto: [maaamet('foto', 'jpg', { 'raster-saturation': -0.1, 'raster-brightness-max': 0.9 }), maaamet('hybriid', 'png')],
 };
+
+/** Source id of the i-th raster of a style ("epd-raster", "epd-raster-2", …). */
+export const rasterSourceId = (i: number) => (i === 0 ? SRC.raster : `${SRC.raster}-${i + 1}`);
+export const rasterLayerId = (i: number) => (i === 0 ? RASTER_LAYER : `${RASTER_LAYER}-${i + 1}`);
+export const isRasterSource = (id: string | undefined) => !!id && (id === SRC.raster || id.startsWith(`${SRC.raster}-`));
 
 export function isOnlineStyle(key: MapStyleKey): key is Exclude<MapStyleKey, 'tactical'> {
   return key !== 'tactical';
@@ -161,11 +166,11 @@ const interpExp = (stops: [number, number][], e = 1.5): unknown => ['interpolate
 export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): StyleSpecification {
   const g = geoData();
   const online = isOnlineStyle(styleKey);
-  const raster = online ? RASTER_SERVICES[styleKey] : null;
+  const rasters = online ? RASTER_SERVICES[styleKey] : [];
   const ov = opts.overlays ?? {};
   const labelVis = opts.cinematic ? 'none' : 'visible';
-  // CARTO dark and the Maa- ja Ruumiamet grey map carry their own place names; the orthophoto does not.
-  const settlementVis = opts.cinematic || styleKey === 'dark' || styleKey === 'maaamet' ? 'none' : 'visible';
+  // Online rasters carry their own place names (the orthophoto via the "hybriid" overlay).
+  const settlementVis = opts.cinematic || online ? 'none' : 'visible';
   /** Tactical vector detail fades out at z11 on online styles (the raster has real streets). */
   const tacticalMax = online ? 11 : 24;
   const tacticalOpacity = online ? 0.55 : 1;
@@ -190,18 +195,19 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     [SRC.search]: { type: 'geojson', data: ov[SRC.search] ?? EMPTY, maxzoom: 14 },
     [SRC.heat]: { type: 'geojson', data: ov[SRC.heat] ?? EMPTY, maxzoom: 12 },
   };
-  if (raster) {
-    sources[SRC.raster] = {
+  rasters.forEach((r, i) => {
+    sources[rasterSourceId(i)] = {
       type: 'raster',
-      tiles: raster.tiles,
-      scheme: raster.scheme,
-      tileSize: raster.tileSize,
-      minzoom: raster.minzoom,
-      maxzoom: raster.maxzoom,
-      attribution: raster.attribution,
-      ...(raster.bounds ? { bounds: raster.bounds } : {}),
+      tiles: r.tiles,
+      scheme: r.scheme,
+      tileSize: r.tileSize,
+      minzoom: r.minzoom,
+      maxzoom: r.maxzoom,
+      // Stacked rasters share one attribution entry.
+      ...(i === 0 || r.attribution !== rasters[0].attribution ? { attribution: r.attribution } : {}),
+      ...(r.bounds ? { bounds: r.bounds } : {}),
     };
-  }
+  });
 
   const L: LayerSpecification[] = [];
   const add = (l: unknown) => L.push(l as LayerSpecification);
@@ -244,14 +250,14 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
   });
 
   // ── Online raster base (above land so failed tiles reveal the tactical map) ──
-  if (raster) {
+  rasters.forEach((r, i) =>
     add({
-      id: RASTER_LAYER,
+      id: rasterLayerId(i),
       type: 'raster',
-      source: SRC.raster,
-      paint: { 'raster-fade-duration': 250, 'raster-opacity': 1, ...(raster.paint ?? {}) },
-    });
-  }
+      source: rasterSourceId(i),
+      paint: { 'raster-fade-duration': 250, 'raster-opacity': 1, ...(r.paint ?? {}) },
+    }),
+  );
 
   // ── Administrative ─────────────────────────────────────────────────────────
   add({

@@ -344,7 +344,7 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
       backup(0.68, un('any', 2), {
         at: 'arrive',
         timeoutMin: 4,
-        radio: [T('{callsign}: ametnik vajab abi! Kõik vabad ekipaažid {direction}!', '{callsign}: officer needs assistance! All free units {direction}!')],
+        radio: [T('{callsign}: ametnik vajab abi, {address}! Kõik vabad ekipaažid appi!', '{callsign}: officer needs assistance, {address}! All free units respond!')],
       }),
       search(5, 1, [T('{callsign}: kahtlustatav põgenes parki, alustame otsinguid. Vajame koera ja lisaekipaaže.', '{callsign}: suspect fled into the park, starting a search. We need a dog and more units.')]),
       toArrest(30, { chance: 0.6 }),
