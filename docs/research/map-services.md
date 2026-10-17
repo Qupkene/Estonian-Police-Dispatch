@@ -4,6 +4,8 @@ Research notes for **EPD**, an unofficial, fan-made Estonian police dispatch sim
 
 Compiled 2026-10-17.
 
+> **Update (hosting moved to the owner's server).** CARTO is no longer used: its tiles now answer "API key required". The `dark` street map is a self-hosted Protomaps basemap (`/tiles/estonia.pmtiles`, a v4 extract of the daily planet build, read with HTTP range requests and styled with `@protomaps/basemaps`). The game is served from the owner's MainServer through the relay VPS, not from GitHub Pages. See `docs/SERVER.md`. The CARTO sections below are kept as background only.
+
 > **Read this first: how far these notes are verified.** The shared web-search budget for this workflow run (200 searches, shared by all agents) was used up before this agent's first search ran, and WebFetch and direct `curl` to tile hosts are blocked by the sandbox proxy (HTTP 403 on CONNECT). So **no fact here is tagged [VERIFIED] from the web.** Every claim about service URLs, terms and licences comes from prior knowledge and must be checked once by a human in a browser (checklist in §12). Some things *were* checked inside this environment and carry their own tags (see below): DST dates from the system tz database, MapLibre's URL-template support read from `node_modules/maplibre-gl@6.14.0`, and sun tables computed with the NOAA algorithm.
 
 **Confidence tags**

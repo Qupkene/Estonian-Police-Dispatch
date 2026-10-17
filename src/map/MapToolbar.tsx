@@ -133,7 +133,7 @@ export function MapToolbar(p: MapToolbarProps) {
                 <span className="epdm-layers__swatch" aria-hidden="true" />
                 <span className="epdm-layers__text">
                   <span>{tr(`map.style.${k}`)}</span>
-                  <small>{tr(k === 'tactical' ? 'map.style.tacticalHint' : 'map.style.onlineHint')}</small>
+                  <small>{tr(k === 'tactical' ? 'map.style.tacticalHint' : k === 'dark' ? 'map.style.darkHint' : 'map.style.onlineHint')}</small>
                 </span>
               </button>
             ))}

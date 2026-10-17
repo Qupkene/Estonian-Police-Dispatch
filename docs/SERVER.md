@@ -39,6 +39,14 @@ Containers (`/opt/stack/politsei/compose.yml`):
 
 Environment for `politsei`: `EPD_DATA=/data`, `EPD_TRUSTED_PROXY=10.99.0.1`.
 
+Street map file: `estonia.pmtiles` must use the Protomaps **v4** tile schema (the style comes from
+`@protomaps/basemaps` v5). Extract it from a daily planet build, for example
+`pmtiles extract https://build.protomaps.com/20261016.pmtiles estonia.pmtiles --bbox=21.0,57.2,28.6,60.0 --maxzoom=15`
+(the installer picks the latest date from `https://build-metadata.protomaps.dev/builds.json`).
+The client probes the file header with one range request and falls back to the bundled tactical
+map when it is missing. For `npm run dev` the file can be put in `public/tiles/estonia.pmtiles`
+(ignored by git; Vite serves byte ranges).
+
 Relay VPS: Caddy site `politsei.eu` (and `www.politsei.eu` redirecting to it) →
 `reverse_proxy 10.99.0.5:80`. TLS is terminated on the relay. DNS: A records for `politsei.eu` and
 `www.politsei.eu` → `80.47.227.213`.
@@ -47,6 +55,8 @@ Relay VPS: Caddy site `politsei.eu` (and `www.politsei.eu` redirecting to it) �
 
 - `/api/*` → PHP, `/app/server/api/index.php` (the router reads the path itself).
 - `/tiles/*` → static files from `/srv/tiles` with HTTP range support (PMTiles reads byte ranges).
+  No `encode` on this route: range replies must be `206` with `Content-Length`, `Accept-Ranges: bytes`
+  and a stable `ETag`/`Last-Modified`.
 - everything else → static from `/app/www`, unknown paths fall back to `/index.html`.
   `index.html` and `sw.js` get `Cache-Control: no-cache`, `/assets/*` get one-year immutable caching.
 

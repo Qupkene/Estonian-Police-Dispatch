@@ -36,7 +36,7 @@ EPD 2.0 on 2024. ja 2025. aasta brauserimängu „Politsei Andmebaas“ täielik
 
 ### Põhiomadused
 
-- **Päris Eesti kaart.** Võrguühenduseta töötav vektorkaart (geoBoundaries, Natural Earth) ning võrgus tänavakaardi, hallkaardi ja ortofoto kihid (CARTO, Maa- ja Ruumiamet). Üksused liiguvad kaardil reaalajas.
+- **Päris Eesti kaart.** Võrguühenduseta töötav vektorkaart (geoBoundaries, Natural Earth) ning tänavakaart mängu enda serverist (OpenStreetMap, Protomaps, ilma välise API-ta). Lisaks Maa- ja Ruumiameti hallkaart ja ortofoto. Üksused liiguvad kaardil reaalajas.
 - **Neli prefektuuri:** Põhja, Ida, Lõuna ja Lääne, päris linnade, tänavate ja jaoskondadega.
 - **260 sündmusetüüpi**, nende hulgas kõik 116 väljakutset algsetest versioonidest. Kohapeal tuleb teha otsuseid, saata toetust, kutsuda kiirabi, toimetada kinnipeetuid arestimajja, juhtida jälitusi ja otsinguid.
 - **Andmebaas**, austusavaldus algsele „Politsei Andmebaasile“. Isikutel on kehtiv isikukood, aadress, juhiluba, relvaluba ja karistusregistri kanded, mis viitavad Eesti seaduste paragrahvidele. Sõidukitel on numbrimärk, VIN-kood, kindlustus, tehnoülevaatus ja vajaduse korral tagaotsimise märge.
@@ -142,7 +142,7 @@ public/       staatilised failid: kaardi fondid, algsed versioonid, PWA failid, 
 | --- | --- | --- |
 | [geoBoundaries](https://www.geoboundaries.org) | maakondade ja asustusüksuste piirid, asulad | CC BY 4.0 |
 | [Natural Earth](https://www.naturalearthdata.com) | maismaa, järved, maanteed, raudteed | avalik omand (public domain) |
-| © [OpenStreetMap](https://www.openstreetmap.org/copyright)'i kaastöötajad, © [CARTO](https://carto.com/attributions) | võrgus tänavakaart (kaardiruudud) | OSM-i andmed ODbL, kaardiruudud CARTO tingimustel |
+| © [OpenStreetMap](https://www.openstreetmap.org/copyright)'i kaastöötajad, [Protomaps](https://protomaps.com) | tänavakaart (PMTiles, mängu serverist) | OSM-i andmed ODbL, stiil BSD-3-Clause |
 | [Maa- ja Ruumiamet](https://maaruum.ee) | võrgus hallkaart ja ortofoto | Maa- ja Ruumiameti avaandmete tingimused, viitega allikale |
 | Noto Sans, Inter, JetBrains Mono | fondid | SIL Open Font License 1.1 |
 | [MapLibre GL JS](https://maplibre.org) | kaardimootor | BSD-3-Clause |
@@ -174,7 +174,7 @@ EPD 2.0 is a complete remake of the 2024 and 2025 browser game "Politsei Andmeba
 
 ### Features
 
-- **A real map of Estonia.** An offline vector map (geoBoundaries, Natural Earth), plus online street, grey-scale and orthophoto layers (CARTO, Maa- ja Ruumiamet) when you are connected. Units drive on the map in real time.
+- **A real map of Estonia.** An offline vector map (geoBoundaries, Natural Earth), plus a street map served by the game's own server (OpenStreetMap, Protomaps, no third-party API) and the Maa- ja Ruumiamet grey map and orthophotos. Units drive on the map in real time.
 - **Four prefectures:** Põhja (North), Ida (East), Lõuna (South) and Lääne (West), with real towns, streets and police stations.
 - **260 incident types**, including all 116 calls from the original versions. On scene you make decisions, send backup, call an ambulance, take detainees to the arrest house, and run pursuits and area searches.
 - **The registry (Andmebaas)**, a homage to the original "Politsei Andmebaas". People have valid Estonian personal ID codes (isikukood), addresses, driving licences, weapon permits and criminal records that cite real paragraphs of Estonian law. Vehicles have plates, VINs, insurance, roadworthiness tests and, sometimes, a stolen flag.
@@ -280,7 +280,7 @@ public/       static files: map glyphs, original versions, PWA files, CNAME
 | --- | --- | --- |
 | [geoBoundaries](https://www.geoboundaries.org) | county and settlement boundaries, settlements | CC BY 4.0 |
 | [Natural Earth](https://www.naturalearthdata.com) | land, lakes, roads, railways | public domain |
-| © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, © [CARTO](https://carto.com/attributions) | online street map tiles | OSM data under ODbL, tiles under CARTO's terms |
+| © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, [Protomaps](https://protomaps.com) | street map (PMTiles from the game server) | OSM data under ODbL, style under BSD-3-Clause |
 | [Maa- ja Ruumiamet](https://maaruum.ee) (Estonian Land and Spatial Development Board) | online grey-scale map and orthophoto tiles | Maa- ja Ruumiamet open-data terms, with attribution |
 | Noto Sans, Inter, JetBrains Mono | fonts | SIL Open Font License 1.1 |
 | [MapLibre GL JS](https://maplibre.org) | map engine | BSD-3-Clause |

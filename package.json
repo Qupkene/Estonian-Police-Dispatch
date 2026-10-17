@@ -2,7 +2,7 @@
   "name": "estonian-police-dispatch",
   "private": true,
   "version": "2.0.0",
-  "description": "EPD — Eesti politsei juhtimiskeskuse simulaator / Estonian Police Dispatch simulator",
+  "description": "EPD: Eesti politsei juhtimiskeskuse simulaator / Estonian Police Dispatch simulator",
   "type": "module",
   "scripts": {
     "dev": "vite",

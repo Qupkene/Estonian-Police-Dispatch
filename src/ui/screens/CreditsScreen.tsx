@@ -36,10 +36,10 @@ const DATA: Source[] = [
     icon: 'route',
   },
   {
-    name: '© CARTO',
-    licence: 'CC BY 3.0',
-    descKey: 'shell.cred.src.carto',
-    url: 'https://carto.com/attributions',
+    name: 'Protomaps',
+    licence: 'BSD-3-Clause',
+    descKey: 'shell.cred.src.protomaps',
+    url: 'https://protomaps.com',
     icon: 'layers',
   },
   {

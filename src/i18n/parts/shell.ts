@@ -418,8 +418,11 @@ export default {
     en: 'North two-one, on scene. All quiet.',
   },
   'shell.set.mapStyle': { et: 'Kaardi stiil', en: 'Map style' },
-  'shell.map.dark': { et: 'Tume tänavakaart', en: 'Dark street map' },
-  'shell.map.dark.desc': { et: 'CARTO · OpenStreetMap', en: 'CARTO · OpenStreetMap' },
+  'shell.map.dark': { et: 'Tänavakaart (oma server)', en: 'Street map (own server)' },
+  'shell.map.dark.desc': {
+    et: 'OpenStreetMap · Protomaps, mängu enda serverist',
+    en: "OpenStreetMap · Protomaps, from the game's own server",
+  },
   'shell.map.tactical': { et: 'Taktikaline', en: 'Tactical' },
   'shell.map.tactical.desc': { et: 'Võrguühenduseta vektorkaart', en: 'Offline vector map' },
   'shell.map.maaamet': { et: 'Maa- ja Ruumiameti hallkaart', en: 'Land Board grey map' },
@@ -498,12 +501,12 @@ export default {
     en: 'Coastline, lakes, highways and railways.',
   },
   'shell.cred.src.osm': {
-    et: 'Tänavakaardi andmed võrgukaardil.',
-    en: 'Street map data for the online map.',
+    et: 'Tänavakaardi andmed (ODbL).',
+    en: 'Street map data (ODbL).',
   },
-  'shell.cred.src.carto': {
-    et: 'Tume tänavakaardi stiil ja kaardiplaadid.',
-    en: 'Dark street map style and tiles.',
+  'shell.cred.src.protomaps': {
+    et: 'Tänavakaardi vektorplaadid ja stiil, mängu enda serverist.',
+    en: 'Street map vector tiles and style, served by the game server.',
   },
   'shell.cred.src.maaamet': {
     et: 'Hallkaart ja ortofotod (WMTS).',

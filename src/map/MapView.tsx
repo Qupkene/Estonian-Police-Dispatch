@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Lang, LngLat, RegionId, SimState } from '@/sim/types';
 import { useSettings, type MapStyleKey } from '@/store/settings';
 import { t } from '@/i18n';
-import { MapController, webglSupported } from './controller';
+import { MapController, webglSupported, type FallbackReason } from './controller';
 import { MapToolbar } from './MapToolbar';
 import './map.css';
 
@@ -37,7 +37,8 @@ export function MapView(p: MapViewProps) {
   const reducedMotion = useSettings((s) => s.reducedMotion);
 
   const [glError, setGlError] = useState(false);
-  const [offline, setOffline] = useState(false);
+  /** Tactical fallback in force and why (tiles failed, or the street map file is not on the server). */
+  const [fallback, setFallback] = useState<FallbackReason | null>(null);
   const [follow, setFollow] = useState(false);
   const [heat, setHeat] = useState(false);
   const [tilt, setTilt] = useState(false);
@@ -75,7 +76,7 @@ export function MapView(p: MapViewProps) {
         },
         () => propsRef.current,
         {
-          onOffline: (v) => setOffline(v),
+          onOffline: (v, reason) => setFallback(v ? (reason ?? 'network') : null),
           onFollowBreak: () => setFollow(false),
           onFatal: () => setGlError(true),
           onTilt: (v) => setTilt(v),
@@ -169,12 +170,17 @@ export function MapView(p: MapViewProps) {
           onStyle={pickStyle}
         />
       )}
-      {!glError && offline && styleKey !== 'tactical' && !p.cinematic && (
-        <button type="button" className="epdm-offline" onClick={() => ctlRef.current?.retryOnline()} title={tr('map.offlineHint')}>
+      {!glError && fallback && styleKey !== 'tactical' && !p.cinematic && (
+        <button
+          type="button"
+          className="epdm-offline"
+          onClick={() => ctlRef.current?.retryOnline()}
+          title={tr(fallback === 'missing' ? 'map.streetMissingHint' : 'map.offlineHint')}
+        >
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
             <path d="M5 12.5a10 10 0 0 1 4-2.3M12 8.5a10 10 0 0 1 7 4M8.5 16a5 5 0 0 1 7 0M12 19.5h.01M3 3l18 18" strokeLinecap="round" />
           </svg>
-          <span>{tr('map.offline')}</span>
+          <span>{tr(fallback === 'missing' ? 'map.streetMissing' : 'map.offline')}</span>
         </button>
       )}
     </div>

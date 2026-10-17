@@ -125,6 +125,28 @@ const incidents: Incident[] = [
   mkInc('i8', 'XX', 1, 'incoming', [24.7, 59.45]),
 ];
 
+// `origin=lon,lat` moves the whole fake scene (units, incidents, stations) there, e.g. onto a test
+// PMTiles extract of another city; `free=1` lifts the Estonia-only camera bounds.
+const ORIGIN = q.get('origin')?.split(',').map(Number) as LngLat | undefined;
+if (ORIGIN && ORIGIN.length === 2 && ORIGIN.every(Number.isFinite)) {
+  const dx = ORIGIN[0] - 24.75;
+  const dy = ORIGIN[1] - 59.43;
+  const sh = (c: LngLat): LngLat => [c[0] + dx, c[1] + dy];
+  for (const u of units) {
+    u.pos = sh(u.pos);
+    if (u.move) {
+      u.move.path = u.move.path.map(sh);
+      u.move.cum = cumulative(u.move.path);
+    }
+  }
+  for (const i of incidents) {
+    i.location = { ...i.location, coord: sh(i.location.coord) };
+    if (i.pursuit) i.pursuit = { ...i.pursuit, suspectPos: sh(i.pursuit.suspectPos), trail: i.pursuit.trail.map(sh) };
+    if (i.search) i.search = { ...i.search, center: sh(i.search.center) };
+  }
+  for (const st of pohja.stations) st.coord = sh(st.coord);
+}
+
 const sim = {
   version: 2,
   seed: 1,
@@ -194,11 +216,21 @@ function App() {
   const [log, setLog] = useState<string>('');
   const [show, setShow] = useState(true);
   useEffect(() => {
+    if (q.get('free') !== '1') return;
+    const lift = setInterval(() => {
+      const m = (window as unknown as { __epdMap?: { setMaxBounds: (b: null) => void; setMinZoom: (z: number) => void } }).__epdMap;
+      if (!m) return;
+      m.setMaxBounds(null);
+      m.setMinZoom(0);
+    }, 50);
+    return () => clearInterval(lift);
+  }, []);
+  useEffect(() => {
     const z = q.get('zoom');
     const c = q.get('center');
-    if (z || c) {
+    if (z || c || ORIGIN) {
       const t = setTimeout(
-        () => setFocus({ coord: (c ? c.split(',').map(Number) : [24.75, 59.43]) as LngLat, zoom: z ? Number(z) : undefined, n: 1 }),
+        () => setFocus({ coord: (c ? c.split(',').map(Number) : (ORIGIN ?? [24.75, 59.43])) as LngLat, zoom: z ? Number(z) : undefined, n: 1 }),
         300,
       );
       return () => clearTimeout(t);

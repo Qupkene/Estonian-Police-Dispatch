@@ -787,8 +787,19 @@
   background: rgba(30, 20, 6, 0.85);
   color: #fbbf24;
   font: 600 11px/1.2 var(--font-ui);
+  text-align: left;
+  max-width: calc(100% - 20px);
   cursor: pointer;
   backdrop-filter: blur(6px);
+}
+.epdm-offline svg {
+  flex: none;
+}
+@media (max-width: 520px) {
+  /* Keep the badge clear of the attribution row on phones. */
+  .epdm-offline {
+    bottom: 40px;
+  }
 }
 .epdm-offline:hover,
 .epdm-offline:focus-visible {

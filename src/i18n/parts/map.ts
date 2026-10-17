@@ -11,10 +11,11 @@ export default {
   'map.followNone': { et: 'Jälgimiseks vali esmalt üksus', en: 'Select a unit to follow' },
   'map.layers': { et: 'Kaardikiht', en: 'Map layer' },
   'map.style.tactical': { et: 'Taktikaline (võrguta)', en: 'Tactical (offline)' },
-  'map.style.dark': { et: 'Tume tänavakaart', en: 'Dark street map' },
+  'map.style.dark': { et: 'Tänavakaart (oma server)', en: 'Street map (own server)' },
   'map.style.maaamet': { et: 'Maa- ja Ruumiameti hallkaart', en: 'Land Board grey map' },
   'map.style.foto': { et: 'Ortofoto', en: 'Orthophoto' },
   'map.style.tacticalHint': { et: 'Töötab alati, ka ilma internetita', en: 'Always works, even without internet' },
+  'map.style.darkHint': { et: 'Mängu enda serverist, ilma välise teenuseta', en: "From the game's own server, no external service" },
   'map.style.onlineHint': { et: 'Vajab internetiühendust', en: 'Needs an internet connection' },
   'map.heat': { et: 'Vahetuse väljakutsete soojuskaart', en: 'Shift incident heat map' },
   'map.tilt': { et: '3D-vaade', en: '3D view' },
@@ -23,6 +24,14 @@ export default {
   'map.offlineHint': {
     et: 'Taustakaardi paane ei õnnestunud laadida, kasutan võrguta taktikalist kaarti. Klõpsa, et uuesti proovida.',
     en: 'Base map tiles failed to load, using the offline tactical map. Click to retry.',
+  },
+  'map.streetMissing': {
+    et: 'Tänavakaart pole serveris, kasutan taktikalist kaarti',
+    en: 'Street map is not on the server, using the tactical map',
+  },
+  'map.streetMissingHint': {
+    et: 'Tänavakaardi faili (tiles/estonia.pmtiles) ei leitud serverist, seepärast näitan võrguta taktikalist kaarti. Klõpsa, et uuesti proovida.',
+    en: 'The street map file (tiles/estonia.pmtiles) was not found on the server, so the offline tactical map is shown. Click to retry.',
   },
   'map.noWebgl.title': { et: 'Kaarti ei saa kuvada', en: 'The map cannot be shown' },
   'map.noWebgl.body': {

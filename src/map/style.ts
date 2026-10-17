@@ -2,9 +2,13 @@
  * Pure maplibre style builder for EPD.
  *
  * Every style contains the offline "tactical" base (built from src/data/geo) so the map always
- * works without network; online styles add raster base map(s) above the land layers and fade the
- * tactical roads out where the raster has its own detail. Overlay sources (stations, routes,
- * pursuit trails, search areas, heat) are part of every style so a style swap keeps them.
+ * works without network. On top of the land layers:
+ * - 'dark' adds the self-hosted Protomaps street map (vector tiles from one PMTiles file on the
+ *   game's own server, see streetStyle.ts) and hides the tactical roads where it has its own;
+ * - 'maaamet' and 'foto' add the Maa- ja Ruumiamet raster base map(s) and fade the tactical roads
+ *   out where the raster has its own detail.
+ * Overlay sources (stations, routes, pursuit trails, search areas, heat) are part of every style so
+ * a style swap keeps them, and every overlay is drawn above the base map.
  *
  * No DOM / maplibre runtime imports: testable in node.
  */
@@ -12,6 +16,9 @@ import type { Map as MlMap } from 'maplibre-gl';
 import type { FeatureCollection } from 'geojson';
 import type { MapStyleKey } from '@/store/settings';
 import { geoData } from './geodata';
+import { STREET_SOURCE, streetLayers, streetSource } from './streetStyle';
+
+export { isStreetSource, STREET_ATTRIBUTION, STREET_PREFIX, STREET_SOURCE, STREET_TILES_PATH, streetTilesUrl } from './streetStyle';
 
 export type StyleSpecification = Exclude<Parameters<MlMap['setStyle']>[0], string | null | undefined>;
 export type LayerSpecification = StyleSpecification['layers'][number];
@@ -38,6 +45,7 @@ export const SRC = {
   rail: 'epd-rail',
   settlements: 'epd-settlements',
   raster: 'epd-raster',
+  street: STREET_SOURCE,
   stations: 'epd-stations',
   routes: 'epd-routes',
   pursuit: 'epd-pursuit',
@@ -56,8 +64,7 @@ export const RASTER_LAYER = 'raster';
 
 /**
  * Online raster base maps (see docs/research/map-services.md). Maa- ja Ruumiamet (formerly Maa-amet)
- * serves Google-Mercator ("GMC") tiles in TMS row order from tiles.maaamet.ee; CARTO serves XYZ
- * tiles on four sub-domains (MapLibre has no {s}, so they are expanded; {ratio} → "@2x" on HiDPI).
+ * serves Google-Mercator ("GMC") tiles in TMS row order from tiles.maaamet.ee.
  * A style may stack several rasters (orthophoto + transparent "hybriid" label overlay).
  */
 export interface RasterService {
@@ -75,8 +82,6 @@ export interface RasterService {
 export const MAAAMET_TILE_BASE = 'https://tiles.maaamet.ee/tm/tms/1.0.0';
 export const ESTONIA_RASTER_BOUNDS: [number, number, number, number] = [21.5, 57.3, 28.5, 59.95];
 const MAARU_ATTR = '© <a href="https://www.maaamet.ee/" target="_blank" rel="noopener">Maa- ja Ruumiamet</a>';
-const CARTO_ATTR =
-  '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>';
 
 const maaamet = (layer: string, ext: 'png' | 'jpg', paint?: Record<string, number>): RasterService => ({
   tiles: [`${MAAAMET_TILE_BASE}/${layer}@GMC/{z}/{x}/{y}.${ext}`],
@@ -89,18 +94,10 @@ const maaamet = (layer: string, ext: 'png' | 'jpg', paint?: Record<string, numbe
   paint,
 });
 
-export const RASTER_SERVICES: Record<Exclude<MapStyleKey, 'tactical'>, RasterService[]> = {
-  dark: [
-    {
-      tiles: ['a', 'b', 'c', 'd'].map((s) => `https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{ratio}.png`),
-      scheme: 'xyz',
-      tileSize: 256,
-      minzoom: 0,
-      maxzoom: 20,
-      attribution: CARTO_ATTR,
-      paint: { 'raster-saturation': -0.1, 'raster-contrast': 0.06 },
-    },
-  ],
+/** Styles drawn from online raster tiles (Maa- ja Ruumiamet). */
+export type RasterStyleKey = 'maaamet' | 'foto';
+
+export const RASTER_SERVICES: Record<RasterStyleKey, RasterService[]> = {
   maaamet: [maaamet('hallkaart', 'png', { 'raster-brightness-max': 0.92 })],
   foto: [maaamet('foto', 'jpg', { 'raster-saturation': -0.1, 'raster-brightness-max': 0.9 }), maaamet('hybriid', 'png')],
 };
@@ -113,6 +110,22 @@ export const isRasterSource = (id: string | undefined) => !!id && (id === SRC.ra
 export function isOnlineStyle(key: MapStyleKey): key is Exclude<MapStyleKey, 'tactical'> {
   return key !== 'tactical';
 }
+
+/** The self-hosted Protomaps street map. */
+export function isStreetStyle(key: MapStyleKey): key is 'dark' {
+  return key === 'dark';
+}
+
+export function isRasterStyle(key: MapStyleKey): key is RasterStyleKey {
+  return key === 'maaamet' || key === 'foto';
+}
+
+/**
+ * Highest zoom (exclusive) of the tactical roads and railways per style. The street map has its own
+ * roads from low zoom on, so the tactical network only gives the overview there; the rasters carry
+ * real streets from about z11.
+ */
+export const TACTICAL_ROADS_MAXZOOM: Record<MapStyleKey, number> = { tactical: 24, dark: 9, maaamet: 11, foto: 11 };
 
 export interface BuildStyleOptions {
   /** App base URL (import.meta.env.BASE_URL, ideally absolute). Glyphs are served from `${base}glyphs/`. */
@@ -167,14 +180,28 @@ const interpExp = (stops: [number, number][], e = 1.5): unknown => ['interpolate
 export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): StyleSpecification {
   const g = geoData();
   const online = isOnlineStyle(styleKey);
-  const rasters = online ? RASTER_SERVICES[styleKey] : [];
+  const street = isStreetStyle(styleKey);
+  const rasters = isRasterStyle(styleKey) ? RASTER_SERVICES[styleKey] : [];
+  const streetL = street ? streetLayers({ cinematic: opts.cinematic, lang: 'et' }) : { base: [], labels: [] };
   const ov = opts.overlays ?? {};
   const labelVis = opts.cinematic ? 'none' : 'visible';
-  // Online rasters carry their own place names (the orthophoto via the "hybriid" overlay).
+  // Online base maps carry their own place names (the orthophoto via the "hybriid" overlay).
   const settlementVis = opts.cinematic || online ? 'none' : 'visible';
-  /** Tactical vector detail fades out at z11 on online styles (the raster has real streets). */
+  /** Tactical district detail fades out at z11 on online styles (the base map has real streets). */
   const tacticalMax = online ? 11 : 24;
+  /** Tactical roads and railways stop where the base map has its own. */
+  const roadsMax = TACTICAL_ROADS_MAXZOOM[styleKey];
   const tacticalOpacity = online ? 0.55 : 1;
+  /** Road opacity: on the street map the tactical overview roads fade out over their last zoom level. */
+  const roadOpacity = (stops: [number, number][]): unknown => {
+    const s = [...stops];
+    if (street) {
+      const [lastZ, lastO] = s[s.length - 1];
+      if (lastZ < roadsMax - 1) s.push([roadsMax - 1, lastO]);
+      s.push([roadsMax, 0]);
+    }
+    return s.length === 1 ? s[0][1] : interp(s);
+  };
 
   const sources: Record<string, SourceSpecification> = {
     [SRC.neighbors]: { type: 'geojson', data: g.neighbors, maxzoom: 10, tolerance: 0.5 },
@@ -196,6 +223,7 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     [SRC.search]: { type: 'geojson', data: ov[SRC.search] ?? EMPTY, maxzoom: 14 },
     [SRC.heat]: { type: 'geojson', data: ov[SRC.heat] ?? EMPTY, maxzoom: 12 },
   };
+  if (street) sources[SRC.street] = streetSource(opts.base);
   rasters.forEach((r, i) => {
     sources[rasterSourceId(i)] = {
       type: 'raster',
@@ -250,7 +278,8 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     paint: { 'line-color': PALETTE.lakeLine, 'line-width': interp([[5, 0.5], [10, 1]]) },
   });
 
-  // ── Online raster base (above land so failed tiles reveal the tactical map) ──
+  // ── Online base map (above land so failed tiles reveal the tactical map) ──
+  for (const l of streetL.base) add(l);
   rasters.forEach((r, i) =>
     add({
       id: rasterLayerId(i),
@@ -302,10 +331,10 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     type: 'line',
     source: SRC.rail,
     minzoom: 6.5,
-    maxzoom: tacticalMax,
+    maxzoom: roadsMax,
     paint: {
       'line-color': PALETTE.rail,
-      'line-opacity': interp([[6.5, 0], [8, 0.8 * tacticalOpacity]]),
+      'line-opacity': roadOpacity([[6.5, 0], [8, 0.8 * tacticalOpacity]]),
       'line-width': interp([[7, 0.6], [12, 1.4]]),
       'line-dasharray': ['literal', [2, 2]],
     },
@@ -316,11 +345,11 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     source: SRC.roads,
     filter: roadFilter('Road', 'Unknown'),
     minzoom: 6,
-    maxzoom: tacticalMax,
+    maxzoom: roadsMax,
     layout: { 'line-join': 'round', 'line-cap': 'round' },
     paint: {
       'line-color': PALETTE.roadMinor,
-      'line-opacity': interp([[6, 0], [7, tacticalOpacity]]),
+      'line-opacity': roadOpacity([[6, 0], [7, tacticalOpacity]]),
       'line-width': interpExp([[6, 0.4], [10, 1.3], [14, 3.2]]),
     },
   });
@@ -329,11 +358,11 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     type: 'line',
     source: SRC.roads,
     filter: roadFilter('Secondary Highway'),
-    maxzoom: tacticalMax,
+    maxzoom: roadsMax,
     layout: { 'line-join': 'round', 'line-cap': 'round' },
     paint: {
       'line-color': PALETTE.roadSecondary,
-      'line-opacity': tacticalOpacity,
+      'line-opacity': roadOpacity([[5, tacticalOpacity]]),
       'line-width': interpExp([[5, 0.5], [10, 1.8], [14, 4.5]]),
     },
   });
@@ -342,11 +371,11 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     type: 'line',
     source: SRC.roads,
     filter: roadFilter('Major Highway'),
-    maxzoom: tacticalMax,
+    maxzoom: roadsMax,
     layout: { 'line-join': 'round', 'line-cap': 'round' },
     paint: {
       'line-color': PALETTE.roadGlow,
-      'line-opacity': 0.22 * tacticalOpacity,
+      'line-opacity': roadOpacity([[5, 0.22 * tacticalOpacity]]),
       'line-width': interpExp([[5, 3], [10, 9], [14, 20]]),
       'line-blur': interpExp([[5, 2], [10, 6], [14, 12]]),
     },
@@ -356,11 +385,11 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     type: 'line',
     source: SRC.roads,
     filter: roadFilter('Major Highway'),
-    maxzoom: tacticalMax,
+    maxzoom: roadsMax,
     layout: { 'line-join': 'round', 'line-cap': 'round' },
     paint: {
       'line-color': PALETTE.roadMajor,
-      'line-opacity': 0.9 * tacticalOpacity,
+      'line-opacity': roadOpacity([[5, 0.9 * tacticalOpacity]]),
       'line-width': interpExp([[5, 0.8], [10, 2.2], [14, 5]]),
     },
   });
@@ -369,6 +398,7 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     type: 'line',
     source: SRC.roads,
     filter: roadFilter('Ferry Route'),
+    // The street map draws no ferry routes, so the tactical ones stay as on the rasters.
     maxzoom: tacticalMax,
     paint: {
       'line-color': PALETTE.ferry,
@@ -377,6 +407,9 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
       'line-dasharray': ['literal', [2.5, 2]],
     },
   });
+
+  // ── Street map labels (above the admin lines, below every overlay) ─────────
+  for (const l of streetL.labels) add(l);
 
   // ── Dynamic overlays (data pushed by MapView at ≤ 10 Hz) ───────────────────
   add({

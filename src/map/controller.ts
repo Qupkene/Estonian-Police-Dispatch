@@ -3,14 +3,26 @@
  * animation-frame loop. MapView (React) creates one per mount and forwards prop changes; live
  * positions are read every frame from `getProps().sim`, never from React state.
  */
-import { Map as MlMap, setWorkerUrl, type GeoJSONSource, type MapMouseEvent } from 'maplibre-gl';
+import { addProtocol, Map as MlMap, setWorkerUrl, type AddProtocolAction, type GeoJSONSource, type MapMouseEvent } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+import { Protocol } from 'pmtiles';
 import type { FeatureCollection } from 'geojson';
 import type { Lang, LngLat, RegionId, SimState, Unit } from '@/sim/types';
 import type { MapStyleKey } from '@/store/settings';
 import { REGIONS } from '@/data/regions';
 import { sun, unitPos } from '@/sim/selectors';
-import { buildStyle, isOnlineStyle, isRasterSource, OVERLAY_SOURCES, SRC, type OverlaySourceId } from './style';
+import {
+  buildStyle,
+  isRasterSource,
+  isRasterStyle,
+  isStreetSource,
+  isStreetStyle,
+  OVERLAY_SOURCES,
+  SRC,
+  streetTilesUrl,
+  type OverlaySourceId,
+} from './style';
+import { knownStreetProbe, probeStreetTiles, type StreetProbe } from './streetTiles';
 import { MAX_BOUNDS } from './geodata';
 import { buildHeat, buildPursuits, buildRoutes, buildSearches, buildStations, declutterOffsets, isMoving } from './overlays';
 import { IncidentMarkers, SuspectMarkers, UnitMarkers, type MarkerContext } from './markers';
@@ -28,6 +40,26 @@ function ensureWorker() {
   }
 }
 
+/**
+ * The `pmtiles://` protocol for the self-hosted street map, registered once per page. Workers ask the
+ * main thread for protocols they do not know, so one registration covers every map.
+ */
+let pmtiles: Protocol | null = null;
+function ensurePmtilesProtocol(): Protocol | null {
+  if (pmtiles) return pmtiles;
+  try {
+    const p = new Protocol();
+    addProtocol('pmtiles', p.tile as unknown as AddProtocolAction);
+    pmtiles = p;
+  } catch (e) {
+    console.warn('[map] could not register the pmtiles protocol', e);
+  }
+  return pmtiles;
+}
+
+/** Why the map fell back to the tactical base: tiles failed to load, or the street map file is absent. */
+export type FallbackReason = 'network' | 'missing';
+
 /** Quick capability probe so we can show a friendly panel instead of a blank map. */
 export function webglSupported(): boolean {
   try {
@@ -39,8 +71,11 @@ export function webglSupported(): boolean {
 }
 
 export interface ControllerEvents {
-  /** Raster tiles failed repeatedly → offline tactical fallback is active (or cleared). */
-  onOffline: (offline: boolean) => void;
+  /**
+   * The tactical fallback is active (or cleared): online tiles failed repeatedly ('network'), or the
+   * self-hosted street map file is not on the server ('missing').
+   */
+  onOffline: (offline: boolean, reason?: FallbackReason) => void;
   /** The user panned the map while following a unit. */
   onFollowBreak: () => void;
   /** The WebGL context was lost and not restored. */
@@ -87,7 +122,12 @@ export class MapController {
   private cinematic: boolean;
   private heat: boolean;
   private reducedMotion: boolean;
-  private offline = false;
+  /** Tactical fallback in force (null = the chosen style is shown). */
+  private fallback: FallbackReason | null = null;
+  /** Availability of the self-hosted street map ('idle' = not checked yet). */
+  private street: StreetProbe | 'idle' | 'pending' = 'idle';
+  private probeSeq = 0;
+  private readonly streetUrl = streetTilesUrl(this.base);
   private rasterErrors: number[] = [];
   private follow = false;
   private followEasing = false;
@@ -110,7 +150,7 @@ export class MapController {
   private lostTimer: ReturnType<typeof setTimeout> | undefined;
   private tilted = false;
   private onlineListener = () => {
-    if (this.offline) this.retryOnline();
+    if (this.fallback === 'network') this.retryOnline();
   };
 
   constructor(
@@ -127,7 +167,10 @@ export class MapController {
     this.cinematic = init.cinematic;
     this.heat = init.heat;
     this.reducedMotion = init.reducedMotion;
-    if (isOnlineStyle(this.styleKey) && typeof navigator !== 'undefined' && navigator.onLine === false) this.offline = true;
+    if (isRasterStyle(this.styleKey) && typeof navigator !== 'undefined' && navigator.onLine === false) this.fallback = 'network';
+    // A street map already found on this page starts at once; otherwise the tactical base shows
+    // until the availability check below answers.
+    if (isStreetStyle(this.styleKey) && knownStreetProbe(this.streetUrl) === 'ok' && ensurePmtilesProtocol()) this.street = 'ok';
 
     const region = REGIONS[this.regionId];
     this.map = new MlMap({
@@ -146,7 +189,11 @@ export class MapController {
       refreshExpiredTiles: false,
       cancelPendingTileRequestsWhileZooming: true,
     });
-    if (this.offline) queueMicrotask(() => this.events.onOffline(true));
+    if (this.fallback) {
+      const reason = this.fallback;
+      queueMicrotask(() => this.events.onOffline(true, reason));
+    }
+    if (isStreetStyle(this.styleKey) && this.street !== 'ok') this.probeStreet(false);
 
     const handlers = {
       onUnit: (id: string) => this.getProps().onSelectUnit?.(id),
@@ -182,7 +229,9 @@ export class MapController {
   // ── Style ──────────────────────────────────────────────────────────────────
 
   get effectiveStyle(): MapStyleKey {
-    return this.offline ? 'tactical' : this.styleKey;
+    if (this.fallback) return 'tactical';
+    if (isStreetStyle(this.styleKey) && this.street !== 'ok') return 'tactical';
+    return this.styleKey;
   }
 
   private buildStyle() {
@@ -210,11 +259,8 @@ export class MapController {
     const wasEffective = this.effectiveStyle;
     this.styleKey = key;
     // A new choice deserves a fresh attempt at the network.
-    if (this.offline) {
-      this.offline = false;
-      this.rasterErrors = [];
-      this.events.onOffline(false);
-    }
+    this.clearFallback();
+    if (isStreetStyle(key) && this.street !== 'ok') this.probeStreet(false);
     if (this.effectiveStyle !== wasEffective) this.applyStyle();
   }
 
@@ -249,18 +295,65 @@ export class MapController {
   }
 
   retryOnline() {
-    if (!this.offline) return;
-    this.offline = false;
-    this.rasterErrors = [];
-    this.events.onOffline(false);
+    if (!this.fallback) return;
+    this.clearFallback();
+    if (isStreetStyle(this.styleKey)) {
+      // Ask the server again; the tactical base stays until it answers.
+      this.probeStreet(true);
+      return;
+    }
     this.applyStyle();
   }
 
+  /** Switch to the tactical base and show the badge (no-op when already there for that reason). */
+  private setFallback(reason: FallbackReason) {
+    if (this.fallback === reason || this.styleKey === 'tactical') return;
+    const wasEffective = this.effectiveStyle;
+    this.fallback = reason;
+    this.events.onOffline(true, reason);
+    if (this.effectiveStyle !== wasEffective) this.applyStyle();
+  }
+
+  private clearFallback() {
+    this.rasterErrors = [];
+    if (!this.fallback) return;
+    this.fallback = null;
+    this.events.onOffline(false);
+  }
+
   private goOffline() {
-    if (this.offline || !isOnlineStyle(this.styleKey)) return;
-    this.offline = true;
-    this.events.onOffline(true);
-    this.applyStyle();
+    if (this.fallback || !(isRasterStyle(this.styleKey) || isStreetStyle(this.styleKey))) return;
+    this.setFallback('network');
+    // The street map stopped answering: check it again before the next use.
+    if (isStreetStyle(this.styleKey)) this.street = 'idle';
+  }
+
+  /**
+   * Check the self-hosted street map file (one header range request, shared with the map protocol)
+   * and show it when it is there; fall back to the tactical base with a badge when it is not.
+   */
+  private probeStreet(force: boolean) {
+    const seq = ++this.probeSeq;
+    this.street = 'pending';
+    const proto = ensurePmtilesProtocol();
+    if (!proto) {
+      this.street = 'missing';
+      this.setFallback('missing');
+      return;
+    }
+    probeStreetTiles(this.streetUrl, { force, onArchive: (a) => proto.add(a) })
+      .catch((): StreetProbe => 'network')
+      .then((r) => {
+        if (this.destroyed || seq !== this.probeSeq) return;
+        this.street = r;
+        if (!isStreetStyle(this.styleKey)) return;
+        if (r === 'ok') {
+          if (!this.fallback) this.applyStyle();
+        } else {
+          if (r === 'missing') console.info(`[map] street map not on the server (${this.streetUrl}), using the tactical map`);
+          this.setFallback(r);
+        }
+      });
   }
 
   // ── Camera ─────────────────────────────────────────────────────────────────
@@ -318,8 +411,13 @@ export class MapController {
 
   // ── Events ─────────────────────────────────────────────────────────────────
 
-  private onError = (e: { error?: { message?: string; status?: number }; sourceId?: string }) => {
-    if (isRasterSource(e.sourceId)) {
+  private onError = (e: { error?: { message?: string; status?: number }; sourceId?: string; tile?: unknown }) => {
+    if (isStreetSource(e.sourceId) && !e.tile && this.street === 'ok' && isStreetStyle(this.styleKey)) {
+      // The archive itself (not one tile) failed to open: no point in waiting for more errors.
+      this.goOffline();
+      return;
+    }
+    if (isRasterSource(e.sourceId) || isStreetSource(e.sourceId)) {
       const now = performance.now();
       this.rasterErrors.push(now);
       while (this.rasterErrors.length && now - this.rasterErrors[0] > RASTER_ERR_WINDOW_MS) this.rasterErrors.shift();
