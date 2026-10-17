@@ -1,0 +1,191 @@
+{
+  "about": "Database made by the API of 92ed7f5 (tests/fixtures/db/generate.mjs). Test data only.",
+  "commit": "92ed7f5ec45b805cb2bd3d7ccbea6f8eea3220e1",
+  "generated": "2026-10-17T19:20:07.597Z",
+  "php": "8.3.6",
+  "schemaVersion": 1,
+  "migrationSha256": {
+    "1": "8affb0df5875d94b995bb9bdd05c5063f1a36782fb805469b677f5807fc6aa97"
+  },
+  "cookie": {
+    "name": "EPDSESS",
+    "attributes": [
+      "httponly",
+      "path=/",
+      "samesite=lax"
+    ]
+  },
+  "users": [
+    {
+      "id": 1,
+      "name": "Õnne.Mari_1",
+      "password": "Mänguparool-1",
+      "me": {
+        "user": {
+          "id": 1,
+          "name": "Õnne.Mari_1",
+          "created": 1792264806115
+        }
+      },
+      "save": {
+        "updated": {
+          "career": 1792264806122,
+          "settings": 1792264806133,
+          "autosave": 1792264806145
+        },
+        "slots": {
+          "career": "5ae1580f5b59c93fb99e76d7b120614b004086b8c38764d9547610973d088183",
+          "settings": "86395ddc38c94501cd5bbebe7b9bfe1da1039858b7c851fceae79bad92098d4a",
+          "autosave": "732aa20d5cca7909dfec0e1ef71fb4e6d225b51d7a6b6fd5ea29555097892788"
+        },
+        "sha256": "e7505566816448b95eebb624a9dfddcec13952a5b51ecff2861d6156e0a66aa3",
+        "bytes": 177129
+      },
+      "session": {
+        "id": "tq7qh7ba0k0rq5irtvm82lkil7",
+        "file": "uid|i:1;seen|i:1792264807;"
+      }
+    },
+    {
+      "id": 2,
+      "name": "Kalev",
+      "password": "kalevipoeg 2024",
+      "me": {
+        "user": {
+          "id": 2,
+          "name": "Kalev",
+          "created": 1792264806451
+        }
+      },
+      "save": {
+        "updated": {
+          "career": 1792264806458,
+          "settings": 1792264806469
+        },
+        "slots": {
+          "career": "117187314d5cf910d38c698d06c8293aa15b515f1cbc936e334f7ac8d65723c0",
+          "settings": "f2c3b07d72adfe3ea87a955e5e7abc21f46138ef328019b7e37193d6d7980731",
+          "autosave": null
+        },
+        "sha256": "9fb1b3680572f709c238ba6a25d798dd84bce77b2aadf221d985a603b645e36f",
+        "bytes": 7630
+      },
+      "session": {
+        "id": "frirck408u7ph5jq5adbm3dnn6",
+        "file": "uid|i:2;seen|i:1792264807;"
+      }
+    },
+    {
+      "id": 3,
+      "name": "tiit-99",
+      "password": "Tiit ja Teele!",
+      "me": {
+        "user": {
+          "id": 3,
+          "name": "tiit-99",
+          "created": 1792264806784
+        }
+      },
+      "save": {
+        "updated": {
+          "career": 1792264806797
+        },
+        "slots": {
+          "career": "97a8b8e8319bd624a998a20c37736956dde971d1fc6007b555ca160eadd4841d",
+          "settings": null,
+          "autosave": null
+        },
+        "sha256": "2db1fd5945f9ba5e99f14f6f887f8ae7f1cd05f97893c3ce51054daf66bf0901",
+        "bytes": 7531
+      },
+      "session": {
+        "id": "01bs5374dtmffma8puq05g2o30",
+        "file": "uid|i:3;seen|i:1792264807;"
+      }
+    }
+  ],
+  "scores": {
+    "all": [
+      {
+        "name": "Õnne.Mari_1",
+        "score": 88,
+        "grade": "A",
+        "regionId": "pohja",
+        "difficulty": "veteran",
+        "incidents": 41,
+        "at": 1792264806184
+      },
+      {
+        "name": "Kalev",
+        "score": 72,
+        "grade": "B",
+        "regionId": "laane",
+        "difficulty": "normal",
+        "incidents": 25,
+        "at": 1792264806531
+      },
+      {
+        "name": "tiit-99",
+        "score": 72,
+        "grade": "B",
+        "regionId": "laane",
+        "difficulty": "normal",
+        "incidents": 19,
+        "at": 1792264806828
+      }
+    ],
+    "pohja": [
+      {
+        "name": "Õnne.Mari_1",
+        "score": 88,
+        "grade": "A",
+        "regionId": "pohja",
+        "difficulty": "veteran",
+        "incidents": 41,
+        "at": 1792264806184
+      }
+    ],
+    "ida": [
+      {
+        "name": "tiit-99",
+        "score": 0,
+        "grade": "F",
+        "regionId": "ida",
+        "difficulty": "realistic",
+        "incidents": 6,
+        "at": 1792264806805
+      }
+    ],
+    "louna": [
+      {
+        "name": "Kalev",
+        "score": 8,
+        "grade": "F",
+        "regionId": "louna",
+        "difficulty": "cadet",
+        "incidents": 6,
+        "at": 1792264806506
+      }
+    ],
+    "laane": [
+      {
+        "name": "Kalev",
+        "score": 72,
+        "grade": "B",
+        "regionId": "laane",
+        "difficulty": "normal",
+        "incidents": 25,
+        "at": 1792264806531
+      },
+      {
+        "name": "tiit-99",
+        "score": 72,
+        "grade": "B",
+        "regionId": "laane",
+        "difficulty": "normal",
+        "incidents": 19,
+        "at": 1792264806828
+      }
+    ]
+  }
+}

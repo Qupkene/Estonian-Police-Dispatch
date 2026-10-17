@@ -2,6 +2,18 @@ import { create } from 'zustand';
 import { createShift, drainEvents, finalizeShift, step } from '@/sim/engine';
 import { REGION_IDS } from '@/data/regions';
 import type { GameEvent, GameMode, LngLat, NewShiftOptions, ShiftReport, SimState } from '@/sim/types';
+import { careerShiftPaid, useCareer } from './career';
+import {
+  autosaveBackupName,
+  BACKUP_PREFIX,
+  keepBackup,
+  keepRawBackup,
+  SIM_VERSION,
+  storageGet,
+  storageRemove,
+  storageSet,
+  upgradeSave,
+} from './migrate';
 
 export type Screen =
   | 'boot'
@@ -244,6 +256,9 @@ export interface AutosaveOptions {
   cloud?: boolean;
 }
 
+/** Shift key of the save this tab wrote last: when another shift takes the key, the old one is kept first. */
+let lastSavedShift: string | null = null;
+
 export function autosave(sim: SimState, opts: AutosaveOptions = {}) {
   // A shift that already has its report is settled: saving it would bring it back.
   if (sim.flags?.[REPORTED_FLAG]) return;
@@ -253,38 +268,98 @@ export function autosave(sim: SimState, opts: AutosaveOptions = {}) {
   } catch {
     return;
   }
-  try {
-    localStorage.setItem(SAVE_KEY, raw);
-  } catch {
-    /* storage full or blocked: ignore */
+  const key = shiftKeyOf(sim);
+  if (key !== lastSavedShift) {
+    keepReplacedSave(key);
+    lastSavedShift = key;
   }
+  if (!storageSet(SAVE_KEY, raw) && opts.cloud !== false) makeRoomFor(raw);
   if (opts.cloud !== false) autosaveHooks.onSave?.(raw, opts.unload ? 'unload' : opts.periodic ? 'periodic' : 'explicit');
 }
 
 /**
+ * Storage is full while the running shift is saved (a long shift is over a megabyte): the copy of an older,
+ * replaced shift goes before the progress being played now. Version and repair backups are never touched,
+ * and a shift that came from the cloud (it is safe on the server) never pushes a backup out.
+ */
+function makeRoomFor(raw: string): void {
+  for (const k of [BACKUP_PREFIX + 'autosave.cloud', BACKUP_PREFIX + 'autosave']) {
+    if (storageGet(k) === null) continue;
+    storageRemove(k);
+    console.warn(`[EPD] storage is full: ${k} was removed so the running shift can be saved`);
+    if (storageSet(SAVE_KEY, raw)) return;
+  }
+}
+
+const isReported = (x: unknown) => isPlainObject(x) && isPlainObject(x.flags) && !!x.flags[REPORTED_FLAG];
+
+/**
+ * A new shift (or one from the cloud) is about to take the save key: a different shift saved there that
+ * could still be resumed goes to epd:backup.autosave, and one this version cannot resume to its own backup
+ * key, instead of being written over.
+ */
+function keepReplacedSave(key: string): void {
+  const raw = storageGet(SAVE_KEY);
+  if (!raw) return;
+  let old: unknown;
+  try {
+    old = JSON.parse(raw);
+  } catch {
+    keepRawBackup('autosave.invalid', raw);
+    return;
+  }
+  if (isReported(old)) return; // settled: its report exists
+  const sim = upgradeSave(old);
+  if (isValidSave(sim)) {
+    if (shiftKeyOf(sim) !== key) keepBackup('autosave', sim, { reason: 'replaced', unique: true, keep: 1 });
+  } else {
+    keepRawBackup(unresumableName(old), raw);
+  }
+}
+
+/** Backup name of a save this version cannot resume. */
+function unresumableName(parsed: unknown): string {
+  return isPlainObject(parsed) && parsed.version === SIM_VERSION ? 'autosave.unresumable' : autosaveBackupName(parsed);
+}
+
+/**
  * The browser's saved shift, or null. A shift whose clock ran out is still returned (`ended`: its
- * report is pending, resumeShift opens it). A save that cannot be resumed (garbage, another version,
- * an unknown prefecture, missing parts) is removed so it cannot break the menu again.
+ * report is pending, resumeShift opens it). An older save is upgraded (docs/DESIGN.md, "Salvestuste
+ * ühilduvus"; the original stays in epd:backup.autosave.v<n>). A save that cannot be resumed (garbage,
+ * a newer version, an unknown prefecture, missing parts) moves to a backup key (epd:backup.autosave.v<n>,
+ * .unresumable or .invalid) so it cannot break the menu again; it is never deleted without that copy. Only a
+ * shift whose report already exists is simply removed.
  */
 export function loadAutosave(): SimState | null {
-  let raw: string | null;
+  const raw = storageGet(SAVE_KEY);
+  if (!raw) return null;
+  let parsed: unknown;
   try {
-    raw = localStorage.getItem(SAVE_KEY);
+    parsed = JSON.parse(raw);
   } catch {
+    parsed = undefined;
+  }
+  const sim = upgradeSave(parsed);
+  if (isValidSave(sim)) {
+    if (sim !== parsed && keepRawBackup(autosaveBackupName(parsed), raw)) {
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify(sim));
+      } catch {
+        /* the upgraded copy is rebuilt on the next load */
+      }
+    }
+    return sim;
+  }
+  if (isReported(sim)) {
+    storageRemove(SAVE_KEY);
     return null;
   }
-  if (!raw) return null;
-  let sim: unknown = null;
-  try {
-    sim = JSON.parse(raw);
-  } catch {
-    /* garbage: removed below */
-  }
-  if (isValidSave(sim)) return sim;
-  try {
-    localStorage.removeItem(SAVE_KEY);
-  } catch {
-    /* ignore */
+  const name = parsed === undefined ? 'autosave.invalid' : unresumableName(parsed);
+  if (keepRawBackup(name, raw)) {
+    storageRemove(SAVE_KEY);
+    console.warn(`[EPD] the saved shift cannot be resumed by this version; kept in ${BACKUP_PREFIX}${name}`);
+  } else {
+    console.warn('[EPD] the saved shift cannot be resumed and there is no room for a backup; it stays in place');
   }
   return null;
 }
@@ -308,16 +383,20 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v ===
  * clock values and every collection the game reads. Saves come from this browser, another device via the
  * cloud, or an older or newer client, so they are checked before anything renders them. A missing
  * `events` list (transient, drained every frame) is repaired. A shift that was already reported is not
- * resumable.
+ * resumable, and neither is a career shift the career's history already holds (careerShiftPaid).
  */
 export function isValidSave(x: unknown): x is SimState {
-  if (!isPlainObject(x) || x.version !== 2) return false;
+  if (!isPlainObject(x) || x.version !== SIM_VERSION) return false;
   if (!REGION_IDS.includes(x.regionId as SimState['regionId'])) return false;
   if (!GAME_MODES.includes(x.mode as GameMode)) return false;
   if (![x.now, x.startTime, x.endTime].every((n) => typeof n === 'number' && Number.isFinite(n))) return false;
   if (!SAVE_OBJECTS.every((k) => isPlainObject(x[k]))) return false;
   if (!SAVE_ARRAYS.every((k) => Array.isArray(x[k]))) return false;
   if ((x.flags as Record<string, unknown>)[REPORTED_FLAG]) return false;
+  // 92ed7f5 saved a career shift again when its tab closed on the report screen (no flag above): when the
+  // career's history already holds it, resuming it would pay it twice.
+  const career = x.mode === 'career' ? useCareer.getState().profile : null;
+  if (career && careerShiftPaid(career, x)) return false;
   if (!Array.isArray(x.events)) x.events = [];
   return true;
 }

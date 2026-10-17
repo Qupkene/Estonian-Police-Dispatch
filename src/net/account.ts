@@ -11,12 +11,14 @@ import { create } from 'zustand';
 import { useCareer } from '@/store/career';
 import { useSettings, type Settings } from '@/store/settings';
 import { autosave, autosaveHooks, clearAutosave, isValidSave, loadAutosave, shiftKeyOf, useGame } from '@/store/game';
-import type { CareerProfile, SimState, Text } from '@/sim/types';
+import { BACKUP_PREFIX as BACKUPS, keepBackup, keepRawBackup, normalizeCareerState } from '@/store/migrate';
+import type { SimState } from '@/sim/types';
 import { apiHooks, bindUser, probeBackend, request, toApiError, type ApiError } from './api';
 import {
   backoffMs,
   dataOf,
   isObj,
+  legacyMeta,
   needsBackup,
   num,
   parseMeta,
@@ -110,8 +112,12 @@ const sessionGone = (err: ApiError) => err.status === 401 || (err.status === 409
 // ── Local sync metadata ─────────────────────────────────────────────────────
 
 const META_KEY = 'epd:sync';
-/** Browser data that a cloud copy replaced while it existed nowhere else: `epd:backup.<slot>`. */
-export const BACKUP_PREFIX = 'epd:backup.';
+/**
+ * Browser data that a cloud copy replaced: `epd:backup.<slot>` (newest) and, for the career,
+ * `epd:backup.<slot>.prev`. Copies that existed nowhere else (guest data, unsynced changes) are kept over
+ * the others (src/store/migrate.ts keepBackup).
+ */
+export const BACKUP_PREFIX = BACKUPS;
 
 function readStoredMeta(): Meta {
   try {
@@ -138,7 +144,9 @@ function saveMeta(slots: readonly Slot[], account?: number | null, ifStored?: Sl
       stored.slots[slot] = { ...meta.slots[slot] };
     }
     if (account !== undefined) stored.account = account;
-    localStorage.setItem(META_KEY, JSON.stringify({ v: 2, account: stored.account, slots: stored.slots }));
+    // `owner` and `updated` (format 1) keep a rollback to 92ed7f5 from pulling the cloud over this browser's changes.
+    const legacy = legacyMeta(stored, Date.now());
+    localStorage.setItem(META_KEY, JSON.stringify({ v: 2, account: stored.account, slots: stored.slots, ...legacy }));
   } catch {
     /* storage blocked */
   }
@@ -149,14 +157,30 @@ function markLocal(slot: Slot) {
   saveMeta([slot]);
 }
 
-/** Keep browser data that is about to be replaced. False when storage refused it. */
-function writeBackup(slot: Slot, data: unknown): boolean {
-  try {
-    localStorage.setItem(BACKUP_PREFIX + slot, JSON.stringify({ at: Date.now(), owner: meta.slots[slot].owner, data }));
-    return true;
-  } catch {
-    return false;
-  }
+/**
+ * Keep browser data that a pull is about to replace with different data. Data that exists nowhere else
+ * (needsBackup) is marked unique so later copies never push it out. False when storage refused it.
+ */
+function writeBackup(slot: Slot, local: LocalSide, remote: Side): boolean {
+  if (local.data == null) return true;
+  return keepBackup(slot, local.data, {
+    reason: 'cloud',
+    unique: needsBackup(local, remote),
+    owner: meta.slots[slot].owner,
+    keep: slot === 'career' ? 2 : 1,
+  });
+}
+
+/**
+ * A cloud autosave this version will not resume (another SimState version, a shift whose report is still
+ * pending, a damaged copy) is kept in this browser (epd:backup.autosave.cloud), so a later upload from here
+ * can never be the end of it.
+ */
+function keepUnusableCloudAutosave(res: SaveResponse) {
+  const v = res.autosave;
+  if (!isObj(v) || remoteSide(res, 'autosave').data !== null) return;
+  if (isObj(v.flags) && v.flags.shiftReported) return; // settled: its report exists
+  keepBackup('autosave.cloud', v, { reason: 'cloud-unusable', unique: true, keep: 1 });
 }
 
 // ── Local snapshots ─────────────────────────────────────────────────────────
@@ -260,17 +284,21 @@ function byteLength(s: string): number {
 
 /** Write a cloud copy into the browser (a pull). Data that exists nowhere else goes to the backup key first. */
 function applyRemote(slot: Slot, remote: Side, local: LocalSide, userId: number) {
-  if (needsBackup(local, remote)) writeBackup(slot, local.data);
+  writeBackup(slot, local, remote);
   // An upload still waiting for this slot would only send the cloud copy back.
   clearTimer(slot);
   if (slot === 'autosave') autosaveRaw = undefined;
   let base = remote.updated;
   if (slot === 'career') {
-    const c = validCareer(remote.data);
-    useCareer.setState({
-      profile: (c?.profile ?? null) as CareerProfile | null,
-      inbox: (c?.inbox ?? []) as Text[],
-    });
+    // Checked like the browser copy: missing parts get defaults, broken entries go one by one, unknown
+    // fields stay. When something had to go, the cloud original is kept as epd:backup.career.repaired.
+    const issues: string[] = [];
+    const next = normalizeCareerState(validCareer(remote.data) ?? { profile: null, inbox: [] }, issues);
+    if (issues.length) {
+      console.warn('[EPD] cloud career repaired', issues.slice(0, 20));
+      keepRawBackup('career.repaired', JSON.stringify(remote.data));
+    }
+    useCareer.setState(next);
   } else if (slot === 'settings') {
     const patch = sanitizeSettings(remote.data, settingsData());
     if (Object.keys(patch).length) useSettings.getState().set(patch as Partial<Omit<Settings, 'set'>>);
@@ -442,6 +470,7 @@ async function loadAndMerge(s: Session): Promise<void> {
   failed.delete('load');
   loadFailures = 0;
 
+  keepUnusableCloudAutosave(res);
   const local = { career: localSide('career'), settings: localSide('settings'), autosave: localSide('autosave') };
   const owner = { career: meta.slots.career.owner, settings: meta.slots.settings.owner, autosave: meta.slots.autosave.owner };
   const plan = planSync(res, local, { owner, userId: s.userId });

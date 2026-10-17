@@ -1,0 +1,298 @@
+// @vitest-environment jsdom
+/**
+ * Generator of the golden save fixtures in tests/fixtures/saves/92ed7f5/ (see the README there).
+ *
+ * It must run against the code of the version whose saves it records, never the current one:
+ *   git worktree add /tmp/wt-92ed7f5 92ed7f5ec45b805cb2bd3d7ccbea6f8eea3220e1
+ *   ln -s "$PWD/node_modules" /tmp/wt-92ed7f5/node_modules   (or npm ci there)
+ *   cp tests/fixtures/saves/92ed7f5/generator.test.ts.txt /tmp/wt-92ed7f5/tests/zz-gen-save-fixtures.test.ts
+ *   cd /tmp/wt-92ed7f5 && EPD_FIXTURE_OUT=/tmp/fixtures-out npx vitest run tests/zz-gen-save-fixtures.test.ts
+ * The run is deterministic (fixed clock, seeded bot), so the output matches the committed files.
+ * For a new fixture set, copy this into a worktree of the new release and adapt it to that release's API.
+ */
+import { afterAll, describe, expect, it, vi } from 'vitest';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+
+const OUT = process.env.EPD_FIXTURE_OUT ?? '/tmp/fixtures-out';
+
+let seed = 12345;
+const rand = () => {
+  seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+  return seed / 2 ** 32;
+};
+
+/** Store a persisted value byte for byte as the browser (or the server) held it. */
+function writeRaw(name: string, raw: string | null) {
+  if (raw === null) throw new Error(`nothing stored for ${name}`);
+  JSON.parse(raw); // must be valid JSON
+  mkdirSync(OUT, { recursive: true });
+  writeFileSync(`${OUT}/${name}`, raw);
+}
+
+describe('generate 92ed7f5 save fixtures', () => {
+  afterAll(() => vi.useRealTimers());
+
+  it('writes career, settings, autosaves and the sync marker', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-14T06:30:00Z'));
+    localStorage.clear();
+    // The real app imports the account module at boot; a guest without a backend still gets epd:sync.
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    }));
+    await import('@/net/account');
+
+    const { useCareer } = await import('@/store/career');
+    const { useSettings } = await import('@/store/settings');
+    const { useGame, autosave, stopLoop } = await import('@/store/game');
+    const rules = await import('@/sim/career');
+    const { step } = await import('@/sim/engine');
+    const cmd = await import('@/sim/commands');
+    const { pendingRadio, queue, recommendUnits } = await import('@/sim/selectors');
+    const { correctReply } = await import('@/sim/registry');
+    const { tallinnTime, MIN } = await import('@/sim/time');
+    type SimState = import('@/sim/types').SimState;
+    type NewShiftOptions = import('@/sim/types').NewShiftOptions;
+    const QUESTIONS = ['what', 'where', 'injured', 'weapons', 'suspect'] as const;
+
+    function bot(s: SimState, tick: number) {
+      for (const call of s.calls) {
+        if (call.endedAt) continue;
+        if (!call.answeredAt) cmd.answerCall(s, call.id);
+        else if (call.asked.length < QUESTIONS.length) cmd.askCall(s, call.id, QUESTIONS[call.asked.length]);
+        else cmd.endCall(s, call.id, { action: 'create', priority: s.incidents[call.incidentId]?.truePriority ?? 3 });
+      }
+      for (const inc of queue(s)) {
+        if (inc.state === 'incoming') cmd.acknowledge(s, inc.id);
+        const need = inc.need.reduce((a, n) => a + n.count, 0);
+        if (inc.assigned.length === 0 || (tick % 7 === 0 && inc.assigned.length < need)) {
+          const recs = recommendUnits(s, inc.id).filter((r) => r.fit === 'ideal' || r.fit === 'need' || r.fit === 'weak');
+          const want = Math.max(1, need) - inc.assigned.length;
+          if (recs.length && want > 0) cmd.dispatchUnits(s, inc.id, recs.slice(0, want).map((r) => r.unit.id));
+        }
+        for (const n of inc.agencyNeeds) if (!n.requested) cmd.requestAgency(s, inc.id, n.agency);
+      }
+      for (const msg of pendingRadio(s)) {
+        if (!msg.replies?.length) continue;
+        let replyId = msg.replies[0].id;
+        if (msg.kind === 'query' && msg.incidentId) {
+          const inc = s.incidents[msg.incidentId];
+          const subj = inc?.persons.find((p) => msg.text.et.includes(s.persons[p.personId]?.idcode ?? '§§'));
+          const veh = inc?.vehicles.find((v) => msg.text.et.includes(v.plate));
+          if (subj || veh) {
+            const truth = correctReply(s, subj ? { personId: subj.personId } : { plate: veh!.plate });
+            if (rand() < 0.9 && msg.replies.some((r) => r.id === truth)) replyId = truth;
+          }
+        } else if (msg.kind === 'backup' || msg.kind === 'choice') {
+          replyId = msg.replies[Math.floor(rand() * msg.replies.length)].id;
+        }
+        cmd.replyRadio(s, msg.id, replyId);
+      }
+    }
+
+    function start(opts: NewShiftOptions): SimState {
+      useGame.getState().startShift(opts);
+      stopLoop();
+      return useGame.getState().sim!;
+    }
+    function play(s: SimState, minutes: number) {
+      for (let t = 0; t < minutes * 2 && !s.ended; t++) {
+        step(s, MIN / 2);
+        bot(s, t);
+      }
+    }
+    function careerOpts(i: number, hours: number): NewShiftOptions {
+      const p = useCareer.getState().profile!;
+      const night = i % 3 === 2;
+      const kind = night ? 'night' : 'day';
+      const regionId = p.regionId;
+      return {
+        seed: 9000 + i * 17,
+        regionId,
+        mode: 'career',
+        difficulty: (process.env.EPD_FIXTURE_DIFF ?? 'cadet') as NewShiftOptions['difficulty'],
+        start: tallinnTime(2026, 9, 1 + (i % 28), night ? 19 : 7, 0),
+        hours,
+        playerName: p.name,
+        roster: rules.rosterFromCareer(p, kind),
+        upgrades: p.upgrades,
+        reputation: p.reputation,
+      };
+    }
+
+    // ── Career: a new profile, several real shifts, hiring, buying ───────────
+    useCareer.getState().create('Mari Tamm', '085', 'pohja');
+    const shifts = Number(process.env.EPD_FIXTURE_SHIFTS ?? 30);
+    for (let i = 0; i < shifts; i++) {
+      vi.setSystemTime(new Date(Date.UTC(2026, 8, 14 + i, 17, 0)));
+      const s = start(careerOpts(i, 8));
+      play(s, 8 * 60 + 30);
+      const report = useGame.getState().endShift()!;
+      useCareer.getState().applyReport(report);
+      useGame.getState().quitShift();
+      const p = useCareer.getState().profile!;
+      if (i === 1) {
+        const c = p.recruits[0];
+        useCareer.getState().attempt((x) => rules.hire(x, c.id));
+      }
+      if (i === 3) {
+        useCareer.getState().attempt((x) => rules.buyUpgrade(x, 'bodycam'));
+      }
+      if (i === 6) {
+        useCareer.getState().update((x) => rules.sellVehicle(x, 'veh-4'));
+      }
+      if (i >= 6 && useCareer.getState().profile!.fleet.length < 5 && useCareer.getState().profile!.money > 30000) {
+        useCareer.getState().attempt((x) => rules.buyVehicle(x, 'skoda_scala'));
+      }
+      if (i >= 6 && !useCareer.getState().profile!.upgrades.includes('spikes') && useCareer.getState().profile!.money > 8000) {
+        useCareer.getState().attempt((x) => rules.buyUpgrade(x, 'spikes'));
+      }
+    }
+    const career = useCareer.getState();
+    expect(career.profile!.stats.shifts).toBe(shifts);
+    expect(career.inbox.length).toBeGreaterThan(0);
+    writeRaw('epd-career.json', localStorage.getItem('epd:career'));
+    console.log(
+      'career',
+      JSON.stringify({
+        day: career.profile!.day,
+        money: career.profile!.money,
+        rep: career.profile!.reputation,
+        xp: career.profile!.xp,
+        staff: career.profile!.staff.length,
+        fleet: career.profile!.fleet.length,
+        upgrades: career.profile!.upgrades,
+        ledger: career.profile!.ledger.length,
+        ach: career.profile!.achievements,
+        regions: career.profile!.unlockedRegions,
+        inbox: career.inbox.length,
+      }),
+    );
+
+    // ── Career shift in progress (autosave) ──────────────────────────────────
+    vi.setSystemTime(new Date('2026-09-30T05:10:00Z'));
+    {
+      const s = start(careerOpts(shifts, 12));
+      play(s, 75);
+      autosave(s);
+      writeRaw('epd-autosave-career.json', localStorage.getItem('epd:autosave'));
+      useGame.getState().quitShift();
+    }
+
+    // ── Free shift in progress (autosave) ───────────────────────────────────
+    {
+      const s = start({
+        seed: 424242,
+        regionId: 'louna',
+        mode: 'free',
+        difficulty: 'veteran',
+        start: tallinnTime(2026, 10, 3, 19, 0),
+        hours: 12,
+        playerName: 'Mari Tamm',
+      });
+      play(s, 60);
+      // Save mid-call: a 112 call is ringing or being talked through when the 30 s loop save runs.
+      for (let k = 0; k < 400 && !s.calls.some((c) => !c.endedAt); k++) step(s, 15_000);
+      const call = s.calls.find((c) => !c.endedAt);
+      expect(call).toBeTruthy();
+      cmd.answerCall(s, call!.id);
+      step(s, 5_000);
+      cmd.askCall(s, call!.id, 'what');
+      step(s, 5_000);
+      autosave(s, { periodic: true });
+      writeRaw('epd-autosave-free.json', localStorage.getItem('epd:autosave'));
+      useGame.getState().quitShift();
+    }
+
+    // ── Finished but not reported: the 30 s loop save after the clock ran out ─
+    {
+      const s = start({
+        seed: 777,
+        regionId: 'ida',
+        mode: 'free',
+        difficulty: 'normal',
+        start: tallinnTime(2026, 10, 4, 22, 0),
+        hours: 3,
+        playerName: 'Mari Tamm',
+      });
+      play(s, 4 * 60);
+      expect(s.ended).toBe(true);
+      autosave(s, { periodic: true });
+      writeRaw('epd-autosave-ended.json', localStorage.getItem('epd:autosave'));
+      useGame.getState().quitShift();
+    }
+
+    // ── Settings: untouched defaults, then a customised set ──────────────────
+    useSettings.getState().set({});
+    writeRaw('epd-settings-default.json', localStorage.getItem('epd:settings'));
+    useSettings.getState().set({
+      lang: 'en',
+      volume: 0.35,
+      sfx: false,
+      radioVoice: true,
+      ambience: false,
+      mapStyle: 'maaamet',
+      reducedMotion: true,
+      theme: 'light',
+      uiScale: 1.15,
+      hints: false,
+      colorblind: true,
+    });
+    writeRaw('epd-settings-custom.json', localStorage.getItem('epd:settings'));
+    // The in-progress career shift is the guest's current autosave.
+    autosave(JSON.parse(readFileSync(`${OUT}/epd-autosave-career.json`, 'utf8')));
+    writeRaw('epd-sync-guest.json', localStorage.getItem('epd:sync'));
+  }, 600_000);
+
+  it('writes the epd:sync marker and the cloud slots through the deployed account code', async () => {
+    vi.setSystemTime(new Date('2026-10-05T09:00:00Z')); // > 1 min later: the offline probe is retried
+    const bodies: Record<string, string> = {};
+    let clock = Date.parse('2026-10-05T09:00:01Z');
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const path = String(url).replace(/^.*\/api/, '');
+      const method = init?.method ?? 'GET';
+      const json = (status: number, body: unknown) =>
+        new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      if (path.startsWith('/health')) return json(200, { ok: true, version: 1 });
+      if (path === '/me') return json(200, { user: { id: 7, name: 'mari_tamm', created: 1790000000000 } });
+      if (path === '/save' && method === 'GET') return json(200, { career: null, settings: null, autosave: null, updated: {} });
+      const m = /^\/save\/(\w+)/.exec(path);
+      if (m && method === 'PUT') {
+        bodies[m[1]] = String(init?.body ?? '');
+        clock += 1000;
+        return json(200, { ok: true, updated: clock });
+      }
+      if (m && method === 'DELETE') return json(200, { ok: true });
+      return json(404, { error: 'not_found' });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    // The career, settings and in-progress career autosave from the first test are in localStorage.
+    const { loadAutosave } = await import('@/store/game');
+    expect(loadAutosave()).not.toBeNull();
+    const { useAccount } = await import('@/net/account');
+    await useAccount.getState().init();
+    for (let i = 0; i < 100 && useAccount.getState().cloud !== 'saved'; i++) await new Promise((r) => setTimeout(r, 20));
+    expect(useAccount.getState().cloud).toBe('saved');
+    expect(useAccount.getState().user?.id).toBe(7);
+    expect(Object.keys(bodies).sort()).toEqual(['autosave', 'career', 'settings']);
+    writeRaw('epd-sync.json', localStorage.getItem('epd:sync'));
+    // GET /api/save exactly as server/lib/saves.php builds it: the stored PUT bodies spliced in verbatim.
+    const updated = JSON.parse(localStorage.getItem('epd:sync')!).updated;
+    for (const slot of ['career', 'settings', 'autosave']) JSON.parse(bodies[slot]);
+    writeRaw(
+      'cloud-save-response.json',
+      `{"career":${bodies.career},"settings":${bodies.settings},"autosave":${bodies.autosave},"updated":${JSON.stringify(updated)}}`,
+    );
+    useAccount.setState({ user: null });
+
+    // A player who just finished onboarding in another prefecture, and the state after "delete career".
+    const { useCareer } = await import('@/store/career');
+    const saved = localStorage.getItem('epd:career');
+    vi.setSystemTime(new Date('2026-10-06T18:45:00Z'));
+    useCareer.getState().create('Aleksei Ivanov', '412', 'ida');
+    writeRaw('epd-career-new.json', localStorage.getItem('epd:career'));
+    useCareer.getState().reset();
+    writeRaw('epd-career-empty.json', localStorage.getItem('epd:career'));
+    expect(saved).not.toBeNull();
+  }, 60_000);
+});

@@ -6,14 +6,18 @@
 # ja käsitsi: sudo politsei-uuenda.sh
 #
 # Võtmed:
-#   --joud   ehita origin/main tipp ka siis, kui see on juba paigas, kui CI pole
-#            roheline või kui see commit on varem ebaõnnestunud
-#   --abi    see tekst
+#   --joud     ehita origin/main tipp ka siis, kui see on juba paigas, kui CI pole
+#              roheline või kui see commit on varem ebaõnnestunud
+#   --varunda  tee ainult andmebaasi varukoopia (data/varu/) ja lõpeta
+#   --abi      see tekst
 #
 # Käik: pilet ära, lukk, võrguruumi kontroll, origin/main tipp (git ls-remote), võrdlus
 # failiga www/version.txt, GitHubi check-runs, ehitus node:22 konteineris, dist ja php -l
-# kontroll, www.prev koopia, rsync www/ sisse, repo checkout, tervisekontroll.
-# Vea korral taastatakse www ja repo eelmisele versioonile. Logi: journalctl -t politsei-uuenda
+# kontroll, andmebaasi varukoopia (ilma selleta vahetust ei tule), www.prev koopia, rsync www/
+# sisse, repo checkout, tervisekontroll. Vea korral taastatakse www ja repo eelmisele versioonile.
+# Mängijate andmeid (data/epd.sqlite, data/sessions/, data/deploy-secret) ja kaarti (tiles/)
+# skript ei muuda. data/ all kustutab ta ainult pileti data/control/uuenda.json ja vanu
+# varukoopiaid data/varu/ kaustas. Logi: journalctl -t politsei-uuenda
 
 set -euo pipefail
 umask 022
@@ -28,6 +32,14 @@ WWW_PREV="$JUUR/www.prev"
 CONF="$JUUR/conf"
 KOMPOSE="$JUUR/compose.yml"
 PILET="$JUUR/data/control/uuenda.json"
+# Mängijate andmed. Skript loeb andmebaasi ainult varukoopia jaoks ja kirjutab ainult VARUKAUST-a.
+ANDMED="$JUUR/data"
+ANDMEBAAS="$ANDMED/epd.sqlite"
+VARUKAUST="$ANDMED/varu"
+KONT_ANDMED=/data
+# Alles jäävad 14 uusimat varukoopiat ja lisaks iga viimase 7 päeva (UTC) uusim, kokku kuni 21.
+VARU_HOIA=14
+VARU_PAEVI=7
 OLEK="$JUUR/olek"
 EHITUS="$JUUR/ehitus"
 LUKUFAIL="${POLITSEI_LUKK:-/run/lock/politsei-uuenda.lock}"
@@ -41,6 +53,7 @@ SIDECAR=relee-politsei
 VEEB=politsei
 
 JOUD=0
+VARUNDA=0
 VAHETUS=0
 KASITLETUD=0
 SIHT_SHA=""
@@ -54,7 +67,8 @@ TG_CHAT=""
 for arg in "$@"; do
     case "$arg" in
         --joud) JOUD=1 ;;
-        --abi|-h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+        --varunda) VARUNDA=1 ;;
+        --abi|-h|--help) sed -n '2,20p' "$0"; exit 0 ;;
         *) echo "Tundmatu võti: $arg (vaata --abi)" >&2; exit 2 ;;
     esac
 done
@@ -372,6 +386,143 @@ paigaldusfailide_teade() {
     fi
 }
 
+# Konteineris jooksev PHP: VACUUM INTO ajutisse faili (järjepidev hetktõmmis ka WAL-iga, sait
+# töötab edasi), integrity_check, siis ümbernimetamine lõplikuks. Argumendid: andmebaas, ajutine
+# fail, lõplik fail (konteineri teed). Andmebaasi avatakse ilma loomise õiguseta.
+varu_php() {
+    cat <<'PHP'
+[$src, $tmp, $dst] = [$argv[1], $argv[2], $argv[3]];
+try {
+    if (!is_file($src)) {
+        throw new RuntimeException("andmebaasi pole: $src");
+    }
+    if (file_exists($dst)) {
+        throw new RuntimeException("fail on juba olemas: $dst");
+    }
+    if (file_exists($tmp)) {
+        unlink($tmp);
+    }
+    $db = new PDO("sqlite:$src", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_TIMEOUT => 30, PDO::SQLITE_ATTR_OPEN_FLAGS => PDO::SQLITE_OPEN_READWRITE]);
+    $db->exec("PRAGMA busy_timeout = 30000");
+    $db->exec("VACUUM INTO " . $db->quote($tmp));
+    $db = null;
+    $s = new PDO("sqlite:$tmp", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::SQLITE_ATTR_OPEN_FLAGS => PDO::SQLITE_OPEN_READONLY]);
+    $tulemus = $s->query("PRAGMA integrity_check")->fetchColumn();
+    if ($tulemus !== "ok") {
+        throw new RuntimeException("integrity_check: $tulemus");
+    }
+    $tabelid = $s->query("SELECT name FROM sqlite_master WHERE type = 'table'")->fetchAll(PDO::FETCH_COLUMN);
+    $kasutajaid = in_array("users", $tabelid, true) ? (int) $s->query("SELECT COUNT(*) FROM users")->fetchColumn() : 0;
+    $skeem = in_array("schema_version", $tabelid, true)
+        ? (int) $s->query("SELECT COALESCE(MAX(version), 0) FROM schema_version")->fetchColumn() : 0;
+    $s = null;
+    chmod($tmp, 0600);
+    if (!rename($tmp, $dst)) {
+        throw new RuntimeException("ümbernimetamine ebaõnnestus: $dst");
+    }
+    printf("skeem %d, kasutajaid %d, %d baiti\n", $skeem, $kasutajaid, filesize($dst));
+} catch (Throwable $e) {
+    if (is_file($tmp)) {
+        unlink($tmp);
+    }
+    fwrite(STDERR, $e->getMessage() . "\n");
+    exit(1);
+}
+PHP
+}
+
+# Alles jäävad VARU_HOIA uusimat ja iga viimase VARU_PAEVI päeva (UTC) uusim koopia, $1 alati.
+# Puudutab ainult faile kujul epd-AAAAKKPPTHHMMSSZ-<versioon>.sqlite, muud failid jäävad alles.
+korista_varukoopiad() {
+    local uus="$1" f p n=0 piir
+    local -A hoia=() paevad=()
+    local -a koik=()
+    piir="$(date -u -d "-$((VARU_PAEVI - 1)) day" +%Y%m%d)"
+    mapfile -t koik < <(find "$VARUKAUST" -maxdepth 1 -type f -name 'epd-*.sqlite' -printf '%f\n' \
+        | grep -E '^epd-[0-9]{8}T[0-9]{6}Z-[0-9a-z]+\.sqlite$' | sort -r)
+    hoia["$uus"]=1
+    for f in "${koik[@]}"; do
+        n=$((n + 1))
+        if [ "$n" -le "$VARU_HOIA" ]; then
+            hoia["$f"]=1
+        fi
+        p="${f:4:8}"
+        if [[ ! "$p" < "$piir" ]] && [ -z "${paevad[$p]:-}" ]; then
+            paevad["$p"]=1
+            hoia["$f"]=1
+        fi
+    done
+    for f in "${koik[@]}"; do
+        [ -z "${hoia[$f]:-}" ] || continue
+        if rm -f -- "${VARUKAUST:?}/$f"; then
+            logi "Vana varukoopia kustutatud: $f"
+        fi
+    done
+    # Katkenud koopia ajutine fail (tunni vanune, et mitte segada samal ajal käivat koopiat).
+    find "$VARUKAUST" -maxdepth 1 -type f -name '.epd-*.tmp' -mmin +60 -delete 2>/dev/null || true
+}
+
+# Andmebaasi varukoopia data/varu/epd-<UTC aeg>-<versioon>.sqlite. $1 = paigas olev versioon.
+# Selles funktsioonis set -e ei kehti (kutsutakse if-i seest), seega iga samm || return 1.
+varunda_andmebaas() {
+    local versioon="$1" aeg nimi tmp omanik suurus vaba_kb vaja_kb tulemus
+    if [ ! -f "$ANDMEBAAS" ]; then
+        logi "Andmebaasi veel pole ($ANDMEBAAS), varukoopiat pole vaja"
+        return 0
+    fi
+    if [[ ! "$versioon" =~ ^[0-9a-f]{7,40}$ ]]; then
+        versioon="$(g rev-parse -q --verify HEAD 2>/dev/null || true)"
+    fi
+    if [[ "$versioon" =~ ^[0-9a-f]{7,40}$ ]]; then
+        versioon="$(lyhike "$versioon")"
+    else
+        versioon=tundmatu
+    fi
+    # Ruumi peab jääma koopiale ja andmebaasi kasvuks: kaks andmebaasi suurust pluss 100 MB.
+    suurus=$(( $(stat -c %s "$ANDMEBAAS") + $(stat -c %s "$ANDMEBAAS-wal" 2>/dev/null || echo 0) ))
+    vaba_kb="$(df -Pk "$ANDMED" | awk 'NR == 2 { print $4 }')"
+    vaja_kb=$(( suurus * 2 / 1024 + 102400 ))
+    if [ "${vaba_kb:-0}" -lt "$vaja_kb" ]; then
+        logi "Varukoopia: $ANDMED all on vaba ${vaba_kb:-0} kB, vaja on vähemalt $vaja_kb kB"
+        return 1
+    fi
+    # Kaust kuulub samale kasutajale kui andmebaas, siis saab konteiner sinna kirjutada.
+    omanik="$(stat -c %u:%g "$ANDMEBAAS")" || return 1
+    install -d -m 0700 -o "${omanik%:*}" -g "${omanik#*:}" "$VARUKAUST" || return 1
+    aeg="$(date -u +%Y%m%dT%H%M%SZ)"
+    nimi="epd-$aeg-$versioon.sqlite"
+    if [ -e "$VARUKAUST/$nimi" ]; then
+        # Samal sekundil juba tehtud (nt paigalda.sh ja kohe järgnev ehitus): järgmine sekund.
+        sleep 1
+        aeg="$(date -u +%Y%m%dT%H%M%SZ)"
+        nimi="epd-$aeg-$versioon.sqlite"
+    fi
+    tmp=".$nimi.$$.tmp"
+    if [ "$(docker inspect -f '{{.State.Running}}' "$VEEB" 2>/dev/null || true)" = true ]; then
+        if ! tulemus="$(docker exec "$VEEB" php -r "$(varu_php)" \
+                "$KONT_ANDMED/epd.sqlite" "$KONT_ANDMED/varu/$tmp" "$KONT_ANDMED/varu/$nimi" 2>&1)"; then
+            logi "Varukoopia ebaõnnestus: $tulemus"
+            return 1
+        fi
+    else
+        logi "Konteiner $VEEB ei tööta, teen varukoopia ajutises konteineris"
+        if ! tulemus="$(docker run --rm --network none -v "$ANDMED:$KONT_ANDMED" "$PHP_PILT" php -r "$(varu_php)" \
+                "$KONT_ANDMED/epd.sqlite" "$KONT_ANDMED/varu/$tmp" "$KONT_ANDMED/varu/$nimi" 2>&1)"; then
+            logi "Varukoopia ebaõnnestus: $tulemus"
+            return 1
+        fi
+    fi
+    if [ ! -s "$VARUKAUST/$nimi" ]; then
+        logi "Varukoopia faili pole: $VARUKAUST/$nimi"
+        return 1
+    fi
+    logi "Andmebaasi varukoopia: $VARUKAUST/$nimi (${tulemus//$'\n'/ })"
+    korista_varukoopiad "$nimi"
+    return 0
+}
+
 vaheta() {
     local sha="$1" d="$EHITUS/src/dist"
     EELMINE_SHA="$(g rev-parse -q --verify HEAD 2>/dev/null || true)"
@@ -456,6 +607,18 @@ lopp() {
     fi
     exit "$rc"
 }
+
+# ---------------------------------------------------------------- ainult varukoopia
+
+# --varunda: paigalda.sh kutsub seda enne paigaldust (lukk on tal juba käes), omanik võib ka
+# käsitsi. Lukku siin ei võeta: iga koopia kirjutab oma ajutisse faili, need ei sega teineteist.
+if [ "$VARUNDA" = 1 ]; then
+    if varunda_andmebaas "$(tr -d '[:space:]' 2>/dev/null < "$WWW/version.txt" || true)"; then
+        exit 0
+    fi
+    logi "VIGA: andmebaasi varukoopia ebaõnnestus"
+    exit 1
+fi
 
 # ---------------------------------------------------------------- põhivoog
 
@@ -557,10 +720,29 @@ kontrolli_php || ebaonnestus "php -l"
 kontrolli_caddy || ebaonnestus "Caddyfile kontroll"
 paigaldusfailide_teade
 
-# 8. Vahetus: www.prev, rsync, checkout, vajadusel Caddy reload.
+# 8. Andmebaasi varukoopia. Ilma selleta vahetust ei tule: sait jääb vana versiooni peale.
+# Esimene viga võib olla ajutine: proovin järgmisel korral uuesti, teisel korral jätan commiti vahele.
+if ! varunda_andmebaas "${paigas:-}"; then
+    KASITLETUD=1
+    if grep -qx "$tipp" "$OLEK/varu-kukkus.txt" 2>/dev/null; then
+        margi_vigaseks "$tipp"
+        kirjuta_olek "viga $tipp andmebaasi varukoopia ebaõnnestus teist korda"
+        logi "VIGA: andmebaasi varukoopia ebaõnnestus teist korda, $(lyhike "$tipp") jääb paigaldamata"
+        teata "politsei.eu: uuendust $(lyhike "$tipp") ei tehtud, sest andmebaasi varukoopia ebaõnnestus teist korda. Sait jääb $(lyhike "${paigas:-eelmine}") peale. Logi: journalctl -t politsei-uuenda. Pärast parandust: sudo politsei-uuenda.sh --joud"
+    else
+        printf '%s\n' "$tipp" > "$OLEK/varu-kukkus.txt"
+        kirjuta_olek "viga $tipp andmebaasi varukoopia ebaõnnestus"
+        logi "VIGA: andmebaasi varukoopia ebaõnnestus, sait jääb $(lyhike "${paigas:-eelmine}") peale, proovin järgmisel korral uuesti"
+        teata "politsei.eu: uuendust $(lyhike "$tipp") ei tehtud, sest andmebaasi varukoopia ebaõnnestus. Sait jääb $(lyhike "${paigas:-eelmine}") peale, proovin 10 minuti pärast uuesti. Logi: journalctl -t politsei-uuenda"
+    fi
+    exit 1
+fi
+rm -f "$OLEK/varu-kukkus.txt"
+
+# 9. Vahetus: www.prev, rsync, checkout, vajadusel Caddy reload.
 vaheta "$tipp" || ebaonnestus "vahetus ebaõnnestus"
 
-# 9. Tervisekontroll.
+# 10. Tervisekontroll.
 tervis "$tipp" || ebaonnestus "tervisekontroll ebaõnnestus"
 
 VAHETUS=0

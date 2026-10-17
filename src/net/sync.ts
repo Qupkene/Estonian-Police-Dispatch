@@ -1,5 +1,7 @@
 // Pure cloud-save helpers: which side wins per slot, plus validation of what the server sends back.
-// No stores, no network: unit-tested in tests/account.test.ts.
+// No stores, no network: unit-tested in tests/account.test.ts. Cloud data is checked with the same rules as
+// browser data (src/store/migrate.ts), so a copy from an older or newer client loads the same way.
+import { settingValue, SIM_VERSION, upgradeSave } from '@/store/migrate';
 
 export type Slot = 'career' | 'settings' | 'autosave';
 export const SLOTS: readonly Slot[] = ['career', 'settings', 'autosave'];
@@ -155,9 +157,32 @@ export function parseMeta(raw: string | null): Meta {
   return meta;
 }
 
-/** A resumable autosave (SimState version 2, not ended) or null. */
+/** Format 1 of the marker: all that 92ed7f5 reads (`owner`, and `updated` mixing its own and the server's clock). */
+export interface LegacyMeta {
+  owner: number | null;
+  updated: Record<Slot, number>;
+}
+
+/**
+ * The marker in format 1, written next to format 2 so that a rollback to 92ed7f5 behaves: without these
+ * fields that version sees no owner and age 0, and pulls every cloud slot over this browser's data with no
+ * backup. A synced slot gives the server version it holds (92ed7f5: in sync, nothing moves); a slot changed
+ * here counts as newer than any copy it was built on (92ed7f5 uploads it, as it did with its own changes).
+ */
+export function legacyMeta(m: Meta, now: number): LegacyMeta {
+  const owner = SLOTS.map((slot) => m.slots[slot].owner).find((o) => o !== null) ?? m.account;
+  const updated = {} as Record<Slot, number>;
+  for (const slot of SLOTS) {
+    const e = m.slots[slot];
+    updated[slot] = e.dirty ? Math.max(e.base + 1, now) : e.base;
+  }
+  return { owner, updated };
+}
+
+/** A resumable autosave (SimState of this version, or an older one it upgrades; not ended) or null. */
 export function validAutosave(v: unknown): Record<string, unknown> | null {
-  return isObj(v) && v.version === 2 && v.ended !== true ? v : null;
+  const u = upgradeSave(v);
+  return isObj(u) && u.version === SIM_VERSION && u.ended !== true ? u : null;
 }
 
 /** Career slot payload: `{ profile, inbox }` as kept by the career store. */
@@ -168,16 +193,17 @@ export function validCareer(v: unknown): { profile: Record<string, unknown> | nu
 }
 
 /**
- * Keep only settings the running game knows, with the same primitive type as the current value
- * (an older or newer client may have stored other keys).
+ * Keep only settings the running game knows and can use: each checked like a stored browser setting
+ * (src/store/migrate.ts settingValue: allowed values, ranges, else the same primitive type as the current
+ * value). An older or newer client may have stored other keys or values.
  */
 export function sanitizeSettings(remote: unknown, current: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (!isObj(remote)) return out;
   for (const [k, v] of Object.entries(current)) {
     if (typeof v === 'function' || !(k in remote)) continue;
-    const r = remote[k];
-    if (typeof r === typeof v && (typeof r !== 'number' || Number.isFinite(r))) out[k] = r;
+    const r = settingValue(k, remote[k], v);
+    if (r !== undefined) out[k] = r;
   }
   return out;
 }

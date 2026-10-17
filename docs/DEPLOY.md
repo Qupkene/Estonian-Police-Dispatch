@@ -27,7 +27,7 @@ konteiner politsei (FrankenPHP, :80)
 | /opt/stack/politsei/compose.yml | relee-politsei + politsei (repo: deploy/mainserver/compose.yml) |
 | /opt/stack/politsei/conf/Caddyfile | konteineri Caddyfile (repo: deploy/mainserver/Caddyfile) |
 | /opt/stack/politsei/wg/ | wg0.conf, politsei.key (privaatvõti), politsei.pub |
-| /opt/stack/politsei/data/ | epd.sqlite, sessions/, deploy-secret, control/uuenda.json |
+| /opt/stack/politsei/data/ | epd.sqlite, sessions/, deploy-secret, control/uuenda.json, varu/ (andmebaasi varukoopiad) |
 | /opt/stack/politsei/www.prev/ | eelmine versioon (tagasivõtuks) |
 | /opt/stack/politsei/olek/ | viimane.txt (viimane tulemus), vigased.txt (vahele jäetud commitid) |
 | /opt/stack/politsei/juhised.txt | paigaldaja juhised (a, b, c) uuesti vaatamiseks |
@@ -155,6 +155,8 @@ kus sha on sama mis version.txt; www suunab `https://politsei.eu/` peale.
      roheline (`continue-on-error`);
    - ehitab `node:22` konteineris (`npm ci && npm run build`, `BASE_PATH=/`, 2 CPU, nice 10);
    - kontrollib dist-i (index.html, assets/, sw.js), `php -l` ja uue Caddyfile'i;
+   - teeb andmebaasist varukoopia `data/varu/` kausta (vt "Andmed ja varukoopiad"); kui see ei
+     õnnestu, jääb sait vana versiooni peale;
    - teeb `www.prev` koopia, kopeerib uue versiooni `www/` sisse (`rsync --delete`, kausta sisu,
      mitte kausta), kirjutab `version.txt`, viib repo samale commitile;
    - kontrollib `/version.txt`, avalehte ja `/api/health`;
@@ -229,7 +231,119 @@ cd /opt/stack/politsei && sudo docker compose up -d --force-recreate politsei
 curl -s -m 5 "http://$(sed -n 's/^POLITSEI_IP=//p' /opt/stack/politsei/.env)/api/health"
 ```
 
-`www.prev` hoiab ainult ühte eelmist versiooni.
+`www.prev` hoiab ainult ühte eelmist versiooni. Tagasivõtt ei puuduta andmebaasi ega sessioone:
+kontod, salvestused ja sisselogimised jäävad alles. Andmebaasi taastamine varukoopiast on allpool.
+
+## Andmed ja varukoopiad
+
+Mängijate andmed on kahes kohas. Külaliste mäng on ainult nende brauseris (localStorage), server ei
+näe ega muuda seda. Kontoga mängijate kontod, pilvesalvestused (career, settings, autosave) ja
+edetabel on andmebaasis `/opt/stack/politsei/data/epd.sqlite`, sisselogimised kaustas
+`data/sessions/`. Kaust `data/` on konteineris `/data` (bind mount `./data:/data`), seega konteineri
+uuesti loomine, uus pilt või `docker compose down` ei puuduta seda.
+
+### Mida uuendus puudutab
+
+| Tee | Uuendus (`politsei-uuenda.sh`) | Paigaldaja uuesti (`paigalda.sh`) |
+| --- | --- | --- |
+| `www/` | uus mäng (rsync), tagasivõtul vana | ainult ajutine `index.html`, kui seda pole |
+| `www.prev/` | eelmise versiooni koopia | ei muuda |
+| `repo/` | `git checkout` uuele commitile (ka `server/`) | `git fetch` |
+| `conf/` | `Caddyfile`, kui see repos muutus (enne kontroll) | `Caddyfile` |
+| `ehitus/`, `olek/` | ehitus ja olek | ei muuda |
+| `compose.yml`, `.env`, `wg/wg0.conf`, systemd unitid, `/usr/local/sbin/politsei-uuenda.sh` | ei muuda | paigaldab (vanad failid `varu/paigaldus-*`) |
+| `data/epd.sqlite` | **ei muuda** (loeb ainult varukoopia jaoks) | **ei muuda** (loeb ainult varukoopia jaoks) |
+| `data/sessions/` | **ei muuda** | **ei muuda** |
+| `data/deploy-secret` | **ei muuda** | loob ainult siis, kui seda pole või see on tühi |
+| `data/control/uuenda.json` | kustutab (uuenduse pilet) | ei muuda |
+| `data/varu/` | uus varukoopia, vanad koristab | uus varukoopia, vanad koristab |
+| `tiles/` | **ei muuda** | `estonia.pmtiles` ainult siis, kui see puudub, ei läbi kontrolli või anti `--kaart`; uus fail kontrollitakse enne asendamist |
+
+Konteiner `politsei` luuakse uuesti ainult siis, kui `server/` kaust vahetus või `relee-politsei`
+taaskäivitus. Andmed on hostis, need jäävad alles.
+
+Andmebaasi skeem muutub ainult lisades (uued tabelid, veerud ja indeksid, kõik ühes tehingus). Kui
+muudatus ebaõnnestub, jääb andmebaas täpselt selliseks, nagu ta oli, tervisekontroll kukub ja
+uuendus võetakse tagasi. Ka pärast õnnestunud muudatust töötab eelmine versioon samal andmebaasil.
+Reeglid on failis `server/lib/db.php`, testid (`tests/server.test.ts`) kontrollivad neid iga
+serverisse jõudnud versiooni andmebaasiga (`tests/fixtures/db/`).
+
+Sisselogimised jäävad uuendusest puutumata: sessioonifailid on kaustas `data/sessions/`, küpsis on
+alati `EPDSESS` (`Path=/`, `HttpOnly`, `SameSite=Lax`, 30 päeva). Testid kontrollivad, et versiooni
+92ed7f5 sessioonid ja küpsis kehtivad ka uues versioonis.
+
+### Varukoopiad
+
+- **Millal**: iga uuenduse ajal enne vahetust, iga kord kui paigaldaja käivitatakse (kui andmebaas
+  on olemas) ja käsitsi (`sudo politsei-uuenda.sh --varunda`).
+- **Kuidas**: `VACUUM INTO` konteineris `politsei` (kui see ei tööta, siis ajutises konteineris).
+  Sait töötab edasi, koopia on ühe hetke seis koos WAL-i muudatustega. Koopia läbib
+  `integrity_check`-i ja saab lõpliku nime alles pärast seda.
+- **Kus**: `/opt/stack/politsei/data/varu/`, nimi näiteks `epd-20261017T193016Z-92ed7f5.sqlite`:
+  koopia tegemise aeg (UTC) ja versioon, mis siis töötas.
+- **Kui kaua**: alles jäävad 14 uusimat ja lisaks iga viimase 7 päeva (UTC) uusim koopia, kokku
+  kuni 21 faili. Muid faile kaustas ei puudutata.
+- **Kui varukoopia ei õnnestu** (nt kettal on vähem kui kaks andmebaasi suurust pluss 100 MB vaba):
+  vahetust ei tule, sait jääb vana versiooni peale ja tuleb Telegrami teade. Taimer proovib 10
+  minuti pärast uuesti. Kui sama commit kukub teist korda, jääb see vahele, kuni parandad vea ja
+  käivitad `sudo politsei-uuenda.sh --joud`. Paigaldaja lõpetab samal juhul enne, kui midagi muudab.
+
+Uuendusskripti uue versiooni paigaldab ainult paigaldaja. Uuendus, mis varukoopiad toob, jõuab
+saidile veel vana skriptiga ehk ilma varukoopiata. Seepärast tee selle uuenduse eel üks varukoopia
+käsitsi (töötab ka vana skriptiga) ja pärast uuendust käivita paigaldaja uuesti (vt samm 1,
+uuendus ütleb seda ka ise Telegramis).
+
+MainServer PuTTY aken. Plokk 1 üksinda (küsib sudo parooli):
+
+```
+sudo -v
+```
+
+Plokk 2:
+
+```
+sudo docker exec politsei php -r '@mkdir("/data/varu", 0700); $d = new PDO("sqlite:/data/epd.sqlite", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]); $d->exec("VACUUM INTO " . $d->quote("/data/varu/epd-" . gmdate("Ymd\THis\Z") . "-" . substr(trim(file_get_contents("/app/www/version.txt")), 0, 7) . ".sqlite"));'
+sudo ls -lh /opt/stack/politsei/data/varu
+```
+
+Kui paigaldaja on pärast seda korra käivitatud, piisab käsitsi varukoopiaks reast
+`sudo politsei-uuenda.sh --varunda`.
+
+### Taastamine varukoopiast
+
+Taastamine asendab andmebaasi koopiaga. Kõik, mis tehti pärast koopia aega (uued kontod,
+pilvesalvestused, edetabeli read), kaob serverist. Praegune andmebaas jääb enne alles kausta, mille
+nimi algab `enne-taastamist-` ja lõpeb kellaajaga (UTC), nii et taastamise saab tagasi pöörata.
+Sait on mõne sekundi maas, uuendused on selle aja peatatud.
+
+MainServer PuTTY aken. Plokk 1 üksinda (küsib sudo parooli):
+
+```
+sudo -v
+```
+
+Plokk 2 näitab varukoopiaid, uusim on viimane:
+
+```
+sudo ls -lh /opt/stack/politsei/data/varu
+```
+
+Plokk 3 taastab uusima koopia, failinime pole vaja valida. Kui tahad mõnda vanemat, muuda enne
+kleepimist esimene rida selliseks: `UUS=epd-20261017T193016Z-92ed7f5.sqlite` (õige nimi plokist 2).
+Kui koopiaid pole, ei kustutata ega asendata midagi ja sait käivitub sama andmebaasiga uuesti.
+
+```
+UUS="$(sudo find /opt/stack/politsei/data/varu -maxdepth 1 -name 'epd-*.sqlite' -printf '%f\n' | sort | tail -n 1)"; echo "Taastan: ${UUS:-VARUKOOPIAT POLE}"
+sudo systemctl stop politsei-uuenda.timer politsei-uuenda.path && sudo flock -w 1800 /run/lock/politsei-uuenda.lock true
+cd /opt/stack/politsei && sudo docker compose stop politsei
+VANA="/opt/stack/politsei/data/enne-taastamist-$(date -u +%Y%m%dT%H%M%SZ)"; sudo install -d -m 0700 "$VANA" && sudo find /opt/stack/politsei/data -maxdepth 1 -name 'epd.sqlite*' -exec cp -a -t "$VANA" {} + && [ -n "$UUS" ] && sudo rm -f /opt/stack/politsei/data/epd.sqlite-wal /opt/stack/politsei/data/epd.sqlite-shm && sudo cp -p "/opt/stack/politsei/data/varu/$UUS" /opt/stack/politsei/data/epd.sqlite && echo "Taastatud: $UUS (vana andmebaas: $VANA)"
+cd /opt/stack/politsei && sudo docker compose start politsei
+sudo systemctl start politsei-uuenda.path politsei-uuenda.timer
+sleep 3; curl -s -m 5 "http://$(sed -n 's/^POLITSEI_IP=//p' /opt/stack/politsei/.env)/api/health"; echo
+sudo docker exec politsei php -r 'echo (new PDO("sqlite:/data/epd.sqlite"))->query("SELECT COUNT(*) FROM users")->fetchColumn(), " kontot\n";'
+```
+
+Ootus: `{"ok":true,...}` ja kontode arv.
 
 ## Kõige eemaldamine
 
@@ -249,7 +363,8 @@ sudo systemctl daemon-reload
 sudo docker volume rm politsei-node-modules politsei-npm-cache
 ```
 
-Plokk 3 kustutab ka kontod, salvestused, võtmed ja kaardi. Ära käivita, kui andmeid on veel vaja:
+Plokk 3 kustutab ka kontod, salvestused, andmebaasi varukoopiad, võtmed ja kaardi. Ära käivita, kui
+andmeid on veel vaja:
 
 ```
 sudo rm -rf /opt/stack/politsei
