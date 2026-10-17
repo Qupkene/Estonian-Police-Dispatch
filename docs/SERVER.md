@@ -81,6 +81,82 @@ Rules:
 - Scores: `score` 0 to 100, one row per finished shift, leaderboard shows each user's best.
 - Client IP: `X-Forwarded-For` is trusted only when the direct peer is `EPD_TRUSTED_PROXY`.
 
+### 4.1 API details (as implemented in `server/`)
+
+These refine the table above; nothing in it changed.
+
+General:
+
+- Every reply is JSON with `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-store`.
+- Unknown path: 404 `not_found`. Known path, wrong method: 405 `method_not_allowed` with an `Allow` header.
+  Missing `X-EPD: 1` on POST/PUT/DELETE (except `/api/deploy-hook`): 403 `csrf`. Uncaught failure:
+  500 `server_error` (logged with `error_log`, no details in the reply).
+- Small JSON endpoints (register, login, logout, score, DELETE /api/me) accept at most 64 kB, else
+  413 `too_large`. A body that is not a JSON object: 400 `bad_json`. An empty body counts as `{}`.
+- Validation errors may carry `field` (the offending body field), e.g.
+  `{ "error": "invalid_score", "message": "Vigane väli: score.", "field": "score" }`.
+- All times are unix milliseconds.
+
+Accounts and sessions:
+
+- `POST /api/register` also logs the new account in (same cookie as login). Status 200.
+- Names are trimmed. Allowed characters exactly: `A-Z a-z õäöüšž ÕÄÖÜŠŽ 0-9 _ . -` (other alphabets are
+  rejected, so look-alike names cannot impersonate others on the leaderboard). Uniqueness uses
+  `mb_strtolower`, so `Õnne` and `õnne` are the same name. With the intl extension, names are
+  normalised to NFC first; without it a decomposed `õ` (o + combining tilde) is simply rejected.
+- Passwords: 8 to 256 characters.
+- Codes: 400 `invalid_name` / `invalid_password`, 409 `name_taken`, 401 `bad_login` (same reply for an
+  unknown name and a wrong password), 429 `rate_limited` with `Retry-After: 900`.
+- Rate limit bookkeeping (table `login_attempts`): every register attempt counts (successful ones too,
+  which also caps account creation per IP), every failed login counts, a failed password check on
+  `DELETE /api/me` counts. A successful login clears that IP and name's failed logins. The check runs
+  before the password, so a blocked IP gets 429 even with the right password.
+- `DELETE /api/me`: 401 `auth_required` when not logged in, 400 `password_required` without a password,
+  403 `wrong_password` for a wrong one (the session stays valid).
+- Session cookie `EPDSESS`, `Path=/`, 30 day idle expiry: the cookie and the server-side stamp are
+  refreshed at most once an hour while the player is active. Session files live in `EPD_DATA/sessions`.
+  Guests never get a session cookie; an unknown or expired cookie is cleared. A new session id is issued
+  on every login and register.
+
+Saves:
+
+- All save routes need a login: 401 `auth_required`.
+- `GET /api/save`: `updated` only has keys for slots that exist, e.g.
+  `{ "career": {...}, "settings": null, "autosave": null, "updated": { "career": 1760000000000 } }`.
+  Slot contents come back byte for byte as they were stored.
+- `PUT /api/save/{slot}`: 400 `bad_slot` (unknown slot), 400 `not_object` (not starting with `{`),
+  400 `bad_json` (invalid JSON), 413 `too_large`. The reply's `updated` is the server time stored for
+  the slot. `DELETE` of a missing slot is fine.
+
+Leaderboard:
+
+- `POST /api/score`: `regionId` in `pohja | ida | louna | laane`, `mode` in `career | free`,
+  `difficulty` in `cadet | normal | veteran | realistic`, `grade` in `S A B C D F`, `score` a number
+  0 to 100 (stored rounded), `incidents` and `arrests` 0 to 100000, `start` a non-negative number
+  (shift start, unix ms). Errors: 401 `auth_required`, 400 `invalid_score` with `field`,
+  400 `unranked_mode` for `director` and `tutorial` shifts (they never reach the leaderboard).
+- `rank` is the place this shift's score takes on its region's board: 1 + the number of other players
+  whose best score in that region is strictly higher.
+- `GET /api/scores`: public. `region` empty or missing = all regions, unknown region = 400 `bad_region`.
+  `limit` defaults to 20 and is clamped to 1..50. Sorted by score, ties go to the earlier `at` (when the
+  shift was submitted).
+
+Deploy hook and health:
+
+- `POST /api/deploy-hook` order of checks: 503 `not_configured` (no `EPD_DATA/deploy-secret`),
+  413 `too_large` (body over 1 MB), 401 `bad_signature`, then the event. `ping` gives 200 `{ pong: true }`,
+  other events and non-matching runs give 200 `{ ignored: "<field>=<value>" }` (e.g. `conclusion=failure`),
+  a signed `workflow_run` with broken JSON gives 400 `bad_json`.
+- The ticket is written as `control/.uuenda.json.<random>.tmp` and renamed to `control/uuenda.json`
+  (same directory, so the rename is atomic). `at` is unix ms.
+- `GET /api/health` also opens the database (and applies pending migrations), so a broken data volume
+  answers 500 there. `version` is the trimmed content of `/app/www/version.txt` (dev: `../www/version.txt`
+  next to the repository) when it looks like a version, else `"dev"`.
+- Without `EPD_DATA` (local development) data goes to `data-dev/` in the repository, which gets its own
+  `.gitignore`.
+- `EPD_FAST_HASH=1` makes password hashing cheap, but only under PHP's built-in server (`php -S`, used by
+  `tests/server.test.ts`). FrankenPHP ignores it, so production always uses PHP's default argon2id cost.
+
 ## 5. Auto-update from GitHub
 
 1. Push to `main` → GitHub Actions `CI` runs.
@@ -89,7 +165,8 @@ Rules:
 3. The API checks the HMAC (`X-Hub-Signature-256`), accepts only `action=completed`,
    `conclusion=success`, `head_branch=main`, `event=push`, workflow name `CI` and
    `head_repository.full_name=Qupkene/Estonian-Police-Dispatch`, and writes
-   `/data/control/uuenda.json` = `{ sha, at, source: "webhook" }`.
+   `/data/control/uuenda.json` = `{ sha, at, source: "webhook" }` (`at` in unix ms, written atomically
+   via a temp file and rename in the same directory, see 4.1).
 4. On the host, `politsei-uuenda.path` sees the ticket and starts `politsei-uuenda.service`
    (`/usr/local/sbin/politsei-uuenda.sh`): it only ever deploys the current tip of `origin/main`
    (whatever the ticket says), fetches that commit, checks on the GitHub API that every
