@@ -10,6 +10,12 @@ export type PosFn = (u: Unit) => { pos: LngLat; heading: number };
 export type RemainingFn = (u: Unit, now: number, current: LngLat) => LngLat[];
 /** Where an incident is shown (the road layer may move it onto a building); null = not decided yet. */
 export type IncCoordFn = (inc: Incident) => LngLat | null;
+/** Where a pursued vehicle is shown (the road layer drives it along the roads). */
+export type SuspectPosFn = (inc: Incident) => { pos: LngLat; heading: number };
+/** A pursuit's trail as shown on the map (null = the engine's own trail). */
+export type TrailFn = (inc: Incident) => LngLat[] | null;
+/** Where a pursuit ended on the map (null = still being looked up). */
+export type PursuitEndFn = (inc: Incident) => LngLat | null;
 
 const R_KM = 6371.0088;
 const RAD = Math.PI / 180;
@@ -94,14 +100,15 @@ export function buildRoutes(
   return { type: 'FeatureCollection', features };
 }
 
-/** Active pursuits: the suspect's trail ending at its current position. */
-export function buildPursuits(s: SimState): FeatureCollection<LineString> {
+/** Active pursuits: the suspect's trail ending at its current position (along the roads when shown so). */
+export function buildPursuits(s: SimState, trailOf?: TrailFn): FeatureCollection<LineString> {
   const features: Feature<LineString>[] = [];
   for (const id of s.incidentOrder) {
     const inc = s.incidents[id];
     const p = inc?.pursuit;
     if (!p?.suspectPos || p.ended || inc.state === 'closed' || isHidden(s, id)) continue;
-    const coords = [...(p.trail ?? []).slice(-120), p.suspectPos];
+    const road = trailOf?.(inc);
+    const coords = road && road.length >= 2 ? road : [...(p.trail ?? []).slice(-120), p.suspectPos];
     if (coords.length < 2) continue;
     features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: { id } });
   }
@@ -111,14 +118,22 @@ export function buildPursuits(s: SimState): FeatureCollection<LineString> {
 const sameCoord = (a: LngLat, b: LngLat) => a[0] === b[0] && a[1] === b[1];
 
 /** Area-search circles with progress (0..1) for the fill opacity. */
-export function buildSearches(s: SimState, incCoord?: IncCoordFn): FeatureCollection<Polygon> {
+export function buildSearches(s: SimState, incCoord?: IncCoordFn, pursuitEnd?: PursuitEndFn): FeatureCollection<Polygon> {
   const features: Feature<Polygon>[] = [];
   for (const id of s.incidentOrder) {
     const inc = s.incidents[id];
     const sr = inc?.search;
     if (!sr?.center || inc.state === 'closed' || isHidden(s, id)) continue;
-    // A search centred on the incident follows its marker.
-    const center = incCoord && inc.location?.coord && sameCoord(sr.center, inc.location.coord) ? (incCoord(inc) ?? sr.center) : sr.center;
+    let center = sr.center;
+    if (incCoord && inc.location?.coord && sameCoord(sr.center, inc.location.coord)) {
+      // A search centred on the incident follows its marker.
+      center = incCoord(inc) ?? sr.center;
+    } else if (pursuitEnd && inc.pursuit?.suspectPos && sameCoord(sr.center, inc.pursuit.suspectPos)) {
+      // A search where the pursuit ended goes around where the vehicle was last shown (on the road).
+      const end = pursuitEnd(inc);
+      if (!end) continue;
+      center = end;
+    }
     features.push({
       type: 'Feature',
       geometry: { type: 'Polygon', coordinates: [circlePolygon(center, Math.max(0.05, sr.radiusKm))] },

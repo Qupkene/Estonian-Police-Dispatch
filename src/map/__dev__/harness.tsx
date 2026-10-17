@@ -6,7 +6,7 @@ import '@/ui/styles/global.css';
 import { MapView } from '@/map/MapView';
 import { REGIONS } from '@/data/regions';
 import { TEMPLATES } from '@/data/incidents';
-import { cumulative, along, destination } from '@/sim/geo';
+import { cumulative, along, bearing, destination, haversineKm } from '@/sim/geo';
 import type { Incident, LngLat, SimState, Unit, UnitStatus, UnitType, Weather } from '@/sim/types';
 import type { MapStyleKey } from '@/store/settings';
 import { parseBuildings, parseRoads } from '@/map/roadGraph';
@@ -150,6 +150,27 @@ if (ORIGIN && ORIGIN.length === 2 && ORIGIN.every(Number.isFinite)) {
   for (const st of pohja.stations) st.coord = sh(st.coord);
 }
 
+// `pursuit=1`: the pursuit (i6) starts at the scene's centre (or `pstart=lon,lat`) heading `pheading`,
+// the suspect moves like the engine moves it (straight steps with heading noise at 55 % of its
+// speedometer speed) and two patrol cars chase it the way the engine does: re-targeted every game
+// minute to the predicted suspect position with a movement of purpose 'pursuit'. `pend=8` ends it
+// after 8 real seconds (escaped) with an area search centred where the suspect was.
+const PURSUIT_MODE = q.get('pursuit') === '1';
+const CHASERS = ['u20', 'u21'];
+if (PURSUIT_MODE) {
+  const ps = q.get('pstart')?.split(',').map(Number) as LngLat | undefined;
+  const c: LngLat = ps && ps.length === 2 && ps.every(Number.isFinite) ? ps : (ORIGIN ?? [24.75, 59.43]);
+  const heading = Number(q.get('pheading') ?? 60);
+  const i6 = incidents.find((i) => i.id === 'i6')!;
+  i6.location = { ...i6.location, coord: c };
+  i6.assigned = [...CHASERS];
+  i6.pursuit = { suspectPos: c, heading, speedKmh: 110, startedAt: T0, risk: 0.1, pressure: 0.3, heli: false, spikes: false, trail: [c] };
+  CHASERS.forEach((id, k) => {
+    const at = destination(c, 0.25 + 0.3 * k, heading + 180 + (k ? 25 : -25));
+    units.push({ ...mkUnit(id, `Põhja ${31 + k}`, 'patrol', 'enroute', at), incidentId: 'i6' });
+  });
+}
+
 const sim = {
   version: 2,
   seed: 1,
@@ -184,13 +205,55 @@ const sim = {
 // Self-animating "engine": move units along their paths (ping-pong), drive the suspect.
 const SPEED = Number(q.get('speed') ?? 15);
 let last = performance.now();
+let seed = 12345;
+const rand = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+const gauss = () => Math.sqrt(-2 * Math.log(rand() + 1e-9)) * Math.cos(2 * Math.PI * rand());
+let retargetAt = 0;
+const PEND_MS = Number(q.get('pend') ?? 0) * 1000;
+const chaseT0 = performance.now();
+function chaseStep(dt: number) {
+  const p = sim.incidents.i6.pursuit!;
+  if (p.ended) return;
+  if (PEND_MS && performance.now() - chaseT0 > PEND_MS) {
+    p.ended = 'escaped';
+    sim.incidents.i6.search = { center: p.suspectPos, radiusKm: 0.25, progress: 0.2, startedAt: sim.now };
+    return;
+  }
+  const dtMin = dt / 60_000;
+  let h = p.heading + gauss() * 22 * Math.sqrt(dtMin);
+  if (rand() < 0.12 * dtMin) h += (rand() < 0.5 ? 1 : -1) * (55 + rand() * 45);
+  p.heading = ((h % 360) + 360) % 360;
+  p.suspectPos = destination(p.suspectPos, ((p.speedKmh * 0.55) / 60) * dtMin, p.heading);
+  const lastT = p.trail[p.trail.length - 1];
+  if (!lastT || haversineKm(lastT, p.suspectPos) >= 0.15) p.trail.push(p.suspectPos);
+  if (p.trail.length > 60) p.trail.shift();
+  if (sim.now < retargetAt) return;
+  retargetAt = sim.now + 60_000;
+  for (const id of CHASERS) {
+    const u = sim.units[id];
+    const kmh = 120 * 0.6;
+    const d = haversineKm(u.pos, p.suspectPos);
+    const leadMin = Math.min(2.5, (d / kmh) * 60 * 0.8 + 0.3);
+    const target = destination(p.suspectPos, ((p.speedKmh * 0.55) / 60) * leadMin, p.heading);
+    const path: LngLat[] = [u.pos, target];
+    u.move = { purpose: 'pursuit', path, cum: cumulative(path), departAt: sim.now, arriveAt: sim.now + Math.max(5_000, (haversineKm(u.pos, target) / kmh) * 3600_000), siren: true };
+    u.heading = bearing(u.pos, target);
+  }
+}
 function tick(t: number) {
-  const dt = Math.min(100, t - last) * SPEED;
+  const dt = Math.max(0, Math.min(100, t - last)) * SPEED;
   last = t;
   sim.now += dt;
   for (const u of Object.values(sim.units)) {
     const m = u.move;
     if (!m) continue;
+    if (m.purpose === 'pursuit') {
+      const f = Math.min(1, (sim.now - m.departAt) / (m.arriveAt - m.departAt));
+      const r = along(m.path, m.cum, f * m.cum[m.cum.length - 1]);
+      u.pos = r.pos;
+      if (f >= 1) delete u.move;
+      continue;
+    }
     if (sim.now >= m.arriveAt) {
       m.path.reverse();
       m.cum = cumulative(m.path);
@@ -202,6 +265,11 @@ function tick(t: number) {
     const r = along(m.path, m.cum, f * m.cum[m.cum.length - 1]);
     u.pos = r.pos;
     u.heading = r.heading;
+  }
+  if (PURSUIT_MODE) {
+    chaseStep(dt);
+    requestAnimationFrame(tick);
+    return;
   }
   const p = sim.incidents.i6.pursuit!;
   p.heading += (Math.sin(sim.now / 40_000) * dt) / 4000;
@@ -231,21 +299,31 @@ async function showRoadData() {
   for (let i = 0; i < b.count; i++) blds.features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [b.lon[i], b.lat[i]] }, properties: {} });
   type DevMap = {
     getSource: (id: string) => unknown;
+    getLayer: (id: string) => unknown;
     addSource: (id: string, s: unknown) => void;
-    addLayer: (l: unknown) => void;
+    addLayer: (l: unknown, before?: string) => void;
     on: (ev: string, fn: () => void) => void;
-    isStyleLoaded: () => boolean;
   };
+  // Below the overlays (routes, pursuit trail), so those stay readable on top of the data check.
+  // Retried: an animated scene is never "idle" and the style may still be loading.
   const add = () => {
     const m = (window as unknown as { __epdMap?: DevMap }).__epdMap;
-    if (!m || !m.isStyleLoaded() || m.getSource('dbg-roads')) return;
-    m.addSource('dbg-roads', { type: 'geojson', data: lines });
-    m.addSource('dbg-nodes', { type: 'geojson', data: nodes });
-    m.addSource('dbg-blds', { type: 'geojson', data: blds });
-    m.addLayer({ id: 'dbg-roads', type: 'line', source: 'dbg-roads', paint: { 'line-color': ['case', ['==', ['get', 'ow'], 1], '#ff7a00', '#00e5ff'], 'line-width': 1.6, 'line-opacity': 0.85 } });
-    m.addLayer({ id: 'dbg-nodes', type: 'circle', source: 'dbg-nodes', paint: { 'circle-radius': 1.8, 'circle-color': '#ffffff' } });
-    m.addLayer({ id: 'dbg-blds', type: 'circle', source: 'dbg-blds', paint: { 'circle-radius': 1.6, 'circle-color': '#ff3df2' } });
+    if (!m || m.getLayer('dbg-blds')) return;
+    try {
+      const before = ['route-casing', 'routes-casing', 'pursuit-glow'].find((id) => m.getLayer(id));
+      if (!m.getSource('dbg-roads')) m.addSource('dbg-roads', { type: 'geojson', data: lines });
+      if (!m.getSource('dbg-nodes')) m.addSource('dbg-nodes', { type: 'geojson', data: nodes });
+      if (!m.getSource('dbg-blds')) m.addSource('dbg-blds', { type: 'geojson', data: blds });
+      if (!m.getLayer('dbg-roads'))
+        m.addLayer({ id: 'dbg-roads', type: 'line', source: 'dbg-roads', paint: { 'line-color': ['case', ['==', ['get', 'ow'], 1], '#ff7a00', '#00e5ff'], 'line-width': 1.2, 'line-opacity': 0.6 } }, before);
+      if (!m.getLayer('dbg-nodes')) m.addLayer({ id: 'dbg-nodes', type: 'circle', source: 'dbg-nodes', paint: { 'circle-radius': 1.5, 'circle-color': '#ffffff' } }, before);
+      if (!m.getLayer('dbg-blds') && q.get('blds') !== '0')
+        m.addLayer({ id: 'dbg-blds', type: 'circle', source: 'dbg-blds', paint: { 'circle-radius': 1.4, 'circle-color': '#ff3df2' } }, before);
+    } catch {
+      /* style not ready yet: next try */
+    }
   };
+  setInterval(add, 500);
   const wait = setInterval(() => {
     const m = (window as unknown as { __epdMap?: DevMap }).__epdMap;
     if (!m) return;
