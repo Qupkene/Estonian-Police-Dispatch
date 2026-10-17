@@ -3,6 +3,7 @@
 #
 # Käivita repo kloonist:  sudo bash /opt/stack/politsei/repo/deploy/mainserver/paigalda.sh
 # Uuesti käivitamine on ohutu: võtmed, webhooki saladus, kaart ja andmebaas jäävad alles.
+# Kui andmebaas on olemas, tehakse enne paigaldust selle varukoopia (data/varu/).
 #
 # Võtmed:
 #   --kaart   tõmba Eesti kaart (PMTiles) uuesti ka siis, kui see on juba olemas
@@ -10,9 +11,9 @@
 #
 # Käik: eelkontroll, veeb võrgu vaba IP, WG aadressi kontroll, kaustad, repo, WireGuardi võtmed,
 # webhooki saladus, konfid ajutisse kausta, Dockeri pildid, kontrollid (compose config,
-# frankenphp validate, php -l, wg-quick strip, bash -n), kaart, varukoopia ja paigaldus,
-# docker compose up, tervisekontroll, esimene ehitus, systemd unitid. Vea korral pärast
-# paigalduse algust taastatakse eelmised failid ja konteinerid ise.
+# frankenphp validate, php -l, wg-quick strip, bash -n), kaart, varukoopiad (andmebaas ja
+# konfid) ja paigaldus, docker compose up, tervisekontroll, esimene ehitus, systemd unitid.
+# Vea korral pärast paigalduse algust taastatakse eelmised failid ja konteinerid ise.
 
 set -euo pipefail
 umask 022
@@ -42,7 +43,7 @@ KAART_UUESTI=0
 for arg in "$@"; do
     case "$arg" in
         --kaart) KAART_UUESTI=1 ;;
-        --abi|-h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+        --abi|-h|--help) sed -n '2,17p' "$0"; exit 0 ;;
         *) echo "Tundmatu võti: $arg (vaata --abi)" >&2; exit 2 ;;
     esac
 done
@@ -482,10 +483,15 @@ info "avalik võti: $AVALIK"
 # ================================================================ 8. webhooki saladus
 samm "Webhooki saladus $JUUR/data/deploy-secret"
 SALADUS_FAIL="$JUUR/data/deploy-secret"
-if [ -s "$SALADUS_FAIL" ] && [ "$(tr -d '[:space:]' < "$SALADUS_FAIL" | wc -c)" -ge 32 ]; then
+# Olemasolevat saladust ei kirjutata kunagi üle (GitHubi webhook kasutab sama väärtust).
+saladuse_pikkus="$(tr -d '[:space:]' 2>/dev/null < "$SALADUS_FAIL" | wc -c || true)"
+if [ "${saladuse_pikkus:-0}" -ge 32 ]; then
     info "olemas, jääb alles"
+elif [ "${saladuse_pikkus:-0}" -gt 0 ]; then
+    hoiata "saladus on lühem kui 32 märki, jääb siiski alles (uue jaoks kustuta fail ja käivita paigaldus uuesti)"
 else
-    ( umask 077; openssl rand -hex 32 > "$SALADUS_FAIL" )
+    ( umask 077; openssl rand -hex 32 > "$SALADUS_FAIL.uus" )
+    mv -f "$SALADUS_FAIL.uus" "$SALADUS_FAIL"
     info "uus saladus loodud"
 fi
 chown root:root "$SALADUS_FAIL"
@@ -550,7 +556,16 @@ samm "Eesti kaart (Protomaps PMTiles)"
 kaart || hoiata "kaart jäi tegemata, mäng töötab ka ilma. Hiljem: sudo bash $0 --kaart"
 
 # ================================================================ 11. paigaldus
-samm "Varukoopia ja paigaldus"
+samm "Varukoopiad ja paigaldus"
+# Andmebaasi varukoopia enne konteinerite uuesti loomist (uue repo uuendusskripti --varunda,
+# sama kood mis iga uuenduse eel). Kui see ei õnnestu, jääb paigaldus tegemata.
+if [ -f "$JUUR/data/epd.sqlite" ]; then
+    bash "$STAGE/politsei-uuenda.sh" --varunda \
+        || die "andmebaasi varukoopia ebaõnnestus, konfe ja konteinereid ei muudetud (vaata teadet ülal)"
+    info "andmebaasi varukoopia: $JUUR/data/varu/ (sudo ls -l $JUUR/data/varu)"
+else
+    info "andmebaasi veel pole, varukoopiat pole vaja"
+fi
 install -d -m 0700 "$VARU"
 MUUTUS_WG=0
 MUUTUS_CADDY=0

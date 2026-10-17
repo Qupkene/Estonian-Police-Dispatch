@@ -390,10 +390,16 @@ versiooni ega tagasipööramise (rollback) korral.
 * Vahetuse salvestus viiakse sammudega (`SIM_STEPS`) praeguse SimState versioonini. Kui seda ei saa
   jätkata, liigub see oma varukoopiavõtmesse ja põhivõti vabaneb; ilma koopiata ei kustutata seda
   kunagi. Ainult vahetus, mille aruanne on juba olemas, eemaldatakse lihtsalt.
+* 92ed7f5 salvestas enne aega lõpetatud vahetuse uuesti, kui vaheleht aruande ekraanil suleti, ja maksis
+  selle jätkamisel teist korda. Seepärast ei jätkata karjäärivahetust, mille tulemus on karjääri ajaloos
+  juba olemas (möödunud päev sama kalendrikuupäeva, prefektuuri ja sündmuste arvuga, `careerShiftPaid`).
+  Salvestus jääb `epd:backup.autosave.unresumable`.
 * Enne kui pilvekoopia, uus karjäär, karjääri kustutamine või uus vahetus asendab brauseri andmed
   teistsugustega, jääb eelmine väärtus varukoopiasse.
 
-**Varukoopiad** (kõik eemaldab ainult „Kustuta kõik andmed”):
+**Varukoopiad** (need eemaldab „Kustuta kõik andmed”; kui brauseri salvestusruum on täis, võib
+käimasoleva vahetuse salvestamiseks kustuda ainult `epd:backup.autosave` ja `epd:backup.autosave.cloud`,
+sest pikk vahetus võtab üle megabaidi):
 * `epd:backup.career` ja `epd:backup.career.prev`: kaks viimast asendatud karjääri. Andmed, mida
   mujal pole (külalise karjäär, üleslaadimata muudatused), jäävad teiste ees alles.
 * `epd:backup.settings`, `epd:backup.autosave`: viimane asendatud koopia.
@@ -401,7 +407,7 @@ versiooni ega tagasipööramise (rollback) korral.
   uuem lisaks puutumata põhivõtmele); `.unknown`, kui versioon puudub.
 * `epd:backup.<slot>.invalid`: loetamatu JSON. `epd:backup.<slot>.repaired`: originaal enne parandust.
 * `epd:backup.autosave.unresumable`: sama versiooni vahetus, mida ei saa jätkata (nt tundmatu
-  prefektuur). `epd:backup.autosave.cloud`: pilve vahetus, mida see versioon ei jätka.
+  prefektuur või juba makstud karjäärivahetus). `epd:backup.autosave.cloud`: pilve vahetus, mida see versioon ei jätka.
 
 Baidi täpsusega koopia taastamiseks kopeeri väärtus tagasi oma võtmesse; teiste puhul on andmed väljas
 `data` (`{ at, reason, unique, owner, data }`).
@@ -421,6 +427,10 @@ Baidi täpsusega koopia taastamiseks kopeeri väärtus tagasi oma võtmesse; tei
 5. Tagasipööramine: 92ed7f5 kood ei tunne seda kaitset. Kui `epd:career` või `epd:settings` versioon
    tõuseb ja server pööratakse 92ed7f5 peale tagasi, kaotab see brauser oma andmed. Ära tõsta neid
    versioone, kui saab ilma. Alates sellest versioonist jätab vanem kood uuema versiooni andmed
-   puutumata.
+   puutumata. `epd:sync` hoiab vormingu 2 kõrval ka vormingu 1 välju (`owner`, `updated`), sest 92ed7f5
+   loeb ainult neid: ilma nendeta tõmbaks see pärast tagasipööramist kõik pilvekoopiad brauseri andmete
+   peale ilma varukoopiata. Nüüd jäävad sünkroonis andmed paigale ja selles brauseris tehtud, veel üles
+   laadimata muudatused laaditakse üles (`legacyMeta`, `tests/upgrade-paths.test.ts`). Ära eemalda neid
+   välju, kuni tagasipööramine 92ed7f5 peale on võimalik.
 6. Pilvekoopiad on sama JSON: kui kuju muutub, peab ka pilvest tulev koopia läbima sama sammu ja
    normaliseerija (`validAutosave`, `normalizeCareerState`, `sanitizeSettings`).

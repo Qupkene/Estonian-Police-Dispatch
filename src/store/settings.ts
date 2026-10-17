@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Lang } from '@/sim/types';
+import { guardedPersist, normalizeSettings } from './migrate';
 
 export type MapStyleKey = 'tactical' | 'dark' | 'maaamet' | 'foto';
 
@@ -19,6 +20,15 @@ export interface Settings {
   set: (patch: Partial<Omit<Settings, 'set'>>) => void;
 }
 
+/**
+ * Version of the epd:settings envelope. 92ed7f5 wrote 1 and drops data of any other version: bump it only
+ * with a step in SETTINGS_STEPS and a new golden fixture set (docs/DESIGN.md, "Salvestuste ühilduvus").
+ * A new setting needs no bump: stored settings are merged over the defaults.
+ */
+export const SETTINGS_VERSION = 1;
+/** SETTINGS_STEPS[v] turns a version v state into version v + 1. */
+const SETTINGS_STEPS: Record<number, (s: Record<string, unknown>) => Record<string, unknown>> = {};
+
 export const useSettings = create<Settings>()(
   persist(
     (set) => ({
@@ -35,6 +45,12 @@ export const useSettings = create<Settings>()(
       colorblind: false,
       set: (patch) => set(patch),
     }),
-    { name: 'epd:settings', version: 1 },
+    guardedPersist<Settings>({
+      name: 'epd:settings',
+      slot: 'settings',
+      version: SETTINGS_VERSION,
+      steps: SETTINGS_STEPS,
+      normalize: (stored, current, issues) => normalizeSettings(stored, current, issues),
+    }),
   ),
 );

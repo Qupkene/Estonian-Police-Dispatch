@@ -26,7 +26,7 @@ src/net/               frontend API client and account store
 | --- | --- | --- | --- |
 | /opt/stack/politsei/www | /app/www | ro | built frontend (`dist/`), plus `version.txt` (deployed commit) |
 | /opt/stack/politsei/repo/server | /app/server | ro | PHP code from the repository |
-| /opt/stack/politsei/data | /data | rw | `epd.sqlite`, `deploy-secret`, `control/` (update tickets) |
+| /opt/stack/politsei/data | /data | rw | `epd.sqlite`, `sessions/`, `deploy-secret`, `control/` (update tickets), `varu/` (SQLite snapshots taken before every update) |
 | /opt/stack/politsei/tiles | /srv/tiles | ro | `estonia.pmtiles` (Protomaps basemap extract of Estonia) |
 | /opt/stack/politsei/conf | /etc/epd | ro | `Caddyfile` (copied from `deploy/mainserver/Caddyfile`, validated before reload) |
 

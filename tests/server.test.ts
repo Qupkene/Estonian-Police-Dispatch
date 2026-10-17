@@ -5,9 +5,11 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import {
+  copyFileSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -567,7 +569,8 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
 
     it('versions only grow, also for writes in the same millisecond', async () => {
       const versions: number[] = [];
-      for (let i = 0; i < 5; i++) versions.push((await alice.put('/api/save/settings', { body: { n: i } })).json.updated);
+      for (let i = 0; i < 5; i++)
+        versions.push((await alice.put('/api/save/settings', { body: { n: i } })).json.updated);
       for (let i = 1; i < versions.length; i++) expect(versions[i]).toBeGreaterThan(versions[i - 1]);
     });
 
@@ -587,7 +590,9 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       expect(staleDelete.status).toBe(409);
       expect((await alice.get('/api/save')).json.settings).toEqual({ from: 'desktop' });
       // After reading the cloud again, the laptop can save on top of the newest version.
-      const ok = await alice.put(`/api/save/settings?base=${desk.json.updated}`, { body: { from: 'laptop' } });
+      const ok = await alice.put(`/api/save/settings?base=${desk.json.updated}`, {
+        body: { from: 'laptop' },
+      });
       expect(ok.status).toBe(200);
       // A conditional delete on the current version leaves a marker.
       const del = await alice.del(`/api/save/settings?base=${ok.json.updated}`);
@@ -596,8 +601,12 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       expect(after.json.settings).toBeNull();
       expect(after.json.updated.settings).toBe(del.json.updated);
       // The marker is a version like any other: writing on top of it works, on top of the old one not.
-      expect((await alice.put(`/api/save/settings?base=${ok.json.updated}`, { body: { x: 1 } })).status).toBe(409);
-      expect((await alice.put(`/api/save/settings?base=${del.json.updated}`, { body: { x: 1 } })).status).toBe(200);
+      expect((await alice.put(`/api/save/settings?base=${ok.json.updated}`, { body: { x: 1 } })).status).toBe(
+        409,
+      );
+      expect(
+        (await alice.put(`/api/save/settings?base=${del.json.updated}`, { body: { x: 1 } })).status,
+      ).toBe(200);
     });
 
     it('base 0 means "the server has no such slot yet"', async () => {
@@ -637,7 +646,10 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       expect((await alice.post('/api/score', SHIFT, wrong)).status).toBe(409);
       expect((await alice.get('/api/save')).json.career).toBeNull();
       // The right account (or no header) works as before.
-      const right = await alice.put('/api/save/career', { body: { name: 'Alice' }, headers: { 'X-EPD-User': String(me.id) } });
+      const right = await alice.put('/api/save/career', {
+        body: { name: 'Alice' },
+        headers: { 'X-EPD-User': String(me.id) },
+      });
       expect(right.status).toBe(200);
       expect((await alice.get('/api/save')).json.career).toEqual({ name: 'Alice' });
     });
@@ -933,5 +945,324 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
         expect(text, file).not.toMatch(DASHES);
       }
     });
+  });
+});
+
+// ------------------------------------------------------------------ data from released versions
+
+/**
+ * Databases made by the API of versions that ran on the server (tests/fixtures/db/generate.mjs). After
+ * an update the current API must keep every account, password, save, score and session in them.
+ */
+const FIXTURE_DIR = join(ROOT, 'tests', 'fixtures', 'db');
+const DB_FIXTURES = existsSync(FIXTURE_DIR)
+  ? readdirSync(FIXTURE_DIR)
+      .filter((f) => /^[0-9a-f]{7}\.json$/.test(f))
+      .map((f) => f.slice(0, 7))
+      .sort()
+  : [];
+const DB_PHP = join(SERVER_DIR, 'lib', 'db.php');
+
+interface FixtureUser {
+  id: number;
+  name: string;
+  password: string;
+  me: { user: { id: number; name: string; created: number } };
+  save: { updated: Record<string, number>; slots: Record<string, string | null> };
+  session: { id: string; file: string };
+}
+
+interface DbFixture {
+  commit: string;
+  schemaVersion: number;
+  migrationSha256: Record<string, string>;
+  cookie: { name: string; attributes: string[] };
+  users: FixtureUser[];
+  scores: Record<string, Json[]>;
+}
+
+interface DbDump {
+  objects: string[];
+  columns: Record<string, Json[]>;
+  rows: Record<string, Json[]>;
+}
+
+/** `php -r` with arguments; returns what it printed. */
+function phpRun(code: string, ...args: string[]): string {
+  const r = spawnSync('php', ['-r', code, ...args], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if (r.status !== 0) throw new Error(r.stderr || r.stdout);
+  return r.stdout;
+}
+
+/** Everything in a database: its objects, and the columns and every row of every table, in a stable order. */
+function dumpDb(file: string): DbDump {
+  const code = `
+    $d = new PDO('sqlite:' . $argv[1], null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $out = ['objects' => [], 'columns' => [], 'rows' => []];
+    foreach ($d->query("SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name") as $o) {
+      $out['objects'][] = $o['type'] . ' ' . $o['name'];
+    }
+    $tables = $d->query("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name");
+    foreach ($tables->fetchAll(PDO::FETCH_COLUMN) as $t) {
+      $out['columns'][$t] = $d->query('PRAGMA table_info(' . $d->quote($t) . ')')->fetchAll(PDO::FETCH_ASSOC);
+      $out['rows'][$t] = $d->query('SELECT * FROM "' . $t . '" ORDER BY rowid')->fetchAll(PDO::FETCH_ASSOC);
+    }
+    echo json_encode($out, JSON_THROW_ON_ERROR);`;
+  return JSON.parse(phpRun(code, file));
+}
+
+/** SHA-256 of every migration step of the current code, by version. */
+function migrationHashes(): Record<string, string> {
+  const code = `require $argv[1]; $o = []; foreach (epd_migrations() as $v => $s) { $o[$v] = hash('sha256', json_encode($s)); } echo json_encode($o);`;
+  return JSON.parse(phpRun(code, DB_PHP));
+}
+
+/** Migrate a database with the current steps plus one extra step (JSON list of statements). */
+const MIGRATE_WITH_EXTRA = `
+  require $argv[1];
+  $db = new PDO('sqlite:' . $argv[2], null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+  $db->exec('PRAGMA journal_mode = WAL');
+  $db->exec('PRAGMA foreign_keys = ON');
+  $steps = epd_migrations();
+  $steps[max(array_keys($steps)) + 1] = json_decode($argv[3], true);
+  try { epd_migrate($db, $steps); echo 'migrated'; } catch (Throwable $e) { echo 'failed: ' . $e->getMessage(); }`;
+
+/** JSON with sorted keys (same as tests/fixtures/db/generate.mjs), so key order never counts. */
+function canonical(value: unknown): string {
+  return JSON.stringify(value, (_k, v: unknown) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(
+          Object.keys(v)
+            .sort()
+            .map((k) => [k, (v as Record<string, unknown>)[k]]),
+        )
+      : v,
+  );
+}
+const sha256 = (text: string) => createHash('sha256').update(text).digest('hex');
+
+/** Cookie attributes that must stay the same between versions (the expiry moves with time). */
+const cookieAttributes = (line: string) =>
+  line
+    .split(';')
+    .slice(1)
+    .map((a) => a.trim().toLowerCase())
+    .filter((a) => !a.startsWith('expires=') && !a.startsWith('max-age='))
+    .sort();
+
+/** The columns an older table had, so rows compare equal after later columns were added. */
+function oldColumns(dump: DbDump, table: string, rows: Json[]): Json[] {
+  const known: string[] = dump.columns[table].map((c: Json) => c.name);
+  return rows.map((r: Json) => Object.fromEntries(known.map((k) => [k, r[k]])));
+}
+
+describe('released databases', () => {
+  it('include the version that runs on the server now (92ed7f5)', () => {
+    expect(DB_FIXTURES).toContain('92ed7f5');
+  });
+});
+
+describe.skipIf(!HAS_PHP)('database of a released version after the update', { timeout: 60_000 }, () => {
+  for (const sha of DB_FIXTURES) {
+    describe(sha, () => {
+      const fixture = JSON.parse(readFileSync(join(FIXTURE_DIR, `${sha}.json`), 'utf8')) as DbFixture;
+      let dir = '';
+      let server: PhpServer;
+      let before: DbDump;
+      const dbFile = () => join(dir, 'epd.sqlite');
+      const as = (u: FixtureUser) => {
+        const c = new Client(server.base, nextIp());
+        c.cookies.set(fixture.cookie.name, u.session.id);
+        return c;
+      };
+
+      beforeAll(async () => {
+        dir = mkdtempSync(join(tmpdir(), `epd-upgrade-${sha}-`));
+        copyFileSync(join(FIXTURE_DIR, `${sha}.sqlite`), dbFile());
+        // That version's session files, as if the players were active a minute ago (30 day idle limit).
+        mkdirSync(join(dir, 'sessions'), { mode: 0o700 });
+        const seen = Math.floor(Date.now() / 1000) - 60;
+        for (const u of fixture.users) {
+          const file = u.session.file.replace(/seen\|i:\d+;/, `seen|i:${seen};`);
+          writeFileSync(join(dir, 'sessions', `sess_${u.session.id}`), file);
+        }
+        before = dumpDb(dbFile());
+        // Production password hashing: logins verify the stored hashes exactly as on the server.
+        server = await startPhp({ EPD_DATA: dir, EPD_TRUSTED_PROXY: '127.0.0.1', EPD_FAST_HASH: '' });
+      }, 60_000);
+
+      afterAll(async () => {
+        await stopPhp(server);
+        if (dir) rmSync(dir, { recursive: true, force: true });
+      });
+
+      it('reaches the latest schema and keeps every table, column and row', () => {
+        const after = dumpDb(dbFile());
+        const latest = Math.max(...Object.keys(migrationHashes()).map(Number));
+        expect(latest).toBeGreaterThanOrEqual(fixture.schemaVersion);
+        expect(Math.max(...after.rows.schema_version.map((r: Json) => r.version))).toBe(latest);
+        for (const object of before.objects) expect(after.objects).toContain(object);
+        for (const [table, columns] of Object.entries(before.columns)) {
+          for (const column of columns)
+            expect(after.columns[table], `${table}.${column.name}`).toContainEqual(column);
+        }
+        for (const [table, rows] of Object.entries(before.rows)) {
+          const now = oldColumns(before, table, after.rows[table]);
+          if (table === 'schema_version') expect(now.slice(0, rows.length)).toEqual(rows);
+          else expect(now, table).toEqual(rows);
+        }
+        expect(before.rows.users).toHaveLength(fixture.users.length);
+      });
+
+      it('keeps every player logged in with the session that version gave them', async () => {
+        for (const u of fixture.users) {
+          const c = as(u);
+          expect((await c.get('/api/me')).json, u.name).toEqual(u.me);
+          expect(c.cookies.get(fixture.cookie.name), u.name).toBe(u.session.id);
+        }
+      });
+
+      it('lets every player log in with their password and sets the same session cookie', async () => {
+        for (const u of fixture.users) {
+          const c = new Client(server.base, nextIp());
+          const r = await c.post('/api/login', { name: u.name, password: u.password });
+          expect(r.status, u.name).toBe(200);
+          expect(r.json.user).toEqual(u.me.user);
+          const line = r.setCookies.find((l) => l.startsWith(`${fixture.cookie.name}=`));
+          expect(line, u.name).toBeDefined();
+          expect(cookieAttributes(line as string)).toEqual(fixture.cookie.attributes);
+          // New sessions go to the same place, data/sessions, which survives container recreation.
+          const id = c.cookies.get(fixture.cookie.name);
+          expect(existsSync(join(dir, 'sessions', `sess_${id}`)), u.name).toBe(true);
+        }
+        const wrong = await new Client(server.base, nextIp()).post('/api/login', {
+          name: fixture.users[0].name,
+          password: `${fixture.users[0].password}x`,
+        });
+        expect(wrong.status).toBe(401);
+      });
+
+      it('returns every save exactly as that version did', async () => {
+        for (const u of fixture.users) {
+          const r = await as(u).get('/api/save');
+          expect(r.status, u.name).toBe(200);
+          expect(r.json.updated, u.name).toEqual(u.save.updated);
+          for (const [slot, hash] of Object.entries(u.save.slots)) {
+            const got = r.json[slot] === null ? null : sha256(canonical(r.json[slot]));
+            expect(got, `${u.name} ${slot}`).toBe(hash);
+          }
+        }
+      });
+
+      it('keeps the leaderboard', async () => {
+        for (const [region, rows] of Object.entries(fixture.scores)) {
+          const query = `/api/scores?limit=50&region=${region === 'all' ? '' : region}`;
+          expect((await new Client(server.base, nextIp()).get(query)).json.scores, region).toEqual(rows);
+        }
+      });
+
+      it('has not changed a migration step that version ran', () => {
+        const now = migrationHashes();
+        for (const [version, hash] of Object.entries(fixture.migrationSha256)) {
+          expect(now[version], `step ${version}: never edit a released step, append a new one`).toBe(hash);
+        }
+      });
+
+      it('leaves the database exactly as it was when a migration step fails', () => {
+        const copy = join(dir, 'failed.sqlite');
+        copyFileSync(join(FIXTURE_DIR, `${sha}.sqlite`), copy);
+        const start = dumpDb(copy);
+        const step = [
+          'CREATE TABLE half_done (a INTEGER)',
+          'ALTER TABLE users ADD COLUMN nickname TEXT',
+          'INSERT INTO half_done VALUES (1)',
+          'INSERT INTO no_such_table VALUES (1)',
+        ];
+        expect(phpRun(MIGRATE_WITH_EXTRA, DB_PHP, copy, JSON.stringify(step))).toMatch(
+          /^failed: .*no_such_table/,
+        );
+        expect(dumpDb(copy)).toEqual(start);
+      });
+
+      it('keeps every row through an additive step', () => {
+        const copy = join(dir, 'added.sqlite');
+        copyFileSync(join(FIXTURE_DIR, `${sha}.sqlite`), copy);
+        const start = dumpDb(copy);
+        const step = [
+          'CREATE TABLE extra (a INTEGER)',
+          "ALTER TABLE users ADD COLUMN nickname TEXT DEFAULT ''",
+        ];
+        expect(phpRun(MIGRATE_WITH_EXTRA, DB_PHP, copy, JSON.stringify(step))).toBe('migrated');
+        const end = dumpDb(copy);
+        for (const [table, rows] of Object.entries(start.rows)) {
+          const now = oldColumns(start, table, end.rows[table]);
+          expect(table === 'schema_version' ? now.slice(0, rows.length) : now, table).toEqual(rows);
+        }
+      });
+    });
+  }
+});
+
+describe.skipIf(!HAS_PHP)('schema migrations', () => {
+  it('only add tables, indexes, columns and rows, one statement each', () => {
+    const steps = JSON.parse(
+      phpRun('require $argv[1]; echo json_encode(epd_migrations());', DB_PHP),
+    ) as Record<string, string[]>;
+    const additive = /^(CREATE TABLE|CREATE (UNIQUE )?INDEX|ALTER TABLE \S+ ADD (COLUMN )?|INSERT INTO)\s/i;
+    for (const [version, statements] of Object.entries(steps)) {
+      expect(statements.length, `step ${version}`).toBeGreaterThan(0);
+      for (const sql of statements) {
+        const s = sql.replace(/\s+/g, ' ').trim();
+        expect(s, `step ${version}`).toMatch(additive);
+        expect(s, `step ${version}: one statement per entry`).not.toMatch(/;\s*\S/);
+        // The previous version (automatic rollback) must still be able to insert rows.
+        if (/^ALTER TABLE/i.test(s) && /\bNOT NULL\b/i.test(s))
+          expect(s, `step ${version}`).toMatch(/\bDEFAULT\b/i);
+      }
+    }
+  });
+});
+
+describe('deploy keeps player data in place', () => {
+  const read = (path: string) => readFileSync(join(ROOT, path), 'utf8');
+  /** Shell lines that are not comments. */
+  const code = (path: string) =>
+    read(path)
+      .split('\n')
+      .filter((l) => !/^\s*#/.test(l));
+  const WRITES = /(^|[\s;&|(])(rm|mv|rsync|cp|install|truncate|ln|chmod|chown)\s/;
+
+  it('mounts data/ read-write into the container and points the API at it', () => {
+    const compose = read('deploy/mainserver/compose.yml');
+    expect(compose).toMatch(/^\s*- \.\/data:\/data\s*$/m);
+    expect(compose).toMatch(/^\s*EPD_DATA: \/data\s*$/m);
+    expect(compose).toMatch(/^\s*- \.\/tiles:\/srv\/tiles:ro\s*$/m);
+  });
+
+  it('keeps sessions in data/sessions under the same cookie name', () => {
+    const auth = read('server/lib/auth.php');
+    expect(auth).toContain("const EPD_SESSION_NAME = 'EPDSESS';");
+    expect(auth).toContain("epd_data_dir() . '/sessions'");
+  });
+
+  it('snapshots the database before every switch and never writes to the data otherwise', () => {
+    const script = read('deploy/mainserver/politsei-uuenda.sh');
+    const main = script.slice(
+      script.indexOf('# ---------------------------------------------------------------- põhivoog'),
+    );
+    const backup = main.indexOf('varunda_andmebaas "${paigas');
+    expect(backup).toBeGreaterThan(0);
+    expect(backup).toBeLessThan(main.indexOf('vaheta "$tipp"'));
+    for (const line of code('deploy/mainserver/politsei-uuenda.sh')) {
+      if (WRITES.test(line)) expect(line).not.toMatch(/epd\.sqlite|ANDMEBAAS|sessions|deploy-secret|tiles/);
+    }
+  });
+
+  it('re-running the installer snapshots the database and leaves it and the sessions alone', () => {
+    const script = read('deploy/mainserver/paigalda.sh');
+    expect(script).toMatch(/politsei-uuenda\.sh" --varunda/);
+    for (const line of code('deploy/mainserver/paigalda.sh')) {
+      if (WRITES.test(line)) expect(line).not.toMatch(/epd\.sqlite|sessions/);
+    }
   });
 });

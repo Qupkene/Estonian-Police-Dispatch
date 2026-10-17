@@ -58,7 +58,21 @@ function epd_db(): PDO
 }
 
 /**
- * Schema migrations, applied in order. Never edit a released step: append a new one.
+ * Schema migrations, applied in order. Players' accounts, saves and scores live in this database,
+ * and an update must never lose them, so every step follows these rules (tests/server.test.ts
+ * checks them against databases made by released versions, tests/fixtures/db/):
+ *
+ * - Never edit or renumber a released step: append a new one.
+ * - Additive only: CREATE TABLE, CREATE [UNIQUE] INDEX, ALTER TABLE ... ADD COLUMN, INSERT.
+ *   No DROP, DELETE, UPDATE, RENAME, REPLACE, PRAGMA or VACUUM. With foreign keys on, a dropped
+ *   or rebuilt users table would cascade-delete every save and score.
+ * - A new column is nullable or has a DEFAULT, so the previous version (an automatic rollback runs
+ *   it on the migrated database) can still insert rows.
+ * - All pending steps run in one transaction: if any statement fails, the database stays exactly
+ *   as it was and the update script rolls the code back (health check fails).
+ *
+ * The update script takes a snapshot of the database before every switch (data/varu/, see
+ * docs/DEPLOY.md, "Andmed ja varukoopiad").
  *
  * @return array<int, list<string>>
  */
@@ -115,10 +129,16 @@ function epd_schema_version(PDO $db): int
     return (int) $db->query('SELECT COALESCE(MAX(version), 0) FROM schema_version')->fetchColumn();
 }
 
-function epd_migrate(PDO $db): void
+/**
+ * Bring $db to the latest schema. $migrations replaces epd_migrations() in tests only.
+ *
+ * @param array<int, list<string>>|null $migrations
+ */
+function epd_migrate(PDO $db, ?array $migrations = null): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, applied INTEGER NOT NULL)');
-    $migrations = epd_migrations();
+    $migrations ??= epd_migrations();
+    ksort($migrations);
     if (epd_schema_version($db) >= max(array_keys($migrations))) {
         return;
     }
@@ -138,7 +158,11 @@ function epd_migrate(PDO $db): void
         }
         $db->exec('COMMIT');
     } catch (Throwable $e) {
-        $db->exec('ROLLBACK');
+        try {
+            $db->exec('ROLLBACK');
+        } catch (Throwable) {
+            // SQLite already rolled back by itself (e.g. disk full): keep the original error.
+        }
         throw $e;
     }
 }
