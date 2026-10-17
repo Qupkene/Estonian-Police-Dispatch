@@ -33,15 +33,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # politsei.eu serves the game from the domain root.
-      # For a plain <owner>.github.io/<repo>/ project page use BASE_PATH: /Estonian-Police-Dispatch/
+      # configure-pages reports where the site lives: "" on a custom domain (politsei.eu) and
+      # "/Estonian-Police-Dispatch" on qupkene.github.io before the domain is set up.
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
       - name: Build
         run: npm run build
         env:
-          BASE_PATH: /
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
