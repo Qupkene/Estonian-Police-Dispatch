@@ -69,7 +69,7 @@ General facts:
 - Some names are shared with the Russian-speaking group (Maria, Anna, Viktor, Aleksander,
   Erik, Artur). These are good for ambiguous callers. [LIKELY]
 
-### 1.1 Men (Estonian): 110 names
+### 1.1 Men (Estonian): 133 names
 
 Weight: 5 = very common, 3 = common, 1 = occasional. "Peak birth years" means the cohort where
 the name is concentrated. Ages assume the game year 2026.
@@ -222,7 +222,7 @@ the name is concentrated. Ages assume the game year 2026.
 | Kermo | 1985–2000 | 1 |
 | Gert | 1985–2000 | 1 |
 
-### 1.2 Women (Estonian): 120 names
+### 1.2 Women (Estonian): 142 names
 
 **Older generation (born ~1935–1960)**
 
@@ -554,7 +554,7 @@ name appears differently depending on citizenship:
 | **Russian Federation citizen** (Russian passport, ICAO-style since ~2013) | **ICAO / English-style** | Mikhail Kuznetsov, Tatiana Vasileva, Evgenii Semenov, Iuliia Fedorova |
 | Older Russian passports and mixed cases | Older Russian-passport style | Sergey, Yuriy, Natalya, Tatyana |
 
-[DESIGN] Have the database store one canonical Estonian spelling. Add an `docSpelling` variant
+[DESIGN] Have the database store one canonical Estonian spelling. Add a `docSpelling` variant
 for Russian citizens. Make name search diacritic- and variant-tolerant (Jelena/Elena/Yelena), so
 the player hits the realistic snag of variant spellings.
 
@@ -570,7 +570,7 @@ the player hits the realistic snag of variant spellings.
 | ц | ts | Kuznetsov, Zaitsev |
 | с | s; **ss** between vowels and at word end after a vowel | Vassili, Larissa, Anastassia, Borissov, Boriss, Deniss |
 | е | e; **je** at word start, after a vowel, or after ь/ъ | Jelena, Jevgeni, Aleksejev, Nikolajev |
-| ё | o; **jo** at word start, after a vowel, after ь, or after л/н-type softening | Semjonov, Fjodorov, Solovjov, Kisseljov, Artjom, Pjotr |
+| ё | **jo** (after most consonants, at word start, after a vowel or ь); **o** after ж, ч, ш, щ | Semjonov, Fjodorov, Solovjov, Kisseljov, Artjom, Pjotr; Hruštšov |
 | ю / я | ju / ja | Ljudmila, Juri, Tatjana, Jakovlev |
 | й | i (final -ей → -ei, -ий → -i) | Sergei, Andrei, Dmitri, Jevgeni, Vitali, Zaitsev |
 | ы | **õ** | Krõlov, Bõstrov, Rõbakov, Võssotski |
@@ -1538,7 +1538,7 @@ Alt-Jõe, Suure-Saare, Väike-Männi. [LIKELY]
 | Kopli | Ülejõe | Uustalu | Kraavi |
 
 **Trades:** Sepa (smith's), Möldri (miller's), Rätsepa (tailor's), Kingsepa (shoemaker's),
-Kubja (bailiff's), Kärneri (gardener's), Kõrtsi (tavern).
+Kubja (bailiff's), Kärneri (gardener's), Tisleri (joiner's).
 
 **First-name farms:** Jaani, Peetri, Hansu, Andrese, Juhani, Tõnise, Mihkli, Mardi, Jüri,
 Jaagu, Tooma, Madise, Kaarli, Priidu, Matsi, Ado, Jaagupi, Lauri, Kusta, Tiidu.
@@ -1546,7 +1546,7 @@ Jaagu, Tooma, Madise, Kaarli, Priidu, Matsi, Ado, Jaagupi, Lauri, Kusta, Tiidu.
 [DESIGN] Generation:
 
 - 70% from the nature and position lists, 20% first-name farms, 10% trades.
-- Add an Uue-, Vana-, Alt-, Ülase-, Suure- or Väike- prefix 15% of the time.
+- Add an Uue-, Vana-, Alt-, Üle-, Suure- or Väike- prefix 15% of the time.
 - Avoid producing two identical names in the same village.
 
 ### 10.3 Postal code first digits (for address realism) [UNSURE ranges]
