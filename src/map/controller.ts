@@ -1,0 +1,571 @@
+/**
+ * MapController — owns the maplibre map, DOM markers, overlay sources, atmosphere and the
+ * animation-frame loop. MapView (React) creates one per mount and forwards prop changes; live
+ * positions are read every frame from `getProps().sim`, never from React state.
+ */
+import { Map as MlMap, setWorkerUrl, type GeoJSONSource, type MapMouseEvent } from 'maplibre-gl';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+import type { FeatureCollection } from 'geojson';
+import type { Lang, LngLat, RegionId, SimState, Unit } from '@/sim/types';
+import type { MapStyleKey } from '@/store/settings';
+import { REGIONS } from '@/data/regions';
+import { sun, unitPos } from '@/sim/selectors';
+import { buildStyle, isOnlineStyle, OVERLAY_SOURCES, SRC, type OverlaySourceId } from './style';
+import { MAX_BOUNDS } from './geodata';
+import { buildHeat, buildPursuits, buildRoutes, buildSearches, buildStations, declutterOffsets, isMoving } from './overlays';
+import { IncidentMarkers, SuspectMarkers, UnitMarkers, type MarkerContext } from './markers';
+import { altitudeOf, Atmosphere } from './atmosphere';
+import type { MapViewProps } from './MapView';
+
+let workerSet = false;
+function ensureWorker() {
+  if (workerSet) return;
+  workerSet = true;
+  try {
+    setWorkerUrl(workerUrl);
+  } catch (e) {
+    console.warn('[map] setWorkerUrl failed', e);
+  }
+}
+
+/** Quick capability probe so we can show a friendly panel instead of a blank map. */
+export function webglSupported(): boolean {
+  try {
+    const c = document.createElement('canvas');
+    return !!(c.getContext('webgl2') || c.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+
+export interface ControllerEvents {
+  /** Raster tiles failed repeatedly → offline tactical fallback is active (or cleared). */
+  onOffline: (offline: boolean) => void;
+  /** The user panned the map while following a unit. */
+  onFollowBreak: () => void;
+  /** WebGL context could not be created after all. */
+  onFatal: () => void;
+}
+
+export interface ControllerInit {
+  styleKey: MapStyleKey;
+  regionId: RegionId;
+  lang: Lang;
+  cinematic: boolean;
+  heat: boolean;
+  reducedMotion: boolean;
+}
+
+const RASTER_ERR_LIMIT = 6;
+const RASTER_ERR_WINDOW_MS = 10_000;
+const OVERLAY_INTERVAL_MS = 100;
+
+function absBase(): string {
+  const base = import.meta.env.BASE_URL || '/';
+  try {
+    return new URL(base, window.location.href).href;
+  } catch {
+    return base;
+  }
+}
+
+export class MapController {
+  readonly map: MlMap;
+  private units: UnitMarkers;
+  private incidents: IncidentMarkers;
+  private suspects: SuspectMarkers;
+  private atmo: Atmosphere;
+  private raf = 0;
+  private destroyed = false;
+  private base = absBase();
+
+  private styleKey: MapStyleKey;
+  private regionId: RegionId;
+  private lang: Lang;
+  private cinematic: boolean;
+  private heat: boolean;
+  private reducedMotion: boolean;
+  private offline = false;
+  private rasterErrors: number[] = [];
+  private follow = false;
+  private followEasing = false;
+
+  private overlayData: Partial<Record<OverlaySourceId, FeatureCollection>> = {};
+  private overlayEmpty: Partial<Record<OverlaySourceId, boolean>> = {};
+  private lastOverlayAt = 0;
+  private lastSlowAt = 0;
+  private lastHeatAt = 0;
+  private lastHeatCount = -1;
+  private lastDeclutterAt = 0;
+  private offsets = new Map<string, [number, number]>();
+  private highlight = new Set<string>();
+  private highlightSrc: string[] | undefined;
+  private zoomClass = '';
+  private stationsDirty = true;
+  private unitPosFails = 0;
+  private unitPosBypassUntil = 0;
+  private warned = new Set<string>();
+  private onlineListener = () => {
+    if (this.offline) this.retryOnline();
+  };
+
+  constructor(
+    private container: HTMLElement,
+    private root: HTMLElement,
+    init: ControllerInit,
+    private getProps: () => MapViewProps,
+    private events: ControllerEvents,
+  ) {
+    ensureWorker();
+    this.styleKey = init.styleKey;
+    this.regionId = init.regionId;
+    this.lang = init.lang;
+    this.cinematic = init.cinematic;
+    this.heat = init.heat;
+    this.reducedMotion = init.reducedMotion;
+    if (isOnlineStyle(this.styleKey) && typeof navigator !== 'undefined' && navigator.onLine === false) this.offline = true;
+
+    const region = REGIONS[this.regionId];
+    this.map = new MlMap({
+      container,
+      style: this.buildStyle(),
+      center: region?.center ?? [25.0, 58.7],
+      zoom: region?.zoom ?? 7,
+      minZoom: 5,
+      maxZoom: 18.5,
+      maxBounds: MAX_BOUNDS,
+      maxPitch: 60,
+      attributionControl: { compact: true },
+      dragRotate: true,
+      pitchWithRotate: true,
+      fadeDuration: 180,
+      refreshExpiredTiles: false,
+      cancelPendingTileRequestsWhileZooming: true,
+    });
+    if (this.offline) queueMicrotask(() => this.events.onOffline(true));
+
+    const handlers = {
+      onUnit: (id: string) => this.getProps().onSelectUnit?.(id),
+      onIncident: (id: string) => this.getProps().onSelectIncident?.(id),
+    };
+    this.units = new UnitMarkers(this.map, handlers);
+    this.incidents = new IncidentMarkers(this.map, handlers);
+    this.suspects = new SuspectMarkers(this.map, handlers);
+
+    const canvasContainer = this.map.getCanvasContainer();
+    this.atmo = new Atmosphere(canvasContainer, this.map.getCanvas().nextSibling);
+
+    this.map.on('error', this.onError);
+    this.map.on('click', this.onClick);
+    this.map.on('styleimagemissing', this.onImageMissing);
+    this.map.on('dragstart', this.onUserMove);
+    this.map.on('zoom', this.onZoom);
+    this.map.on('mousemove', 'stations-icon', this.onStationEnter);
+    this.map.on('mouseleave', 'stations-icon', this.onStationLeave);
+    this.map.on('webglcontextlost', () => console.warn('[map] WebGL context lost'));
+    window.addEventListener('online', this.onlineListener);
+    this.onZoom();
+    this.loop();
+  }
+
+  // ── Style ──────────────────────────────────────────────────────────────────
+
+  get effectiveStyle(): MapStyleKey {
+    return this.offline ? 'tactical' : this.styleKey;
+  }
+
+  private buildStyle() {
+    return buildStyle(this.effectiveStyle, {
+      base: this.base,
+      cinematic: this.cinematic,
+      heat: this.heat,
+      overlays: this.overlayData,
+    });
+  }
+
+  private applyStyle() {
+    if (this.destroyed) return;
+    try {
+      this.map.setStyle(this.buildStyle(), { diff: true });
+    } catch (e) {
+      console.warn('[map] style diff failed, rebuilding', e);
+      this.map.setStyle(this.buildStyle(), { diff: false });
+    }
+    this.stationsDirty = true;
+  }
+
+  setStyleKey(key: MapStyleKey) {
+    if (key === this.styleKey) return;
+    const wasEffective = this.effectiveStyle;
+    this.styleKey = key;
+    // A new choice deserves a fresh attempt at the network.
+    if (this.offline) {
+      this.offline = false;
+      this.rasterErrors = [];
+      this.events.onOffline(false);
+    }
+    if (this.effectiveStyle !== wasEffective) this.applyStyle();
+  }
+
+  setCinematic(v: boolean) {
+    if (v === this.cinematic) return;
+    this.cinematic = v;
+    this.applyStyle();
+  }
+
+  setHeat(v: boolean) {
+    if (v === this.heat) return;
+    this.heat = v;
+    this.lastHeatCount = -1;
+    this.applyStyle();
+  }
+
+  setLang(lang: Lang) {
+    if (lang === this.lang) return;
+    this.lang = lang;
+    this.stationsDirty = true;
+  }
+
+  setRegion(regionId: RegionId) {
+    if (regionId === this.regionId) return;
+    this.regionId = regionId;
+    this.stationsDirty = true;
+    this.recenter();
+  }
+
+  setReducedMotion(v: boolean) {
+    this.reducedMotion = v;
+  }
+
+  retryOnline() {
+    if (!this.offline) return;
+    this.offline = false;
+    this.rasterErrors = [];
+    this.events.onOffline(false);
+    this.applyStyle();
+  }
+
+  private goOffline() {
+    if (this.offline || !isOnlineStyle(this.styleKey)) return;
+    this.offline = true;
+    this.events.onOffline(true);
+    this.applyStyle();
+  }
+
+  // ── Camera ─────────────────────────────────────────────────────────────────
+
+  private get motionOK() {
+    if (this.reducedMotion) return false;
+    try {
+      return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      return true;
+    }
+  }
+
+  zoomBy(delta: number) {
+    this.map.easeTo({ zoom: this.map.getZoom() + delta, duration: this.motionOK ? 250 : 0 });
+  }
+
+  recenter() {
+    const r = REGIONS[this.regionId];
+    if (!r) return;
+    const opts = { duration: this.motionOK ? 900 : 0, pitch: this.map.getPitch(), bearing: 0 };
+    const b = r.bounds;
+    const valid = b && b[0][0] < b[1][0] && b[0][1] < b[1][1] && b[1][0] - b[0][0] < 5;
+    if (valid) this.map.fitBounds(b, { ...opts, padding: 40, maxZoom: r.zoom + 1 });
+    else this.map.flyTo({ ...opts, center: r.center, zoom: r.zoom });
+  }
+
+  focus(coord: LngLat, zoom?: number) {
+    const z = zoom ?? Math.max(this.map.getZoom(), 12.5);
+    if (this.motionOK) this.map.flyTo({ center: coord, zoom: z, speed: 1.6, curve: 1.3, essential: false });
+    else this.map.jumpTo({ center: coord, zoom: z });
+  }
+
+  setFollow(v: boolean) {
+    this.follow = v;
+    if (v) {
+      const p = this.getProps();
+      const u = p.selectedUnitId ? p.sim.units[p.selectedUnitId] : undefined;
+      if (u) {
+        this.followEasing = true;
+        this.map.easeTo({ center: this.posOf(u).pos, zoom: Math.max(this.map.getZoom(), 12), duration: this.motionOK ? 600 : 0 });
+        this.map.once('moveend', () => (this.followEasing = false));
+      }
+    }
+  }
+
+  setTilt(on: boolean) {
+    this.map.easeTo({ pitch: on ? 52 : 0, bearing: on ? this.map.getBearing() || -12 : 0, duration: this.motionOK ? 700 : 0 });
+  }
+
+  setPlacing(v: boolean) {
+    this.root.classList.toggle('epdm--placing', v);
+  }
+
+  // ── Events ─────────────────────────────────────────────────────────────────
+
+  private onError = (e: { error?: { message?: string; status?: number }; sourceId?: string }) => {
+    if (e.sourceId === SRC.raster) {
+      const now = performance.now();
+      this.rasterErrors.push(now);
+      while (this.rasterErrors.length && now - this.rasterErrors[0] > RASTER_ERR_WINDOW_MS) this.rasterErrors.shift();
+      if (this.rasterErrors.length >= RASTER_ERR_LIMIT) this.goOffline();
+      return;
+    }
+    const msg = e.error?.message ?? String(e.error ?? 'unknown');
+    if (!this.warned.has(msg)) {
+      this.warned.add(msg);
+      console.warn('[map]', msg);
+    }
+  };
+
+  private onClick = (e: MapMouseEvent) => {
+    const target = e.originalEvent?.target as Element | null;
+    if (target && typeof target.closest === 'function' && target.closest('.epdm-mk')) return;
+    this.getProps().onMapClick?.([e.lngLat.lng, e.lngLat.lat]);
+  };
+
+  private onUserMove = (e: { originalEvent?: unknown }) => {
+    if (this.follow && e.originalEvent) {
+      this.follow = false;
+      this.events.onFollowBreak();
+    }
+  };
+
+  private onZoom = () => {
+    const z = this.map.getZoom();
+    const cls = z < 7.5 ? 'epdm-zxlo' : z < 10 ? 'epdm-zlo' : '';
+    if (cls !== this.zoomClass) {
+      if (this.zoomClass) this.root.classList.remove(this.zoomClass);
+      if (cls) this.root.classList.add(cls);
+      this.zoomClass = cls;
+    }
+  };
+
+  private stationTip: HTMLDivElement | null = null;
+  private onStationEnter = (e: MapMouseEvent & { features?: { properties: Record<string, unknown> }[] }) => {
+    const f = e.features?.[0];
+    if (!f) return;
+    this.map.getCanvas().style.cursor = 'default';
+    if (!this.stationTip) {
+      this.stationTip = document.createElement('div');
+      this.stationTip.className = 'epdm-station-tip';
+      this.root.appendChild(this.stationTip);
+    }
+    this.stationTip.textContent = String(f.properties.name ?? f.properties.short ?? '');
+    this.stationTip.style.transform = `translate(${Math.round(e.point.x + 14)}px, ${Math.round(e.point.y - 10)}px)`;
+    this.stationTip.style.display = 'block';
+  };
+  private onStationLeave = () => {
+    this.map.getCanvas().style.cursor = '';
+    if (this.stationTip) this.stationTip.style.display = 'none';
+  };
+
+  private onImageMissing = (e: { id: string }) => {
+    if (e.id !== 'epdm-station' && e.id !== 'epdm-station-hq') return;
+    if (this.map.hasImage(e.id)) return;
+    const img = drawStationIcon(e.id === 'epdm-station-hq');
+    if (img) this.map.addImage(e.id, img, { pixelRatio: 2 });
+  };
+
+  // ── Frame loop ─────────────────────────────────────────────────────────────
+
+  private posOf = (u: Unit): { pos: LngLat; heading: number } => {
+    const p = this.getProps();
+    if (performance.now() >= this.unitPosBypassUntil) {
+      try {
+        const r = unitPos(p.sim, u);
+        if (r && Array.isArray(r.pos) && Number.isFinite(r.pos[0]) && Number.isFinite(r.pos[1])) {
+          this.unitPosFails = 0;
+          return r;
+        }
+      } catch {
+        if (++this.unitPosFails > 50) {
+          this.unitPosBypassUntil = performance.now() + 5000;
+          this.unitPosFails = 0;
+        }
+      }
+    }
+    return { pos: u.pos, heading: u.heading ?? 0 };
+  };
+
+  private loop = () => {
+    if (this.destroyed) return;
+    this.raf = requestAnimationFrame(this.loop);
+    try {
+      this.frame();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!this.warned.has(msg)) {
+        this.warned.add(msg);
+        console.error('[map] frame error', e);
+      }
+    }
+  };
+
+  private frame() {
+    const p = this.getProps();
+    const s = p.sim;
+    if (!s || !s.units) return;
+    const realNow = performance.now();
+
+    if (p.highlightUnitIds !== this.highlightSrc) {
+      this.highlightSrc = p.highlightUnitIds;
+      this.highlight = new Set(p.highlightUnitIds ?? []);
+    }
+
+    if (realNow - this.lastDeclutterAt > 200) {
+      this.lastDeclutterAt = realNow;
+      this.offsets = this.computeOffsets(s);
+    }
+
+    const ctx: MarkerContext = {
+      sim: s,
+      now: s.now,
+      lang: this.lang,
+      bearing: this.map.getBearing(),
+      pos: this.posOf,
+      selectedUnitId: p.selectedUnitId,
+      selectedIncidentId: p.selectedIncidentId,
+      highlight: this.highlight,
+      offsets: this.offsets,
+    };
+    this.incidents.sync(ctx, realNow);
+    this.units.sync(ctx);
+    this.suspects.sync(ctx);
+
+    // Follow the selected unit (gentle per-frame easing towards it).
+    if (this.follow && !this.followEasing && p.selectedUnitId) {
+      const u = s.units[p.selectedUnitId];
+      if (u && !this.map.isMoving()) {
+        const target = this.posOf(u).pos;
+        const c = this.map.getCenter();
+        const dx = target[0] - c.lng;
+        const dy = target[1] - c.lat;
+        if (Math.abs(dx) > 1e-6 || Math.abs(dy) > 1e-6) {
+          const k = Math.abs(dx) + Math.abs(dy) > 0.05 ? 1 : 0.2;
+          this.map.setCenter([c.lng + dx * k, c.lat + dy * k]);
+        }
+      }
+    }
+
+    if (realNow - this.lastOverlayAt >= OVERLAY_INTERVAL_MS) {
+      this.lastOverlayAt = realNow;
+      this.updateOverlays(s, p, realNow);
+    }
+
+    if (realNow - this.lastSlowAt >= 1000) {
+      this.lastSlowAt = realNow;
+      const r = REGIONS[this.regionId];
+      this.atmo.setTint(altitudeOf(s, sun, r?.center ?? [25, 58.7]));
+      this.atmo.setWeather(s.weather, this.motionOK);
+    }
+  }
+
+  private computeOffsets(s: SimState) {
+    const items: { id: string; pos: LngLat; moving: boolean; scene?: string }[] = [];
+    for (const id of s.unitOrder ?? Object.keys(s.units)) {
+      const u = s.units[id];
+      if (!u) continue;
+      const moving = isMoving(u, s.now);
+      const scene = !moving && u.status === 'onscene' && u.incidentId && s.incidents[u.incidentId] ? u.incidentId : undefined;
+      items.push({ id, pos: this.posOf(u).pos, moving, scene });
+    }
+    return declutterOffsets(items);
+  }
+
+  private setSource(id: OverlaySourceId, fc: FeatureCollection, force = false) {
+    const empty = fc.features.length === 0;
+    if (!force && empty && this.overlayEmpty[id]) return;
+    this.overlayData[id] = fc;
+    const src = this.map.getSource(id) as GeoJSONSource | undefined;
+    if (!src) return;
+    this.overlayEmpty[id] = empty;
+    try {
+      const r = src.setData(fc) as unknown;
+      if (r && typeof (r as Promise<void>).catch === 'function') (r as Promise<void>).catch(() => {});
+    } catch {
+      /* style swap in progress */
+    }
+  }
+
+  private updateOverlays(s: SimState, p: MapViewProps, realNow: number) {
+    if (this.stationsDirty && this.map.getSource(SRC.stations)) {
+      this.stationsDirty = false;
+      for (const id of OVERLAY_SOURCES) this.overlayEmpty[id] = false;
+      this.setSource(SRC.stations, buildStations(REGIONS[this.regionId], this.lang), true);
+    }
+    this.setSource(SRC.routes, buildRoutes(s, this.posOf, p.selectedIncidentId, p.selectedUnitId));
+    this.setSource(SRC.pursuit, buildPursuits(s));
+    if (realNow - this.lastHeatAt > 500) {
+      this.setSource(SRC.search, buildSearches(s));
+      if (this.heat && (s.incidentOrder.length !== this.lastHeatCount || realNow - this.lastHeatAt > 5000)) {
+        this.lastHeatCount = s.incidentOrder.length;
+        this.setSource(SRC.heat, buildHeat(s));
+      }
+      this.lastHeatAt = realNow;
+    }
+  }
+
+  destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    cancelAnimationFrame(this.raf);
+    window.removeEventListener('online', this.onlineListener);
+    this.units.destroy();
+    this.incidents.destroy();
+    this.suspects.destroy();
+    this.atmo.destroy();
+    this.stationTip?.remove();
+    try {
+      this.map.remove();
+    } catch {
+      /* already gone */
+    }
+    for (const c of ['epdm-zxlo', 'epdm-zlo', 'epdm--placing']) this.root.classList.remove(c);
+  }
+}
+
+/** Police-station map icon (shield with a cornflower-blue core), drawn at 2× pixel ratio. */
+function drawStationIcon(hq: boolean): ImageData | null {
+  const size = hq ? 44 : 36;
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const g = c.getContext('2d');
+  if (!g) return null;
+  const w = size;
+  const pad = 3;
+  const shield = () => {
+    g.beginPath();
+    g.moveTo(w / 2, pad);
+    g.lineTo(w - pad, pad + w * 0.16);
+    g.lineTo(w - pad, w * 0.5);
+    g.quadraticCurveTo(w - pad, w * 0.82, w / 2, w - pad);
+    g.quadraticCurveTo(pad, w * 0.82, pad, w * 0.5);
+    g.lineTo(pad, pad + w * 0.16);
+    g.closePath();
+  };
+  shield();
+  g.fillStyle = '#0c1724';
+  g.fill();
+  g.lineWidth = hq ? 3.2 : 2.6;
+  g.strokeStyle = hq ? '#f2c14e' : '#7fb2ff';
+  g.stroke();
+  // inner star-ish dot
+  g.beginPath();
+  const cx = w / 2;
+  const cy = w * 0.47;
+  const R = w * 0.17;
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const r = i % 2 === 0 ? R : R * 0.45;
+    g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+  }
+  g.closePath();
+  g.fillStyle = hq ? '#f2c14e' : '#9fc2ff';
+  g.fill();
+  return g.getImageData(0, 0, size, size);
+}
