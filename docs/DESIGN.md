@@ -31,7 +31,7 @@ grow your prefecture — and makes it a modern, realistic, hyper-detailed CAD
   insurance, inspection and stolen flags. Procedural SVG portraits.
 * Interactive 112 transfers: Häirekeskus connects a caller, you ask questions, classify, create
   the event. Russian-speaking callers in Ida-Virumaa (interpreter option). Prank calls.
-* Radio log (VIRVE-style) with replies, procedural radio/phone sounds, optional speech synthesis.
+* Radio log (ESTER TETRA-style — Estonia’s emergency-services network; VIRVE is Finland’s) with replies, procedural radio/phone sounds, optional speech synthesis.
 * Day/night (real sunrise/sunset for 59°N), seasons, weather, holidays (jaanipäev, New Year).
 * Career with economy (from the 2025 version): reputation **Staatus**, **budget (€)**, monthly
   funding based on performance, **hire officers** (salary, skill, specialty), buy vehicles and

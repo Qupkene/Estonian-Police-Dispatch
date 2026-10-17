@@ -1,0 +1,4 @@
+# EPD · Eesti Politsei Dispetšer: https://politsei.eu
+# Mitteametlik fännimäng. Unofficial fan game, not affiliated with PPA.
+User-agent: *
+Allow: /
