@@ -1,0 +1,128 @@
+# EPD 2.0 (politsei.eu): konteineri "politsei" Caddyfile (FrankenPHP).
+#
+# Konteiner jookseb relee-politsei võrguruumis. TLS lõpetatakse relee VPS-is, siia tuleb
+# tavaline HTTP üle WireGuardi: relee 10.99.0.1 -> 10.99.0.5:80.
+#
+# Paigaldus: paigalda.sh kopeerib selle faili kausta /opt/stack/politsei/conf (konteineris /etc/epd).
+# Uuendus: politsei-uuenda.sh kontrollib uut versiooni (frankenphp validate) ja teeb reloadi,
+# konteinerit ei taaskäivitata.
+#
+# Teed (docs/SERVER.md, punkt 3):
+#   /api/*    PHP, /app/server/api/index.php (ruuter loeb REQUEST_URI-st algse tee)
+#   /tiles/*  /srv/tiles failid, Range päringud (PMTiles)
+#   muu       /app/www, tundmatu tee annab /index.html
+
+{
+	auto_https off
+	admin localhost:2019
+
+	servers {
+		# Ainult relee võib X-Forwarded-For päist anda (Caddy logid ja matcherid).
+		# PHP kontrollib sama asja ise EPD_TRUSTED_PROXY abil.
+		trusted_proxies static 10.99.0.1/32
+		client_ip_headers X-Forwarded-For
+	}
+
+	frankenphp {
+		# Pilvesalvestus: autosave kuni 4 MB JSON (PHP vastab ise 413), varu peal.
+		php_ini memory_limit 256M
+		php_ini post_max_size 8M
+		php_ini upload_max_filesize 8M
+		php_ini max_input_time 30
+		php_ini max_execution_time 30
+		php_ini expose_php Off
+		php_ini display_errors Off
+		php_ini log_errors On
+	}
+}
+
+:80 {
+	# PMTiles on juba pakitud ja loetakse Range päringutega, seda ei pakita uuesti.
+	@pakitav not path /tiles/*
+	encode @pakitav zstd gzip
+
+	# Turvapäised. "?" = ainult siis, kui PHP pole sama päist ise pannud.
+	header {
+		?X-Content-Type-Options nosniff
+		?Referrer-Policy strict-origin-when-cross-origin
+		?X-Frame-Options DENY
+		?Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		?Cross-Origin-Opener-Policy same-origin
+		-Server
+		-X-Powered-By
+	}
+
+	# Mäng: kõik oma serverist (ka tänavakaart /tiles/ ja fondid), ainult Maa- ja Ruumiameti
+	# rastrid tulevad tiles.maaamet.ee-st. MapLibre töölõim võib olla blob:. Google Fonts pole vaja.
+	@mang not path /legacy/*
+	header @mang ?Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.maaamet.ee; font-src 'self' data:; connect-src 'self' https://tiles.maaamet.ee; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+
+	# Algsed 2024 ja 2025 versioonid on ühefailised lehed: inline skript, Google Fonts,
+	# välised pildid ja heli.
+	@vana path /legacy/*
+	header @vana ?Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+
+	# API: üks ruuter. REQUEST_URI jääb algseks (/api/...), rewrite valib ainult skripti.
+	handle /api/* {
+		request_body {
+			max_size 8MB
+		}
+		header ?Cache-Control "no-store"
+		root * /app/server
+		rewrite * /api/index.php
+		php
+	}
+
+	# Kaart: /tiles/estonia.pmtiles -> /srv/tiles/estonia.pmtiles. file_server vastab Range päringule
+	# 206, Content-Length, Accept-Ranges ja püsiva ETag/Last-Modified päisega (encode on välja jäetud).
+	# Fail muutub ainult uue väljavõttega (paigalda.sh --kaart).
+	handle_path /tiles/* {
+		root * /srv/tiles
+		header Cache-Control "public, max-age=86400"
+		@pmtiles path *.pmtiles
+		header @pmtiles Content-Type "application/octet-stream"
+		file_server
+	}
+
+	# Vite failid (nimes sisu räsi): aasta vahemälu, aga ainult siis, kui fail on olemas.
+	# Puuduv vana fail annab 404, mitte index.html-i aastase vahemäluga.
+	handle /assets/* {
+		root * /app/www
+		@olemas file
+		header @olemas Cache-Control "public, max-age=31536000, immutable"
+		@mjs path *.mjs
+		header @mjs Content-Type "text/javascript; charset=utf-8"
+		file_server
+	}
+
+	# Kõik muu: index.html, sw.js, manifest.webmanifest, glyphs, legacy, 404.html.
+	# Iga serveeritav HTML ja service worker: Cache-Control no-cache (reegel 83).
+	handle {
+		root * /app/www
+		header Cache-Control "no-cache"
+		@manifest path *.webmanifest
+		header @manifest Content-Type "application/manifest+json"
+		try_files {path} /index.html
+		file_server
+	}
+
+	handle_errors {
+		header Cache-Control "no-store"
+
+		@api path /api/*
+		handle @api {
+			header Content-Type "application/json; charset=utf-8"
+			@liigasuur expression {err.status_code} == 413
+			handle @liigasuur {
+				respond `{"error":"too_large","message":"Andmed on liiga suured."}` 413
+			}
+			handle {
+				respond `{"error":"server_error","message":"Serveri viga, proovi hiljem uuesti."}` {err.status_code}
+			}
+		}
+
+		handle {
+			respond "{err.status_code} {err.status_text}" {err.status_code}
+		}
+	}
+}

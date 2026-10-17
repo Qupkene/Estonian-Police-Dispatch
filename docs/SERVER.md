@@ -28,6 +28,7 @@ src/net/               frontend API client and account store
 | /opt/stack/politsei/repo/server | /app/server | ro | PHP code from the repository |
 | /opt/stack/politsei/data | /data | rw | `epd.sqlite`, `deploy-secret`, `control/` (update tickets) |
 | /opt/stack/politsei/tiles | /srv/tiles | ro | `estonia.pmtiles` (Protomaps basemap extract of Estonia) |
+| /opt/stack/politsei/conf | /etc/epd | ro | `Caddyfile` (copied from `deploy/mainserver/Caddyfile`, validated before reload) |
 
 Containers (`/opt/stack/politsei/compose.yml`):
 
@@ -37,7 +38,8 @@ Containers (`/opt/stack/politsei/compose.yml`):
 - `politsei`: `dunglas/frankenphp:1-php8.4`, `network_mode: service:relee-politsei`, runs the
   Caddyfile from `deploy/mainserver/Caddyfile`, listens on :80 inside that network namespace.
 
-Environment for `politsei`: `EPD_DATA=/data`, `EPD_TRUSTED_PROXY=10.99.0.1`.
+Environment for `politsei`: `EPD_DATA=/data`, `EPD_TRUSTED_PROXY=10.99.0.1`, plus `XDG_DATA_HOME` and
+`XDG_CONFIG_HOME` under `/caddy/` so Caddy's own state never lands next to `epd.sqlite` in `/data`.
 
 Street map file: `estonia.pmtiles` must use the Protomaps **v4** tile schema (the style comes from
 `@protomaps/basemaps` v5). Extract it from a daily planet build, for example

@@ -104,7 +104,7 @@ npm run build
 npm run e2e
 ```
 
-GitHub Actions kontrollib iga push'i ja pull request'i (`.github/workflows/ci.yml`). Haru `main` avaldatakse automaatselt aadressil politsei.eu (`.github/workflows/deploy.yml`). Avaldamise juhend on failis [docs/DEPLOY.md](docs/DEPLOY.md), mängudisain ja arhitektuur failis [docs/DESIGN.md](docs/DESIGN.md).
+GitHub Actions kontrollib iga push'i ja pull request'i (`.github/workflows/ci.yml`). Kui CI on `main` harul roheline, uuendab koduserver politsei.eu ise (GitHubi webhook, vaata allpool „Paigaldus“). Avaldamise juhend on failis [docs/DEPLOY.md](docs/DEPLOY.md), mängudisain ja arhitektuur failis [docs/DESIGN.md](docs/DESIGN.md).
 
 ### Projekti struktuur
 
@@ -123,7 +123,9 @@ src/
 tests/        Vitesti ühiktestid
 e2e/          Playwrighti suitsutestid
 docs/         disain, avaldamine, taustauuringud, algsed väljakutsed
-public/       staatilised failid: kaardi fondid, algsed versioonid, PWA failid, CNAME
+public/       staatilised failid: kaardi fondid, algsed versioonid, PWA failid
+server/       PHP API: kontod, pilvesalvestus, edetabel, uuenduse webhook
+deploy/       koduserveri ja relee paigaldusskriptid
 ```
 
 ### Tehnoloogia
@@ -134,7 +136,7 @@ public/       staatilised failid: kaardi fondid, algsed versioonid, PWA failid, 
 - **Web Audio API** helideks, käsitsi kirjutatud **SVG** graafikuteks ja portreedeks
 - **Vitest** ja **Playwright** testimiseks
 - Fondid: Inter ja JetBrains Mono (Fontsource), kaardil Noto Sans
-- Majutus: **GitHub Pages** ja **GitHub Actions**
+- Majutus: autori koduserver (**FrankenPHP** konteiner, **PHP 8.4**, **SQLite**) relee VPS-i ja **WireGuardi** taga, CI **GitHub Actions**
 
 ### Andmeallikad ja litsentsid
 
@@ -242,7 +244,7 @@ npm run build
 npm run e2e
 ```
 
-GitHub Actions checks every push and pull request (`.github/workflows/ci.yml`). The `main` branch is deployed to politsei.eu automatically (`.github/workflows/deploy.yml`). See [docs/DEPLOY.md](docs/DEPLOY.md) for the deployment guide and [docs/DESIGN.md](docs/DESIGN.md) for the game design and architecture.
+GitHub Actions checks every push and pull request (`.github/workflows/ci.yml`). When CI is green on `main`, the home server updates politsei.eu by itself (GitHub webhook, see "Deploy" below). See [docs/DEPLOY.md](docs/DEPLOY.md) for the deployment guide and [docs/DESIGN.md](docs/DESIGN.md) for the game design and architecture.
 
 ### Project structure
 
@@ -261,7 +263,9 @@ src/
 tests/        Vitest unit tests
 e2e/          Playwright smoke tests
 docs/         design, deployment, research notes, original call list
-public/       static files: map glyphs, original versions, PWA files, CNAME
+public/       static files: map glyphs, original versions, PWA files
+server/       PHP API: accounts, cloud saves, leaderboard, update webhook
+deploy/       home server and relay setup scripts
 ```
 
 ### Tech stack
@@ -272,7 +276,7 @@ public/       static files: map glyphs, original versions, PWA files, CNAME
 - **Web Audio API** for sound, hand-written **SVG** for charts and portraits
 - **Vitest** and **Playwright** for tests
 - Fonts: Inter and JetBrains Mono (Fontsource), Noto Sans on the map
-- Hosting: **GitHub Pages** with **GitHub Actions**
+- Hosting: the author's home server (**FrankenPHP** container, **PHP 8.4**, **SQLite**) behind a relay VPS over **WireGuard**, CI on **GitHub Actions**
 
 ### Data sources and licences
 
@@ -299,3 +303,9 @@ The dream hasn't changed: a full version of the game on Steam or another platfor
 ### Licence
 
 Litsents: veel valimata (all rights reserved by the authors until a license is chosen). Third-party data, fonts and libraries remain under their own licences (see above).
+
+## Paigaldus / Deploy
+
+**Eesti keeles.** politsei.eu jookseb autori koduserveris (MainServer): ehitatud mäng ja väike PHP API (kontod, pilvesalvestus, edetabel) FrankenPHP konteineris ning isehostitud Eesti tänavakaart (PMTiles). Avalik nägu on relee VPS, mille Caddy saadab liikluse WireGuardi kaudu koju. Paigaldus käib ühe käsuga (`sudo bash deploy/mainserver/paigalda.sh`). Iga roheline CI `main` harul jõuab saidile ise (GitHubi webhook ja 10 minuti taimer), vea korral võetakse eelmine versioon automaatselt tagasi. Juhend on failis [docs/DEPLOY.md](docs/DEPLOY.md), skriptid kaustas [deploy/](deploy/) ja serveri liides failis [docs/SERVER.md](docs/SERVER.md). GitHub Pages on alles ainult käsitsi käivitatava eelvaatena.
+
+**In English.** politsei.eu runs on the author's home server: the built game and a small PHP API (accounts, cloud saves, leaderboard) in a FrankenPHP container, plus a self-hosted Estonian street map (PMTiles). A relay VPS is the public face; its Caddy forwards traffic home over WireGuard. Setup is one command (`sudo bash deploy/mainserver/paigalda.sh`). Every green CI run on `main` deploys itself (GitHub webhook plus a 10-minute timer), with automatic rollback when a deploy fails. The guide (in Estonian) is [docs/DEPLOY.md](docs/DEPLOY.md), the scripts are in [deploy/](deploy/) and the server contract is [docs/SERVER.md](docs/SERVER.md). GitHub Pages remains only as a manually triggered preview.

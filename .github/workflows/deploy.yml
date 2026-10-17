@@ -1,8 +1,10 @@
-name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages (preview)
 
+# politsei.eu is served from the owner's MainServer through the relay VPS and updates itself
+# after CI (see docs/DEPLOY.md). This workflow only publishes an optional preview on
+# https://qupkene.github.io/Estonian-Police-Dispatch/ and runs only when started by hand:
+# Actions -> Deploy to GitHub Pages (preview) -> Run workflow.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -33,8 +35,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # configure-pages reports where the site lives: "" on a custom domain (politsei.eu) and
-      # "/Estonian-Police-Dispatch" on qupkene.github.io before the domain is set up.
+      # configure-pages reports where the site lives: "/Estonian-Police-Dispatch" on
+      # qupkene.github.io (no custom domain is set for Pages any more).
       - name: Configure GitHub Pages
         id: pages
         uses: actions/configure-pages@v5

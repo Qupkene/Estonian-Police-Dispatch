@@ -1,182 +1,395 @@
-# Deploying EPD to GitHub Pages (politsei.eu)
+# EPD avaldamine: MainServer ja relee (politsei.eu)
 
-EPD is a static site. `.github/workflows/deploy.yml` builds it on every push to `main` (or when
-run by hand) and publishes `dist/` through GitHub Pages. The custom domain **politsei.eu** serves
-the game from the domain root. The workflow reads the site's base path from `actions/configure-pages`,
-so the same build works at `https://qupkene.github.io/Estonian-Police-Dispatch/` before the domain
-is ready and at `https://politsei.eu/` afterwards.
+politsei.eu jookseb Magnuse MainServeris. Avalik nägu on relee VPS: brauser räägib ainult releega,
+relee saadab päringud WireGuardi kaudu koju. Uuendus käib ise: iga roheline CI `main` harul jõuab
+saidile mõne minutiga. GitHub Pages on alles ainult valikulise eelvaatena (lõpus).
 
-| | |
-| --- | --- |
-| Repository | `Qupkene/Estonian-Police-Dispatch` (from `git remote -v`) |
-| Owner's Pages host | `qupkene.github.io` (GitHub user names are case-insensitive; the host is lowercase) |
-| Live site | https://politsei.eu |
-| Workflows | `ci.yml` (typecheck, tests, build, e2e) and `deploy.yml` (Pages) |
+## Ülevaade
 
-> EPD is an unofficial fan game and is not affiliated with the Estonian Police and Border Guard
-> Board (PPA). The official police site is politsei.ee. Because politsei.eu is one letter away from
-> it, keep the disclaimer visible and keep the domain safe from takeover (steps 2 and 7).
-
-Do the steps in this order. Only a repository admin can change the settings.
-
-## 1. Turn on GitHub Pages with GitHub Actions
-
-1. Open the repository on GitHub, then **Settings → Pages**.
-2. Under **Build and deployment → Source**, choose **GitHub Actions**. Do not choose "Deploy from
-   a branch".
-3. Start a deployment: push to `main`, or open **Actions → Deploy to GitHub Pages → Run workflow**.
-4. The first run creates the `github-pages` environment. If the deploy job fails with *"Branch …
-   is not allowed to deploy to github-pages due to environment protection rules"*, open
-   **Settings → Environments → github-pages → Deployment branches and tags** and allow `main`.
-
-Until the custom domain is set, the game is playable at `https://qupkene.github.io/Estonian-Police-Dispatch/`.
-After you add the custom domain in step 3, re-run the deploy workflow once (Actions → Deploy to GitHub
-Pages → Run workflow) so the build switches to the domain root.
-
-To try the game from this pull request before merging, allow its branch under **Settings →
-Environments → github-pages → Deployment branches and tags**, then run the workflow on that branch.
-
-## 2. Verify politsei.eu on the GitHub account (prevents takeover)
-
-Verifying the domain means no other GitHub account can attach `politsei.eu` (or its subdomains)
-to their own Pages site, for example while your DNS points at GitHub but the repository setting
-is empty.
-
-1. Click your avatar, then **Settings → Pages** (account settings, not repository settings). If
-   the repository is moved to an organization, use **Organization settings → Pages** instead.
-2. Click **Add a domain**, enter `politsei.eu` and continue.
-3. GitHub shows a TXT record, roughly:
-   - name: `_github-pages-challenge-qupkene.politsei.eu` (at most registrars you type only
-     `_github-pages-challenge-qupkene`)
-   - value: a random code
-4. Add that TXT record at the registrar (step 3). Wait a few minutes, then click **Verify**.
-5. Keep the TXT record for good. GitHub checks it again from time to time.
-
-## 3. DNS records at the .eu registrar
-
-In the DNS panel of the registrar (or the DNS host) for `politsei.eu`, create these records.
-Delete anything that conflicts first: the registrar's parking or "website builder" A records,
-URL forwarding, ALIAS/ANAME records on the apex, and any old `www` record.
-
-| Type | Name / host | Value |
-| --- | --- | --- |
-| A | `@` (apex, `politsei.eu`) | `185.199.108.153` |
-| A | `@` | `185.199.109.153` |
-| A | `@` | `185.199.110.153` |
-| A | `@` | `185.199.111.153` |
-| AAAA | `@` | `2606:50c0:8000::153` |
-| AAAA | `@` | `2606:50c0:8001::153` |
-| AAAA | `@` | `2606:50c0:8002::153` |
-| AAAA | `@` | `2606:50c0:8003::153` |
-| CNAME | `www` | `qupkene.github.io.` |
-| TXT | `_github-pages-challenge-qupkene` | the code from step 2 |
-
-Notes:
-
-- The `www` CNAME points to `<owner>.github.io` **without** the repository name. The owner is
-  `qupkene`. If the repository is ever moved to an organization, change it to `<org>.github.io`.
-- Some panels add the domain automatically. If yours does, type `qupkene.github.io` without the
-  trailing dot.
-- Do **not** create a wildcard record (`*.politsei.eu`). It lets anyone claim a subdomain on
-  GitHub Pages.
-- If the zone has **CAA** records, one of them must allow Let's Encrypt: `0 issue "letsencrypt.org"`.
-  If there are no CAA records at all, you need not add any.
-- DNSSEC is fine, as long as the registrar signs the zone correctly.
-
-## 4. Set the custom domain on the repository
-
-1. **Settings → Pages → Custom domain**: enter `politsei.eu` (the apex, not `www`) and click **Save**.
-2. GitHub runs a DNS check. It may say the DNS check is in progress or failed until the records
-   from step 3 have spread. That can take from a few minutes to 24 hours, and occasionally up to 48.
-3. With the apex as the custom domain and the `www` CNAME in place, GitHub redirects
-   `www.politsei.eu` to `politsei.eu` automatically.
-
-About `public/CNAME`: the file contains `politsei.eu` and Vite copies it into `dist/`. When Pages
-publishes from **GitHub Actions**, GitHub ignores that file. The setting in **Settings → Pages**
-is what counts, and it persists across deployments. The file stays in the repository as
-documentation and for hosts that read it.
-
-## 5. Turn on HTTPS
-
-Once DNS resolves to GitHub, GitHub requests a Let's Encrypt certificate for `politsei.eu` and
-`www.politsei.eu`. This usually takes minutes, sometimes up to an hour after the DNS check passes.
-
-1. Reload **Settings → Pages**. When the **Enforce HTTPS** checkbox becomes clickable, tick it.
-2. If it stays greyed out with *"Unavailable for your site because your domain is not properly
-   configured to support HTTPS"* for more than 24 hours, check the records again, then remove the
-   custom domain, save, add it again and save. That triggers a new certificate request.
-
-The service worker (offline mode) and PWA install need HTTPS, so do not skip this step.
-
-## 6. Check that it works
-
-```bash
-dig politsei.eu A +short          # the four 185.199.10x.153 addresses
-dig politsei.eu AAAA +short       # the four 2606:50c0:800x::153 addresses
-dig www.politsei.eu +short        # qupkene.github.io. followed by GitHub's addresses
-dig TXT _github-pages-challenge-qupkene.politsei.eu +short
-curl -sI https://politsei.eu | head -n 5        # HTTP/2 200, server: GitHub.com
-curl -sIL http://www.politsei.eu | grep -i '^location'   # redirects end at https://politsei.eu/
+```
+brauser
+  |  https://politsei.eu   (DNS A 80.47.227.213, www.politsei.eu suunab politsei.eu peale)
+  v
+relee VPS (UpCloud, Helsingi): Caddy, Let's Encrypt, varuleht kui kodu ei vasta
+  |  reverse_proxy 10.99.0.5:80, WireGuard wg0 (10.99.0.1 -> 10.99.0.5)
+  v
+MainServer: konteiner relee-politsei (linuxserver/wireguard, Dockeri võrk veeb, WG 10.99.0.5)
+  |  sama võrguruum
+  v
+konteiner politsei (FrankenPHP, :80)
+  +-- /         /opt/stack/politsei/www            ehitatud mäng (dist/), version.txt
+  +-- /api/*    /opt/stack/politsei/repo/server    PHP API, andmebaas kaustas data/
+  +-- /tiles/*  /opt/stack/politsei/tiles          estonia.pmtiles (tänavakaart)
 ```
 
-Then open https://politsei.eu, check that the menu loads, that `/legacy/politseimang-2025.html`
-opens, and that **Settings → Pages** says *"Your site is live at https://politsei.eu"*.
-
-## 7. Keep the .eu domain
-
-- **Eligibility.** A `.eu` domain may only be held by: a citizen of an EU or EEA country (Iceland,
-  Liechtenstein, Norway), wherever they live; a person resident in the EU/EEA; or a company or
-  organisation established in the EU/EEA. EURid, the registry, can suspend and later revoke a
-  domain whose holder no longer qualifies, so keep the registrant details accurate. An Estonian
-  citizen or resident qualifies.
-- **Renewal.** Turn on auto-renew and keep the registrar's contact e-mail working. An expired
-  domain that looks this much like politsei.ee could be picked up and used to impersonate the
-  police.
-- **If you stop hosting.** Remove the custom domain in Settings → Pages *and* delete the DNS
-  records together. DNS pointing at GitHub with no site behind it is what makes takeover possible
-  (the domain verification from step 2 also guards against it).
-
-## Hosting somewhere else
-
-The `base` in `vite.config.ts` comes from the `BASE_PATH` environment variable and defaults to `/`.
-
-- **github.io project page without a custom domain:** build with
-  `BASE_PATH=/Estonian-Police-Dispatch/`, by changing the `env` of the Build step in
-  `deploy.yml`. Note that once a custom domain is set, the github.io address just redirects to it.
-- **Any other static host** (Netlify, Cloudflare Pages, nginx, …): run `npm ci && npm run build`
-  and publish `dist/`. Set `BASE_PATH` if the site lives under a sub-path, for example
-  `BASE_PATH=/epd/ npm run build`.
-  - The game switches screens in-app and has no URL routes, so no rewrite rules are needed.
-    Serve `404.html` for missing files if the host supports it. Its "home" link points to `/`
-    (and to `/<repo>/` on github.io); adjust it for other sub-path hosts.
-  - Serve over HTTPS (or `localhost`), otherwise the service worker is not registered.
-  - Caching: `assets/*` file names are content-hashed and can be cached for a year (`immutable`).
-    Serve `index.html`, `sw.js` and `manifest.webmanifest` with a short cache or `no-cache`.
-  - MIME type for `.webmanifest`: `application/manifest+json`.
-
-## Service worker and updates
-
-`public/sw.js` keeps the game playable offline. Pages load network-first, so players get a new
-deployment on their next online visit. Hashed `assets/*` and the map `glyphs/*` are served from
-the cache. Up to about 400 CARTO map tiles are cached as players browse.
-
-- Bump `VERSION` at the top of `public/sw.js` when a release changes `public/glyphs/`, other
-  non-hashed files or the caching logic. Old caches are deleted when the new worker activates.
-- To reset a browser: DevTools → Application → Service workers → **Unregister**, then
-  Storage → **Clear site data**.
-
-## Troubleshooting
-
-| Symptom | Cause and fix |
+| Kus | Mis |
 | --- | --- |
-| *"Get Pages site failed"* / *"Not Found"* in **Configure GitHub Pages** | Pages is not enabled or the source is not **GitHub Actions**. See step 1. |
-| Deploy job: *"… not allowed to deploy to github-pages due to environment protection rules"* | Allow `main` in Settings → Environments → github-pages. |
-| politsei.eu shows GitHub's *"There isn't a GitHub Pages site here"* | The custom domain is not set on the repository (step 4), or DNS still points elsewhere. |
-| The registrar's parking page still shows | Old A records or URL forwarding are left over at the registrar, or DNS has not spread yet. `dig politsei.eu A +short` must show only the four GitHub addresses. |
-| Settings → Pages: *"DNS check unsuccessful"* / *InvalidDNSError* | Check the records against step 3, remove extra A/AAAA records, wait, then click **Check again**. |
-| *"The custom domain politsei.eu is already taken"* | Another repository uses it. Remove it there. Verifying the domain (step 2) stops other accounts from using it. |
-| **Enforce HTTPS** is greyed out | The certificate is not issued yet. Wait; check CAA records; remove and re-add the custom domain (step 5). |
-| Blank page; `assets/*.js` returns 404 | Built with the wrong `BASE_PATH`. For politsei.eu it must be `/` (see `deploy.yml`). |
-| Old version shows after a deploy | GitHub Pages caches HTML for up to 10 minutes, and the service worker updates on the next visit. Reload once more, or clear site data. |
-| `npm ci` fails in the workflow | `package-lock.json` is out of sync with `package.json`. Run `npm install` locally and commit the lock file. |
-| The e2e job is red but the run is green | Expected for now: the e2e job has `continue-on-error: true`. Download the `playwright-report` artifact from the run to see why it failed. |
+| /opt/stack/politsei/compose.yml | relee-politsei + politsei (repo: deploy/mainserver/compose.yml) |
+| /opt/stack/politsei/conf/Caddyfile | konteineri Caddyfile (repo: deploy/mainserver/Caddyfile) |
+| /opt/stack/politsei/wg/ | wg0.conf, politsei.key (privaatvõti), politsei.pub |
+| /opt/stack/politsei/data/ | epd.sqlite, sessions/, deploy-secret, control/uuenda.json |
+| /opt/stack/politsei/www.prev/ | eelmine versioon (tagasivõtuks) |
+| /opt/stack/politsei/olek/ | viimane.txt (viimane tulemus), vigased.txt (vahele jäetud commitid) |
+| /opt/stack/politsei/juhised.txt | paigaldaja juhised (a, b, c) uuesti vaatamiseks |
+| /usr/local/sbin/politsei-uuenda.sh | uuendusskript |
+| politsei-uuenda.path, .timer, .service | systemd unitid |
+| relee: /etc/caddy/Caddyfile, /etc/wireguard/wg0.conf | politsei.eu plokk ja peer 10.99.0.5 |
+| relee: /srv/politsei/varu/index.html | "Server on hetkel kättesaamatu" |
+
+Nftables releel ei muutu: 80 ja 443 on juba lahti, Caddy ühendus 10.99.0.5 poole on releelt endalt
+väljuv liiklus wg0 kaudu. MainServeris kehtib veeb võrgu olemasolev DOCKER-USER isolatsioon (välja
+ainult UDP 80.47.227.213:51820).
+
+## Paigaldus
+
+Tee sammud järjest. DNS-i (samm 3) võib teha ka kohe alguses, levimine võtab aega.
+
+### 1. MainServer
+
+MainServer PuTTY aken. Plokk 1 üksinda (küsib sudo parooli):
+
+```
+sudo -v
+```
+
+Plokk 2:
+
+```
+sudo mkdir -p /opt/stack/politsei
+sudo git clone https://github.com/Qupkene/Estonian-Police-Dispatch.git /opt/stack/politsei/repo
+sudo bash /opt/stack/politsei/repo/deploy/mainserver/paigalda.sh
+```
+
+Paigaldaja (umbes 5 kuni 15 minutit, kaart ja esimene ehitus võtavad kõige kauem):
+
+1. kontrollib Debianit, Dockerit ja docker compose'i, paigaldab puuduvad paketid (git, curl, jq,
+   rsync, openssl);
+2. valib veeb võrgus vaba IP (alates .50) ja kontrollib, et 10.99.0.5 pole kellelgi teisel;
+3. loob kaustad, kloonib või uuendab repo, loob WireGuardi võtmepaari ja webhooki saladuse;
+4. kontrollib kõik enne käivitamist (docker compose config, frankenphp validate, php -l,
+   wg-quick strip, bash -n);
+5. tõmbab Eesti kaardi: viimane Protomaps v4 päevane build, ala 21.0,57.2,28.6,60.0, suum kuni 15;
+6. teeb varukoopia, paigaldab failid, käivitab konteinerid, kontrollib `/api/health`;
+7. ehitab mängu esimest korda (`politsei-uuenda.sh --joud`), käivitab systemd unitid;
+8. prindib kolm plokki: (a) relee, (b) GitHubi webhook, (c) DNS. Need on ka failis
+   `/opt/stack/politsei/juhised.txt` (`sudo cat /opt/stack/politsei/juhised.txt`).
+
+Vea korral pärast paigalduse algust taastab paigaldaja eelmised failid ja konteinerid ise. Võtmed,
+saladus, kaart ja andmebaas jäävad alles, uuesti käivitamine on ohutu. Uuesti käivitamine
+(MainServer PuTTY, sama plokk 1 enne):
+
+```
+sudo bash /opt/stack/politsei/repo/deploy/mainserver/paigalda.sh
+```
+
+### 2. Relee
+
+Relee PuTTY aken. Kleebi paigaldaja prinditud plokid (a): plokk 1 `sudo -v` üksinda, siis plokk 2
+tervikuna. Plokis 2 on skript `deploy/relee/lisa-politsei.sh` ja uus avalik võti juba sees.
+
+Skript teeb varukoopiad (`Caddyfile.varu-politsei-*`, `wg0.conf.varu-politsei-*`), lisab peeri
+10.99.0.5 jooksvalt (`wg set`, teised tunnelid ei katke) ja wg0.conf lõppu, kirjutab varulehe,
+lisab Caddy ploki ainult siis, kui seda veel pole, teeb `caddy validate` ja reloadi. Vea korral
+taastab mõlemad failid ja peeri ise. Lõpus näitab WireGuardi kätlust ja `http://10.99.0.5/` vastust.
+
+### 3. DNS
+
+Domeeni registripidaja (või DNS-i haldus) politsei.eu jaoks:
+
+| Tüüp | Nimi | Väärtus | Märkus |
+| --- | --- | --- | --- |
+| A | `@` (politsei.eu) | `80.47.227.213` | DNS only, ilma proksita |
+| A | `www` | `80.47.227.213` | DNS only, ilma proksita |
+
+Kustuta vanad GitHub Pagesi kirjed: A `185.199.108.153`, `185.199.109.153`, `185.199.110.153`,
+`185.199.111.153`, kõik AAAA `2606:50c0:800x::153` ja CNAME `www` > `qupkene.github.io`. Kui mõni
+AAAA jääb alles, lähevad IPv6 kasutajad endiselt GitHubi. TXT `_github-pages-challenge-qupkene`
+võib alles jääda. CAA kirjeid pole vaja; kui neid on, peab üks lubama `letsencrypt.org`.
+
+Kui DNS näitab releele, hangib relee Caddy sertifikaadi ise (mõne minutiga).
+
+### 4. GitHubi webhook
+
+GitHubi veebiliides: https://github.com/Qupkene/Estonian-Police-Dispatch/settings/hooks/new
+
+| Väli | Väärtus |
+| --- | --- |
+| Payload URL | `https://politsei.eu/api/deploy-hook` |
+| Content type | `application/json` |
+| Secret | paigaldaja prinditud väärtus (`sudo cat /opt/stack/politsei/data/deploy-secret`) |
+| SSL verification | Enable SSL verification |
+| Which events | Let me select individual events: ainult **Workflow runs** (Pushes linnuke maha) |
+| Active | linnuke peal |
+
+Lisaks: **Settings > Pages > Custom domain** tühjaks ja Save, sest politsei.eu ei ole enam GitHub
+Pagesis.
+
+GitHub saadab kohe `ping` sündmuse. **Recent Deliveries** all peab see olema 200 ja vastus
+`{"pong":true}` (kui DNS ja relee on valmis).
+
+### 5. Kontroll
+
+MainServer PuTTY (või ükskõik milline arvuti):
+
+```
+curl -sI https://politsei.eu | head -n 5
+curl -s https://politsei.eu/api/health
+cat /opt/stack/politsei/www/version.txt
+curl -sI https://www.politsei.eu | grep -i '^location'
+```
+
+Ootus: `HTTP/2 200` ja `cache-control: no-cache`; `{"ok":true,"version":"<sha>","accounts":true}`,
+kus sha on sama mis version.txt; www suunab `https://politsei.eu/` peale.
+
+## Kuidas automaatne uuendus töötab
+
+1. Push `main` harusse, GitHub Actions jooksutab töövoogu `CI`.
+2. Kui CI lõpeb, saadab GitHub webhooki (`workflow_run`) aadressile `https://politsei.eu/api/deploy-hook`.
+3. API kontrollib allkirja (saladus failis `data/deploy-secret`) ja et see on roheline `CI` `main`
+   harult, siis kirjutab pileti `data/control/uuenda.json`.
+4. `politsei-uuenda.path` märkab piletit ja käivitab `politsei-uuenda.sh`:
+   - kustutab pileti, võtab luku (üks uuendus korraga);
+   - loeb `origin/main` tipu (`git ls-remote`), kui see on juba `www/version.txt`-is, lõpetab;
+   - küsib GitHubi API-st selle commiti check-runs: pooleli = ootab (taimer proovib uuesti),
+     punane = jätab selle commiti vahele ja teatab; e2e töö võib kukkuda, kui töövoog ise on
+     roheline (`continue-on-error`);
+   - ehitab `node:22` konteineris (`npm ci && npm run build`, `BASE_PATH=/`, 2 CPU, nice 10);
+   - kontrollib dist-i (index.html, assets/, sw.js), `php -l` ja uue Caddyfile'i;
+   - teeb `www.prev` koopia, kopeerib uue versiooni `www/` sisse (`rsync --delete`, kausta sisu,
+     mitte kausta), kirjutab `version.txt`, viib repo samale commitile;
+   - kontrollib `/version.txt`, avalehte ja `/api/health`;
+   - mis tahes vea korral taastab `www` ja repo eelmisele versioonile.
+5. `politsei-uuenda.timer` jooksutab sama skripti 5 min pärast boot'i ja siis iga 10 min järel.
+   Kui webhook jäi tulemata, tuleb uuendus sealt.
+6. Konteinereid ei taaskäivitata, kui pole vaja. PHP muutused jõuavad kohe kohale, uus Caddyfile
+   läheb reloadiga. Kui `relee-politsei` on vahepeal taaskäivitunud, loob skript `politsei`
+   konteineri uuesti (sama parandus mis mc-veebil).
+7. Kui `/etc/pidu.env` sisaldab Telegrami tokenit ja chat id-d, tuleb tulemus Telegrami.
+
+Kui uuendus muudab paigaldusfaile (compose.yml, uuendusskript, systemd unitid), ütleb skript seda
+logis ja Telegramis. Siis käivita paigaldaja uuesti (vt samm 1).
+
+## Käsitsi uuendamine
+
+MainServer PuTTY:
+
+```
+sudo politsei-uuenda.sh
+```
+
+`--joud` ehitab tipu ka siis, kui see on juba paigas, CI pole roheline või commit on varem
+ebaõnnestunud:
+
+```
+sudo politsei-uuenda.sh --joud
+```
+
+## Logid
+
+MainServer PuTTY:
+
+```
+sudo journalctl -u politsei-uuenda -n 50 --no-pager
+sudo journalctl -t politsei-uuenda -n 50 --no-pager
+cat /opt/stack/politsei/olek/viimane.txt
+systemctl list-timers politsei-uuenda.timer --no-pager
+docker logs politsei --tail 30
+docker logs relee-politsei --tail 30
+```
+
+`-u` näitab teenuse käivitusi (webhook ja taimer), `-t` ka käsitsi käivitusi.
+
+## Tagasivõtt
+
+Ebaõnnestunud uuendus võetakse tagasi automaatselt. Kui uus versioon töötab tehniliselt, aga on
+mängus katki, on õige tee GitHubis `git revert` ja push: see läheb läbi CI ja jõuab saidile ise.
+
+Kiire käsitsi tagasivõtt eelmisele versioonile (MainServer PuTTY). Viimane rida paneb praeguse
+tipu vahelejäetute nimekirja, et taimer seda kohe tagasi ei paneks; järgmine uus commit läheb jälle
+automaatselt.
+
+```
+sudo rsync -a --delete /opt/stack/politsei/www.prev/ /opt/stack/politsei/www/
+sudo git -c safe.directory=/opt/stack/politsei/repo -C /opt/stack/politsei/repo checkout -q -f -B main "$(cat /opt/stack/politsei/www/version.txt)"
+cd /opt/stack/politsei && sudo docker compose up -d --force-recreate politsei
+git ls-remote https://github.com/Qupkene/Estonian-Police-Dispatch.git refs/heads/main | cut -f1 | sudo tee -a /opt/stack/politsei/olek/vigased.txt
+curl -s -m 5 "http://$(sed -n 's/^POLITSEI_IP=//p' /opt/stack/politsei/.env)/api/health"
+```
+
+`www.prev` hoiab ainult ühte eelmist versiooni.
+
+## Kõige eemaldamine
+
+MainServer PuTTY, plokk 1 (konteinerid, unitid, skript, ehituse vahemälu; andmed jäävad alles):
+
+```
+sudo systemctl disable --now politsei-uuenda.path politsei-uuenda.timer
+cd /opt/stack/politsei && sudo docker compose down
+sudo rm -f /etc/systemd/system/politsei-uuenda.service /etc/systemd/system/politsei-uuenda.path /etc/systemd/system/politsei-uuenda.timer /usr/local/sbin/politsei-uuenda.sh
+sudo systemctl daemon-reload
+sudo docker volume rm politsei-node-modules politsei-npm-cache
+```
+
+Plokk 2 kustutab ka kontod, salvestused, võtmed ja kaardi. Ära käivita, kui andmeid on veel vaja:
+
+```
+sudo rm -rf /opt/stack/politsei
+```
+
+Relee PuTTY aken. Plokk 1 üksinda:
+
+```
+sudo -v
+```
+
+Plokk 2 (sama mis `deploy/relee/eemalda-politsei.sh`; varukoopia, kontroll ja taastamine on sees):
+
+```
+cat > ~/eemalda-politsei.sh <<'POLITSEI_EEMALDUS_LOPP'
+#!/usr/bin/env bash
+# eemalda-politsei.sh: eemaldab politsei.eu relee VPS-ilt (vastupidine lisa-politsei.sh-le).
+#
+# Kleebitav plokk on failis docs/DEPLOY.md (relee PuTTY aken). Eemaldab ainult selle, mille
+# lisa-politsei.sh lisas: märgisega WireGuardi peeri, Caddy ploki politsei.eu + www.politsei.eu
+# ja varulehe. Teeb varukoopiad, kontrollib (caddy validate) ja taastab vea korral kõik ise.
+
+set -euo pipefail
+umask 077
+echo "== politsei.eu eemaldamine releelt =="
+
+WG_IF=wg0
+# POLITSEI_* muutujad on ainult testimiseks, vaikimisi on relee teed.
+WG_CONF="${POLITSEI_WG_CONF:-/etc/wireguard/wg0.conf}"
+CADDYFILE="${POLITSEI_CADDYFILE:-/etc/caddy/Caddyfile}"
+VARU_JUUR="${POLITSEI_VARU_JUUR:-/srv/politsei}"
+MARK="# politsei.eu (EPD, MainServer relee-politsei)"
+AEG="$(date +%Y%m%d-%H%M%S)"
+CADDY_VARU="$CADDYFILE.varu-eemaldus-$AEG"
+WG_VARU="$WG_CONF.varu-eemaldus-$AEG"
+VOTI=""
+EEMALDATUD_LIVE=0
+VALMIS=0
+
+[ "$(id -u)" -eq 0 ] || { echo "VIGA: käivita sudo-ga" >&2; exit 1; }
+cp -a "$CADDYFILE" "$CADDY_VARU"
+cp -a "$WG_CONF" "$WG_VARU"
+echo "Varukoopiad: $CADDY_VARU ja $WG_VARU"
+
+taasta() {
+    set +e
+    echo "!! Viga, taastan kõik"
+    cp -a "$CADDY_VARU" "$CADDYFILE"
+    cp -a "$WG_VARU" "$WG_CONF"
+    if [ "$EEMALDATUD_LIVE" = 1 ]; then
+        wg set "$WG_IF" peer "$VOTI" allowed-ips 10.99.0.5/32
+    fi
+    systemctl reload caddy
+    echo "!! Taastatud"
+}
+
+lopp() {
+    local rc=$?
+    trap - EXIT
+    if [ "$rc" -ne 0 ] && [ "$VALMIS" != 1 ]; then
+        taasta
+    fi
+    exit "$rc"
+}
+trap lopp EXIT
+
+VOTI="$(awk -v m="$MARK" '
+    $0 == m { sees = 1; next }
+    sees && /PublicKey/ { gsub(/[[:space:]]/, ""); sub(/^PublicKey=/, ""); print; exit }
+' "$WG_CONF")"
+
+# Caddy: märkuse reast "# politsei.eu (EPD): ..." kuni www.politsei.eu ploki lõpuni.
+awk '
+    /^# politsei\.eu \(EPD\): MainServer/ { sees = 1 }
+    sees && /^www\.politsei\.eu \{/ { www = 1 }
+    !sees { print }
+    sees && www && /^\}/ { sees = 0; www = 0 }
+' "$CADDYFILE" > "$CADDYFILE.uus"
+cat "$CADDYFILE.uus" > "$CADDYFILE"
+rm -f "$CADDYFILE.uus"
+
+awk -v m="$MARK" '
+    $0 == m { sees = 1; peer = 0; next }
+    sees && /^[[:space:]]*\[/ { if (peer) { sees = 0 } else { peer = 1; next } }
+    sees && /^[[:space:]]*$/ { sees = 0 }
+    !sees { print }
+' "$WG_CONF" > "$WG_CONF.uus"
+cat "$WG_CONF.uus" > "$WG_CONF"
+rm -f "$WG_CONF.uus"
+
+caddy validate --config "$CADDYFILE" --adapter caddyfile >/dev/null 2>&1 \
+    || { echo "VIGA: caddy validate ebaõnnestus" >&2; exit 1; }
+if [ -n "$VOTI" ]; then
+    wg set "$WG_IF" peer "$VOTI" remove
+    EEMALDATUD_LIVE=1
+fi
+systemctl reload caddy
+VALMIS=1
+rm -rf -- "${VARU_JUUR:?}"
+echo "Valmis: politsei.eu eemaldatud (peer ${VOTI:-puudus}, Caddy plokk, varuleht)."
+POLITSEI_EEMALDUS_LOPP
+sudo bash ~/eemalda-politsei.sh
+```
+
+Lõpuks DNS-is politsei.eu ja www A-kirjed ära (või uude kohta) ning GitHubis webhook ära
+(Settings > Webhooks > Delete).
+
+## Veaotsing
+
+| Sümptom | Põhjus ja lahendus |
+| --- | --- |
+| Leht "Server on hetkel kättesaamatu" või API 503 `offline` | Relee ei saa koju. Releel `sudo wg show`: peeri 10.99.0.5 `latest handshake` peab olema alla 2 min. MainServeris `docker ps`, `docker exec relee-politsei wg show`, `docker logs relee-politsei --tail 30`. Kui relee-politsei taaskäivitus eraldi: `cd /opt/stack/politsei && docker compose up -d --force-recreate politsei` (taimer teeb sama 10 min jooksul). |
+| Kätlus puudub üldse | Võtmed ei klapi: `cat /opt/stack/politsei/wg/politsei.pub` peab olema releel `sudo wg show` all. Vajadusel käivita relee plokk (`sudo cat /opt/stack/politsei/juhised.txt`) uuesti. |
+| Brauser: sertifikaadi viga | DNS pole veel releel: `dig +short politsei.eu` peab andma ainult `80.47.227.213`. Releel `sudo journalctl -u caddy -n 50 --no-pager \| grep -i politsei`. |
+| Webhook: 401 `bad_signature` | Saladus ei klapi. `sudo cat /opt/stack/politsei/data/deploy-secret`, kleebi GitHubi webhooki Secret väljale, siis Recent Deliveries > Redeliver. |
+| Webhook: 503 `not_configured` | `data/deploy-secret` puudub: käivita paigaldaja uuesti. |
+| Webhook: 200 `{"ignored": ...}` | Normaalne: teine haru, punane CI või muu töövoog. Põhjus on vastuses. |
+| Uuendus ei tule | `sudo journalctl -u politsei-uuenda -n 50 --no-pager`. "Ootan CI-d" = CI käib; "varem ebaõnnestunud" = paranda ja tee uus commit või `sudo politsei-uuenda.sh --joud`; "GitHubi API ei vasta" = võrk või päringulimiit (60 tunnis), taimer proovib uuesti. |
+| Kaart näitab ainult taktikalist vaadet, teade "Tänavakaardi faili ei leitud" | `ls -lh /opt/stack/politsei/tiles/`. Tõmba uuesti: `sudo bash /opt/stack/politsei/repo/deploy/mainserver/paigalda.sh --kaart` |
+| `/api/health` annab 500 | `docker logs politsei --tail 50`. Tavaliselt andmekaust: `ls -la /opt/stack/politsei/data`. |
+| Telefon näitab vana versiooni | index.html ja sw.js on `no-cache`, uus versioon tuleb järgmisel avamisel. Kiiresti: sulge kõik vahelehed või kustuta saidi andmed. |
+| Ehitus kukub mälu tõttu | Ehitus saab 3 GB ja 2 CPU-d. Vaata logi; kui Minecraft võtab kogu mälu, proovi hiljem `sudo politsei-uuenda.sh --joud`. |
+
+## Kohalik arendus tänavakaardiga
+
+`npm run dev` serveerib faili `public/tiles/estonia.pmtiles` Range päringutega (kaust on
+.gitignore'is). Lihtsaim on kopeerida fail MainServerist. Qupkenepro PowerShell, repo kaustas:
+
+```
+mkdir public\tiles
+scp magnus@10.10.20.10:/opt/stack/politsei/tiles/estonia.pmtiles public/tiles/
+```
+
+Ilma failita näitab mäng taktikalist kaarti.
+
+## Valikuline: eelvaade github.io-s
+
+`.github/workflows/deploy.yml` avaldab mängu aadressil `https://qupkene.github.io/Estonian-Police-Dispatch/`
+ainult käsitsi käivitades. Seal pole API-t (ainult külalisrežiim) ega tänavakaarti (taktikaline
+kaart).
+
+GitHubi veebiliides:
+
+1. **Settings > Pages > Build and deployment > Source**: GitHub Actions. Custom domain jääb tühjaks.
+2. **Actions > Deploy to GitHub Pages (preview) > Run workflow**.
+3. Kui deploy töö annab "not allowed to deploy to github-pages due to environment protection rules",
+   luba haru: **Settings > Environments > github-pages > Deployment branches and tags**.
+
+## Service worker
+
+`public/sw.js` hoiab mängu võrguta mängitavana. Lehed laetakse võrgust enne vahemälu, räsiga
+`assets/*` ja `glyphs/*` tulevad vahemälust, `/api/` ja `/tiles/` lähevad alati otse serverisse.
+Tõsta `VERSION` faili alguses, kui muutuvad `public/glyphs/`, muud räsita failid või vahemälu
+loogika.
+
+## .eu domeen
+
+- `.eu` domeeni võib hoida EL-i või EMP kodanik, elanik või seal asutatud ettevõte. Hoia
+  registripidaja andmed õiged.
+- Lülita automaatne pikendus sisse. Aegunud domeen, mis on ühe tähe kaugusel politsei.ee-st, võib
+  minna kellelegi, kes jäljendab politseid.
+- Hoia mängus nähtaval, et EPD on mitteametlik fännimäng ega ole seotud PPA-ga.

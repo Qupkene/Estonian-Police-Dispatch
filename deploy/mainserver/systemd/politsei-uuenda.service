@@ -1,0 +1,15 @@
+# EPD (politsei.eu): uuendus GitHubist. Käivitavad politsei-uuenda.path (webhooki pilet)
+# ja politsei-uuenda.timer (iga 10 min varuks). Käsitsi: sudo politsei-uuenda.sh
+[Unit]
+Description=EPD politsei.eu uuendus GitHubist
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/local/sbin/politsei-uuenda.sh
+SyslogIdentifier=politsei-uuenda
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=45min
