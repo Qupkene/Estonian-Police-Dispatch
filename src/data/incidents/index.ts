@@ -13,6 +13,8 @@ import { TEMPLATES_TRAFFIC } from './traffic';
 import { TEMPLATES_MISSING } from './missing';
 import { TEMPLATES_ASSIST } from './assist';
 import { TEMPLATES_MAJOR } from './major';
+import { TEMPLATES_ESCALATING } from './escalating';
+import { TEMPLATES_STORIES } from './stories';
 
 export const TEMPLATES: IncidentTemplate[] = [
   ...TEMPLATES_VIOLENCE,
@@ -29,6 +31,8 @@ export const TEMPLATES: IncidentTemplate[] = [
   ...TEMPLATES_MISSING,
   ...TEMPLATES_ASSIST,
   ...TEMPLATES_MAJOR,
+  ...TEMPLATES_ESCALATING,
+  ...TEMPLATES_STORIES,
 ];
 
 export const TEMPLATE_BY_ID: Record<string, IncidentTemplate> = Object.fromEntries(TEMPLATES.map((t) => [t.id, t]));
