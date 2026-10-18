@@ -10,7 +10,7 @@ import { updateCalls } from './calls';
 import { emit, regionOf } from './internal';
 import { isHidden, openIncidentIds, updateIncidents } from './incidents';
 import { jkPhrase } from './radio';
-import { buildReport } from './report';
+import { buildReport, earlyEndFactor } from './report';
 import { fmtDate } from './registry';
 import { Rng } from './rng';
 import { updateShiftScore } from './scoring';
@@ -547,7 +547,7 @@ function minimalReport(s: SimState): ShiftReport {
     const xs = s.stats.responseTimes[p];
     if (xs.length) avg[p] = Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10;
   }
-  const score = s.stats.score;
+  const score = Math.round(s.stats.score * earlyEndFactor(s).factor);
   return {
     regionId: s.regionId,
     mode: s.mode,
@@ -555,7 +555,7 @@ function minimalReport(s: SimState): ShiftReport {
     start: s.startTime,
     end: s.now,
     playerName: s.playerName,
-    stats: s.stats,
+    stats: { ...s.stats, score },
     avgResponse: avg,
     score,
     grade: gradeOf(score),

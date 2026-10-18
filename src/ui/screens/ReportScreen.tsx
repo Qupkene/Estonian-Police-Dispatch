@@ -9,6 +9,7 @@ import { useLang, useT } from '@/i18n';
 import { sfx } from '@/audio/sfx';
 import { ddmmyyyy, hhmm, wall } from '@/sim/time';
 import type { LedgerEntry, Officer, Priority, ShiftReport } from '@/sim/types';
+import type { ReportExtras } from '@/sim/report';
 import { Badge, Button, Empty, Icon, PriorityChip, Spinner, type IconName } from '@/ui/components';
 import { Newspaper } from './shell/Newspaper';
 import { ShellPage } from './shell/ShellPage';
@@ -132,6 +133,7 @@ export function ReportScreen() {
             <div className="sh-grade__score">
               <span className="mono">{Math.round(report.score)}</span> / 100 {t('shell.rep.points')}
             </div>
+            <EarlyEndLine report={report} />
             <RankLine report={report} />
             <div className="sh-grade__chips">
               <Badge tone="accent" icon="star">
@@ -350,6 +352,18 @@ export function ReportScreen() {
 }
 
 type RankState = { status: 'idle' } | { status: 'sending' } | { status: 'done'; rank: number | null } | { status: 'error' };
+
+/** Grade card note when the shift was ended before its end time (src/sim/report.ts earlyEndFactor). */
+function EarlyEndLine({ report }: { report: ShiftReport }) {
+  const t = useT();
+  const e = (report as ShiftReport & { extras?: ReportExtras }).extras?.earlyEnd;
+  if (!e) return null;
+  return (
+    <p className="sh-grade__early" data-testid="early-end">
+      {t('shell.rep.earlyEnd', { served: Math.round(e.served * 100), raw: e.rawScore, pct: Math.round(e.factor * 100) })}
+    </p>
+  );
+}
 
 /** Leaderboard line on the grade card: the player's place (accounts) or a hint (guests). */
 function RankLine({ report }: { report: ShiftReport }) {

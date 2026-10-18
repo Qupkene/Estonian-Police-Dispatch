@@ -568,6 +568,10 @@ export default {
   'shell.rep.noneText': { et: 'Lõpeta vahetus, et näha aruannet.', en: 'Finish a shift to see its report.' },
   'shell.rep.grade': { et: 'Vahetuse hinne', en: 'Shift grade' },
   'shell.rep.points': { et: 'punkti', en: 'points' },
+  'shell.rep.earlyEnd': {
+    et: 'Vahetus lõpetati enne aega ({served} % ajast): {raw} punktist jäi alles {pct} %.',
+    en: 'Shift ended early ({served}% of the time served): {pct}% of {raw} points kept.',
+  },
   'shell.rep.repShort': { et: 'Staatus', en: 'Staatus' },
   'shell.rep.verdict.S': { et: 'Legendaarne vahetus', en: 'A legendary shift' },
   'shell.rep.verdict.A': { et: 'Suurepärane töö', en: 'Excellent work' },
