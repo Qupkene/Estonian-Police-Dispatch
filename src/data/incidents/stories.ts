@@ -147,6 +147,11 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
         intoxicated: [T('Need, kes rakette lasevad, on küll purjus.', 'The ones firing rockets are definitely drunk.')],
         injured: [T('Keegi viga pole saanud, aga üks rakett kukkus mu autole.', 'Nobody is hurt, but a rocket landed on my car.')],
       },
+      answersRu: {
+        count: ['Машин штук десять, людей человек двадцать.'],
+        intoxicated: ['Те, кто ракеты пускают, точно пьяные.'],
+        injured: ['Никто не пострадал, но одна ракета упала мне на машину.'],
+      },
       openingRu: [
         'Тут свадебный кортеж посреди дороги, они танцуют и пускают ракеты прямо над машинами!',
         'Свадебные машины перекрыли всю дорогу, кто-то запускает фейерверк. Мы не можем проехать!',
@@ -278,6 +283,11 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
         intoxicated: [T('Juht joob õlut, kaatris on veel kaks purjus meest.', 'The driver is drinking beer, there are two more drunk men in the boat.')],
         children: [T('Vees on palju lapsi, see on ju laste ujumiskoht.', 'There are lots of children in the water, it is the children’s swimming area.')],
         vehicle: [T('Valge kaater, kerel on number, ma pildistasin.', 'A white motorboat with a number on the hull, I took a photo.')],
+      },
+      answersRu: {
+        intoxicated: ['Водитель пьёт пиво, в катере ещё двое пьяных мужиков.'],
+        children: ['В воде много детей, это же детский пляж.'],
+        vehicle: ['Белый катер, на борту номер, я {сфотографировал|сфотографировала}.'],
       },
       openingRu: [
         'Катер носится между купающимися, водитель пьяный! В воде дети!',
@@ -430,6 +440,11 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
         injured: [T('Ma ei tea, ta nutab väga. Ta käis vahepeal rõdul.', 'I do not know, the child is crying hard. They were out on the balcony a moment ago.')],
         when: [T('Vanemad läksid kella kaheksa paiku.', 'The parents left at about eight.')],
       },
+      answersRu: {
+        children: ['Ребёнку лет пять, других детей там, кажется, нет.'],
+        injured: ['Не знаю, ребёнок очень плачет. Он недавно выходил на балкон.'],
+        when: ['Родители ушли около восьми.'],
+      },
       openingRu: [
         'У соседей уже час плачет маленький ребёнок, и никто не подходит. Родители вечером ушли.',
         'За стеной один маленький ребёнок, плачет и зовёт маму. Родителям я дозвониться не могу.',
@@ -539,6 +554,12 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
         direction: [T('Ta jooksis garaažide poole.', 'He ran towards the garages.')],
         weapons: [T('Tal oli nuga, selline väike volditav.', 'He had a knife, a small folding one.')],
         injured: [T('Mu pea veritseb, aga ma olen teadvusel.', 'My head is bleeding but I am conscious.')],
+      },
+      answersRu: {
+        suspect: ['Молодой парень, серая толстовка с капюшоном, лет двадцати.'],
+        direction: ['Он побежал в сторону гаражей.'],
+        weapons: ['У него был нож, маленький, складной.'],
+        injured: ['Голова в крови, но я в сознании.'],
       },
       openingRu: [
         'Меня, таксиста, только что ограбили! Пассажир приставил нож к шее и забрал все деньги!',
@@ -674,6 +695,10 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
       answers: {
         count: [T('Mõlemal poolel on kümneid inimesi.', 'There are dozens on each side.')],
         weapons: [T('Relvi pole, aga plakatitel on puust varred.', 'No weapons, but the placards have wooden poles.')],
+      },
+      answersRu: {
+        count: ['С каждой стороны десятки людей.'],
+        weapons: ['Оружия нет, но у плакатов деревянные палки.'],
       },
       openingRu: [
         'Здравствуйте, я охранник учреждения. У здания пикет, а теперь пришла другая сторона, обстановка накаляется.',
@@ -816,6 +841,12 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
         vehicle: [T('Tume sõiduauto, numbrit ma ei näinud.', 'A dark car, I did not see the number.')],
         count: [T('Autos on vähemalt kaks meest.', 'There are at least two men in the car.')],
         direction: [T('Nad sõitsid küla keskuse poole.', 'They drove towards the village centre.')],
+      },
+      answersRu: {
+        weapons: ['Это было длинное ружьё, наверное, охотничье.'],
+        vehicle: ['Тёмная легковушка, номер я не {разглядел|разглядела}.'],
+        count: ['В машине минимум двое мужчин.'],
+        direction: ['Они поехали в сторону центра деревни.'],
       },
       openingRu: [
         'На трассе из машины стреляют по дорожным знакам! Я {слышал|слышала} не меньше десяти выстрелов!',
@@ -973,6 +1004,11 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
         when: [T('Ta läks laevalt maha kella seitsme paiku õhtul.', 'He went ashore at about seven in the evening.')],
         intoxicated: [T('Ta ei joo tavaliselt, aga täna võis juua.', 'He does not usually drink, but tonight he may have.')],
       },
+      answersRu: {
+        suspect: ['Невысокий, тёмные волосы, синяя рабочая куртка с логотипом судна.'],
+        when: ['Он сошёл на берег часов в семь вечера.'],
+        intoxicated: ['Обычно он не пьёт, но сегодня мог выпить.'],
+      },
       openingRu: [
         'Здравствуйте, я капитан судна. Один наш моряк ушёл в город и не вернулся.',
         'У нас не хватает одного члена экипажа, а утром нам выходить в рейс. Он не отвечает на телефон.',
@@ -1102,6 +1138,11 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
         injured: [T('Ühel on pea katki, ta on uimane.', 'One has a cut head, he is drowsy.')],
         intoxicated: [T('Mõlemad on täiesti purjus.', 'Both are completely drunk.')],
         count: [T('Neid on kaks, sõitsid ühe rattaga.', 'Two of them, riding on one scooter.')],
+      },
+      answersRu: {
+        injured: ['У одного голова разбита, он как будто оглушённый.'],
+        intoxicated: ['Оба в стельку пьяные.'],
+        count: ['Их двое, ехали на одном самокате.'],
       },
       openingRu: [
         'Двое молодых на одном самокате врезались в машину, один лежит на земле, много крови.',
@@ -1236,6 +1277,10 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
       answers: {
         suspect: [T('Telefonis on mees, kes räägib väga kindlalt ja kiirustab.', 'There is a man on the phone who sounds very sure of himself and rushes her.')],
         safe: [T('Proua istub praegu kontoris, aga tahab ära minna.', 'The lady is sitting in the branch now but wants to leave.')],
+      },
+      answersRu: {
+        suspect: ['По телефону с ней говорит мужчина, очень уверенно и всё время торопит.'],
+        safe: ['Женщина сейчас сидит у нас в отделении, но хочет уйти.'],
       },
       openingRu: [
         'Здравствуйте, звоню из отделения банка. У нас женщина хочет снять крупную сумму на залог за сына, это точно мошенники.',
@@ -1386,6 +1431,11 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
         children: [T('Õues mängivad lapsed, ma kutsusin enda omad tuppa.', 'There are children playing outside, I called mine indoors.')],
         injured: [T('Veel keegi viga pole saanud.', 'Nobody has been hurt yet.')],
       },
+      answersRu: {
+        count: ['Медведь один, но вокруг человек десять.'],
+        children: ['На улице дети играют, я своих {позвал|позвала} домой.'],
+        injured: ['Пока никто не пострадал.'],
+      },
       openingRu: [
         'У нас медведь у мусорных баков в деревне, а люди подходят его снимать. Кто-нибудь пострадает!',
         'Между дачами ходит медведь и ест мусорные мешки. Дети на улице, что нам делать?',
@@ -1533,6 +1583,11 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
         weapons: [T('Relvi pole, aga tal on alati labidas käe all.', 'No weapons, but he always has a spade handy.')],
         safe: [T('Ma olen kodus, aga lähen kohe ise sinna.', 'I am at home, but I am about to go over there.')],
       },
+      answersRu: {
+        when: ['Приложение подняло тревогу в три часа ночи.'],
+        weapons: ['Оружия нет, но у него лопата всегда под рукой.'],
+        safe: ['Я дома, но сейчас {сам|сама} туда пойду.'],
+      },
       openingRu: [
         'У меня украли робот-газонокосилку, а приложение показывает, что она в гараже у соседа! Я {сам|сама} туда пойду!',
         'Сосед украл мою косилку, робот, который сам ездит. GPS показывает прямо его сарай.',
@@ -1654,6 +1709,11 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
         weapons: [T('Tal on taskus lõiketangid, aga ma hoian ta käsi kinni.', 'He has bolt cutters in his pocket, but I am holding his arms.')],
         injured: [T('Mul on käel kriimustus, muidu olen korras.', 'I have a scratch on my hand, otherwise I am fine.')],
         suspect: [T('{suspect}.', '{suspect}.')],
+      },
+      answersRu: {
+        weapons: ['У него в кармане кусачки, но я держу его руки.'],
+        injured: ['У меня царапина на руке, а так я в порядке.'],
+        suspect: ['{suspect}.'],
       },
       openingRu: [
         'Я поймал вора! Сижу на нём, но он вырывается. Приезжайте быстрее!',
@@ -1785,6 +1845,11 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
         vehicle: [T('Trügija auto on {car}, number {plate}.', 'The queue-jumper’s car: {car}, number {plate}.')],
         children: [T('Autodes on palju lapsi, nad vaatavad pealt.', 'There are lots of children in the cars watching.')],
       },
+      answersRu: {
+        count: ['Дерутся двое мужчин, вокруг человек двадцать.'],
+        vehicle: ['Машина того, кто влез без очереди: {car}, номер {plate}.'],
+        children: ['В машинах много детей, они всё видят.'],
+      },
       openingRu: [
         'В очереди на паром начинается драка! Один влез без очереди, и теперь мужики вышли из машин.',
         'Я работаю в порту. Один водитель ударил другого в очереди, пришлите патруль.',
@@ -1884,6 +1949,11 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
         vehicle: [T('{car}, number {plate}.', '{car}, number {plate}.')],
         direction: [T('Auto sõitis {direction}.', 'The car drove {direction}.')],
         count: [T('Autos on kaks meest.', 'There are two men in the car.')],
+      },
+      answersRu: {
+        vehicle: ['{car}, номер {plate}.'],
+        direction: ['Машина уехала {direction}.'],
+        count: ['В машине двое мужчин.'],
       },
       openingRu: [
         'Это пограничный пункт. Машина снесла шлагбаум и мчится вглубь страны!',
@@ -2033,8 +2103,13 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
         where: [T('Umbes viiskümmend meetrit kaldast, paadisilla kohal.', 'About fifty metres from the shore, level with the jetty.')],
         safe: [T('Ma olen kaldal, jääle ma ei lähe.', 'I am on the shore, I will not go on the ice.')],
       },
+      answersRu: {
+        injured: ['Хозяин ещё на льду, собака в воде.'],
+        where: ['Примерно в пятидесяти метрах от берега, напротив мостков.'],
+        safe: ['Я на берегу, на лёд не пойду.'],
+      },
       openingRu: [
-        'Собака провалилась под лёд, а хозяин пошёл за ней! Лёд трещит, пришлите спасателей!',
+        'Собака провалилась под лёд, а [хозяин пошёл|хозяйка пошла] за ней! Лёд трещит, пришлите спасателей!',
         'Человек ползёт по тонкому льду к своей собаке, сейчас провалится!',
       ],
     },
@@ -2174,6 +2249,11 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
         weapons: [T('Tal on kirves. Kodus on tal ka jahipüss.', 'He has an axe. He has a hunting rifle at home too.')],
         intoxicated: [T('Ta on purjus, juba lõunast saati.', 'He is drunk, has been since lunchtime.')],
         safe: [T('Ma olen toas, uks on lukus.', 'I am indoors with the door locked.')],
+      },
+      answersRu: {
+        weapons: ['У него топор. А дома у него ещё и охотничье ружьё.'],
+        intoxicated: ['Он пьяный, с обеда уже.'],
+        safe: ['Я в доме, дверь закрыта.'],
       },
       openingRu: [
         'Сосед рубит топором мой забор и угрожает! Он пьяный!',
@@ -2317,6 +2397,11 @@ export const TEMPLATES_STORIES: IncidentTemplate[] = [
         count: [T('Mina ja üks sõber, kaks tuleb veel juurde.', 'Me and a friend, two more are on the way.')],
         suspect: [T('Üks noor tüüp tuli välja ja vaatas meid kahtlaselt.', 'A young guy came out and gave us a suspicious look.')],
         safe: [T('Me oleme maja ees, veel sisse läinud ei ole.', 'We are outside the building, we have not gone in yet.')],
+      },
+      answersRu: {
+        count: ['Я и один друг, ещё двое подъедут.'],
+        suspect: ['Какой-то молодой тип вышел и подозрительно на нас посмотрел.'],
+        safe: ['Мы перед домом, внутрь ещё не заходили.'],
       },
       openingRu: [
         'Мой украденный электровелосипед в этом доме, трекер показывает! Вы приедете или мне самому зайти?',

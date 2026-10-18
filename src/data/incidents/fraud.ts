@@ -398,7 +398,15 @@ export const TEMPLATES_FRAUD: IncidentTemplate[] = [
         weapons: [T('Relva ma ei näe, aga ta vehib rusikatega.', 'I can’t see a weapon, but he’s waving his fists.')],
         safe: [T('Ma olen autost väljas, tema istub taga.', 'I’m out of the car; he’s sitting in the back.')],
       },
-      openingRu: ['Алло, я таксист. Пассажир не платит и угрожает мне. Пришлите полицию!'],
+      answersRu: {
+        intoxicated: ['Пьяный в хлам, за версту несёт.'],
+        weapons: ['Оружия не вижу, но он машет кулаками.'],
+        safe: ['Я {вышел|вышла} из машины, он сидит сзади.'],
+      },
+      openingRu: [
+        'Алло, я таксист. Пассажир не платит и угрожает мне. Пришлите полицию!',
+        'Это таксист. Клиент отказывается платить и в стельку пьяный.',
+      ],
     },
     legacy: true,
   },
@@ -465,7 +473,18 @@ export const TEMPLATES_FRAUD: IncidentTemplate[] = [
         suspect: [T('Ta ütles, et on uurija… nime ma ei mäleta.', 'He said he was an investigator… I don’t remember his name.')],
         safe: [T('Jah, ma olen kodus. Mulle öeldi, et ma ei tohi kellelegi rääkida.', 'Yes, I’m at home. They told me I mustn’t tell anyone.')],
       },
-      openingRu: ['Алло… мне позвонил полицейский, сказал, что внук попал в аварию. Это правда? Мне нужно отдать деньги курьеру…'],
+      answersRu: {
+        what: [
+          'Он сказал, что внук сбил пешехода, и если я не заплачу шесть тысяч, его посадят.',
+        ],
+        when: ['Курьер должен прийти через полчаса. Деньги у меня уже в конверте.'],
+        suspect: ['Он сказал, что он следователь... фамилию не помню.'],
+        safe: ['Да, я дома. Мне сказали, что никому нельзя рассказывать.'],
+      },
+      openingRu: [
+        'Алло… мне позвонил полицейский, сказал, что внук попал в аварию. Это правда? Мне нужно отдать деньги курьеру…',
+        'Деточка, скажите, куда мне деньги нести, чтобы мальчика отпустили?',
+      ],
     },
     tags: ['in_progress'],
   },
@@ -488,6 +507,10 @@ export const TEMPLATES_FRAUD: IncidentTemplate[] = [
     callerLines: [
       T('Nad rääkisid täpselt nagu pangatöötajad, teadsid mu nime ja kõike!', 'They talked exactly like bank staff, they knew my name and everything!'),
       T('Mulle öeldi, et mu konto on ohus ja ma pean raha „turvalisele kontole“ kandma.', 'I was told my account was at risk and I had to move the money to a “safe account”.'),
+    ],
+    callerLinesRu: [
+      'Они говорили точно как сотрудники банка, знали моё имя и всё!',
+      'Мне сказали, что мой счёт в опасности и надо перевести деньги на «безопасный счёт».',
     ],
     details: [T('Pank on kontod blokeerinud, osa ülekandeid on veel töötlemisel.', 'The bank has blocked the accounts; some transfers are still being processed.')],
     beats: [
@@ -514,10 +537,18 @@ export const TEMPLATES_FRAUD: IncidentTemplate[] = [
       opening: [
         T('Ma ei saa aru, mis juhtus… pangast helistati ja nüüd on mu kontol null.', 'I don’t understand what happened… the bank called and now my account is at zero.'),
       ],
+      openingRu: ['Я не понимаю, что случилось... звонили из банка, и теперь у меня на счету ноль.'],
       answers: {
         what: [T('Nad ütlesid, et keegi üritab mu kontole siseneda, ja palusid Smart-ID-s kinnitada.', 'They said someone was trying to get into my account and asked me to confirm in Smart-ID.')],
         when: [T('Tund aega tagasi umbes.', 'About an hour ago.')],
         injured: [T('Ei, aga mul on halb olla.', 'No, but I feel sick.')],
+      },
+      answersRu: {
+        what: [
+          'Сказали, что кто-то пытается зайти в мой счёт, и попросили подтвердить в Smart-ID.',
+        ],
+        when: ['Примерно час назад.'],
+        injured: ['Нет, но мне плохо.'],
       },
     },
   },
@@ -582,6 +613,10 @@ export const TEMPLATES_FRAUD: IncidentTemplate[] = [
       T('Nad ütlesid, et on linnavalitsusest, ja tahtsid 150 eurot. Nüüd on mu pensioniraha läinud.', 'They said they were from the city council and wanted 150 euros. Now my pension money is gone.'),
       T('Kaks meest käivad majast majja, üks räägib, teine vaatab ringi.', 'Two men are going house to house; one does the talking, the other looks around.'),
     ],
+    callerLinesRu: [
+      'Они сказали, что из горуправы, и хотели 150 евро. А теперь моих пенсионных денег нет.',
+      'Двое мужчин ходят по домам, один говорит, другой осматривается.',
+    ],
     details: [T('Sama skeemi on naaberkülades kasutatud sel kuul kolm korda.', 'The same scheme has been used three times in neighbouring villages this month.')],
     beats: [
       qVehicle('arrive', 0.7, [
@@ -606,6 +641,11 @@ export const TEMPLATES_FRAUD: IncidentTemplate[] = [
         suspect: [T('Üks noorem, helkurvestiga, teine vanem, prillidega.', 'One younger, in a hi-vis vest, the other older, with glasses.')],
         vehicle: [T('Neil oli {car}, see seisis meie maja juures.', 'They had a {car}; it was parked by our house.')],
         when: [T('Pool tundi tagasi lahkusid.', 'They left half an hour ago.')],
+      },
+      answersRu: {
+        suspect: ['Один помоложе, в светоотражающем жилете, другой постарше, в очках.'],
+        vehicle: ['Они приехали на машине, {car}, она стояла у нашего дома.'],
+        when: ['Ушли полчаса назад.'],
       },
       openingRu: ['Здравствуйте, ко мне приходили мужчины, сказали что из газовой службы… а теперь пропали деньги.'],
     },

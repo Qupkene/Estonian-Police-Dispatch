@@ -78,7 +78,16 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
         where: [T('Me elame aadressil {address}.', 'We live at {address}.')],
         direction: [T('Ta jooksis pargi poole, arvan ma.', 'She ran towards the park, I think.')],
       },
-      openingRu: ['Помогите, пропала дочь! Мы поругались, она выбежала из дома, уже час её нет!'],
+      answersRu: {
+        when: ['Примерно в {time} она выбежала за дверь.'],
+        suspect: ['Розовая куртка, синий рюкзак, светлые волосы в хвостике.'],
+        where: ['Мы живём по адресу: {address}.'],
+        direction: ['Она побежала в сторону парка, мне кажется.'],
+      },
+      openingRu: [
+        'Помогите, пропала дочь! Мы поругались, она выбежала из дома, уже час её нет!',
+        'Пожалуйста, помогите, наш ребёнок пропал, мы нигде не можем её найти!',
+      ],
     },
     tags: ['child'],
     legacy: true,
@@ -142,7 +151,8 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
     units: { need: [u('patrol')], ideal: [u('patrol', 2)] },
     onScene: [40, 90],
     persons: [
-      { role: 'missing', gender: 'any', age: [8, 13] },
+      // The caller speaks of "mu poeg": the missing schoolchild is a boy.
+      { role: 'missing', gender: 'M', age: [8, 13] },
       { role: 'caller', gender: 'any', age: [30, 50], relation: 'parent', known: true },
     ],
     summary: [
@@ -152,6 +162,10 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
     callerLines: [
       T('Ma saatsin ta hommikul bussi peale ja nüüd helistati koolist, et teda pole! Telefon on väljas!', 'I put him on the bus this morning and now the school called to say he is not there! His phone is off!'),
       T('Ta ei ole kunagi koolist puudunud. Ma ei tea, mida mõelda.', 'He has never skipped school. I do not know what to think.'),
+    ],
+    callerLinesRu: [
+      'Утром я {посадил|посадила} [его|её] на автобус, а теперь из школы звонят, что [его|её] нет! Телефон выключен!',
+      '[Он ни разу не прогуливал|Она ни разу не прогуливала] школу. Я не знаю, что и думать.',
     ],
     details: [
       T('Bussijuhi sõnul ei tulnud laps täna bussi.', 'The bus driver says the child did not board the bus today.'),
@@ -180,7 +194,14 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
         suspect: [T('Tal on roheline talvejope ja must seljakott.', 'He has a green winter jacket and a black backpack.')],
         where: [T('Bussipeatus on meie maja juures, {address}.', 'The bus stop is by our building, {address}.')],
       },
-      openingRu: ['Мой сын не пришёл в школу! Утром я посадила его на автобус, а теперь телефон не отвечает!'],
+      answersRu: {
+        when: ['[Он вышел|Она вышла] из дома в четверть восьмого.'],
+        suspect: ['На [нём|ней] зелёная зимняя куртка и чёрный рюкзак.'],
+        where: ['Остановка у нашего дома, {address}.'],
+      },
+      openingRu: [
+        'Мой сын не пришёл в школу! Утром я {посадил|посадила} его на автобус, а теперь телефон не отвечает!',
+      ],
     },
     tags: ['child'],
     legacy: true,
@@ -210,6 +231,10 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
       T('Üks mees haaras lapse ja tõstis ta autosse, laps karjus! Nad sõitsid minema!', 'A man grabbed a child and put them in a car, the child was screaming! They drove off!'),
       T('Jõudsin numbri üles kirjutada: {plate}. Auto oli {car}, see sõitis {direction}.', 'I managed to note the plate: {plate}. It was a {car}, and it went {direction}.'),
     ],
+    callerLinesRu: [
+      'Мужчина схватил ребёнка и затащил в машину, ребёнок кричал! Они уехали!',
+      'Я {успел|успела} записать номер: {plate}. Машина: {car}, уехала {direction}.',
+    ],
     details: [
       T('Lapse ema on sündmuskohal ja annab kirjelduse.', 'The child’s mother is at the scene giving a description.'),
       T('Kõigile ekipaažidele on edastatud sõiduki ja kahtlustatava kirjeldus.', 'The vehicle and suspect description has gone to all units.'),
@@ -238,6 +263,13 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
         children: [T('Üks laps, umbes viieaastane.', 'One child, about five.')],
         weapons: [T('Relva ma ei näinud.', 'I did not see a weapon.')],
       },
+      answersRu: {
+        vehicle: ['{car}, в номере было {plate}, больше не {разглядел|разглядела}.'],
+        direction: ['Он поехал {direction}, очень быстро.'],
+        suspect: ['{suspect}.'],
+        children: ['Один ребёнок, лет пяти.'],
+        weapons: ['Оружия я не {видел|видела}.'],
+      },
       openingRu: ['Помогите! Мужчина схватил ребёнка на детской площадке и затащил в машину! Они уехали!'],
     },
     tags: ['child', 'vehicle_flee', 'bolo'],
@@ -257,7 +289,8 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
     units: { need: [u('patrol')], ideal: [u('patrol'), u('k9')] },
     onScene: [40, 120],
     persons: [
-      { role: 'missing', gender: 'any', age: [72, 93] },
+      // The call script is about "mu mees" Heino: the missing person is a man.
+      { role: 'missing', gender: 'M', age: [72, 93] },
       { role: 'caller', gender: 'any', age: [40, 85], relation: 'family', known: true },
     ],
     agencies: [{ agency: 'kiirabi', chance: 0.3, reason: T('Leitud eakas on alajahtunud või segaduses', 'The elderly person found is hypothermic or confused') }],
@@ -301,7 +334,16 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
         where: [T('Meie aadress on {address}.', 'Our address is {address}.')],
         direction: [T('Ta räägib kogu aeg, et läheb ema juurde maale…', 'He keeps saying he is going to his mother’s in the country…')],
       },
-      openingRu: ['Здравствуйте… пропал мой муж. У него деменция, он вышел из дома и не вернулся.'],
+      answersRu: {
+        when: ['Было, наверное, {time}, я как раз {поставил|поставила} картошку на плиту.'],
+        suspect: ['На нём серый свитер и тапочки, шапку не взял.'],
+        where: ['Наш адрес: {address}.'],
+        direction: ['Он всё время говорит, что пойдёт к маме в деревню...'],
+      },
+      openingRu: [
+        'Здравствуйте… пропал мой муж. У него деменция, он вышел из дома и не вернулся.',
+        'Это полиция? Мой Хейно ушёл, не знаю куда...',
+      ],
     },
     tags: ['elderly'],
   },
@@ -318,7 +360,8 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
     units: { need: [u('patrol')], ideal: [u('patrol')] },
     onScene: [20, 45],
     persons: [
-      { role: 'missing', gender: 'any', age: [3, 8] },
+      // The card and the caller speak of a boy ("poiss", "oma poega").
+      { role: 'missing', gender: 'M', age: [3, 8] },
       { role: 'caller', gender: 'any', age: [25, 45], relation: 'parent', known: true },
     ],
     summary: [
@@ -360,7 +403,15 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
         where: [T('{place}, teisel korrusel toidupoe juures.', '{place}, second floor by the supermarket.')],
         when: [T('Vist veerand tundi tagasi.', 'About a quarter of an hour ago.')],
       },
-      openingRu: ['Помогите, пропал мой ребёнок в торговом центре! Он только что был рядом!'],
+      answersRu: {
+        suspect: ['Синяя шапка, красные сапоги, зелёная куртка.'],
+        where: ['{place}, второй этаж, у продуктового.'],
+        when: ['Кажется, минут пятнадцать назад.'],
+      },
+      openingRu: [
+        'Помогите, пропал мой ребёнок в торговом центре! Он только что был рядом!',
+        'Пожалуйста, помогите, я не могу найти сына в торговом центре!',
+      ],
     },
     tags: ['child'],
   },
@@ -465,7 +516,18 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
         when: [T('Läksin metsa kella kümne paiku hommikul.', 'I went into the forest around ten in the morning.')],
         safe: [T('Ma istun kännu peal, hakkab pimedaks minema.', 'I am sitting on a stump, it is getting dark.')],
       },
-      openingRu: ['Алло… я заблудилась в лесу. Ходила за грибами и не могу найти машину.'],
+      answersRu: {
+        where: [
+          'Машину я {оставил|оставила} у лесной дороги, ближайшее место: {address}. Больше не знаю.',
+        ],
+        injured: ['Нога мокрая и замёрзла, а так я {цел|цела}.'],
+        when: ['В лес я {пошёл|пошла} часов в десять утра.'],
+        safe: ['Я сижу на пне, начинает темнеть.'],
+      },
+      openingRu: [
+        'Алло... я {заблудился|заблудилась} в лесу. {Ходил|Ходила} за грибами и не могу найти машину.',
+        'Слушайте, я не знаю, где я. Кругом одни деревья.',
+      ],
     },
     tags: ['search'],
   },
@@ -529,7 +591,16 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
         intoxicated: [T('Ta jõi paar õlut, jah.', 'He had a couple of beers, yes.')],
         count: [T('Üks inimene, meie sõber.', 'One person, our friend.')],
       },
-      openingRu: ['Помогите, наш друг пошёл купаться и пропал! Мы его не видим!'],
+      answersRu: {
+        where: ['{place}, метрах в пятидесяти от берега.'],
+        when: ['Минут десять назад, может, больше.'],
+        intoxicated: ['Он выпил пару пива, да.'],
+        count: ['Один человек, наш друг.'],
+      },
+      openingRu: [
+        'Помогите, наш друг пошёл купаться и пропал! Мы его не видим!',
+        'Помогите, кто-то тонет! Он был тут у буя, а теперь его нет!',
+      ],
     },
     tags: ['water'],
   },
@@ -595,7 +666,16 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
         injured: [T('Keegi pole veel vette kukkunud, aga külm on.', 'Nobody has fallen in yet, but it is cold.')],
         safe: [T('Jää meie all on veel paks, aga serv praguneb.', 'The ice under us is still thick, but the edge is cracking.')],
       },
-      openingRu: ['Алло! Льдину оторвало, мы рыбачили, между нами и берегом вода! Нас тут несколько человек!'],
+      answersRu: {
+        count: ['Нас {n}.'],
+        where: ['Примерно километр от берега, ближайшее место на берегу: {address}.'],
+        injured: ['Пока никто в воду не упал, но холодно.'],
+        safe: ['Лёд под нами ещё толстый, но край трескается.'],
+      },
+      openingRu: [
+        'Алло! Льдину оторвало, мы рыбачили, между нами и берегом вода! Нас тут несколько человек!',
+        'Вы меня слышите? Льдину уносит, нас тут несколько мужиков!',
+      ],
     },
     tags: ['water', 'ice'],
   },

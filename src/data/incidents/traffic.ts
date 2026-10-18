@@ -101,6 +101,10 @@ const SC_DUI_SUSPICION: IncidentScenario[] = [
       T('Ta seisab rohelise tule all ja magab. Ma signaalitasin, aga ta ei liiguta.', 'He is sitting at a green light asleep. I honked, but he does not move.'),
       T('Mootor käib ja jalg on vist piduri peal. Ma kardan, et ta sõidab ärgates kellelegi otsa.', 'The engine is running and I think his foot is on the brake. I am afraid he will hit someone when he wakes up.'),
     ],
+    callerLinesRu: [
+      'Он стоит на зелёный и спит. Я {сигналил|сигналила}, а он не шевелится.',
+      'Мотор работает, нога, кажется, на тормозе. Боюсь, проснётся и в кого-нибудь врежется.',
+    ],
     details: [
       T('Sõiduk seisab, mootor töötab, juht ei reageeri.', 'The vehicle is stationary with the engine running; the driver is not responding.'),
       T('Sõiduk: {car}, reg nr {plate}.', 'Vehicle: {car}, plate {plate}.'),
@@ -180,6 +184,11 @@ const SC_DUI_SUSPICION: IncidentScenario[] = [
         direction: [T('Ta ei liigu kuhugi, seisab foori all.', 'He is not going anywhere, he is stopped at the lights.')],
         injured: [T('Ma ei tea, ta lihtsalt ei liiguta.', 'I do not know, he just is not moving.')],
       },
+      answersRu: {
+        vehicle: ['{car}, номер {plate}.'],
+        direction: ['Никуда он не едет, стоит на светофоре.'],
+        injured: ['Не знаю, он просто не шевелится.'],
+      },
     },
   },
   {
@@ -199,6 +208,10 @@ const SC_DUI_SUSPICION: IncidentScenario[] = [
       T('Ta ei suutnud kaarti lugejasse panna ja haises nagu õllevaat. Nüüd sõitis ta minema!', 'He could not get his card into the reader and stank like a beer barrel. Now he has driven off!'),
       T('Ta keeras välja {direction}, number on {plate}.', 'He turned out {direction}, the plate is {plate}.'),
     ],
+    callerLinesRu: [
+      'Он не мог вставить карту в терминал, и от него несло как из пивной бочки. А теперь уехал!',
+      'Он свернул {direction}, номер {plate}.',
+    ],
     details: [
       T('Teataja on kiirtoidukoha töötaja, salvestis on olemas.', 'The caller works at the fast food restaurant; there is a recording.'),
       T('Sõiduk: {car}, reg nr {plate}, liigub {direction}.', 'Vehicle: {car}, plate {plate}, heading {direction}.'),
@@ -211,6 +224,11 @@ const SC_DUI_SUSPICION: IncidentScenario[] = [
         vehicle: [T('{car}, number {plate}.', '{car}, plate {plate}.')],
         direction: [T('Ta sõitis {direction}.', 'He drove off {direction}.')],
         where: [T('Me oleme {address}, ta lahkus just meie juurest.', 'We are at {address}, he has just left us.')],
+      },
+      answersRu: {
+        vehicle: ['{car}, номер {plate}.'],
+        direction: ['Он уехал {direction}.'],
+        where: ['Мы находимся: {address}, он только что от нас уехал.'],
       },
     },
   },
@@ -289,6 +307,10 @@ const SC_MINOR_CRASH: IncidentScenario[] = [
       T('Me mõlemad tagurdasime ja põrkasime kokku. Tema ütleb, et mina ei vaadanud.', 'We were both reversing and bumped into each other. He says I was not looking.'),
       T('Ta ei taha kokkuleppeblanketti täita ja ähvardab lihtsalt minema sõita.', 'He does not want to fill in the agreement form and is threatening to just drive off.'),
     ],
+    callerLinesRu: [
+      'Мы оба сдавали назад и столкнулись. [Он говорит|Она говорит], что это я не {смотрел|смотрела}.',
+      '[Он не хочет|Она не хочет] заполнять бланк и грозится просто уехать.',
+    ],
     details: [
       T('Kahju on väike, mõlemal autol on tagaosa mõlkis.', 'The damage is minor; both cars have dented rears.'),
       T('Parklas on valvekaamera.', 'There is a CCTV camera in the car park.'),
@@ -296,10 +318,16 @@ const SC_MINOR_CRASH: IncidentScenario[] = [
     call: {
       mood: 'angry',
       opening: [T('Tere, parklas põrkasime teise autoga kokku ja ta ei taha blanketti täita.', 'Hello, I bumped into another car in the car park and he will not fill in the form.')],
-      openingRu: ['Здравствуйте, на парковке столкнулись с другой машиной, а он не хочет заполнять бланк.'],
+      openingRu: [
+        'Здравствуйте, на парковке столкнулись с другой машиной, а [он не хочет|она не хочет] заполнять бланк.',
+      ],
       answers: {
         injured: [T('Ei, keegi viga ei saanud.', 'No, nobody is hurt.')],
         vehicle: [T('Tema auto on {car}, number {plate}.', 'His car is a {car}, plate {plate}.')],
+      },
+      answersRu: {
+        injured: ['Нет, никто не пострадал.'],
+        vehicle: ['[Его машина|Её машина]: {car}, номер {plate}.'],
       },
     },
   },
@@ -320,6 +348,10 @@ const SC_MINOR_CRASH: IncidentScenario[] = [
       T('Teine juht räägib ainult inglise keelt ja näitab rendifirma pabereid. Ma ei saa aru, mida ta tahab.', 'The other driver only speaks English and keeps showing me the hire company papers. I do not understand what he wants.'),
       T('Ta ei teadnud vist, et ringil tuleb teed anda.', 'I do not think he knew you have to give way on the roundabout.'),
     ],
+    callerLinesRu: [
+      'Второй водитель говорит только по-английски и показывает бумаги прокатной фирмы. Я не понимаю, чего [он хочет|она хочет].',
+      '[Он, кажется, не знал|Она, кажется, не знала], что на кольце надо уступать.',
+    ],
     details: [
       T('Üks juht on välisturist, sõiduk on renditud.', 'One driver is a foreign tourist in a hire car.'),
       T('Kahju on väike, vigastusi pole.', 'The damage is minor and nobody is injured.'),
@@ -329,6 +361,9 @@ const SC_MINOR_CRASH: IncidentScenario[] = [
       opening: [T('Tere, meil oli väike avarii turistiga, me ei saa teineteisest üldse aru.', 'Hello, we had a small accident with a tourist and we cannot understand each other at all.')],
       openingRu: ['Здравствуйте, у нас небольшая авария с туристом, мы совсем не понимаем друг друга.'],
       answers: { injured: [T('Ei, keegi viga ei saanud.', 'No, nobody is hurt.')] },
+      answersRu: {
+        injured: ['Нет, никто не пострадал.'],
+      },
     },
   },
   {
@@ -442,6 +477,10 @@ const SC_DUI_CRASH: IncidentScenario[] = [
       T('Pauk oli nii kõva, et ärkasin üles. Noored lükkavad autot minema!', 'The bang was so loud it woke me up. The youngsters are pushing the car away!'),
       T('Juht on päris laps, vaevu täisealine, ja kõik haisevad alkoholi järele.', 'The driver is just a kid, barely of age, and they all smell of alcohol.'),
     ],
+    callerLinesRu: [
+      'Грохнуло так, что я {проснулся|проснулась}. Молодёжь толкает машину прочь!',
+      'Водитель совсем ребёнок, еле совершеннолетний, и от всех несёт алкоголем.',
+    ],
     details: [
       T('Autos oli neli noort, kõik joobes.', 'There were four young people in the car, all drunk.'),
       T('Pargitud sõiduki omanikku on teavitatud.', 'The owner of the parked car has been informed.'),
@@ -454,6 +493,11 @@ const SC_DUI_CRASH: IncidentScenario[] = [
         count: [T('Neid on neli, kõik noored.', 'There are four of them, all young.')],
         injured: [T('Tundub, et keegi viga ei saanud.', 'It looks like nobody is hurt.')],
         intoxicated: [T('Jah, nad kõik on purjus.', 'Yes, they are all drunk.')],
+      },
+      answersRu: {
+        count: ['Их четверо, все молодые.'],
+        injured: ['Похоже, никто не пострадал.'],
+        intoxicated: ['Да, они все пьяные.'],
       },
     },
   },
@@ -814,7 +858,17 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
         count: [T('Tundub, et ta on autos üksi.', 'He seems to be alone in the car.')],
         injured: [T('Veel ei ole kellelegi otsa sõitnud, aga peaaegu.', 'He has not hit anyone yet, but nearly.')],
       },
-      openingRu: ['Алло, я еду за машиной, водитель явно пьяный, виляет по всей дороге.'],
+      answersRu: {
+        vehicle: ['{car}, номер {plate}.'],
+        direction: ['Мы едем {direction}, только что проехали автобусную остановку.'],
+        where: ['{address}, я вижу указатель.'],
+        count: ['Похоже, он в машине один.'],
+        injured: ['Пока никого не сбил, но чуть не сбил.'],
+      },
+      openingRu: [
+        'Алло, я еду за машиной, водитель явно пьяный, виляет по всей дороге.',
+        'Алло? Передо мной кто-то едет полным зигзагом, боюсь, он кого-нибудь убьёт.',
+      ],
     },
     tags: ['dui', 'vehicle_flee'],
     scenarios: SC_DUI_SUSPICION,
@@ -845,6 +899,10 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
       T('Siin on üks klient, vaevu seisab püsti, ostis kaks pudelit ja istus nüüd autosse. Ta tahab ära sõita!', 'There is a customer here who can barely stand, bought two bottles and is now sitting in his car. He wants to drive off!'),
       T('Ma võtsin tal võtmed ära, aga tal on vist varuvõti. Palun tulge kiiresti.', 'I took his keys but he may have a spare. Please come quickly.'),
     ],
+    callerLinesRu: [
+      'Тут клиент, еле на ногах стоит, купил две бутылки и сел в машину. Хочет уехать!',
+      'Я {забрал|забрала} у него ключи, но у него, похоже, есть запасной. Пожалуйста, быстрее.',
+    ],
     details: [T('Turvakaamera salvestis on olemas.', 'CCTV footage is available.')],
     beats: [
       qPerson('driver', 'arrive'),
@@ -867,6 +925,11 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
         vehicle: [T('{car}, number {plate}.', '{car}, plate {plate}.')],
         intoxicated: [T('Väga purjus, ta kukkus kassa ees peaaegu ümber.', 'Very drunk, he nearly fell over at the till.')],
         weapons: [T('Relva ei näinud.', 'I did not see any weapon.')],
+      },
+      answersRu: {
+        vehicle: ['{car}, номер {plate}.'],
+        intoxicated: ['Очень пьяный, он у кассы чуть не упал.'],
+        weapons: ['Оружия не {видел|видела}.'],
       },
       openingRu: ['Здравствуйте, я с заправки. Тут совсем пьяный мужчина сел в машину и хочет уехать.'],
     },
@@ -930,7 +993,16 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
         intoxicated: [T('Tema on palju purjus! Mina natuke ainult.', 'He is very drunk! Me, only a little.')],
         when: [T('Just praegu, kümme minutit tagasi vist.', 'Just now, ten minutes ago maybe.')],
       },
-      openingRu: ['Алло, полиция? Сосед опять пьяный за руль сел! Я сам видел!'],
+      answersRu: {
+        where: ['Э... {address}. Во дворе, вон та синяя машина.'],
+        vehicle: ['Номер... щас... {plate}. Да.'],
+        intoxicated: ['Он сильно пьяный! А я только чуть-чуть.'],
+        when: ['Только что, минут десять назад вроде.'],
+      },
+      openingRu: [
+        'Алло, полиция? Сосед опять пьяный за руль сел! Я сам видел!',
+        'Я знаю, что я сам немножко... но это другое! Он на машине ездил!',
+      ],
     },
     tags: ['dui'],
   },
@@ -1097,7 +1169,16 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
         where: [T('{address}, vahetult pärast silda.', '{address}, just past the bridge.')],
         safe: [T('Ma panin ohukolmnurga, autod sõidavad mööda.', 'I put out the warning triangle, cars are passing.')],
       },
-      openingRu: ['Помогите, авария! Машина перевернулась, внутри человек, он не двигается!'],
+      answersRu: {
+        injured: ['Один в сознании, второй не отвечает. Крови много.'],
+        count: ['Две машины, человека три, наверное.'],
+        where: ['{address}, сразу после моста.'],
+        safe: ['Я {выставил|выставила} аварийный знак, машины едут мимо.'],
+      },
+      openingRu: [
+        'Помогите, авария! Машина перевернулась, внутри человек, он не двигается!',
+        'Две машины столкнулись, везде стекло, какая-то женщина кричит!',
+      ],
     },
   },
   {
@@ -1524,7 +1605,16 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
         vehicle: [T('{car}, number {plate}.', '{car}, plate {plate}.')],
         where: [T('{place}, parkla päikesepoolses otsas.', '{place}, the sunny end of the car park.')],
       },
-      openingRu: ['Помогите, в машине на парковке один маленький ребёнок, очень жарко, он весь красный!'],
+      answersRu: {
+        children: ['Один ребёнок, года два, в автокресле.'],
+        injured: ['Дышит, но вялый и весь потный.'],
+        vehicle: ['{car}, номер {plate}.'],
+        where: ['{place}, тот край парковки, где солнце.'],
+      },
+      openingRu: [
+        'Помогите, в машине на парковке один маленький ребёнок, очень жарко, он весь красный!',
+        'Пожалуйста, помогите, малыш заперт в машине, родителей найти не можем!',
+      ],
     },
   },
   {
