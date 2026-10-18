@@ -50,6 +50,10 @@ export default {
     et: 'Kas lõpetad vahetuse kohe? Avatud sündmused jäävad lahendamata ja lähevad hindesse.',
     en: 'End the shift now? Open events stay unresolved and count against your grade.',
   },
+  'game.pause.earlyEnd': {
+    et: 'Vahetuse aeg pole veel täis. Kui lõpetad praegu, jääb sulle ainult {pct} % punktidest.',
+    en: 'The shift is not over yet. End it now and you keep only {pct}% of your points.',
+  },
   'game.pause.confirmYes': { et: 'Jah, lõpeta vahetus', en: 'Yes, end the shift' },
   'game.pause.keys': { et: 'Kiirklahvid', en: 'Keyboard shortcuts' },
   'game.pause.saved': { et: 'Vahetus salvestatud', en: 'Shift saved' },

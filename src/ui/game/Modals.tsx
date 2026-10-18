@@ -4,6 +4,7 @@ import { autosave, useGame } from '@/store/game';
 import { useSettings, type MapStyleKey } from '@/store/settings';
 import { useT } from '@/i18n';
 import { Button, Kbd, Modal, Select, Slider } from '@/ui/components';
+import { earlyEndFactor } from '@/sim/report';
 import { hhmm } from '@/sim/time';
 import type { Lang } from '@/sim/types';
 import { selQueue, soft } from './data';
@@ -109,6 +110,7 @@ export function PauseMenu() {
         {confirm ? (
           <div className="gm-pause__confirm" role="alert">
             <p>{t('game.pause.confirmEnd')}</p>
+            <EarlyEndWarning />
             <div>
               <Button variant="ghost" onClick={() => setConfirm(false)}>
                 {t('game.cancel')}
@@ -145,6 +147,20 @@ export function PauseMenu() {
         )}
       </div>
     </Modal>
+  );
+}
+
+/** Shown in the end-shift confirmation while the shift still has time left: how many points ending now keeps. */
+function EarlyEndWarning() {
+  const t = useT();
+  const sim = useGame.getState().sim;
+  if (!sim) return null;
+  const { factor } = earlyEndFactor(sim);
+  if (factor >= 1) return null;
+  return (
+    <p className="gm-pause__early" data-testid="early-end-warning">
+      <strong>{t('game.pause.earlyEnd', { pct: Math.round(factor * 100) })}</strong>
+    </p>
   );
 }
 

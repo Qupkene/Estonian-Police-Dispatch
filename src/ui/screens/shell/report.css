@@ -119,6 +119,11 @@
   font-weight: 800;
   color: var(--text-0);
 }
+.sh-grade__early {
+  margin: 6px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--warn-ink);
+}
 .sh-grade__chips {
   display: flex;
   flex-wrap: wrap;

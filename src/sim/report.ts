@@ -31,6 +31,23 @@ export function gradeOf(score: number): ShiftReport['grade'] {
   return 'F';
 }
 
+/** The last stretch of a shift (5 %, at most 15 game minutes) counts as served in full. */
+export function earlyEndGraceMs(s: Pick<SimState, 'startTime' | 'endTime'>): number {
+  return Math.min(15 * MIN, Math.max(0, s.endTime - s.startTime) * 0.05);
+}
+
+/**
+ * Score multiplier for a shift ended before its end time: half the points at most, and less the
+ * earlier it ended (0.5 × the share of the shift served). Without it, closing one easy call and
+ * ending the shift at once graded S. Director mode and the tutorial are never penalised.
+ */
+export function earlyEndFactor(s: Pick<SimState, 'mode' | 'now' | 'startTime' | 'endTime'>): { factor: number; served: number } {
+  const len = s.endTime - s.startTime;
+  const served = len > 0 ? clamp((s.now - s.startTime) / len, 0, 1) : 1;
+  if (s.mode === 'director' || s.mode === 'tutorial' || len <= 0 || s.now >= s.endTime - earlyEndGraceMs(s)) return { factor: 1, served };
+  return { factor: 0.5 * served, served };
+}
+
 /** Fictional regional mastheads (deliberately not real newspapers). */
 export const MASTHEADS: Record<RegionId, string> = {
   pohja: 'Pealinna Kuulutaja',
@@ -52,6 +69,8 @@ export interface ReportExtras {
   resolved: number;
   /** Calendar tags seen during the shift ('jaanipaev', 'newyear', …). */
   dayTags: string[];
+  /** Set when the shift was ended before its end time: share served, multiplier and the score before it. */
+  earlyEnd?: { served: number; factor: number; rawScore: number };
   night: boolean;
   p1Count: number;
   p1Avg: number | null;
@@ -464,7 +483,9 @@ export function buildReport(s: SimState): ShiftReport {
   }
   const penalties = s.stats.expired * 1 + s.stats.callsMissed * 0.5 + s.stats.referralsWrong * 0.5;
   const base = wsum > 0 ? sum / wsum : incs.length === 0 ? 72 : 50;
-  const score = Math.round(clamp(base - penalties, 0, 100));
+  const rawScore = clamp(base - penalties, 0, 100);
+  const early = earlyEndFactor(s);
+  const score = Math.round(rawScore * early.factor);
   stats.score = score;
   const grade = gradeOf(score);
 
@@ -559,6 +580,7 @@ export function buildReport(s: SimState): ShiftReport {
     p1Count: p1.length,
     p1Avg: p1.length ? round1(p1.reduce((a, b) => a + b, 0) / p1.length) : null,
     hours: round1(hours),
+    ...(early.factor < 1 ? { earlyEnd: { served: Math.round(early.served * 100) / 100, factor: Math.round(early.factor * 1000) / 1000, rawScore: Math.round(rawScore) } } : {}),
   };
 
   const report: ShiftReportX = {

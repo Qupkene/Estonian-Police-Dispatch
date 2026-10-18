@@ -4,7 +4,7 @@ import { sunAltitude, sunTimes } from '@/sim/sun';
 import { dayInfo, easterSunday, hourCurve, publicHolidays, weekdayFactor } from '@/sim/calendar';
 import { initialWeather, updateWeather } from '@/sim/weather';
 import { correctReply, foldName, personFlags, searchPersons, searchVehicles, vehicleFlags } from '@/sim/registry';
-import { gradeOf, buildReport, inessive, type ShiftReportX } from '@/sim/report';
+import { gradeOf, buildReport, earlyEndFactor, inessive, type ShiftReportX } from '@/sim/report';
 import { callAnswer, callAsk, callEnd, callInterpreter, maybeCreateCall, updateCalls } from '@/sim/calls';
 import { isOnLand, pursuitCommand, startPursuit, updatePursuit } from '@/sim/pursuit';
 import { waterBodiesNear, waterBodyAt } from '@/sim/land';
@@ -524,6 +524,46 @@ describe('report', () => {
     const r = buildReport(s);
     expect(r.newspaper.headline.et).toMatch(/Rahulik/);
     expect(r.newspaper.stories.length).toBeGreaterThanOrEqual(3);
+  });
+  it('ending a shift early keeps at most half the points, fewer the earlier it ended', () => {
+    const perfect = (now: number, mode: SimState['mode'] = 'free'): ShiftReportX => {
+      const s = makeState({ now, mode });
+      addIncident(
+        s,
+        makeIncident('easy', {
+          state: 'closed',
+          closedBy: 'units',
+          truePriority: 3,
+          priority: 3,
+          outcome: { id: 'ok', result: 'resolved', text: { et: 'x', en: 'x' }, success: 1, arrests: 0, injuries: 0, officerInjured: false, score: 100, breakdown: { response: 30, resources: 15, decisions: 20, outcome: 20, safety: 10, classification: 5, total: 100 } },
+        }),
+      );
+      s.stats.incidents = 1;
+      s.stats.closed = 1;
+      return buildReport(s) as ShiftReportX;
+    };
+    const H = 3_600_000;
+    // One easy call closed ten minutes in, then "end shift": no longer an S.
+    const quick = perfect(T0 + 10 * 60_000);
+    expect(quick.score).toBeLessThan(5);
+    expect(quick.grade).toBe('F');
+    expect(quick.extras?.earlyEnd?.rawScore).toBe(100);
+    expect(quick.earnings.bonus).toBe(0);
+    const half = perfect(T0 + 4 * H);
+    expect(half.score).toBe(25);
+    expect(half.extras?.earlyEnd).toEqual({ served: 0.5, factor: 0.25, rawScore: 100 });
+    // Even a minute before the grace window the player keeps under half.
+    expect(perfect(T0 + 8 * H - 16 * 60_000).score).toBeLessThanOrEqual(50);
+    // The last 15 minutes and a shift that ran out count as served in full.
+    const full = perfect(T0 + 8 * H);
+    expect(full.score).toBe(100);
+    expect(full.grade).toBe('S');
+    expect(full.extras?.earlyEnd).toBeUndefined();
+    expect(perfect(T0 + 8 * H - 10 * 60_000).score).toBe(100);
+    // Director mode and the tutorial are not graded on time served.
+    expect(perfect(T0 + 10 * 60_000, 'director').score).toBe(100);
+    expect(perfect(T0 + 10 * 60_000, 'tutorial').score).toBe(100);
+    expect(earlyEndFactor({ mode: 'career', startTime: T0, endTime: T0 + 8 * H, now: T0 + 2 * H }).factor).toBe(0.125);
   });
   it('inessive forms', () => {
     expect(inessive('Tallinn')).toBe('Tallinnas');
