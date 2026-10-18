@@ -186,7 +186,10 @@ Each `BeatSpec` in a template becomes a `BeatState`. When it fires:
   (`timeoutMin`). Dispatching a unit matching `need` before timeout → `successEffects`; else
   `failEffects` (legacy: call failed, Staatus −6..−8). While waiting work is paused.
 * `agency` ("vajame kiirabi"): player must press "Teavita Häirekeskust: Kiirabi". Agency arrival
-  time 8-20 min (rural longer).
+  time 8-20 min (rural longer). The map shows every requested agency's vehicle (ambulance, rescue
+  truck, lastekaitse car, sea rescue boat...) leaving a base at `requestedAt`, driving on the roads
+  to the scene, arriving exactly at `arriveAt`, standing there until the incident closes and then
+  driving off (display only, derived from `AgencyRequest`, `src/map/agencies.ts`).
 * `transport`: unit status `transport`, drives to arrest house (`region.arrestHouseId`) /
   nearest hospital / station, then `busy` paperwork.
 * `escalate`, `info`, `pursuit` (§4.6), `search` (§4.7).

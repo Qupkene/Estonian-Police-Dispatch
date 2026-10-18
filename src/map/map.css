@@ -641,6 +641,178 @@
   }
 }
 
+/* ── Other agencies' vehicles (agencies.ts): rounded tags, never round like the units ─────── */
+.epdm-mk--agency {
+  width: 22px;
+  height: 22px;
+}
+.epdm-ag {
+  /* body, ink, outline */
+  --a: #e6edf5;
+  --ai: #18222f;
+  --ao: rgba(4, 9, 15, 0.92);
+  position: relative;
+  width: 22px;
+  height: 22px;
+  transition:
+    transform var(--dur-2, 220ms) var(--ease, ease),
+    opacity 650ms;
+}
+.epdm-ag--kiirabi {
+  --a: #d6ee1e;
+  --ai: #0b3a14;
+}
+.epdm-ag--paaste {
+  --a: #e3262f;
+  --ai: #fff;
+}
+.epdm-ag--merepaaste {
+  --a: #ff7a1a;
+  --ai: #2b1200;
+}
+.epdm-ag--sotsiaal {
+  --a: #f8c4dc;
+  --ai: #7a1747;
+}
+.epdm-ag--kov {
+  --a: #f4f7fb;
+  --ai: #1d3f9a;
+}
+.epdm-ag--keskkonnaamet {
+  --a: #1f8a4c;
+  --ai: #effff4;
+}
+.epdm-ag--veterinaar {
+  --a: #b8692a;
+  --ai: #fff7ed;
+}
+.epdm-ag--tolliamet {
+  --a: #1d3a8a;
+  --ai: #ffd23f;
+}
+.epdm-ag--transpordiamet {
+  --a: #0e9fbf;
+  --ai: #fff;
+}
+.epdm-ag--kapo {
+  --a: #161b24;
+  --ai: #cfd6e0;
+  --ao: #8d99aa;
+}
+.epdm-ag__body {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: var(--a);
+  color: var(--ai);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1.5px var(--ao),
+    0 2px 6px rgba(0, 0, 0, 0.55);
+  z-index: 2;
+}
+.epdm-ag__body svg {
+  width: 14px;
+  height: 14px;
+}
+/* Light bar on the roof: dark when parked, flashing blue while it drives to the scene. */
+.epdm-ag__bar {
+  position: absolute;
+  top: 1px;
+  left: 6px;
+  right: 6px;
+  height: 3px;
+  border-radius: 2px;
+  background: #27407a;
+  display: none;
+}
+.epdm-ag.has-bar .epdm-ag__bar {
+  display: block;
+}
+.epdm-ag.is-lights .epdm-ag__bar {
+  animation: epdm-agbar 0.5s steps(2, jump-none) infinite;
+}
+.epdm-ag__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  pointer-events: none;
+  opacity: 0;
+}
+.epdm-ag.is-lights .epdm-ag__ring {
+  border: 2px solid #3d8bff;
+  animation: epdm-ring 1.1s ease-out infinite;
+}
+.epdm-ag__dir {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  display: none;
+}
+.epdm-ag.is-moving .epdm-ag__dir {
+  display: block;
+}
+.epdm-ag__dir i {
+  position: absolute;
+  left: 50%;
+  top: -8px;
+  width: 0;
+  height: 0;
+  margin-left: -4.5px;
+  border-left: 4.5px solid transparent;
+  border-right: 4.5px solid transparent;
+  border-bottom: 6.5px solid var(--a);
+  filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.9));
+}
+.epdm-ag__label {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  padding: 1px 6px 1px 10px;
+  border-radius: 0 5px 5px 0;
+  background: var(--epdm-glass);
+  border: 1px solid color-mix(in srgb, var(--a) 70%, transparent);
+  border-left: none;
+  color: #e6eef7;
+  font: 700 9.5px/15px var(--font-ui);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.epdm-ag--kapo .epdm-ag__label {
+  border-color: var(--ao);
+}
+.epdm-ag.is-waiting {
+  opacity: 0.8;
+}
+.epdm-ag.is-gone {
+  opacity: 0;
+}
+@keyframes epdm-agbar {
+  0% {
+    background: #1f6bff;
+    box-shadow: 0 0 6px 2px rgba(31, 107, 255, 0.9);
+  }
+  100% {
+    background: #b9d0ff;
+    box-shadow: 0 0 3px 1px rgba(185, 208, 255, 0.7);
+  }
+}
+.epdm-zlo .epdm-ag__label,
+.epdm-zxlo .epdm-ag__label,
+.epdm--cine .epdm-ag__label {
+  display: none;
+}
+.epdm-zxlo .epdm-mk--agency .epdm-ag {
+  transform: scale(0.72);
+}
+
 /* ── Toolbar ─────────────────────────────────────────────────────────────────── */
 .epdm-tools {
   position: absolute;
@@ -882,8 +1054,17 @@
 .epdm--rm .epdm-inc__body,
 .epdm--rm .epdm-inc__badge,
 .epdm--rm .epdm-suspect__car,
-.epdm--rm .epdm-unit__dot {
+.epdm--rm .epdm-unit__dot,
+.epdm--rm .epdm-ag__ring,
+.epdm--rm .epdm-ag__bar {
   animation: none !important;
+}
+.epdm--rm .epdm-ag.is-lights .epdm-ag__ring {
+  opacity: 0.8;
+  transform: scale(1.4);
+}
+.epdm--rm .epdm-ag.is-lights .epdm-ag__bar {
+  background: #1f6bff;
 }
 .epdm--rm .epdm-inc.epdm-p1:not(.epdm-is-closed) .epdm-inc__pulse,
 .epdm--rm .epdm-inc.epdm-is-incoming .epdm-inc__pulse {
@@ -895,7 +1076,7 @@
   opacity: 0.8;
   transform: scale(1.4);
 }
-.epdm--rm .epdm-unit, .epdm--rm .epdm-inc {
+.epdm--rm .epdm-unit, .epdm--rm .epdm-inc, .epdm--rm .epdm-ag {
   transition: none;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -906,8 +1087,17 @@
   .epdm-inc__body,
   .epdm-inc__badge,
   .epdm-suspect__car,
-  .epdm-unit__dot {
+  .epdm-unit__dot,
+  .epdm-ag__ring,
+  .epdm-ag__bar {
     animation: none !important;
+  }
+  .epdm-ag.is-lights .epdm-ag__ring {
+    opacity: 0.8;
+    transform: scale(1.4);
+  }
+  .epdm-ag.is-lights .epdm-ag__bar {
+    background: #1f6bff;
   }
   .epdm-inc.epdm-p1:not(.epdm-is-closed) .epdm-inc__pulse,
   .epdm-inc.epdm-is-incoming .epdm-inc__pulse {

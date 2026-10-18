@@ -88,6 +88,48 @@ test('boots, logs in the 2024 way and plays a quick shift to the report', async 
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
+test('a requested ambulance drives to the scene on the map and opens its incident', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await bootAndLegacyLogin(page);
+  const epd = <T = unknown>(body: string) => page.evaluate(`(() => { const e = window.__epd; ${body} })()`) as Promise<T>;
+  await epd(
+    `e.game.getState().startShift({ seed: 2026, regionId: 'pohja', mode: 'free', difficulty: 'normal',
+       start: Date.UTC(2026, 9, 16, 11, 0), hours: 8, playerName: 'Test' });
+     e.game.getState().setSpeed(0);`,
+  );
+  await expect.poll(() => screen(page), { timeout: 20_000 }).toBe('game');
+  await expect(page.locator('.maplibregl-canvas').first()).toBeVisible({ timeout: 20_000 });
+  // Paused game: an incident in Tallinn, kiirabi asked for, the game clock moved to 90 % of its trip.
+  const id = await epd<string>(
+    `const g = e.game.getState(); const s = g.sim; const { step, cmd } = e.engine;
+     const pick = () => s.incidentOrder.map((i) => s.incidents[i]).find((i) => i.state !== 'closed' && i.location.city === 'Tallinn' && !s.flags['hidden:' + i.id]);
+     for (let m = 0; m < 240 && !pick(); m++) step(s, 60000);
+     const inc = pick();
+     inc.expiresAt = undefined;
+     cmd.requestAgency(s, inc.id, 'kiirabi');
+     const rq = inc.agencyNeeds.find((n) => n.agency === 'kiirabi').requested;
+     step(s, Math.round(((rq.arriveAt - rq.requestedAt) * 0.9) / 5000) * 5000);
+     g.select({}, 'incident');
+     g.focusMap(inc.location.coord, 12);
+     g.bump();
+     return inc.id;`,
+  );
+  const amb = page.locator('.epdm-mk--agency:has(.epdm-ag--kiirabi.is-enroute.is-lights)');
+  await expect(amb).toHaveCount(1, { timeout: 15_000 });
+  await expect(amb).toHaveAttribute('title', /^Kiirabi · saabub ~\d+ min$/);
+  await expect(amb.locator('.epdm-ag__label')).toHaveText('KIIRABI');
+  // Not a police unit: never on the unit board, and a click opens the incident it drives to.
+  await expect(page.getByText('KIIRABI', { exact: true })).toHaveCount(1);
+  await page.waitForTimeout(2500);
+  await amb.click();
+  await expect
+    .poll(() => epd<{ incidentId?: string; unitId?: string }>('return e.game.getState().selection'))
+    .toMatchObject({ incidentId: id });
+  expect(await epd('return e.game.getState().selection.unitId ?? null')).toBeNull();
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
 test('original versions are bundled', async ({ request }) => {
   for (const f of ['politseimang-2024.html', 'politseimang-2025.html']) {
     const res = await request.get(`/legacy/${f}`);
