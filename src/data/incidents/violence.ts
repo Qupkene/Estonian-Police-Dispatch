@@ -1,5 +1,5 @@
 // Isikuvastased süüteod: kaklused, ähvardamine, noa- ja relvaintsidendid, raskemad kuriteod.
-import type { IncidentTemplate } from '@/sim/types';
+import type { IncidentScenario, IncidentTemplate } from '@/sim/types';
 import {
   T,
   backup,
@@ -17,6 +17,521 @@ import {
   toArrest,
   un,
 } from './_helpers_a';
+
+// ─── Scenarios: one coherent story per incident (IncidentTemplate.scenarios) ──
+
+// ── violence_bar_fight_outside ──────────────────────────────────────────────
+const SC_BAR_FIGHT: IncidentScenario[] = [
+  {
+    id: 'group_brawl',
+    summary: [
+      T(
+        '{address}. Baari ees kaklevad {n} noormeest, ühel on peast veri. Turvatöötajad on juures.',
+        '{address}. {n} young men are fighting outside a bar and one has blood on his head. Door staff are there.',
+      ),
+      T(
+        '{address}. Baari ees käib grupikaklus, turvatöötajad ei suuda osalisi lahutada. Üks noormees veritseb.',
+        '{address}. A group brawl is going on outside a bar and the door staff cannot separate them. One young man is bleeding.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Siin baari ees on kaklus, neli-viis tüüpi, üks on juba maas!',
+        'There is a fight outside the bar, four or five guys, one is already down!',
+      ),
+      T(
+        'Kiiresti, nad löövad teda jalaga, kui ta maas on!',
+        'Hurry, they are kicking him while he is on the ground!',
+      ),
+    ],
+    details: [
+      T(
+        'Turvatöötaja: lööja on {suspect}, käitub agressiivselt ja ähvardab.',
+        'Door staff: the attacker is {suspect}, behaving aggressively and making threats.',
+      ),
+      T('Kakluses osaleb mitu joobes noormeest.', 'Several drunk young men are involved.'),
+    ],
+  },
+  {
+    id: 'man_on_ground',
+    summary: [
+      T(
+        '{address}. Ööklubi ees kaklus, osalised joobes. Üks isik lamab maas, teadvusel.',
+        '{address}. Fight outside a nightclub, those involved are drunk. One person is lying on the ground, conscious.',
+      ),
+      T(
+        '{address}. Ööklubi ees lõi mees teist nii, et too kukkus ja lõi pea vastu kõnniteed. Lööja seisab lähedal.',
+        '{address}. Outside a nightclub a man punched another who fell and hit his head on the pavement. The attacker is standing nearby.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Üks mees lõi teist ja too kukkus selili, pea lõi vastu asfalti. Ta on teadvusel, aga ei tõuse.',
+        'One man hit another and he fell backwards and hit his head on the tarmac. He is conscious but not getting up.',
+      ),
+      T(
+        'Lööja seisab siinsamas ja suitsetab, nagu midagi poleks juhtunud.',
+        'The man who hit him is standing right here smoking as if nothing happened.',
+      ),
+    ],
+    details: [
+      T(
+        'Kannatanu lamab maas, peas muhk, teadvusel.',
+        'The victim is lying on the ground with a lump on his head, conscious.',
+      ),
+      T('Lööja: {suspect}.', 'The attacker: {suspect}.'),
+    ],
+    agencies: [
+      {
+        agency: 'kiirabi',
+        chance: 0.7,
+        reason: T('Kannatanu lõi kukkudes pead', 'The victim hit his head when he fell'),
+      },
+    ],
+  },
+  {
+    id: 'security_holding',
+    summary: [
+      T(
+        '{address}. Turvatöötaja teatel löödi baari ees klienti rusikaga näkku. Lööja on veel kohal ja agressiivne.',
+        '{address}. A doorman reports a customer was punched in the face outside the bar. The attacker is still there and aggressive.',
+      ),
+      T(
+        '{address}. Turvatöötajad hoiavad kinni meest, kes lõi baari ees teist klienti. Mees rabeleb ja sõimab.',
+        '{address}. Door staff are holding a man who hit another customer outside the bar. He is struggling and swearing.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ma olen siin turvamees. Üks klient lõi teist, me hoiame teda kinni, aga ta rabeleb.',
+        'I am the doorman here. One customer hit another, we are holding him, but he is struggling.',
+      ),
+      T(
+        'Kannatanul on kulm lõhki, ta istub sees baaris.',
+        'The victim has a split eyebrow, he is sitting inside the bar.',
+      ),
+    ],
+    details: [
+      T(
+        'Turvatöötaja: lööja on {suspect}, käitub agressiivselt ja ähvardab.',
+        'Door staff: the attacker is {suspect}, behaving aggressively and making threats.',
+      ),
+      T('Baari valvekaamera salvestas löömise.', 'The bar’s CCTV recorded the assault.'),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [
+        T(
+          'Tere, baari turvamees. Üks klient lõi teist, me hoiame teda kinni.',
+          'Hello, bar security here. One customer hit another and we are holding him.',
+        ),
+      ],
+      openingRu: ['Здравствуйте, охрана бара. Один клиент ударил другого, мы его держим.'],
+      answers: {
+        direction: [T('Ta ei lähe kuhugi, me hoiame teda.', 'He is not going anywhere, we are holding him.')],
+        injured: [
+          T('Kannatanul on kulm lõhki, veritseb natuke.', 'The victim has a split eyebrow, bleeding a bit.'),
+        ],
+        weapons: [T('Relva ei olnud, ta lõi rusikaga.', 'No weapon, he punched him.')],
+      },
+    },
+    tags: ['detained'],
+  },
+  {
+    id: 'kebab_queue',
+    title: T('Kaklus kiirtoidukoha järjekorras', 'Fight in a takeaway queue'),
+    summary: [
+      T(
+        '{address}. Kiirtoidukoha järjekorras läks kahe mehe vahel kakluseks, üks lõi teist pudeliga. Kannatanu veritseb.',
+        '{address}. A fight broke out between two men in a takeaway queue and one hit the other with a bottle. The victim is bleeding.',
+      ),
+      T(
+        '{address}. Ööklubist tulnud noored kaklevad kiirtoidukoha ees järjekorra pärast, müüja pani ukse lukku.',
+        '{address}. Young people coming from a nightclub are fighting over the queue outside a takeaway and the server has locked the door.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Nad läksid järjekorra pärast tülli ja üks lõi teist pudeliga pähe!',
+        'They started arguing about the queue and one hit the other over the head with a bottle!',
+      ),
+      T(
+        'Ma panin ukse lukku, nad kaklevad meie akna taga.',
+        'I have locked the door, they are fighting right outside our window.',
+      ),
+    ],
+    details: [
+      T('Teataja on kiirtoidukoha töötaja.', 'The caller works at the takeaway.'),
+      T(
+        'Lööja: {suspect}. Purustatud pudel on maas.',
+        'The attacker: {suspect}. A broken bottle is on the ground.',
+      ),
+    ],
+    agencies: [
+      { agency: 'kiirabi', chance: 0.6, reason: T('Löök pudeliga pähe', 'Hit on the head with a bottle') },
+    ],
+    call: {
+      mood: 'panic',
+      opening: [
+        T(
+          'Kiirtoidukoha ees kaklevad mehed, üks lõi teist pudeliga!',
+          'Men are fighting outside the takeaway, one hit the other with a bottle!',
+        ),
+      ],
+      openingRu: ['У фастфуда дерутся мужчины, один ударил другого бутылкой!'],
+      answers: {
+        weapons: [T('Pudel, see on nüüd katki maas.', 'A bottle, it is broken on the ground now.')],
+        injured: [T('Ühel jookseb peast verd.', 'One of them has blood running from his head.')],
+        safe: [T('Jah, ma olen sees, uks on lukus.', 'Yes, I am inside and the door is locked.')],
+      },
+    },
+  },
+];
+
+// ── violence_threatening ────────────────────────────────────────────────────
+const SC_THREATENING: IncidentScenario[] = [
+  {
+    id: 'neighbour_fire_threat',
+    summary: [
+      T(
+        '{address}. Teataja sõnul ähvardas naaber teda tappa ja lubas maja põlema panna. Ähvardaja on hetkel oma korteris.',
+        '{address}. The caller says a neighbour threatened to kill him and to set the building on fire. The man is in his flat at the moment.',
+      ),
+      T(
+        '{address}. Naabrite vahelises tülis lubas mees teataja korteri koos temaga põlema panna. Ähvardaja on kodus.',
+        '{address}. In a row between neighbours the man said he would set fire to the caller’s flat with the caller inside. He is at home.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Naaber ütles otse, et tapab mu ära. Ma ei julge enam uksest välja minna.',
+        'My neighbour said straight out that he would kill me. I do not dare go out of the door any more.',
+      ),
+      T(
+        'Ta ütles, et paneb mu korteri põlema, kui ma veel kord tema auto pärast kaeban.',
+        'He said he would set my flat on fire if I complain about his car once more.',
+      ),
+    ],
+    details: [
+      T(
+        'Ähvardaja on {suspect}. Varem on olnud tülisid parkimise ja müra pärast.',
+        'The man making threats is {suspect}. There have been rows about parking and noise before.',
+      ),
+      T(
+        'Ähvardus öeldi trepikojas, pealt kuulis veel üks naaber.',
+        'The threat was made in the stairwell and another neighbour overheard it.',
+      ),
+    ],
+  },
+  {
+    id: 'messages_acquaintance',
+    persons: [
+      { role: 'victim', gender: 'any', age: [20, 70] },
+      {
+        role: 'suspect',
+        gender: 'M',
+        age: [20, 60],
+        record: 0.4,
+        intoxicated: 0.3,
+        relation: 'friend',
+        known: true,
+      },
+    ],
+    summary: [
+      T(
+        '{address}. Tuttav mees ähvardab teatajat sõnumite ja kõnedega, lubab tulla kohale asja klaarima.',
+        '{address}. A man the caller knows is threatening them with messages and calls, saying he will come round to settle things.',
+      ),
+      T(
+        '{address}. Teataja saab juba kolmandat päeva ähvardavaid sõnumeid endiselt tuttavalt, viimases on tema kodu foto.',
+        '{address}. The caller has been getting threatening messages from a former acquaintance for three days; the latest has a photo of their home.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ta saadab mulle juba kolmandat päeva sõnumeid, et teab, kus ma elan.',
+        'He has been sending me messages for three days saying he knows where I live.',
+      ),
+      T(
+        'Viimases sõnumis oli pilt minu maja uksest. Ta on siin käinud!',
+        'The last message had a picture of my front door. He has been here!',
+      ),
+    ],
+    details: [
+      T('Teataja on ähvardavad sõnumid salvestanud.', 'The caller has saved the threatening messages.'),
+      T(
+        'Ähvardaja on {suspect}, vaidlus käib laenatud raha üle.',
+        'The man making threats is {suspect}; the dispute is about borrowed money.',
+      ),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [
+        T(
+          'Tere. Üks tuttav saadab mulle ähvardavaid sõnumeid ja saatis pildi minu kodust.',
+          'Hello. Someone I know is sending me threatening messages and sent a picture of my home.',
+        ),
+      ],
+      openingRu: ['Здравствуйте. Знакомый присылает мне угрозы и прислал фото моего дома.'],
+      answers: {
+        suspect: [
+          T('Endine tuttav, me olime koos tööl.', 'A former acquaintance, we used to work together.'),
+        ],
+        weapons: [
+          T(
+            'Ma ei tea, ta on kirjutanud, et tal on "mida näidata".',
+            'I do not know, he wrote that he has "something to show me".',
+          ),
+        ],
+        safe: [T('Ma olen kodus, uks on lukus.', 'I am at home with the door locked.')],
+      },
+    },
+  },
+  {
+    id: 'stairwell_drunk',
+    summary: [
+      T(
+        '{address}. Trepikojas ähvardas joobes mees teatajat peksta ja läks seejärel oma korterisse. Relvi ei nähtud.',
+        '{address}. A drunk man threatened to beat up the caller in the stairwell and then went into his flat. No weapons seen.',
+      ),
+      T(
+        '{address}. Joobes naaber blokeeris trepikojas teataja tee ja ähvardas talle "näkku anda". Mees on nüüd oma korteris.',
+        '{address}. A drunk neighbour blocked the caller’s way in the stairwell and threatened to "smash his face in". The man is in his flat now.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ta tuli trepil vastu, purjus, ja ütles, et kui ma veel kord ta ukse taga seisan, siis ta peksab mu läbi.',
+        'I met him on the stairs, drunk, and he said that if I stand outside his door once more he will beat me up.',
+      ),
+      T('Ma ei saanud isegi aru, mida ma valesti tegin.', 'I did not even understand what I had done wrong.'),
+    ],
+    details: [
+      T('Ähvardaja on {suspect}, tugevas joobes.', 'The man making threats is {suspect}, heavily drunk.'),
+      T('Mees on oma korteris, uks on lukus.', 'The man is in his flat with the door locked.'),
+    ],
+  },
+  {
+    id: 'debt_partner',
+    title: T('Ähvardamine võla pärast', 'Threats over a debt'),
+    persons: [
+      { role: 'victim', gender: 'any', age: [28, 65] },
+      {
+        role: 'suspect',
+        gender: 'M',
+        age: [28, 60],
+        record: 0.55,
+        intoxicated: 0.2,
+        relation: 'stranger',
+        known: true,
+        weapon: 0.08,
+      },
+    ],
+    summary: [
+      T(
+        '{address}. Teataja sõnul ähvardab endine äripartner teda seoses võlaga ja seisis täna tema maja ees. Ähvardaja on autos.',
+        '{address}. The caller says a former business partner is threatening them over a debt and was standing outside their house today. The man is in his car.',
+      ),
+      T(
+        '{address}. Võlgnevuse pärast tülli läinud äripartner lubas teataja lapsed kooli juurest "ära korjata". Mees istub maja ees autos.',
+        '{address}. A business partner the caller fell out with over a debt said he would "pick up" the caller’s children from school. He is sitting in a car outside the house.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ta ütles, et kui ma raha reedeks ei maksa, siis tunnen ma seda omal nahal. Nüüd istub ta mu maja ees.',
+        'He said if I do not pay the money by Friday I will feel it myself. Now he is sitting outside my house.',
+      ),
+      T(
+        'Ta mainis mu lapsi. See ei ole enam äritüli.',
+        'He mentioned my children. This is not a business dispute any more.',
+      ),
+    ],
+    details: [
+      T(
+        'Ähvardaja on {suspect}, istub maja ees autos.',
+        'The man making threats is {suspect}, sitting in a car outside the house.',
+      ),
+      T('Vaidlus puudutab äritehingust jäänud võlga.', 'The dispute concerns a debt from a business deal.'),
+    ],
+    outcomes: [
+      oc(
+        'report',
+        'report',
+        [0.35, 1],
+        3,
+        T(
+          'Võeti vastu avaldus ja alustati kriminaalmenetlust ähvardamise eest (KarS § 120). Võlavaidlus jääb lahendada tsiviilkorras.',
+          'A complaint was taken and criminal proceedings were opened for threats (KarS § 120). The debt dispute is left to be settled as a civil matter.',
+        ),
+        { trust: 2 },
+      ),
+      oc(
+        'arrest',
+        'arrest',
+        [0.7, 1],
+        2,
+        T(
+          'Ähvardaja peeti kinni, autost leiti teleskoopnui. Alustati kriminaalmenetlust KarS § 120 järgi.',
+          'The man was detained and a telescopic baton was found in his car. Criminal proceedings were opened under KarS § 120.',
+        ),
+        { arrests: 1, trust: 3 },
+      ),
+      oc(
+        'drove_off',
+        'escaped',
+        [0, 0.35],
+        2,
+        T(
+          'Mees sõitis patrulli nähes minema. Teatajale anti nõu ja ähvardaja kutsutakse ülekuulamisele.',
+          'The man drove off when he saw the patrol. The caller was given advice and the man will be summoned for questioning.',
+        ),
+        { trust: -1 },
+      ),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [
+        T(
+          'Tere. Mu endine äripartner ähvardab mind ja istub praegu mu maja ees autos.',
+          'Hello. My former business partner is threatening me and is sitting in a car outside my house right now.',
+        ),
+      ],
+      openingRu: ['Здравствуйте. Бывший деловой партнёр мне угрожает и сейчас сидит в машине у моего дома.'],
+      answers: {
+        suspect: [
+          T('Endine äripartner, ma olen talle raha võlgu.', 'A former business partner, I owe him money.'),
+        ],
+        weapons: [
+          T(
+            'Ma ei tea, aga ta on varem relvaga hoobelnud.',
+            'I do not know, but he has bragged about a gun before.',
+          ),
+        ],
+        children: [T('Lapsed on kodus minuga.', 'The children are at home with me.')],
+      },
+    },
+  },
+  {
+    id: 'road_rage_home',
+    title: T('Ähvardamine pärast liiklustüli', 'Threats after a road rage incident'),
+    persons: [
+      { role: 'victim', gender: 'any', age: [22, 70] },
+      { role: 'suspect', gender: 'M', age: [22, 55], record: 0.45, intoxicated: 0.15, relation: 'stranger' },
+    ],
+    vehicles: [{ role: 'suspect', kind: 'car', driverRole: 'suspect' }],
+    summary: [
+      T(
+        '{address}. Teataja sõnul järgnes liiklustüli teine osapool talle koju ja ähvardab nüüd maja ees peksta. Sõiduk: {car}.',
+        '{address}. The caller says the other driver from a road rage incident followed them home and is now threatening to beat them up outside the house. Vehicle: {car}.',
+      ),
+      T(
+        '{address}. Võõras juht sõitis teatajale koju järele, peksab rusikaga auto katust ja karjub ähvardusi. Teataja on majas.',
+        '{address}. A stranger drove after the caller to their home and is pounding on the car roof and shouting threats. The caller is inside the house.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ma signaalitasin talle ristmikul ja ta sõitis mulle koju järele! Nüüd seisab ta maja ees ja karjub.',
+        'I honked at him at a junction and he followed me home! Now he is standing outside the house shouting.',
+      ),
+      T('Ta lubas mu läbi peksta, kui ma välja tulen.', 'He said he would beat me up if I come out.'),
+    ],
+    details: [
+      T('Ähvardaja: {suspect}.', 'The man making threats: {suspect}.'),
+      T('Ähvardaja sõiduk: {car}, reg nr {plate}.', 'His vehicle: {car}, plate {plate}.'),
+    ],
+    outcomes: [
+      oc(
+        'report',
+        'report',
+        [0.35, 1],
+        3,
+        T(
+          'Võeti vastu avaldus, alustati kriminaalmenetlust ähvardamise eest (KarS § 120). Juhti hoiatati ja ta lahkus.',
+          'A complaint was taken and criminal proceedings were opened for threats (KarS § 120). The driver was warned and left.',
+        ),
+        { trust: 2 },
+      ),
+      oc(
+        'arrest',
+        'arrest',
+        [0.7, 1],
+        2,
+        T(
+          'Juht peeti kinni ja toimetati arestimajja. Alustati kriminaalmenetlust KarS § 120 järgi.',
+          'The driver was detained and taken to the arrest house. Criminal proceedings were opened under KarS § 120.',
+        ),
+        { arrests: 1, trust: 3 },
+      ),
+      oc(
+        'left',
+        'escaped',
+        [0, 0.35],
+        2,
+        T(
+          'Juht sõitis enne patrulli saabumist minema. Numbrimärgi järgi alustati menetlust ähvardamise kohta.',
+          'The driver left before the patrol arrived. Proceedings for threats were opened using the number plate.',
+        ),
+        { trust: -1 },
+      ),
+    ],
+    beats: [
+      qVehicle('arrive'),
+      qPerson('suspect', 2),
+      choice(
+        8,
+        [
+          T(
+            '{callsign}: juht väidab, et tahtis ainult rääkida. Teataja kardab välja tulla. Kas peame kinni või vormistame avalduse?',
+            '{callsign}: the driver claims he only wanted to talk. The caller is afraid to come out. Do we detain him or take a statement?',
+          ),
+        ],
+        [
+          opt(
+            'detain',
+            T('Pidage kinni', 'Detain him'),
+            T(
+              '{callsign}, juhtimine. Pidage kinni ähvardamise eest.',
+              '{callsign}, Control. Detain him for making threats.',
+            ),
+            { success: 0.1, arrests: 1, time: 20 },
+          ),
+          opt(
+            'report',
+            T('Võtke avaldus, saatke ta minema', 'Take a statement, send him away'),
+            T(
+              '{callsign}, juhtimine. Vormistage avaldus ja saatke ta minema.',
+              '{callsign}, Control. Take a statement and send him on his way.',
+            ),
+            { success: 0.05, time: 10 },
+          ),
+        ],
+        'report',
+      ),
+    ],
+    call: {
+      mood: 'panic',
+      opening: [
+        T(
+          'Üks juht sõitis mulle koju järele ja ähvardab mind peksta!',
+          'A driver followed me home and is threatening to beat me up!',
+        ),
+      ],
+      openingRu: ['Водитель поехал за мной до дома и грозится избить!'],
+      answers: {
+        vehicle: [
+          T(
+            '{car}, number {plate}. See seisab mu maja ees.',
+            '{car}, plate {plate}. It is parked outside my house.',
+          ),
+        ],
+        safe: [T('Ma olen majas, uks on lukus.', 'I am in the house with the door locked.')],
+        weapons: [T('Ma ei näinud relva.', 'I did not see a weapon.')],
+      },
+    },
+  },
+];
 
 export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
   // ─── Legacy ───────────────────────────────────────────────────────────────
@@ -2055,6 +2570,7 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
       },
     },
     tags: ['alcohol', 'fight'],
+    scenarios: SC_BAR_FIGHT,
   },
   {
     id: 'violence_bus_stop_beating',
@@ -2357,6 +2873,7 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
       ),
     },
     tags: ['threat'],
+    scenarios: SC_THREATENING,
   },
   {
     id: 'violence_knife_threat',

@@ -8,6 +8,7 @@
 import { Marker, type Map as MlMap } from 'maplibre-gl';
 import type { Incident, Lang, LngLat, SimState, Unit } from '@/sim/types';
 import { TEMPLATE_BY_ID } from '@/data/incidents';
+import { withScenario } from '@/sim/scenario';
 import { t } from '@/i18n';
 import { SIREN_GLYPH, SUSPECT_GLYPH, UNIT_GLYPHS } from './glyphs';
 import { isHidden, isMoving, type IncCoordFn, type PosFn, type SuspectPosFn } from './overlays';
@@ -228,7 +229,7 @@ interface IncRec {
 /** Does the incident have an active backup request ("Toetust vajab")? */
 export function needsBackup(inc: Incident): boolean {
   if (!inc.beats?.length) return false;
-  const tpl = TEMPLATE_BY_ID[inc.templateId];
+  const tpl = withScenario(TEMPLATE_BY_ID[inc.templateId], inc.scenarioId);
   if (!tpl?.beats) return false;
   return inc.beats.some((b) => b.status === 'active' && tpl.beats![b.index]?.kind === 'backup');
 }

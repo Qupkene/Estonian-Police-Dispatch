@@ -18,6 +18,7 @@ import type {
   Text,
   Vehicle,
 } from '@/sim/types';
+import { withScenario } from '@/sim/scenario';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Safety: the engine lands concurrently (stubs throw). Panels must never crash.
@@ -332,7 +333,7 @@ export function querySubject(
   const inc = msg.incidentId ? s.incidents[msg.incidentId] : undefined;
   if (inc) {
     const beat = inc.beats.find((b) => b.radioId === msg.id);
-    const spec = beat ? templates[inc.templateId]?.beats?.[beat.index] : undefined;
+    const spec = beat ? withScenario(templates[inc.templateId], inc.scenarioId)?.beats?.[beat.index] : undefined;
     if (spec && spec.kind === 'query') {
       if (spec.queryType === 'vehicle') {
         const v = inc.vehicles.find((x) => x.role === 'suspect') ?? inc.vehicles[0];

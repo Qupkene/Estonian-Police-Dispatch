@@ -12,6 +12,7 @@ import { destination, haversineKm } from './geo';
 import { allTemplates, publishIncident, regionOf } from './internal';
 import { incidentVars } from './incidents';
 import { Rng, withRng } from './rng';
+import { withScenario } from './scenario';
 import { defaultSla, slaFor } from './scoring';
 import { fillText } from './text';
 import { HOUR, isoDate, MIN, seasonOf, wall } from './time';
@@ -23,6 +24,7 @@ import type {
   HourProfile,
   Incident,
   IncidentLocation,
+  IncidentScenario,
   IncidentTemplate,
   LngLat,
   Person,
@@ -232,10 +234,104 @@ export function templateWeight(s: SimState, tpl: IncidentTemplate, ctx: PickCtx)
   return w;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Repetition memory: the shift remembers what it already told (JSON-safe, in s.flags)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** How many of the latest incidents template choice looks back on. */
+export const RECENT_TEMPLATES = 8;
+/** Weight multiplier for a template among the latest RECENT_TEMPLATES incidents. */
+export const RECENT_TEMPLATE_FACTOR = 0.08;
+/** Weight multiplier for a category that the last two incidents both had (no third in a row, unless the hour really wants it). */
+export const CATEGORY_STREAK_FACTOR = 0.3;
+/** Weight multiplier for a template scenario already told in this shift. */
+export const SEEN_SCENARIO_FACTOR = 0.02;
+/** Each time a template was already told this shift divides its weight by (1 + this), so no story dominates a shift. */
+export const TOLD_TEMPLATE_DECAY = 0.4;
+
+/** Flag keys: comma-separated template ids (oldest first), the last two categories, and `template/scenario` pairs told this shift. */
+const RECENT_TPL = 'recent:tpl';
+const RECENT_CAT = 'recent:cat';
+const SEEN_SCN = 'seen:scn';
+
+function flagList(v: SimState['flags'][string] | undefined): string[] {
+  return typeof v === 'string' && v ? v.split(',') : [];
+}
+
+/** Template ids of the latest incidents of the shift, oldest first. */
+export function recentTemplateIds(s: SimState): string[] {
+  return flagList(s.flags[RECENT_TPL]);
+}
+
+/** `templateId/scenarioId` pairs already told in this shift. */
+export function seenScenarios(s: SimState): Set<string> {
+  return new Set(flagList(s.flags[SEEN_SCN]));
+}
+
+/** Record a new incident in the shift's repetition memory. */
+export function rememberIncident(s: SimState, tpl: IncidentTemplate, scenarioId?: string): void {
+  s.flags[RECENT_TPL] = [...recentTemplateIds(s), tpl.id].slice(-RECENT_TEMPLATES).join(',');
+  s.flags[RECENT_CAT] = [...flagList(s.flags[RECENT_CAT]), tpl.category].slice(-2).join(',');
+  if (scenarioId) {
+    const seen = seenScenarios(s);
+    seen.add(`${tpl.id}/${scenarioId}`);
+    s.flags[SEEN_SCN] = [...seen].join(',');
+  }
+}
+
+/** How many times each template was told in this shift (from the shift's own incidents). */
+export function toldCounts(s: SimState): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const id of s.incidentOrder) {
+    const t = s.incidents[id]?.templateId;
+    if (t) m.set(t, (m.get(t) ?? 0) + 1);
+  }
+  return m;
+}
+
+/**
+ * Multiplier that keeps the shift from repeating itself: a template told among the latest
+ * incidents is strongly down-weighted, every earlier telling in the shift lowers it a little more,
+ * and a third incident of the same category in a row is less likely (the hour profile can still
+ * win, e.g. traffic at rush hour).
+ */
+export function repetitionFactor(
+  s: SimState,
+  tpl: IncidentTemplate,
+  recent = recentTemplateIds(s),
+  streak = categoryStreak(s),
+  told = toldCounts(s),
+): number {
+  let f = 1 / (1 + TOLD_TEMPLATE_DECAY * (told.get(tpl.id) ?? 0));
+  if (recent.includes(tpl.id)) f *= RECENT_TEMPLATE_FACTOR;
+  if (streak && tpl.category === streak) f *= CATEGORY_STREAK_FACTOR;
+  return f;
+}
+
+/** The category of the last two incidents when they share one. */
+function categoryStreak(s: SimState): string | undefined {
+  const cats = flagList(s.flags[RECENT_CAT]);
+  return cats.length >= 2 && cats[cats.length - 1] === cats[cats.length - 2] ? cats[cats.length - 1] : undefined;
+}
+
+/** Weighted scenario pick: a scenario already told this shift is strongly down-weighted. */
+export function pickScenario(s: SimState, r: Rng, tpl: IncidentTemplate): IncidentScenario | undefined {
+  const list = tpl.scenarios ?? [];
+  if (!list.length) return undefined;
+  const seen = seenScenarios(s);
+  return r.weighted(list, (sc) => Math.max(0, sc.weight ?? 1) * (seen.has(`${tpl.id}/${sc.id}`) ? SEEN_SCENARIO_FACTOR : 1));
+}
+
 /** Weighted template pick with the easter-egg budget (about 4 % of events, never more than 7 %). */
 export function pickTemplate(s: SimState, r: Rng, templates: IncidentTemplate[], t: number): IncidentTemplate | undefined {
   const ctx = pickCtx(s, t);
-  const ws = templates.map((tpl) => templateWeight(s, tpl, ctx));
+  const recent = recentTemplateIds(s);
+  const streak = categoryStreak(s);
+  const told = toldCounts(s);
+  const ws = templates.map((tpl) => {
+    const w = templateWeight(s, tpl, ctx);
+    return w > 0 ? w * repetitionFactor(s, tpl, recent, streak, told) : 0;
+  });
   let normal = 0;
   let easter = 0;
   templates.forEach((tpl, i) => {
@@ -443,10 +539,13 @@ export interface CreateOpts {
 }
 
 /** Generate a complete incident from a template (not yet published). */
-export function createIncident(s: SimState, tpl: IncidentTemplate, o: CreateOpts = {}): Incident {
+export function createIncident(s: SimState, base: IncidentTemplate, o: CreateOpts = {}): Incident {
   const region = regionOf(s);
   const seq = ++s.seq.incident;
   const r = withRng(s, (rr) => rr.fork(seq));
+  // One story per incident: from here on the template reads as the picked scenario tells it.
+  const scenario = pickScenario(s, r, base);
+  const tpl = withScenario(base, scenario?.id);
   const now = s.now;
   let location = o.location ?? templateLocation(r, region, tpl);
   if (!location.zone) location = { ...location, zone: zoneAt(region, location.coord) };
@@ -457,6 +556,7 @@ export function createIncident(s: SimState, tpl: IncidentTemplate, o: CreateOpts
     id: `i${seq}`,
     number: `${NUMBER_PREFIX[s.regionId] ?? 'EE'}-${yymmdd}-${String(seq).padStart(4, '0')}`,
     templateId: tpl.id,
+    ...(scenario ? { scenarioId: scenario.id } : {}),
     category: tpl.category,
     code: tpl.code,
     title: tpl.title,
@@ -505,6 +605,7 @@ export function createIncident(s: SimState, tpl: IncidentTemplate, o: CreateOpts
   s.stats.incidents++;
   s.stats.byPriority[truePriority]++;
   if (tpl.easterEgg) s.flags.easterCount = (Number(s.flags.easterCount) || 0) + 1;
+  rememberIncident(s, base, scenario?.id);
   return inc;
 }
 
@@ -570,6 +671,11 @@ function generateInvolved(s: SimState, r: Rng, tpl: IncidentTemplate, inc: Incid
   // Caller.
   const callerIdx = specs.findIndex((sp) => sp.role === 'caller');
   let caller: Person | undefined = callerIdx >= 0 ? made[callerIdx] : undefined;
+  // The story says who calls (the victim, the suspect himself...).
+  if (!caller && tpl.callerRole) {
+    const i = specs.findIndex((sp) => sp.role === tpl.callerRole);
+    if (i >= 0) caller = made[i];
+  }
   if (!caller) {
     const v = victim >= 0 ? made[victim] : undefined;
     const wIdx = specs.findIndex((sp) => sp.role === 'witness');
@@ -641,7 +747,7 @@ export function spawnIncident(s: SimState, tpl: IncidentTemplate, o: CreateOpts 
   let call = null;
   if (inc.source === 'hk') {
     try {
-      call = maybeCreateCall(s, inc, tpl);
+      call = maybeCreateCall(s, inc, withScenario(tpl, inc.scenarioId));
     } catch (err) {
       console.warn('[EPD] maybeCreateCall failed', err);
     }

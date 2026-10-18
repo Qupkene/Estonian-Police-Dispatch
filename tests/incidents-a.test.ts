@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { IncidentCategory, IncidentTemplate, PlaceKind } from '@/sim/types';
 import { TEMPLATE_PLACEHOLDERS } from '@/sim/text';
+import { withScenario } from '@/sim/scenario';
 import { TEMPLATES_VIOLENCE } from '@/data/incidents/violence';
 import { TEMPLATES_DOMESTIC } from '@/data/incidents/domestic';
 import { TEMPLATES_PUBLIC_ORDER } from '@/data/incidents/public_order';
@@ -203,20 +204,27 @@ describe('incidents A: violence / domestic / public_order / drugs', () => {
       });
 
       it('uses only allowed placeholders', () => {
-        for (const [path, s] of strings(t, t.id)) {
-          for (const m of s.matchAll(/\{(\w*)\}/g)) {
-            expect(ALLOWED.has(m[1]), `${path}: unknown placeholder {${m[1]}} in "${s}"`).toBe(true);
+        // The template and each of its stories (scenarios tell the incident with their own persons, vehicles and beats).
+        const stories = [t, ...(t.scenarios ?? []).map((sc) => withScenario(t, sc.id))].map((v) => ({
+          ...v,
+          scenarios: undefined,
+        }));
+        for (const v of stories) {
+          for (const [path, s] of strings(v, v.id)) {
+            for (const m of s.matchAll(/\{(\w*)\}/g)) {
+              expect(ALLOWED.has(m[1]), `${path}: unknown placeholder {${m[1]}} in "${s}"`).toBe(true);
+            }
+            expect((s.match(/\{/g) ?? []).length, `${path}: unbalanced braces`).toBe(
+              (s.match(/\}/g) ?? []).length,
+            );
+            if (/\{(plate|car)\}/.test(s))
+              expect((v.vehicles ?? []).length, `${path} uses vehicle placeholder`).toBeGreaterThan(0);
           }
-          expect((s.match(/\{/g) ?? []).length, `${path}: unbalanced braces`).toBe(
-            (s.match(/\}/g) ?? []).length,
-          );
-          if (/\{(plate|car)\}/.test(s))
-            expect((t.vehicles ?? []).length, `${path} uses vehicle placeholder`).toBeGreaterThan(0);
+          // {idcode}/{name} refer to the subject of a query beat, so only query radio may use them.
+          const outside = strings({ ...v, beats: (v.beats ?? []).filter((b) => b.kind !== 'query') }, v.id);
+          for (const [path, s] of outside)
+            expect(/\{(idcode|name)\}/.test(s), `${path}: {idcode}/{name} outside a query beat`).toBe(false);
         }
-        // {idcode}/{name} refer to the subject of a query beat, so only query radio may use them.
-        const outside = strings({ ...t, beats: (t.beats ?? []).filter((b) => b.kind !== 'query') }, t.id);
-        for (const [path, s] of outside)
-          expect(/\{(idcode|name)\}/.test(s), `${path}: {idcode}/{name} outside a query beat`).toBe(false);
       });
 
       it('has a sane call script when present', () => {
