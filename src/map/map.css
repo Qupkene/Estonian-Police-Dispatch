@@ -659,12 +659,12 @@
     opacity 650ms;
 }
 .epdm-ag--kiirabi {
-  --a: #d6ee1e;
-  --ai: #0b3a14;
-}
-.epdm-ag--paaste {
   --a: #e3262f;
   --ai: #fff;
+}
+.epdm-ag--paaste {
+  --a: #8e1118;
+  --ai: #ffd23f;
 }
 .epdm-ag--merepaaste {
   --a: #ff7a1a;
