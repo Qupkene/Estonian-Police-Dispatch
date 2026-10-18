@@ -6,7 +6,7 @@
 // loader and resume, and the cloud sync against an in-memory copy of the PHP API. Nothing may be lost.
 // Also covered: a newer or unknown version stays untouched, garbage never crashes and is backed up, and the
 // zustand behaviour the persist guard exists for.
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { create } from 'zustand';
@@ -15,7 +15,7 @@ import { useCareer } from '@/store/career';
 import { useSettings } from '@/store/settings';
 import { autosave, loadAutosave, stopLoop, useGame } from '@/store/game';
 import { keepBackup, normalizeCareerProfile, readBackups } from '@/store/migrate';
-import { parseMeta } from '@/net/sync';
+import { parseMeta, SLOTS } from '@/net/sync';
 import { rankOf, rosterFromCareer } from '@/sim/career';
 import { createShift, finalizeShift, step } from '@/sim/engine';
 import * as cmd from '@/sim/commands';
@@ -36,7 +36,14 @@ const raw = (set: string, f: string) => readFileSync(join(ROOT, set, f), 'utf8')
 type Stored<T> = { state: T; version: number };
 type CareerData = { profile: CareerProfile | null; inbox: unknown[] };
 
-const backupKeys = () => Object.keys(localStorage).filter((k) => k.startsWith('epd:backup.'));
+/** Backup keys of the guest (epd:backup.*) and of every account cache (epd:acct:<id>:backup.*). */
+const backupKeys = () => Object.keys(localStorage).filter((k) => /^epd:(acct:\d+:)?backup\./.test(k));
+
+// The first page load transforms the whole module graph: done once here, outside any test's time budget.
+beforeAll(async () => {
+  vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('offline'))));
+  await import('@/net/account'); // every test's beforeEach installs its own fetch
+}, 60_000);
 
 beforeEach(() => {
   // Every test starts like a fresh page: default stores, empty browser storage.
@@ -283,13 +290,18 @@ for (const set of SETS) {
           expect(page.game.loadAutosave()).toEqual(res.autosave);
           expect(api.writes()).toEqual([]);
           expect(backupKeys()).toEqual([]);
-          const meta = JSON.parse(localStorage.getItem('epd:sync')!);
+          // The account's data moved into its own namespace, byte for byte; the guest's keys hold none of it.
+          expect(localStorage.getItem('epd:acct:7:career')).toBe(raw(set, 'epd-career.json'));
+          expect(localStorage.getItem('epd:acct:7:autosave')).toBe(raw(set, 'epd-autosave-career.json'));
+          expect(localStorage.getItem('epd:career')).toBeNull();
+          expect(localStorage.getItem('epd:autosave')).toBeNull();
+          const meta = JSON.parse(localStorage.getItem('epd:acct:7:sync')!);
           for (const slot of ['career', 'settings', 'autosave']) {
             expect(meta.slots[slot]).toEqual({ owner: 7, base: res.updated[slot], dirty: false });
           }
         });
 
-        it('a guest who logs in to an account with another career keeps the guest career in the backup', async () => {
+        it('a guest who logs in to an account with another career keeps the guest career as the guest\'s', async () => {
           if (!existsSync(join(ROOT, set, 'epd-career-new.json'))) return;
           const guest = raw(set, 'epd-career.json');
           localStorage.setItem('epd:career', guest);
@@ -298,13 +310,18 @@ for (const set of SETS) {
           const other = (JSON.parse(raw(set, 'epd-career-new.json')) as Stored<CareerData>).state;
           api.write(7, 'career', other);
           const page = await boot();
+          expect(page.useCareer.getState().profile).toEqual((JSON.parse(guest) as Stored<CareerData>).state.profile);
           expect(await page.useAccount.getState().login('mari_tamm', 'x')).toBe(true);
           await settle();
           expect(page.useCareer.getState().profile).toEqual(other.profile);
-          const [backup] = readBackups('career');
-          expect(backup.unique).toBe(true);
-          expect(backup.data).toEqual((JSON.parse(guest) as Stored<CareerData>).state);
           expect(api.json(7, 'career')).toEqual(other);
+          // The guest's career never left its key, and a copy waits for a rollback to 92ed7f5 (src/net/sync.ts legacyMeta).
+          expect(localStorage.getItem('epd:career')).toBe(guest);
+          expect(readBackups('career.guest', null)[0].data).toEqual((JSON.parse(guest) as Stored<CareerData>).state);
+          const out = page.useAccount.getState().logout();
+          await vi.advanceTimersByTimeAsync(3500);
+          await out;
+          expect(page.useCareer.getState().profile).toEqual((JSON.parse(guest) as Stored<CareerData>).state.profile);
         });
       });
     }
@@ -520,7 +537,8 @@ describe('nothing is replaced without a copy', () => {
     api.cookie = 7;
     api.write(7, 'autosave', ended);
     await boot();
-    expect(readBackups('autosave.cloud')[0].data).toEqual(ended);
+    // In the account's own namespace (epd:acct:7:backup.autosave.cloud).
+    expect(readBackups('autosave.cloud', 7)[0].data).toEqual(ended);
   });
 
   it('backups are bounded and copies found nowhere else are kept over the others', () => {
@@ -548,6 +566,154 @@ describe('zustand behaviour the persist guard exists for', () => {
     expect(probe.getState().money).toBe(0);
     probe.getState().add();
     expect(JSON.parse(localStorage.getItem('zustand-probe')!).state.money).toBe(1);
+  });
+});
+
+// ── Each identity's own browser data (src/store/space.ts) ───────────────────
+
+describe('each identity has its own browser data: account data moves out of the plain keys once', () => {
+  const fx = (f: string) => raw('92ed7f5', f);
+  const state = (f: string) => (JSON.parse(fx(f)) as Stored<CareerData>).state;
+  const dump = () => Object.fromEntries(Object.keys(localStorage).sort().map((k) => [k, localStorage.getItem(k)]));
+  const synced = (base: number) => ({ owner: 7, base, dirty: false });
+
+  it("account-owned plain keys move into the account's namespace byte for byte; the guest starts without them", async () => {
+    localStorage.setItem('epd:career', fx('epd-career.json'));
+    localStorage.setItem('epd:settings', fx('epd-settings-custom.json'));
+    localStorage.setItem('epd:autosave', fx('epd-autosave-career.json'));
+    localStorage.setItem('epd:sync', fx('epd-sync.json')); // 92ed7f5: owner 7
+    const page = await boot(); // signed out
+    expect(localStorage.getItem('epd:acct:7:career')).toBe(fx('epd-career.json'));
+    expect(localStorage.getItem('epd:acct:7:autosave')).toBe(fx('epd-autosave-career.json'));
+    expect(localStorage.getItem('epd:acct:7:settings')).toBe(fx('epd-settings-custom.json'));
+    expect(localStorage.getItem('epd:career')).toBeNull();
+    expect(localStorage.getItem('epd:autosave')).toBeNull();
+    // The preferences of this browser stay for the guest as well.
+    expect(localStorage.getItem('epd:settings')).toBe(fx('epd-settings-custom.json'));
+    expect(page.useCareer.getState().profile).toBeNull();
+    expect(page.game.loadAutosave()).toBeNull();
+    // Unknown history (format 1) still counts as changed: never replaced without a backup, uploaded when in sync.
+    const fmt1 = JSON.parse(fx('epd-sync.json')) as { updated: Record<string, number> };
+    const acct = JSON.parse(localStorage.getItem('epd:acct:7:sync')!);
+    for (const slot of SLOTS) expect(acct.slots[slot]).toEqual({ owner: 7, base: fmt1.updated[slot], dirty: true });
+    expect(JSON.parse(localStorage.getItem('epd:sync')!)).toMatchObject({ v: 3, account: 7 });
+    expect(backupKeys()).toEqual([]);
+    // Only once: the next load changes nothing.
+    const before = dump();
+    await boot();
+    expect(dump()).toEqual(before);
+  });
+
+  it('the guest gets back what an account once replaced (guest backups); the backups stay', async () => {
+    const guest = state('epd-career-new.json');
+    const guestShift = JSON.parse(fx('epd-autosave-free.json')) as SimState;
+    localStorage.setItem('epd:career', fx('epd-career.json'));
+    localStorage.setItem('epd:autosave', fx('epd-autosave-career.json'));
+    // The release before kept the guest's career and shift when account 7's cloud copies replaced them at sign-in.
+    // A newer backup of another kind (a career reset, no owner) is not the guest's.
+    const guestBackup = JSON.stringify({ at: 1, reason: 'cloud', unique: true, owner: null, data: guest });
+    const resetBackup = JSON.stringify({ at: 2, reason: 'reset', unique: true, data: state('epd-career.json') });
+    localStorage.setItem('epd:backup.career', resetBackup);
+    localStorage.setItem('epd:backup.career.prev', guestBackup);
+    localStorage.setItem('epd:backup.autosave', JSON.stringify({ at: 1, reason: 'cloud', unique: true, owner: null, data: guestShift }));
+    localStorage.setItem('epd:sync', JSON.stringify({ v: 2, account: 7, slots: { career: synced(10), settings: synced(10), autosave: synced(10) } }));
+    const page = await boot();
+    expect(page.useCareer.getState().profile).toEqual(guest.profile);
+    expect(JSON.parse(localStorage.getItem('epd:career')!)).toEqual({ state: guest, version: 1 });
+    expect(page.game.loadAutosave()?.seed).toBe(guestShift.seed);
+    expect(localStorage.getItem('epd:backup.career')).toBe(resetBackup);
+    expect(localStorage.getItem('epd:backup.career.prev')).toBe(guestBackup);
+    expect(localStorage.getItem('epd:acct:7:career')).toBe(fx('epd-career.json'));
+    expect(localStorage.getItem('epd:acct:7:autosave')).toBe(fx('epd-autosave-career.json'));
+  });
+
+  it('changes the server never got (also what a guest played after signing out before) are uploaded at the next sign-in', async () => {
+    api.write(7, 'career', state('epd-career.json'));
+    const base = api.rows.get('7:career')!.updated;
+    const changed = { ...state('epd-career.json'), profile: { ...state('epd-career.json').profile!, money: 4242 } };
+    localStorage.setItem('epd:career', JSON.stringify({ state: changed, version: 1 }));
+    localStorage.setItem('epd:sync', JSON.stringify({ v: 2, account: null, slots: { career: { owner: 7, base, dirty: true } } }));
+    const page = await boot();
+    expect(page.useCareer.getState().profile).toBeNull(); // the guest has none
+    expect(JSON.parse(localStorage.getItem('epd:acct:7:career')!).state.profile.money).toBe(4242);
+    expect(await page.useAccount.getState().login('mari_tamm', 'x')).toBe(true);
+    await settle();
+    expect((api.json(7, 'career') as CareerData).profile!.money).toBe(4242);
+    expect(page.useCareer.getState().profile!.money).toBe(4242);
+  });
+
+  it("data of no account, an unknown one or with no marker at all stays the guest's", async () => {
+    for (const marker of [fx('epd-sync-guest.json'), null, 'garbage', JSON.stringify({ v: 2, account: 3, slots: {} })]) {
+      localStorage.clear();
+      localStorage.setItem('epd:career', fx('epd-career.json'));
+      localStorage.setItem('epd:autosave', fx('epd-autosave-free.json'));
+      if (marker !== null) localStorage.setItem('epd:sync', marker);
+      const page = await boot();
+      expect(page.useCareer.getState().profile).toEqual(state('epd-career.json').profile);
+      expect(localStorage.getItem('epd:career')).toBe(fx('epd-career.json'));
+      expect(page.game.loadAutosave()?.seed).toBe((JSON.parse(fx('epd-autosave-free.json')) as SimState).seed);
+      expect(Object.keys(localStorage).filter((k) => k.startsWith('epd:acct:'))).toEqual([]);
+    }
+  });
+
+  it('after a rollback (92ed7f5 wrote its marker again) it moves again, keeping a changed cache and the guest career', async () => {
+    const guest = state('epd-career-new.json');
+    // This version had a cache of account 7 with a change the server never got, and the sign-in copy of the
+    // guest's career...
+    const cached = JSON.stringify({ state: { ...state('epd-career.json'), profile: { ...state('epd-career.json').profile!, money: 1111 } }, version: 1 });
+    localStorage.setItem('epd:acct:7:career', cached);
+    localStorage.setItem('epd:acct:7:sync', JSON.stringify({ v: 3, slots: { career: { owner: 7, base: 5, dirty: true } } }));
+    localStorage.setItem('epd:backup.career.guest', JSON.stringify({ at: 5, reason: 'guest', unique: true, owner: null, data: guest }));
+    // ...then 92ed7f5 ran signed in: the account's cloud career in the plain keys, its marker.
+    localStorage.setItem('epd:career', fx('epd-career.json'));
+    localStorage.setItem('epd:sync', fx('epd-sync.json'));
+    const page = await boot();
+    expect(localStorage.getItem('epd:acct:7:career')).toBe(fx('epd-career.json'));
+    expect(localStorage.getItem('epd:acct:7:backup.career.replaced')).toBe(cached);
+    expect(page.useCareer.getState().profile).toEqual(guest.profile);
+  });
+
+  it('when storage refuses the move nothing is lost, and it is tried again on the next load', async () => {
+    localStorage.setItem('epd:career', fx('epd-career.json'));
+    localStorage.setItem('epd:autosave', fx('epd-autosave-career.json'));
+    localStorage.setItem('epd:sync', fx('epd-sync.json'));
+    const setItem = Storage.prototype.setItem;
+    const full = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k.startsWith('epd:acct:')) throw new DOMException('full', 'QuotaExceededError');
+      setItem.call(this, k, v);
+    });
+    await boot();
+    expect(localStorage.getItem('epd:career')).toBe(fx('epd-career.json'));
+    expect(localStorage.getItem('epd:autosave')).toBe(fx('epd-autosave-career.json'));
+    expect(localStorage.getItem('epd:sync')).toBe(fx('epd-sync.json'));
+    full.mockRestore();
+    await boot();
+    expect(localStorage.getItem('epd:acct:7:career')).toBe(fx('epd-career.json'));
+    expect(localStorage.getItem('epd:acct:7:autosave')).toBe(fx('epd-autosave-career.json'));
+    expect(localStorage.getItem('epd:career')).toBeNull();
+  });
+
+  it("a sign-in on the load whose move failed leaves the move pending and gives the guest none of the account's data", async () => {
+    localStorage.setItem('epd:career', fx('epd-career.json'));
+    localStorage.setItem('epd:autosave', fx('epd-autosave-career.json'));
+    localStorage.setItem('epd:sync', fx('epd-sync.json'));
+    api.cookie = 7;
+    const setItem = Storage.prototype.setItem;
+    const full = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k.startsWith('epd:acct:')) throw new DOMException('full', 'QuotaExceededError');
+      setItem.call(this, k, v);
+    });
+    await boot(); // signed in: the guest's marker is written (it records the account)
+    expect(JSON.parse(localStorage.getItem('epd:sync')!)).toMatchObject({ account: 7 });
+    full.mockRestore();
+    window.dispatchEvent(new StorageEvent('storage', { key: 'epd:sync', newValue: null }));
+    api.cookie = null;
+    const page = await boot(); // signed out
+    expect(localStorage.getItem('epd:acct:7:career')).toBe(fx('epd-career.json'));
+    expect(localStorage.getItem('epd:acct:7:autosave')).toBe(fx('epd-autosave-career.json'));
+    expect(page.useCareer.getState().profile).toBeNull();
+    expect(page.game.loadAutosave()).toBeNull();
+    expect(localStorage.getItem('epd:backup.career.guest')).toBeNull();
   });
 });
 

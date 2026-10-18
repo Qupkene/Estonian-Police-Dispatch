@@ -43,14 +43,37 @@ async function openClassic(page: Page) {
   await expect(page.locator('form.sh-legacy')).toBeVisible();
 }
 
-async function login(page: Page) {
+async function login(page: Page, name = NAME) {
   await openClassic(page);
   await expect(page.getByRole('button', { name: /Loo konto/ })).toBeVisible({ timeout: 10_000 });
-  await page.getByLabel('Kasutajanimi').fill(NAME);
+  await page.getByLabel('Kasutajanimi').fill(name);
   await page.getByLabel('Parool', { exact: true }).fill(PASS);
   await page.locator('form.sh-legacy button[type="submit"]').click();
   await expect.poll(() => screen(page), { timeout: 20_000 }).toBe('menu');
 }
+
+async function register(page: Page, name: string) {
+  await openClassic(page);
+  await page.getByRole('button', { name: 'Pole veel kontot? Loo konto' }).click();
+  await page.getByLabel('Kasutajanimi').fill(name);
+  await page.getByLabel('Parool', { exact: true }).fill(PASS);
+  await page.getByLabel('Korda parooli').fill(PASS);
+  await page.locator('form.sh-legacy button[type="submit"]').click();
+  await expect.poll(() => screen(page), { timeout: 20_000 }).toBe('menu');
+}
+
+/** Sign out of the account from the menu chip: confirmed in a dialog, by default removing its data from this browser. */
+async function logout(page: Page, opts: { keepData?: boolean } = {}) {
+  await page.getByRole('button', { name: 'Logi välja' }).first().click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('checkbox', { name: 'Kustuta selle konto andmed sellest brauserist' })).toBeChecked();
+  if (opts.keepData) await dialog.getByRole('checkbox').uncheck();
+  await dialog.getByRole('button', { name: 'Logi välja' }).click();
+  await expect.poll(() => screen(page)).toBe('login');
+}
+
+const careerName = (page: Page) =>
+  page.evaluate(() => (window as unknown as EpdWindow).__epd.career.getState().profile?.name ?? null);
 
 async function cloudSaved(page: Page) {
   await expect(page.getByTestId('cloud-state').first()).toHaveText('Pilves salvestatud', { timeout: 20_000 });
@@ -137,9 +160,8 @@ test.describe.serial('accounts', () => {
     expect(saved.career?.profile?.name).toBe('Kadri Pilv');
     expect(saved.settings?.hints).toBe(false);
 
-    // Log out: back to the login screen, local data stays, the session is gone.
-    await page.getByRole('button', { name: 'Logi välja' }).click();
-    await expect.poll(() => screen(page)).toBe('login');
+    // Log out (keeping the account's data in this browser): back to the login screen, the session is gone.
+    await logout(page, { keepData: true });
     await expect.poll(async () => (await (await page.request.get('/api/me')).json()).user).toBeNull();
 
     // Log back in: the menu shows the account and the leaderboard knows us.
@@ -182,6 +204,61 @@ test.describe.serial('accounts', () => {
     expect(await screen(page)).toBe('login');
     await page.context().close();
   });
+});
+
+test("guest and account data never mix: each one's career and shift come back with it", async ({ page }) => {
+  const name = `mix_${Date.now().toString(36)}`;
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await boot(page);
+  // An account with a career of its own, in the cloud.
+  await register(page, name);
+  await page.evaluate(() => (window as unknown as EpdWindow).__epd.career.getState().create('Konto Karjäär', '1001', 'pohja'));
+  await expect
+    .poll(async () => (await (await page.request.get('/api/save')).json()).career?.profile?.name, { timeout: 20_000 })
+    .toBe('Konto Karjäär');
+  await logout(page);
+
+  // A guest starts a career in the same browser.
+  await page.getByRole('button', { name: 'Jätka külalisena' }).click();
+  await expect.poll(() => screen(page)).toBe('menu');
+  expect(await careerName(page)).toBeNull();
+  await page.evaluate(() => (window as unknown as EpdWindow).__epd.career.getState().create('Külalise Karjäär', '2002', 'ida'));
+  await page.locator('.sh-user').getByRole('button', { name: 'Logi välja' }).click();
+  await expect.poll(() => screen(page)).toBe('login');
+
+  // The account: its own career, then a shift saved and left.
+  await login(page, name);
+  await expect.poll(() => careerName(page)).toBe('Konto Karjäär');
+  await startQuickShift(page);
+  await openPauseMenu(page);
+  await page.getByRole('button', { name: 'Salvesta ja välju' }).click();
+  await expect.poll(() => screen(page)).toBe('menu');
+  await expect(page.getByRole('button', { name: /Jätka vahetust/ })).toBeVisible();
+  await cloudSaved(page);
+  expect((await (await page.request.get('/api/save')).json()).autosave?.version).toBe(2);
+
+  // Signed out: the guest's career is back, the account's shift is not offered, nothing of it stays here.
+  await logout(page);
+  await page.getByRole('button', { name: 'Jätka külalisena' }).click();
+  await expect.poll(() => screen(page)).toBe('menu');
+  await expect.poll(() => careerName(page)).toBe('Külalise Karjäär');
+  await expect(page.getByRole('button', { name: /Karjäär/ }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /Jätka vahetust/ })).toHaveCount(0);
+  const leftovers = await page.evaluate(() =>
+    Object.keys(localStorage).filter((k) => k.startsWith('epd:acct:') || k === 'epd:autosave'),
+  );
+  expect(leftovers).toEqual([]);
+
+  // Back in the account: its shift is offered again (from the cloud) and resumes.
+  await page.locator('.sh-user').getByRole('button', { name: 'Logi välja' }).click();
+  await expect.poll(() => screen(page)).toBe('login');
+  await login(page, name);
+  await expect.poll(() => careerName(page)).toBe('Konto Karjäär');
+  await expect(page.getByRole('button', { name: /Jätka vahetust/ })).toBeVisible();
+  await page.getByRole('button', { name: /Jätka vahetust/ }).click();
+  await expect.poll(() => screen(page), { timeout: 20_000 }).toBe('game');
+  expect(errors, errors.join('\n')).toEqual([]);
 });
 
 test('an account can be deleted from the chip menu, confirmed with the password', async ({ page }) => {

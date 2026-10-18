@@ -199,6 +199,53 @@
   font-size: 16px;
   height: 44px;
 }
+.sh-acct__logout {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.sh-acct__logout p {
+  margin: 0;
+  color: var(--text-1);
+}
+.sh-acct__logout .sh-acct__unsynced {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--warn);
+  font-size: var(--fs-sm);
+}
+.sh-acct__unsynced .ui-icon {
+  flex: none;
+  margin-top: 2px;
+}
+/* Small checkbox with a label and a hint line */
+.sh-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+.sh-check input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.sh-check__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sh-check__label {
+  color: var(--text-0);
+}
+.sh-check__hint {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
 
 /* Guest hint: an account keeps progress everywhere */
 .sh-guest {

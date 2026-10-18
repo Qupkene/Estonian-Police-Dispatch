@@ -4,6 +4,7 @@ import * as rules from '@/sim/career';
 import { DAY, isoDate } from '@/sim/time';
 import type { CareerProfile, LedgerEntry, RegionId, ShiftReport, Text } from '@/sim/types';
 import { guardedPersist, keepBackup, normalizeCareerState, overState } from './migrate';
+import { registerSpaceStore } from './space';
 
 /**
  * True when the career's history already holds this shift: an entry of a past career day with the shift's
@@ -111,3 +112,6 @@ export const useCareer = create<CareerStore>()(
     }),
   ),
 );
+
+// epd:career for the guest, epd:acct:<id>:career while an account is signed in (src/store/space.ts).
+registerSpaceStore('career', useCareer);

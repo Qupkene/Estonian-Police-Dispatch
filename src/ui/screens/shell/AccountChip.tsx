@@ -1,4 +1,5 @@
-// Menu chip of a logged-in account: name, cloud save state, sign out, and account deletion.
+// Menu chip of a logged-in account: name, cloud save state, sign out (confirmed, optionally removing the
+// account's data from this browser), and account deletion.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useAccount } from '@/net/account';
@@ -21,6 +22,7 @@ export function AccountChip() {
   const gameUser = useGame((s) => s.user);
   const [open, setOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,6 +43,12 @@ export function AccountChip() {
 
   const signOut = () => {
     setOpen(false);
+    // Signed in: ask first (and whether to remove the account's data from this browser). A session that
+    // already ended has nothing more to upload or ask about.
+    if (user) {
+      setConfirmLogout(true);
+      return;
+    }
     void useAccount.getState().logout();
     useGame.getState().logout();
   };
@@ -106,7 +114,65 @@ export function AccountChip() {
       {/* Portal: the chip's backdrop-filter would otherwise become the modal's containing block. */}
       {confirmDelete &&
         createPortal(<DeleteAccount open name={name} onClose={() => setConfirmDelete(false)} />, document.body)}
+      {confirmLogout &&
+        createPortal(
+          <LogoutDialog name={name} onClose={() => setConfirmLogout(false)} onDone={() => useGame.getState().logout()} />,
+          document.body,
+        )}
     </div>
+  );
+}
+
+/**
+ * Sign-out confirmation. The account's data in this browser is only a cache of the cloud copy, so removing it
+ * (on by default, for shared computers) loses nothing: changes the server does not have yet stay until the next
+ * sign-in uploads them.
+ */
+export function LogoutDialog({ name, onClose, onDone }: { name: string; onClose: () => void; onDone?: () => void }) {
+  const t = useT();
+  const cloud = useAccount((s) => s.cloud);
+  const [forget, setForget] = useState(true);
+
+  const confirm = () => {
+    onClose();
+    void useAccount.getState().logout({ forget });
+    onDone?.();
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t('account.logout.title')}
+      icon="logout"
+      width={440}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            {t('account.logout.cancel')}
+          </Button>
+          <Button variant="primary" icon="logout" onClick={confirm}>
+            {t('account.logout')}
+          </Button>
+        </>
+      }
+    >
+      <div className="sh-acct__logout">
+        <p>{t('account.logout.text', { name })}</p>
+        {cloud === 'error' && (
+          <p className="sh-acct__unsynced" role="status">
+            <Icon name="warning" size={14} /> {t('account.logout.unsynced')}
+          </p>
+        )}
+        <label className="sh-check">
+          <input type="checkbox" checked={forget} onChange={(e) => setForget(e.target.checked)} />
+          <span className="sh-check__text">
+            <span className="sh-check__label">{t('account.logout.forget')}</span>
+            <span className="sh-check__hint">{t('account.logout.forgetHint')}</span>
+          </span>
+        </label>
+      </div>
+    </Modal>
   );
 }
 

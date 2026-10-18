@@ -380,9 +380,20 @@ versiooni ega tagasipööramise (rollback) korral.
 | `epd:career` | karjäär: `{ state: { profile, inbox }, version }` | `src/store/career.ts` |
 | `epd:settings` | seaded: `{ state: { lang, volume, ... }, version }` | `src/store/settings.ts` |
 | `epd:autosave` | pooleli vahetus (SimState JSON, `version: 2`) | `src/store/game.ts` |
-| `epd:sync` | pilvesünkroonimise märk (vorming 1 või 2) | `src/net/account.ts`, `src/net/sync.ts` |
+| `epd:sync` | külalise pilvesünkroonimise märk (vorming 3; vanemad 1 ja 2), sisselogitud konto | `src/net/account.ts`, `src/net/sync.ts` |
+| `epd:acct:<id>:*` | konto vahemälu: `career`, `settings`, `autosave`, `sync`, `backup.*` samas vormis | `src/store/space.ts` |
 | serveri `saves` tabel | kontokasutajate `career`, `settings`, `autosave` muutmata JSON-ina | `server/lib/saves.php` |
 | `epd:backup.*` | varukoopiad, vaata allpool | `src/store/migrate.ts` |
+
+**Igal identiteedil on oma andmed.** Tavalised võtmed kuuluvad külalisele, iga konto andmed on brauseris
+ainult serveri koopia vahemälu nimeruumis `epd:acct:<id>:` (server on tõe allikas). Korraga on aktiivne üks
+nimeruum: sisselogimine teeb aktiivseks konto oma, väljalogimine, konto kustutamine ja mujal lõppenud seanss
+toovad tagasi külalise oma, nii et külaline ei näe ega jätka kunagi konto mängu. Brauser, mis sünkroonis enne
+nimeruume (märgi vorming 1 või 2), viiakse laadimisel üks kord üle: konto andmed liiguvad koos märgi kirjetega
+konto nimeruumi (üles laadimata muudatused jäävad märgituks ja laaditakse järgmisel sisselogimisel üles),
+külaline saab tagasi selle, mille konto pilvekoopia kunagi asendas (`epd:backup.<slot>` kirjed, mille `owner`
+on `null`), omanikuta andmed jäävad külalisele. Kui salvestusruum ei luba, jääb kõik paigale ja üleviimist
+proovitakse järgmisel laadimisel uuesti (`migrateLayout`, `tests/saves-upgrade.test.ts`).
 
 **Kuidas laadimine andmeid hoiab** (`src/store/migrate.ts`):
 * zustand 5 viskab salvestatud oleku ise ära, kui versioon erineb ja `migrate` puudub (logib vea,
@@ -408,7 +419,8 @@ versiooni ega tagasipööramise (rollback) korral.
 * Enne kui pilvekoopia, uus karjäär, karjääri kustutamine või uus vahetus asendab brauseri andmed
   teistsugustega, jääb eelmine väärtus varukoopiasse.
 
-**Varukoopiad** (need eemaldab „Kustuta kõik andmed”; kui brauseri salvestusruum on täis, võib
+**Varukoopiad** (iga nimeruumi omad: külalisel `epd:backup.*`, kontol `epd:acct:<id>:backup.*`; need eemaldab
+„Kustuta kõik andmed”; kui brauseri salvestusruum on täis, võib
 käimasoleva vahetuse salvestamiseks kustuda ainult `epd:backup.autosave` ja `epd:backup.autosave.cloud`,
 sest pikk vahetus võtab üle megabaidi):
 * `epd:backup.career` ja `epd:backup.career.prev`: kaks viimast asendatud karjääri. Andmed, mida
@@ -417,6 +429,8 @@ sest pikk vahetus võtab üle megabaidi):
 * `epd:backup.<slot>.v<n>`: teise versiooni salvestus baidi täpsusega (vanem enne migratsiooni,
   uuem lisaks puutumata põhivõtmele); `.unknown`, kui versioon puudub.
 * `epd:backup.<slot>.invalid`: loetamatu JSON. `epd:backup.<slot>.repaired`: originaal enne parandust.
+* `epd:backup.career.guest`: külalise karjääri koopia viimasest sisselogimisest (tagasipööramiseks 92ed7f5 peale).
+  `epd:acct:<id>:backup.<slot>.replaced`: konto vahemälu, mille asendas tagasipööramise ajal kirjutatud koopia.
 * `epd:backup.autosave.unresumable`: sama versiooni vahetus, mida ei saa jätkata (nt tundmatu
   prefektuur või juba makstud karjäärivahetus). `epd:backup.autosave.cloud`: pilve vahetus, mida see versioon ei jätka.
 
@@ -438,10 +452,15 @@ Baidi täpsusega koopia taastamiseks kopeeri väärtus tagasi oma võtmesse; tei
 5. Tagasipööramine: 92ed7f5 kood ei tunne seda kaitset. Kui `epd:career` või `epd:settings` versioon
    tõuseb ja server pööratakse 92ed7f5 peale tagasi, kaotab see brauser oma andmed. Ära tõsta neid
    versioone, kui saab ilma. Alates sellest versioonist jätab vanem kood uuema versiooni andmed
-   puutumata. `epd:sync` hoiab vormingu 2 kõrval ka vormingu 1 välju (`owner`, `updated`), sest 92ed7f5
-   loeb ainult neid: ilma nendeta tõmbaks see pärast tagasipööramist kõik pilvekoopiad brauseri andmete
-   peale ilma varukoopiata. Nüüd jäävad sünkroonis andmed paigale ja selles brauseris tehtud, veel üles
-   laadimata muudatused laaditakse üles (`legacyMeta`, `tests/upgrade-paths.test.ts`). Ära eemalda neid
-   välju, kuni tagasipööramine 92ed7f5 peale on võimalik.
+   puutumata. `epd:sync` hoiab vormingu 3 kõrval ka vormingu 1 välju (`owner`, `updated`), sest 92ed7f5
+   loeb ainult neid ja tunneb ainult tavalisi võtmeid, kus on nüüd külalise andmed. Kui konto on sisse
+   logitud, on `owner` 0 (sellist kontot pole): 92ed7f5 ei laadi siis külalise andmeid kunagi konto
+   pilvekoopia peale, vaid täidab ainult tühjad pesad. Sama kehtib väljalogituna, kui selles brauseris on
+   mõni konto kunagi sisse logitud: tavalistes võtmetes on siis kas mitte midagi või konto edenemisest vanem
+   külalise koopia. Pilvekoopia, mille ta külalise karjääri asemele
+   tõmbab, ei kaota midagi: sisselogimisel jääb külalise karjäärist koopia `epd:backup.career.guest` ja
+   tagasiteel taastatakse see. Konto nimeruumi üles laadimata muudatusi 92ed7f5 ei näe ega kirjuta üle;
+   tagasiteel jäävad need alles ja laaditakse üles (`legacyMeta`, `tests/upgrade-paths.test.ts`). Ära eemalda
+   neid välju, kuni tagasipööramine 92ed7f5 peale on võimalik.
 6. Pilvekoopiad on sama JSON: kui kuju muutub, peab ka pilvest tulev koopia läbima sama sammu ja
    normaliseerija (`validAutosave`, `normalizeCareerState`, `sanitizeSettings`).

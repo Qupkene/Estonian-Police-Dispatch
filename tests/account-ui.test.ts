@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 // Account UI: the Klassika login keeps focus and announces errors, the delete dialog keeps focus in the
-// modal, the privacy notes match what is sent, and "Delete all data" really signs out.
+// modal, signing out asks first (and removes the account's data from this browser unless unticked), the
+// privacy notes match what is sent, and "Delete all data" really signs out.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createElement } from 'react';
 
 type Handler = (method: string, path: string, body: Record<string, unknown>) => { status: number; body: unknown } | null;
@@ -132,6 +133,45 @@ describe('account deletion dialog', () => {
     expect(alert.textContent).toBe('Vale parool.');
     expect(document.activeElement).toBe(input);
     expect(input.getAttribute('aria-describedby')).toBe(alert.id);
+  });
+});
+
+describe('signing out', () => {
+  const realLogout = useAccount.getState().logout;
+  afterEach(() => useAccount.setState({ logout: realLogout, cloud: 'off' }));
+
+  it("asks first; the account's data leaves this browser unless the box is unticked", async () => {
+    const logout = vi.fn(async () => {});
+    useAccount.setState({ user: { id: 7, name: 'Mari', created: 1 }, logout });
+    render(createElement(AccountChip));
+    fireEvent.click(screen.getByRole('button', { name: 'Logi välja' }));
+    expect(logout).not.toHaveBeenCalled();
+    let dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/Konto Mari karjäär ja salvestused jäävad pilve alles/)).toBeTruthy();
+    const box = within(dialog).getByRole('checkbox', { name: /Kustuta selle konto andmed sellest brauserist/ }) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Logi välja' }));
+    expect(logout).toHaveBeenCalledWith({ forget: true });
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    // Unticked, and with changes the cloud does not have yet: the dialog says they stay in this browser.
+    act(() => useAccount.setState({ cloud: 'error' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Logi välja' }));
+    dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/Kõik muudatused pole veel pilves/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('checkbox'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Logi välja' }));
+    expect(logout).toHaveBeenLastCalledWith({ forget: false });
+  });
+
+  it('"Loobu" keeps the player signed in', async () => {
+    const logout = vi.fn(async () => {});
+    useAccount.setState({ user: { id: 7, name: 'Mari', created: 1 }, logout });
+    render(createElement(AccountChip));
+    fireEvent.click(screen.getByRole('button', { name: 'Logi välja' }));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Loobu' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(logout).not.toHaveBeenCalled();
   });
 });
 

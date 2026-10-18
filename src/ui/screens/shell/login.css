@@ -806,6 +806,23 @@
   color: var(--ok);
   background: color-mix(in srgb, var(--ok) 14%, transparent);
 }
+.sh-login__lost {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--r-lg);
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line));
+  background: color-mix(in srgb, var(--warn) 9%, var(--bg-2));
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+}
+.sh-login__lost .ui-icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--warn);
+}
 .sh-resume__text {
   flex: 1;
   min-width: 0;

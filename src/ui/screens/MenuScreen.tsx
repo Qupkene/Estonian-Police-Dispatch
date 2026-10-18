@@ -47,9 +47,11 @@ export function MenuScreen() {
   const profile = useCareer((s) => s.profile);
   const backend = useAccount((s) => s.backend);
   const accountUser = useAccount((s) => s.user);
-  // Re-read when a cloud save landed in the browser after the menu opened.
+  // Re-read when a cloud save landed in the browser after the menu opened, or another identity's data (the
+  // guest's own, an account's cache) became the active one: the menu only ever shows the active one's.
   const pulls = useAccount((s) => s.pulls);
-  const loaded = useMemo(() => loadAutosave(), [pulls]);
+  const space = useAccount((s) => s.space);
+  const loaded = useMemo(() => loadAutosave(), [pulls, space]);
   // A career shift this profile has already been paid for (an old copy from another device) is over:
   // it is never offered again, and the stale copy is removed here and in the cloud.
   const paidAlready = !!loaded && loaded.mode === 'career' && !!profile?.paidShifts?.includes(shiftKeyOf(loaded));

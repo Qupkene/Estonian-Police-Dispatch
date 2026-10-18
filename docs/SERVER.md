@@ -194,13 +194,37 @@ Saves:
   run in one `BEGIN IMMEDIATE` transaction. Without `base` the write is unconditional (older clients).
   400 `bad_base` when `base` is not a plain non-negative integer.
 
-Cloud sync in the client (`src/net/account.ts`, decisions in `src/net/sync.ts`):
+Cloud sync in the client (`src/net/account.ts`, decisions in `src/net/sync.ts`, browser data per identity in
+`src/store/space.ts`):
 
-- No clock is compared with the server's. Per slot, localStorage `epd:sync` keeps the account the data
-  was last synced with (`owner`), the server version it was last synced with (`base`) and whether it
-  changed in this browser since (`dirty`). Format: `{ v: 2, account, slots: { career: { owner, base,
-  dirty }, ... } }`; `account` is the account this browser is signed in to. Format 1 (`{ owner, updated }`)
-  is read as "changed on top of that version".
+- Account data and guest data never mix in the browser. The guest keeps the plain keys (`epd:career`,
+  `epd:settings`, `epd:autosave`, `epd:sync`, `epd:backup.*`); every account has a cache namespace
+  `epd:acct:<id>:career`, `:settings`, `:autosave`, `:sync`, `:backup.*`. The server is the source of truth:
+  the cache only makes sign-in fast and keeps changes made while the server was out of reach until they are
+  uploaded. Exactly one namespace is active and the stores read and write only that one.
+- Sign-in makes the account's namespace active (the cache first, then the merge with `GET /api/save` below).
+  The guest's data stays untouched. On the first sign-in of an account in a browser, the guest's career and
+  shift fill the slots the account never had on the server, as a copy (the guest keeps its own), and an account
+  new to the browser starts with the guest's settings until its cloud copy replaces them.
+- Sign-out uploads what is waiting (at most 3 s), then the guest's own data is active again: the menu never
+  shows the account's career or shift to a guest. The sign-out dialog's "Kustuta selle konto andmed sellest
+  brauserist" (on by default) then removes the account's namespace, except slots the server does not have yet
+  (they stay with their marker entries and the next sign-in uploads them). The same switch to the guest's data
+  happens when the session ends elsewhere (401, `user_mismatch`, another tab signing out or in as someone
+  else; a shift still running is saved into the account's namespace first and the game returns to the login
+  screen) and after `DELETE /api/me` (which also removes the account's namespace).
+- No clock is compared with the server's. Per slot, the namespace's marker (`epd:acct:<id>:sync`) keeps the
+  account the data was last synced with (`owner`), the server version it was last synced with (`base`) and
+  whether it changed in this browser since (`dirty`). Format 3: `{ v: 3, slots: { career: { owner, base,
+  dirty }, ... } }`. The guest's `epd:sync` has the same form plus `account`, the account this browser is
+  signed in to (read by the other tabs), and the format 1 fields `owner`/`updated` for a rollback to 92ed7f5
+  (`legacyMeta`: while signed in, and signed out once an account was signed in here, `owner` is 0, so 92ed7f5
+  never uploads the guest's data over the account's cloud copy). A guest marker of format 1 or 2 (from before
+  namespaces) is read once on load, and keeps its format until that move succeeds: slots whose
+  owner is an account move into that account's namespace with their entries (changes not uploaded yet stay
+  marked and go up at the next sign-in), the guest gets back what an account's cloud copy once replaced
+  (`epd:backup.<slot>` entries with `owner: null`, or `epd:backup.career.guest`), and data without an owner
+  stays the guest's. Format 1 entries are read as "changed on top of that version".
 - On login and whenever the tab becomes visible or gets focus (a `?versions=1` check first, the full read
   only when a version moved), the client reads the cloud and decides per slot: the server still has
   `base` → upload when dirty; the server has a newer version → take it; the server's version is older
@@ -208,13 +232,14 @@ Cloud sync in the client (`src/net/account.ts`, decisions in `src/net/sync.ts`):
   account, never overwrites a cloud slot: it only fills slots that are empty or deleted.
 - Uploads send `?base=`; on 409 `save_conflict` the tab reads the cloud again instead of overwriting.
   When both sides changed, the cloud copy wins.
-- Browser data that a cloud copy replaces while it exists nowhere else (guest progress, unsynced changes)
-  is first copied to `epd:backup.<slot>` as `{ at, owner, data }`.
+- Cache data that a cloud copy replaces while it exists nowhere else (unsynced changes) is first copied to
+  `epd:acct:<id>:backup.<slot>` as `{ at, owner, data }`.
 - A tab stops syncing when another tab of the browser signs in to another account, signs out or clears
   the data (a `storage` event on `epd:sync`), or when the server answers `user_mismatch`.
-- Choosing a guest, e-ID or 2024 login ends an open session and keeps a late `/api/me` answer from
-  starting one. "Delete all data" in Settings signs out (after the last uploads) before it clears the
-  browser, so the reload does not pull the cloud data back.
+- Choosing a guest, e-ID or 2024 login ends an open session (the guest's data becomes active at once) and
+  keeps a late `/api/me` answer from starting one. "Delete all data" in Settings signs out (after the last
+  uploads) before it clears the browser, so the reload does not pull the cloud data back.
+- Scores: only a shift played signed in to an account posts `POST /api/score`; guests never post.
 
 Leaderboard:
 

@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 // The cloud sync engine (src/net/account.ts) against an in-memory copy of the PHP API (docs/SERVER.md 4.1):
-// slot versions, `?base=` preconditions with 409, deletion markers, `?versions=1` and `X-EPD-User`.
+// slot versions, `?base=` preconditions with 409, deletion markers, `?versions=1` and `X-EPD-User`, and the
+// browser data of each identity in its own namespace (src/store/space.ts): the guest's plain keys, an account's
+// cache under epd:acct:<id>:.
 // Every test boots a fresh copy of the modules on the same browser storage, like a page load.
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SimState } from '@/sim/types';
 
 type Json = Record<string, unknown>;
@@ -28,6 +30,8 @@ class FakeApi {
   meGate: Promise<void> | null = null;
   /** The next request matching this dies on the way (the page closed, the network dropped). */
   drop: ((c: Call) => boolean) | null = null;
+  /** Requests matching this get a 503 for as long as it is set (the server is in trouble). */
+  refuse: ((c: Call) => boolean) | null = null;
 
   addUser(id: number, name: string) {
     this.users.set(id, { id, name, created: 1 });
@@ -63,6 +67,7 @@ class FakeApi {
     const reply = (body: unknown, status = 200) =>
       new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
     const fail = (status: number, error: string, extra: Json = {}) => reply({ error, message: error, ...extra }, status);
+    if (this.refuse?.(call)) return fail(503, 'server_error');
     const body = typeof init.body === 'string' && init.body ? (JSON.parse(init.body) as Json) : {};
     const path = url.pathname;
 
@@ -165,6 +170,12 @@ const setVisible = (state: 'visible' | 'hidden') => {
   document.dispatchEvent(new Event('visibilitychange'));
 };
 
+// The first page load transforms the whole module graph: done once here, outside any test's time budget.
+beforeAll(async () => {
+  vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('offline'))));
+  await import('@/net/account'); // every test's beforeEach installs its own fetch
+}, 60_000);
+
 beforeEach(() => {
   vi.useFakeTimers();
   // The browser clock is 200 days behind the server's.
@@ -198,22 +209,47 @@ describe('guest data never overwrites the account', () => {
     expect(api.writes('autosave')).toEqual([]);
     expect(api.data(7, 'career')).toMatchObject({ profile: { name: 'Desktop', day: 50 } });
     expect(api.data(7, 'autosave')).toMatchObject({ seed: 1 });
-    // The account's progress is on the phone now, the guest career is kept in the backup key.
+    // The account's progress is on the phone now, in the account's own keys; the guest's career stays the
+    // guest's, untouched in the plain keys.
     expect(useCareer.getState().profile).toMatchObject({ name: 'Desktop', day: 50 });
     expect(game.loadAutosave()?.seed).toBe(1);
-    const backup = JSON.parse(localStorage.getItem('epd:backup.career') ?? 'null');
-    expect(backup.data.profile.name).toBe('Phone Guest');
+    expect(JSON.parse(localStorage.getItem('epd:acct:7:career') ?? 'null').state.profile.name).toBe('Desktop');
+    expect(JSON.parse(localStorage.getItem('epd:career') ?? 'null').state.profile.name).toBe('Phone Guest');
+    expect(localStorage.getItem('epd:autosave')).toBeNull();
   });
 
-  it('guest progress fills an empty account', async () => {
+  it('guest progress fills an empty account, as a copy: the guest keeps its own', async () => {
     const { useAccount, useCareer, game } = await boot();
     useCareer.setState(career('Uus', 1) as never);
     game.autosave(shift(3, 10));
+    const guestKeys = { career: localStorage.getItem('epd:career'), autosave: localStorage.getItem('epd:autosave') };
     await useAccount.getState().login('Mari', 'x');
     await settle();
     expect(api.data(7, 'career')).toMatchObject({ profile: { name: 'Uus' } });
     expect(api.data(7, 'autosave')).toMatchObject({ seed: 3 });
     expect(api.writes('career')[0].base).toBe('0');
+    expect(localStorage.getItem('epd:career')).toBe(guestKeys.career);
+    expect(localStorage.getItem('epd:autosave')).toBe(guestKeys.autosave);
+    // The account plays on with its copy; the guest's stays as it was.
+    useCareer.getState().update((p) => ({ ...p, day: 2 }));
+    await settle();
+    await useAccount.getState().logout();
+    expect(useCareer.getState().profile).toMatchObject({ name: 'Uus', day: 1 });
+    expect(api.data(7, 'career')).toMatchObject({ profile: { name: 'Uus', day: 2 } });
+  });
+
+  it('copies guest progress only into slots the account never had, and only on its first sign-in here', async () => {
+    api.write(7, 'career', career('Mari', 40));
+    api.write(7, 'autosave', null); // a finished shift: the deletion marker is a slot the account had
+    const { useAccount, useCareer, game } = await boot();
+    useCareer.setState(career('Külaline', 1) as never);
+    game.autosave(shift(4, 10));
+    await useAccount.getState().login('Mari', 'x');
+    await settle();
+    expect(useCareer.getState().profile).toMatchObject({ name: 'Mari', day: 40 });
+    expect(game.loadAutosave()).toBeNull();
+    expect(api.writes('career')).toEqual([]);
+    expect(api.writes('autosave')).toEqual([]);
   });
 });
 
@@ -296,7 +332,9 @@ describe('a stale tab reads the cloud before it writes', () => {
     expect(api.calls.some((c) => c.method === 'PUT' && c.path === '/api/save/career' && c.base !== null)).toBe(true);
     expect(api.data(7, 'career')).toMatchObject({ profile: { name: 'Kadri', day: 51 } });
     expect(useCareer.getState().profile).toMatchObject({ day: 51 });
-    expect(JSON.parse(localStorage.getItem('epd:backup.career') ?? 'null').data.profile.name).toBe('Kadri stale');
+    // The account's backups are the account's: in its namespace, never in the guest's keys.
+    expect(JSON.parse(localStorage.getItem('epd:acct:7:backup.career') ?? 'null').data.profile.name).toBe('Kadri stale');
+    expect(localStorage.getItem('epd:backup.career')).toBeNull();
   });
 });
 
@@ -349,29 +387,37 @@ describe('a tab whose account changed elsewhere stops writing', () => {
     expect(useAccount.getState().cloud).toBe('off');
   });
 
-  it('stops as soon as another tab records a different account', async () => {
+  it('stops as soon as another tab records a different account, and shows the guest its own data', async () => {
     api.cookie = 7;
-    const { useAccount, useCareer } = await boot();
-    window.dispatchEvent(new StorageEvent('storage', { key: 'epd:sync', newValue: JSON.stringify({ v: 2, account: 8, slots: {} }) }));
+    api.write(7, 'career', career('Mari', 12));
+    const { useAccount, useCareer, game } = await boot();
+    game.useGame.setState({ user: { name: 'Mari', method: 'account' }, screen: 'menu' });
+    expect(useCareer.getState().profile).toMatchObject({ name: 'Mari' });
+    window.dispatchEvent(new StorageEvent('storage', { key: 'epd:sync', newValue: JSON.stringify({ v: 3, account: 8, slots: {} }) }));
     expect(useAccount.getState().user).toBeNull();
+    expect(useAccount.getState().space).toBeNull();
+    expect(useCareer.getState().profile).toBeNull();
+    expect(game.useGame.getState()).toMatchObject({ screen: 'login', user: null });
     api.calls = [];
     useCareer.setState(career('Mari', 2) as never);
     await settle();
     expect(api.writes()).toEqual([]);
+    expect(api.data(7, 'career')).toMatchObject({ profile: { day: 12 } });
   });
 
   it("writes only its own slots into the shared metadata, never another tab's entries", async () => {
     api.cookie = 7;
     const { useCareer } = await boot();
-    // Another tab of this browser changed the settings and recorded that in epd:sync.
-    const stored = JSON.parse(localStorage.getItem('epd:sync') ?? '{}');
+    // Another tab of this browser changed the settings and recorded that in the account's marker.
+    const stored = JSON.parse(localStorage.getItem('epd:acct:7:sync') ?? '{}');
     stored.slots.settings = { owner: 7, base: 123, dirty: true };
-    localStorage.setItem('epd:sync', JSON.stringify(stored));
+    localStorage.setItem('epd:acct:7:sync', JSON.stringify(stored));
     useCareer.setState(career('Mari', 2) as never);
-    const after = JSON.parse(localStorage.getItem('epd:sync') ?? '{}');
+    const after = JSON.parse(localStorage.getItem('epd:acct:7:sync') ?? '{}');
     expect(after.slots.settings).toEqual({ owner: 7, base: 123, dirty: true });
     expect(after.slots.career.dirty).toBe(true);
-    expect(after.account).toBe(7);
+    // The signed-in account is in the guest's marker, which every tab reads.
+    expect(JSON.parse(localStorage.getItem('epd:sync') ?? '{}').account).toBe(7);
   });
 
   it('keeps syncing when another tab of the same account writes', async () => {
@@ -446,5 +492,210 @@ describe('"Delete all data" signs out', () => {
     api.cookie = 7; // e.g. /me failed at boot
     await useAccount.getState().forget();
     expect(api.cookie).toBeNull();
+  });
+});
+
+describe('account data and guest data never mix in the browser', () => {
+  const accountKeys = (id: number) => Object.keys(localStorage).filter((k) => k.startsWith(`epd:acct:${id}:`));
+  /** logout() waits up to 3 s for the last uploads. */
+  async function logout(page: Awaited<ReturnType<typeof boot>>, opts?: { forget?: boolean }) {
+    const done = page.useAccount.getState().logout(opts);
+    await vi.advanceTimersByTimeAsync(3500);
+    await done;
+  }
+
+  it("signing out brings the guest's own career back and never offers the account's shift; signing in offers it again", async () => {
+    api.write(7, 'career', career('Mari', 30));
+    const page = await boot();
+    const { useAccount, useCareer, game } = page;
+    // The guest starts a career (no shift).
+    useCareer.setState(career('Külaline', 1) as never);
+    expect(await useAccount.getState().login('Mari', 'x')).toBe(true);
+    await settle();
+    expect(useAccount.getState().space).toBe(7);
+    expect(useCareer.getState().profile).toMatchObject({ name: 'Mari', day: 30 });
+    // The account plays: a shift, saved and left.
+    game.autosave(shift(11, 70));
+    useCareer.getState().update((p) => ({ ...p, day: 31 }));
+    await settle();
+    expect(api.data(7, 'autosave')).toMatchObject({ seed: 11 });
+
+    await logout(page);
+    expect(useAccount.getState().space).toBeNull();
+    expect(useCareer.getState().profile).toMatchObject({ name: 'Külaline', day: 1 });
+    expect(game.loadAutosave()).toBeNull();
+    expect(localStorage.getItem('epd:autosave')).toBeNull();
+    // What the guest does now never reaches the account.
+    useCareer.getState().update((p) => ({ ...p, day: 2 }));
+    game.autosave(shift(12, 5));
+    await settle();
+    expect(api.data(7, 'career')).toMatchObject({ profile: { name: 'Mari', day: 31 } });
+    expect(api.data(7, 'autosave')).toMatchObject({ seed: 11 });
+
+    api.calls = [];
+    expect(await useAccount.getState().login('Mari', 'x')).toBe(true);
+    await settle();
+    expect(useCareer.getState().profile).toMatchObject({ name: 'Mari', day: 31 });
+    expect(game.loadAutosave()?.seed).toBe(11);
+    expect(api.writes()).toEqual([]); // the cache was in sync: nothing to upload
+    // And out again: the guest's own shift, never the account's.
+    await logout(page);
+    expect(game.loadAutosave()?.seed).toBe(12);
+    expect(useCareer.getState().profile).toMatchObject({ name: 'Külaline', day: 2 });
+  });
+
+  it("a reload after signing out shows the guest's data, the account's stays only in its cache", async () => {
+    api.cookie = 7;
+    api.write(7, 'career', career('Mari', 8));
+    api.write(7, 'autosave', shift(21, 300));
+    let page = await boot();
+    expect(page.game.loadAutosave()?.seed).toBe(21);
+    await logout(page);
+    page = await boot();
+    expect(page.useAccount.getState().user).toBeNull();
+    expect(page.useCareer.getState().profile).toBeNull();
+    expect(page.game.loadAutosave()).toBeNull();
+    expect(localStorage.getItem('epd:acct:7:autosave')).not.toBeNull();
+  });
+
+  it('"remove this account\'s data from this browser" removes its cache after the last uploads', async () => {
+    api.cookie = 7;
+    api.write(7, 'career', career('Mari', 8));
+    const page = await boot();
+    page.game.autosave(shift(1, 100));
+    page.useCareer.getState().update((p) => ({ ...p, day: 9 }));
+    expect(accountKeys(7).length).toBeGreaterThan(0);
+    await logout(page, { forget: true }); // the changes are still waiting for their debounce
+    expect(api.data(7, 'career')).toMatchObject({ profile: { day: 9 } });
+    expect(api.data(7, 'autosave')).toMatchObject({ seed: 1 });
+    expect(accountKeys(7)).toEqual([]);
+    expect(api.cookie).toBeNull();
+    // The next sign-in brings everything back from the server.
+    expect(await page.useAccount.getState().login('Mari', 'x')).toBe(true);
+    await settle();
+    expect(page.useCareer.getState().profile).toMatchObject({ day: 9 });
+    expect(page.game.loadAutosave()?.seed).toBe(1);
+  });
+
+  it('removing the cache keeps changes the server does not have yet; the next sign-in uploads them', async () => {
+    api.cookie = 7;
+    api.write(7, 'career', career('Mari', 8));
+    api.write(7, 'autosave', shift(2, 50));
+    const page = await boot();
+    api.refuse = (c) => c.method === 'PUT' && c.path === '/api/save/career';
+    page.useCareer.getState().update((p) => ({ ...p, day: 9 }));
+    await settle();
+    expect(page.useAccount.getState().cloud).toBe('error');
+    await logout(page, { forget: true });
+    expect(accountKeys(7).sort()).toEqual(['epd:acct:7:career', 'epd:acct:7:sync']);
+    expect(JSON.parse(localStorage.getItem('epd:acct:7:sync')!).slots.career).toMatchObject({ owner: 7, dirty: true });
+    expect(page.useCareer.getState().profile).toBeNull(); // the guest's own (none)
+
+    api.refuse = null;
+    expect(await page.useAccount.getState().login('Mari', 'x')).toBe(true);
+    await settle();
+    expect(api.data(7, 'career')).toMatchObject({ profile: { day: 9 } });
+    expect(page.useCareer.getState().profile).toMatchObject({ day: 9 });
+    expect(page.game.loadAutosave()?.seed).toBe(2);
+  });
+
+  it('removing the cache keeps changes another tab of the account has not uploaded yet', async () => {
+    api.cookie = 7;
+    api.write(7, 'career', career('Mari', 8));
+    const tab1 = await boot();
+    const tab2 = await boot(); // a second tab of this browser, signed in to the same account
+    api.refuse = (c) => c.method === 'PUT' && c.path === '/api/save/career';
+    tab2.useCareer.getState().update((p) => ({ ...p, day: 9 }));
+    await settle();
+    expect(tab2.useAccount.getState().cloud).toBe('error');
+    await logout(tab1, { forget: true }); // this tab never saw the change
+    expect(JSON.parse(localStorage.getItem('epd:acct:7:career')!).state.profile.day).toBe(9);
+    expect(JSON.parse(localStorage.getItem('epd:acct:7:sync')!).slots.career).toMatchObject({ owner: 7, dirty: true });
+
+    closePage();
+    api.refuse = null;
+    const page = await boot();
+    expect(await page.useAccount.getState().login('Mari', 'x')).toBe(true);
+    await settle();
+    expect(api.data(7, 'career')).toMatchObject({ profile: { day: 9 } });
+  });
+
+  it("an expired session switches to the guest's data and the login screen; the running shift waits in the account", async () => {
+    api.cookie = 7;
+    api.write(7, 'career', career('Mari', 5));
+    const page = await boot();
+    page.game.useGame.setState({ user: { name: 'Mari', method: 'account' }, screen: 'game', sim: shift(5, 300) });
+    api.cookie = null; // the server forgot the session
+    page.useCareer.getState().update((p) => ({ ...p, day: 6 }));
+    await settle();
+    const acct = page.useAccount.getState();
+    expect(acct).toMatchObject({ user: null, sessionLost: true, space: null, cloud: 'off' });
+    expect(page.game.useGame.getState()).toMatchObject({ screen: 'login', user: null, sim: null });
+    expect(page.useCareer.getState().profile).toBeNull();
+    expect(page.game.loadAutosave()).toBeNull();
+    expect(JSON.parse(localStorage.getItem('epd:acct:7:autosave')!).seed).toBe(5);
+
+    expect(await page.useAccount.getState().login('Mari', 'x')).toBe(true);
+    await settle();
+    expect(api.data(7, 'career')).toMatchObject({ profile: { day: 6 } });
+    expect(api.data(7, 'autosave')).toMatchObject({ seed: 5, now: 300 });
+    expect(page.game.loadAutosave()?.seed).toBe(5);
+  });
+
+  it("switching accounts keeps each account's cache apart", async () => {
+    api.write(7, 'career', career('Mari', 5));
+    api.write(8, 'career', career('Jaan', 9));
+    const page = await boot();
+    await page.useAccount.getState().login('Mari', 'x');
+    await settle();
+    page.game.autosave(shift(7, 100));
+    await settle();
+    await logout(page);
+    await page.useAccount.getState().login('Jaan', 'x');
+    await settle();
+    expect(page.useCareer.getState().profile).toMatchObject({ name: 'Jaan' });
+    expect(page.game.loadAutosave()).toBeNull();
+    expect(api.data(8, 'autosave')).toBeUndefined();
+    page.useCareer.getState().update((p) => ({ ...p, day: 10 }));
+    await settle();
+    await logout(page);
+    await page.useAccount.getState().login('Mari', 'x');
+    await settle();
+    expect(page.useCareer.getState().profile).toMatchObject({ name: 'Mari', day: 5 });
+    expect(page.game.loadAutosave()?.seed).toBe(7);
+    expect(api.data(7, 'career')).toMatchObject({ profile: { name: 'Mari', day: 5 } });
+    expect(api.data(8, 'career')).toMatchObject({ profile: { name: 'Jaan', day: 10 } });
+  });
+
+  it("choosing to play as a guest while signed in shows the guest's data at once, before the last upload", async () => {
+    api.cookie = 7;
+    api.write(7, 'career', career('Mari', 5));
+    const page = await boot();
+    page.useCareer.getState().update((p) => ({ ...p, day: 6 }));
+    page.useAccount.getState().decline(); // "Jätka külalisena" on the login screen
+    expect(page.useCareer.getState().profile).toBeNull();
+    expect(page.useAccount.getState().space).toBeNull();
+    await vi.advanceTimersByTimeAsync(3500);
+    expect(api.data(7, 'career')).toMatchObject({ profile: { day: 6 } });
+    expect(api.cookie).toBeNull();
+  });
+
+  it("deleting the account removes its cache and leaves the guest's data", async () => {
+    api.write(7, 'career', career('Mari', 5));
+    const page = await boot();
+    page.useCareer.setState(career('Külaline', 3) as never);
+    await page.useAccount.getState().login('Mari', 'x');
+    await settle();
+    api.calls = [];
+    const del = vi.fn((input: unknown, init?: RequestInit) =>
+      String(input).endsWith('/api/me') && init?.method === 'DELETE'
+        ? Promise.resolve(new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } }))
+        : api.fetch(input, init),
+    );
+    vi.stubGlobal('fetch', del);
+    expect(await page.useAccount.getState().deleteAccount('x')).toBe(true);
+    expect(accountKeys(7)).toEqual([]);
+    expect(page.useCareer.getState().profile).toMatchObject({ name: 'Külaline', day: 3 });
+    expect(JSON.parse(localStorage.getItem('epd:sync')!).account).toBeNull();
   });
 });
