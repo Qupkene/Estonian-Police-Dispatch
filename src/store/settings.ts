@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Lang } from '@/sim/types';
 import { guardedPersist, normalizeSettings } from './migrate';
+import { registerSpaceStore } from './space';
 
 export type MapStyleKey = 'tactical' | 'dark' | 'maaamet' | 'foto';
 
@@ -54,3 +55,6 @@ export const useSettings = create<Settings>()(
     }),
   ),
 );
+
+// epd:settings for the guest, epd:acct:<id>:settings while an account is signed in (src/store/space.ts).
+registerSpaceStore('settings', useSettings);

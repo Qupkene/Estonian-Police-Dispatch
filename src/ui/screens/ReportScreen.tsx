@@ -371,11 +371,13 @@ function RankLine({ report }: { report: ShiftReport }) {
   const backend = useAccount((s) => s.backend);
   const user = useAccount((s) => s.user);
   const cloud = useAccount((s) => s.cloud);
+  const gameUser = useGame((s) => s.user);
   const [state, setState] = useState<RankState>({ status: 'idle' });
   const [attempt, setAttempt] = useState(0);
   const unranked = unrankedReason(report);
   const ranked = unranked === null;
-  const loggedIn = !!user;
+  // Only a shift played signed in to the account goes on its leaderboard: guests never post.
+  const loggedIn = !!user && gameUser?.method === 'account';
 
   useEffect(() => {
     if (!loggedIn || !ranked) return;

@@ -1,7 +1,9 @@
 // Saved data survives every update (docs/DESIGN.md, "Salvestuste ühilduvus").
 //
 // Everything a player has played lives in this browser (epd:career, epd:settings, epd:autosave) and, for
-// account users, in the cloud. This module is the single place that reads such data defensively:
+// account users, in the cloud. Each identity has its own keys: the guest the plain ones, every account a cache
+// namespace epd:acct:<id>:* (see "Storage namespaces" below and src/store/space.ts). This module is the single
+// place that reads such data defensively:
 // - normalisers that turn whatever an older, newer or broken client stored into a shape the game can run,
 //   keeping unknown fields and dropping invalid entries one by one (never a whole list or profile);
 // - a zustand persist guard: a migrate step per version, a deep merge over the current defaults, and
@@ -24,6 +26,34 @@ import type {
 
 export const isPlainObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
+
+// ── Storage namespaces ──────────────────────────────────────────────────────
+// Account data and guest data never mix in the browser. The guest keeps the plain keys (epd:career,
+// epd:settings, epd:autosave, epd:sync, epd:backup.*); every account has a cache of its server data under
+// epd:acct:<id>: (epd:acct:7:career, epd:acct:7:backup.career ...). Everything in this module and in the stores
+// reads and writes the active namespace; src/store/space.ts switches it (and rebinds the stores).
+
+/** Account whose namespace is active; null = the guest (plain keys). */
+let space: number | null = null;
+
+export function activeSpace(): number | null {
+  return space;
+}
+
+/** Only src/store/space.ts calls this: it rebinds the persisted stores at the same time. */
+export function setActiveSpace(id: number | null): void {
+  space = id;
+}
+
+/** `epd:` for the guest, `epd:acct:<id>:` for an account. */
+export function spacePrefix(id: number | null = space): string {
+  return id === null ? 'epd:' : `epd:acct:${id}:`;
+}
+
+/** Storage key of `name` (career, settings, autosave, sync) in a namespace, by default the active one. */
+export function spaceKey(name: string, id: number | null = space): string {
+  return spacePrefix(id) + name;
+}
 
 // ── Storage access (blocked or missing storage never throws) ────────────────
 
@@ -65,12 +95,17 @@ export function storageRemove(key: string): void {
 
 // ── Backups ─────────────────────────────────────────────────────────────────
 
-/** Every backup key starts with this (src/net/account.ts used it first for cloud conflicts). */
+/** Every backup key of the guest starts with this (src/net/account.ts used it first for cloud conflicts). */
 export const BACKUP_PREFIX = 'epd:backup.';
+
+/** Backup keys of a namespace: `epd:backup.` (guest) or `epd:acct:<id>:backup.`, by default the active one. */
+export function backupPrefix(id: number | null = space): string {
+  return spacePrefix(id) + 'backup.';
+}
 /** The older of two kept copies: `epd:backup.<name>.prev`. */
 const PREV = '.prev';
 
-/** A replaced value: `epd:backup.career`, `epd:backup.settings`, `epd:backup.autosave` (+ `.prev`). */
+/** A replaced value: `epd:backup.career`, `epd:backup.settings`, `epd:backup.autosave` (+ `.prev`), per namespace. */
 export interface BackupEntry {
   /** Browser time of the backup (unix ms). */
   at: number;
@@ -113,10 +148,10 @@ function sameJson(a: unknown, b: unknown): boolean {
 export function keepBackup(
   name: string,
   data: unknown,
-  opts: { reason: string; unique?: boolean; owner?: number | null; keep?: 1 | 2 },
+  opts: { reason: string; unique?: boolean; owner?: number | null; keep?: 1 | 2; space?: number | null },
 ): boolean {
   if (data === null || data === undefined) return true;
-  const key = BACKUP_PREFIX + name;
+  const key = backupPrefix(opts.space === undefined ? space : opts.space) + name;
   const keep = opts.keep ?? 2;
   const kept = [readEntry(key), readEntry(key + PREV)]
     .filter((e): e is BackupEntry => e !== null)
@@ -141,9 +176,9 @@ export function keepBackup(
   return storageSet(key, JSON.stringify(list[0]));
 }
 
-/** Kept copies, newest first. */
-export function readBackups(name: string): BackupEntry[] {
-  const key = BACKUP_PREFIX + name;
+/** Kept copies, newest first (of the active namespace unless `id` names another). */
+export function readBackups(name: string, id: number | null = space): BackupEntry[] {
+  const key = backupPrefix(id) + name;
   return [readEntry(key), readEntry(key + PREV)].filter((e): e is BackupEntry => e !== null);
 }
 
@@ -152,8 +187,8 @@ export function readBackups(name: string): BackupEntry[] {
  * version cannot read or resume, an older version before migration, data that had to be repaired.
  * Restoring is copying the string back to its key. False when storage refused it.
  */
-export function keepRawBackup(name: string, raw: string): boolean {
-  const key = BACKUP_PREFIX + name;
+export function keepRawBackup(name: string, raw: string, id: number | null = space): boolean {
+  const key = backupPrefix(id) + name;
   const old = storageGet(key);
   if (old === raw || storageGet(key + PREV) === raw) return true;
   if (old !== null && !storageSet(key + PREV, old)) return false;
@@ -567,9 +602,9 @@ export function autosaveBackupName(x: unknown): string {
 // ── zustand persist guard ───────────────────────────────────────────────────
 
 export interface PersistGuard<S> {
-  /** localStorage key, e.g. 'epd:career'. */
+  /** localStorage key of the guest, e.g. 'epd:career' (an account's is epd:acct:<id>:career, src/store/space.ts). */
   name: string;
-  /** Short name for backup keys and logs ('career' gives epd:backup.career.v1 ...). */
+  /** Short name for backup keys and logs ('career' gives epd:backup.career.v1 ...), also the namespace key name. */
   slot: string;
   /** Version this code writes. Bump only with a step in `steps` (docs/DESIGN.md). */
   version: number;
@@ -591,6 +626,22 @@ export interface PersistGuard<S> {
  *   and a value the normaliser had to drop leaves the original in `epd:backup.<slot>.repaired`.
  * When a backup cannot be written, the key is not written over either.
  */
+/** Persisted stores write nothing while this is above 0 (a namespace switch resets them first). */
+let writesHeld = 0;
+
+/**
+ * Run `fn` without any guarded store writing to storage. src/store/space.ts resets the stores to their defaults
+ * this way before they read the other namespace: neither namespace may get the other's data or the defaults.
+ */
+export function withoutPersistWrites(fn: () => void): void {
+  writesHeld++;
+  try {
+    fn();
+  } finally {
+    writesHeld--;
+  }
+}
+
 export function guardedPersist<S>(cfg: PersistGuard<S>) {
   /** The stored string of the last read, for backups taken after parsing. */
   let lastRaw: string | null = null;
@@ -618,7 +669,7 @@ export function guardedPersist<S>(cfg: PersistGuard<S>) {
       }
       if (!isPlainObject(parsed) || !isPlainObject(parsed.state)) {
         if (keepRawBackup(`${cfg.slot}.invalid`, raw))
-          console.warn(`[EPD] ${name} could not be read; kept in ${BACKUP_PREFIX}${cfg.slot}.invalid`);
+          console.warn(`[EPD] ${name} could not be read; kept in ${backupPrefix()}${cfg.slot}.invalid`);
         else lock('unreadable and no room for a backup');
         return null;
       }
@@ -638,6 +689,7 @@ export function guardedPersist<S>(cfg: PersistGuard<S>) {
       return (known ? parsed : { ...parsed, version: cfg.version + 1 }) as StorageValue<S>;
     },
     setItem: (name, value) => {
+      if (writesHeld) return;
       if (locked) {
         if (!warned) console.warn(`[EPD] ${name} is not saved in this session (see the warning above)`);
         warned = true;
@@ -650,7 +702,7 @@ export function guardedPersist<S>(cfg: PersistGuard<S>) {
       }
     },
     removeItem: (name) => {
-      if (!locked) storageRemove(name);
+      if (!locked && !writesHeld) storageRemove(name);
     },
   };
 

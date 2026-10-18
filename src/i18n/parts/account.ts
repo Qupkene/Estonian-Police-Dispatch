@@ -67,6 +67,24 @@ export default {
   'account.chip.menu': { et: 'Konto valikud', en: 'Account options' },
   'account.chip.since': { et: 'Konto loodud {date}', en: 'Account created {date}' },
   'account.chip.relogin': { et: 'Logi uuesti sisse', en: 'Sign in again' },
+  'account.logout.title': { et: 'Logi välja', en: 'Sign out' },
+  'account.logout.text': {
+    et: 'Konto {name} karjäär ja salvestused jäävad pilve alles. Järgmisel sisselogimisel jätkad sealt, kus pooleli jäi.',
+    en: "{name}'s career and saves stay in the cloud. Next time you sign in, you carry on where you left off.",
+  },
+  'account.logout.forget': {
+    et: 'Kustuta selle konto andmed sellest brauserist',
+    en: "Remove this account's data from this browser",
+  },
+  'account.logout.forgetHint': {
+    et: 'Soovitatav ühises arvutis. Pilves olevad andmed jäävad alles.',
+    en: 'Recommended on a shared computer. The data in the cloud stays.',
+  },
+  'account.logout.unsynced': {
+    et: 'Kõik muudatused pole veel pilves. Mis üles ei jõua, jääb selles brauseris alles ja laaditakse üles järgmisel sisselogimisel.',
+    en: 'Not every change has reached the cloud yet. Whatever does not get there stays in this browser and is uploaded the next time you sign in.',
+  },
+  'account.logout.cancel': { et: 'Loobu', en: 'Cancel' },
   'account.cloud.saved': { et: 'Pilves salvestatud', en: 'Saved in the cloud' },
   'account.cloud.saving': { et: 'Salvestan pilve…', en: 'Saving to the cloud…' },
   'account.cloud.error': {
@@ -77,8 +95,8 @@ export default {
   'account.delete': { et: 'Kustuta konto', en: 'Delete account' },
   'account.delete.title': { et: 'Kustuta konto', en: 'Delete account' },
   'account.delete.text': {
-    et: 'Konto {name} kustutatakse jäädavalt koos pilvesalvestuste, karjääri ja edetabeli tulemustega. Selles brauseris olevad andmed jäävad alles ja saad jätkata külalisena.',
-    en: 'The account {name} is deleted for good, together with its cloud saves, career and leaderboard results. The data in this browser stays and you can carry on as a guest.',
+    et: 'Konto {name} kustutatakse jäädavalt koos pilvesalvestuste, karjääri ja edetabeli tulemustega. Ka konto andmed selles brauseris kustutatakse. Külalisena mängitu jääb alles.',
+    en: 'The account {name} is deleted for good, together with its cloud saves, career and leaderboard results. Its data in this browser is removed too. What you played as a guest stays.',
   },
   'account.delete.password': { et: 'Kinnita parooliga', en: 'Confirm with your password' },
   'account.delete.confirm': { et: 'Kustuta jäädavalt', en: 'Delete for good' },

@@ -5,10 +5,11 @@ import type { GameEvent, GameMode, LngLat, NewShiftOptions, RadioMsg, ShiftRepor
 import { careerShiftPaid, useCareer } from './career';
 import {
   autosaveBackupName,
-  BACKUP_PREFIX,
+  backupPrefix,
   keepBackup,
   keepRawBackup,
   SIM_VERSION,
+  spaceKey,
   storageGet,
   storageRemove,
   storageSet,
@@ -244,7 +245,8 @@ export function stopLoop() {
 
 // ── Autosave ─────────────────────────────────────────────────────────────────
 
-const SAVE_KEY = 'epd:autosave';
+/** epd:autosave for the guest, epd:acct:<id>:autosave while an account is signed in (src/store/space.ts). */
+const saveKey = () => spaceKey('autosave');
 /** sim.flags key set once the shift's report exists: such a sim is never saved or resumed again. */
 const REPORTED_FLAG = 'shiftReported';
 
@@ -276,7 +278,10 @@ export interface AutosaveOptions {
   cloud?: boolean;
 }
 
-/** Shift key of the save this tab wrote last: when another shift takes the key, the old one is kept first. */
+/**
+ * Save key and shift key of the save this tab wrote last: when another shift takes the key, the old one is kept
+ * first.
+ */
 let lastSavedShift: string | null = null;
 
 export function autosave(sim: SimState, opts: AutosaveOptions = {}) {
@@ -289,11 +294,12 @@ export function autosave(sim: SimState, opts: AutosaveOptions = {}) {
     return;
   }
   const key = shiftKeyOf(sim);
-  if (key !== lastSavedShift) {
+  const saved = `${saveKey()}|${key}`;
+  if (saved !== lastSavedShift) {
     keepReplacedSave(key);
-    lastSavedShift = key;
+    lastSavedShift = saved;
   }
-  if (!storageSet(SAVE_KEY, raw) && opts.cloud !== false) makeRoomFor(raw);
+  if (!storageSet(saveKey(), raw) && opts.cloud !== false) makeRoomFor(raw);
   if (opts.cloud !== false) autosaveHooks.onSave?.(raw, opts.unload ? 'unload' : opts.periodic ? 'periodic' : 'explicit');
 }
 
@@ -303,11 +309,11 @@ export function autosave(sim: SimState, opts: AutosaveOptions = {}) {
  * and a shift that came from the cloud (it is safe on the server) never pushes a backup out.
  */
 function makeRoomFor(raw: string): void {
-  for (const k of [BACKUP_PREFIX + 'autosave.cloud', BACKUP_PREFIX + 'autosave']) {
+  for (const k of [backupPrefix() + 'autosave.cloud', backupPrefix() + 'autosave']) {
     if (storageGet(k) === null) continue;
     storageRemove(k);
     console.warn(`[EPD] storage is full: ${k} was removed so the running shift can be saved`);
-    if (storageSet(SAVE_KEY, raw)) return;
+    if (storageSet(saveKey(), raw)) return;
   }
 }
 
@@ -319,7 +325,7 @@ const isReported = (x: unknown) => isPlainObject(x) && isPlainObject(x.flags) &&
  * key, instead of being written over.
  */
 function keepReplacedSave(key: string): void {
-  const raw = storageGet(SAVE_KEY);
+  const raw = storageGet(saveKey());
   if (!raw) return;
   let old: unknown;
   try {
@@ -343,7 +349,8 @@ function unresumableName(parsed: unknown): string {
 }
 
 /**
- * The browser's saved shift, or null. A shift whose clock ran out is still returned (`ended`: its
+ * The saved shift of the active namespace (the guest's or the signed-in account's), or null. A shift whose
+ * clock ran out is still returned (`ended`: its
  * report is pending, resumeShift opens it). An older save is upgraded (docs/DESIGN.md, "Salvestuste
  * ühilduvus"; the original stays in epd:backup.autosave.v<n>). A save that cannot be resumed (garbage,
  * a newer version, an unknown prefecture, missing parts) moves to a backup key (epd:backup.autosave.v<n>,
@@ -351,7 +358,8 @@ function unresumableName(parsed: unknown): string {
  * shift whose report already exists is simply removed.
  */
 export function loadAutosave(): SimState | null {
-  const raw = storageGet(SAVE_KEY);
+  const key = saveKey();
+  const raw = storageGet(key);
   if (!raw) return null;
   let parsed: unknown;
   try {
@@ -363,7 +371,7 @@ export function loadAutosave(): SimState | null {
   if (isValidSave(sim)) {
     if (sim !== parsed && keepRawBackup(autosaveBackupName(parsed), raw)) {
       try {
-        localStorage.setItem(SAVE_KEY, JSON.stringify(sim));
+        localStorage.setItem(key, JSON.stringify(sim));
       } catch {
         /* the upgraded copy is rebuilt on the next load */
       }
@@ -371,13 +379,13 @@ export function loadAutosave(): SimState | null {
     return sim;
   }
   if (isReported(sim)) {
-    storageRemove(SAVE_KEY);
+    storageRemove(key);
     return null;
   }
   const name = parsed === undefined ? 'autosave.invalid' : unresumableName(parsed);
   if (keepRawBackup(name, raw)) {
-    storageRemove(SAVE_KEY);
-    console.warn(`[EPD] the saved shift cannot be resumed by this version; kept in ${BACKUP_PREFIX}${name}`);
+    storageRemove(key);
+    console.warn(`[EPD] the saved shift cannot be resumed by this version; kept in ${backupPrefix()}${name}`);
   } else {
     console.warn('[EPD] the saved shift cannot be resumed and there is no room for a backup; it stays in place');
   }
@@ -385,11 +393,7 @@ export function loadAutosave(): SimState | null {
 }
 
 export function clearAutosave(opts: Pick<AutosaveOptions, 'cloud'> = {}) {
-  try {
-    localStorage.removeItem(SAVE_KEY);
-  } catch {
-    /* ignore */
-  }
+  storageRemove(saveKey());
   if (opts.cloud !== false) autosaveHooks.onClear?.();
 }
 

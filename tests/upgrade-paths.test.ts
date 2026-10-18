@@ -3,9 +3,10 @@
 // same origin and database, then back):
 // - a career shift that 92ed7f5 saved again after its report (its tab closed on the report screen) is never
 //   offered or paid a second time, from the browser or from the cloud;
-// - a rollback to 92ed7f5 does not pull the cloud over changes made in this browser: epd:sync keeps the
-//   format 1 fields that version reads.
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+// - a rollback to 92ed7f5 never uploads the guest's data over an account's cloud copy, and loses nothing on
+//   the way back: epd:sync keeps the format 1 fields that version reads (it knows only the plain keys, which
+//   hold the guest's data since each identity has its own namespace, src/store/space.ts).
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { careerShiftPaid, useCareer } from '@/store/career';
@@ -13,7 +14,7 @@ import { autosave, loadAutosave, stopLoop, useGame } from '@/store/game';
 import { rosterFromCareer } from '@/sim/career';
 import { createShift, step } from '@/sim/engine';
 import { DAY, MIN, tallinnTime, wall } from '@/sim/time';
-import { legacyMeta, parseMeta, SLOTS, type Slot } from '@/net/sync';
+import { FOREIGN_OWNER, legacyMeta, parseMeta, SLOTS, type Slot } from '@/net/sync';
 import type { CareerProfile, SimState } from '@/sim/types';
 
 vi.stubGlobal('requestAnimationFrame', () => 1);
@@ -26,6 +27,12 @@ const SAVED_AFTER_REPORT = fixture('92ed7f5-chromium', 'epd-autosave-after-repor
 
 type CareerData = { profile: CareerProfile | null; inbox: unknown[] };
 const stateOf = (raw: string) => (JSON.parse(raw) as { state: CareerData }).state;
+
+// The first page load transforms the whole module graph: done once here, outside any test's time budget.
+beforeAll(async () => {
+  vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('offline'))));
+  await import('@/net/account'); // every test's beforeEach installs its own fetch
+}, 60_000);
 
 beforeEach(() => {
   useCareer.setState(useCareer.getInitialState(), true);
@@ -162,50 +169,126 @@ describe('a rollback to 92ed7f5', () => {
     profile: { ...stateOf(fixture('92ed7f5', 'epd-career-new.json')).profile!, name, money },
     inbox: [],
   });
+  /** What 92ed7f5 finds in the plain keys (it knows nothing else). */
+  const plainKeys = () => ({
+    career: (JSON.parse(localStorage.getItem('epd:career') ?? 'null') as { state?: CareerData } | null)?.state?.profile
+      ? (JSON.parse(localStorage.getItem('epd:career')!) as { state: CareerData }).state
+      : null,
+    settings: (JSON.parse(localStorage.getItem('epd:settings') ?? 'null') as { state?: unknown } | null)?.state ?? null,
+    autosave: JSON.parse(localStorage.getItem('epd:autosave') ?? 'null') as unknown,
+  });
+  /** 92ed7f5 pulled a slot: the cloud copy in the plain key and its server version in a format 1 marker. */
+  function v92Pulls(slots: Slot[]) {
+    const updated = { career: 0, settings: 0, autosave: 0 } as Record<Slot, number>;
+    for (const slot of slots) {
+      const row = api.rows.get(`7:${slot}`)!;
+      const data = JSON.parse(row.json) as unknown;
+      localStorage.setItem(`epd:${slot}`, slot === 'autosave' ? row.json : JSON.stringify({ state: data, version: 1 }));
+      updated[slot] = row.updated;
+    }
+    localStorage.setItem('epd:sync', JSON.stringify({ owner: 7, updated }));
+  }
 
-  it('in sync: 92ed7f5 moves nothing', async () => {
+  it("signed in: 92ed7f5 never uploads the guest's data over the account's cloud copy, it only fills empty slots", async () => {
     api.cookie = 7;
     api.write(7, 'career', career('Mari', 100));
+    // The guest has a career of its own in this browser.
+    localStorage.setItem('epd:career', JSON.stringify({ state: career('Külaline', 5), version: 1 }));
     const page = await boot();
     expect(page.useCareer.getState().profile?.name).toBe('Mari');
-    const local = { career: careerOf(page), settings: settingsOf(page), autosave: null };
-    expect(v92.plan(localStorage.getItem('epd:sync'), local, 7)).toEqual({ career: 'none', settings: 'none', autosave: 'none' });
+    const plan = v92.plan(localStorage.getItem('epd:sync'), plainKeys(), 7);
+    expect(plan.career).toBe('pull');
+    expect(plan.settings).toBe('pull');
+    expect(Object.values(plan)).not.toContain('push');
+    // The guest's career is kept for the way back.
+    expect(JSON.parse(localStorage.getItem('epd:backup.career.guest')!).data).toEqual(career('Külaline', 5));
   });
 
-  it('changes that never reached the server are uploaded by 92ed7f5, never replaced by the older cloud copy', async () => {
+  it("the way back after 92ed7f5 pulled: the guest's career returns, the account's cache moves into its namespace", async () => {
     api.cookie = 7;
     api.write(7, 'career', career('Mari', 100));
+    localStorage.setItem('epd:career', JSON.stringify({ state: career('Külaline', 5), version: 1 }));
+    await boot();
+    closePage();
+    v92Pulls(['career', 'settings']);
     const page = await boot();
+    expect(page.useCareer.getState().profile?.name).toBe('Mari'); // signed in: the account's
+    expect(JSON.parse(localStorage.getItem('epd:career')!).state).toEqual(career('Külaline', 5));
+    expect(api.writes().filter((c) => c.path === '/api/save/career')).toEqual([]);
+    const out = page.useAccount.getState().logout();
+    await vi.advanceTimersByTimeAsync(3500);
+    await out;
+    expect(page.useCareer.getState().profile?.name).toBe('Külaline');
+  });
+
+  it("changes that never reached the server wait in the account's namespace and go up on the way back", async () => {
+    api.cookie = 7;
+    api.write(7, 'career', career('Mari', 100));
+    let page = await boot();
     api.down = true; // the API breaks; the player keeps playing, uploads fail
     page.useCareer.getState().update((p) => ({ ...p, money: 777 }));
     page.useSettings.getState().set({ volume: 0.11 });
     await settle();
     expect(api.json(7, 'career')).toEqual(career('Mari', 100));
-    const local = { career: careerOf(page), settings: settingsOf(page), autosave: null };
-    const plan = v92.plan(localStorage.getItem('epd:sync'), local, 7);
-    expect(plan.career).toBe('push');
-    expect(plan.settings).toBe('push');
-    expect(plan.autosave).toBe('none');
+    closePage();
+    // 92ed7f5 does not see them (they are not in the plain keys), so it cannot replace or upload them either.
+    api.down = false;
+    expect(v92.plan(localStorage.getItem('epd:sync'), plainKeys(), 7).career).toBe('pull');
+    v92Pulls(['career']);
+    expect(JSON.parse(localStorage.getItem('epd:acct:7:career')!).state.profile.money).toBe(777);
+    // This version again: the cache with the changes stays (the plain copy was only the version they build on).
+    page = await boot();
+    expect((api.json(7, 'career') as CareerData).profile!.money).toBe(777);
+    expect(page.useCareer.getState().profile!.money).toBe(777);
+    expect(localStorage.getItem('epd:career')).toBeNull();
   });
 
-  it('format 1 fields sit next to format 2 and are not read back by this version', () => {
+  it('signed out: guest data keeps the rule 92ed7f5 had for it', async () => {
+    const page = await boot();
+    page.useCareer.setState(career('Külaline', 5) as never);
+    const legacy = JSON.parse(localStorage.getItem('epd:sync')!) as { owner: unknown; updated: Record<Slot, number> };
+    expect(legacy.owner).toBeNull();
+    expect(legacy.updated.career).toBeGreaterThan(0);
+  });
+
+  it("signed out after an account was signed in here: 92ed7f5 uploads neither the guest's older career nor its empty slots over the cloud", async () => {
+    localStorage.setItem('epd:career', JSON.stringify({ state: career('Külaline', 5), version: 1 }));
+    api.cookie = 7;
+    api.write(7, 'career', career('Mari', 100));
+    api.write(7, 'autosave', JSON.parse(fixture('92ed7f5', 'epd-autosave-free.json')));
+    const page = await boot();
+    // The browser's clock and the server's agree in real life: signing out comes after the last upload.
+    vi.setSystemTime(new Date(api.clock + 60_000));
+    const out = page.useAccount.getState().logout({ forget: true });
+    await vi.advanceTimersByTimeAsync(3500);
+    await out;
+    expect(page.useCareer.getState().profile?.name).toBe('Külaline');
+    expect(localStorage.getItem('epd:autosave')).toBeNull();
+    expect(v92.plan(localStorage.getItem('epd:sync'), plainKeys(), 7)).toEqual({ career: 'pull', settings: 'pull', autosave: 'pull' });
+    // Still so after the guest plays on (the marker is written again).
+    page.useSettings.getState().set({ volume: 0.3 });
+    expect(v92.plan(localStorage.getItem('epd:sync'), plainKeys(), 7).career).toBe('pull');
+  });
+
+  it('format 1 fields sit next to format 3 and are not read back by this version', () => {
     const meta = parseMeta(
       JSON.stringify({
-        v: 2,
+        v: 3,
         account: 7,
         slots: {
-          career: { owner: 7, base: 50, dirty: false },
-          settings: { owner: 7, base: 60, dirty: true },
+          career: { owner: null, base: 0, dirty: false },
+          settings: { owner: null, base: 60, dirty: true },
           autosave: { owner: null, base: 0, dirty: true },
         },
       }),
     );
-    expect(legacyMeta(meta, 1000)).toEqual({ owner: 7, updated: { career: 50, settings: 1000, autosave: 1000 } });
-    expect(legacyMeta(meta, 10)).toEqual({ owner: 7, updated: { career: 50, settings: 61, autosave: 10 } });
-    const stored = JSON.stringify({ ...JSON.parse(JSON.stringify({ v: 2, account: 7, slots: meta.slots })), owner: 9, updated: { career: 1, settings: 1, autosave: 1 } });
+    // Signed in: an owner no account has, so 92ed7f5 counts the plain keys as foreign.
+    expect(legacyMeta(meta, 1000)).toEqual({ owner: FOREIGN_OWNER, updated: { career: 0, settings: 1000, autosave: 1000 } });
+    expect(legacyMeta(meta, 10)).toEqual({ owner: FOREIGN_OWNER, updated: { career: 0, settings: 61, autosave: 10 } });
+    const stored = JSON.stringify({ v: 3, account: 7, slots: meta.slots, owner: 9, updated: { career: 1, settings: 1, autosave: 1 } });
     expect(parseMeta(stored)).toEqual(meta);
-    // A guest browser: no owner, everything newer than nothing.
-    expect(legacyMeta(parseMeta(null), 5).owner).toBeNull();
+    // Signed out: no owner, everything changed here newer than nothing.
+    expect(legacyMeta(parseMeta(null), 5)).toEqual({ owner: null, updated: { career: 5, settings: 5, autosave: 5 } });
   });
 });
 
@@ -268,17 +351,6 @@ class FakeApi {
 
 let api: FakeApi;
 
-type Page = Awaited<ReturnType<typeof boot>>;
-const careerOf = (page: Page) => {
-  const s = page.useCareer.getState();
-  return { profile: s.profile, inbox: s.inbox };
-};
-const settingsOf = (page: Page) => {
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(page.useSettings.getState())) if (typeof v !== 'function') out[k] = v;
-  return out;
-};
-
 /** One page load on the current browser storage: fresh modules, stores hydrate, the account syncs. */
 async function boot() {
   vi.resetModules();
@@ -303,8 +375,13 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2030-01-01T00:00:00Z'));
 });
 
-afterEach(() => {
+/** The page closes: its sync stops without uploading anything more (like a killed tab). */
+function closePage() {
   window.dispatchEvent(new StorageEvent('storage', { key: 'epd:sync', newValue: null }));
+}
+
+afterEach(() => {
+  closePage();
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.stubGlobal('requestAnimationFrame', () => 1);

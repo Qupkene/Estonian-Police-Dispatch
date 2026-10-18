@@ -110,7 +110,10 @@ export function planSync(res: SaveResponse, local: Record<Slot, LocalSide>, opts
   return out;
 }
 
-// ── Local sync metadata (localStorage `epd:sync`, kept by src/net/account.ts) ──
+// ── Local sync metadata (kept by src/net/account.ts) ──
+// Every namespace of browser data (src/store/migrate.ts) has its own marker: `epd:sync` for the guest (it also
+// records the account this browser is signed in to, read by the other tabs) and `epd:acct:<id>:sync` for the
+// cache of an account.
 
 export interface SlotMeta {
   /** Account this slot's browser data was last synced with; null = guest data. */
@@ -122,9 +125,25 @@ export interface SlotMeta {
 }
 
 export interface Meta {
-  /** Account this browser is signed in to (written on sign-in and sign-out, read by other tabs). */
+  /** Account this browser is signed in to (written on sign-in and sign-out, read by other tabs). Guest marker only. */
   account: number | null;
   slots: Record<Slot, SlotMeta>;
+}
+
+/**
+ * Format 3: browser data has a namespace per identity. A guest marker without it (format 1 of 92ed7f5, format 2
+ * of the release before) means the plain keys may still hold an account's data: src/store/space.ts moves them.
+ */
+export const META_VERSION = 3;
+
+/**
+ * The marker as stored. The guest's (`space` null) also carries the signed-in account and the format 1 fields a
+ * rollback to 92ed7f5 reads (legacyMeta, `foreign` as there); an account's only its slots. `v` is lower only while
+ * src/store/space.ts could not finish moving account data out of the plain keys (the next load tries again).
+ */
+export function metaJson(m: Meta, space: number | null, now: number, foreign = false, v = META_VERSION): string {
+  if (space !== null) return JSON.stringify({ v, slots: m.slots });
+  return JSON.stringify({ v, account: m.account, slots: m.slots, ...legacyMeta(m, now, foreign) });
 }
 
 // Without any metadata the browser's data has an unknown history (e.g. from before accounts existed),
@@ -163,14 +182,24 @@ export interface LegacyMeta {
   updated: Record<Slot, number>;
 }
 
+/** Format 1 owner that no account has (ids start at 1): 92ed7f5 counts such data as another account's. */
+export const FOREIGN_OWNER = 0;
+
 /**
- * The marker in format 1, written next to format 2 so that a rollback to 92ed7f5 behaves: without these
- * fields that version sees no owner and age 0, and pulls every cloud slot over this browser's data with no
- * backup. A synced slot gives the server version it holds (92ed7f5: in sync, nothing moves); a slot changed
- * here counts as newer than any copy it was built on (92ed7f5 uploads it, as it did with its own changes).
+ * The guest marker in format 1, written next to format 3 so that a rollback to 92ed7f5 behaves. That version
+ * knows only the plain keys, which hold the guest's data now, and reads only `owner` and `updated`:
+ * - signed out in a browser where no account was ever signed in, `owner` is null and a slot changed here counts
+ *   as newer than any copy (92ed7f5's own rule for guest data, as before);
+ * - while an account is signed in, 92ed7f5 merges the plain keys into it at once after a rollback. `owner` is
+ *   then FOREIGN_OWNER, so the guest's data never replaces the account's cloud copy, it only fills empty
+ *   slots (the cloud copy that comes down instead does not touch the guest's career: src/store/space.ts keeps
+ *   a copy of it in epd:backup.career.guest on sign-in, and the way forward restores it);
+ * - signed out after an account was signed in here (`foreign`), the same: the plain keys then hold nothing or a
+ *   guest copy older than the account's progress, and every slot would count as changed when the marker was
+ *   last written, so 92ed7f5 would upload them over the account's cloud copy at its next sign-in.
  */
-export function legacyMeta(m: Meta, now: number): LegacyMeta {
-  const owner = SLOTS.map((slot) => m.slots[slot].owner).find((o) => o !== null) ?? m.account;
+export function legacyMeta(m: Meta, now: number, foreign = false): LegacyMeta {
+  const owner = m.account === null && !foreign ? null : FOREIGN_OWNER;
   const updated = {} as Record<Slot, number>;
   for (const slot of SLOTS) {
     const e = m.slots[slot];

@@ -3,6 +3,7 @@
 // The "Klassika" tab is the real account login when the server answers (src/net/account.ts);
 // both fields empty is still the 2024 easter egg. Owned by ui-shell.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useGame, type LoginUser } from '@/store/game';
 import { useAccount, type AccountUser } from '@/net/account';
 import { nameProblem, PASSWORD_MIN } from '@/net/sync';
@@ -12,6 +13,7 @@ import { Badge, Button, Emblem, Icon, IconButton, Spinner, Tabs, TextField } fro
 import { Backdrop } from './shell/Backdrop';
 import { Disclaimer, LangToggle, useToast } from './shell/ShellPage';
 import { accountErrorText } from './shell/accountText';
+import { LogoutDialog } from './shell/AccountChip';
 import {
   formatCountdown,
   generateIdentity,
@@ -31,6 +33,8 @@ export function LoginScreen() {
   const login = useGame((s) => s.login);
   const backend = useAccount((s) => s.backend);
   const accountUser = useAccount((s) => s.user);
+  const sessionLost = useAccount((s) => s.sessionLost);
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const [seed, setSeed] = useState(() => (Date.now() ^ 0x2024) >>> 0);
   const [id, setId] = useState<GeneratedIdentity>(() => generateIdentity(seed));
   const [name, setName] = useState(() => `${id.firstName} ${id.lastName}`);
@@ -55,8 +59,9 @@ export function LoginScreen() {
   }, []);
 
   /**
-   * Every login except the account one is a guest login: an open account session ends, and one that
-   * /api/me is still about to report (slow connection) is never started.
+   * Every login except the account one is a guest login: an open account session ends (the guest's own data
+   * comes back, src/store/space.ts), and one that /api/me is still about to report (slow connection) is never
+   * started.
    */
   const leaveAccount = () => {
     useAccount.getState().decline();
@@ -155,13 +160,15 @@ export function LoginScreen() {
                     <Button variant="primary" iconRight="chevron-right" onClick={() => accountLogin(accountUser)}>
                       {t('account.resume.continue')}
                     </Button>
-                    <IconButton
-                      icon="logout"
-                      label={t('account.logout')}
-                      onClick={() => void useAccount.getState().logout()}
-                    />
+                    <IconButton icon="logout" label={t('account.logout')} onClick={() => setConfirmLogout(true)} />
                   </span>
                 </div>
+              )}
+              {sessionLost && !accountUser && (
+                <p className="sh-login__lost" role="status">
+                  <Icon name="warning" size={14} />
+                  {t('account.lost')}
+                </p>
               )}
               <TextField
                 label={t('shell.login.name')}
@@ -240,6 +247,9 @@ export function LoginScreen() {
         </section>
       </div>
       <Disclaimer className="sh-login__disc" />
+      {confirmLogout &&
+        accountUser &&
+        createPortal(<LogoutDialog name={accountUser.name} onClose={() => setConfirmLogout(false)} />, document.body)}
     </div>
   );
 }
