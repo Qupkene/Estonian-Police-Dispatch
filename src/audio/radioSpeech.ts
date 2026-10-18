@@ -5,9 +5,10 @@
 //   when it was said. A line goes stale (and is dropped or cut) once the player has answered the
 //   message, the beat it asks about is over, the incident was closed after it, Häirekeskus asked for
 //   units that are now sent, or the unit has moved on to another status.
-// - The faster the game runs, the less is read: at 2x only lines that need a reply or matter
-//   (pursuit, officer in danger, backup request, P1) with at most one waiting; at 4x and faster only
-//   lines that need a reply and emergencies. Paused: nothing.
+// - At 1x and 2x every line is read (stale lines are still dropped or cut); at 4x and faster only
+//   lines that need a reply and emergencies, with at most one waiting. Paused: nothing.
+// - A line cut mid-speech because the player handled it may be followed by a short acknowledgement
+//   from the same voice ("Ee, selge."), or by silence, so the radio does not sound robotic.
 import type { RadioMsg, SimState } from '@/sim/types';
 
 /** How much a line matters. */
@@ -50,8 +51,7 @@ export function speechPrio(sim: SimState, m: RadioMsg): SpeechPrio {
 /** The least a line must matter to be read at a speed step; null = read nothing (paused). */
 export function minPrioAt(speedIndex: number): SpeechPrio | null {
   if (speedIndex <= 0) return null;
-  if (speedIndex === 1) return PRIO.routine;
-  if (speedIndex === 2) return PRIO.important;
+  if (speedIndex <= 2) return PRIO.routine;
   return PRIO.reply;
 }
 
@@ -63,7 +63,7 @@ export function speakableAt(prio: SpeechPrio, speedIndex: number): boolean {
 
 /** Lines that may wait behind the one playing (undefined = the queue's own limit). */
 export function maxWaitingAt(speedIndex: number): number | undefined {
-  return speedIndex >= 2 ? 1 : undefined;
+  return speedIndex >= 3 ? 1 : undefined;
 }
 
 /** Find a radio message by id (newest first: spoken lines are recent). */
@@ -129,4 +129,42 @@ export function pickSpoken(
     if (!best || tag.prio > best.tag.prio) best = { msg, tag };
   }
   return best;
+}
+
+// ── Acknowledgement after a cut line ────────────────────────────────────────
+
+/** Short spoken acknowledgements after a unit's line was cut because the player already handled it. */
+export const ACK_PHRASES = {
+  et: [
+    'Ee, selge.',
+    'Aa, okei.',
+    'Selge-selge.',
+    'Sain aru.',
+    'Jah, nägin.',
+    'Okei, liigume.',
+    'Hästi.',
+    'Mhm, selge.',
+    'Aa, selge siis.',
+    'Okei, sain.',
+  ],
+  en: ['Uh, copy.', 'Okay.', 'Got it.', 'Roger that.', 'Copy that.', 'Ah, okay.', 'Understood.'],
+} as const;
+
+/** How often a cut line is followed by an acknowledgement (otherwise silence). */
+export const ACK_CHANCE = 0.6;
+
+/**
+ * The acknowledgement to say after a line was cut mid-speech, or null for silence: never at 4x and
+ * faster or while paused, never when another line waits, ~60 % of the time otherwise, and never the
+ * same phrase twice in a row.
+ */
+export function pickAck(
+  lang: 'et' | 'en',
+  o: { speedIndex: number; waiting: number; last?: string; rnd?: () => number },
+): string | null {
+  const rnd = o.rnd ?? Math.random;
+  if (o.speedIndex <= 0 || o.speedIndex >= 3 || o.waiting > 0) return null;
+  if (rnd() >= ACK_CHANCE) return null;
+  const list = ACK_PHRASES[lang].filter((p) => p !== o.last);
+  return list[Math.min(list.length - 1, Math.floor(rnd() * list.length))];
 }

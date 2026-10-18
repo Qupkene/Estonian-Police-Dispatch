@@ -5,7 +5,7 @@ import { onGameEvents, useGame } from '@/store/game';
 import { useSettings } from '@/store/settings';
 import type { GameEvent, RadioMsg, SimState } from '@/sim/types';
 import { t } from '@/i18n';
-import { isStale, maxWaitingAt, pickSpoken, speakableAt, voiceSpeedIndex, type SpeechTag } from './radioSpeech';
+import { isStale, maxWaitingAt, pickAck, pickSpoken, speakableAt, voiceSpeedIndex, type SpeechTag } from './radioSpeech';
 import { sfx } from './sfx';
 import { cancelSpeech, limitSpeechQueue, speak, stopSpeech } from './speech';
 
@@ -88,19 +88,38 @@ function handleEvents(events: GameEvent[]) {
       // Speak only the most important fresh line that fits the game speed, to keep the voice current
       // (the dispatcher's own lines only when nothing else came in).
       const pick = pickSpoken(sim, fresh.length ? fresh : all, speed);
-      if (pick)
+      if (pick) {
+        const speaker = speakerOf(sim, pick.msg);
+        const isUnit = !!pick.msg.unitId && pick.msg.from !== 'JK' && pick.msg.from !== 'HK';
         speak(radioLine(pick.msg, st.lang), st.lang, {
           radio: true,
           volume: Math.min(1, st.volume + 0.2),
-          speaker: speakerOf(sim, pick.msg),
+          speaker,
           tag: pick.tag,
           maxWaiting: maxWaitingAt(speed),
+          onCut: isUnit ? () => ackAfterCut(speaker) : undefined,
         });
+      }
     }
   }
 }
 
 let voiceSpeed = -1;
+let lastAck: string | undefined;
+
+/**
+ * The unit's line was cut mid-speech because the player already handled it: sometimes a short
+ * "Ee, selge." in the same voice, sometimes silence. Spoken only, not added to the radio log.
+ */
+function ackAfterCut(speaker: { from: string; gender?: 'M' | 'F' }): void {
+  const st = useSettings.getState();
+  if (!st.radioVoice || useGame.getState().screen !== 'game') return;
+  // cancelTts only calls this when nothing else waits.
+  const ack = pickAck(st.lang, { speedIndex: voiceSpeed, waiting: 0, last: lastAck });
+  if (!ack) return;
+  lastAck = ack;
+  speak(ack, st.lang, { radio: true, volume: Math.min(1, st.volume + 0.2), speaker });
+}
 
 /**
  * Keep the radio voice in step with the game (every UI tick and command): silent while paused, only

@@ -23,6 +23,8 @@ export interface SpeakOptions {
   tag?: SpeechTag;
   /** Radio lines that may wait behind the one playing when this one is queued. */
   maxWaiting?: number;
+  /** Called when the line is cut while being heard and nothing else waits (see neurokone onCut). */
+  onCut?: () => void;
 }
 
 export interface VoiceLike {
@@ -214,6 +216,7 @@ export function speak(text: string, lang: 'et' | 'en', opts?: SpeakOptions): voi
       stopFallback: web.stop,
       tag: opts?.tag,
       maxWaiting: opts?.maxWaiting,
+      onCut: opts?.onCut,
     });
     return;
   }
