@@ -3,7 +3,7 @@
  * Legacy titles covered: Autoavarii, Purjus autojuht, Loata rallivõistlus, Jalakäija vigastamine,
  * Valgustamata jalgrattur öösel, Rongilt alla kukkunud inimene.
  */
-import type { IncidentTemplate } from '@/sim/types';
+import type { IncidentScenario, IncidentTemplate } from '@/sim/types';
 import {
   T,
   u,
@@ -20,6 +20,7 @@ import {
   opt,
   breathRefusal,
   pursuitDecision,
+  R_DRIVER,
 } from './_helpers_c';
 
 const B_PATROL = [
@@ -35,6 +36,427 @@ const T_ARREST = [
 const A_KIIRABI = [
   T('{callsign}: kannatanul vigastused, kinnitage kiirabi tulek!', '{callsign}: there are injuries, confirm an ambulance is coming!'),
   T('JK, {callsign}. Anname esmaabi, vajame kiirabi.', 'Control, {callsign}. Giving first aid, we need an ambulance.'),
+];
+
+// ─── Scenarios: one coherent story per incident (IncidentTemplate.scenarios) ──
+
+// ── traffic_joobes_juhi_kahtlus ─────────────────────────────────────────────
+const SC_DUI_SUSPICION: IncidentScenario[] = [
+  {
+    id: 'weaving_lanes',
+    summary: [
+      T(
+        '{address}. Joobes juhi kahtlus: {car}, numbrimärk {plate}, looklev sõit, liigub {direction}. Teataja sõidab järel.',
+        '{address}. Suspected drunk driver: {car}, plate {plate}, weaving, heading {direction}. The caller is following.',
+      ),
+      T(
+        '{address}. Teataja sõidab sõiduki {plate} taga. Auto kõigub rajalt rajale ja pidurdab põhjuseta. Kiirus 50-110 km/h.',
+        '{address}. The caller is driving behind vehicle {plate}. The car is swerving between lanes and braking for no reason. Speed 50-110 km/h.',
+      ),
+    ],
+    callerLines: [
+      T('Ma sõidan ühe auto taga, ta on kindlasti purjus! Kogu aeg üle keskjoone!', 'I am driving behind a car, he is definitely drunk! Over the centre line the whole time!'),
+      T('Number on {plate}. Ta just sõitis peaaegu kraavi ja jätkab, me oleme {direction}.', 'The plate is {plate}. He nearly went into the ditch just now and carried on, we are heading {direction}.'),
+    ],
+    details: [
+      T('Teataja jätab ohutu vahemaa ja annab asukohta jooksvalt.', 'The caller is keeping a safe distance and giving updates on the location.'),
+      T('Sõiduk: {car}, reg nr {plate}.', 'Vehicle: {car}, plate {plate}.'),
+    ],
+  },
+  {
+    id: 'onto_the_verge',
+    summary: [
+      T(
+        '{address}. Teataja sõnul sõitis {car} ({plate}) teepeenrale ja tagasi, ohustab vastutulijaid. Teataja on liinil.',
+        '{address}. The caller says {car} ({plate}) drove onto the verge and back and is endangering oncoming traffic. The caller is on the line.',
+      ),
+      T(
+        '{address}. Sõiduk {plate} kaldus kaks korda teepeenrale, vastutulijad pidid kõrvale põikama. Teataja hoiab vahet.',
+        '{address}. Vehicle {plate} veered onto the verge twice and oncoming drivers had to swerve. The caller is keeping back.',
+      ),
+    ],
+    callerLines: [
+      T('Ma ei taha lähemale minna, aga ta sõidab nagu oleks magama jäämas.', 'I do not want to get closer, but he is driving like he is falling asleep.'),
+      T('Vastutulev auto pidi kraavi poole põikama, see lõpeb halvasti!', 'An oncoming car had to swerve towards the ditch, this is going to end badly!'),
+    ],
+    details: [
+      T('Viimati nähti sõidukit tankla juures.', 'The vehicle was last seen at a petrol station.'),
+      T('Sõiduk liigub {direction}.', 'The vehicle is heading {direction}.'),
+    ],
+  },
+  {
+    id: 'asleep_at_lights',
+    title: T('Joobes juhi kahtlus: juht magab roolis', 'Suspected drunk driver asleep at the wheel'),
+    summary: [
+      T(
+        '{address}. Foori taga seisab auto, roheline tuli on mitu korda vahetunud ja juht magab roolis. Mootor töötab. Sõiduk: {car}.',
+        '{address}. A car is stopped at the lights; they have turned green several times and the driver is asleep at the wheel. Engine running. Vehicle: {car}.',
+      ),
+      T(
+        '{address}. Ristmikul seisab sõiduk {plate} keset sõidurada, juht on rooli peale vajunud ega reageeri signaalidele.',
+        '{address}. Vehicle {plate} is stopped in the middle of a lane at a junction; the driver is slumped over the wheel and does not react to horns.',
+      ),
+    ],
+    callerLines: [
+      T('Ta seisab rohelise tule all ja magab. Ma signaalitasin, aga ta ei liiguta.', 'He is sitting at a green light asleep. I honked, but he does not move.'),
+      T('Mootor käib ja jalg on vist piduri peal. Ma kardan, et ta sõidab ärgates kellelegi otsa.', 'The engine is running and I think his foot is on the brake. I am afraid he will hit someone when he wakes up.'),
+    ],
+    details: [
+      T('Sõiduk seisab, mootor töötab, juht ei reageeri.', 'The vehicle is stationary with the engine running; the driver is not responding.'),
+      T('Sõiduk: {car}, reg nr {plate}.', 'Vehicle: {car}, plate {plate}.'),
+    ],
+    agencies: [{ agency: 'kiirabi', chance: 0.3, reason: T('Juht ei reageeri', 'The driver is not responding') }],
+    beats: [
+      choice(
+        'arrive',
+        [
+          T(
+            '{callsign}: juht magab roolis, mootor töötab. Kas avame ukse ja võtame võtmed või ootame kiirabi?',
+            '{callsign}: the driver is asleep at the wheel with the engine running. Do we open the door and take the keys or wait for the ambulance?',
+          ),
+        ],
+        [
+          opt(
+            'keys',
+            T('Avage uks, võtke võtmed', 'Open the door, take the keys'),
+            T('{callsign}, juhtimine. Võtke võtmed ja kontrollige juhi seisundit.', '{callsign}, Control. Take the keys and check the driver’s condition.'),
+            { success: 0.15 },
+          ),
+          opt(
+            'wait',
+            T('Oodake kiirabi', 'Wait for the ambulance'),
+            T('{callsign}, juhtimine. Tõkestage auto ja oodake kiirabi.', '{callsign}, Control. Block the car in and wait for the ambulance.'),
+            { time: 8, success: -0.05 },
+          ),
+        ],
+        'keys',
+        { timeoutMin: 3 },
+      ),
+      qVehicle(2),
+      qPerson('driver', 4, { radio: R_DRIVER }),
+      breathRefusal(8, 0.25),
+    ],
+    outcomes: [
+      out(
+        'crime',
+        'arrest',
+        [0.5, 1],
+        3,
+        T(
+          'Juht äratati ja võtmed võeti ära. Joove oli kriminaalses ulatuses, alustati kriminaalmenetlust KarS § 424 järgi ja sõiduk teisaldati.',
+          'The driver was woken and the keys taken. He was over the criminal limit; criminal proceedings were opened under KarS § 424 and the car was towed.',
+        ),
+        { arrests: 1, trust: 3 },
+      ),
+      out(
+        'medical',
+        'hospital',
+        [0.3, 1],
+        2,
+        T(
+          'Selgus, et juht ei olnud joobes, vaid kaotas madala veresuhkru tõttu teadvuse. Kiirabi toimetas ta haiglasse.',
+          'It turned out the driver was not drunk but had passed out from low blood sugar. The ambulance took him to hospital.',
+        ),
+        { trust: 1 },
+      ),
+      out(
+        'drove_off',
+        'escaped',
+        [0, 0.35],
+        2,
+        T(
+          'Juht ärkas enne patrulli saabumist ja sõitis minema. Numbrimärk edastati ekipaažidele, omanikku külastatakse elukohas.',
+          'The driver woke before the patrol arrived and drove off. The plate was passed to the units and the owner will be visited at home.',
+        ),
+        { trust: -2 },
+      ),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [T('Tere, ristmikul seisab auto ja juht magab roolis, mootor töötab.', 'Hello, there is a car stopped at the junction and the driver is asleep at the wheel with the engine running.')],
+      openingRu: ['Здравствуйте, на перекрёстке стоит машина, водитель спит за рулём, мотор работает.'],
+      answers: {
+        vehicle: [T('{car}, number {plate}.', '{car}, plate {plate}.')],
+        direction: [T('Ta ei liigu kuhugi, seisab foori all.', 'He is not going anywhere, he is stopped at the lights.')],
+        injured: [T('Ma ei tea, ta lihtsalt ei liiguta.', 'I do not know, he just is not moving.')],
+      },
+    },
+  },
+  {
+    id: 'drive_through',
+    title: T('Joobes juhi kahtlus: kiirtoidukoha autoteenindusest', 'Suspected drunk driver from a drive-through'),
+    summary: [
+      T(
+        '{address}. Kiirtoidukoha autoteeninduse töötaja teatel on juht ilmselgelt purjus: pillas raha maha, ajas sõnu segi ja sõitis äärekivile. Sõiduk: {car}.',
+        '{address}. A drive-through worker reports the driver is obviously drunk: he dropped his money, slurred his words and drove onto the kerb. Vehicle: {car}.',
+      ),
+      T(
+        '{address}. Autoteenindusest lahkus sõiduk {plate}, juht haises alkoholi järele ja sõitis vastu postikest.',
+        '{address}. Vehicle {plate} left the drive-through; the driver smelled of alcohol and hit a bollard on the way out.',
+      ),
+    ],
+    callerLines: [
+      T('Ta ei suutnud kaarti lugejasse panna ja haises nagu õllevaat. Nüüd sõitis ta minema!', 'He could not get his card into the reader and stank like a beer barrel. Now he has driven off!'),
+      T('Ta keeras välja {direction}, number on {plate}.', 'He turned out {direction}, the plate is {plate}.'),
+    ],
+    details: [
+      T('Teataja on kiirtoidukoha töötaja, salvestis on olemas.', 'The caller works at the fast food restaurant; there is a recording.'),
+      T('Sõiduk: {car}, reg nr {plate}, liigub {direction}.', 'Vehicle: {car}, plate {plate}, heading {direction}.'),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [T('Tere, ma töötan kiirtoidukohas. Üks juht oli täiesti purjus ja sõitis just minema.', 'Hello, I work at a fast food place. A driver was completely drunk and has just driven off.')],
+      openingRu: ['Здравствуйте, я работаю в фастфуде. Водитель был совсем пьяный и только что уехал.'],
+      answers: {
+        vehicle: [T('{car}, number {plate}.', '{car}, plate {plate}.')],
+        direction: [T('Ta sõitis {direction}.', 'He drove off {direction}.')],
+        where: [T('Me oleme {address}, ta lahkus just meie juurest.', 'We are at {address}, he has just left us.')],
+      },
+    },
+  },
+  {
+    id: 'clipped_mirror',
+    summary: [
+      T(
+        '{address}. Teataja sõnul riivas {car} tema küljepeeglit ja jätkas sõitu siksakis. Teataja sõidab järel.',
+        '{address}. The caller says {car} clipped his wing mirror and carried on weaving down the road. The caller is following.',
+      ),
+      T(
+        '{address}. Vastu tulnud sõiduk {plate} lõhkus teataja küljepeegli ega peatunud, liigub ebakindlalt {direction}.',
+        '{address}. An oncoming vehicle, {plate}, smashed the caller’s wing mirror and did not stop; it is moving erratically {direction}.',
+      ),
+    ],
+    callerLines: [
+      T('Ta sõitis mu peeglist läbi ega peatunudki! Ta kõigub mööda teed.', 'He took my mirror off and did not even stop! He is swaying all over the road.'),
+      T('Ma sõidan tal järel, aga hoian vahet. Vahepeal sõidab ta vastassuunas.', 'I am following him but keeping back. Every now and then he drives on the wrong side.'),
+    ],
+    details: [
+      T('Teataja sõidukil on lõhutud küljepeegel.', 'The caller’s car has a broken wing mirror.'),
+      T('Sõiduk: {car}, reg nr {plate}.', 'Vehicle: {car}, plate {plate}.'),
+    ],
+  },
+];
+
+// ── traffic_lo_varaline ─────────────────────────────────────────────────────
+const SC_MINOR_CRASH: IncidentScenario[] = [
+  {
+    id: 'rear_end_lights',
+    summary: [
+      T('{address}. Tagant otsasõit fooris, {car} ja teine sõiduauto. Osalised ei jõua kokkuleppele.', '{address}. Rear-end collision at traffic lights involving {car} and another car. The parties cannot agree.'),
+      T(
+        '{address}. Foori taga sõitis sõiduauto eesseisjale tagant sisse, juhid vaidlevad, kes on süüdi. Vigastusi pole.',
+        '{address}. A car ran into the back of another at the lights and the drivers are arguing about who is to blame. No injuries.',
+      ),
+    ],
+    callerLines: [
+      T('Mulle sõideti fooris tagant sisse ja teine juht väidab, et mina pidurdasin järsult!', 'Someone drove into the back of me at the lights and the other driver claims I braked suddenly!'),
+      T('Ma seisin punase tule taga ja siis tuli pauk. Tema ajab süü minu kaela.', 'I was waiting at a red light and then came the bang. He is putting the blame on me.'),
+    ],
+    details: [
+      T('Tagumise sõiduki esituli ja kapott on kahjustatud.', 'The car behind has a damaged headlight and bonnet.'),
+      T('Mõlemad sõidukid on sõidurajal, liiklus on aeglane.', 'Both cars are in the lane and traffic is slow.'),
+    ],
+  },
+  {
+    id: 'junction_no_give_way',
+    summary: [
+      T('{address}. Ristmikul kokkupõrge, üks sõiduk ei andnud teed. Vigastusi pole, liiklus aeglane.', '{address}. Collision at a junction, one vehicle failed to give way. No injuries, traffic slow.'),
+      T(
+        '{address}. Kõrvalteelt tulnud sõiduk sõitis peateel liikujale külje pealt sisse. Juhid ei suuda kokkuleppele jõuda.',
+        '{address}. A car coming out of a side road hit a car on the main road side-on. The drivers cannot reach an agreement.',
+      ),
+    ],
+    callerLines: [
+      T('Meil oli väike avarii, keegi viga ei saanud, aga teine osapool ei taha kokkuleppeblanketti täita.', 'We had a small accident, nobody is hurt, but the other driver does not want to fill in the agreement form.'),
+      T('Tema tuli kõrvalteelt ja sõitis mulle külje pealt sisse!', 'He came out of the side road and drove into the side of me!'),
+    ],
+    details: [
+      T('Teine juht räägib vaid vene keelt.', 'The other driver only speaks Russian.'),
+      T('Ühel sõidukil on kahjustatud uks ja tiib.', 'One car has a damaged door and wing.'),
+    ],
+  },
+  {
+    id: 'car_park_reversing',
+    title: T('Liiklusõnnetus parklas', 'Collision in a car park'),
+    summary: [
+      T('{address}. Parklas tagurdas sõiduk vastu teist autot, juhid vaidlevad, kes on süüdi.', '{address}. A car reversed into another in a car park and the drivers are arguing about who is at fault.'),
+      T(
+        '{address}. Kaupluse parklas põrkasid kaks tagurdavat autot kokku, juhid kisavad teineteise peale.',
+        '{address}. Two cars reversing in a shop car park hit each other and the drivers are shouting at each other.',
+      ),
+    ],
+    callerLines: [
+      T('Me mõlemad tagurdasime ja põrkasime kokku. Tema ütleb, et mina ei vaadanud.', 'We were both reversing and bumped into each other. He says I was not looking.'),
+      T('Ta ei taha kokkuleppeblanketti täita ja ähvardab lihtsalt minema sõita.', 'He does not want to fill in the agreement form and is threatening to just drive off.'),
+    ],
+    details: [
+      T('Kahju on väike, mõlemal autol on tagaosa mõlkis.', 'The damage is minor; both cars have dented rears.'),
+      T('Parklas on valvekaamera.', 'There is a CCTV camera in the car park.'),
+    ],
+    call: {
+      mood: 'angry',
+      opening: [T('Tere, parklas põrkasime teise autoga kokku ja ta ei taha blanketti täita.', 'Hello, I bumped into another car in the car park and he will not fill in the form.')],
+      openingRu: ['Здравствуйте, на парковке столкнулись с другой машиной, а он не хочет заполнять бланк.'],
+      answers: {
+        injured: [T('Ei, keegi viga ei saanud.', 'No, nobody is hurt.')],
+        vehicle: [T('Tema auto on {car}, number {plate}.', 'His car is a {car}, plate {plate}.')],
+      },
+    },
+  },
+  {
+    id: 'rental_tourist',
+    title: T('Liiklusõnnetus: välismaalasest rendiautojuht', 'Collision with a foreign tourist in a hire car'),
+    summary: [
+      T(
+        '{address}. Rendiautoga välismaalane põrkas kokku kohaliku juhiga, ühist keelt pole ja kokkulepet ei saa vormistada.',
+        '{address}. A foreigner in a hire car collided with a local driver; they have no common language and cannot complete an agreement form.',
+      ),
+      T(
+        '{address}. Turist sõitis rendiautoga ringristmikul teise autoga kokku. Juhid ei saa teineteisest aru.',
+        '{address}. A tourist in a hire car collided with another car on a roundabout. The drivers cannot understand each other.',
+      ),
+    ],
+    callerLines: [
+      T('Teine juht räägib ainult inglise keelt ja näitab rendifirma pabereid. Ma ei saa aru, mida ta tahab.', 'The other driver only speaks English and keeps showing me the hire company papers. I do not understand what he wants.'),
+      T('Ta ei teadnud vist, et ringil tuleb teed anda.', 'I do not think he knew you have to give way on the roundabout.'),
+    ],
+    details: [
+      T('Üks juht on välisturist, sõiduk on renditud.', 'One driver is a foreign tourist in a hire car.'),
+      T('Kahju on väike, vigastusi pole.', 'The damage is minor and nobody is injured.'),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [T('Tere, meil oli väike avarii turistiga, me ei saa teineteisest üldse aru.', 'Hello, we had a small accident with a tourist and we cannot understand each other at all.')],
+      openingRu: ['Здравствуйте, у нас небольшая авария с туристом, мы совсем не понимаем друг друга.'],
+      answers: { injured: [T('Ei, keegi viga ei saanud.', 'No, nobody is hurt.')] },
+    },
+  },
+  {
+    id: 'narrow_street_mirrors',
+    title: T('Liiklusõnnetus kitsal tänaval', 'Collision on a narrow street'),
+    summary: [
+      T(
+        '{address}. Kitsal tänaval riivasid kaks sõidukit teineteist, üks juht sõitis edasi, kuid tuli teataja nõudmisel tagasi.',
+        '{address}. Two cars clipped each other on a narrow street; one driver carried on but came back when the caller insisted.',
+      ),
+      T(
+        '{address}. Vastassuundades sõitnud autod lõhkusid teineteise küljepeeglid. Juhid vaidlevad, kes oleks pidanud ootama.',
+        '{address}. Two cars travelling in opposite directions smashed each other’s wing mirrors. The drivers are arguing about who should have waited.',
+      ),
+    ],
+    callerLines: [
+      T('Ta sõitis mu peeglist läbi ja tahtis edasi sõita, ma pidin talle järele signaalitama.', 'He took my mirror off and wanted to keep going, I had to honk after him.'),
+      T('Tänav on kitsas, aga tema kihutas nagu oma õuel.', 'The street is narrow, but he was speeding like it was his own yard.'),
+    ],
+    details: [
+      T('Mõlemal sõidukil on lõhutud küljepeegel.', 'Both cars have broken wing mirrors.'),
+      T('Üks juht üritas sündmuskohalt lahkuda.', 'One driver tried to leave the scene.'),
+    ],
+  },
+];
+
+// ── traffic_autoavarii (legacy "Autoavarii") ────────────────────────────────
+const SC_DUI_CRASH: IncidentScenario[] = [
+  {
+    id: 'barely_standing',
+    summary: [
+      T(
+        '{address}. Kahe sõiduauto kokkupõrge, teataja hinnangul on üks juhtidest joobes. Vigastusi teadaolevalt ei ole, sõidukid takistavad liiklust.',
+        '{address}. Two cars have collided and the caller thinks one of the drivers is drunk. No known injuries; the cars are blocking traffic.',
+      ),
+      T(
+        '{address}. Kaks autot põrkasid kokku. Üks juht kõnnib ebakindlalt ja lõhnab alkoholi järele, osalised vaidlevad.',
+        '{address}. Two cars collided. One driver is unsteady on his feet and smells of alcohol; the parties are arguing.',
+      ),
+    ],
+    callerLines: [
+      T('Siin põrkasid kaks autot kokku ja see üks juht on täiesti purjus, vaevu seisab püsti!', 'Two cars have crashed here and one of the drivers is completely drunk, he can barely stand!'),
+      T('Ta vaarub auto ümber ja räägib, et midagi ei juhtunud.', 'He is staggering around his car saying nothing happened.'),
+    ],
+    details: [
+      T('Teataja jälgib süüdlast eemalt ja jääb kohale.', 'The caller is watching the driver at fault from a distance and is staying at the scene.'),
+      T('Ühest sõidukist lekib vedelikku, üks sõidurada on suletud.', 'One car is leaking fluid and one lane is closed.'),
+    ],
+  },
+  {
+    id: 'trying_to_leave',
+    summary: [
+      T(
+        '{address}. LÕ, 2 sõidukit. Süüdi oleva sõiduki ({car}) juht on teataja sõnul ilmselt joobes ja üritab lahkuda.',
+        '{address}. Collision, 2 vehicles. The caller says the driver of the car at fault ({car}) is apparently drunk and trying to leave.',
+      ),
+      T(
+        '{address}. Pärast kokkupõrget üritab süüdlane oma autoga minema sõita, teataja võttis tal võtmed ära.',
+        '{address}. After the collision the driver at fault tried to drive off and the caller took his keys.',
+      ),
+    ],
+    callerLines: [
+      T('Mulle sõideti tagant sisse. Teine juht haiseb viina järele ja tahab ära minna.', 'Someone drove into the back of me. The other driver reeks of vodka and wants to leave.'),
+      T('Ma võtsin tal võtmed ära, nüüd ta karjub minu peale.', 'I took his keys and now he is shouting at me.'),
+    ],
+    details: [
+      T('Teataja hoiab süüdlase võtmeid enda käes.', 'The caller is holding the keys of the driver at fault.'),
+      T('Süüdlase sõiduk: {car}, reg nr {plate}.', 'The car at fault: {car}, plate {plate}.'),
+    ],
+  },
+  {
+    id: 'red_light_witness',
+    summary: [
+      T(
+        '{address}. Pealtnägija teatel sõitis {car} punase tulega ristmikule ja põrkas teise autoga kokku. Juht ajab segast juttu.',
+        '{address}. A witness says {car} drove through a red light into the junction and hit another car. The driver is talking nonsense.',
+      ),
+      T(
+        '{address}. Ristmikul kokkupõrge: süüdlane eiras punast tuld ja on pealtnägija sõnul ilmselt joobes.',
+        '{address}. Collision at a junction: the driver at fault ignored the red light and, according to a witness, is apparently drunk.',
+      ),
+    ],
+    callerLines: [
+      T('Ma olen pealtnägija. See auto sõitis punase tulega ristmikule ja juht ajab nüüd segast juttu.', 'I am a witness. That car went through a red light into the junction and now the driver is talking nonsense.'),
+      T('Ma jäin kohale, et tunnistust anda.', 'I have stayed at the scene to give a statement.'),
+    ],
+    details: [
+      T('Pealtnägija jääb kohale ja annab tunnistuse.', 'The witness is staying to give a statement.'),
+      T('Kannatanu sõidukil on külg sisse sõidetud.', 'The other car has been hit in the side.'),
+    ],
+  },
+  {
+    id: 'teen_driver_parked_car',
+    title: T('Autoavarii: noor juht sõitis pargitud autole otsa', 'Car crash: young driver hit a parked car'),
+    persons: [
+      { role: 'driver', gender: 'M', age: [18, 22], intoxicated: 0.75, noLicense: 0.3, record: 0.15 },
+      { role: 'victim', gender: 'any', age: [25, 75] },
+      { role: 'witness', gender: 'any', age: [18, 75] },
+    ],
+    summary: [
+      T(
+        '{address}. Noor juht sõitis sõpradega öösel pargitud autole otsa, kõik on joobes. Auto esiosa on purustatud.',
+        '{address}. A young driver out with friends at night crashed into a parked car and they are all drunk. The front of the car is smashed.',
+      ),
+      T(
+        '{address}. Teataja kuulis pauku: noorukite auto sõitis parkivale sõidukile otsa ja noored üritavad autot minema lükata.',
+        '{address}. The caller heard a bang: a car full of youngsters hit a parked vehicle and they are trying to push their car away.',
+      ),
+    ],
+    callerLines: [
+      T('Pauk oli nii kõva, et ärkasin üles. Noored lükkavad autot minema!', 'The bang was so loud it woke me up. The youngsters are pushing the car away!'),
+      T('Juht on päris laps, vaevu täisealine, ja kõik haisevad alkoholi järele.', 'The driver is just a kid, barely of age, and they all smell of alcohol.'),
+    ],
+    details: [
+      T('Autos oli neli noort, kõik joobes.', 'There were four young people in the car, all drunk.'),
+      T('Pargitud sõiduki omanikku on teavitatud.', 'The owner of the parked car has been informed.'),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [T('Tere, noored sõitsid meie maja ees pargitud autole otsa ja nüüd lükkavad oma autot minema.', 'Hello, some youngsters crashed into a parked car outside our building and now they are pushing their car away.')],
+      openingRu: ['Здравствуйте, молодёжь врезалась в припаркованную машину у нашего дома, теперь толкают свою машину прочь.'],
+      answers: {
+        count: [T('Neid on neli, kõik noored.', 'There are four of them, all young.')],
+        injured: [T('Tundub, et keegi viga ei saanud.', 'It looks like nobody is hurt.')],
+        intoxicated: [T('Jah, nad kõik on purjus.', 'Yes, they are all drunk.')],
+      },
+    },
+  },
 ];
 
 export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
@@ -91,6 +513,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
     interactiveChance: 0.2,
     tags: ['dui'],
     legacy: true,
+    scenarios: SC_DUI_CRASH,
   },
   {
     id: 'traffic_purjus_autojuht',
@@ -394,6 +817,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
       openingRu: ['Алло, я еду за машиной, водитель явно пьяный, виляет по всей дороге.'],
     },
     tags: ['dui', 'vehicle_flee'],
+    scenarios: SC_DUI_SUSPICION,
   },
   {
     id: 'traffic_joobes_juht_tanklas',
@@ -604,6 +1028,7 @@ export const TEMPLATES_TRAFFIC: IncidentTemplate[] = [
     ],
     expiresMin: 70,
     interactiveChance: 0.1,
+    scenarios: SC_MINOR_CRASH,
   },
   {
     id: 'traffic_lo_vigastatutega',

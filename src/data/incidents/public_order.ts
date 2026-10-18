@@ -1,5 +1,5 @@
 // Avalik kord: korrarikkujad, öörahu, joobes isikud, naabrivaidlused, meeleavaldused.
-import type { IncidentTemplate } from '@/sim/types';
+import type { IncidentScenario, IncidentTemplate, Text } from '@/sim/types';
 import {
   T,
   backup,
@@ -15,6 +15,2013 @@ import {
   info,
   un,
 } from './_helpers_a';
+
+// ─── Scenarios: one coherent story per incident (IncidentTemplate.scenarios) ──
+// The most frequent public order calls tell different stories: who is involved, where exactly,
+// who calls and what the patrol finds.
+
+/** "Sober up, ambulance or home?" for a woman lying drunk. */
+const soberChoiceF = () =>
+  choice(
+    3,
+    [
+      T(
+        '{callsign}: naine tugevas joobes, ise liikuda ei suuda. Kas toimetame kainenema, kutsume kiirabi või viime koju?',
+        '{callsign}: the woman is heavily intoxicated and cannot walk. Sobering-up cell, ambulance, or drive her home?',
+      ),
+    ],
+    [
+      opt(
+        'sober',
+        T('Kainenema', 'To sober up'),
+        T('{callsign}, juhtimine. Toimetage kainenema.', '{callsign}, Control. Take her to sober up.'),
+        { success: 0.05, time: 10 },
+      ),
+      opt(
+        'kiirabi',
+        T('Kutsuge kiirabi', 'Call an ambulance'),
+        T(
+          '{callsign}, juhtimine. Kiirabi on teel, jääge tema juurde.',
+          '{callsign}, Control. Ambulance on its way, stay with her.',
+        ),
+        { success: 0.1, time: 15 },
+      ),
+      opt(
+        'home',
+        T('Viige koju', 'Drive her home'),
+        T(
+          '{callsign}, juhtimine. Viige koju, andke lähedastele üle.',
+          '{callsign}, Control. Drive her home and hand her over to family.',
+        ),
+        { trust: 1, time: 5 },
+      ),
+    ],
+    'sober',
+  );
+
+/** Noise complaint: warning or a misdemeanour report. */
+const noiseChoice = (radio: Text[]) =>
+  choice(
+    3,
+    radio,
+    [
+      opt(
+        'warn',
+        T('Hoiatus', 'Warning'),
+        T('{callsign}, juhtimine. Tehke hoiatus.', '{callsign}, Control. Give a warning.'),
+        { success: 0.05, time: 5 },
+      ),
+      opt(
+        'fine',
+        T('Väärteoprotokoll', 'Misdemeanour report'),
+        T(
+          '{callsign}, juhtimine. Vormistage väärteoprotokoll.',
+          '{callsign}, Control. Draw up a misdemeanour report.',
+        ),
+        { success: 0.1, time: 15 },
+      ),
+    ],
+    'warn',
+  );
+
+const noiseOutcomes = (warned: Text, fined: Text, again: Text) => [
+  oc('warning', 'warning', [0.4, 1], 3, warned),
+  oc('fine', 'fine', [0.5, 1], 2, fined),
+  oc('again', 'warning', [0, 0.4], 2, again),
+];
+
+// ── public_order_drunk_lying ────────────────────────────────────────────────
+const SC_DRUNK_LYING: IncidentScenario[] = [
+  {
+    id: 'pavement_passersby',
+    summary: [
+      T(
+        '{address}. Joobes mees lamab kõnniteel ja reageerib kõnetamisele vähe. Möödujad peatusid.',
+        '{address}. A drunk man is lying on the pavement and barely responds when spoken to. Passers-by have stopped.',
+      ),
+      T(
+        '{address}. Kõnniteel lamab joobes mees, kaks möödujat keerasid ta külili. Mees pomiseb, aga püsti ei saa.',
+        '{address}. A drunk man is lying on the pavement and two passers-by have turned him on his side. He is mumbling but cannot get up.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Siin lamab mees maas, ta on vist purjus, aga ma ei tea, kas tal on midagi viga.',
+        'There is a man lying here, probably drunk, but I do not know if something is wrong with him.',
+      ),
+      T(
+        'Me keerasime ta külili, ta hingab ja pomiseb midagi.',
+        'We turned him on his side, he is breathing and mumbling something.',
+      ),
+    ],
+    details: [
+      T('Isik: {suspect}. Käes poolik pudel.', 'Subject: {suspect}. A half-empty bottle in his hand.'),
+      T('Möödujad on isiku juures ja ootavad patrulli.', 'Passers-by are with him, waiting for the patrol.'),
+    ],
+  },
+  {
+    id: 'stairwell_head_graze',
+    summary: [
+      T(
+        '{address}. Trepikoja ees lamab mees, tugev alkoholilõhn, peas marrastus.',
+        '{address}. A man is lying outside a stairwell, strong smell of alcohol, graze on his head.',
+      ),
+      T(
+        '{address}. Trepikoja ees lamab joobes mees, kes on ilmselt trepil kukkunud. Peas verine marrastus, ise püsti ei tõuse.',
+        '{address}. A drunk man is lying outside a stairwell, apparently after a fall on the steps. Bloody graze on his head, he cannot get up.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ta kukkus vist trepil, peas on verd. Ta elab siinsamas teisel korrusel.',
+        'I think he fell on the steps, there is blood on his head. He lives right here on the first floor.',
+      ),
+      T(
+        'Ma ei taha teda üksi jätta, aga ma ei jaksa teda üles tõsta.',
+        'I do not want to leave him alone, but I cannot lift him.',
+      ),
+    ],
+    details: [
+      T('Isik: {suspect}. Peas verine marrastus.', 'Subject: {suspect}. Bloody graze on his head.'),
+      T('Teataja sõnul elab mees samas majas.', 'The caller says the man lives in the same building.'),
+    ],
+    agencies: [{ agency: 'kiirabi', chance: 0.6, reason: T('Peavigastus', 'Head injury') }],
+    call: {
+      mood: 'calm',
+      opening: [
+        T(
+          'Tere, meie trepikoja ees lamab naabrimees, tal on peas verd ja ta on purjus.',
+          'Hello, the man from our building is lying outside the stairwell, his head is bleeding and he is drunk.',
+        ),
+      ],
+      openingRu: ['Здравствуйте, у нашего подъезда лежит сосед, у него кровь на голове, он пьяный.'],
+      answers: {
+        injured: [
+          T(
+            'Peas on verine marrastus, aga ta on teadvusel.',
+            'There is a bloody graze on his head, but he is conscious.',
+          ),
+        ],
+        intoxicated: [T('Jah, ta haiseb viina järele.', 'Yes, he reeks of vodka.')],
+        name: [T('Ma olen tema naaber samast majast.', 'I am his neighbour from the same building.')],
+      },
+    },
+  },
+  {
+    id: 'bus_shelter_cold',
+    summary: [
+      T(
+        '{address}. Bussipeatuse kõrval lamab isik muru peal, ise püsti ei tõuse. Ilm on jahe.',
+        '{address}. A person is lying on the grass by a bus stop and cannot get up. The weather is cold.',
+      ),
+      T(
+        '{address}. Bussiootepaviljonis magab joobes mees õhukeses riietuses ega ärka. Teataja kardab, et ta külmub.',
+        '{address}. A drunk man in thin clothes is asleep in a bus shelter and will not wake up. The caller is afraid he will freeze.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ta ei suuda püsti tõusta ja väljas on külm. Kas keegi saab tulla?',
+        'He cannot get up and it is cold outside. Can someone come?',
+      ),
+      T(
+        'Ta magab ootepaviljonis, ainult särgi väel. Viimane buss läks ammu.',
+        'He is asleep in the bus shelter in just a shirt. The last bus left ages ago.',
+      ),
+    ],
+    details: [
+      T('Isik: {suspect}. Õhukeses riietuses, külmetab.', 'Subject: {suspect}. Thinly dressed and cold.'),
+      T('Viimane buss on juba läinud.', 'The last bus has already gone.'),
+    ],
+  },
+  {
+    id: 'woman_on_bench',
+    title: T('Joobes naine magab pingil', 'Drunk woman asleep on a bench'),
+    persons: [
+      { role: 'suspect', gender: 'F', age: [25, 65], intoxicated: 0.95, record: 0.15 },
+      { role: 'caller', gender: 'any', age: [20, 60], relation: 'employee' },
+    ],
+    summary: [
+      T(
+        '{address}. Kaupluse töötaja teatel magab joobes naine pingil, käekott on lahti ja rahakott paistab välja. Naine ei ärka.',
+        '{address}. A shop worker reports a drunk woman asleep on a bench with her handbag open and her purse showing. She will not wake up.',
+      ),
+      T(
+        '{address}. Pingil lamab tugevas joobes naine, möödujad on proovinud teda äratada. Kõrval on lahtine käekott.',
+        '{address}. A heavily drunk woman is lying on a bench and passers-by have tried to wake her. An open handbag is next to her.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ta magab pingil juba tund aega ja kott on lahti, keegi võib kõik ära võtta.',
+        'She has been asleep on the bench for an hour with her bag open, anyone could take everything.',
+      ),
+      T(
+        'Ma töötan siinsamas poes. Ta käis meilt õhtul veini ostmas.',
+        'I work in the shop right here. She came in this evening to buy wine.',
+      ),
+    ],
+    details: [
+      T('Isik: {suspect}.', 'Subject: {suspect}.'),
+      T(
+        'Käekott on lahti, dokumendid ja rahakott on alles.',
+        'The handbag is open; her documents and purse are still there.',
+      ),
+    ],
+    beats: [qPerson('suspect', 'arrive'), soberChoiceF(), toSober(8, { chance: 0.6 })],
+    outcomes: [
+      oc(
+        'sober',
+        'resolved',
+        [0.4, 1],
+        3,
+        T(
+          'Naine toimetati ohu vältimiseks kainenema, tema asjad loendati ja anti hoiule.',
+          'The woman was taken to sober up for her own safety; her belongings were listed and kept for her.',
+        ),
+      ),
+      oc(
+        'home',
+        'resolved',
+        [0.45, 1],
+        2,
+        T(
+          'Naine äratati ja tütar tuli talle järele.',
+          'The woman was woken and her daughter came to collect her.',
+        ),
+        { trust: 1 },
+      ),
+      oc(
+        'hospital',
+        'hospital',
+        [0, 0.45],
+        2,
+        T(
+          'Naine ei reageerinud kõnetamisele, kiirabi toimetas ta alkoholimürgistuse kahtlusega haiglasse.',
+          'The woman did not respond when spoken to and the ambulance took her to hospital with suspected alcohol poisoning.',
+        ),
+        { injuries: 1 },
+      ),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [
+        T(
+          'Tere, meie poe ees pingil magab purjus naine ja tal on kott lahti.',
+          'Hello, a drunk woman is asleep on the bench outside our shop and her bag is open.',
+        ),
+      ],
+      openingRu: ['Здравствуйте, у нашего магазина на скамейке спит пьяная женщина, сумка открыта.'],
+      answers: {
+        injured: [
+          T(
+            'Ma ei näe vigastusi, ta lihtsalt magab sügavalt.',
+            'I cannot see any injuries, she is just fast asleep.',
+          ),
+        ],
+        intoxicated: [
+          T('Jah, ta ostis õhtul kaks pudelit veini.', 'Yes, she bought two bottles of wine this evening.'),
+        ],
+        safe: [T('Ta on pingil, mitte sõiduteel.', 'She is on the bench, not on the road.')],
+      },
+    },
+  },
+  {
+    id: 'not_drunk_diabetic',
+    persons: [
+      { role: 'suspect', gender: 'M', age: [35, 75], intoxicated: 0.02, record: 0.1 },
+      { role: 'caller', gender: 'any', age: [18, 75] },
+    ],
+    summary: [
+      T(
+        '{address}. Teataja sõnul lamab maas segaduses mees, kes ei suuda rääkida. Alkoholilõhna teataja ei tunne.',
+        '{address}. The caller says a confused man is lying on the ground and cannot speak. The caller cannot smell any alcohol.',
+      ),
+      T(
+        '{address}. Mees istub kõnniteel, higistab ja vastab segaselt. Möödujad arvavad, et ta on purjus.',
+        '{address}. A man is sitting on the pavement, sweating and answering incoherently. Passers-by think he is drunk.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ma arvasin, et ta on purjus, aga alkoholi lõhna ei ole. Ta higistab ja väriseb.',
+        'I thought he was drunk, but there is no smell of alcohol. He is sweating and shaking.',
+      ),
+      T(
+        'Ta pomiseb midagi suhkrust, ma ei saa aru.',
+        'He is mumbling something about sugar, I cannot understand.',
+      ),
+    ],
+    details: [
+      T(
+        'Isik: {suspect}. Teataja ei tunne alkoholilõhna.',
+        'Subject: {suspect}. The caller cannot smell alcohol.',
+      ),
+      T(
+        'Mehe käel on käevõru, millel on kiri "diabeet".',
+        'The man is wearing a bracelet that says "diabetes".',
+      ),
+    ],
+    agencies: [
+      { agency: 'kiirabi', chance: 0.9, reason: T('Võimalik madal veresuhkur', 'Possible low blood sugar') },
+    ],
+    beats: [
+      info('arrive', [
+        T(
+          '{callsign}: mees ei ole joobes, käel diabeedikäevõru. Tundub madal veresuhkur.',
+          '{callsign}: the man is not drunk, he has a diabetes bracelet. Looks like low blood sugar.',
+        ),
+      ]),
+      kiirabi(1, {
+        radio: [
+          T(
+            '{callsign}: diabeetik on segaduses, kahtlus madalale veresuhkrule. Palun kiirabi kiiresti.',
+            '{callsign}: a diabetic is confused, suspected low blood sugar. Ambulance urgently please.',
+          ),
+        ],
+      }),
+      qPerson('suspect', 4, { chance: 0.6 }),
+    ],
+    outcomes: [
+      oc(
+        'helped',
+        'resolved',
+        [0.4, 1],
+        3,
+        T(
+          'Selgus, et mees ei olnud joobes, vaid tal oli madal veresuhkur. Kiirabi abistas, mees toibus ja läks koju.',
+          'It turned out the man was not drunk but had low blood sugar. The ambulance crew helped, he recovered and went home.',
+        ),
+        { trust: 2 },
+      ),
+      oc(
+        'hospital',
+        'hospital',
+        [0.15, 0.6],
+        2,
+        T(
+          'Mehe seisund oli raske ja kiirabi toimetas ta haiglasse. Lähedasi teavitati.',
+          'The man’s condition was serious and the ambulance took him to hospital. His family was informed.',
+        ),
+      ),
+      oc(
+        'late',
+        'hospital',
+        [0, 0.3],
+        2,
+        T(
+          'Mees kaotas enne abi saabumist teadvuse ja toimetati intensiivravisse.',
+          'The man lost consciousness before help arrived and was taken to intensive care.',
+        ),
+        { injuries: 1, trust: -2 },
+      ),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [
+        T(
+          'Tere, siin istub kõnniteel mees, kes on väga segaduses. Ma arvasin, et ta on purjus, aga alkoholi lõhna ei ole.',
+          'Hello, a man is sitting on the pavement here and he is very confused. I thought he was drunk, but there is no smell of alcohol.',
+        ),
+      ],
+      openingRu: [
+        'Здравствуйте, тут на тротуаре сидит мужчина, совсем не в себе. Думал, пьяный, но алкоголем не пахнет.',
+      ],
+      answers: {
+        intoxicated: [
+          T(
+            'Ei usu, alkoholi lõhna küll ei ole.',
+            'I do not think so, there is definitely no smell of alcohol.',
+          ),
+        ],
+        injured: [
+          T(
+            'Vigastusi ei näe, aga ta higistab ja on kahvatu.',
+            'I cannot see injuries, but he is sweating and pale.',
+          ),
+        ],
+      },
+    },
+    tags: ['medical'],
+  },
+];
+
+// ── public_order_night_noise ────────────────────────────────────────────────
+const SC_NIGHT_NOISE: IncidentScenario[] = [
+  {
+    id: 'yard_youth',
+    summary: [
+      T(
+        '{address}. Noortekamp korraldab majade vahel valjuhäälseid pidusid ja rikub korduvalt öörahu. Muusika autost, karjumine.',
+        '{address}. A group of young people keeps holding loud parties between the buildings and disturbing the night-time peace. Music from a car, shouting.',
+      ),
+      T(
+        '{address}. Majade vahel hoovis istub {n} noort, vali muusika ja karjumine kestab juba kella 23-st. Teataja on naaber, ei soovi kohtuda.',
+        '{address}. {n} young people are sitting in the yard between the buildings; loud music and shouting have been going on since 11 p.m. The caller is a neighbour and does not want to meet the patrol.',
+      ),
+    ],
+    details: [
+      T(
+        'Noored on alkoholijoobes, osa võib olla alaealised.',
+        'The young people are drunk and some may be minors.',
+      ),
+      T('Ühest autost mängib vali muusika.', 'Loud music is playing from one of the cars.'),
+    ],
+  },
+  {
+    id: 'karaoke_flat',
+    title: T('Öörahu rikkumine: karaoke korteris', 'Night-time disturbance: karaoke in a flat'),
+    persons: [
+      {
+        role: 'suspect',
+        gender: 'any',
+        age: [28, 60],
+        intoxicated: 0.75,
+        record: 0.1,
+        relation: 'neighbour',
+      },
+      { role: 'caller', gender: 'any', age: [25, 80], relation: 'neighbour' },
+    ],
+    summary: [
+      T(
+        '{address}. Naaberkorteris lauldakse juba kolmandat tundi karaoket, laulusõnad kostavad läbi seinte. Teataja on uksele koputanud, keegi ei ava.',
+        '{address}. Karaoke has been going on in the flat next door for three hours and the lyrics can be heard through the walls. The caller knocked but nobody opens.',
+      ),
+      T(
+        '{address}. Ülemisest korterist kostab öösel karaokemasin ja kooris laulmine. Naabrid ei saa magada.',
+        '{address}. A karaoke machine and group singing are coming from the flat upstairs in the middle of the night. The neighbours cannot sleep.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Nad laulavad juba kolmandat tundi karaoket, sama laulu kümnendat korda!',
+        'They have been singing karaoke for three hours, the same song for the tenth time!',
+      ),
+      T(
+        'Ma koputasin, aga muusika on nii vali, et keegi ei kuule.',
+        'I knocked, but the music is so loud nobody can hear.',
+      ),
+    ],
+    details: [
+      T(
+        'Teataja sõnul on korteris pidu umbes kümne inimesega.',
+        'The caller says there is a party of about ten people in the flat.',
+      ),
+      T(
+        'Sel kuul on sama korteri peale kaevatud kaks korda.',
+        'There have been two complaints about the same flat this month.',
+      ),
+    ],
+    beats: [
+      qPerson('suspect', 'arrive', { chance: 0.6 }),
+      noiseChoice([
+        T(
+          '{callsign}: peoperemees vabandab ja lubab karaokemasina välja lülitada. Hoiatus või protokoll?',
+          '{callsign}: the host apologises and promises to switch off the karaoke machine. Warning or report?',
+        ),
+      ]),
+    ],
+    outcomes: noiseOutcomes(
+      T(
+        'Karaokemasin lülitati välja ja külalised hakkasid lahkuma. Peoperemehele tehti hoiatus.',
+        'The karaoke machine was switched off and the guests started to leave. The host was given a warning.',
+      ),
+      T(
+        'Peoperemehele koostati korduva öörahu rikkumise eest väärteoprotokoll.',
+        'A misdemeanour report was drawn up against the host for repeatedly disturbing the night-time peace.',
+      ),
+      T(
+        'Laulmine jätkus pärast patrulli lahkumist ja naabrid helistasid uuesti.',
+        'The singing started again after the patrol left and the neighbours called again.',
+      ),
+    ),
+    call: {
+      mood: 'angry',
+      opening: [
+        T(
+          'Kuulge, naabrid laulavad juba kolm tundi karaoket! Kell on üks öösel!',
+          'Listen, the neighbours have been singing karaoke for three hours! It is one in the morning!',
+        ),
+      ],
+      openingRu: ['Слушайте, соседи уже три часа поют караоке! Час ночи!'],
+      answers: {
+        count: [T('Hääli on palju, vist kümmekond inimest.', 'Lots of voices, maybe about ten people.')],
+        intoxicated: [T('No kainelt nii ei laulda.', 'Well, nobody sings like that sober.')],
+      },
+    },
+  },
+  {
+    id: 'renovation_at_night',
+    title: T('Öörahu rikkumine: öine remont', 'Night-time disturbance: renovation at night'),
+    persons: [
+      { role: 'suspect', gender: 'M', age: [25, 55], intoxicated: 0.2, relation: 'neighbour' },
+      { role: 'caller', gender: 'any', age: [25, 80], relation: 'neighbour' },
+    ],
+    summary: [
+      T(
+        '{address}. Naaber puurib ja taob öösel seina, remont käib kesköö paiku. Teataja ei saa magada.',
+        '{address}. A neighbour is drilling and hammering the wall at night; renovation work around midnight. The caller cannot sleep.',
+      ),
+      T(
+        '{address}. Korteris tehakse öösel remonti: puurimine ja haamrilöögid kostavad üle maja.',
+        '{address}. Someone is renovating a flat at night: drilling and hammering can be heard all over the building.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Kell on palju ja tema puurib! Käisin ütlemas, ta ütles, et tal on homme tähtaeg.',
+        'It is late and he is drilling! I went to tell him and he said he has a deadline tomorrow.',
+      ),
+      T(
+        'Iga öö sama lugu, päeval on ta tööl ja öösel teeb remonti.',
+        'Every night the same story: he works in the day and renovates at night.',
+      ),
+    ],
+    details: [
+      T(
+        'Remonditöid tehakse öörahu ajal korduvalt.',
+        'The renovation work keeps happening during the night-time quiet hours.',
+      ),
+      T(
+        'Korteriühistu esimees on samuti kaevanud.',
+        'The chair of the housing association has complained too.',
+      ),
+    ],
+    beats: [
+      qPerson('suspect', 'arrive', { chance: 0.6 }),
+      noiseChoice([
+        T(
+          '{callsign}: mees puurib vannitoas, ütleb, et plaatija tuleb hommikul. Hoiatus või protokoll?',
+          '{callsign}: the man is drilling in the bathroom, says the tiler is coming in the morning. Warning or report?',
+        ),
+      ]),
+    ],
+    outcomes: noiseOutcomes(
+      T(
+        'Mees lõpetas tööd ja lubas jätkata alles hommikul. Talle tehti hoiatus.',
+        'The man stopped work and promised not to carry on until the morning. He was given a warning.',
+      ),
+      T(
+        'Korduva öörahu rikkumise eest koostati väärteoprotokoll.',
+        'A misdemeanour report was drawn up for repeatedly disturbing the night-time peace.',
+      ),
+      T(
+        'Puurimine algas pool tundi hiljem uuesti. Juhtum edastati korteriühistule ja omavalitsusele.',
+        'The drilling started again half an hour later. The case was passed to the housing association and the municipality.',
+      ),
+    ),
+    call: {
+      mood: 'angry',
+      opening: [
+        T(
+          'Tere. Naaber puurib öösel seina, ma ei suuda enam!',
+          'Hello. My neighbour is drilling into the wall at night, I cannot take it any more!',
+        ),
+      ],
+      openingRu: ['Здравствуйте. Сосед ночью сверлит стену, я больше не могу!'],
+      answers: {
+        count: [T('Ainult tema üksi.', 'Just him, on his own.')],
+        intoxicated: [
+          T('Ei tea, vist kaine. Lihtsalt hoolimatu.', 'I do not know, sober I think. Just inconsiderate.'),
+        ],
+      },
+    },
+  },
+  {
+    id: 'barking_dog',
+    title: T('Öörahu rikkumine: koer haugub', 'Night-time disturbance: barking dog'),
+    persons: [
+      { role: 'suspect', gender: 'any', age: [25, 60], intoxicated: 0.05, relation: 'neighbour' },
+      { role: 'caller', gender: 'any', age: [25, 80], relation: 'neighbour' },
+    ],
+    summary: [
+      T(
+        '{address}. Naaberkorteris haugub ja ulub koer juba mitu tundi, omanikku pole kodus. Naabrid ei saa magada.',
+        '{address}. A dog has been barking and howling in the flat next door for hours and the owner is not at home. The neighbours cannot sleep.',
+      ),
+      T(
+        '{address}. Rõdule jäetud koer haugub öösel lakkamatult, teataja kardab, et loomaga on midagi juhtunud.',
+        '{address}. A dog left on a balcony has been barking non-stop through the night; the caller fears something has happened to the animal.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Koer on üksi ja ulub juba kolm tundi. Omanik ei vasta telefonile.',
+        'The dog is alone and has been howling for three hours. The owner does not answer the phone.',
+      ),
+      T(
+        'Ma kardan, et koer on rõdul külma käes ja ilma veeta.',
+        'I am afraid the dog is out on the balcony in the cold without water.',
+      ),
+    ],
+    details: [
+      T(
+        'Omanik on teadaolevalt reisil, koera toidab tavaliselt sõber.',
+        'The owner is known to be travelling; a friend usually feeds the dog.',
+      ),
+      T(
+        'Sama koera pärast on varem omavalitsusele kaevatud.',
+        'There have been complaints about the same dog to the municipality before.',
+      ),
+    ],
+    beats: [
+      info('arrive', [
+        T(
+          '{callsign}: koer on rõdul ja vett pole. Proovime omanikuga ühendust saada.',
+          '{callsign}: the dog is on the balcony with no water. Trying to reach the owner.',
+        ),
+      ]),
+      choice(
+        4,
+        [
+          T(
+            '{callsign}: omanik ei vasta. Kas kutsume päästjad rõdule või teavitame hommikul omavalitsust?',
+            '{callsign}: the owner is not answering. Do we call rescue to get onto the balcony or inform the municipality in the morning?',
+          ),
+        ],
+        [
+          opt(
+            'rescue',
+            T('Kutsuge päästjad, loom vajab abi', 'Call rescue, the animal needs help'),
+            T(
+              '{callsign}, juhtimine. Päästjad on teel, koer viiakse hoiule.',
+              '{callsign}, Control. Rescue is on the way; the dog will be taken into care.',
+            ),
+            { success: 0.1, time: 20 },
+          ),
+          opt(
+            'notify',
+            T('Teavitage omavalitsust', 'Inform the municipality'),
+            T(
+              '{callsign}, juhtimine. Pange kirja ja edastage omavalitsusele.',
+              '{callsign}, Control. Note it down and pass it to the municipality.',
+            ),
+            { success: -0.05, time: 5 },
+          ),
+        ],
+        'notify',
+      ),
+    ],
+    outcomes: [
+      oc(
+        'friend',
+        'resolved',
+        [0.45, 1],
+        3,
+        T(
+          'Omaniku sõber saadi kätte ja ta tuli koerale järele. Omanikule selgitati looma pidamise nõudeid.',
+          'The owner’s friend was reached and came to collect the dog. The owner was told the rules on keeping animals.',
+        ),
+      ),
+      oc(
+        'shelter',
+        'report',
+        [0.2, 0.6],
+        2,
+        T(
+          'Koer võeti varjupaika hoiule ja omaniku suhtes alustati väärteomenetlust looma hooletusse jätmise eest.',
+          'The dog was taken into a shelter and misdemeanour proceedings were opened against the owner for neglecting it.',
+        ),
+      ),
+      oc(
+        'again',
+        'warning',
+        [0, 0.35],
+        2,
+        T(
+          'Koer jäi rõdule ja haukumine jätkus. Juhtum edastati omavalitsusele.',
+          'The dog stayed on the balcony and the barking went on. The case was passed to the municipality.',
+        ),
+      ),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [
+        T(
+          'Tere. Naabri koer on üksi ja ulub juba kolm tundi, omanik ei vasta.',
+          'Hello. My neighbour’s dog is alone and has been howling for three hours, the owner does not answer.',
+        ),
+      ],
+      openingRu: ['Здравствуйте. Соседская собака одна и воет уже три часа, хозяин не отвечает.'],
+      answers: {
+        count: [T('Inimesi seal ei ole, ainult koer.', 'There are no people there, just the dog.')],
+        weapons: [T('Ei, ei mingit relva. See on koer.', 'No, no weapon. It is a dog.')],
+        intoxicated: [T('Kedagi seal ei ole, omanik on ära.', 'There is nobody there, the owner is away.')],
+      },
+    },
+    tags: ['animal'],
+  },
+  {
+    id: 'mopeds_in_yard',
+    title: T('Öörahu rikkumine: mopeedid hoovis', 'Night-time disturbance: mopeds in the yard'),
+    persons: [
+      { role: 'suspect', gender: 'M', age: [15, 22], intoxicated: 0.3, record: 0.15, noLicense: 0.4 },
+      { role: 'caller', gender: 'any', age: [25, 80], relation: 'neighbour' },
+    ],
+    vehicles: [{ role: 'suspect', kind: 'moped', driverRole: 'suspect', noInsurance: 0.3, stolen: 0.08 }],
+    summary: [
+      T(
+        '{address}. Majade vahel sõidavad öösel mopeedid, summutita väljalasketorud põrisevad. Noored teevad ringe ümber maja.',
+        '{address}. Mopeds are riding between the buildings at night with their silencers off. Young people are doing laps around the block.',
+      ),
+      T(
+        '{address}. Mitu mopeedi kogunesid hoovi ja gaasitavad kesköö paiku, naabrid on ärkvel. Üks sõidab kõnniteel.',
+        '{address}. Several mopeds have gathered in the yard and are revving around midnight; the neighbours are awake. One is riding on the pavement.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Nad teevad mopeedidega ringe ümber maja ja gaasitavad, lapsed ärkasid üles.',
+        'They are doing laps round the building on mopeds and revving, the kids woke up.',
+      ),
+      T(
+        'Ühel pole numbrimärki ja nad sõidavad kõnniteel.',
+        'One of them has no number plate and they are riding on the pavement.',
+      ),
+    ],
+    details: [
+      T('Noored sõidavad ilma kiivriteta.', 'The young riders have no helmets.'),
+      T('Ühel mopeedil puudub numbrimärk.', 'One moped has no number plate.'),
+    ],
+    beats: [qVehicle('arrive'), qPerson('suspect', 3, { chance: 0.7 })],
+    outcomes: [
+      oc(
+        'fine',
+        'fine',
+        [0.5, 1],
+        3,
+        T(
+          'Mopeedijuhile koostati väärteoprotokoll öörahu rikkumise ja kiivrita sõitmise eest, alaealise vanemaid teavitati.',
+          'A misdemeanour report was drawn up against the moped rider for disturbing the peace and riding without a helmet; the minor’s parents were informed.',
+        ),
+      ),
+      oc(
+        'warning',
+        'warning',
+        [0.25, 0.65],
+        2,
+        T(
+          'Noored lõpetasid sõitmise ja lükkasid mopeedid koju. Neid hoiatati.',
+          'The young people stopped riding and pushed their mopeds home. They were warned.',
+        ),
+      ),
+      oc(
+        'gone',
+        'unfounded',
+        [0, 0.35],
+        2,
+        T('Mopeedid sõitsid patrulli nähes laiali.', 'The mopeds scattered when they saw the patrol.'),
+      ),
+    ],
+    call: {
+      mood: 'angry',
+      opening: [
+        T(
+          'Kuulge, hoovis sõidavad öösel mopeedid ja gaasitavad, keegi ei saa magada!',
+          'Listen, mopeds are riding round the yard at night revving their engines, nobody can sleep!',
+        ),
+      ],
+      openingRu: ['Слушайте, ночью во дворе гоняют мопеды и газуют, никто не может спать!'],
+      answers: {
+        count: [T('Neid on kolm või neli mopeedi.', 'There are three or four mopeds.')],
+        vehicle: [T('Mopeedid, ühel pole numbrit.', 'Mopeds, one of them has no plate.')],
+        intoxicated: [
+          T(
+            'Ei tea, nad on noored, võib-olla on joonud.',
+            'I do not know, they are young, maybe they have been drinking.',
+          ),
+        ],
+      },
+    },
+    tags: ['vehicle'],
+  },
+];
+
+// ── public_order_noisy_birthday ─────────────────────────────────────────────
+const SC_NOISY_BIRTHDAY: IncidentScenario[] = [
+  {
+    id: 'loud_music',
+    summary: [
+      T(
+        '{address}. Majas peetakse sünnipäevapidu, mille muusika ja karjumine häirib naabreid.',
+        '{address}. A birthday party in the building is disturbing the neighbours with music and shouting.',
+      ),
+      T(
+        '{address}. Korteris on pidu kella 22-st, vali muusika ja trampimine, naabrid ei saa magada. Teataja ei soovi kohtuda.',
+        '{address}. A party has been going on in a flat since 10 p.m. with loud music and stamping; the neighbours cannot sleep. The caller does not want to meet the patrol.',
+      ),
+    ],
+    details: [
+      T(
+        'Naabrid on sama korteri peale sel kuul juba kaks korda kaevanud.',
+        'The neighbours have already complained about the same flat twice this month.',
+      ),
+    ],
+  },
+  {
+    id: 'live_band',
+    title: T('Mürarikas juubel: bänd aias', 'Noisy anniversary party: band in the garden'),
+    summary: [
+      T(
+        '{address}. Eramu aias peetakse juubelit elava muusikaga ja bänd mängib endiselt. Naabrid paluvad muusika vaiksemaks keerata.',
+        '{address}. A big birthday party with live music is going on in a garden and the band is still playing. The neighbours ask for the music to be turned down.',
+      ),
+      T(
+        '{address}. Juubelipeol mängib aias ansambel ja külalised laulavad kaasa, öörahu on ammu alanud.',
+        '{address}. A band is playing in the garden at an anniversary party and the guests are singing along; the night-time quiet hours started long ago.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Neil on aias terve bänd! Kell on palju ja trummid käivad ikka.',
+        'They have a whole band in the garden! It is late and the drums are still going.',
+      ),
+      T(
+        'Ma ei ole pahatahtlik, juubel on juubel, aga ma pean kell kuus tööle minema.',
+        'I do not mean any harm, a big birthday is a big birthday, but I have to go to work at six.',
+      ),
+    ],
+    details: [
+      T('Peol on umbes nelikümmend külalist.', 'There are about forty guests at the party.'),
+      T(
+        'Pererahvas teatas naabritele peost ette, aga lubas lõpetada kesköö paiku.',
+        'The hosts told the neighbours about the party in advance but promised to finish around midnight.',
+      ),
+    ],
+    beats: [
+      qPerson('suspect', 2, { chance: 0.4 }),
+      choice(
+        3,
+        [
+          T(
+            '{callsign}: juubilar lubab bändi kohe ära saata ja muusika tuppa viia. Hoiatus või protokoll?',
+            '{callsign}: the host promises to send the band home right away and move the music indoors. Warning or report?',
+          ),
+        ],
+        [
+          opt(
+            'warn',
+            T('Hoiatus', 'Warning'),
+            T('{callsign}, juhtimine. Tehke hoiatus.', '{callsign}, Control. Give a warning.'),
+            { success: 0.1, time: 5 },
+          ),
+          opt(
+            'fine',
+            T('Väärteoprotokoll', 'Misdemeanour report'),
+            T('{callsign}, juhtimine. Vormistage protokoll.', '{callsign}, Control. Draw up a report.'),
+            { success: 0.05, time: 15, trust: -1 },
+          ),
+        ],
+        'warn',
+      ),
+    ],
+    outcomes: [
+      oc(
+        'warning',
+        'warning',
+        [0.4, 1],
+        3,
+        T(
+          'Bänd pakkis pillid kokku ja pidu kolis tuppa. Pererahvale tehti hoiatus.',
+          'The band packed up its instruments and the party moved indoors. The hosts were given a warning.',
+        ),
+      ),
+      oc(
+        'fine',
+        'fine',
+        [0.5, 1],
+        2,
+        T(
+          'Peo korraldajale koostati öörahu rikkumise eest väärteoprotokoll.',
+          'A misdemeanour report was drawn up against the host for disturbing the night-time peace.',
+        ),
+      ),
+      oc(
+        'again',
+        'warning',
+        [0, 0.4],
+        2,
+        T(
+          'Muusika algas pärast patrulli lahkumist uuesti ja naabrid helistasid jälle.',
+          'The music started again after the patrol left and the neighbours called again.',
+        ),
+      ),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [
+        T(
+          'Tere. Naabritel on juubel ja aias mängib bänd, kell on juba palju.',
+          'Hello. The neighbours are having a big birthday party with a band playing in the garden, and it is already late.',
+        ),
+      ],
+      openingRu: ['Здравствуйте. У соседей юбилей, в саду играет живая группа, а уже поздно.'],
+      answers: {
+        count: [T('Külalisi on palju, mitukümmend.', 'There are a lot of guests, several dozen.')],
+        intoxicated: [
+          T('Noh, juubel ikka. Kõik on lõbusad.', 'Well, it is a big birthday. Everyone is merry.'),
+        ],
+      },
+    },
+  },
+  {
+    id: 'sauna_party',
+    title: T('Mürarikas sünnipäev: saunapidu', 'Noisy birthday: sauna party'),
+    summary: [
+      T(
+        '{address}. Ridaelamu naaberboksis on saunapidu, külalised jooksevad karjudes aeda ja tagasi. Muusika kostab läbi seina.',
+        '{address}. A sauna party is going on next door in a terraced house; guests keep running screaming into the garden and back. The music comes through the wall.',
+      ),
+      T(
+        '{address}. Naabri sünnipäeval käiakse öösel saunas ja aias kisatakse. Teataja palub peolistel vaiksemalt olla.',
+        '{address}. At the neighbour’s birthday party people are using the sauna at night and shrieking in the garden. The caller wants the guests to keep it down.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Nad jooksevad saunast aeda ja kisavad, mõni on täiesti alasti. Mu lapsed vaatavad aknast.',
+        'They run from the sauna into the garden screaming, some of them completely naked. My kids are watching from the window.',
+      ),
+      T(
+        'Sein on õhuke, nende muusika on nagu meie toas.',
+        'The wall is thin, their music sounds like it is in our room.',
+      ),
+    ],
+    details: [
+      T('Peol on umbes viisteist külalist.', 'There are about fifteen guests at the party.'),
+      T('Naabrid on ridaelamus ühise seinaga.', 'The neighbours share a wall in the terraced house.'),
+    ],
+    beats: [
+      qPerson('suspect', 2, { chance: 0.5 }),
+      choice(
+        3,
+        [
+          T(
+            '{callsign}: sünnipäevalaps vabandab, saunapidu lõpetatakse. Hoiatus või protokoll?',
+            '{callsign}: the birthday host apologises and the sauna party is being wrapped up. Warning or report?',
+          ),
+        ],
+        [
+          opt(
+            'warn',
+            T('Hoiatus', 'Warning'),
+            T('{callsign}, juhtimine. Tehke hoiatus.', '{callsign}, Control. Give a warning.'),
+            { success: 0.1, time: 5 },
+          ),
+          opt(
+            'fine',
+            T('Väärteoprotokoll', 'Misdemeanour report'),
+            T('{callsign}, juhtimine. Vormistage protokoll.', '{callsign}, Control. Draw up a report.'),
+            { success: 0.05, time: 15 },
+          ),
+        ],
+        'warn',
+      ),
+    ],
+    outcomes: [
+      oc(
+        'warning',
+        'warning',
+        [0.4, 1],
+        3,
+        T(
+          'Saunapidu lõpetati ja külalised läksid tuppa. Peoperemehele tehti hoiatus.',
+          'The sauna party was ended and the guests went inside. The host was given a warning.',
+        ),
+      ),
+      oc(
+        'fine',
+        'fine',
+        [0.5, 1],
+        2,
+        T(
+          'Peoperemehele koostati öörahu rikkumise eest väärteoprotokoll.',
+          'A misdemeanour report was drawn up against the host for disturbing the night-time peace.',
+        ),
+      ),
+      oc(
+        'again',
+        'warning',
+        [0, 0.4],
+        2,
+        T(
+          'Kisa jätkus aias ka pärast patrulli lahkumist.',
+          'The shrieking in the garden carried on after the patrol left.',
+        ),
+      ),
+    ],
+    call: {
+      mood: 'angry',
+      opening: [
+        T(
+          'Kuulge, naabritel on saunapidu ja nad kisavad aias, kell on palju!',
+          'Listen, the neighbours are having a sauna party and screaming in the garden, it is late!',
+        ),
+      ],
+      openingRu: ['Слушайте, у соседей баня с вечеринкой, орут в саду, а уже поздно!'],
+      answers: {
+        count: [T('Viisteist inimest vähemalt.', 'At least fifteen people.')],
+        children: [T('Minu lapsed on kodus ja ei saa magada.', 'My children are at home and cannot sleep.')],
+      },
+    },
+  },
+  {
+    id: 'newborn_next_door',
+    title: T('Mürarikas sünnipäev: beebi ei saa magada', 'Noisy birthday: the baby cannot sleep'),
+    persons: [
+      { role: 'suspect', gender: 'any', age: [20, 45], intoxicated: 0.7, relation: 'neighbour' },
+      { role: 'caller', gender: 'F', age: [24, 40], relation: 'neighbour' },
+    ],
+    summary: [
+      T(
+        '{address}. Teataja, kellel on kodus vastsündinu, palub naabritel sünnipäevapidu vaiksemaks keerata. Muusika ja naer kostavad läbi seina.',
+        '{address}. A caller with a newborn at home asks the neighbours to turn down their birthday party. Music and laughter come through the wall.',
+      ),
+      T(
+        '{address}. Väikelapsega pere kaebab: seina taga peetakse sünnipäeva ja beebi ärkab iga paari minuti järel.',
+        '{address}. A family with a baby complains: there is a birthday party behind the wall and the baby wakes up every few minutes.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Mu beebi on kolm nädalat vana ja ärkab iga kord, kui nad naeru pahvatavad.',
+        'My baby is three weeks old and wakes up every time they burst out laughing.',
+      ),
+      T(
+        'Ma käisin palumas, nad lubasid vaiksemalt, aga pool tundi hiljem oli sama lugu.',
+        'I went and asked, they promised to be quieter, but half an hour later it was the same again.',
+      ),
+    ],
+    details: [
+      T('Teataja on korra juba ise uksel käinud.', 'The caller has already been to their door once herself.'),
+      T('Peol on noored, umbes kümme inimest.', 'The party is young people, about ten of them.'),
+    ],
+    beats: [
+      qPerson('suspect', 2, { chance: 0.5 }),
+      choice(
+        3,
+        [
+          T(
+            '{callsign}: noored lubavad muusika vaiksemaks keerata, aga teataja on juba korra palunud. Hoiatus või protokoll?',
+            '{callsign}: the young people promise to turn the music down, but the caller had already asked once. Warning or report?',
+          ),
+        ],
+        [
+          opt(
+            'warn',
+            T('Hoiatus', 'Warning'),
+            T('{callsign}, juhtimine. Tehke hoiatus.', '{callsign}, Control. Give a warning.'),
+            { success: 0.05, time: 5 },
+          ),
+          opt(
+            'fine',
+            T('Väärteoprotokoll', 'Misdemeanour report'),
+            T('{callsign}, juhtimine. Vormistage protokoll.', '{callsign}, Control. Draw up a report.'),
+            { success: 0.1, time: 15 },
+          ),
+        ],
+        'fine',
+      ),
+    ],
+    outcomes: [
+      oc(
+        'warning',
+        'warning',
+        [0.4, 1],
+        3,
+        T(
+          'Peolised keerasid muusika vaikseks ja kolisid pidu jätkama linna. Neile tehti hoiatus.',
+          'The party-goers turned the music off and moved on to carry on in town. They were given a warning.',
+        ),
+      ),
+      oc(
+        'fine',
+        'fine',
+        [0.5, 1],
+        2,
+        T(
+          'Korteri üürnikule koostati öörahu rikkumise eest väärteoprotokoll.',
+          'A misdemeanour report was drawn up against the tenant for disturbing the night-time peace.',
+        ),
+      ),
+      oc(
+        'again',
+        'warning',
+        [0, 0.4],
+        2,
+        T(
+          'Pidu jätkus ja väikelapsega pere helistas uuesti.',
+          'The party carried on and the family with the baby called again.',
+        ),
+      ),
+    ],
+    call: {
+      mood: 'angry',
+      opening: [
+        T(
+          'Tere. Mul on kodus kolmenädalane beebi ja naabritel on sünnipäevapidu. Ta ei saa üldse magada.',
+          'Hello. I have a three-week-old baby at home and the neighbours are having a birthday party. He cannot sleep at all.',
+        ),
+      ],
+      openingRu: [
+        'Здравствуйте. У меня дома трёхнедельный малыш, а у соседей день рождения. Он совсем не может спать.',
+      ],
+      answers: {
+        children: [T('Minu beebi on kodus, kolm nädalat vana.', 'My baby is at home, three weeks old.')],
+        count: [T('Kümmekond noort, ma arvan.', 'About ten young people, I think.')],
+      },
+    },
+  },
+];
+
+// ── public_order_bar_troublemaker ───────────────────────────────────────────
+const SC_BAR_TROUBLEMAKER: IncidentScenario[] = [
+  {
+    id: 'refuses_to_leave',
+    summary: [
+      T(
+        '{address}. Klient keeldub baarist lahkumast, on agressiivne ja ähvardab töötajaid.',
+        '{address}. A customer refuses to leave the bar, is aggressive and threatening staff.',
+      ),
+      T(
+        '{address}. Turvatöötaja ei lase joobes klienti tagasi sisse, mees seisab ukse ees ja ähvardab töötajaid.',
+        '{address}. The doorman will not let a drunk customer back in; the man is standing at the door threatening staff.',
+      ),
+    ],
+    details: [
+      T('Korrarikkuja: {suspect}, tugevas joobes.', 'The troublemaker: {suspect}, heavily intoxicated.'),
+      T(
+        'Ukse ees on teisi kliente, kes on hakanud temaga sõnelema.',
+        'Other customers outside the door have started arguing with him.',
+      ),
+    ],
+  },
+  {
+    id: 'smashed_glasses_bill',
+    title: T('Korrarikkuja baaris: arve maksmata', 'Troublemaker in a bar: bill unpaid'),
+    summary: [
+      T(
+        '{address}. Baaris lõhkus joobes klient klaase, sõimab baarmeni ja keeldub arvet maksmast.',
+        '{address}. A drunk customer in a bar smashed glasses, is swearing at the bartender and refuses to pay the bill.',
+      ),
+      T(
+        '{address}. Joobes klient lõi leti ääres õllekannud puruks ja keeldub umbes 60-eurost arvet maksmast.',
+        '{address}. A drunk customer smashed beer glasses at the bar and refuses to pay a bill of about 60 euros.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ta jõi terve õhtu ja nüüd ütleb, et ei maksa sentigi. Kaks klaasi on puruks visatud.',
+        'He drank all evening and now says he will not pay a cent. Two glasses have been smashed.',
+      ),
+      T(
+        'Ma ei saa teda ise välja visata, ta on kaks korda suurem kui mina.',
+        'I cannot throw him out myself, he is twice my size.',
+      ),
+    ],
+    details: [
+      T(
+        'Korrarikkuja: {suspect}. Arve umbes 60 eurot.',
+        'The troublemaker: {suspect}. The bill is about 60 euros.',
+      ),
+      T(
+        'Lõhutud klaasid on leti ääres, valvekaamera salvestab.',
+        'The broken glasses are by the bar and the CCTV is recording.',
+      ),
+    ],
+    call: {
+      mood: 'angry',
+      opening: [
+        T(
+          'Tere, baarist helistan. Klient lõhkus klaasid ja ei maksa arvet.',
+          'Hello, I am calling from the bar. A customer smashed glasses and will not pay his bill.',
+        ),
+      ],
+      openingRu: ['Здравствуйте, звоню из бара. Клиент разбил бокалы и не платит по счёту.'],
+      answers: {
+        weapons: [T('Ei, relva tal ei ole.', 'No, he does not have a weapon.')],
+        intoxicated: [T('Väga purjus.', 'Very drunk.')],
+        injured: [T('Keegi viga ei saanud, ainult klaasid.', 'Nobody is hurt, just the glasses.')],
+      },
+    },
+  },
+  {
+    id: 'karaoke_microphone',
+    title: T('Korrarikkuja karaokebaaris', 'Troublemaker in a karaoke bar'),
+    summary: [
+      T(
+        '{address}. Karaokebaaris haaras joobes klient mikrofoni, keeldub seda andmast ja tõukas teist klienti. Töötajad ei saa temaga hakkama.',
+        '{address}. In a karaoke bar a drunk customer grabbed the microphone, refuses to hand it over and shoved another customer. Staff cannot handle him.',
+      ),
+      T(
+        '{address}. Karaokebaari klient on juba tund aega laval, ei lase teisi laulda ja sõimab neid. Algas tõuklemine.',
+        '{address}. A karaoke bar customer has been on the stage for an hour, will not let anyone else sing and is swearing at them. Pushing has started.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ta ei anna mikrofoni ära ja lükkas just ühe tüdruku lavalt maha.',
+        'He will not give up the microphone and just pushed a girl off the stage.',
+      ),
+      T(
+        'Teised kliendid on juba vihased, kardan, et läheb kakluseks.',
+        'The other customers are angry already, I am afraid it will turn into a fight.',
+      ),
+    ],
+    details: [
+      T('Korrarikkuja: {suspect}, tugevas joobes.', 'The troublemaker: {suspect}, heavily intoxicated.'),
+      T(
+        'Tõugatud klient sai kergelt haiget, kiirabi ta ei vaja.',
+        'The customer who was shoved is slightly hurt but does not need an ambulance.',
+      ),
+    ],
+    call: {
+      mood: 'angry',
+      opening: [
+        T(
+          'Tere, karaokebaarist. Üks klient ei anna mikrofoni ära ja tõukab inimesi!',
+          'Hello, karaoke bar here. A customer will not give up the microphone and is shoving people!',
+        ),
+      ],
+      openingRu: ['Здравствуйте, это караоке-бар. Клиент не отдаёт микрофон и толкает людей!'],
+      answers: {
+        injured: [
+          T('Üks tüdruk kukkus lavalt, aga ta on korras.', 'A girl fell off the stage, but she is fine.'),
+        ],
+        intoxicated: [T('Täiesti purjus.', 'Completely drunk.')],
+      },
+    },
+  },
+  {
+    id: 'harassing_women',
+    title: T('Korrarikkuja baaris ahistab kliente', 'Troublemaker in a bar harassing customers'),
+    summary: [
+      T(
+        '{address}. Baaris ahistab joobes mees naiskliente, katsub neid ega lahku. Teenindaja palub abi.',
+        '{address}. A drunk man in a bar is harassing women, touching them, and will not leave. A server is asking for help.',
+      ),
+      T(
+        '{address}. Joobes klient tüütab baaris noori naisi, haaras ühe käest kinni ja ei lase lahti. Turvatöötaja on juures.',
+        '{address}. A drunk customer is pestering young women in a bar, grabbed one of them by the arm and will not let go. The doorman is with them.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ta katsub kõiki naisi, kes temast mööda lähevad. Me palusime tal lahkuda, aga ta naerab.',
+        'He touches every woman who walks past him. We asked him to leave, but he just laughs.',
+      ),
+      T(
+        'Üks tüdruk nutab tualetis, ta ei julge välja tulla.',
+        'One girl is crying in the toilets, she does not dare come out.',
+      ),
+    ],
+    details: [
+      T('Korrarikkuja: {suspect}.', 'The troublemaker: {suspect}.'),
+      T(
+        'Kannatanud on kaks noort naist, kes on nõus seletusi andma.',
+        'Two young women were affected and are willing to give statements.',
+      ),
+    ],
+    call: {
+      mood: 'angry',
+      opening: [
+        T(
+          'Tere, baarist. Üks purjus mees ahistab naisi ja ei lahku.',
+          'Hello, from the bar. A drunk man is harassing women and will not leave.',
+        ),
+      ],
+      openingRu: ['Здравствуйте, из бара. Пьяный мужчина пристаёт к женщинам и не уходит.'],
+      answers: {
+        injured: [
+          T(
+            'Füüsiliselt mitte, aga üks tüdruk on väga ehmunud.',
+            'Not physically, but one girl is very shaken.',
+          ),
+        ],
+        intoxicated: [T('Jah, väga purjus.', 'Yes, very drunk.')],
+        count: [T('Üks mees, ta on üksi.', 'One man, he is on his own.')],
+      },
+    },
+  },
+];
+
+// ── public_order_drunk_harassing ────────────────────────────────────────────
+const SC_DRUNK_HARASSING: IncidentScenario[] = [
+  {
+    id: 'grabbing_passers',
+    summary: [
+      T(
+        '{address}. Joobes mees tülitseb möödujatega, sõimab ja kisub riietest. Liigub {direction}.',
+        '{address}. A drunk man is picking fights with passers-by, swearing and pulling at their clothes. He is heading {direction}.',
+      ),
+      T(
+        '{address}. Joobes mees haarab möödujatel käest ja karjub neile näkku. Inimesed lähevad teisele poole tänavat.',
+        '{address}. A drunk man is grabbing passers-by by the arm and shouting in their faces. People are crossing to the other side of the street.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Üks purjus mees haarab inimestel käest kinni ja karjub. Ta hirmutas mu last.',
+        'A drunk man is grabbing people by the arm and shouting. He frightened my child.',
+      ),
+      T(
+        'Ta kisub inimesi varrukast ja nõuab, et nad temaga räägiksid.',
+        'He is tugging people by the sleeve and demanding that they talk to him.',
+      ),
+    ],
+    details: [
+      T('Isik: {suspect}.', 'Subject: {suspect}.'),
+      T(
+        'Mees liigub jalgsi ja peatub iga mööduja juures.',
+        'The man is on foot and stops at every passer-by.',
+      ),
+    ],
+  },
+  {
+    id: 'mall_begging',
+    summary: [
+      T(
+        '{address}. Kaubanduskeskuse ees ahistab joobes isik inimesi, nõuab raha ja sigarette.',
+        '{address}. A drunk person outside a shopping centre is pestering people and demanding money and cigarettes.',
+      ),
+      T(
+        '{address}. Joobes mees seisab kaubanduskeskuse ukse juures, nõuab sissetulijatelt raha ja sülitab neile järele.',
+        '{address}. A drunk man is standing by the shopping centre door demanding money from people going in and spitting after them.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ta sülitas mulle järele, kui ma raha ei andnud.',
+        'He spat after me when I would not give him money.',
+      ),
+      T(
+        'Ta seisab ukse juures ja keegi ei julge mööda minna.',
+        'He is standing by the door and nobody dares walk past.',
+      ),
+    ],
+    details: [
+      T('Isik: {suspect}.', 'Subject: {suspect}.'),
+      T(
+        'Keskuse turvatöötaja on mehe juba korra välja saatnud.',
+        'The centre’s security guard has already sent him out once.',
+      ),
+    ],
+  },
+  {
+    id: 'bus_passenger',
+    title: T('Joobes reisija ahistab bussis', 'Drunk passenger harassing people on a bus'),
+    persons: [
+      { role: 'suspect', gender: 'M', age: [20, 60], intoxicated: 0.9, record: 0.4, wanted: 0.04 },
+      { role: 'caller', gender: 'any', age: [25, 63], relation: 'employee' },
+    ],
+    summary: [
+      T(
+        '{address}. Bussijuht teatab, et joobes reisija sõimab teisi reisijaid ega lahku bussist. Buss seisab peatuses.',
+        '{address}. A bus driver reports a drunk passenger swearing at other passengers and refusing to get off. The bus is waiting at the stop.',
+      ),
+      T(
+        '{address}. Liinibuss seisab peatuses: joobes mees tülitseb reisijatega ja lõi rusikaga vastu akent. Juht palub abi.',
+        '{address}. A bus is stopped at a stop: a drunk man is arguing with passengers and punched a window. The driver is asking for help.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ma olen bussijuht. Üks purjus mees karjub reisijate peale ja ei lähe maha.',
+        'I am the bus driver. A drunk man is shouting at the passengers and will not get off.',
+      ),
+      T(
+        'Ma panin uksed lahti ja ootan, aga ta ei liigu. Reisijad on hirmul.',
+        'I have opened the doors and I am waiting, but he will not move. The passengers are scared.',
+      ),
+    ],
+    details: [
+      T('Isik: {suspect}.', 'Subject: {suspect}.'),
+      T('Buss on peatuses, liiklusgraafik hilineb.', 'The bus is at the stop and running behind schedule.'),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [
+        T(
+          'Tere, bussijuht helistab. Mul on bussis purjus reisija, kes sõimab teisi ega lähe maha.',
+          'Hello, this is a bus driver. I have a drunk passenger on board who is swearing at people and will not get off.',
+        ),
+      ],
+      openingRu: ['Здравствуйте, водитель автобуса. У меня в салоне пьяный пассажир, ругается и не выходит.'],
+      answers: {
+        where: [T('Buss seisab peatuses, {address}.', 'The bus is at the stop, {address}.')],
+        weapons: [T('Ei näe relva.', 'I cannot see a weapon.')],
+        safe: [T('Ma olen kabiinis, uks on kinni.', 'I am in the cab with the door shut.')],
+        count: [
+          T(
+            'Üks mees, bussis on veel kümmekond reisijat.',
+            'One man, and about ten other passengers on board.',
+          ),
+        ],
+      },
+    },
+  },
+  {
+    id: 'following_woman',
+    title: T('Joobes mees jälitab naist', 'Drunk man following a woman'),
+    persons: [
+      { role: 'suspect', gender: 'M', age: [22, 60], intoxicated: 0.9, record: 0.4 },
+      { role: 'caller', gender: 'F', age: [18, 35] },
+    ],
+    summary: [
+      T(
+        '{address}. Noor naine teatab, et joobes mees kõnnib tema järel, teeb märkusi ega jäta teda rahule.',
+        '{address}. A young woman reports a drunk man is walking after her, making remarks and will not leave her alone.',
+      ),
+      T(
+        '{address}. Teataja kõnnib koju, võõras joobes mees järgneb talle juba mitu tänavat ja üritab käest haarata.',
+        '{address}. The caller is walking home and a drunk stranger has been following her for several streets, trying to grab her hand.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ta kõnnib mu järel juba mitu tänavat ja räägib jäledusi. Ma kardan koju minna, ta näeb, kus ma elan.',
+        'He has been walking after me for several streets saying disgusting things. I am afraid to go home, he will see where I live.',
+      ),
+      T(
+        'Ma läksin poodi sisse, aga ta ootab ukse taga.',
+        'I went into a shop, but he is waiting outside the door.',
+      ),
+    ],
+    details: [
+      T('Kahtlustatav: {suspect}.', 'Suspect: {suspect}.'),
+      T('Teataja on kaupluses ja jääb liinile.', 'The caller is inside a shop and is staying on the line.'),
+    ],
+    call: {
+      mood: 'whisper',
+      opening: [
+        T(
+          '(vaikselt) Tere... üks purjus mees jälitab mind, ma olen praegu poes.',
+          '(quietly) Hello... a drunk man is following me, I am in a shop right now.',
+        ),
+      ],
+      openingRu: ['(тихо) Алло... за мной идёт пьяный мужчина, я сейчас в магазине.'],
+      answers: {
+        safe: [
+          T(
+            'Ma olen poes müüja juures. Tema on ukse taga.',
+            'I am in the shop with the cashier. He is outside the door.',
+          ),
+        ],
+        direction: [T('Ta seisab poe ukse taga.', 'He is standing outside the shop door.')],
+        weapons: [T('Relva ma ei näinud.', 'I did not see a weapon.')],
+      },
+    },
+  },
+];
+
+// ── public_order_public_drinking ────────────────────────────────────────────
+const SC_PUBLIC_DRINKING: IncidentScenario[] = [
+  {
+    id: 'park_bench',
+    summary: [
+      T(
+        '{address}. Pargipingil tarvitab seltskond alkoholi, prügi on maas. Teataja palub reageerida.',
+        '{address}. A group is drinking on a park bench with litter on the ground. The caller asks for someone to deal with it.',
+      ),
+      T(
+        '{address}. Pargis istub igapäevane joomaseltskond, pingi ümber on tühjad pudelid ja suitsukonid.',
+        '{address}. The usual drinking crowd is sitting in the park, with empty bottles and cigarette ends around the bench.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Iga päev istuvad nad siin pingil ja joovad, keegi ei julge mööda minna.',
+        'Every day they sit here on the bench drinking and nobody dares walk past.',
+      ),
+      T(
+        'Prügi jätavad nad kõik maha, pudelid on põõsastes.',
+        'They leave all their rubbish behind, the bottles are in the bushes.',
+      ),
+    ],
+    details: [
+      T('Seltskonnas on {n} inimest.', 'There are {n} people in the group.'),
+      T(
+        'Sama seltskonna peale on kaevatud ka varem.',
+        'There have been complaints about the same group before.',
+      ),
+    ],
+  },
+  {
+    id: 'playground',
+    summary: [
+      T(
+        '{address}. Laste mänguväljaku kõrval joovad kolm meest õlut ja ropendavad.',
+        '{address}. Three men are drinking beer next to a children’s playground and swearing.',
+      ),
+      T(
+        '{address}. Mänguväljaku liivakasti serval istuvad mehed õllepurkidega, lapsevanemad viisid lapsed ära.',
+        '{address}. Men with beer cans are sitting on the edge of the playground sandpit and the parents have taken their children away.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Nad istuvad otse mänguväljakul ja joovad, lapsed ei saa mängida.',
+        'They are sitting right in the playground drinking, the children cannot play.',
+      ),
+      T(
+        'Nad on purjus ja kusevad põõsasse, see on vastik.',
+        'They are drunk and peeing in the bushes, it is disgusting.',
+      ),
+    ],
+    details: [
+      T('Seltskonnas on {n} meest.', 'There are {n} men in the group.'),
+      T(
+        'Mänguväljakul on tavaliselt õhtuti lapsi.',
+        'There are usually children in the playground in the evening.',
+      ),
+    ],
+  },
+  {
+    id: 'bus_stop_vodka',
+    title: T('Alkoholi tarbimine bussipeatuses', 'Drinking at a bus stop'),
+    summary: [
+      T(
+        '{address}. Bussipeatuses joovad kaks meest viina, ootajad hoiavad eemale. Üks urineeris ootepaviljoni taha.',
+        '{address}. Two men are drinking vodka at a bus stop and people waiting are keeping their distance. One urinated behind the shelter.',
+      ),
+      T(
+        '{address}. Ootepaviljonis joovad mehed pudelist kordamööda ja kõnetavad bussiootajaid.',
+        '{address}. Men in the bus shelter are taking turns drinking from a bottle and accosting people waiting for the bus.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Nad joovad ootepaviljonis viina otse pudelist ja räägivad inimestega, keegi ei taha sinna minna.',
+        'They are drinking vodka straight from the bottle in the shelter and talking to people, nobody wants to go in there.',
+      ),
+      T(
+        'Ma ootan siin bussi koos lapsega ja pean vihma käes seisma.',
+        'I am waiting for the bus here with my child and have to stand in the rain.',
+      ),
+    ],
+    details: [
+      T('Isik: {suspect}.', 'Subject: {suspect}.'),
+      T('Bussipeatus on kooli lähedal.', 'The bus stop is near a school.'),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [
+        T(
+          'Tere. Bussipeatuses joovad kaks meest viina ja tülitavad inimesi.',
+          'Hello. Two men are drinking vodka at the bus stop and bothering people.',
+        ),
+      ],
+      openingRu: ['Здравствуйте. На остановке двое мужчин пьют водку и пристают к людям.'],
+      answers: {
+        count: [T('Kaks meest.', 'Two men.')],
+        intoxicated: [T('Jah, päris purjus juba.', 'Yes, pretty drunk already.')],
+      },
+    },
+  },
+  {
+    id: 'teens_cider',
+    title: T('Alaealised joovad avalikus kohas', 'Minors drinking in public'),
+    persons: [
+      { role: 'suspect', gender: 'any', age: [14, 17], intoxicated: 0.8, record: 0.05 },
+      { role: 'caller', gender: 'any', age: [25, 80] },
+    ],
+    summary: [
+      T(
+        '{address}. Teataja nägi, kuidas umbes 14-aastased noored joovad siidrit ja üks on juba väga purjus.',
+        '{address}. The caller saw young people of about 14 drinking cider; one of them is already very drunk.',
+      ),
+      T(
+        '{address}. Grupp teismelisi joob alkoholi, üks oksendab põõsas. Teataja kardab, et noorel on alkoholimürgistus.',
+        '{address}. A group of teenagers is drinking alcohol and one is throwing up in the bushes. The caller fears the teenager has alcohol poisoning.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Nad on päris lapsed veel ja joovad siidrit. Üks ei seisa enam püsti.',
+        'They are still just kids and they are drinking cider. One of them cannot stand up any more.',
+      ),
+      T(
+        'Ma küsisin, kus nende vanemad on, nad naersid mu välja.',
+        'I asked where their parents were and they laughed at me.',
+      ),
+    ],
+    details: [
+      T('Noored on alaealised, umbes viiekesi.', 'The young people are minors, about five of them.'),
+      T('Üks noortest on tugevas joobes.', 'One of them is heavily drunk.'),
+    ],
+    agencies: [
+      {
+        agency: 'kiirabi',
+        chance: 0.4,
+        reason: T('Alaealisel võimalik alkoholimürgistus', 'Possible alcohol poisoning in a minor'),
+      },
+    ],
+    beats: [
+      qPerson('suspect', 'arrive', { chance: 0.8 }),
+      choice(
+        4,
+        [
+          T(
+            '{callsign}: viis alaealist, üks tugevas joobes. Kas viime nad koju vanematele või kutsume vanemad siia?',
+            '{callsign}: five minors, one heavily drunk. Do we take them home to their parents or call the parents here?',
+          ),
+        ],
+        [
+          opt(
+            'home',
+            T('Viige koju vanematele', 'Take them home to their parents'),
+            T(
+              '{callsign}, juhtimine. Viige noored koju ja rääkige vanematega.',
+              '{callsign}, Control. Take the kids home and talk to the parents.',
+            ),
+            { success: 0.1, time: 20 },
+          ),
+          opt(
+            'parents',
+            T('Kutsuge vanemad kohale', 'Call the parents here'),
+            T(
+              '{callsign}, juhtimine. Helistage vanematele, oodake nendega.',
+              '{callsign}, Control. Phone the parents and wait with the kids.',
+            ),
+            { success: 0.05, time: 15 },
+          ),
+        ],
+        'parents',
+      ),
+    ],
+    outcomes: [
+      oc(
+        'parents',
+        'referred',
+        [0.45, 1],
+        3,
+        T(
+          'Noored anti vanemate hoole alla ja alkohol valati välja. Juhtum edastati alaealiste juhtumikorraldajale ja kaubandusjärelevalvele müüja kindlakstegemiseks.',
+          'The young people were handed over to their parents and the alcohol was poured away. The case was passed to the juvenile case manager and to trade supervision to find out who sold it.',
+        ),
+        { trust: 1 },
+      ),
+      oc(
+        'hospital',
+        'hospital',
+        [0.15, 0.6],
+        2,
+        T(
+          'Kõige purjus noor toimetati kiirabiga haiglasse, teised anti vanematele üle.',
+          'The drunkest teenager was taken to hospital by ambulance and the others were handed to their parents.',
+        ),
+      ),
+      oc(
+        'gone',
+        'unfounded',
+        [0, 0.35],
+        2,
+        T('Noored jooksid patrulli nähes laiali.', 'The teenagers scattered when they saw the patrol.'),
+      ),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [
+        T(
+          'Tere. Siin joovad päris noored lapsed siidrit ja üks on täitsa purjus.',
+          'Hello. Some really young kids are drinking cider here and one of them is completely drunk.',
+        ),
+      ],
+      openingRu: ['Здравствуйте. Тут совсем молодые ребята пьют сидр, один уже совсем пьяный.'],
+      answers: {
+        count: [T('Viis või kuus noort.', 'Five or six kids.')],
+        children: [
+          T('Nad ise on lapsed, umbes neljateistkümnesed.', 'They are children themselves, about fourteen.'),
+        ],
+        injured: [T('Üks oksendab, teised on korras.', 'One is throwing up, the others are fine.')],
+      },
+    },
+    tags: ['youth'],
+  },
+];
+
+// ── public_order_aggressive_customer ────────────────────────────────────────
+const SC_AGGRESSIVE_CUSTOMER: IncidentScenario[] = [
+  {
+    id: 'thrown_goods',
+    summary: [
+      T(
+        '{address}. Kaupluses sõimab klient kassapidajat, viskas kaupa põrandale ja keeldub lahkumast. Turvatöötaja on juures.',
+        '{address}. A customer in a shop is swearing at the cashier, has thrown goods on the floor and refuses to leave. A security guard is present.',
+      ),
+      T(
+        '{address}. Klient loopis kassa juures kaupa ja karjub järjekorras seisjate peale. Ta ei lahku, kuigi turvatöötaja palub.',
+        '{address}. A customer has been throwing goods around at the till and shouting at the people queuing. He will not leave although the guard has asked him to.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Siin poes on üks mees täiesti endast väljas, ta viskas pudeli vastu kassat!',
+        'There is a man in the shop who has completely lost it, he threw a bottle at the till!',
+      ),
+      T(
+        'Turvamees on tema juures, aga mees ei kuula kedagi.',
+        'The guard is with him, but the man will not listen to anyone.',
+      ),
+    ],
+    details: [
+      T('Klient: {suspect}.', 'The customer: {suspect}.'),
+      T('Kõik on valvekaamera salvestisel.', 'Everything is on the CCTV recording.'),
+    ],
+    call: {
+      mood: 'angry',
+      opening: [
+        T(
+          'Siin poes on klient, kes loobib kaupa ja ei lähe minema. Saatke kohe keegi!',
+          'There is a customer in the shop throwing goods around who will not leave. Send someone now!',
+        ),
+      ],
+      openingRu: ['Тут в магазине клиент швыряет товар и не уходит. Пришлите кого-нибудь!'],
+      answers: {
+        injured: [
+          T('Keegi viga ei saanud, aga kassapidaja on hirmul.', 'Nobody is hurt, but the cashier is scared.'),
+        ],
+        weapons: [T('Relva ei ole, ta viskas pudeli.', 'No weapon, he threw a bottle.')],
+      },
+    },
+  },
+  {
+    id: 'refused_alcohol',
+    summary: [
+      T(
+        '{address}. Joobes klient ründas müüjat, kui talle alkoholi ei müüdud. Mees on veel poes.',
+        '{address}. A drunk customer attacked the cashier when he was refused alcohol. The man is still in the shop.',
+      ),
+      T(
+        '{address}. Müüja keeldus pärast kella kümmet alkoholi müümast ja klient lõi teda üle leti. Mees on poes ja karjub.',
+        '{address}. The cashier refused to sell alcohol after 10 p.m. and the customer hit her across the counter. The man is in the shop shouting.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ta lõi mind, kui ma ütlesin, et pärast kella kümmet alkoholi ei müüda.',
+        'He hit me when I said we do not sell alcohol after ten.',
+      ),
+      T(
+        'Ta seisab ikka veel kassa juures ja nõuab oma viina.',
+        'He is still standing at the till demanding his vodka.',
+      ),
+    ],
+    details: [
+      T('Klient: {suspect}. Tugevas joobes.', 'The customer: {suspect}. Heavily intoxicated.'),
+      T(
+        'Müüjal on punane põsk, kiirabi ta ei soovi.',
+        'The cashier has a red cheek and does not want an ambulance.',
+      ),
+    ],
+  },
+  {
+    id: 'refund_rage',
+    title: T('Poes agressiivne klient: tagastus', 'Aggressive customer in a shop: a refund'),
+    persons: [
+      { role: 'suspect', gender: 'any', age: [25, 65], intoxicated: 0.1, record: 0.2 },
+      { role: 'caller', gender: 'any', age: [18, 60], relation: 'employee' },
+    ],
+    summary: [
+      T(
+        '{address}. Klient nõuab kaubale raha tagasi, karjub müüja peale ja lõi rusikaga vastu letti. Järjekord on hirmul.',
+        '{address}. A customer is demanding a refund, shouting at the shop assistant and punched the counter. The queue is frightened.',
+      ),
+      T(
+        '{address}. Tagastusleti juures ähvardab klient müüjat, kuna kassatšekita kaupa tagasi ei võeta. Klient filmib müüjat telefoniga.',
+        '{address}. At the returns desk a customer is threatening the assistant because goods without a receipt cannot be returned. The customer is filming the assistant with a phone.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Ta karjub juba veerand tundi, sest tal pole tšekki. Nüüd lõi ta vastu letti.',
+        'He has been shouting for a quarter of an hour because he has no receipt. Now he has punched the counter.',
+      ),
+      T(
+        'Ta ütleb, et paneb minu video internetti ja ootab mind pärast tööd.',
+        'He says he will put a video of me online and wait for me after work.',
+      ),
+    ],
+    details: [
+      T('Klient: {suspect}. Kaine.', 'The customer: {suspect}. Sober.'),
+      T('Müüja on ähvarduste pärast hirmul.', 'The assistant is frightened by the threats.'),
+    ],
+    call: {
+      mood: 'angry',
+      opening: [
+        T(
+          'Tere, poest helistan. Klient karjub tagastuse pärast ja ähvardab müüjat.',
+          'Hello, I am calling from a shop. A customer is shouting about a refund and threatening the assistant.',
+        ),
+      ],
+      openingRu: ['Здравствуйте, звоню из магазина. Клиент кричит из-за возврата и угрожает продавцу.'],
+      answers: {
+        intoxicated: [T('Ei, ta on kaine. Lihtsalt väga vihane.', 'No, he is sober. Just very angry.')],
+        weapons: [
+          T('Relva ei ole, aga ta lõi rusikaga vastu letti.', 'No weapon, but he punched the counter.'),
+        ],
+        injured: [T('Keegi viga ei saanud.', 'Nobody is hurt.')],
+      },
+    },
+  },
+  {
+    id: 'card_declined',
+    title: T('Poes agressiivne klient: kaart ei läinud läbi', 'Aggressive customer in a shop: card declined'),
+    persons: [
+      { role: 'suspect', gender: 'M', age: [20, 60], intoxicated: 0.4, record: 0.4 },
+      { role: 'caller', gender: 'any', age: [18, 60], relation: 'employee' },
+    ],
+    summary: [
+      T(
+        '{address}. Kassas ei läinud kliendi kaardimakse läbi, mees süüdistab müüjat, karjub ega lase teistel maksta.',
+        '{address}. A customer’s card was declined at the till; the man is blaming the cashier, shouting and not letting anyone else pay.',
+      ),
+      T(
+        '{address}. Klient tahab kauba maksmata kaasa võtta, sest tema kaart ei toimi. Ta ähvardab müüjat ja seisab kassa ees.',
+        '{address}. A customer wants to take his shopping without paying because his card does not work. He is threatening the cashier and blocking the till.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Tema kaart ei lähe läbi ja nüüd olen mina süüdi. Ta karjub ja lööb terminali.',
+        'His card is declined and now it is my fault. He is shouting and hitting the terminal.',
+      ),
+      T(
+        'Ta tahab kauba lihtsalt kaasa võtta ja ütleb, et maksab homme.',
+        'He just wants to take the goods and says he will pay tomorrow.',
+      ),
+    ],
+    details: [
+      T('Klient: {suspect}.', 'The customer: {suspect}.'),
+      T('Tasumata kaupa umbes 80 euro eest.', 'About 80 euros of goods unpaid.'),
+    ],
+    call: {
+      mood: 'angry',
+      opening: [
+        T(
+          'Tere, poest helistan. Kliendi kaart ei läinud läbi ja ta on täiesti agressiivne.',
+          'Hello, I am calling from a shop. A customer’s card was declined and he is getting really aggressive.',
+        ),
+      ],
+      openingRu: ['Здравствуйте, звоню из магазина. У клиента не прошла карта, и он ведёт себя агрессивно.'],
+      answers: {
+        weapons: [T('Relva ei näe.', 'I cannot see a weapon.')],
+        injured: [T('Veel mitte keegi.', 'Nobody yet.')],
+      },
+    },
+  },
+];
+
+// ── public_order_youth_vandalism ────────────────────────────────────────────
+const SC_YOUTH_VANDALISM: IncidentScenario[] = [
+  {
+    id: 'bus_shelter_glass',
+    summary: [
+      T(
+        '{address}. Noortekamp lõhub bussiootepaviljoni klaase ja prügikaste. Umbes {n} noort.',
+        '{address}. A gang of young people is smashing the glass of a bus shelter and the bins. About {n} of them.',
+      ),
+      T(
+        '{address}. Noored peksavad ootepaviljoni klaasseinu ja naeravad, üks filmib telefoniga.',
+        '{address}. Young people are hitting the glass walls of a bus shelter and laughing; one is filming on a phone.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Noored peksavad ootepaviljoni klaase puruks ja naeravad. Üks filmib.',
+        'Young people are smashing the bus shelter glass and laughing. One of them is filming.',
+      ),
+      T(
+        'Ma ei julge midagi öelda, nad on suures grupis.',
+        'I do not dare say anything, there is a big group of them.',
+      ),
+    ],
+    details: [
+      T(
+        'Noored on osaliselt joobes, üks filmib telefoniga.',
+        'Some of the young people are drunk and one is filming on a phone.',
+      ),
+      T('Ühte lõhkujat kirjeldatakse: {suspect}.', 'One of them is described as: {suspect}.'),
+    ],
+  },
+  {
+    id: 'park_benches_lights',
+    summary: [
+      T(
+        '{address}. Pargis loobivad noorukid kive, lõhkusid pingi ja valgusteid. Osa on alaealised.',
+        '{address}. Youths in the park are throwing stones; they broke a bench and lights. Some are minors.',
+      ),
+      T(
+        '{address}. Pargi tänavavalgustid on kividega puruks visatud, noored murravad pingilt laudu.',
+        '{address}. The park lamps have been smashed with stones and young people are tearing planks off a bench.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Nad viskasid kõik pargi laternad kividega katki, nüüd lõhuvad pinki.',
+        'They have smashed all the park lamps with stones and now they are breaking a bench.',
+      ),
+      T(
+        'Pargis on nüüd täiesti pime, ma ei näe, palju neid on.',
+        'It is completely dark in the park now, I cannot see how many there are.',
+      ),
+    ],
+    details: [
+      T(
+        'Lõhutud on vähemalt neli valgustit ja üks pink.',
+        'At least four lamps and a bench have been broken.',
+      ),
+      T('Ühte lõhkujat kirjeldatakse: {suspect}.', 'One of them is described as: {suspect}.'),
+    ],
+  },
+  {
+    id: 'school_windows',
+    title: T('Noored loobivad kooli aknaid', 'Youths throwing stones at school windows'),
+    summary: [
+      T(
+        '{address}. Kooli juures loobivad noored kividega aknaid, kaks akent on juba katki.',
+        '{address}. Young people are throwing stones at the school windows and two are already broken.',
+      ),
+      T(
+        '{address}. Teataja nägi aknast, kuidas noortekamp viskab koolimaja akendesse kive ja jookseb naerdes ringi.',
+        '{address}. The caller saw from a window a gang of youths throwing stones at the school windows and running around laughing.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Nad viskavad kivisid otse kooli akendesse! Klaas kukub alla.',
+        'They are throwing stones right at the school windows! Glass is falling down.',
+      ),
+      T(
+        'Ma elan kooli vastas, nad on kooli tagaukse juures.',
+        'I live opposite the school, they are by the back door.',
+      ),
+    ],
+    details: [
+      T('Kooli valvesignalisatsioon on rakendunud.', 'The school’s alarm has gone off.'),
+      T('Ühte noort kirjeldatakse: {suspect}.', 'One of them is described as: {suspect}.'),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [
+        T(
+          'Tere, noored viskavad kividega kooli aknaid puruks.',
+          'Hello, some youths are smashing the school windows with stones.',
+        ),
+      ],
+      openingRu: ['Здравствуйте, подростки бьют камнями окна школы.'],
+      answers: {
+        count: [T('Viis või kuus noort.', 'Five or six youngsters.')],
+        direction: [T('Nad on veel kooli juures.', 'They are still at the school.')],
+      },
+    },
+  },
+  {
+    id: 'graffiti_garages',
+    title: T('Noored sodivad seinu', 'Youths spraying graffiti'),
+    summary: [
+      T(
+        '{address}. Noored sprei-värvivad maja seina ja garaažiuksi, teataja näeb neid aknast.',
+        '{address}. Young people are spray-painting a building wall and garage doors; the caller can see them from a window.',
+      ),
+      T(
+        '{address}. Garaažide juures värvivad kapuutsides noored seintele kirju, värvipurgid on maas.',
+        '{address}. Hooded youths are spraying writing on the walls by the garages, with spray cans on the ground.',
+      ),
+    ],
+    callerLines: [
+      T(
+        'Nad sodivad juba teist korda sel nädalal meie maja seina. Nüüd näen neid otse aknast.',
+        'This is the second time this week they have sprayed our wall. Now I can see them right from my window.',
+      ),
+      T(
+        'Üks valvab nurga peal, teised värvivad.',
+        'One of them is keeping watch on the corner while the others paint.',
+      ),
+    ],
+    details: [
+      T(
+        'Seintel on värsked joonistused, värv on veel märg.',
+        'The drawings on the walls are fresh, the paint is still wet.',
+      ),
+      T('Ühte noort kirjeldatakse: {suspect}.', 'One of them is described as: {suspect}.'),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [
+        T(
+          'Tere, noored värvivad praegu meie maja seina, ma näen neid aknast.',
+          'Hello, some youths are spray-painting our building right now, I can see them from my window.',
+        ),
+      ],
+      openingRu: ['Здравствуйте, подростки сейчас разрисовывают стену нашего дома, я вижу их из окна.'],
+      answers: {
+        count: [T('Kolm, üks valvab nurga peal.', 'Three, one is on the corner keeping watch.')],
+        weapons: [T('Ei, neil on ainult värvipurgid.', 'No, just spray cans.')],
+      },
+    },
+  },
+];
 
 export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
   // ─── Legacy ───────────────────────────────────────────────────────────────
@@ -129,6 +2136,7 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
     },
     tags: ['alcohol'],
     legacy: true,
+    scenarios: SC_BAR_TROUBLEMAKER,
   },
   {
     id: 'public_order_demonstration',
@@ -652,6 +2660,7 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
     },
     tags: ['noise', 'alcohol'],
     legacy: true,
+    scenarios: SC_NIGHT_NOISE,
   },
   {
     id: 'public_order_kids_party_brawl',
@@ -1927,6 +3936,7 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
     },
     tags: ['noise'],
     legacy: true,
+    scenarios: SC_NOISY_BIRTHDAY,
   },
   {
     id: 'public_order_parking_dispute',
@@ -2252,6 +4262,7 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
       },
     },
     tags: ['alcohol'],
+    scenarios: SC_DRUNK_LYING,
   },
   {
     id: 'public_order_drunk_on_road',
@@ -2408,6 +4419,7 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
     ],
     expiresMin: 45,
     tags: ['alcohol'],
+    scenarios: SC_DRUNK_HARASSING,
   },
   {
     id: 'public_order_youth_vandalism',
@@ -2542,6 +4554,7 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
     ],
     expiresMin: 40,
     tags: ['youth', 'vandalism'],
+    scenarios: SC_YOUTH_VANDALISM,
   },
   {
     id: 'public_order_aggressive_customer',
@@ -2652,6 +4665,7 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
       },
     },
     tags: ['alcohol'],
+    scenarios: SC_AGGRESSIVE_CUSTOMER,
   },
   {
     id: 'public_order_public_drinking',
@@ -2723,6 +4737,7 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
     ],
     expiresMin: 60,
     tags: ['alcohol'],
+    scenarios: SC_PUBLIC_DRINKING,
   },
   {
     id: 'public_order_aggressive_beggar',

@@ -517,6 +517,41 @@ export interface CallScript {
   openingRu?: string[];
 }
 
+/** Template fields a scenario may tell differently. */
+export type ScenarioField =
+  | 'title'
+  | 'priority'
+  | 'units'
+  | 'onScene'
+  | 'persons'
+  | 'vehicles'
+  | 'summary'
+  | 'callerLines'
+  | 'details'
+  | 'agencies'
+  | 'beats'
+  | 'outcomes'
+  | 'escalation'
+  | 'falseAlarmChance'
+  | 'interactiveChance'
+  | 'call'
+  | 'callerRole';
+
+/**
+ * One coherent story of a template: who is involved, what set it off, who calls and what the patrol
+ * finds. One scenario is picked when the incident spawns (`Incident.scenarioId`); every field it gives
+ * replaces the template's own for that incident (title, card, caller script, beats, outcomes...), so
+ * the story stays the same from the 112 call to the closing report. `tags` are added to the
+ * template's tags. Fields it leaves out come from the template.
+ */
+export interface IncidentScenario extends Partial<Pick<IncidentTemplate, ScenarioField>> {
+  /** Unique within the template (stored in saves). */
+  id: string;
+  /** Relative weight among the template's scenarios (default 1). */
+  weight?: number;
+  tags?: string[];
+}
+
 export interface IncidentTemplate {
   id: string;
   category: IncidentCategory;
@@ -560,11 +595,18 @@ export interface IncidentTemplate {
   /** Chance the event arrives as an interactive 112 transfer instead of a card (default by priority). */
   interactiveChance?: number;
   call?: CallScript;
+  /**
+   * Who makes the call when no person has the role 'caller' (e.g. 'victim' or 'suspect'); otherwise
+   * the victim calls about half the time, else a witness or a passer-by.
+   */
+  callerRole?: PersonRole;
   /** Tags used by generators: 'armed', 'weapon_knife', 'night_only', 'vehicle_flee', 'bolo', ... */
   tags?: string[];
   /** From the original 2024 call list. */
   legacy?: boolean;
   easterEgg?: boolean;
+  /** Different stories of the same event; one is picked per incident (see IncidentScenario). */
+  scenarios?: IncidentScenario[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -718,6 +760,8 @@ export interface Incident {
   /** Human event number, e.g. "PÕ-251017-0042". */
   number: string;
   templateId: string;
+  /** The template scenario this incident tells (IncidentTemplate.scenarios), if it has any. */
+  scenarioId?: string;
   category: IncidentCategory;
   code: string;
   title: Text;

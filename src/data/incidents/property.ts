@@ -2,8 +2,526 @@
  * Varavastased süüteod (property crime): thefts, burglaries, robberies, vandalism.
  * Owned by incidents-B. Legacy titles (2024 list) keep `title.et` verbatim.
  */
-import type { IncidentTemplate } from '@/sim/types';
+import type { IncidentScenario, IncidentTemplate } from '@/sim/types';
 import { T, u, oc, qPerson, qVehicle, backup, agencyBeat, arrest, info, search, pursuit, choice, opt, minorChoice } from './_helpers_b';
+
+// ─── Scenarios: one coherent story per incident (IncidentTemplate.scenarios) ──
+
+// ── property_shoplifting_detained ───────────────────────────────────────────
+const SC_SHOPLIFTING: IncidentScenario[] = [
+  {
+    id: 'alcohol_and_coffee',
+    summary: [
+      T(
+        '{place}, {address}. Turvatöötaja peab kinni isikut, kes üritas maksmata viia alkoholi ja kohvi. Kahju u 38 €, isik rahulik.',
+        '{place}, {address}. A security guard is holding a person who tried to leave without paying for alcohol and coffee. Loss about €38; the person is calm.',
+      ),
+      T(
+        '{place}, {address}. Turvatöötaja pidas väljapääsu juures kinni kliendi, kelle jope all olid viinapudel ja kaks pakki kohvi.',
+        '{place}, {address}. A security guard stopped a customer at the exit with a bottle of vodka and two packs of coffee under his jacket.',
+      ),
+    ],
+    callerLines: [
+      T('Meil on poevaras kinni, istub turvaruumis. Palun saatke patrull.', 'We have a shoplifter detained in the security room. Please send a patrol.'),
+      T('Ta pani viinapudeli ja kohvi jope alla ja kõndis kassast mööda.', 'He put a bottle of vodka and coffee under his jacket and walked past the tills.'),
+    ],
+    details: [
+      T('Kaamerasalvestis vargusest on olemas. Kauba väärtus kassatšeki järgi.', 'There is CCTV footage of the theft. The value is taken from the till receipt.'),
+      T('Kinnipeetu on rahulik ja koostööaldis.', 'The detained person is calm and cooperative.'),
+    ],
+  },
+  {
+    id: 'refuses_id',
+    summary: [
+      T(
+        '{place}, {address}. Poevargus: kinni peetud {suspect}. Kaup tagastatud, isik keeldub isikut tõendavat dokumenti esitamast.',
+        '{place}, {address}. Shoplifting: detained {suspect}. Goods returned; the person refuses to show any ID.',
+      ),
+      T(
+        '{place}, {address}. Turvatöötaja pidas kinni varga, kes ei ütle oma nime ja nõuab, et ta lastaks minema.',
+        '{place}, {address}. A security guard has detained a thief who will not give his name and demands to be let go.',
+      ),
+    ],
+    callerLines: [
+      T('Ta ei ütle oma nime ega näita dokumenti. Ütleb, et meil pole õigust teda kinni hoida.', 'He will not give his name or show any ID. He says we have no right to hold him.'),
+      T('Kaup on tagasi, aga ta ähvardab meid kaevata.', 'The goods are back, but he is threatening to complain about us.'),
+    ],
+    details: [
+      T('Kinnipeetu keeldub isikut tõendavat dokumenti esitamast.', 'The detained person refuses to show ID.'),
+      T('Kaup on tagastatud, kaamerasalvestis on olemas.', 'The goods have been returned and there is CCTV footage.'),
+    ],
+  },
+  {
+    id: 'repeat_cosmetics',
+    summary: [
+      T(
+        '{place}, {address}. Kaupluse turvatöötaja pidas kinni korduvalt vargusega vahele jäänud isiku, kotis kosmeetikat ja liha u 74 € väärtuses.',
+        '{place}, {address}. A shop security guard detained a person caught stealing several times before, with cosmetics and meat worth about €74 in their bag.',
+      ),
+      T(
+        '{place}, {address}. Sama isik jäi sel kuul vargusega vahele juba kolmandat korda, seekord on kotis parfüümid.',
+        '{place}, {address}. The same person has been caught stealing for the third time this month; this time there is perfume in the bag.',
+      ),
+    ],
+    callerLines: [
+      T('Sama mees on juba kolmas kord sel kuul, täna pani viinapudeli jope alla.', 'It is the same man for the third time this month, today he put a bottle of vodka under his jacket.'),
+      T('Meil on tema pilt juba kassas üleval. Ta tuleb ikka tagasi.', 'We already have his picture up at the tills. He keeps coming back.'),
+    ],
+    details: [
+      T('Isik on kauplusest varem varastanud, eelmised juhtumid on dokumenteeritud.', 'The person has stolen from the shop before and the earlier cases are documented.'),
+      T('Kinnipeetu on purjus ja muutub aeg-ajalt ülbeks.', 'The detained person is drunk and gets cheeky from time to time.'),
+    ],
+  },
+  {
+    id: 'hungry_pensioner',
+    title: T('Poevargus: eakas varastas toitu', 'Shoplifting: elderly man stole food'),
+    persons: [
+      { role: 'suspect', gender: 'M', age: [68, 88], record: 0.05, intoxicated: 0.05 },
+      { role: 'caller', gender: 'any', age: [22, 60], relation: 'employee' },
+    ],
+    summary: [
+      T(
+        '{place}, {address}. Turvatöötaja pidas kinni eaka mehe, kes pani taskusse või ja vorsti umbes 8 € väärtuses. Mees häbeneb ja nutab.',
+        '{place}, {address}. A security guard stopped an elderly man who put butter and sausage worth about €8 in his pocket. The man is ashamed and crying.',
+      ),
+      T(
+        '{place}, {address}. Eakas klient üritas maksmata viia leiba ja konserve. Ta ütleb, et pension ei jätku kuu lõpuni.',
+        '{place}, {address}. An elderly customer tried to leave with bread and tins without paying. He says his pension does not last to the end of the month.',
+      ),
+    ],
+    callerLines: [
+      T('Meil on üks vanahärra kinni, võttis võid ja vorsti. Ta nutab, mul on temast kahju, aga reeglid on reeglid.', 'We have an old gentleman detained, he took butter and sausage. He is crying and I feel sorry for him, but rules are rules.'),
+      T('Ta ütleb, et raha on otsas ja ta pole kaks päeva söönud.', 'He says his money has run out and he has not eaten for two days.'),
+    ],
+    details: [
+      T('Kauba väärtus umbes 8 eurot.', 'The goods are worth about 8 euros.'),
+      T('Kinnipeetu on eakas, varasemaid rikkumisi pole teada.', 'The detained person is elderly with no known previous offences.'),
+    ],
+    beats: [
+      qPerson('suspect', 'arrive', 0.9),
+      choice(
+        5,
+        [
+          T(
+            '{callsign}: vanahärra on näljas ja häbeneb, kahju 8 eurot. Kas vormistame väärteo või piirdume hoiatusega ja teavitame sotsiaaltööd?',
+            '{callsign}: the old man is hungry and ashamed; the loss is 8 euros. Do we record a misdemeanour or give a warning and inform social services?',
+          ),
+        ],
+        [
+          opt(
+            'social',
+            T('Hoiatus ja sotsiaaltöö', 'Warning and social services'),
+            T('{callsign}, juhtimine. Tehke hoiatus ja teavitage omavalitsuse sotsiaaltöötajat.', '{callsign}, Control. Give a warning and inform the municipal social worker.'),
+            { success: 0.15, trust: 2, time: 10 },
+          ),
+          opt(
+            'record',
+            T('Vormistage väärtegu', 'Record a misdemeanour'),
+            T('{callsign}, juhtimine. Vormistage väärteomenetlus.', '{callsign}, Control. Open misdemeanour proceedings.'),
+            { success: 0.05, time: 15 },
+          ),
+        ],
+        'social',
+      ),
+    ],
+    outcomes: [
+      oc(
+        'social',
+        3,
+        'warning',
+        'Mehele tehti hoiatus ja kauplus loobus nõudest. Omavalitsuse sotsiaaltöötajat teavitati, et eakas vajab toimetulekutoetust.',
+        'The man was given a warning and the shop dropped its claim. The municipal social worker was told that he needs income support.',
+        { min: 0.4, trust: 2 },
+      ),
+      oc('misdemeanour', 2, 'fine', 'Alustati väärteomenetlust KarS § 218 järgi, kahju 8 €. Kaup tagastati kauplusele.', 'Misdemeanour proceedings were opened under KarS § 218 for a loss of €8. The goods were returned to the shop.', { min: 0.3 }),
+      oc(
+        'left',
+        2,
+        'escaped',
+        'Turvatöötaja lasi vanahärra enne patrulli saabumist minema. Juhtum dokumenteeriti salvestise põhjal.',
+        'The guard let the old man go before the patrol arrived. The case was documented from the footage.',
+        { max: 0.4 },
+      ),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [T('Tere, kaupluse turvast. Meil on kinni eakas mees, kes võttis toitu. Ta on väga kurb.', 'Hello, shop security here. We have stopped an elderly man who took some food. He is very upset.')],
+      openingRu: ['Здравствуйте, охрана магазина. Задержали пожилого мужчину, взял продукты. Он очень расстроен.'],
+      answers: {
+        what: [T('Või ja vorst, kokku umbes kaheksa eurot.', 'Butter and sausage, about eight euros in total.')],
+        intoxicated: [T('Ei, ta on kaine.', 'No, he is sober.')],
+        weapons: [T('Ei, mingit relva ei ole.', 'No, no weapon.')],
+        safe: [T('Jah, kõik on rahulik, ta istub meie juures.', 'Yes, everything is calm, he is sitting with us.')],
+      },
+    },
+    tags: ['elderly'],
+  },
+  {
+    id: 'teens_energy_drinks',
+    title: T('Poevargus: alaealised kinni peetud', 'Shoplifting: minors detained'),
+    persons: [
+      { role: 'suspect', gender: 'any', age: [13, 16], record: 0.05 },
+      { role: 'caller', gender: 'any', age: [22, 60], relation: 'employee' },
+    ],
+    summary: [
+      T(
+        '{place}, {address}. Turvatöötaja pidas kinni kaks alaealist, kes peitsid kotti energiajooke ja kommi. Noored nutavad ja paluvad vanematele mitte helistada.',
+        '{place}, {address}. A security guard stopped two minors who hid energy drinks and sweets in a bag. They are crying and begging not to call their parents.',
+      ),
+      T(
+        '{place}, {address}. Kaks umbes 14-aastast noort üritasid kauplusest maksmata viia energiajooke. Turvatöötaja hoiab neid turvaruumis.',
+        '{place}, {address}. Two youngsters of about 14 tried to leave the shop without paying for energy drinks. The guard is keeping them in the security room.',
+      ),
+    ],
+    callerLines: [
+      T('Meil on kaks last kinni, energiajoogid ja kommid koti põhjas. Nad ei taha oma vanemate numbrit anda.', 'We have two kids detained with energy drinks and sweets at the bottom of a bag. They do not want to give their parents’ numbers.'),
+      T('Nad on päris noored veel, ma ei taha neid ise siin kauem hoida.', 'They are still quite young, I do not want to keep them here myself any longer.'),
+    ],
+    details: [
+      T('Kinnipeetud on kaks alaealist.', 'Two minors are being held.'),
+      T('Kauba väärtus umbes 12 eurot.', 'The goods are worth about 12 euros.'),
+    ],
+    beats: [qPerson('suspect', 'arrive', 0.9), minorChoice(4, 1, T('Kinnipeetu', 'The detainee'))],
+    outcomes: [
+      oc(
+        'parents',
+        3,
+        'referred',
+        'Noored anti vanemate hoole alla. Juhtum edastati alaealiste juhtumikorraldajale, kauplus kehtestas neile sissepääsukeelu.',
+        'The youngsters were handed over to their parents. The case was passed to the juvenile case manager and the shop banned them from the premises.',
+        { min: 0.4, trust: 1 },
+      ),
+      oc('misdemeanour', 2, 'fine', 'Alustati väärteomenetlust KarS § 218 järgi, vanemaid teavitati. Kaup tagastati.', 'Misdemeanour proceedings were opened under KarS § 218 and the parents were informed. The goods were returned.', { min: 0.3 }),
+      oc('ran', 2, 'escaped', 'Noored jooksid turvaruumist välja enne patrulli saabumist. Salvestis edastati menetlejale.', 'The youngsters ran out of the security room before the patrol arrived. The footage was passed to the investigator.', { max: 0.4 }),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [T('Tere, kauplusest. Meil on kaks alaealist poevaras kinni.', 'Hello, from the shop. We have two underage shoplifters detained.')],
+      openingRu: ['Здравствуйте, из магазина. Задержали двух несовершеннолетних за кражу.'],
+      answers: {
+        count: [T('Kaks noort, umbes neljateistkümnesed.', 'Two kids, about fourteen.')],
+        children: [T('Nad ise ongi lapsed.', 'They are children themselves.')],
+        weapons: [T('Ei, mingit relva ei ole.', 'No, no weapon.')],
+        intoxicated: [T('Ei, kained.', 'No, sober.')],
+      },
+    },
+    tags: ['youth'],
+  },
+];
+
+// ── property_theft_from_car ─────────────────────────────────────────────────
+const SC_THEFT_FROM_CAR: IncidentScenario[] = [
+  {
+    id: 'laptop_window',
+    summary: [
+      T(
+        '{address}. Sõiduki {plate} küljeaken on purustatud, salongist varastati sülearvuti ja seljakott.',
+        '{address}. The side window of vehicle {plate} has been smashed and a laptop and backpack were stolen from inside.',
+      ),
+      T(
+        '{address}. Teataja tuli autosse tagasi ja leidis, et kõrvalistuja aken on katki ja töökott on läinud.',
+        '{address}. The caller came back to the car to find the passenger window smashed and the work bag gone.',
+      ),
+    ],
+    callerLines: [
+      T('Mu auto aken on katki ja sülearvuti on läinud. Seal olid kõik töömaterjalid!', 'My car window is smashed and the laptop is gone. All my work was on it!'),
+      T('Jätsin koti ainult viieks minutiks istmele…', 'I only left the bag on the seat for five minutes…'),
+    ],
+    details: [T('Lähedal asuva kaupluse kaamera on suunatud parklasse.', 'A camera at a nearby shop points at the car park.'), T('Sõiduk: {car}, reg nr {plate}.', 'Vehicle: {car}, plate {plate}.')],
+  },
+  {
+    id: 'series_in_car_park',
+    summary: [
+      T('{address}. Öö jooksul on parklas lõhutud mitme auto aknad. Teataja autost kadus tööriistakohver.', '{address}. Several car windows were smashed in a car park overnight. A toolbox was taken from the caller’s car.'),
+      T(
+        '{address}. Hommikul avastasid mitu autoomanikku, et nende autode aknad on katki ja salongid läbi sorgitud.',
+        '{address}. In the morning several car owners found their windows smashed and the insides rummaged through.',
+      ),
+    ],
+    callerLines: [
+      T('Siin on vähemalt neli autot katki! Minu autost viidi tööriistad.', 'There are at least four cars broken into here! My tools were taken from my car.'),
+      T('Klaasikilde on üle terve parkla.', 'There is broken glass all over the car park.'),
+    ],
+    details: [T('Parklas on lõhutud vähemalt neli autot.', 'At least four cars have been broken into in the car park.'), T('Sõiduk: {car}, reg nr {plate}.', 'Vehicle: {car}, plate {plate}.')],
+  },
+  {
+    id: 'catalytic_converter',
+    title: T('Vargus autost: katalüsaator välja saetud', 'Theft from a car: catalytic converter cut off'),
+    summary: [
+      T(
+        '{address}. Teataja avastas, et öö jooksul on tema auto alt välja saetud katalüsaator. Auto mürin on nagu traktoril.',
+        '{address}. The caller discovered that the catalytic converter had been cut off from under her car overnight. The car now roars like a tractor.',
+      ),
+      T(
+        '{address}. Parkinud sõiduki {plate} alt on ära saetud katalüsaator, maas on metallilaastud. Naaber kuulis öösel saagimist.',
+        '{address}. The catalytic converter has been sawn off from under parked vehicle {plate}; there are metal shavings on the ground. A neighbour heard sawing in the night.',
+      ),
+    ],
+    callerLines: [
+      T('Ma käivitasin auto ja see möirgas nagu traktor. Auto all on lihtsalt auk.', 'I started the car and it roared like a tractor. There is just a hole underneath.'),
+      T('Naaber ütleb, et kuulis öösel saagimist, aga arvas, et keegi teeb remonti.', 'My neighbour says she heard sawing in the night but thought someone was doing repairs.'),
+    ],
+    details: [T('Sõiduki alt on välja saetud katalüsaator.', 'The catalytic converter has been cut off from under the car.'), T('Sõiduk: {car}, reg nr {plate}.', 'Vehicle: {car}, plate {plate}.')],
+    beats: [
+      info('arrive', [T('{callsign}: katalüsaator on ära saetud, maas metallilaastud. Fikseerime jäljed.', '{callsign}: the catalytic converter has been sawn off with metal shavings on the ground. Recording the traces.')]),
+      info(8, [T('{callsign}: naabri sõnul seisis öösel parklas valge kaubik. Küsime kaamerasalvestisi.', '{callsign}: a neighbour says a white van was in the car park in the night. Asking for camera footage.')], 0.6),
+    ],
+    outcomes: [
+      oc('report', 3, 'report', 'Kriminaalmenetlus KarS § 199 järgi, kahju u 1 200 €. Kaamerasalvestised küsiti naabermajadelt.', 'Criminal proceedings under KarS § 199; the loss is about €1,200. Camera footage was requested from the neighbouring buildings.', { min: 0.3 }),
+      oc(
+        'series',
+        2,
+        'report',
+        'Samal ööl oli piirkonnas ära saetud veel kaks katalüsaatorit. Juhtumid liideti ühte kriminaalmenetlusse.',
+        'Two more catalytic converters had been cut off in the area the same night. The cases were combined into one set of proceedings.',
+        { max: 0.6 },
+      ),
+      oc(
+        'van_found',
+        1,
+        'arrest',
+        'Naabri kirjeldatud kaubik peatati hommikul, seest leiti kolm katalüsaatorit ja akusaag. Juht peeti kinni.',
+        'The van the neighbour described was stopped in the morning with three catalytic converters and a battery saw inside. The driver was detained.',
+        { min: 0.75, arrests: 1 },
+      ),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [T('Tere, mu auto alt on öösel katalüsaator ära varastatud.', 'Hello, my catalytic converter was stolen from under my car overnight.')],
+      openingRu: ['Здравствуйте, у меня ночью срезали катализатор с машины.'],
+      answers: {
+        when: [T('Öösel, ma märkasin hommikul, kui autot käivitasin.', 'During the night, I noticed in the morning when I started the car.')],
+        vehicle: [T('Minu auto on {car}, number {plate}.', 'My car is a {car}, plate {plate}.')],
+        suspect: [T('Ma ei näinud kedagi. Naaber kuulis öösel saagimist.', 'I did not see anyone. My neighbour heard sawing in the night.')],
+      },
+    },
+  },
+  {
+    id: 'unlocked_wallet',
+    title: T('Vargus autost: rahakott ja kaardid', 'Theft from a car: wallet and cards'),
+    summary: [
+      T(
+        '{address}. Teataja jättis auto lukustamata ja salongist varastati rahakott. Pangakaarti on juba kasutatud lähedal kioskis.',
+        '{address}. The caller left the car unlocked and a wallet was stolen from inside. The bank card has already been used at a nearby kiosk.',
+      ),
+      T(
+        '{address}. Lukustamata autost kadus rahakott, teatajale tulid pangast teated kahest ostust lähedal tanklas.',
+        '{address}. A wallet disappeared from an unlocked car and the caller has had bank alerts for two purchases at a nearby petrol station.',
+      ),
+    ],
+    callerLines: [
+      T('Ma unustasin auto lukku panna ja rahakott on läinud. Pank saatis just teate, et keegi maksis mu kaardiga!', 'I forgot to lock the car and my wallet is gone. The bank just sent me a message that someone paid with my card!'),
+      T('Ostud tehti siinsamas kioskis, viis minutit tagasi.', 'The purchases were made at the kiosk right here, five minutes ago.'),
+    ],
+    details: [T('Kaarti kasutati lähedal asuvas kioskis.', 'The card was used at a nearby kiosk.'), T('Sõiduk: {car}, reg nr {plate}.', 'Vehicle: {car}, plate {plate}.')],
+    beats: [
+      info('arrive', [T('{callsign}: auto oli lukustamata, rahakott kadunud. Kaardiga maksti kioskis, läheme salvestist vaatama.', '{callsign}: the car was unlocked and the wallet is gone. The card was used at a kiosk, going to look at the footage.')]),
+      qPerson('suspect', 12, 0.35, [
+        T('Juhtimiskeskus, {callsign}. Kioski kaamerapildi järgi leidsime mehe. Palun kontrolli: {name}, isikukood {idcode}.', 'Control, {callsign}. We found a man matching the kiosk camera image. Please check: {name}, ID code {idcode}.'),
+      ]),
+    ],
+    outcomes: [
+      oc('caught', 1, 'arrest', 'Kioski salvestise järgi tuvastatud mees peeti kinni, tal oli kaasas teataja rahakott. Kriminaalmenetlus KarS § 199 ja § 213 järgi.', 'The man identified from the kiosk footage was detained with the caller’s wallet on him. Criminal proceedings under KarS § 199 and § 213.', { min: 0.7, arrests: 1 }),
+      oc('report', 3, 'report', 'Kaardid suleti, kriminaalmenetlus alustati. Kioski salvestis edastati menetlejale.', 'The cards were blocked and criminal proceedings were opened. The kiosk footage was passed to the investigator.', { min: 0.25 }),
+      oc('more_purchases', 2, 'report', 'Enne kaartide sulgemist tehti veel mitu ostu. Kahju suurenes, menetlus jätkub.', 'More purchases were made before the cards were blocked. The loss grew and the investigation continues.', { max: 0.4 }),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [T('Tere, mu autost varastati rahakott ja keegi maksab juba mu kaardiga!', 'Hello, my wallet was stolen from my car and someone is already paying with my card!')],
+      openingRu: ['Здравствуйте, у меня из машины украли кошелёк, и кто-то уже платит моей картой!'],
+      answers: {
+        when: [T('Umbes veerand tundi tagasi.', 'About a quarter of an hour ago.')],
+        suspect: [T('Ma ei näinud teda. Kioskis peaks kaamera olema.', 'I did not see him. There should be a camera at the kiosk.')],
+      },
+    },
+  },
+];
+
+// ── property_flat_burglary ──────────────────────────────────────────────────
+const SC_FLAT_BURGLARY: IncidentScenario[] = [
+  {
+    id: 'door_forced',
+    summary: [
+      T(
+        '{address}. Koju naasnud teataja leidis, et välisuks oli lahti murtud ja korterist on kadunud väärisesemeid.',
+        '{address}. The caller came home to find the front door forced and valuables missing from the flat.',
+      ),
+      T(
+        '{address}. Korteri välisuksel on kangutusjäljed, kadunud on sülearvuti, ehted ja sularaha. Kurjategijad on lahkunud.',
+        '{address}. There are pry marks on the flat’s front door; a laptop, jewellery and cash are missing. The burglars have left.',
+      ),
+    ],
+    callerLines: [
+      T('Koduuks oli lahti murtud ja korterist on kadunud väärisesemeid.', 'The front door had been forced and valuables are missing from the flat.'),
+      T('Kõik sahtlid on välja tõmmatud… ma ei julge sisse minna, äkki keegi on veel sees?', 'All the drawers have been pulled out… I do not dare go in, what if someone is still inside?'),
+    ],
+    details: [
+      T('Naaber kuulis päeval trepikojas puurimist, kuid arvas, et keegi remondib.', 'A neighbour heard drilling in the stairwell during the day but thought someone was doing repairs.'),
+      T('Kadunud on ka vanaema kuldsõrmus ja u 400 € sularaha.', 'Grandmother’s gold ring and about €400 in cash are also missing.'),
+    ],
+  },
+  {
+    id: 'while_on_holiday',
+    title: T('Korteri sissemurdmine puhkuse ajal', 'Flat burgled while the owners were away'),
+    summary: [
+      T(
+        '{address}. Puhkuselt naasnud pere leidis korteri läbi sorgituna, rõduuks on lahti kangutatud. Kadunud on teler ja ehted.',
+        '{address}. A family back from holiday found their flat ransacked and the balcony door prised open. A television and jewellery are missing.',
+      ),
+      T(
+        '{address}. Esimese korruse korterisse on tungitud rõdu kaudu. Omanikud olid nädala ära, naaber nägi lahtist rõduust.',
+        '{address}. A ground-floor flat has been entered via the balcony. The owners were away for a week and a neighbour noticed the open balcony door.',
+      ),
+    ],
+    callerLines: [
+      T('Me olime nädal aega Kreekas ja nüüd on kõik segamini. Rõduuks on lahti murtud.', 'We were in Greece for a week and now everything is turned upside down. The balcony door has been forced.'),
+      T('Teler on läinud, ehtekarp on tühi. Ma ei tea, millal see juhtus.', 'The television is gone and the jewellery box is empty. I do not know when it happened.'),
+    ],
+    details: [
+      T('Sissetung toimus rõdu kaudu, rõduuks on kangutatud.', 'Entry was via the balcony; the balcony door was prised open.'),
+      T('Omanikud olid nädal aega ära, sissemurdmise aeg on teadmata.', 'The owners were away for a week; the time of the burglary is unknown.'),
+    ],
+    outcomes: [
+      oc('report', 3, 'report', 'Sündmuskoht vaadeldi ja jäljed fikseeriti. Kriminaalmenetlus KarS § 199 lg 2 järgi, kahju u 2 600 €.', 'The scene was examined and traces recorded. Criminal proceedings under KarS § 199(2); the loss is about €2,600.', { min: 0.3 }),
+      oc(
+        'tv_found',
+        1,
+        'arrest',
+        'Teler leiti pandimajast ja selle loovutanud mees peeti kinni. Kriminaalmenetlus KarS § 199 lg 2 järgi.',
+        'The television was found at a pawn shop and the man who handed it in was detained. Criminal proceedings under KarS § 199(2).',
+        { min: 0.7, arrests: 1 },
+      ),
+      oc(
+        'no_traces',
+        2,
+        'report',
+        'Pere oli enne patrulli saabumist koristama hakanud ja jälgi ei õnnestunud fikseerida. Alustati kriminaalmenetlust, kahtlustatavat ei ole.',
+        'The family had started tidying up before the patrol arrived and no traces could be recorded. Proceedings were opened with no suspect.',
+        { max: 0.4 },
+      ),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [T('Tere, me tulime puhkuselt ja meie korterisse on sisse murtud.', 'Hello, we came back from holiday and our flat has been broken into.')],
+      openingRu: ['Здравствуйте, мы вернулись из отпуска, а в квартиру залезли воры.'],
+      answers: {
+        when: [T('Ma ei tea, me olime nädal aega ära.', 'I do not know, we were away for a week.')],
+        suspect: [T('Kedagi pole näha, ammu läinud.', 'There is nobody around, long gone.')],
+      },
+    },
+  },
+  {
+    id: 'distraction_elderly',
+    title: T('Eaka korterist varastati kelmuse teel', 'Distraction theft from an elderly woman’s flat'),
+    persons: [
+      { role: 'victim', gender: 'F', age: [70, 92] },
+      { role: 'suspect', gender: 'F', age: [25, 50], record: 0.7, wanted: 0.1 },
+    ],
+    summary: [
+      T(
+        '{address}. Eakas naine teatab, et kaks võõrast naist palusid klaasi vett. Üks rääkis temaga köögis, teine võttis magamistoast raha.',
+        '{address}. An elderly woman reports two strange women asked for a glass of water. One talked to her in the kitchen while the other took money from the bedroom.',
+      ),
+      T(
+        '{address}. Veevärgitöötajateks esinenud naised käisid eaka korteris "torusid kontrollimas". Pärast nende lahkumist oli kapist kadunud u 900 € sularaha.',
+        '{address}. Women posing as water company workers came to "check the pipes" in an elderly woman’s flat. After they left about €900 in cash was missing from a cupboard.',
+      ),
+    ],
+    callerLines: [
+      T('Nad olid nii viisakad... üks küsis vett ja teine käis vahepeal tualetis. Nüüd on mu raha läinud.', 'They were so polite... one asked for water and the other went to the toilet in the meantime. Now my money is gone.'),
+      T('See oli mu matuseraha, ma hoidsin seda kapis.', 'That was my funeral money, I kept it in the wardrobe.'),
+    ],
+    details: [
+      T('Naised lahkusid umbes pool tundi tagasi.', 'The women left about half an hour ago.'),
+      T('Naabri sõnul nägi ta kaht naist kiirustamas maja eest minema.', 'A neighbour says she saw two women hurrying away from the building.'),
+    ],
+    beats: [
+      info('arrive', [T('{callsign}: eakas on segaduses, kapp on tühjaks tehtud. Saame naabrilt kirjelduse.', '{callsign}: the elderly woman is confused and the wardrobe has been emptied. Getting a description from a neighbour.')]),
+      search(4, 1.5, [T('{callsign}: kaks naist lahkusid jalgsi, kammime lähiümbruse läbi.', '{callsign}: two women left on foot, sweeping the immediate area.')], 0.5),
+      qPerson('suspect', 15, 0.3, [
+        T('Juhtimiskeskus, {callsign}. Bussipeatuses on kirjeldusele vastav naine. Palun kontrolli: {name}, isikukood {idcode}.', 'Control, {callsign}. A woman matching the description is at the bus stop. Please check: {name}, ID code {idcode}.'),
+      ]),
+    ],
+    outcomes: [
+      oc(
+        'caught',
+        1,
+        'arrest',
+        'Kirjeldusele vastav naine peeti bussipeatuses kinni, tema kotist leiti suur summa sularaha. Kriminaalmenetlus KarS § 199 järgi.',
+        'A woman matching the description was detained at the bus stop with a large sum of cash in her bag. Criminal proceedings under KarS § 199.',
+        { min: 0.7, arrests: 1 },
+      ),
+      oc(
+        'report',
+        3,
+        'report',
+        'Alustati kriminaalmenetlust, kirjeldus edastati ekipaažidele. Eakale anti ohvriabi kontaktid ja soovitati võõraid mitte sisse lasta.',
+        'Criminal proceedings were opened and the description passed to the units. The elderly woman was given victim support contacts and advised not to let strangers in.',
+        { min: 0.25 },
+      ),
+      oc(
+        'series',
+        2,
+        'report',
+        'Samad naised olid samal päeval käinud veel kahes eaka korteris. Juhtumid liideti, kahtlustatavad on tuvastamata.',
+        'The same women had visited two more elderly people’s flats that day. The cases were combined; the suspects have not been identified.',
+        { max: 0.45 },
+      ),
+    ],
+    call: {
+      mood: 'elderly',
+      opening: [T('Halloo... kaks naist käisid mu juures ja nüüd on mu raha kadunud.', 'Hello... two women came to see me and now my money is gone.')],
+      openingRu: ['Алло... ко мне приходили две женщины, и теперь мои деньги пропали.'],
+      answers: {
+        suspect: [T('Kaks noort naist, tumedad juuksed, üks oli pika mantliga.', 'Two young women with dark hair, one had a long coat.')],
+        direction: [T('Ma ei tea, kuhu nad läksid.', 'I do not know where they went.')],
+        when: [T('Vist pool tundi tagasi.', 'About half an hour ago, I think.')],
+        injured: [T('Ei, nad olid väga viisakad.', 'No, they were very polite.')],
+      },
+    },
+    tags: ['elderly', 'fraud'],
+  },
+  {
+    id: 'basement_storage',
+    title: T('Keldriboksi sissemurdmine', 'Basement storage unit broken into'),
+    summary: [
+      T(
+        '{address}. Kortermaja keldris on lõhutud mitme keldriboksi tabalukud, teataja boksist on kadunud kaks jalgratast ja suverehvid.',
+        '{address}. The padlocks of several storage units in a block of flats have been broken; two bicycles and a set of summer tyres are missing from the caller’s unit.',
+      ),
+      T(
+        '{address}. Teataja avastas, et tema keldriboksi uks on lahti kangutatud. Kadunud on jalgratas ja tööriistad.',
+        '{address}. The caller found the door of his basement storage unit prised open. A bicycle and tools are missing.',
+      ),
+    ],
+    callerLines: [
+      T('Kõik keldriboksid on lahti murtud, minu omast viidi kaks jalgratast.', 'All the storage units in the basement have been broken into and two bicycles were taken from mine.'),
+      T('Keldri välisuks ei lähe korralikult kinni, igaüks saab sisse.', 'The basement door does not shut properly, anyone can get in.'),
+    ],
+    details: [
+      T('Lõhutud on vähemalt viie boksi lukud.', 'The locks of at least five units have been broken.'),
+      T('Keldri välisuks ei sulgu korralikult.', 'The outer basement door does not close properly.'),
+    ],
+    beats: [
+      info('arrive', [T('{callsign}: keldris on lõhutud mitu tabalukku, fikseerime jäljed.', '{callsign}: several padlocks have been broken in the basement, recording the traces.')]),
+      info(10, [T('{callsign}: ühistu esimees lubas trepikoja kaamera salvestise saata.', '{callsign}: the housing association chair has promised to send the stairwell camera footage.')], 0.5),
+    ],
+    outcomes: [
+      oc('report', 3, 'report', 'Kriminaalmenetlus KarS § 199 lg 2 järgi, kahjustatud on viis keldriboksi. Ühistule soovitati keldriuks korda teha.', 'Criminal proceedings under KarS § 199(2); five storage units were damaged. The housing association was advised to fix the basement door.', { min: 0.3 }),
+      oc('bikes_found', 1, 'arrest', 'Jalgrattad leiti kuulutusportaalist müügilt ja müüja peeti kinni.', 'The bicycles were found for sale on a classifieds site and the seller was detained.', { min: 0.7, arrests: 1 }),
+      oc('no_camera', 2, 'report', 'Kaamerasalvestist ei olnud ja jälgi ei õnnestunud fikseerida. Alustati kriminaalmenetlust, kahtlustatavat ei ole.', 'There was no camera footage and no traces could be recorded. Proceedings were opened with no suspect.', { max: 0.4 }),
+    ],
+    call: {
+      mood: 'calm',
+      opening: [T('Tere, meie maja keldris on boksid lahti murtud ja mu jalgrattad on läinud.', 'Hello, the storage units in our basement have been broken into and my bicycles are gone.')],
+      openingRu: ['Здравствуйте, у нас в подвале взломали кладовки, мои велосипеды пропали.'],
+      answers: {
+        when: [T('Ei tea, ma käisin all viimati nädal tagasi.', 'I do not know, I was last down there a week ago.')],
+        suspect: [T('Kedagi ma ei näinud.', 'I did not see anyone.')],
+      },
+    },
+  },
+];
 
 export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
   // ───────────────────────────── legacy ─────────────────────────────
@@ -286,6 +804,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     expiresMin: 240,
     interactiveChance: 0.1,
     legacy: true,
+    scenarios: SC_FLAT_BURGLARY,
   },
   {
     id: 'property_elderly_home_intrusion',
@@ -827,6 +1346,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
       },
       openingRu: ['Здравствуйте, охрана магазина. Мы задержали вора, сидит у нас в комнате охраны.'],
     },
+    scenarios: SC_SHOPLIFTING,
   },
   {
     id: 'property_shoplifting_minor',
@@ -911,6 +1431,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     ],
     expiresMin: 240,
     interactiveChance: 0.08,
+    scenarios: SC_THEFT_FROM_CAR,
   },
   {
     id: 'property_catalytic_converter_theft',

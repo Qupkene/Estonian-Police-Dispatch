@@ -11,14 +11,16 @@ import { TEMPLATE_BY_ID, TEMPLATES } from '@/data/incidents';
 import { publishIncidentImpl } from './incidents';
 import { moveUnitToImpl } from './units';
 import { stripLawRefsText } from './radioText';
+import { withScenario } from './scenario';
 import type { GameEvent, Incident, IncidentTemplate, LngLat, RadioMsg, RegionDef, SimState, Text, TimelineEntry, Unit } from './types';
 
 export function regionOf(s: SimState): RegionDef {
   return REGIONS[s.regionId];
 }
 
+/** The incident's template, as its scenario tells it (see sim/scenario.ts). */
 export function tplOf(inc: Incident): IncidentTemplate | undefined {
-  return TEMPLATE_BY_ID[inc.templateId];
+  return withScenario(TEMPLATE_BY_ID[inc.templateId], inc.scenarioId);
 }
 
 export function templateById(id: string): IncidentTemplate | undefined {

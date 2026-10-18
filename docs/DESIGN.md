@@ -129,8 +129,16 @@ Difficulty factor (tuned for fun over realism): cadet 0.4, normal 0.65, veteran 
 Career shifts also multiply by the career `loadFactor` (§4.12). Callers wait `CALLER_PATIENCE`
 (1.4) times the template's expiry.
 Template choice weight = `template.weight × hourProfile(template.hours)[h] × weekendBoost ×
-season/month filter × region filter × place-availability`. Easter eggs (`easterEgg: true`) are
+season/month filter × region filter × place-availability × repetition`. Easter eggs (`easterEgg: true`) are
 scaled to about 4 % of events (never more than 7 %). `legacy: true` templates are normal content.
+Repetition (spawner.ts): a template among the shift's last 8 incidents × 0.08, each earlier telling
+in the shift ÷ (1 + 0.4 × count), and a third incident of the same category in a row × 0.3. The
+memory lives in `s.flags` (`recent:tpl`, `recent:cat`, `seen:scn`), so it survives autosave.
+Template scenarios (`IncidentTemplate.scenarios`, src/sim/scenario.ts): one coherent story per
+incident (who is involved, the trigger, the caller, what the patrol finds, the endings). One is
+picked at spawn and stored as `Incident.scenarioId` (a scenario already told this shift × 0.02);
+its fields replace the template's everywhere through `tplOf`, so the card, the 112 caller, the
+beats and the closing report tell the same story. `callerRole` names who calls (victim, suspect).
 
 Location: pick a place kind from `template.places`, then:
 * a curated `Place` of that kind in the region (preferred when available), else
