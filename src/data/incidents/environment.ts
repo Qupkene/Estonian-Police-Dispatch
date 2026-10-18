@@ -34,6 +34,10 @@ export const TEMPLATES_ENVIRONMENT: IncidentTemplate[] = [
       T('Meie jahipiirkonnas lasti just kaks korda, aga meie seltsil täna jahti pole.', 'Two shots were just fired in our hunting area, but our club has no hunt today.'),
       T('Nad sõidavad maasturiga mööda põllu äärt ja valgustavad loomi.', 'They’re driving an SUV along the field edge and lamping the animals.'),
     ],
+    callerLinesRu: [
+      'В нашем охотничьем угодье только что два раза выстрелили, а у нашего общества сегодня охоты нет.',
+      'Они ездят на джипе по краю поля и светят на зверей фарой.',
+    ],
     details: [
       T('Piirkond on looduskaitseala, jahipidamine on keelatud.', 'The area is a nature reserve; hunting is prohibited.'),
       T('Isikud on relvastatud. Läheneda ettevaatlikult.', 'The persons are armed. Approach with caution.'),
@@ -69,11 +73,20 @@ export const TEMPLATES_ENVIRONMENT: IncidentTemplate[] = [
     call: {
       mood: 'calm',
       opening: [T('Tere, jahiseltsi esimees. Meie metsas lastakse ilma loata.', 'Hello, I’m the hunting club chairman. Someone’s shooting in our forest without a permit.')],
+      openingRu: [
+        'Здравствуйте, я председатель охотничьего общества. У нас в лесу стреляют без разрешения.',
+      ],
       answers: {
         weapons: [T('Vintpüss kindlasti, võib-olla kaks.', 'A rifle for sure, maybe two.')],
         vehicle: [T('Tume maastur, number algas kolmega.', 'A dark SUV; the plate started with a three.')],
         count: [T('Vähemalt kaks, hääli oli kaks.', 'At least two; I heard two voices.')],
         where: [T('{address}, vana kruusakarjääri juures.', '{address}, by the old gravel pit.')],
+      },
+      answersRu: {
+        weapons: ['Карабин точно, может, два.'],
+        vehicle: ['Тёмный джип, номер начинался на тройку.'],
+        count: ['Минимум двое, голосов было два.'],
+        where: ['{address}, возле старого гравийного карьера.'],
       },
     },
     tags: ['armed'],
@@ -103,6 +116,10 @@ export const TEMPLATES_ENVIRONMENT: IncidentTemplate[] = [
     callerLines: [
       T('Kogu nädal on olnud põuane ja nüüd teevad nad metsas lõket!', 'It’s been dry all week and now they’re lighting a fire in the forest!'),
       T('Leegid on juba kõrged, keegi ei kustuta.', 'The flames are already high and nobody is putting them out.'),
+    ],
+    callerLinesRu: [
+      'Всю неделю была засуха, а теперь они в лесу костёр развели!',
+      'Пламя уже высокое, никто не тушит.',
     ],
     details: [T('Päästeamet on maakonnas välja kuulutanud tuleohtliku aja.', 'The Rescue Board has declared a fire-risk period in the county.')],
     beats: [
@@ -138,10 +155,16 @@ export const TEMPLATES_ENVIRONMENT: IncidentTemplate[] = [
     call: {
       mood: 'panic',
       opening: [T('Metsas põleb lõke, aga on tuleohtlik aeg! Leegid on kõrged!', 'There’s a campfire burning in the forest, but there’s a fire ban! The flames are high!')],
+      openingRu: ['В лесу горит костёр, а сейчас пожароопасный период! Пламя высокое!'],
       answers: {
         count: [T('Viis-kuus inimest, joovad õlut.', 'Five or six people, drinking beer.')],
         injured: [T('Ei, keegi pole viga saanud.', 'No, nobody’s hurt.')],
         intoxicated: [T('Kõik on purjus, laulavad.', 'They’re all drunk, singing.')],
+      },
+      answersRu: {
+        count: ['Человек пять-шесть, пьют пиво.'],
+        injured: ['Нет, никто не пострадал.'],
+        intoxicated: ['Все пьяные, песни поют.'],
       },
     },
     legacy: true,
@@ -212,6 +235,10 @@ export const TEMPLATES_ENVIRONMENT: IncidentTemplate[] = [
       T('Koer on juba nädal aega ketis, kõhn nagu luukere, ja täna ta peksis teda kepiga!', 'The dog has been on the chain for a week, thin as a skeleton, and today he beat it with a stick!'),
       T('Ma ei suuda enam seda kiunumist kuulata.', 'I can’t bear listening to that whimpering any more.'),
     ],
+    callerLinesRu: [
+      'Собака уже неделю на цепи, худая как скелет, а сегодня [он бил|она била] её палкой!',
+      'Я больше не могу слушать этот скулёж.',
+    ],
     details: [T('Loomakaitse järelevalve on Põllumajandus- ja Toiduameti (veterinaari) pädevuses.', 'Animal welfare supervision falls under the veterinary authority (Agriculture and Food Board).')],
     beats: [
       qPerson('suspect', 'arrive', 0.7),
@@ -234,10 +261,16 @@ export const TEMPLATES_ENVIRONMENT: IncidentTemplate[] = [
     call: {
       mood: 'angry',
       opening: [T('Ma olen juba kolm korda helistanud! Naaber piinab oma koera!', 'I’ve called three times already! My neighbour is torturing his dog!')],
+      openingRu: ['Я уже третий раз звоню! Сосед мучает свою собаку!'],
       answers: {
         what: [T('Koer on ketis, toitu ei saa, ja täna ta lõi teda.', 'The dog is chained up, gets no food, and today he hit it.')],
         intoxicated: [T('Ta on alati purjus, ka praegu.', 'He’s always drunk, now too.')],
         weapons: [T('Kepp oli tal käes.', 'He had a stick.')],
+      },
+      answersRu: {
+        what: ['Собака на цепи, есть ей не дают, а сегодня [он её ударил|она её ударила].'],
+        intoxicated: ['[Он всегда пьяный|Она всегда пьяная], и сейчас тоже.'],
+        weapons: ['У [него|неё] в руке была палка.'],
       },
     },
     legacy: true,
@@ -358,6 +391,10 @@ export const TEMPLATES_ENVIRONMENT: IncidentTemplate[] = [
       T('Meie hoovis on põder! Päris suur, sarvedeta.', 'There’s an elk in our yard! Quite big, no antlers.'),
       T('Ta jooksis just üle tee, autod pidid järsult pidurdama.', 'It just ran across the road; cars had to brake hard.'),
     ],
+    callerLinesRu: [
+      'У нас во дворе лось! Довольно большой, без рогов.',
+      'Он только что перебежал дорогу, машинам пришлось резко тормозить.',
+    ],
     details: [T('Hirmunud põder võib olla ohtlik, inimesi tuleb hoida eemal.', 'A frightened elk can be dangerous; people must be kept away.')],
     beats: [
       choice(
@@ -382,10 +419,16 @@ export const TEMPLATES_ENVIRONMENT: IncidentTemplate[] = [
     call: {
       mood: 'calm',
       opening: [T('Tere, meie hoovis on põder. Kuidas peaks käituma?', 'Hello, there’s an elk in our yard. What should we do?')],
+      openingRu: ['Здравствуйте, у нас во дворе лось. Что нам делать?'],
       answers: {
         where: [T('{address}, prügikastide juures.', '{address}, by the bins.')],
         injured: [T('Põder lonkab natuke, inimesed on korras.', 'The elk is limping a bit; people are fine.')],
         children: [T('Jah, lapsed lähevad praegu kooli, nad seisavad ja vaatavad.', 'Yes, kids are going to school right now; they’re standing and watching.')],
+      },
+      answersRu: {
+        where: ['{address}, возле мусорных баков.'],
+        injured: ['Лось немного хромает, люди в порядке.'],
+        children: ['Да, дети как раз идут в школу, стоят и смотрят.'],
       },
     },
   },
@@ -451,6 +494,10 @@ export const TEMPLATES_ENVIRONMENT: IncidentTemplate[] = [
       T('Jääl on mehed võrkudega, see on keelatud! Neil on ATV.', 'There are men with nets on the ice; that’s forbidden! They have a quad.'),
       T('Juba nädal aega veavad nad kotitäite kaupa koha minema.', 'For a week now they’ve been hauling off sacks full of pikeperch.'),
     ],
+    callerLinesRu: [
+      'На льду мужики с сетями, это запрещено! У них квадроцикл.',
+      'Уже неделю они мешками увозят судака.',
+    ],
     details: [T('Jää paksus on muutlik, jääle minek on ohtlik.', 'Ice thickness varies; going out on the ice is dangerous.')],
     beats: [
       qVehicle(5, 0.6, [
@@ -472,6 +519,10 @@ export const TEMPLATES_ENVIRONMENT: IncidentTemplate[] = [
       answers: {
         count: [T('Kolm meest, üks ATV.', 'Three men, one quad.')],
         where: [T('Kilomeeter kaldast, sadama kohal.', 'A kilometre from the shore, off the harbour.')],
+      },
+      answersRu: {
+        count: ['Трое мужчин, один квадроцикл.'],
+        where: ['Километр от берега, напротив гавани.'],
       },
       openingRu: ['Здравствуйте. Тут на Чудском опять ставят сети, хотя запрещено. Трое мужчин с квадроциклом.'],
     },

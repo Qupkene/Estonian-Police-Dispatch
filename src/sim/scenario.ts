@@ -35,6 +35,9 @@ export function withScenario(tpl: IncidentTemplate | undefined, scenarioId: stri
     out = { ...tpl };
     for (const [k, v] of Object.entries(fields)) if (v !== undefined) (out as unknown as Record<string, unknown>)[k] = v;
     if (tags?.length) out.tags = [...new Set([...(tpl.tags ?? []), ...tags])];
+    // Russian lines belong to the Estonian lines they translate: new callerLines without their own
+    // Russian lines do not keep the template's.
+    if (fields.callerLines && !fields.callerLinesRu) delete out.callerLinesRu;
     // The story is told: the result is a plain template of its own.
     delete out.scenarios;
     cache.set(sc.id, out);

@@ -93,6 +93,10 @@ const SC_SHOPLIFTING: IncidentScenario[] = [
       T('Meil on üks vanahärra kinni, võttis võid ja vorsti. Ta nutab, mul on temast kahju, aga reeglid on reeglid.', 'We have an old gentleman detained, he took butter and sausage. He is crying and I feel sorry for him, but rules are rules.'),
       T('Ta ütleb, et raha on otsas ja ta pole kaks päeva söönud.', 'He says his money has run out and he has not eaten for two days.'),
     ],
+    callerLinesRu: [
+      'У нас задержан пожилой мужчина, взял масло и колбасу. Он плачет, мне его жалко, но правила есть правила.',
+      'Он говорит, что деньги закончились и он два дня не ел.',
+    ],
     details: [
       T('Kauba väärtus umbes 8 eurot.', 'The goods are worth about 8 euros.'),
       T('Kinnipeetu on eakas, varasemaid rikkumisi pole teada.', 'The detained person is elderly with no known previous offences.'),
@@ -153,6 +157,12 @@ const SC_SHOPLIFTING: IncidentScenario[] = [
         weapons: [T('Ei, mingit relva ei ole.', 'No, no weapon.')],
         safe: [T('Jah, kõik on rahulik, ta istub meie juures.', 'Yes, everything is calm, he is sitting with us.')],
       },
+      answersRu: {
+        what: ['Масло и колбаса, всего евро на восемь.'],
+        intoxicated: ['Нет, он трезвый.'],
+        weapons: ['Нет, никакого оружия.'],
+        safe: ['Да, всё спокойно, он сидит у нас.'],
+      },
     },
     tags: ['elderly'],
   },
@@ -176,6 +186,10 @@ const SC_SHOPLIFTING: IncidentScenario[] = [
     callerLines: [
       T('Meil on kaks last kinni, energiajoogid ja kommid koti põhjas. Nad ei taha oma vanemate numbrit anda.', 'We have two kids detained with energy drinks and sweets at the bottom of a bag. They do not want to give their parents’ numbers.'),
       T('Nad on päris noored veel, ma ei taha neid ise siin kauem hoida.', 'They are still quite young, I do not want to keep them here myself any longer.'),
+    ],
+    callerLinesRu: [
+      'У нас двое детей задержаны, энергетики и конфеты на дне сумки. Телефоны родителей давать не хотят.',
+      'Они ещё совсем маленькие, я не хочу их тут сам{|а} дольше держать.',
     ],
     details: [
       T('Kinnipeetud on kaks alaealist.', 'Two minors are being held.'),
@@ -203,6 +217,12 @@ const SC_SHOPLIFTING: IncidentScenario[] = [
         children: [T('Nad ise ongi lapsed.', 'They are children themselves.')],
         weapons: [T('Ei, mingit relva ei ole.', 'No, no weapon.')],
         intoxicated: [T('Ei, kained.', 'No, sober.')],
+      },
+      answersRu: {
+        count: ['Двое подростков, лет четырнадцати.'],
+        children: ['Они сами ещё дети.'],
+        weapons: ['Нет, никакого оружия.'],
+        intoxicated: ['Нет, трезвые.'],
       },
     },
     tags: ['youth'],
@@ -261,6 +281,10 @@ const SC_THEFT_FROM_CAR: IncidentScenario[] = [
       T('Ma käivitasin auto ja see möirgas nagu traktor. Auto all on lihtsalt auk.', 'I started the car and it roared like a tractor. There is just a hole underneath.'),
       T('Naaber ütleb, et kuulis öösel saagimist, aga arvas, et keegi teeb remonti.', 'My neighbour says she heard sawing in the night but thought someone was doing repairs.'),
     ],
+    callerLinesRu: [
+      'Я {завёл|завела} машину, а она ревёт как трактор. Под машиной просто дыра.',
+      'Соседка говорит, что ночью слышала, как пилят, но думала, что кто-то ремонт делает.',
+    ],
     details: [T('Sõiduki alt on välja saetud katalüsaator.', 'The catalytic converter has been cut off from under the car.'), T('Sõiduk: {car}, reg nr {plate}.', 'Vehicle: {car}, plate {plate}.')],
     beats: [
       info('arrive', [T('{callsign}: katalüsaator on ära saetud, maas metallilaastud. Fikseerime jäljed.', '{callsign}: the catalytic converter has been sawn off with metal shavings on the ground. Recording the traces.')]),
@@ -294,6 +318,11 @@ const SC_THEFT_FROM_CAR: IncidentScenario[] = [
         vehicle: [T('Minu auto on {car}, number {plate}.', 'My car is a {car}, plate {plate}.')],
         suspect: [T('Ma ei näinud kedagi. Naaber kuulis öösel saagimist.', 'I did not see anyone. My neighbour heard sawing in the night.')],
       },
+      answersRu: {
+        when: ['Ночью, я утром {заметил|заметила}, когда {завёл|завела} машину.'],
+        vehicle: ['Моя машина: {car}, номер {plate}.'],
+        suspect: ['Я никого не {видел|видела}. Сосед ночью слышал, как что-то пилили.'],
+      },
     },
   },
   {
@@ -312,6 +341,10 @@ const SC_THEFT_FROM_CAR: IncidentScenario[] = [
     callerLines: [
       T('Ma unustasin auto lukku panna ja rahakott on läinud. Pank saatis just teate, et keegi maksis mu kaardiga!', 'I forgot to lock the car and my wallet is gone. The bank just sent me a message that someone paid with my card!'),
       T('Ostud tehti siinsamas kioskis, viis minutit tagasi.', 'The purchases were made at the kiosk right here, five minutes ago.'),
+    ],
+    callerLinesRu: [
+      'Я {забыл|забыла} закрыть машину, и кошелёк пропал. Банк только что прислал сообщение, что кто-то заплатил моей картой!',
+      'Покупки сделали прямо тут, в киоске, пять минут назад.',
     ],
     details: [T('Kaarti kasutati lähedal asuvas kioskis.', 'The card was used at a nearby kiosk.'), T('Sõiduk: {car}, reg nr {plate}.', 'Vehicle: {car}, plate {plate}.')],
     beats: [
@@ -332,6 +365,10 @@ const SC_THEFT_FROM_CAR: IncidentScenario[] = [
       answers: {
         when: [T('Umbes veerand tundi tagasi.', 'About a quarter of an hour ago.')],
         suspect: [T('Ma ei näinud teda. Kioskis peaks kaamera olema.', 'I did not see him. There should be a camera at the kiosk.')],
+      },
+      answersRu: {
+        when: ['Минут пятнадцать назад.'],
+        suspect: ['Я его не {видел|видела}. У киоска должна быть камера.'],
       },
     },
   },
@@ -377,6 +414,10 @@ const SC_FLAT_BURGLARY: IncidentScenario[] = [
       T('Me olime nädal aega Kreekas ja nüüd on kõik segamini. Rõduuks on lahti murtud.', 'We were in Greece for a week and now everything is turned upside down. The balcony door has been forced.'),
       T('Teler on läinud, ehtekarp on tühi. Ma ei tea, millal see juhtus.', 'The television is gone and the jewellery box is empty. I do not know when it happened.'),
     ],
+    callerLinesRu: [
+      'Мы неделю были в Греции, а теперь всё перевёрнуто. Балконную дверь взломали.',
+      'Телевизора нет, шкатулка с украшениями пустая. Не знаю, когда это случилось.',
+    ],
     details: [
       T('Sissetung toimus rõdu kaudu, rõduuks on kangutatud.', 'Entry was via the balcony; the balcony door was prised open.'),
       T('Omanikud olid nädal aega ära, sissemurdmise aeg on teadmata.', 'The owners were away for a week; the time of the burglary is unknown.'),
@@ -408,6 +449,10 @@ const SC_FLAT_BURGLARY: IncidentScenario[] = [
         when: [T('Ma ei tea, me olime nädal aega ära.', 'I do not know, we were away for a week.')],
         suspect: [T('Kedagi pole näha, ammu läinud.', 'There is nobody around, long gone.')],
       },
+      answersRu: {
+        when: ['Не знаю, нас неделю не было.'],
+        suspect: ['Никого не видно, давно ушли.'],
+      },
     },
   },
   {
@@ -430,6 +475,10 @@ const SC_FLAT_BURGLARY: IncidentScenario[] = [
     callerLines: [
       T('Nad olid nii viisakad... üks küsis vett ja teine käis vahepeal tualetis. Nüüd on mu raha läinud.', 'They were so polite... one asked for water and the other went to the toilet in the meantime. Now my money is gone.'),
       T('See oli mu matuseraha, ma hoidsin seda kapis.', 'That was my funeral money, I kept it in the wardrobe.'),
+    ],
+    callerLinesRu: [
+      'Они были такие вежливые... одна попросила воды, а другая в это время сходила в туалет. А теперь денег нет.',
+      'Это были мои похоронные, я их в шкафу {держал|держала}.',
     ],
     details: [
       T('Naised lahkusid umbes pool tundi tagasi.', 'The women left about half an hour ago.'),
@@ -478,6 +527,12 @@ const SC_FLAT_BURGLARY: IncidentScenario[] = [
         when: [T('Vist pool tundi tagasi.', 'About half an hour ago, I think.')],
         injured: [T('Ei, nad olid väga viisakad.', 'No, they were very polite.')],
       },
+      answersRu: {
+        suspect: ['Две молодые женщины, тёмные волосы, одна в длинном пальто.'],
+        direction: ['Не знаю, куда они пошли.'],
+        when: ['Кажется, полчаса назад.'],
+        injured: ['Нет, они были очень вежливые.'],
+      },
     },
     tags: ['elderly', 'fraud'],
   },
@@ -497,6 +552,10 @@ const SC_FLAT_BURGLARY: IncidentScenario[] = [
     callerLines: [
       T('Kõik keldriboksid on lahti murtud, minu omast viidi kaks jalgratast.', 'All the storage units in the basement have been broken into and two bicycles were taken from mine.'),
       T('Keldri välisuks ei lähe korralikult kinni, igaüks saab sisse.', 'The basement door does not shut properly, anyone can get in.'),
+    ],
+    callerLinesRu: [
+      'Все кладовки в подвале взломаны, из моей забрали два велосипеда.',
+      'Входная дверь в подвал толком не закрывается, кто угодно может зайти.',
     ],
     details: [
       T('Lõhutud on vähemalt viie boksi lukud.', 'The locks of at least five units have been broken.'),
@@ -518,6 +577,10 @@ const SC_FLAT_BURGLARY: IncidentScenario[] = [
       answers: {
         when: [T('Ei tea, ma käisin all viimati nädal tagasi.', 'I do not know, I was last down there a week ago.')],
         suspect: [T('Kedagi ma ei näinud.', 'I did not see anyone.')],
+      },
+      answersRu: {
+        when: ['Не знаю, я последний раз {спускался|спускалась} неделю назад.'],
+        suspect: ['Я никого не {видел|видела}.'],
       },
     },
   },
@@ -618,11 +681,21 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
         T('(sosinal) Häirekeskus? Pangas on relvastatud mehed… ma ei saa valjult rääkida.', '(whispering) Emergency? There are armed men in the bank… I can’t speak loudly.'),
         T('(väriseva häälega) Siin on röövimine, nad ähvardavad relvadega!', '(shaking voice) There’s a robbery here, they’re threatening us with guns!'),
       ],
+      openingRu: [
+        '(шёпотом) Алло? В банке вооружённые люди... я не могу громко говорить.',
+        '(дрожащим голосом) Тут ограбление, они угрожают оружием!',
+      ],
       answers: {
         count: [T('Neli… ma näen nelja. Üks on ukse juures.', 'Four… I can see four. One is by the door.')],
         weapons: [T('Püstolid. Ühel on midagi pikemat, nagu jahipüss.', 'Pistols. One has something longer, like a hunting rifle.')],
         injured: [T('Ma ei tea… üks klient kukkus, aga tundub, et keegi pole lastud.', 'I don’t know… one customer fell over, but it seems nobody has been shot.')],
         suspect: [T('Mustad maskid, tumedad riided, kindad. Räägivad vähe.', 'Black masks, dark clothes, gloves. They don’t say much.')],
+      },
+      answersRu: {
+        count: ['Четверо... я вижу четверых. Один у двери.'],
+        weapons: ['Пистолеты. У одного что-то длинное, как охотничье ружьё.'],
+        injured: ['Не знаю... один клиент упал, но вроде никого не подстрелили.'],
+        suspect: ['Чёрные маски, тёмная одежда, перчатки. Говорят мало.'],
       },
     },
     tags: ['armed', 'in_progress', 'vehicle_flee'],
@@ -699,7 +772,16 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
         suspect: [T('{suspect}. Näo ees oli must sall.', '{suspect}. He had a black scarf over his face.')],
         injured: [T('Ei, mulle ta haiget ei teinud. Mu käed värisevad.', 'No, he didn’t hurt me. My hands are shaking.')],
       },
-      openingRu: ['Меня ограбили! Мужчина с пистолетом забрал деньги из кассы!'],
+      answersRu: {
+        weapons: ['Чёрный пистолет, он держал его прямо у моего лица.'],
+        direction: ['Он выбежал и побежал направо, {direction}.'],
+        suspect: ['{suspect}. На лице чёрный шарф.'],
+        injured: ['Нет, мне он ничего не сделал. Руки трясутся.'],
+      },
+      openingRu: [
+        'Меня ограбили! Мужчина с пистолетом забрал деньги из кассы!',
+        'Помогите, в магазине мужчина с пистолетом!',
+      ],
     },
     tags: ['armed', 'in_progress'],
     legacy: true,
@@ -858,11 +940,21 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
         T('Tere… kas see on politsei? Mul on öösel keegi majas käinud.', 'Hello… is this the police? Someone has been in my house during the night.'),
         T('Kullake, ma ei tea, kellele helistada… mu kapid on kõik lahti.', 'Dear, I don’t know who to call… all my cupboards are open.'),
       ],
+      openingRu: [
+        'Алло... это полиция? Ночью у меня в доме кто-то был.',
+        'Деточка, я не знаю, кому звонить... у меня все шкафы открыты.',
+      ],
       answers: {
         where: [T('{address}. Ma elan siin üksi, maja on tee ääres.', '{address}. I live here alone, the house is by the road.')],
         when: [T('Öösel, kella kolme paiku kuulsin kolinat, aga ma ei julgenud voodist tõusta.', 'In the night, around three o’clock I heard noises, but I didn’t dare get out of bed.')],
         safe: [T('Praegu on vaikne. Ma panin ukse riivi.', 'It’s quiet now. I’ve bolted the door.')],
         injured: [T('Ei, mulle ei tehtud midagi. Süda klopib ainult.', 'No, nobody hurt me. My heart is just pounding.')],
+      },
+      answersRu: {
+        where: ['{address}. Я тут одна живу, дом у дороги.'],
+        when: ['Ночью, часа в три я слышала грохот, но побоялась встать с кровати.'],
+        safe: ['Сейчас тихо. Я дверь на засов закрыла.'],
+        injured: ['Нет, мне ничего не сделали. Только сердце колотится.'],
       },
     },
     legacy: true,
@@ -1344,7 +1436,16 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
         weapons: [T('Relvi pole, kontrollisime koti üle.', 'No weapons, we checked the bag.')],
         safe: [T('Jah, ta istub turvaruumis, kaks töötajat on juures.', 'Yes, he’s sitting in the security room with two staff.')],
       },
-      openingRu: ['Здравствуйте, охрана магазина. Мы задержали вора, сидит у нас в комнате охраны.'],
+      answersRu: {
+        what: ['[Положил|Положила] две бутылки коньяка в сумку и [прошёл|прошла] мимо касс.'],
+        intoxicated: ['[Немного выпивший|Немного выпившая], но на ногах держится.'],
+        weapons: ['Оружия нет, сумку мы проверили.'],
+        safe: ['Да, [он сидит|она сидит] в комнате охраны, с [ним|ней] двое сотрудников.'],
+      },
+      openingRu: [
+        'Здравствуйте, охрана магазина. Мы задержали вора, сидит у нас в комнате охраны.',
+        'Здравствуйте, звоню из охраны магазина. Задержали мужчину, который пытался вынести алкоголь не заплатив.',
+      ],
     },
     scenarios: SC_SHOPLIFTING,
   },
@@ -1457,6 +1558,10 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
       T('Keegi saeb all parklas, sädemed lendavad auto alt! Kell on kolm öösel!', 'Someone’s sawing down in the car park, sparks flying from under a car! It’s three in the morning!'),
       T('Juba kolmas kord sel kuul, hommikul mürisevad naabrite autod nagu traktorid.', 'Third time this month; in the morning the neighbours’ cars roar like tractors.'),
     ],
+    callerLinesRu: [
+      'Кто-то пилит внизу на парковке, из-под машины искры летят! Три часа ночи!',
+      'Уже третий раз за месяц, по утрам машины соседей ревут как трактора.',
+    ],
     details: [T('Varguse sihtmärgiks on tavaliselt hübriidautod, katalüsaatoris on väärismetalle.', 'Hybrid cars are the usual target; converters contain precious metals.')],
     beats: [
       qVehicle('arrive', 0.8, [
@@ -1478,10 +1583,16 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
       opening: [
         T('(vaikselt) Parklas lõigatakse autode alt midagi ära, ma vaatan aknast.', '(quietly) They’re cutting something off from under the cars in the car park, I’m watching from my window.'),
       ],
+      openingRu: ['(тихо) На парковке что-то срезают из-под машин, я смотрю из окна.'],
       answers: {
         count: [T('Kaks meest, üks on auto all, teine valvab.', 'Two men, one under the car, the other keeping watch.')],
         vehicle: [T('Hall kaubik, number {plate}, tuled kustus.', 'A grey van, plate {plate}, lights off.')],
         weapons: [T('Ainult see saag… ma ei tea.', 'Just that saw… I don’t know.')],
+      },
+      answersRu: {
+        count: ['Двое мужчин, один под машиной, второй на стрёме.'],
+        vehicle: ['Серый бус, номер {plate}, фары выключены.'],
+        weapons: ['Только эта пила... не знаю.'],
       },
     },
     tags: ['in_progress', 'vehicle_flee'],
@@ -1510,6 +1621,10 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
       T('Üks auto tankis täis ja sõitis lihtsalt minema. Number on kaameras olemas.', 'A car filled up and just drove away. We have the plate on camera.'),
       T('Juba teine kord sel nädalal! Sama auto, ma olen kindel.', 'Second time this week! The same car, I’m sure of it.'),
     ],
+    callerLinesRu: [
+      'Одна машина заправилась полностью и просто уехала. Номер есть на камере.',
+      'Уже второй раз за неделю! Та же самая машина, я уверен{|а}.',
+    ],
     details: [T('Kaamerapildil on näha, et numbrimärk võib olla teiselt sõidukilt.', 'The footage suggests the plate may belong to another vehicle.')],
     beats: [
       qVehicle('arrive', 1, [
@@ -1531,10 +1646,16 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     call: {
       mood: 'calm',
       opening: [T('Tere, tanklast helistan. Üks klient tankis ja lahkus maksmata.', 'Hello, I’m calling from the petrol station. A customer filled up and left without paying.')],
+      openingRu: ['Здравствуйте, звоню с заправки. Клиент заправился и уехал, не заплатив.'],
       answers: {
         vehicle: [T('{car}, number {plate}.', '{car}, plate {plate}.')],
         direction: [T('Sõitis {direction}.', 'It drove off {direction}.')],
         when: [T('Kümme minutit tagasi, kell {time}.', 'Ten minutes ago, at {time}.')],
+      },
+      answersRu: {
+        vehicle: ['{car}, номер {plate}.'],
+        direction: ['Машина уехала {direction}.'],
+        when: ['Десять минут назад, в {time}.'],
       },
     },
     tags: ['vehicle_flee', 'anpr'],
@@ -1640,11 +1761,21 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
         T('(sosinal) Naabri ust murtakse lahti, ma kuulen puuri.', '(whispering) Someone’s breaking the neighbour’s door, I can hear a drill.'),
         T('Palun tulge, nad on juba sees!', 'Please come, they’re already inside!'),
       ],
+      openingRu: [
+        '(шёпотом) У соседей взламывают дверь, я слышу дрель.',
+        'Пожалуйста, приезжайте, они уже внутри!',
+      ],
       answers: {
         count: [T('Kaks. Üks on sees, teine trepil.', 'Two. One inside, the other on the stairs.')],
         suspect: [T('{suspect}. Teisel on must müts.', '{suspect}. The other has a black beanie.')],
         vehicle: [T('All on {car}, mootor töötab.', 'There’s a {car} downstairs with the engine running.')],
         safe: [T('Ma olen oma korteris, uks on lukus.', 'I’m in my own flat, the door is locked.')],
+      },
+      answersRu: {
+        count: ['Двое. Один внутри, другой на лестнице.'],
+        suspect: ['{suspect}. На втором чёрная шапка.'],
+        vehicle: ['Внизу стоит {car}, мотор работает.'],
+        safe: ['Я у себя в квартире, дверь закрыта.'],
       },
     },
     tags: ['in_progress'],
@@ -1808,11 +1939,21 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
         T('Mind just rööviti! Ta võttis mu telefoni!', 'I’ve just been robbed! He took my phone!'),
         T('Appi, kaks meest peksid mu sõpra ja võtsid ta telefoni!', 'Help, two men beat up my friend and took his phone!'),
       ],
+      openingRu: [
+        'Меня только что ограбили! Он забрал мой телефон!',
+        'Помогите, двое мужиков избили моего друга и забрали у него телефон!',
+      ],
       answers: {
         direction: [T('Nad jooksid {direction}.', 'They ran {direction}.')],
         suspect: [T('{suspect}. Valged tossud.', '{suspect}. White trainers.')],
         injured: [T('Huul jookseb verd, aga muidu on okei.', 'My lip is bleeding, but otherwise I’m okay.')],
         weapons: [T('Ma ei näinud relva, ta lihtsalt lõi rusikaga.', 'I didn’t see a weapon, he just punched me.')],
+      },
+      answersRu: {
+        direction: ['Они убежали {direction}.'],
+        suspect: ['{suspect}. Белые кроссовки.'],
+        injured: ['Губа в крови, а так нормально.'],
+        weapons: ['Оружия я не {видел|видела}, он просто ударил кулаком.'],
       },
     },
     tags: ['in_progress'],

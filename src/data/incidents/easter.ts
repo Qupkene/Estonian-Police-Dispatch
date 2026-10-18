@@ -53,10 +53,19 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
         T('Tere… see võib kõlada imelikult, aga meie metsas on draakon.', 'Hello… this may sound strange, but there’s a dragon in our forest.'),
         T('Ma ei ole joonud, ausalt! Metsast tuleb tuld ja möirgamist!', 'I haven’t been drinking, honestly! Fire and roaring are coming from the forest!'),
       ],
+      openingRu: [
+        'Здравствуйте... это может прозвучать странно, но у нас в лесу дракон.',
+        'Я не {пил|пила}, честное слово! Из леса огонь и рёв!',
+      ],
       answers: {
         what: [T('Tulejuga käib üles, siis selline „ffffuuuh“ hääl. Nagu filmis.', 'A jet of fire shoots up, then a sound like “ffffwoooh”. Like in a film.')],
         count: [T('Üks draakon. Võib-olla kaks. Ma ei läinud lähemale.', 'One dragon. Maybe two. I didn’t go closer.')],
         weapons: [T('Kas tuli loeb relvaks?', 'Does fire count as a weapon?')],
+      },
+      answersRu: {
+        what: ['Вверх бьёт струя огня, потом такой звук: «фффууух». Как в кино.'],
+        count: ['Один дракон. Может, два. Я ближе не {подходил|подходила}.'],
+        weapons: ['Огонь считается оружием?'],
       },
     },
     easterEgg: true,
@@ -82,6 +91,10 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
       T('Taevast kukkus midagi vilkuvat ja nüüd see piiksub põllul!', 'Something blinking fell from the sky and now it’s beeping in the field!'),
       T('Seal on mingi karp antenniga. Kas ma tohin seda puutuda?', 'There’s some kind of box with an antenna. Am I allowed to touch it?'),
     ],
+    callerLinesRu: [
+      'С неба упало что-то мигающее, и теперь оно пищит на поле!',
+      'Там какая-то коробка с антенной. Мне можно её трогать?',
+    ],
     details: [T('Objektil on kiri „Harmless weather instrument“.', 'The object is labelled “Harmless weather instrument”.')],
     beats: [
       info('arrive', [T('{callsign}: leidsime objekti. Karbil on kiri „ilmavaatlusseade, ohutu“ ja telefoninumber.', '{callsign}: we found the object. The box says “weather observation device, harmless” and has a phone number.')]),
@@ -98,9 +111,14 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
     call: {
       mood: 'panic',
       opening: [T('Mul on põllul UFO! Päriselt! See piiksub!', 'There’s a UFO in my field! For real! It’s beeping!')],
+      openingRu: ['У меня на поле НЛО! Правда! Оно пищит!'],
       answers: {
         injured: [T('Ei, aga lehm vaatab seda väga kahtlaselt.', 'No, but the cow is looking at it very suspiciously.')],
         count: [T('Üks. Rohelisi mehikesi ma ei näe.', 'One. I can’t see any little green men.')],
+      },
+      answersRu: {
+        injured: ['Нет, но корова смотрит на него очень подозрительно.'],
+        count: ['Одно. Зелёных человечков не вижу.'],
       },
     },
     easterEgg: true,
@@ -127,6 +145,10 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
       T('Suur kera tuli taevast alla, susiseb ja hõõgub! Inimesed tulid välja!', 'A big sphere came down from the sky, hissing and glowing! People came out!'),
       T('Mu lehmad on täiesti endast väljas. Mina ka.', 'My cows are completely beside themselves. So am I.'),
     ],
+    callerLinesRu: [
+      'С неба спустился большой шар, шипит и светится! Из него вышли люди!',
+      'Мои коровы совсем с ума сошли. И я тоже.',
+    ],
     details: [T('Lähedal toimub õhupallifestival.', 'A hot-air balloon festival is taking place nearby.')],
     beats: [
       info('arrive', [T('{callsign}: kohal. „Kosmoselaev“ on kuumaõhupall, piloot ja kolm reisijat on terved.', '{callsign}: on scene. The “spaceship” is a hot-air balloon; the pilot and three passengers are fine.')]),
@@ -150,9 +172,16 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
     call: {
       mood: 'elderly',
       opening: [T('Kuulge, ma olen siin seitsekümmend aastat elanud, aga sellist asja pole näinud. Tulnukad maandusid mu heinamaale!', 'Listen, I’ve lived here seventy years and I’ve never seen anything like it. Aliens have landed in my hayfield!')],
+      openingRu: [
+        'Слушайте, я тут семьдесят лет живу, но такого не видел. Инопланетяне сели у меня на сенокосе!',
+      ],
       answers: {
         count: [T('Neli tükki. Üks lehvitas mulle.', 'Four of them. One waved at me.')],
         weapons: [T('Ühel oli pudel käes. Vist mingi kosmosejook.', 'One had a bottle in his hand. Some kind of space drink, I think.')],
+      },
+      answersRu: {
+        count: ['Четыре штуки. Один мне помахал.'],
+        weapons: ['У одного в руке была бутылка. Наверное, какой-то космический напиток.'],
       },
     },
     easterEgg: true,
@@ -179,6 +208,10 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
       T('Meie kiisu on puu otsas ja ei julge alla tulla! Palun aidake!', 'Our kitty is up a tree and too scared to come down! Please help!'),
       T('Me proovisime vorstiga meelitada, aga ta ainult näugub.', 'We tried tempting it with sausage, but it just mews.'),
     ],
+    callerLinesRu: [
+      'Наша кошечка на дереве и боится слезть! Пожалуйста, помогите!',
+      'Мы пробовали приманить её колбасой, а она только мяукает.',
+    ],
     details: [T('Loomade päästmine kõrgustest on Päästeameti pädevuses.', 'Rescuing animals from heights is the Rescue Board’s responsibility.')],
     beats: [
       info('arrive', [T('{callsign}: kassipoeg on u 6 m kõrgusel. Redelit meil pole.', '{callsign}: the kitten is about 6 m up. We don’t have a ladder.')]),
@@ -194,10 +227,18 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
     call: {
       mood: 'child',
       opening: [T('Tere… meie kiisu Miisu on puu otsas ja nutab. Kas politsei saab teda päästa?', 'Hello… our kitty Miisu is up a tree and crying. Can the police save her?')],
+      openingRu: [
+        'Здравствуйте... наша кошечка Мийсу сидит на дереве и плачет. Полиция может её спасти?',
+      ],
       answers: {
         where: [T('Meie hoovis, suure kase otsas. {address}.', 'In our yard, up the big birch. {address}.')],
         injured: [T('Ei tea… ta näeb välja kurb.', 'I don’t know… she looks sad.')],
         name: [T('Mina olen Mia, seitse aastat vana.', 'I’m Mia, seven years old.')],
+      },
+      answersRu: {
+        where: ['У нас во дворе, на большой берёзе. {address}.'],
+        injured: ['Не знаю... она грустная.'],
+        name: ['Я Мия, мне семь лет.'],
       },
     },
     easterEgg: true,
@@ -298,6 +339,10 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
       T('Siin on kana keset teed! Ta lihtsalt seisab ja vaatab autosid!', 'There’s a chicken in the middle of the road! It’s just standing there looking at the cars!'),
       T('Ma ei tea, miks ta üle tee tahab minna, aga tal on kindel plaan.', 'I don’t know why it wants to cross the road, but it has a firm plan.'),
     ],
+    callerLinesRu: [
+      'Тут курица посреди дороги! Просто стоит и смотрит на машины!',
+      'Не знаю, зачем ей на ту сторону, но у неё твёрдый план.',
+    ],
     details: [T('Lähedal asuva talu aed on katki.', 'The fence of a nearby farm is broken.')],
     beats: [
       info('arrive', [T('{callsign}: kohal. Kana on teel. Kana vaatab meid.', '{callsign}: on scene. The chicken is on the road. The chicken is looking at us.')]),
@@ -312,9 +357,14 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
     call: {
       mood: 'calm',
       opening: [T('Tere. Ma tean, et see kõlab nagu anekdoot, aga kana ületab maanteed.', 'Hello. I know this sounds like a joke, but a chicken is crossing the highway.')],
+      openingRu: ['Здравствуйте. Знаю, звучит как анекдот, но курица переходит трассу.'],
       answers: {
         count: [T('Üks kana. Kukk vaatab kraavist.', 'One chicken. A rooster is watching from the ditch.')],
         direction: [T('Ta liigub teisele poole. Ei tea, miks.', 'It’s heading to the other side. No idea why.')],
+      },
+      answersRu: {
+        count: ['Одна курица. Петух смотрит из канавы.'],
+        direction: ['Она идёт на другую сторону. Не знаю зачем.'],
       },
     },
     easterEgg: true,
@@ -418,6 +468,10 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
       T('Naabri saunast tuleb selline hääl, nagu keegi oleks hädas! Juba pool tundi!', 'There’s a noise from the neighbour’s sauna like someone is in trouble! For half an hour now!'),
       T('Ta on üksi seal, ja ta on vanem mees. Äkki on süda?', 'He’s alone in there and he’s an older man. What if it’s his heart?'),
     ],
+    callerLinesRu: [
+      'Из соседской бани такие звуки, как будто кому-то плохо! Уже полчаса!',
+      'Он там один, а он пожилой человек. Вдруг сердце?',
+    ],
     details: [T('Saunast tõuseb suitsu, korsten töötab normaalselt.', 'Smoke is rising from the sauna; the chimney is working normally.')],
     beats: [
       choice(
@@ -442,9 +496,16 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
     call: {
       mood: 'calm',
       opening: [T('Tere, naabri saunast kostab hüüdeid. Ma ei tea, kas ta on hädas või… laulab.', 'Hello, there are shouts coming from the neighbour’s sauna. I don’t know if he’s in trouble or… singing.')],
+      openingRu: [
+        'Здравствуйте, из соседской бани доносятся крики. Не знаю, ему плохо или он... поёт.',
+      ],
       answers: {
         what: [T('„Oh-hoo, oh-hoo!“ ja vahel midagi Kunglast.', '“Oh-hoo, oh-hoo!” and sometimes something about Kungla.')],
         intoxicated: [T('Õlut oli tal kaasas, jah.', 'He did take beer with him, yes.')],
+      },
+      answersRu: {
+        what: ['«О-хо-о, о-хо-о!» и иногда что-то про Кунглу.'],
+        intoxicated: ['Пиво он с собой брал, да.'],
       },
     },
     easterEgg: true,
@@ -511,6 +572,10 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
       T('Siin karjuvad kaks vanainimest kalade üle, üks juba vehib räimega!', 'Two old people are shouting about fish here; one is already waving a herring!'),
       T('Kogu turg on kaheks jagunenud, mõned skandeerivad „ki-lu, ki-lu“!', 'The whole market has split in two; some people are chanting “sprat, sprat”!'),
     ],
+    callerLinesRu: [
+      'Тут двое стариков орут из-за рыбы, один уже машет салакой!',
+      'Весь рынок разделился на два лагеря, некоторые скандируют «ки-лу, ки-лу»!',
+    ],
     details: [T('Vaidlus kestab juba 40 minutit, keegi pole viga saanud.', 'The dispute has lasted 40 minutes; nobody has been hurt.')],
     beats: [
       qPerson('suspect', 'arrive', 0.5, [
@@ -537,10 +602,16 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
     call: {
       mood: 'angry',
       opening: [T('Tulge kiiresti turule! Siin on kalasõda!', 'Come to the market quickly! There’s a fish war here!')],
+      openingRu: ['Приезжайте быстрее на рынок! Тут рыбная война!'],
       answers: {
         weapons: [T('Suitsuräim. Üks tükk. Suur.', 'A smoked herring. One. A big one.')],
         injured: [T('Ainult uhkus.', 'Only pride.')],
         count: [T('Kaks peamist, aga toetajaid on paarkümmend.', 'Two main ones, but there are a couple of dozen supporters.')],
+      },
+      answersRu: {
+        weapons: ['Копчёная салака. Одна штука. Большая.'],
+        injured: ['Только гордость.'],
+        count: ['Двое главных, но болельщиков человек двадцать.'],
       },
     },
     easterEgg: true,
@@ -643,6 +714,10 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
       T('See valge kast ratastel sõidab mu järel! Kui ma seisan, seisab tema ka!', 'That white box on wheels is driving after me! When I stop, it stops too!'),
       T('Tal on lipp peal ja ta vilgutab tulesid. Mis see on?', 'It has a flag on it and flashes its lights. What is it?'),
     ],
+    callerLinesRu: [
+      'Этот белый ящик на колёсах едет за мной! Я стою, и он стоит!',
+      'У него сверху флажок, и он мигает огнями. Что это такое?',
+    ],
     details: [T('Kullerrobotid sõidavad kõnniteel jalakäija kiirusel.', 'Delivery robots travel on the pavement at walking speed.')],
     beats: [
       info('arrive', [T('{callsign}: robot tuvastatud. Ta kannab kolme pitsat ja ootab rohelist tuld.', '{callsign}: robot identified. It is carrying three pizzas and waiting for the green light.')]),
@@ -657,9 +732,14 @@ export const TEMPLATES_EASTER: IncidentTemplate[] = [
     call: {
       mood: 'elderly',
       opening: [T('Kuulge, mind jälitab mingi masin! Väike, valge, ratastega!', 'Listen, some machine is following me! Small, white, with wheels!')],
+      openingRu: ['Слушайте, меня преследует какая-то машина! Маленькая, белая, на колёсиках!'],
       answers: {
         weapons: [T('Tal on ainult see lipuke. Ja kaas.', 'It only has that little flag. And a lid.')],
         suspect: [T('Valge kast, kuus ratast, vilgub. Ei räägi midagi.', 'A white box, six wheels, blinking. It doesn’t say anything.')],
+      },
+      answersRu: {
+        weapons: ['У неё только этот флажок. И крышка.'],
+        suspect: ['Белый ящик, шесть колёс, мигает. Ничего не говорит.'],
       },
     },
     easterEgg: true,

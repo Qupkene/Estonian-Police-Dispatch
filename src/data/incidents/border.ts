@@ -216,6 +216,10 @@ export const TEMPLATES_BORDER: IncidentTemplate[] = [
       T('Jõe kohal lendas midagi suminaga, vilkuvate tuledega, ja maandus põllu taga.', 'Something buzzing with blinking lights flew over the river and landed behind the field.'),
       T('See pole esimene kord, ikka öösel ja ikka samas kohas.', 'It’s not the first time, always at night and always in the same place.'),
     ],
+    callerLinesRu: [
+      'Над рекой что-то пролетело с жужжанием, с мигающими огнями, и село за полем.',
+      'Это не первый раз, всегда ночью и всегда в одном и том же месте.',
+    ],
     details: [T('Piiriäärsetes külades on varem kasutatud droone sigarettide toimetamiseks.', 'Drones have been used before in border villages to deliver cigarettes.')],
     beats: [
       search('arrive', 2, [T('{callsign}: otsime drooni maandumiskohta ja vastuvõtjat. Koerajuht oleks abiks.', '{callsign}: searching for the drone’s landing site and the receiver. A dog handler would help.')]),
@@ -242,6 +246,10 @@ export const TEMPLATES_BORDER: IncidentTemplate[] = [
       answers: {
         where: [T('{address}, vana laudavaremete juures.', '{address}, by the old cowshed ruins.')],
         count: [T('Üks droon, aga keegi tuli autoga seda vastu võtma.', 'One drone, but someone came by car to collect it.')],
+      },
+      answersRu: {
+        where: ['{address}, возле развалин старого коровника.'],
+        count: ['Один дрон, но кто-то приехал на машине его забрать.'],
       },
       openingRu: ['Алло, тут опять через реку перелетел дрон. Сел за нашим полем.'],
     },
@@ -270,6 +278,10 @@ export const TEMPLATES_BORDER: IncidentTemplate[] = [
       T('Üks mees ujus üle jõe ja jooksis aiamaade poole, märg nagu kass!', 'A man swam across the river and ran towards the allotments, soaking wet!'),
       T('Ta on täiesti läbimärg, nii külmaga võib ta ära külmuda.', 'He’s completely drenched; in this cold he could freeze.'),
     ],
+    callerLinesRu: [
+      'Какой-то мужчина переплыл реку и побежал к огородам, мокрый как кошка!',
+      'Он весь насквозь мокрый, в такой холод может замёрзнуть.',
+    ],
     details: [T('Vee temperatuur on madal, alajahtumise oht.', 'The water is cold; there is a risk of hypothermia.')],
     beats: [
       search('arrive', 2, [T('{callsign}: alustame otsinguid aiamaadel, vajame koerajuhti ja võimalusel drooni.', '{callsign}: starting a search of the allotments; we need a dog handler and a drone if possible.')]),
@@ -294,6 +306,10 @@ export const TEMPLATES_BORDER: IncidentTemplate[] = [
       answers: {
         direction: [T('Jooksis aiamaade poole, {direction}.', 'He ran towards the allotments, {direction}.')],
         suspect: [T('{suspect}. Märjad riided, seljakott.', '{suspect}. Wet clothes, a backpack.')],
+      },
+      answersRu: {
+        direction: ['Побежал к огородам, {direction}.'],
+        suspect: ['{suspect}. Мокрая одежда, рюкзак.'],
       },
       openingRu: ['Здравствуйте, я тут рыбачу у реки. Какой-то мужчина только что переплыл реку и побежал к огородам.'],
     },
@@ -324,6 +340,10 @@ export const TEMPLATES_BORDER: IncidentTemplate[] = [
       T('Järvel sõidab paat ilma tuledeta, tuli üle piiri poolt!', 'There’s a boat on the lake with no lights; it came from the border side!'),
       T('Kaks meest tassisid kotte kaldalt autosse.', 'Two men carried bags from the shore to a car.'),
     ],
+    callerLinesRu: [
+      'По озеру идёт лодка без огней, пришла со стороны границы!',
+      'Двое мужчин таскали мешки с берега в машину.',
+    ],
     details: [T('Järve keskelt kulgeb ajutine kontrolljoon Venemaaga.', 'The temporary control line with Russia runs through the middle of the lake.')],
     beats: [
       info('arrive', [T('{callsign}: kaldal on värsked jäljed ja paadi vedamise jäljed liival.', '{callsign}: fresh footprints on the shore and drag marks from a boat in the sand.')]),
@@ -343,6 +363,10 @@ export const TEMPLATES_BORDER: IncidentTemplate[] = [
       answers: {
         count: [T('Kaks, võib-olla kolm meest.', 'Two, maybe three men.')],
         where: [T('Küla sadamast natuke lõuna pool.', 'A little south of the village harbour.')],
+      },
+      answersRu: {
+        count: ['Двое, может, трое мужчин.'],
+        where: ['Чуть южнее деревенской гавани.'],
       },
       openingRu: ['Здравствуйте, тут на озере лодка без огней, пришла с российской стороны.'],
     },

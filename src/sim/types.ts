@@ -513,8 +513,15 @@ export interface CallScript {
   mood: CallerMood;
   opening: Text[];
   answers?: Partial<Record<CallQuestionId, Text[]>>;
-  /** Russian original lines for ru-speaking callers (shown with interpreter translation). */
+  /** Russian original lines for ru-speaking callers (shown with interpreter translation), index for index with `opening`. */
   openingRu?: string[];
+  /**
+   * What a Russian-speaking caller says, index for index with `answers` (`answersRu.weapons[i]` is the
+   * original of `answers.weapons[i]`, which the interpreter renders). Placeholders take Russian values
+   * ({address} "улица Pikk, дом 5", {direction} "в сторону улицы Pikk", {car}, {suspect}...); `{m|f}`
+   * follows the caller's gender and `[m|f|n]` the person talked about (see callPhrases.ts).
+   */
+  answersRu?: Partial<Record<CallQuestionId, string[]>>;
 }
 
 /** Template fields a scenario may tell differently. */
@@ -527,6 +534,7 @@ export type ScenarioField =
   | 'vehicles'
   | 'summary'
   | 'callerLines'
+  | 'callerLinesRu'
   | 'details'
   | 'agencies'
   | 'beats'
@@ -580,6 +588,11 @@ export interface IncidentTemplate {
   summary: Text[];
   /** First-person caller quotes for flavour / 112 call opening. */
   callerLines?: Text[];
+  /**
+   * Russian originals of `callerLines`, index for index: what a Russian-speaking caller says when the
+   * story has no Russian call script line left (placeholders and gender markers as in CallScript.answersRu).
+   */
+  callerLinesRu?: string[];
   /** Extra details revealed after acknowledgement or arrival. */
   details?: Text[];
   agencies?: { agency: Agency; chance: number; reason: Text }[];

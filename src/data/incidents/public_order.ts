@@ -141,6 +141,10 @@ const SC_DRUNK_LYING: IncidentScenario[] = [
         'I do not want to leave him alone, but I cannot lift him.',
       ),
     ],
+    callerLinesRu: [
+      'Он, наверное, упал на ступеньках, на голове кровь. Он живёт тут же, на втором этаже.',
+      'Я не хочу оставлять его одного, но поднять его я не могу.',
+    ],
     details: [
       T('Isik: {suspect}. Peas verine marrastus.', 'Subject: {suspect}. Bloody graze on his head.'),
       T('Teataja sõnul elab mees samas majas.', 'The caller says the man lives in the same building.'),
@@ -164,6 +168,11 @@ const SC_DRUNK_LYING: IncidentScenario[] = [
         ],
         intoxicated: [T('Jah, ta haiseb viina järele.', 'Yes, he reeks of vodka.')],
         name: [T('Ma olen tema naaber samast majast.', 'I am his neighbour from the same building.')],
+      },
+      answersRu: {
+        injured: ['На голове ссадина в крови, но он в сознании.'],
+        intoxicated: ['Да, от него водкой несёт.'],
+        name: ['Я его {сосед|соседка} из этого же дома.'],
       },
     },
   },
@@ -220,6 +229,10 @@ const SC_DRUNK_LYING: IncidentScenario[] = [
         'Ma töötan siinsamas poes. Ta käis meilt õhtul veini ostmas.',
         'I work in the shop right here. She came in this evening to buy wine.',
       ),
+    ],
+    callerLinesRu: [
+      'Она уже час спит на скамейке, а сумка открыта, любой может всё забрать.',
+      'Я работаю тут, в магазине. Она вечером приходила к нам за вином.',
     ],
     details: [
       T('Isik: {suspect}.', 'Subject: {suspect}.'),
@@ -284,6 +297,11 @@ const SC_DRUNK_LYING: IncidentScenario[] = [
         ],
         safe: [T('Ta on pingil, mitte sõiduteel.', 'She is on the bench, not on the road.')],
       },
+      answersRu: {
+        injured: ['Травм не вижу, она просто крепко спит.'],
+        intoxicated: ['Да, она вечером купила две бутылки вина.'],
+        safe: ['Она на скамейке, не на проезжей части.'],
+      },
     },
   },
   {
@@ -311,6 +329,10 @@ const SC_DRUNK_LYING: IncidentScenario[] = [
         'Ta pomiseb midagi suhkrust, ma ei saa aru.',
         'He is mumbling something about sugar, I cannot understand.',
       ),
+    ],
+    callerLinesRu: [
+      'Я {думал|думала}, что он пьяный, но алкоголем не пахнет. Он весь потный и дрожит.',
+      'Он бормочет что-то про сахар, я не понимаю.',
     ],
     details: [
       T(
@@ -401,6 +423,10 @@ const SC_DRUNK_LYING: IncidentScenario[] = [
           ),
         ],
       },
+      answersRu: {
+        intoxicated: ['Не думаю, алкоголем от него точно не пахнет.'],
+        injured: ['Травм не вижу, но он весь потный и бледный.'],
+      },
     },
     tags: ['medical'],
   },
@@ -462,6 +488,10 @@ const SC_NIGHT_NOISE: IncidentScenario[] = [
         'I knocked, but the music is so loud nobody can hear.',
       ),
     ],
+    callerLinesRu: [
+      'Они уже третий час поют караоке, одну и ту же песню в десятый раз!',
+      'Я {стучал|стучала}, но музыка такая громкая, что никто не слышит.',
+    ],
     details: [
       T(
         'Teataja sõnul on korteris pidu umbes kümne inimesega.',
@@ -508,6 +538,10 @@ const SC_NIGHT_NOISE: IncidentScenario[] = [
         count: [T('Hääli on palju, vist kümmekond inimest.', 'Lots of voices, maybe about ten people.')],
         intoxicated: [T('No kainelt nii ei laulda.', 'Well, nobody sings like that sober.')],
       },
+      answersRu: {
+        count: ['Голосов много, наверное, человек десять.'],
+        intoxicated: ['Ну, трезвым так не поют.'],
+      },
     },
   },
   {
@@ -536,6 +570,10 @@ const SC_NIGHT_NOISE: IncidentScenario[] = [
         'Iga öö sama lugu, päeval on ta tööl ja öösel teeb remonti.',
         'Every night the same story: he works in the day and renovates at night.',
       ),
+    ],
+    callerLinesRu: [
+      'Уже поздно, а он сверлит! Я {ходил|ходила} к нему, а он говорит, что у него завтра срок сдачи.',
+      'Каждую ночь одно и то же: днём он на работе, а ночью делает ремонт.',
     ],
     details: [
       T(
@@ -585,6 +623,10 @@ const SC_NIGHT_NOISE: IncidentScenario[] = [
           T('Ei tea, vist kaine. Lihtsalt hoolimatu.', 'I do not know, sober I think. Just inconsiderate.'),
         ],
       },
+      answersRu: {
+        count: ['Только он один.'],
+        intoxicated: ['Не знаю, вроде трезвый. Просто наглый.'],
+      },
     },
   },
   {
@@ -613,6 +655,10 @@ const SC_NIGHT_NOISE: IncidentScenario[] = [
         'Ma kardan, et koer on rõdul külma käes ja ilma veeta.',
         'I am afraid the dog is out on the balcony in the cold without water.',
       ),
+    ],
+    callerLinesRu: [
+      'Собака одна и воет уже три часа. Хозяин не отвечает на телефон.',
+      'Боюсь, что собака на балконе, на холоде и без воды.',
     ],
     details: [
       T(
@@ -708,6 +754,11 @@ const SC_NIGHT_NOISE: IncidentScenario[] = [
         weapons: [T('Ei, ei mingit relva. See on koer.', 'No, no weapon. It is a dog.')],
         intoxicated: [T('Kedagi seal ei ole, omanik on ära.', 'There is nobody there, the owner is away.')],
       },
+      answersRu: {
+        count: ['Людей там нет, только собака.'],
+        weapons: ['Нет, какое оружие. Это собака.'],
+        intoxicated: ['Там никого нет, хозяин уехал.'],
+      },
     },
     tags: ['animal'],
   },
@@ -738,6 +789,10 @@ const SC_NIGHT_NOISE: IncidentScenario[] = [
         'Ühel pole numbrimärki ja nad sõidavad kõnniteel.',
         'One of them has no number plate and they are riding on the pavement.',
       ),
+    ],
+    callerLinesRu: [
+      'Они на мопедах нарезают круги вокруг дома и газуют, дети проснулись.',
+      'У одного нет номера, и они ездят по тротуару.',
     ],
     details: [
       T('Noored sõidavad ilma kiivriteta.', 'The young riders have no helmets.'),
@@ -792,6 +847,11 @@ const SC_NIGHT_NOISE: IncidentScenario[] = [
           ),
         ],
       },
+      answersRu: {
+        count: ['Их три или четыре мопеда.'],
+        vehicle: ['Мопеды, у одного нет номера.'],
+        intoxicated: ['Не знаю, они молодые, может, и выпили.'],
+      },
     },
     tags: ['vehicle'],
   },
@@ -840,6 +900,10 @@ const SC_NOISY_BIRTHDAY: IncidentScenario[] = [
         'Ma ei ole pahatahtlik, juubel on juubel, aga ma pean kell kuus tööle minema.',
         'I do not mean any harm, a big birthday is a big birthday, but I have to go to work at six.',
       ),
+    ],
+    callerLinesRu: [
+      'У них в саду целая группа! Уже поздно, а барабаны всё бьют.',
+      'Я ничего против не имею, юбилей есть юбилей, но мне в шесть на работу.',
     ],
     details: [
       T('Peol on umbes nelikümmend külalist.', 'There are about forty guests at the party.'),
@@ -922,6 +986,10 @@ const SC_NOISY_BIRTHDAY: IncidentScenario[] = [
           T('Noh, juubel ikka. Kõik on lõbusad.', 'Well, it is a big birthday. Everyone is merry.'),
         ],
       },
+      answersRu: {
+        count: ['Гостей много, несколько десятков.'],
+        intoxicated: ['Ну, юбилей всё-таки. Все весёлые.'],
+      },
     },
   },
   {
@@ -946,6 +1014,10 @@ const SC_NOISY_BIRTHDAY: IncidentScenario[] = [
         'Sein on õhuke, nende muusika on nagu meie toas.',
         'The wall is thin, their music sounds like it is in our room.',
       ),
+    ],
+    callerLinesRu: [
+      'Они выбегают из бани в сад и визжат, некоторые совсем голые. Мои дети смотрят в окно.',
+      'Стена тонкая, их музыка как будто у нас в комнате.',
     ],
     details: [
       T('Peol on umbes viisteist külalist.', 'There are about fifteen guests at the party.'),
@@ -1023,6 +1095,10 @@ const SC_NOISY_BIRTHDAY: IncidentScenario[] = [
         count: [T('Viisteist inimest vähemalt.', 'At least fifteen people.')],
         children: [T('Minu lapsed on kodus ja ei saa magada.', 'My children are at home and cannot sleep.')],
       },
+      answersRu: {
+        count: ['Человек пятнадцать минимум.'],
+        children: ['Мои дети дома и не могут уснуть.'],
+      },
     },
   },
   {
@@ -1051,6 +1127,10 @@ const SC_NOISY_BIRTHDAY: IncidentScenario[] = [
         'Ma käisin palumas, nad lubasid vaiksemalt, aga pool tundi hiljem oli sama lugu.',
         'I went and asked, they promised to be quieter, but half an hour later it was the same again.',
       ),
+    ],
+    callerLinesRu: [
+      'Моему малышу три недели, и он просыпается каждый раз, когда они начинают ржать.',
+      'Я ходила просить, они обещали потише, но через полчаса опять то же самое.',
     ],
     details: [
       T('Teataja on korra juba ise uksel käinud.', 'The caller has already been to their door once herself.'),
@@ -1130,6 +1210,10 @@ const SC_NOISY_BIRTHDAY: IncidentScenario[] = [
         children: [T('Minu beebi on kodus, kolm nädalat vana.', 'My baby is at home, three weeks old.')],
         count: [T('Kümmekond noort, ma arvan.', 'About ten young people, I think.')],
       },
+      answersRu: {
+        children: ['Мой малыш дома, ему три недели.'],
+        count: ['Человек десять молодёжи, я думаю.'],
+      },
     },
   },
 ];
@@ -1179,6 +1263,10 @@ const SC_BAR_TROUBLEMAKER: IncidentScenario[] = [
         'I cannot throw him out myself, he is twice my size.',
       ),
     ],
+    callerLinesRu: [
+      'Он весь вечер пил, а теперь говорит, что не заплатит ни цента. Два бокала разбил.',
+      'Я сам{|а} его выкинуть не могу, он в два раза больше меня.',
+    ],
     details: [
       T(
         'Korrarikkuja: {suspect}. Arve umbes 60 eurot.',
@@ -1202,6 +1290,11 @@ const SC_BAR_TROUBLEMAKER: IncidentScenario[] = [
         weapons: [T('Ei, relva tal ei ole.', 'No, he does not have a weapon.')],
         intoxicated: [T('Väga purjus.', 'Very drunk.')],
         injured: [T('Keegi viga ei saanud, ainult klaasid.', 'Nobody is hurt, just the glasses.')],
+      },
+      answersRu: {
+        weapons: ['Нет, оружия у него нет.'],
+        intoxicated: ['Очень пьяный.'],
+        injured: ['Никто не пострадал, только бокалы.'],
       },
     },
   },
@@ -1228,6 +1321,10 @@ const SC_BAR_TROUBLEMAKER: IncidentScenario[] = [
         'The other customers are angry already, I am afraid it will turn into a fight.',
       ),
     ],
+    callerLinesRu: [
+      'Он не отдаёт микрофон и только что столкнул девушку со сцены.',
+      'Другие клиенты уже злые, боюсь, будет драка.',
+    ],
     details: [
       T('Korrarikkuja: {suspect}, tugevas joobes.', 'The troublemaker: {suspect}, heavily intoxicated.'),
       T(
@@ -1249,6 +1346,10 @@ const SC_BAR_TROUBLEMAKER: IncidentScenario[] = [
           T('Üks tüdruk kukkus lavalt, aga ta on korras.', 'A girl fell off the stage, but she is fine.'),
         ],
         intoxicated: [T('Täiesti purjus.', 'Completely drunk.')],
+      },
+      answersRu: {
+        injured: ['Одна девушка упала со сцены, но она в порядке.'],
+        intoxicated: ['В стельку пьяный.'],
       },
     },
   },
@@ -1275,6 +1376,10 @@ const SC_BAR_TROUBLEMAKER: IncidentScenario[] = [
         'One girl is crying in the toilets, she does not dare come out.',
       ),
     ],
+    callerLinesRu: [
+      'Он лапает всех женщин, которые проходят мимо. Мы попросили его уйти, а он смеётся.',
+      'Одна девушка плачет в туалете, боится выйти.',
+    ],
     details: [
       T('Korrarikkuja: {suspect}.', 'The troublemaker: {suspect}.'),
       T(
@@ -1300,6 +1405,11 @@ const SC_BAR_TROUBLEMAKER: IncidentScenario[] = [
         ],
         intoxicated: [T('Jah, väga purjus.', 'Yes, very drunk.')],
         count: [T('Üks mees, ta on üksi.', 'One man, he is on his own.')],
+      },
+      answersRu: {
+        injured: ['Физически нет, но одна девушка очень напугана.'],
+        intoxicated: ['Да, очень пьяный.'],
+        count: ['Один мужчина, он один.'],
       },
     },
   },
@@ -1394,6 +1504,10 @@ const SC_DRUNK_HARASSING: IncidentScenario[] = [
         'I have opened the doors and I am waiting, but he will not move. The passengers are scared.',
       ),
     ],
+    callerLinesRu: [
+      'Я водитель автобуса. Пьяный мужчина орёт на пассажиров и не выходит.',
+      'Я {открыл|открыла} двери и жду, а он не двигается. Пассажиры напуганы.',
+    ],
     details: [
       T('Isik: {suspect}.', 'Subject: {suspect}.'),
       T('Buss on peatuses, liiklusgraafik hilineb.', 'The bus is at the stop and running behind schedule.'),
@@ -1417,6 +1531,12 @@ const SC_DRUNK_HARASSING: IncidentScenario[] = [
             'One man, and about ten other passengers on board.',
           ),
         ],
+      },
+      answersRu: {
+        where: ['Автобус стоит на остановке, {address}.'],
+        weapons: ['Оружия не вижу.'],
+        safe: ['Я в кабине, дверь закрыта.'],
+        count: ['Один мужчина, в автобусе ещё человек десять пассажиров.'],
       },
     },
   },
@@ -1447,6 +1567,10 @@ const SC_DRUNK_HARASSING: IncidentScenario[] = [
         'I went into a shop, but he is waiting outside the door.',
       ),
     ],
+    callerLinesRu: [
+      'Он идёт за мной уже несколько улиц и говорит всякие гадости. Я боюсь идти домой, он увидит, где я живу.',
+      'Я зашла в магазин, а он ждёт за дверью.',
+    ],
     details: [
       T('Kahtlustatav: {suspect}.', 'Suspect: {suspect}.'),
       T('Teataja on kaupluses ja jääb liinile.', 'The caller is inside a shop and is staying on the line.'),
@@ -1469,6 +1593,11 @@ const SC_DRUNK_HARASSING: IncidentScenario[] = [
         ],
         direction: [T('Ta seisab poe ukse taga.', 'He is standing outside the shop door.')],
         weapons: [T('Relva ma ei näinud.', 'I did not see a weapon.')],
+      },
+      answersRu: {
+        safe: ['Я в магазине, у кассы с продавщицей. Он за дверью.'],
+        direction: ['Он стоит за дверью магазина.'],
+        weapons: ['Оружия я не видела.'],
       },
     },
   },
@@ -1559,6 +1688,10 @@ const SC_PUBLIC_DRINKING: IncidentScenario[] = [
         'I am waiting for the bus here with my child and have to stand in the rain.',
       ),
     ],
+    callerLinesRu: [
+      'Они на остановке пьют водку прямо из горла и пристают к людям, никто туда заходить не хочет.',
+      'Я жду тут автобус с ребёнком и {должен|должна} стоять под дождём.',
+    ],
     details: [
       T('Isik: {suspect}.', 'Subject: {suspect}.'),
       T('Bussipeatus on kooli lähedal.', 'The bus stop is near a school.'),
@@ -1575,6 +1708,10 @@ const SC_PUBLIC_DRINKING: IncidentScenario[] = [
       answers: {
         count: [T('Kaks meest.', 'Two men.')],
         intoxicated: [T('Jah, päris purjus juba.', 'Yes, pretty drunk already.')],
+      },
+      answersRu: {
+        count: ['Двое мужчин.'],
+        intoxicated: ['Да, уже прилично пьяные.'],
       },
     },
   },
@@ -1604,6 +1741,10 @@ const SC_PUBLIC_DRINKING: IncidentScenario[] = [
         'Ma küsisin, kus nende vanemad on, nad naersid mu välja.',
         'I asked where their parents were and they laughed at me.',
       ),
+    ],
+    callerLinesRu: [
+      'Они ещё совсем дети и пьют сидр. Один уже на ногах не стоит.',
+      'Я {спросил|спросила}, где их родители, а они надо мной посмеялись.',
     ],
     details: [
       T('Noored on alaealised, umbes viiekesi.', 'The young people are minors, about five of them.'),
@@ -1695,6 +1836,11 @@ const SC_PUBLIC_DRINKING: IncidentScenario[] = [
         ],
         injured: [T('Üks oksendab, teised on korras.', 'One is throwing up, the others are fine.')],
       },
+      answersRu: {
+        count: ['Пять или шесть подростков.'],
+        children: ['Они сами дети, лет по четырнадцать.'],
+        injured: ['Одного тошнит, остальные в порядке.'],
+      },
     },
     tags: ['youth'],
   },
@@ -1724,6 +1870,10 @@ const SC_AGGRESSIVE_CUSTOMER: IncidentScenario[] = [
         'The guard is with him, but the man will not listen to anyone.',
       ),
     ],
+    callerLinesRu: [
+      'Тут в магазине мужчина совсем с катушек слетел, бросил бутылку в кассу!',
+      'Охранник рядом с ним, но мужик никого не слушает.',
+    ],
     details: [
       T('Klient: {suspect}.', 'The customer: {suspect}.'),
       T('Kõik on valvekaamera salvestisel.', 'Everything is on the CCTV recording.'),
@@ -1742,6 +1892,10 @@ const SC_AGGRESSIVE_CUSTOMER: IncidentScenario[] = [
           T('Keegi viga ei saanud, aga kassapidaja on hirmul.', 'Nobody is hurt, but the cashier is scared.'),
         ],
         weapons: [T('Relva ei ole, ta viskas pudeli.', 'No weapon, he threw a bottle.')],
+      },
+      answersRu: {
+        injured: ['Никто не пострадал, но кассирша напугана.'],
+        weapons: ['Оружия нет, он бутылку бросил.'],
       },
     },
   },
@@ -1802,6 +1956,10 @@ const SC_AGGRESSIVE_CUSTOMER: IncidentScenario[] = [
         'He says he will put a video of me online and wait for me after work.',
       ),
     ],
+    callerLinesRu: [
+      '[Он орёт|Она орёт] уже пятнадцать минут, потому что нет чека. А теперь [ударил|ударила] по прилавку.',
+      '[Он говорит|Она говорит], что выложит видео со мной в интернет и будет ждать меня после работы.',
+    ],
     details: [
       T('Klient: {suspect}. Kaine.', 'The customer: {suspect}. Sober.'),
       T('Müüja on ähvarduste pärast hirmul.', 'The assistant is frightened by the threats.'),
@@ -1821,6 +1979,11 @@ const SC_AGGRESSIVE_CUSTOMER: IncidentScenario[] = [
           T('Relva ei ole, aga ta lõi rusikaga vastu letti.', 'No weapon, but he punched the counter.'),
         ],
         injured: [T('Keegi viga ei saanud.', 'Nobody is hurt.')],
+      },
+      answersRu: {
+        intoxicated: ['Нет, [он трезвый|она трезвая]. Просто очень [злой|злая].'],
+        weapons: ['Оружия нет, но [он ударил|она ударила] кулаком по прилавку.'],
+        injured: ['Никто не пострадал.'],
       },
     },
   },
@@ -1851,6 +2014,10 @@ const SC_AGGRESSIVE_CUSTOMER: IncidentScenario[] = [
         'He just wants to take the goods and says he will pay tomorrow.',
       ),
     ],
+    callerLinesRu: [
+      'Карта у него не проходит, а {виноват|виновата} теперь я. Он орёт и бьёт по терминалу.',
+      'Он хочет просто забрать товар и говорит, что заплатит завтра.',
+    ],
     details: [
       T('Klient: {suspect}.', 'The customer: {suspect}.'),
       T('Tasumata kaupa umbes 80 euro eest.', 'About 80 euros of goods unpaid.'),
@@ -1867,6 +2034,10 @@ const SC_AGGRESSIVE_CUSTOMER: IncidentScenario[] = [
       answers: {
         weapons: [T('Relva ei näe.', 'I cannot see a weapon.')],
         injured: [T('Veel mitte keegi.', 'Nobody yet.')],
+      },
+      answersRu: {
+        weapons: ['Оружия не вижу.'],
+        injured: ['Пока никто.'],
       },
     },
   },
@@ -1957,6 +2128,10 @@ const SC_YOUTH_VANDALISM: IncidentScenario[] = [
         'I live opposite the school, they are by the back door.',
       ),
     ],
+    callerLinesRu: [
+      'Они кидают камни прямо в окна школы! Стекло сыплется!',
+      'Я живу напротив школы, они у заднего входа.',
+    ],
     details: [
       T('Kooli valvesignalisatsioon on rakendunud.', 'The school’s alarm has gone off.'),
       T('Ühte noort kirjeldatakse: {suspect}.', 'One of them is described as: {suspect}.'),
@@ -1973,6 +2148,10 @@ const SC_YOUTH_VANDALISM: IncidentScenario[] = [
       answers: {
         count: [T('Viis või kuus noort.', 'Five or six youngsters.')],
         direction: [T('Nad on veel kooli juures.', 'They are still at the school.')],
+      },
+      answersRu: {
+        count: ['Пять или шесть подростков.'],
+        direction: ['Они ещё у школы.'],
       },
     },
   },
@@ -1999,6 +2178,10 @@ const SC_YOUTH_VANDALISM: IncidentScenario[] = [
         'One of them is keeping watch on the corner while the others paint.',
       ),
     ],
+    callerLinesRu: [
+      'Уже второй раз за неделю они разрисовывают стену нашего дома. Сейчас вижу их прямо из окна.',
+      'Один стоит на углу на стрёме, остальные рисуют.',
+    ],
     details: [
       T(
         'Seintel on värsked joonistused, värv on veel märg.',
@@ -2018,6 +2201,10 @@ const SC_YOUTH_VANDALISM: IncidentScenario[] = [
       answers: {
         count: [T('Kolm, üks valvab nurga peal.', 'Three, one is on the corner keeping watch.')],
         weapons: [T('Ei, neil on ainult värvipurgid.', 'No, just spray cans.')],
+      },
+      answersRu: {
+        count: ['Трое, один на углу на стрёме стоит.'],
+        weapons: ['Нет, у них только баллончики с краской.'],
       },
     },
   },
@@ -2060,6 +2247,10 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
         'Ta ütleb, et kui me politsei kutsume, ootab ta mind pärast tööd ukse taga.',
         'He says if we call the police he will be waiting for me outside after work.',
       ),
+    ],
+    callerLinesRu: [
+      'Клиент отказывается уходить, ведёт себя агрессивно и угрожает нам.',
+      'Он говорит, что если мы вызовем полицию, он будет ждать меня после работы у двери.',
     ],
     details: [
       T('Korrarikkuja: {suspect}, tugevas joobes.', 'The troublemaker: {suspect}, heavily intoxicated.'),
@@ -2132,6 +2323,11 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
         weapons: [T('Relva pole näha, aga ta haaras pudeli.', 'No weapon visible, but he grabbed a bottle.')],
         intoxicated: [T('Täiesti purjus.', 'Completely drunk.')],
         injured: [T('Veel mitte keegi.', 'Nobody yet.')],
+      },
+      answersRu: {
+        weapons: ['Оружия не видно, но он схватил бутылку.'],
+        intoxicated: ['В стельку пьяный.'],
+        injured: ['Пока никто.'],
       },
     },
     tags: ['alcohol'],
@@ -2550,6 +2746,10 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
         'I do not dare go and tell them myself, there are many of them and they are drunk.',
       ),
     ],
+    callerLinesRu: [
+      'Уже третью ночь подряд! Сидят на скамейке, музыка гремит, орут, дети не могут спать.',
+      'Я боюсь сам{|а} идти им говорить, их много, и они пьяные.',
+    ],
     details: [
       T('Noored on alkoholijoobes, osa võib olla alaealised.', 'The youths are drunk; some may be minors.'),
       T(
@@ -2656,6 +2856,12 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
         intoxicated: [
           T('Joovad, pudelid on pingi all.', 'They are drinking, the bottles are under the bench.'),
         ],
+      },
+      answersRu: {
+        count: ['Человек десять молодёжи, может, больше.'],
+        when: ['С одиннадцати часов.'],
+        name: ['Я не хочу называть имя, они знают, где я живу.'],
+        intoxicated: ['Пьют, бутылки под скамейкой.'],
       },
     },
     tags: ['noise', 'alcohol'],
@@ -2789,6 +2995,10 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
         'I am the neighbourhood watch coordinator. We saw him again tonight, he was carrying a bag.',
       ),
     ],
+    callerLinesRu: [
+      'Он каждую ночь тут ходит и заглядывает в окна. Никто не знает, кто он.',
+      'Я старший по соседскому дозору. Сегодня мы его опять видели, у него была сумка.',
+    ],
     details: [
       T('Kirjeldus: {suspect}.', 'Description: {suspect}.'),
       T(
@@ -2853,12 +3063,20 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
           'Hello, I do not know if this is the right number... someone has been walking around the gardens at night.',
         ),
       ],
+      openingRu: [
+        'Здравствуйте, не знаю, туда ли я {попал|попала}... тут кто-то по ночам ходит по огородам.',
+      ],
       answers: {
         suspect: [
           T('Tume riietus, taskulamp, müts sügaval peas.', 'Dark clothes, a torch, hat pulled down low.'),
         ],
         when: [T('Praegu, viis minutit tagasi nägin teda.', 'Right now, I saw him five minutes ago.')],
         direction: [T('Ta läks {direction}.', 'He went {direction}.')],
+      },
+      answersRu: {
+        suspect: ['Тёмная одежда, фонарик, шапка надвинута на глаза.'],
+        when: ['Сейчас, минут пять назад я его {видел|видела}.'],
+        direction: ['Он пошёл {direction}.'],
       },
     },
     tags: ['suspicious'],
@@ -3845,6 +4063,10 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
         'I went to tell them myself but they laughed at me.',
       ),
     ],
+    callerLinesRu: [
+      'У них опять гулянка, музыка такая громкая, что у меня в шкафу бокалы звенят.',
+      'Я сам{|а} ходил{|а} им говорить, а они надо мной посмеялись.',
+    ],
     details: [
       T(
         'Naabrid on sama korteri peale sel kuul juba kaks korda kaevanud.',
@@ -3932,6 +4154,11 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
         ],
         count: [T('Kümmekond inimest kindlasti.', 'At least ten people.')],
         name: [T('Pigem ei ütleks, ma ei taha tülisid.', 'I would rather not say, I do not want trouble.')],
+      },
+      answersRu: {
+        when: ['С десяти часов, а сейчас уже половина второго.'],
+        count: ['Человек десять точно.'],
+        name: ['Лучше не буду говорить, не хочу скандалов.'],
       },
     },
     tags: ['noise'],
@@ -4150,6 +4377,10 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
         'He cannot get up and it is cold outside. Can someone come?',
       ),
     ],
+    callerLinesRu: [
+      'Тут лежит мужчина, наверное, пьяный, но я не знаю, может, ему плохо.',
+      'Он не может встать, а на улице холодно. Кто-нибудь может приехать?',
+    ],
     details: [
       T('Isik: {suspect}.', 'Subject: {suspect}.'),
       T(
@@ -4259,6 +4490,11 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
           ),
         ],
         safe: [T('Ta lamab kõnniteel, mitte sõiduteel.', 'He is on the pavement, not on the road.')],
+      },
+      answersRu: {
+        injured: ['На голове небольшая царапина, больше ничего не вижу.'],
+        intoxicated: ['Пахнет алкоголем, бутылка рядом лежит.'],
+        safe: ['Он лежит на тротуаре, не на проезжей части.'],
       },
     },
     tags: ['alcohol'],
@@ -4591,6 +4827,10 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
         'He hit me when I said we do not sell alcohol after ten o’clock.',
       ),
     ],
+    callerLinesRu: [
+      'Тут в магазине мужчина совсем с катушек слетел, бросил бутылку в кассу!',
+      'Он меня ударил, когда я {сказал|сказала}, что после десяти алкоголь не продаём.',
+    ],
     details: [
       T('Klient: {suspect}.', 'The customer: {suspect}.'),
       T('Kõik on valvekaamera salvestisel.', 'Everything is on CCTV.'),
@@ -4658,10 +4898,16 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
           'A customer in the shop hit the assistant. Send someone now!',
         ),
       ],
+      openingRu: ['Тут в магазине клиент ударил продавца. Пришлите кого-нибудь срочно!'],
       answers: {
         injured: [T('Müüjal on huul katki.', 'The assistant has a split lip.')],
         weapons: [T('Ei, aga ta loobib pudeleid.', 'No, but he is throwing bottles.')],
         intoxicated: [T('Ta on täiesti purjus.', 'He is completely drunk.')],
+      },
+      answersRu: {
+        injured: ['У продавца губа разбита.'],
+        weapons: ['Нет, но он бутылками кидается.'],
+        intoxicated: ['Он в стельку пьяный.'],
       },
     },
     tags: ['alcohol'],
@@ -4960,6 +5206,10 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
         'I am the organiser, I cannot cope any more. The youngsters are completely drunk.',
       ),
     ],
+    callerLinesRu: [
+      'Тут у костра началась драка, один парень лежит, а остальные его всё бьют!',
+      'Я организатор праздника, я уже не справляюсь. Молодёжь в стельку пьяная.',
+    ],
     details: [
       T('Kahtlustatav: {suspect}.', 'Suspect: {suspect}.'),
       T(
@@ -5024,6 +5274,7 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
           '(music in the background) Hello, police? There is a fight at the Midsummer party!',
         ),
       ],
+      openingRu: ['(на фоне музыка) Алло, полиция? Тут на Янов день драка!'],
       answers: {
         where: [
           T('Külaplatsil, lava taga... {address}.', 'On the village green, behind the stage... {address}.'),
@@ -5031,6 +5282,12 @@ export const TEMPLATES_PUBLIC_ORDER: IncidentTemplate[] = [
         count: [T('Kaklevad viis-kuus tüüpi.', 'Five or six guys are fighting.')],
         injured: [T('Ühel on nina katki.', 'One has a broken nose.')],
         intoxicated: [T('Kõik on purjus, on ju jaanipäev!', 'Everyone is drunk, it is Midsummer!')],
+      },
+      answersRu: {
+        where: ['На деревенской площади, за сценой... {address}.'],
+        count: ['Дерутся человек пять-шесть.'],
+        injured: ['У одного нос разбит.'],
+        intoxicated: ['Все пьяные, Янов день же!'],
       },
     },
     tags: ['alcohol', 'holiday'],

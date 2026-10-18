@@ -111,6 +111,10 @@ const SC_BAR_FIGHT: IncidentScenario[] = [
         'The victim has a split eyebrow, he is sitting inside the bar.',
       ),
     ],
+    callerLinesRu: [
+      'Я тут охранник. Один клиент ударил другого, мы его держим, но он вырывается.',
+      'У пострадавшего рассечена бровь, он сидит в баре.',
+    ],
     details: [
       T(
         'Turvatöötaja: lööja on {suspect}, käitub agressiivselt ja ähvardab.',
@@ -133,6 +137,11 @@ const SC_BAR_FIGHT: IncidentScenario[] = [
           T('Kannatanul on kulm lõhki, veritseb natuke.', 'The victim has a split eyebrow, bleeding a bit.'),
         ],
         weapons: [T('Relva ei olnud, ta lõi rusikaga.', 'No weapon, he punched him.')],
+      },
+      answersRu: {
+        direction: ['Никуда он не денется, мы его держим.'],
+        injured: ['У пострадавшего рассечена бровь, немного кровь идёт.'],
+        weapons: ['Оружия не было, он ударил кулаком.'],
       },
     },
     tags: ['detained'],
@@ -160,6 +169,10 @@ const SC_BAR_FIGHT: IncidentScenario[] = [
         'I have locked the door, they are fighting right outside our window.',
       ),
     ],
+    callerLinesRu: [
+      'Они поругались из-за очереди, и один ударил другого бутылкой по голове!',
+      'Я {закрыл|закрыла} дверь, они дерутся прямо у нас под окном.',
+    ],
     details: [
       T('Teataja on kiirtoidukoha töötaja.', 'The caller works at the takeaway.'),
       T(
@@ -183,6 +196,11 @@ const SC_BAR_FIGHT: IncidentScenario[] = [
         weapons: [T('Pudel, see on nüüd katki maas.', 'A bottle, it is broken on the ground now.')],
         injured: [T('Ühel jookseb peast verd.', 'One of them has blood running from his head.')],
         safe: [T('Jah, ma olen sees, uks on lukus.', 'Yes, I am inside and the door is locked.')],
+      },
+      answersRu: {
+        weapons: ['Бутылка, теперь она разбитая на земле валяется.'],
+        injured: ['У одного кровь из головы идёт.'],
+        safe: ['Да, я внутри, дверь закрыта.'],
       },
     },
   },
@@ -257,6 +275,10 @@ const SC_THREATENING: IncidentScenario[] = [
         'The last message had a picture of my front door. He has been here!',
       ),
     ],
+    callerLinesRu: [
+      'Он уже третий день пишет мне, что знает, где я живу.',
+      'В последнем сообщении было фото двери моего дома. Он тут был!',
+    ],
     details: [
       T('Teataja on ähvardavad sõnumid salvestanud.', 'The caller has saved the threatening messages.'),
       T(
@@ -284,6 +306,11 @@ const SC_THREATENING: IncidentScenario[] = [
           ),
         ],
         safe: [T('Ma olen kodus, uks on lukus.', 'I am at home with the door locked.')],
+      },
+      answersRu: {
+        suspect: ['Бывший знакомый, мы вместе работали.'],
+        weapons: ['Не знаю, он написал, что ему есть «что показать».'],
+        safe: ['Я дома, дверь закрыта.'],
       },
     },
   },
@@ -346,6 +373,10 @@ const SC_THREATENING: IncidentScenario[] = [
         'Ta mainis mu lapsi. See ei ole enam äritüli.',
         'He mentioned my children. This is not a business dispute any more.',
       ),
+    ],
+    callerLinesRu: [
+      'Он сказал, что если я не верну деньги до пятницы, то почувствую на своей шкуре. А теперь сидит у моего дома.',
+      'Он упомянул моих детей. Это уже не деловой спор.',
     ],
     details: [
       T(
@@ -410,6 +441,11 @@ const SC_THREATENING: IncidentScenario[] = [
         ],
         children: [T('Lapsed on kodus minuga.', 'The children are at home with me.')],
       },
+      answersRu: {
+        suspect: ['Бывший деловой партнёр, я ему деньги {должен|должна}.'],
+        weapons: ['Не знаю, но он раньше хвастался пистолетом.'],
+        children: ['Дети дома, со мной.'],
+      },
     },
   },
   {
@@ -436,6 +472,10 @@ const SC_THREATENING: IncidentScenario[] = [
         'I honked at him at a junction and he followed me home! Now he is standing outside the house shouting.',
       ),
       T('Ta lubas mu läbi peksta, kui ma välja tulen.', 'He said he would beat me up if I come out.'),
+    ],
+    callerLinesRu: [
+      'Я ему посигналил{|а} на перекрёстке, а он поехал за мной до дома! Теперь стоит у дома и орёт.',
+      'Он сказал, что изобьёт меня, если я выйду.',
     ],
     details: [
       T('Ähvardaja: {suspect}.', 'The man making threats: {suspect}.'),
@@ -528,6 +568,11 @@ const SC_THREATENING: IncidentScenario[] = [
         ],
         safe: [T('Ma olen majas, uks on lukus.', 'I am in the house with the door locked.')],
         weapons: [T('Ma ei näinud relva.', 'I did not see a weapon.')],
+      },
+      answersRu: {
+        vehicle: ['{car}, номер {plate}. Стоит у моего дома.'],
+        safe: ['Я в доме, дверь закрыта.'],
+        weapons: ['Оружия я не {видел|видела}.'],
       },
     },
   },
@@ -701,6 +746,14 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
             'The attacker is gone, but I am afraid he will come back.',
           ),
         ],
+      },
+      answersRu: {
+        where: ['{address}, на улице напротив магазина!'],
+        injured: ['Рана в животе, крови очень много. Он в сознании, но бледный.'],
+        weapons: ['У нападавшего был нож, он его с собой забрал.'],
+        suspect: ['Молодой парень, тёмная куртка, капюшон на голове.'],
+        direction: ['Он побежал {direction}.'],
+        safe: ['Нападавший ушёл, но я боюсь, что он вернётся.'],
       },
     },
     tags: ['armed', 'weapon_knife', 'bolo'],
@@ -1376,6 +1429,10 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
         'He knocked my colleague down and is throwing things. We are in the stairwell, the door is open.',
       ),
     ],
+    callerLinesRu: [
+      'Это скорая, на нашего сотрудника напали! Пациент совсем не в себе, срочно нужна полиция.',
+      '[Он сбил|Она сбила] коллегу с ног и швыряет вещи. Мы на лестнице, дверь открыта.',
+    ],
     details: [
       T(
         'Patsient on {suspect}. Tal võib olla psühhoos või narkojoove.',
@@ -1512,6 +1569,14 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
             'We are in the stairwell, the door is open, he is shouting inside.',
           ),
         ],
+      },
+      answersRu: {
+        injured: ['У коллеги ссадины на лице, а так всё нормально.'],
+        weapons: [
+          'Оружия не {видел|видела}, но [он швыряет|она швыряет] всё, что под руку попадётся.',
+        ],
+        intoxicated: ['Похоже на алкоголь, а может, и ещё что-то.'],
+        safe: ['Мы на лестнице, дверь открыта, [он орёт|она орёт] внутри.'],
       },
     },
     tags: ['assist_ems'],
@@ -1761,6 +1826,10 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
         'Two men were shouting at each other and then started shooting... we hid the kids behind the building.',
       ),
     ],
+    callerLinesRu: [
+      'Тут стреляли! Дети были на площадке, один ребёнок ранен, пожалуйста, быстрее!',
+      'Двое мужчин орали друг на друга, а потом начали стрелять... мы спрятали детей за домом.',
+    ],
     details: [
       T('Ühte laskjat kirjeldatakse: {suspect}.', 'One shooter is described as: {suspect}.'),
       T(
@@ -1848,6 +1917,7 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
           'There was shooting at the playground! A child is hurt!',
         ),
       ],
+      openingRu: ['На детской площадке стреляли! Ребёнок ранен!'],
       answers: {
         injured: [
           T(
@@ -1869,6 +1939,13 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
             'There are about ten more children here, we took them behind the building.',
           ),
         ],
+      },
+      answersRu: {
+        injured: ['Один ребёнок и один мужчина, ребёнок плачет, у него рука в крови.'],
+        weapons: ['Пистолеты, у обоих мужчин были пистолеты.'],
+        count: ['Двое стрелявших. Раненых минимум двое.'],
+        direction: ['Они разбежались в разные стороны, один побежал {direction}.'],
+        children: ['Тут ещё человек десять детей, мы их увели за дом.'],
       },
     },
     tags: ['armed', 'weapon_firearm', 'children', 'bolo'],
@@ -2166,6 +2243,10 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
         'A woman is screaming for help in the flat next door. I have heard it before, but tonight is worse.',
       ),
     ],
+    callerLinesRu: [
+      '(шёпотом) Помогите, пожалуйста... нас тут держат. У нас забрали паспорта.',
+      'В соседней квартире женщина зовёт на помощь. Я и раньше такое {слышал|слышала}, но сегодня хуже.',
+    ],
     details: [
       T(
         'Korteris on vähemalt {n} inimest. Ust valvab {suspect}.',
@@ -2280,6 +2361,12 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
             'No... he could come in any moment. I have to hang up.',
           ),
         ],
+      },
+      answersRu: {
+        where: ['Большой дом, пятый этаж. Из окна видно автобусную остановку.'],
+        count: ['Нас четверо. Мужчин двое, один сторожит дверь.'],
+        weapons: ['У одного нож, я {видел|видела}.'],
+        safe: ['Нет... он может зайти в любую секунду. Мне надо заканчивать.'],
       },
     },
     tags: ['trafficking'],
@@ -2423,6 +2510,11 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
         'Kiiresti, nad löövad teda jalaga, kui ta maas on!',
         'Quickly, they are kicking him while he is down!',
       ),
+    ],
+    callerLinesRu: [
+      'Тут у бара драка, четыре-пять человек, один уже лежит!',
+      'Я тут охранник. Один клиент ударил другого, мы его держим, но он вырывается.',
+      'Быстрее, они бьют его ногами, когда он лежит!',
     ],
     details: [
       T(
@@ -2568,6 +2660,12 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
           T('Kõik on täis, nad tulid just baarist.', 'They are all drunk, they just came out of the bar.'),
         ],
       },
+      answersRu: {
+        count: ['Четыре-пять мужиков, двое больше всех дерутся.'],
+        injured: ['У одного голова разбита, он сидит на земле.'],
+        weapons: ['Оружия не вижу, только кулаки. Один бутылку бросил.'],
+        intoxicated: ['Все пьяные, они только что из бара вышли.'],
+      },
     },
     tags: ['alcohol', 'fight'],
     scenarios: SC_BAR_FIGHT,
@@ -2609,6 +2707,10 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
         'Ma olen bussis. Nägin aknast, kuidas kolm tüüpi ründasid üht vanemat meest. Juht peatas bussi.',
         'I am on the bus. Through the window I saw three guys attack an older man. The driver has stopped the bus.',
       ),
+    ],
+    callerLinesRu: [
+      'На остановке бьют мужчину! Он лежит на земле, а они бьют его ногами по голове!',
+      'Я в автобусе. Из окна {видел|видела}, как трое напали на пожилого мужчину. Водитель остановил автобус.',
     ],
     details: [
       T(
@@ -2707,6 +2809,7 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
           'They are beating someone at the bus stop, he is not moving any more!',
         ),
       ],
+      openingRu: ['На остановке человека бьют, он уже не двигается!'],
       answers: {
         count: [T('Kolm noort meest.', 'Three young men.')],
         injured: [T('Ta lamab maas, peast tuleb verd.', 'He is lying on the ground, his head is bleeding.')],
@@ -2717,6 +2820,12 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
             'One is in a red hoodie, the others in dark jackets.',
           ),
         ],
+      },
+      answersRu: {
+        count: ['Трое молодых парней.'],
+        injured: ['Он лежит на земле, из головы кровь идёт.'],
+        direction: ['Теперь они убегают {direction}.'],
+        suspect: ['Один в красной толстовке, остальные в тёмных куртках.'],
       },
     },
     tags: ['fight'],
@@ -2910,6 +3019,10 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
         'I am inside the shop, we have locked the doors. He is standing right outside.',
       ),
     ],
+    callerLinesRu: [
+      'Тут мужчина с ножом! Он орёт и размахивает им, люди разбегаются!',
+      'Я в магазине, мы закрыли двери. Он стоит прямо за дверью.',
+    ],
     details: [
       T(
         'Isik: {suspect}. Räägib iseendaga, võib olla psüühikahäirega.',
@@ -3045,6 +3158,13 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
         intoxicated: [T('Ta on täiesti purjus, kõigub.', 'He is completely drunk, swaying.')],
         safe: [T('Me oleme poes, uksed on lukus.', 'We are in the shop, the doors are locked.')],
       },
+      answersRu: {
+        weapons: ['Большой кухонный нож, он держит его над головой.'],
+        injured: ['Вроде пока никто не пострадал.'],
+        suspect: ['Лет сорока, серая куртка, борода.'],
+        intoxicated: ['Он в стельку пьяный, шатается.'],
+        safe: ['Мы в магазине, двери закрыты.'],
+      },
     },
     tags: ['armed', 'weapon_knife'],
   },
@@ -3083,6 +3203,10 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
         'Ma ei tea, kas see on päris relv, aga ta näitab seda kõigile ja naerab.',
         'I do not know if it is a real gun, but he is showing it to everyone and laughing.',
       ),
+    ],
+    callerLinesRu: [
+      'У него пистолет! Он целился в меня и сказал, что застрелит!',
+      'Не знаю, настоящий ли пистолет, но он всем его показывает и смеётся.',
     ],
     details: [
       T(
@@ -3195,11 +3319,18 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
           '(whispering) I am hiding behind a car... he has a gun.',
         ),
       ],
+      openingRu: ['(шёпотом) Я {спрятался|спряталась} за машиной... у него пистолет.'],
       answers: {
         weapons: [T('Must püstol. Ma ei tea, kas päris.', 'A black pistol. I do not know if it is real.')],
         vehicle: [T('Ta istus autosse, number on {plate}.', 'He got into a car, the plate is {plate}.')],
         injured: [T('Keegi pole viga saanud.', 'Nobody is hurt.')],
         safe: [T('Ma olen auto taga, ta ei näe mind.', 'I am behind a car, he cannot see me.')],
+      },
+      answersRu: {
+        weapons: ['Чёрный пистолет. Не знаю, настоящий или нет.'],
+        vehicle: ['Он сел в машину, номер {plate}.'],
+        injured: ['Никто не пострадал.'],
+        safe: ['Я за машиной, он меня не видит.'],
       },
     },
     tags: ['armed', 'weapon_firearm'],
@@ -3240,6 +3371,10 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
         'Ma olen turvatöötaja. See mees ahistab tüdrukuid, me hoiame teda kinni.',
         'I am security staff. This man is harassing girls, we are holding him.',
       ),
+    ],
+    callerLinesRu: [
+      'Один мужчина лапал меня в автобусе и пошёл за мной. Он сейчас стоит на другой стороне дороги.',
+      'Я охранник. Этот мужчина пристаёт к девушкам, мы его держим.',
     ],
     details: [
       T('Kahtlustatav: {suspect}.', 'Suspect: {suspect}.'),
@@ -3303,11 +3438,20 @@ export const TEMPLATES_VIOLENCE: IncidentTemplate[] = [
           'Hello... a man touched me and is following me. I do not know what to do.',
         ),
       ],
+      openingRu: [
+        'Здравствуйте... один мужчина меня лапал и теперь ходит за мной. Я не знаю, что делать.',
+      ],
       answers: {
         where: [T('Bussipeatuses, {address}.', 'At the bus stop, {address}.')],
         suspect: [T('Umbes viiekümnene, hall mantel, müts.', 'About fifty, grey coat, a hat.')],
         safe: [T('Ma läksin kioski juurde, siin on inimesi.', 'I went to the kiosk, there are people here.')],
         injured: [T('Ei, füüsiliselt mitte.', 'No, not physically.')],
+      },
+      answersRu: {
+        where: ['На автобусной остановке, {address}.'],
+        suspect: ['Лет пятидесяти, серое пальто, шапка.'],
+        safe: ['Я {отошёл|отошла} к киоску, тут есть люди.'],
+        injured: ['Нет, физически нет.'],
       },
     },
     tags: ['sexual'],

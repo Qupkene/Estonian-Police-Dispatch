@@ -511,6 +511,10 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
         'A girl is sitting in the stairwell, eyes closed and swaying. There is a syringe next to her.',
       ),
     ],
+    callerLinesRu: [
+      'Какой-то парень бегает посреди дороги и кричит, что за ним гонятся. Он, наверное, под чем-то.',
+      'В подъезде сидит девушка, глаза закрыты, качается. Рядом шприц.',
+    ],
     details: [
       T('Isik: {suspect}.', 'Subject: {suspect}.'),
       T(
@@ -604,7 +608,7 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
           'Er... there is this guy here, he is totally... I do not know what is wrong with him.',
         ),
       ],
-      openingRu: ['Тут парень какой-то неадекватный, кричит, бегает между машинами, похоже под кайфом.'],
+      openingRu: ['[Тут парень какой-то неадекватный|Тут девушка какая-то неадекватная|Тут человек какой-то неадекватный], кричит, бегает между машинами, похоже, под кайфом.'],
       answers: {
         intoxicated: [
           T('Alkoholi lõhna pole, aga silmad on imelikud.', 'No smell of alcohol, but his eyes look weird.'),
@@ -613,6 +617,11 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
         injured: [
           T('Käsi veritseb, ta lõi vist vastu akent.', 'His hand is bleeding, I think he punched a window.'),
         ],
+      },
+      answersRu: {
+        intoxicated: ['Алкоголем не пахнет, но глаза странные.'],
+        weapons: ['Оружия не вижу.'],
+        injured: ['Рука в крови, [он, кажется, ударил|она, кажется, ударила] по окну.'],
       },
     },
     tags: ['drugs'],
@@ -648,6 +657,10 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
         'See ei ole esimene kord, öösel käivad siin narkomaanid.',
         'This is not the first time, drug users come here at night.',
       ),
+    ],
+    callerLinesRu: [
+      'Мой ребёнок нашёл шприц в песочнице! Слава богу, не укололся. Кто это будет убирать?',
+      'Это не первый раз, по ночам сюда наркоманы ходят.',
     ],
     details: [T('Süstlaid on vähemalt {n}.', 'There are at least {n} syringes.')],
     referral: { agency: 'kov', chance: 0.5 },
@@ -712,6 +725,11 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
             'The kids are at the playground, I moved them away.',
           ),
         ],
+      },
+      answersRu: {
+        count: ['Штук пять-шесть, может, больше.'],
+        injured: ['Нет, никто не пострадал.'],
+        children: ['Дети на площадке, я их {отогнал|отогнала} подальше.'],
       },
     },
     tags: ['drugs', 'children'],
@@ -861,6 +879,10 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
         'I am afraid of a fire, there are lamps and cables everywhere in there.',
       ),
     ],
+    callerLinesRu: [
+      'Весь подъезд пахнет травкой, а по ночам гудят вентиляторы.',
+      'Я боюсь пожара, там какие-то лампы и провода везде.',
+    ],
     details: [
       T(
         'Korteri omanik on {suspectName}, naabrite sõnul seal keegi ei ela.',
@@ -953,6 +975,9 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
           'Hello. I do not know if this is an emergency, but our stairwell has smelt of cannabis for months.',
         ),
       ],
+      openingRu: [
+        'Здравствуйте. Не знаю, срочное ли это дело, но у нас в подъезде уже несколько месяцев пахнет травкой.',
+      ],
       answers: {
         when: [
           T('Juba paar kuud, aga eriti hull on öösiti.', 'A couple of months now, but it is worst at night.'),
@@ -960,6 +985,10 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
         name: [
           T('Palun ärge öelge neile, et mina helistasin.', 'Please do not tell them it was me who called.'),
         ],
+      },
+      answersRu: {
+        when: ['Уже пару месяцев, но ночью хуже всего.'],
+        name: ['Пожалуйста, не говорите им, что это я {звонил|звонила}.'],
       },
     },
     tags: ['drugs'],
@@ -1259,6 +1288,10 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
         'We were together and he injected... now he will not wake up.',
       ),
     ],
+    callerLinesRu: [
+      '[Он почти не дышит|Она почти не дышит]! Губы синие, пожалуйста, быстрее!',
+      'Мы были вместе, и [он вколол|она вколола]... теперь не просыпается.',
+    ],
     details: [
       T('Teataja sõnul tarvitas kannatanu fentanüüli.', 'The caller says the victim used fentanyl.'),
       T('Kannatanu on politseile varem tuttav.', 'The victim is known to police.'),
@@ -1315,7 +1348,7 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
       opening: [
         T('Ta ei hinga! Ma arvan, et see on üledoos!', 'He is not breathing! I think it is an overdose!'),
       ],
-      openingRu: ['Тут парень не дышит, кажется передоз, шприц рядом!'],
+      openingRu: ['[Тут парень не дышит|Тут девушка не дышит|Тут человек не дышит], кажется, передоз, шприц рядом!'],
       answers: {
         injured: [T('Ta on teadvuseta, huuled sinised.', 'He is unconscious, his lips are blue.')],
         intoxicated: [T('Ta süstis midagi, ma ei tea mida.', 'He injected something, I do not know what.')],
@@ -1325,6 +1358,11 @@ export const TEMPLATES_DRUGS: IncidentTemplate[] = [
             'In the stairwell, on the third-floor landing. {address}.',
           ),
         ],
+      },
+      answersRu: {
+        injured: ['[Он без сознания|Она без сознания], губы синие.'],
+        intoxicated: ['[Он что-то вколол|Она что-то вколола], не знаю что.'],
+        where: ['В подъезде, на площадке третьего этажа. {address}.'],
       },
     },
     tags: ['drugs'],
