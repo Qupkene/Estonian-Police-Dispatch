@@ -29,7 +29,8 @@ import { knownStreetProbe, probeStreetTiles, type StreetProbe } from './streetTi
 import { MAX_BOUNDS } from './geodata';
 import { buildHeat, buildPursuits, buildRoutes, buildSearches, buildStations, declutterOffsets, isMoving, remainingPath } from './overlays';
 import { roadDisplay, roadService, type RoadDisplay } from './roads';
-import { IncidentMarkers, SuspectMarkers, UnitMarkers, type MarkerContext } from './markers';
+import { agencyDisplay, type AgencyVehicle } from './agencies';
+import { AgencyMarkers, IncidentMarkers, SuspectMarkers, UnitMarkers, type MarkerContext } from './markers';
 import { altitudeOf, Atmosphere } from './atmosphere';
 import type { MapViewProps } from './MapView';
 
@@ -97,6 +98,7 @@ export interface ControllerInit {
   reducedMotion: boolean;
 }
 
+const NO_VEHICLES: readonly AgencyVehicle[] = [];
 const RASTER_ERR_LIMIT = 6;
 const RASTER_ERR_WINDOW_MS = 10_000;
 const OVERLAY_INTERVAL_MS = 100;
@@ -115,6 +117,9 @@ export class MapController {
   private units: UnitMarkers;
   private incidents: IncidentMarkers;
   private suspects: SuspectMarkers;
+  private agencies: AgencyMarkers;
+  /** Other agencies' vehicles shown this frame (agencies.ts). */
+  private vehicles: readonly AgencyVehicle[] = [];
   private atmo: Atmosphere;
   private raf = 0;
   private destroyed = false;
@@ -210,6 +215,7 @@ export class MapController {
     this.units = new UnitMarkers(this.map, handlers);
     this.incidents = new IncidentMarkers(this.map, handlers);
     this.suspects = new SuspectMarkers(this.map, handlers);
+    this.agencies = new AgencyMarkers(this.map, handlers);
 
     const canvasContainer = this.map.getCanvasContainer();
     this.atmo = new Atmosphere(canvasContainer, this.map.getCanvas().nextSibling);
@@ -620,6 +626,8 @@ export class MapController {
       this.highlight = new Set(p.highlightUnitIds ?? []);
     }
 
+    this.vehicles = this.agencyVehicles(s, realNow);
+
     if (realNow - this.lastDeclutterAt > 200) {
       this.lastDeclutterAt = realNow;
       this.offsets = this.computeOffsets(s);
@@ -641,6 +649,7 @@ export class MapController {
     this.incidents.sync(ctx, realNow);
     this.units.sync(ctx);
     this.suspects.sync(ctx);
+    this.agencies.sync(ctx, this.vehicles, realNow);
 
     // Follow the selected unit (gentle per-frame easing towards it).
     if (this.follow && !this.followEasing && p.selectedUnitId) {
@@ -690,7 +699,26 @@ export class MapController {
       }
       items.push({ id, pos, moving, scene, station });
     }
+    // Agency vehicles at the scene line up with the units there.
+    for (const v of this.vehicles) {
+      const moving = v.phase === 'enroute' || v.phase === 'leaving';
+      items.push({ id: v.key, pos: v.pos, moving, scene: v.phase === 'onscene' ? v.incidentId : undefined });
+    }
     return declutterOffsets(items);
+  }
+
+  /** Other agencies' vehicles (ambulance, rescue ...) at this moment; none when that fails. */
+  private agencyVehicles(s: SimState, realNow: number): readonly AgencyVehicle[] {
+    try {
+      return agencyDisplay(s, this.roadSvc).vehicles(s, this.incCoord, realNow);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!this.warned.has(msg)) {
+        this.warned.add(msg);
+        console.warn('[map] agency vehicles failed', e);
+      }
+      return NO_VEHICLES;
+    }
   }
 
   private setSource(id: OverlaySourceId, fc: FeatureCollection, force = false) {
@@ -735,6 +763,7 @@ export class MapController {
     this.units.destroy();
     this.incidents.destroy();
     this.suspects.destroy();
+    this.agencies.destroy();
     this.atmo.destroy();
     this.stationTip?.remove();
     try {

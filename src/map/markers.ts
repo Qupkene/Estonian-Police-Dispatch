@@ -1,5 +1,5 @@
 /**
- * Imperative DOM markers for units, incidents and pursuit suspects.
+ * Imperative DOM markers for units, incidents, pursuit suspects and other agencies' vehicles.
  *
  * Markers are created once per id and diffed every animation frame straight from the live
  * SimState (which the engine mutates in place). DOM writes only happen when something changed:
@@ -10,8 +10,9 @@ import type { Incident, Lang, LngLat, SimState, Unit } from '@/sim/types';
 import { TEMPLATE_BY_ID } from '@/data/incidents';
 import { withScenario } from '@/sim/scenario';
 import { t } from '@/i18n';
-import { SIREN_GLYPH, SUSPECT_GLYPH, UNIT_GLYPHS } from './glyphs';
+import { AGENCY_GLYPHS, SIREN_GLYPH, SUSPECT_GLYPH, UNIT_GLYPHS } from './glyphs';
 import { isHidden, isMoving, type IncCoordFn, type PosFn, type SuspectPosFn } from './overlays';
+import { AGENCY_VEHICLES, agencyTitle, etaMinutes, type AgencyVehicle } from './agencies';
 
 /** Closed incidents stay on the map (greyed) for this many game-ms, then fade out. */
 export const CLOSED_LINGER_MS = 2 * 60_000;
@@ -396,6 +397,122 @@ export class SuspectMarkers {
     }
     for (const [id, rec] of this.recs) {
       if (!this.seen.has(id)) {
+        rec.marker.remove();
+        this.recs.delete(id);
+      }
+    }
+  }
+
+  destroy(): void {
+    for (const rec of this.recs.values()) rec.marker.remove();
+    this.recs.clear();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Other agencies' vehicles (agencies.ts)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface AgencyRec {
+  marker: Marker;
+  root: HTMLDivElement;
+  inner: HTMLDivElement;
+  dir: HTMLDivElement;
+  label: HTMLSpanElement;
+  key: string;
+  lng: number;
+  lat: number;
+  rot: number;
+  off: [number, number];
+  /** performance.now() at which the faded-out marker is removed. */
+  removeAt?: number;
+}
+
+/** Ambulances and the rest: not units (never selectable as one); a click opens their incident. */
+export class AgencyMarkers {
+  private recs = new Map<string, AgencyRec>();
+  private seen = new Set<string>();
+
+  constructor(
+    private map: MlMap,
+    private handlers: MarkerHandlers,
+  ) {}
+
+  private create(v: AgencyVehicle): AgencyRec {
+    const incId = v.incidentId;
+    const root = makeRoot('agency', () => this.handlers.onIncident(incId));
+    root.innerHTML =
+      '<div class="epdm-ag"><span class="epdm-ag__ring"></span><div class="epdm-ag__dir"><i></i></div>' +
+      `<span class="epdm-ag__body">${AGENCY_GLYPHS[v.agency] ?? ''}<span class="epdm-ag__bar"></span></span>` +
+      '<span class="epdm-ag__label"></span></div>';
+    const inner = root.firstElementChild as HTMLDivElement;
+    const rec: AgencyRec = {
+      marker: new Marker({ element: root, anchor: 'center', subpixelPositioning: true }).setLngLat(v.pos).addTo(this.map),
+      root,
+      inner,
+      dir: inner.querySelector('.epdm-ag__dir') as HTMLDivElement,
+      label: inner.querySelector('.epdm-ag__label') as HTMLSpanElement,
+      key: '',
+      lng: v.pos[0],
+      lat: v.pos[1],
+      rot: NaN,
+      off: [0, 0],
+    };
+    this.recs.set(v.key, rec);
+    return rec;
+  }
+
+  sync(c: MarkerContext, vehicles: readonly AgencyVehicle[], realNow: number): void {
+    this.seen.clear();
+    for (const v of vehicles) {
+      this.seen.add(v.key);
+      const rec = this.recs.get(v.key) ?? this.create(v);
+      if (rec.removeAt !== undefined) {
+        rec.removeAt = undefined;
+        rec.key = '';
+      }
+      const moving = v.phase === 'enroute' || v.phase === 'leaving';
+      const mins = v.phase === 'waiting' || v.phase === 'enroute' ? etaMinutes(v.eta) : 0;
+      const key = `${v.phase}|${v.lights}|${mins}|${c.lang}`;
+      if (key !== rec.key) {
+        rec.key = key;
+        rec.inner.className =
+          `epdm-ag epdm-ag--${v.agency} is-${v.phase}` +
+          (AGENCY_VEHICLES[v.agency]?.lights ? ' has-bar' : '') +
+          (moving ? ' is-moving' : '') +
+          (v.lights ? ' is-lights' : '');
+        rec.label.textContent = t(`map.agencyTag.${v.agency}`, c.lang);
+        const title = agencyTitle(v, c.lang);
+        rec.root.title = title;
+        rec.root.setAttribute('aria-label', title);
+        // Under the units on a job (they are the player's), over idle ones; flashing lights above both.
+        rec.root.style.zIndex = v.lights ? '45' : '34';
+      }
+      if (!near(v.pos[0], rec.lng, 1e-7) || !near(v.pos[1], rec.lat, 1e-7)) {
+        rec.lng = v.pos[0];
+        rec.lat = v.pos[1];
+        rec.marker.setLngLat(v.pos);
+      }
+      if (moving) {
+        const rot = (((v.heading - c.bearing) % 360) + 360) % 360;
+        if (!near(rot, rec.rot, 0.4)) {
+          rec.rot = rot;
+          rec.dir.style.transform = `rotate(${rot.toFixed(1)}deg)`;
+        }
+      }
+      const off = moving ? ZERO : (c.offsets.get(v.key) ?? ZERO);
+      if (off[0] !== rec.off[0] || off[1] !== rec.off[1]) {
+        rec.off = off;
+        rec.marker.setOffset(off);
+      }
+    }
+    // Gone (the incident closed, or the drive-off ended): fade out, then remove.
+    for (const [id, rec] of this.recs) {
+      if (this.seen.has(id)) continue;
+      if (rec.removeAt === undefined) {
+        rec.removeAt = realNow + FADE_MS;
+        rec.inner.classList.add('is-gone');
+      } else if (realNow >= rec.removeAt) {
         rec.marker.remove();
         this.recs.delete(id);
       }
