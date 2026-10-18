@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createShift, drainEvents, finalizeShift, step } from '@/sim/engine';
 import { REGION_IDS } from '@/data/regions';
-import type { GameEvent, GameMode, LngLat, NewShiftOptions, ShiftReport, SimState } from '@/sim/types';
+import type { GameEvent, GameMode, LngLat, NewShiftOptions, RadioMsg, ShiftReport, SimState } from '@/sim/types';
 import { careerShiftPaid, useCareer } from './career';
 import {
   autosaveBackupName,
@@ -167,6 +167,26 @@ const listeners = new Set<Listener>();
 export function onGameEvents(fn: Listener): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
+}
+
+// ── Player resolved a unit's message (player command → audio acknowledgement) ─
+
+type ResolvedListener = (msgs: RadioMsg[]) => void;
+const resolvedListeners = new Set<ResolvedListener>();
+/** Called after a player command closed unit messages that waited for the player. */
+export function onPlayerResolved(fn: ResolvedListener): () => void {
+  resolvedListeners.add(fn);
+  return () => resolvedListeners.delete(fn);
+}
+export function emitPlayerResolved(msgs: RadioMsg[]): void {
+  if (!msgs.length) return;
+  for (const l of resolvedListeners) {
+    try {
+      l(msgs);
+    } catch (err) {
+      console.warn('[EPD] resolved listener failed', err);
+    }
+  }
 }
 
 // ── Main loop ────────────────────────────────────────────────────────────────

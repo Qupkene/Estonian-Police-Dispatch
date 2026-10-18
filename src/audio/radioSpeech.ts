@@ -7,8 +7,10 @@
 //   units that are now sent, or the unit has moved on to another status.
 // - At 1x and 2x every line is read (stale lines are still dropped or cut); at 4x and faster only
 //   lines that need a reply and emergencies, with at most one waiting. Paused: nothing.
-// - A line cut mid-speech because the player handled it may be followed by a short acknowledgement
-//   from the same voice ("Ee, selge."), or by silence, so the radio does not sound robotic.
+// - When the player resolves something a unit asked or reported (a reply, the backup it asked for,
+//   the agency it wanted), that unit may answer with a short acknowledgement in its own voice
+//   ("Ee, selge."), or stay silent, so the radio does not sound robotic. Lines that went stale by
+//   themselves (status change, question timeout) are cut without one.
 import type { RadioMsg, SimState } from '@/sim/types';
 
 /** How much a line matters. */
@@ -131,9 +133,9 @@ export function pickSpoken(
   return best;
 }
 
-// ── Acknowledgement after a cut line ────────────────────────────────────────
+// ── Acknowledgement after the player resolved a unit's message ─────────────
 
-/** Short spoken acknowledgements after a unit's line was cut because the player already handled it. */
+/** Short spoken acknowledgements from a unit after the player resolved what it asked or reported. */
 export const ACK_PHRASES = {
   et: [
     'Ee, selge.',
@@ -150,13 +152,15 @@ export const ACK_PHRASES = {
   en: ['Uh, copy.', 'Okay.', 'Got it.', 'Roger that.', 'Copy that.', 'Ah, okay.', 'Understood.'],
 } as const;
 
-/** How often a cut line is followed by an acknowledgement (otherwise silence). */
+/** How often a resolved message is followed by an acknowledgement (otherwise silence). */
 export const ACK_CHANCE = 0.6;
+/** At most one acknowledgement per unit in this much game time (ms). */
+export const ACK_COOLDOWN_MS = 20_000;
 
 /**
- * The acknowledgement to say after a line was cut mid-speech, or null for silence: never at 4x and
- * faster or while paused, never when another line waits, ~60 % of the time otherwise, and never the
- * same phrase twice in a row.
+ * The acknowledgement to say, or null for silence: never at 4x and faster or while paused, never
+ * when a more important line (`waiting`: reply needed or emergency) waits, ~60 % of the time
+ * otherwise, and never the same phrase twice in a row.
  */
 export function pickAck(
   lang: 'et' | 'en',
@@ -167,4 +171,67 @@ export function pickAck(
   if (rnd() >= ACK_CHANCE) return null;
   const list = ACK_PHRASES[lang].filter((p) => p !== o.last);
   return list[Math.min(list.length - 1, Math.floor(rnd() * list.length))];
+}
+
+/** A message spoken by a unit (not the dispatcher, not Häirekeskus, not another agency). */
+export function isUnitMsg(m: RadioMsg): boolean {
+  return !!m.unitId && m.from !== 'JK' && m.from !== 'HK';
+}
+
+/** Does this unit message still wait for the player (a reply, or the beat it opened)? */
+function isOpenAsk(sim: SimState, m: RadioMsg): boolean {
+  if (!isUnitMsg(m) || m.answered) return false;
+  if (m.replies?.length && !(m.expiresAt !== undefined && sim.now > m.expiresAt)) return true;
+  const inc = m.incidentId ? sim.incidents[m.incidentId] : undefined;
+  return !!inc?.beats?.some((b) => b.radioId === m.id && b.status === 'active');
+}
+
+/** Ids of the unit messages that wait for the player now (snapshot before a player command). */
+export function openUnitAsks(sim: SimState): Set<string> {
+  const out = new Set<string>();
+  for (const m of sim.radio) if (isOpenAsk(sim, m)) out.add(m.id);
+  return out;
+}
+
+/**
+ * The unit messages that were open in `before` and are not any more. Taken around a player command
+ * (no game time passes), so whatever closed them was the player, never a timeout or the unit itself.
+ */
+export function resolvedSince(sim: SimState, before: ReadonlySet<string>): RadioMsg[] {
+  const out: RadioMsg[] = [];
+  if (!before.size) return out;
+  for (const m of sim.radio) if (before.has(m.id) && !isOpenAsk(sim, m)) out.push(m);
+  return out;
+}
+
+/**
+ * Which resolved message gets an acknowledgement and with what phrase, or null: the first unit
+ * message whose unit has not acknowledged in the last ACK_COOLDOWN_MS of game time, subject to
+ * pickAck (speed, chance, no repeat) and no more important line (reply needed, emergency) playing
+ * or waiting, other than the resolved ones themselves.
+ */
+export function pickResolvedAck(
+  sim: SimState,
+  resolved: readonly RadioMsg[],
+  o: {
+    lang: 'et' | 'en';
+    speedIndex: number;
+    /** Tags of the line playing and the waiting ones. */
+    queued: readonly SpeechTag[];
+    last?: string;
+    /** Game time of each unit's last acknowledgement. */
+    lastAt: ReadonlyMap<string, number>;
+    rnd?: () => number;
+  },
+): { msg: RadioMsg; phrase: string } | null {
+  const msg = resolved.find((m) => {
+    if (!isUnitMsg(m)) return false;
+    const at = o.lastAt.get(m.unitId as string);
+    return at === undefined || sim.now - at >= ACK_COOLDOWN_MS || sim.now < at;
+  });
+  if (!msg) return null;
+  const ids = new Set(resolved.map((m) => m.id));
+  const waiting = o.queued.filter((t) => t.prio >= PRIO.reply && !ids.has(t.msgId) && !isStale(sim, t)).length;
+  const phrase = pickAck(o.lang, { speedIndex: o.speedIndex, waiting, last: o.last, rnd: o.rnd });
+  return phrase ? { msg, phrase } : null;
 }

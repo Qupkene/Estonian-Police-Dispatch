@@ -3,7 +3,8 @@
  * refreshes immediately, and turn exceptions into an error toast instead of a crash.
  */
 import * as C from '@/sim/commands';
-import { useGame } from '@/store/game';
+import { emitPlayerResolved, useGame } from '@/store/game';
+import { openUnitAsks, resolvedSince } from '@/audio/radioSpeech';
 import type { Agency, Priority, SimState, Text } from '@/sim/types';
 import { activeBackup, bestFor, selQueue, selRecs, type QuerySubject } from './data';
 import { useGameUi } from './uiStore';
@@ -18,8 +19,12 @@ export function run<T>(fn: (s: SimState) => T): T | undefined {
   const s = g.sim;
   if (!s) return undefined;
   try {
+    // Unit messages waiting for the player before the command: those it closes get a spoken
+    // acknowledgement from the unit (AudioBridge). No game time passes here, so only the player did it.
+    const before = openUnitAsks(s);
     const r = fn(s);
     useGame.getState().bump();
+    emitPlayerResolved(resolvedSince(s, before));
     return r;
   } catch (err) {
     console.error('[EPD game] command failed', err);
@@ -137,6 +142,7 @@ export function checkRecord(sub: QuerySubject) {
     const ref = sub.kind === 'person' ? { personId: sub.personId } : { plate: sub.plate };
     const s = g.sim;
     if (!s) return;
+    const before = openUnitAsks(s);
     try {
       C.markChecked(s, sub.incidentId, ref);
     } catch (err) {
@@ -149,6 +155,7 @@ export function checkRecord(sub: QuerySubject) {
       console.warn('[EPD game] markChecked unavailable', errText(err));
     }
     g.bump();
+    emitPlayerResolved(resolvedSince(s, before));
   }
 }
 

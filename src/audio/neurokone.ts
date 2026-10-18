@@ -35,6 +35,8 @@ export interface TtsLine {
    * clip was still on the way, nor when it was dropped from the queue) and no other line waits.
    */
   onCut?: () => void;
+  /** Goes to the front of the queue (a short acknowledgement that must follow at once). */
+  first?: boolean;
 }
 
 /** Lines that may wait behind the one playing. */
@@ -410,7 +412,8 @@ export function say(line: TtsLine): void {
     // The line itself waits too (until pump takes it), so make room for it.
     while (queue.length && queue.length >= Math.max(1, max)) queue.shift();
   }
-  queue.push(item);
+  if (line.first) queue.unshift(item);
+  else queue.push(item);
   void pump();
 }
 
