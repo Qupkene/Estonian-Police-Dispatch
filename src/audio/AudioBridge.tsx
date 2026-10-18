@@ -1,13 +1,13 @@
 // Connects the game (events, calls, radio) and settings to the synthesiser. Renders nothing.
 // Owned by ui-shell.
 import { useEffect } from 'react';
-import { onGameEvents, useGame } from '@/store/game';
+import { onGameEvents, onPlayerResolved, useGame } from '@/store/game';
 import { useSettings } from '@/store/settings';
 import type { GameEvent, RadioMsg, SimState } from '@/sim/types';
 import { t } from '@/i18n';
-import { isStale, maxWaitingAt, pickAck, pickSpoken, speakableAt, voiceSpeedIndex, type SpeechTag } from './radioSpeech';
+import { isStale, maxWaitingAt, pickResolvedAck, pickSpoken, speakableAt, voiceSpeedIndex, type SpeechTag } from './radioSpeech';
 import { sfx } from './sfx';
-import { cancelSpeech, limitSpeechQueue, speak, stopSpeech } from './speech';
+import { cancelSpeech, limitSpeechQueue, speak, speechTags, stopSpeech } from './speech';
 
 /** Selector for UI elements that make a (very subtle) click sound. */
 const CLICK_SEL = '.ui-btn, .ui-iconbtn, .ui-tab, .ui-seg__opt, [data-sfx="click"]';
@@ -21,6 +21,8 @@ let radioSeenAtCursor = new Set<string>();
 let lastRadioSfx = 0;
 const answered = new Set<string>();
 const ended = new Set<string>();
+/** Game time of each unit's last spoken acknowledgement. */
+const lastAckAt = new Map<string, number>();
 
 function resetForSim(sim: SimState | null) {
   simRef = sim;
@@ -28,6 +30,7 @@ function resetForSim(sim: SimState | null) {
   radioSeenAtCursor = new Set(sim ? sim.radio.filter((m) => m.t === sim.now).map((m) => m.id) : []);
   answered.clear();
   ended.clear();
+  lastAckAt.clear();
   if (sim)
     for (const c of sim.calls) {
       if (c.answeredAt) answered.add(c.id);
@@ -90,14 +93,12 @@ function handleEvents(events: GameEvent[]) {
       const pick = pickSpoken(sim, fresh.length ? fresh : all, speed);
       if (pick) {
         const speaker = speakerOf(sim, pick.msg);
-        const isUnit = !!pick.msg.unitId && pick.msg.from !== 'JK' && pick.msg.from !== 'HK';
         speak(radioLine(pick.msg, st.lang), st.lang, {
           radio: true,
           volume: Math.min(1, st.volume + 0.2),
           speaker,
           tag: pick.tag,
           maxWaiting: maxWaitingAt(speed),
-          onCut: isUnit ? () => ackAfterCut(speaker) : undefined,
         });
       }
     }
@@ -108,17 +109,34 @@ let voiceSpeed = -1;
 let lastAck: string | undefined;
 
 /**
- * The unit's line was cut mid-speech because the player already handled it: sometimes a short
- * "Ee, selge." in the same voice, sometimes silence. Spoken only, not added to the radio log.
+ * The player just resolved what a unit asked or reported (reply, backup sent, agency asked for):
+ * sometimes that unit says a short "Ee, selge." in its own voice, sometimes nothing. Its line is cut
+ * first if it is still playing. Spoken only, not added to the radio log.
  */
-function ackAfterCut(speaker: { from: string; gender?: 'M' | 'F' }): void {
+function ackResolved(msgs: RadioMsg[]): void {
+  const g = useGame.getState();
+  const sim = g.sim;
   const st = useSettings.getState();
-  if (!st.radioVoice || useGame.getState().screen !== 'game') return;
-  // cancelTts only calls this when nothing else waits.
-  const ack = pickAck(st.lang, { speedIndex: voiceSpeed, waiting: 0, last: lastAck });
-  if (!ack) return;
-  lastAck = ack;
-  speak(ack, st.lang, { radio: true, volume: Math.min(1, st.volume + 0.2), speaker });
+  if (!sim || g.screen !== 'game' || !st.radioVoice) return;
+  if (sim !== simRef) resetForSim(sim);
+  const pick = pickResolvedAck(sim, msgs, {
+    lang: st.lang,
+    speedIndex: voiceSpeedIndex(g),
+    queued: speechTags(),
+    last: lastAck,
+    lastAt: lastAckAt,
+  });
+  if (!pick) return;
+  const ids = new Set(msgs.map((m) => m.id));
+  cancelSpeech((tag: SpeechTag) => ids.has(tag.msgId));
+  lastAck = pick.phrase;
+  lastAckAt.set(pick.msg.unitId as string, sim.now);
+  speak(pick.phrase, st.lang, {
+    radio: true,
+    volume: Math.min(1, st.volume + 0.2),
+    speaker: speakerOf(sim, pick.msg),
+    first: true,
+  });
 }
 
 /**
@@ -256,6 +274,8 @@ export function AudioBridge() {
 
   // Engine events → sounds.
   useEffect(() => onGameEvents(handleEvents), []);
+  // Player resolved a unit's message → maybe a short spoken acknowledgement.
+  useEffect(() => onPlayerResolved(ackResolved), []);
 
   // Calls are watched every UI tick (ring until answered or missed); the radio voice drops lines
   // that went stale and follows the game speed.

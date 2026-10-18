@@ -7,7 +7,7 @@
 // en-GB → en-US → any en. Radio lines in both languages wait in the same queue, so cancelSpeech()
 // can drop or cut a line the player has already acted on.
 import { sfx } from './sfx';
-import { cancelTts, limitTtsQueue, NEUROKONE_NAME, onTtsChange, say, stopTts, ttsReady } from './neurokone';
+import { cancelTts, limitTtsQueue, NEUROKONE_NAME, onTtsChange, say, stopTts, ttsReady, ttsTags } from './neurokone';
 import type { SpeechTag } from './radioSpeech';
 import { ttsText, ttsVoice, type TtsSpeaker } from './ttsText';
 
@@ -25,6 +25,8 @@ export interface SpeakOptions {
   maxWaiting?: number;
   /** Called when the line is cut while being heard and nothing else waits (see neurokone onCut). */
   onCut?: () => void;
+  /** Speak before the waiting lines (a short acknowledgement). */
+  first?: boolean;
 }
 
 export interface VoiceLike {
@@ -217,6 +219,7 @@ export function speak(text: string, lang: 'et' | 'en', opts?: SpeakOptions): voi
       tag: opts?.tag,
       maxWaiting: opts?.maxWaiting,
       onCut: opts?.onCut,
+      first: opts?.first,
     });
     return;
   }
@@ -226,6 +229,11 @@ export function speak(text: string, lang: 'et' | 'en', opts?: SpeakOptions): voi
 /** Drop waiting radio lines whose tag matches and cut the one that plays if it matches. */
 export function cancelSpeech(match: (tag: SpeechTag) => boolean): number {
   return cancelTts(match);
+}
+
+/** Tags of the radio line that plays and the waiting ones. */
+export function speechTags(): SpeechTag[] {
+  return ttsTags();
 }
 
 /** Keep at most `max` radio lines waiting. */

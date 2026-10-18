@@ -6,8 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { spellDigits, spellLetters, ttsText, ttsVoice, TTS_VOICES_F, TTS_VOICES_M } from '@/audio/ttsText';
 import {
   ACK_CHANCE,
+  ACK_COOLDOWN_MS,
   ACK_PHRASES,
   isStale,
+  openUnitAsks,
+  pickResolvedAck,
+  resolvedSince,
   maxWaitingAt,
   pickAck,
   minPrioAt,
@@ -226,6 +230,87 @@ describe('radio voice: what is read and what goes stale', () => {
     // English UI has its own; no dashes used as pauses.
     expect(pickAck('en', { speedIndex: 1, waiting: 0, rnd: () => 0 })).toBe(ACK_PHRASES.en[0]);
     for (const p of [...ACK_PHRASES.et, ...ACK_PHRASES.en]) expect(p).not.toMatch(/[\u2013\u2014]/);
+  });
+
+  it('acknowledges what the player resolved, only from units, and not stale lines the player did not cause', () => {
+    const replies = [{ id: 'clean', label: { et: 'Puhas', en: 'Clean' } }];
+    const ask = msg({ id: 'q1', kind: 'query', unitId: 'u1', incidentId: 'i1', replies, expiresAt: 5000 });
+    const backup = msg({ id: 'b1', kind: 'backup', level: 'emergency', unitId: 'u1', incidentId: 'i1' });
+    const hk = msg({ id: 'h1', from: 'HK', unitId: 'u1', replies });
+    const jk = msg({ id: 'j1', from: 'JK', unitId: 'u1', replies });
+    const beat = { index: 0, status: 'active', radioId: 'b1' };
+    const s = world({ radio: [ask, backup, hk, jk], incidents: [inc({ beats: [beat] as never })] });
+    const before = openUnitAsks(s);
+    expect([...before].sort()).toEqual(['b1', 'q1']);
+    // Nothing changed: nothing resolved.
+    expect(resolvedSince(s, before)).toEqual([]);
+    // The player replied and sent the backup.
+    ask.answered = 'clean';
+    beat.status = 'done';
+    expect(resolvedSince(s, before).map((m) => m.id)).toEqual(['q1', 'b1']);
+    const o = { lang: 'et' as const, speedIndex: 1, queued: [] as SpeechTag[], lastAt: new Map<string, number>(), rnd: () => 0 };
+    expect(pickResolvedAck(s, resolvedSince(s, before), o)).toEqual({ msg: ask, phrase: ACK_PHRASES.et[0] });
+    // ~60 %: over the chance, silence; never at 4x+ or paused.
+    expect(pickResolvedAck(s, [ask], { ...o, rnd: () => ACK_CHANCE })).toBeNull();
+    for (const speedIndex of [0, 3, 4]) expect(pickResolvedAck(s, [ask], { ...o, speedIndex })).toBeNull();
+    // Häirekeskus and the dispatcher never acknowledge.
+    expect(pickResolvedAck(s, [hk, jk], o)).toBeNull();
+    // The resolved line itself playing does not block; another line needing a reply does.
+    const tagOf = (id: string, prio: SpeechTag['prio']): SpeechTag => ({ msgId: id, t: 1000, from: 'PÕHJA 21', prio });
+    expect(pickResolvedAck(s, [ask], { ...o, queued: [tagOf('q1', PRIO.reply)] })).not.toBeNull();
+    const other = msg({ id: 'q2', unitId: 'u1', replies });
+    s.radio.push(other);
+    expect(pickResolvedAck(s, [ask], { ...o, queued: [tagOf('q2', PRIO.reply)] })).toBeNull();
+    expect(pickResolvedAck(s, [ask], { ...o, queued: [tagOf('r1', PRIO.routine)] })).not.toBeNull();
+    // At most one per unit per ACK_COOLDOWN_MS of game time; never the same phrase twice.
+    expect(ACK_COOLDOWN_MS).toBe(20_000);
+    expect(pickResolvedAck(s, [ask], { ...o, lastAt: new Map([['u1', s.now - 5000]]) })).toBeNull();
+    expect(pickResolvedAck(s, [ask], { ...o, lastAt: new Map([['u1', s.now - ACK_COOLDOWN_MS]]) })).not.toBeNull();
+    expect(pickResolvedAck(s, [ask], { ...o, last: ACK_PHRASES.et[0] })?.phrase).toBe(ACK_PHRASES.et[1]);
+  });
+
+  it('does not count a question timeout or a unit moving on as resolved by the player', () => {
+    const replies = [{ id: 'clean', label: { et: 'Puhas', en: 'Clean' } }];
+    const ask = msg({ id: 'q1', kind: 'query', unitId: 'u1', incidentId: 'i1', replies, expiresAt: 5000 });
+    const u = unit();
+    const s = world({ radio: [ask], units: [u] });
+    const tag = speechTag(s, ask);
+    const before = openUnitAsks(s);
+    // The unit changed status by itself: the line is stale (cut), but the question is still open.
+    (u as { status: string }).status = 'patrol';
+    expect(isStale(s, tag)).toBe(true);
+    expect(resolvedSince(s, before)).toEqual([]);
+    // A question that timed out is not open any more, but the trigger runs only around a player
+    // command, where no game time passes; the engine marks it 'timeout' during a tick instead.
+    expect(openUnitAsks(world({ radio: [ask], now: 6000 })).size).toBe(0);
+  });
+
+  it('player command wrappers report the unit messages they closed, nothing else does', async () => {
+    const { onPlayerResolved, useGame } = await import('@/store/game');
+    const { run } = await import('@/ui/game/actions');
+    const replies = [{ id: 'clean', label: { et: 'Puhas', en: 'Clean' } }];
+    const ask = msg({ id: 'q1', kind: 'query', unitId: 'u1', replies, expiresAt: 5000 });
+    const other = msg({ id: 'q2', kind: 'query', unitId: 'u1', replies, expiresAt: 5000 });
+    const s = world({ radio: [ask, other] });
+    const prev = useGame.getState().sim;
+    useGame.setState({ sim: s });
+    const got: string[][] = [];
+    const off = onPlayerResolved((m) => got.push(m.map((x) => x.id)));
+    try {
+      // The world closing a question by itself (timeout during a tick) is not reported.
+      other.answered = 'timeout';
+      expect(got).toEqual([]);
+      run(() => {
+        ask.answered = 'clean';
+      });
+      expect(got).toEqual([['q1']]);
+      // A command that closes nothing reports nothing.
+      run(() => undefined);
+      expect(got).toEqual([['q1']]);
+    } finally {
+      off();
+      useGame.setState({ sim: prev });
+    }
   });
 
   it('drops a line once the player has acted on it or the world has moved past it', () => {
