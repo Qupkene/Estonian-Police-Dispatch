@@ -5,8 +5,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { spellDigits, spellLetters, ttsText, ttsVoice, TTS_VOICES_F, TTS_VOICES_M } from '@/audio/ttsText';
 import {
+  ACK_CHANCE,
+  ACK_PHRASES,
   isStale,
   maxWaitingAt,
+  pickAck,
   minPrioAt,
   pickSpoken,
   PRIO,
@@ -169,19 +172,18 @@ describe('radio voice: what is read and what goes stale', () => {
     for (const p of Object.values(PRIO)) expect(speakableAt(p, 0)).toBe(false);
     // 1x: everything.
     for (const p of Object.values(PRIO)) expect(speakableAt(p, 1)).toBe(true);
-    // 2x: no routine chatter.
-    expect(speakableAt(PRIO.routine, 2)).toBe(false);
-    expect(speakableAt(PRIO.important, 2)).toBe(true);
-    expect(speakableAt(PRIO.reply, 2)).toBe(true);
+    // 2x: still everything.
+    for (const p of Object.values(PRIO)) expect(speakableAt(p, 2)).toBe(true);
     // 4x and 8x: only lines that need a reply, and emergencies.
     for (const i of [3, 4]) {
       expect(speakableAt(PRIO.important, i)).toBe(false);
       expect(speakableAt(PRIO.reply, i)).toBe(true);
       expect(speakableAt(PRIO.emergency, i)).toBe(true);
     }
-    // At most one line waits from 2x up.
+    // At most one line waits from 4x up; 1x and 2x use the normal queue.
     expect(maxWaitingAt(1)).toBeUndefined();
-    expect(maxWaitingAt(2)).toBe(1);
+    expect(maxWaitingAt(2)).toBeUndefined();
+    expect(maxWaitingAt(3)).toBe(1);
     expect(maxWaitingAt(4)).toBe(1);
     // Director mode runs in real time; paused is paused.
     expect(voiceSpeedIndex({ speedIndex: 1, realtime: true })).toBe(1);
@@ -195,11 +197,35 @@ describe('radio voice: what is read and what goes stale', () => {
     const question = msg({ id: 'r3', kind: 'query', level: 'priority', replies: [{ id: 'clean', label: { et: 'Puhas', en: 'Clean' } }] });
     const s = world({ radio: [routine, pursuit, question] });
     expect(pickSpoken(s, [routine], 1)?.msg.id).toBe('r1');
-    expect(pickSpoken(s, [routine], 2)).toBeUndefined();
+    expect(pickSpoken(s, [routine], 2)?.msg.id).toBe('r1');
     expect(pickSpoken(s, [routine, pursuit], 2)?.msg.id).toBe('r2');
     expect(pickSpoken(s, [routine, pursuit], 3)).toBeUndefined();
     expect(pickSpoken(s, [routine, pursuit, question], 3)?.msg.id).toBe('r3');
     expect(pickSpoken(s, [routine, pursuit, question], 0)).toBeUndefined();
+  });
+
+  it('sometimes acknowledges a cut line, varied, and never at 4x or with a line waiting', () => {
+    const seq = (...v: number[]) => () => v.shift() ?? 0;
+    // Under the chance: a phrase; at or over it: silence.
+    expect(pickAck('et', { speedIndex: 1, waiting: 0, rnd: seq(0, 0) })).toBe(ACK_PHRASES.et[0]);
+    expect(pickAck('et', { speedIndex: 2, waiting: 0, rnd: seq(ACK_CHANCE - 0.01, 0.99) })).toBe(ACK_PHRASES.et.at(-1));
+    expect(pickAck('et', { speedIndex: 1, waiting: 0, rnd: seq(ACK_CHANCE) })).toBeNull();
+    expect(ACK_CHANCE).toBeCloseTo(0.6);
+    // Not at 4x and faster, not paused, not when another line waits.
+    for (const speedIndex of [0, 3, 4]) expect(pickAck('et', { speedIndex, waiting: 0, rnd: () => 0 })).toBeNull();
+    expect(pickAck('et', { speedIndex: 1, waiting: 1, rnd: () => 0 })).toBeNull();
+    // Never the same one twice in a row.
+    let last: string | undefined;
+    for (let i = 0; i < 200; i++) {
+      const a = pickAck('et', { speedIndex: 1, waiting: 0, last, rnd: Math.random });
+      if (!a) continue;
+      expect(a).not.toBe(last);
+      last = a;
+    }
+    expect(pickAck('et', { speedIndex: 1, waiting: 0, last: ACK_PHRASES.et[0], rnd: () => 0 })).toBe(ACK_PHRASES.et[1]);
+    // English UI has its own; no dashes used as pauses.
+    expect(pickAck('en', { speedIndex: 1, waiting: 0, rnd: () => 0 })).toBe(ACK_PHRASES.en[0]);
+    for (const p of [...ACK_PHRASES.et, ...ACK_PHRASES.en]) expect(p).not.toMatch(/[\u2013\u2014]/);
   });
 
   it('drops a line once the player has acted on it or the world has moved past it', () => {
@@ -487,6 +513,39 @@ describe('server voice queue', () => {
     expect(log.some((e) => e === 'start:B' || e === 'fallback:B')).toBe(false);
     expect(log.filter((e) => e.startsWith('start'))).toEqual(['start:A', 'start:C']);
     expect(nk.ttsTags()).toEqual([]);
+  });
+
+  it('reports a cut only for a line that was being heard and with nothing waiting', async () => {
+    const short = longClips();
+    const cuts: string[] = [];
+    const onCut = (id: string) => () => void cuts.push(id);
+    // Playing, nothing waiting: reported, and a line said from the hook plays next.
+    nk.say(tagged('A', { msgId: 'a' }, { onCut: () => { cuts.push('a'); nk.say(line('Ee, selge.')); } }));
+    await until(() => log.includes('start:A'));
+    short();
+    nk.cancelTts((t) => t.msgId === 'a');
+    await until(() => log.includes('end:Ee, selge.'));
+    expect(cuts).toEqual(['a']);
+    // Playing, another line waiting: not reported.
+    longClips();
+    nk.say(tagged('B', { msgId: 'b' }, { onCut: onCut('b') }));
+    nk.say(tagged('C', { msgId: 'c' }, { onCut: onCut('c') }));
+    await until(() => log.includes('start:B'));
+    short();
+    nk.cancelTts((t) => t.msgId === 'b');
+    await until(() => log.includes('start:C'));
+    expect(cuts).toEqual(['a']);
+    // (C was fetched ahead as a long clip; stopTts never reports a cut.)
+    nk.stopTts();
+    // Dropped from the queue before playing, or cut while its clip was on the way: not reported.
+    nk.say(tagged('hold-d', { msgId: 'd' }, { onCut: onCut('d') }));
+    nk.say(tagged('E', { msgId: 'e' }, { onCut: onCut('e') }));
+    await until(() => log.includes('fetch:hold-d'));
+    nk.cancelTts((t) => t.msgId === 'e');
+    nk.cancelTts((t) => t.msgId === 'd');
+    hold.get('hold-d')!();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(cuts).toEqual(['a']);
   });
 
   it('never plays a line cancelled while its clip was still on the way', async () => {

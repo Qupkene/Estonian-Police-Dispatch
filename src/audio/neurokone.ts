@@ -30,6 +30,11 @@ export interface TtsLine {
   tag?: SpeechTag;
   /** Radio lines that may wait behind the one playing when this one is queued (default QUEUE_MAX). */
   maxWaiting?: number;
+  /**
+   * Called by cancelTts() when this line was cut while it was actually being heard (not while its
+   * clip was still on the way, nor when it was dropped from the queue) and no other line waits.
+   */
+  onCut?: () => void;
 }
 
 /** Lines that may wait behind the one playing. */
@@ -51,6 +56,8 @@ interface Item {
   at: number;
   audio?: Promise<AudioBuffer | null>;
   cancelled?: boolean;
+  /** The line is being heard (clip or fallback started). */
+  audible?: boolean;
 }
 
 const lru = new Map<string, AudioBuffer>();
@@ -368,6 +375,7 @@ async function pump(): Promise<void> {
       if (buf) {
         // The next line is fetched while this one plays.
         if (queue[0]) void audioOf(queue[0]);
+        item.audible = true;
         if (await play(buf, item.line.radio, gen)) {
           if (gen !== generation) return;
           active = null;
@@ -375,8 +383,10 @@ async function pump(): Promise<void> {
           continue;
         }
         if (gen !== generation) return;
+        item.audible = false;
         if (item.cancelled) continue;
       }
+      item.audible = true;
       try {
         await item.line.fallback();
       } catch {
@@ -426,6 +436,13 @@ export function cancelTts(match: (tag: SpeechTag) => boolean): number {
       a.line.stopFallback?.();
     } catch {
       /* best effort */
+    }
+    if (a.audible && !queue.length) {
+      try {
+        a.line.onCut?.();
+      } catch {
+        /* best effort */
+      }
     }
   }
   return n;
