@@ -181,43 +181,114 @@ export default {
     en: 'Authors, data sources and licences.',
   },
   'shell.menu.logout': { et: 'Logi välja', en: 'Sign out' },
-  'shell.menu.news': { et: 'Mis on uut?', en: "What's new?" },
-  'shell.menu.news.map': {
-    et: 'Päris Eesti kaart: neli prefektuuri, päris tänavad ja jaoskonnad, ekipaažid liiguvad reaalajas.',
-    en: 'A real map of Estonia: four prefectures, real streets and stations, crews moving in real time.',
+  // ── Menu: Teenistus ──
+  'shell.menu.service': { et: 'Teenistus', en: 'Duty' },
+  'shell.menu.system': { et: 'Süsteem', en: 'System' },
+  'shell.menu.row.career': { et: 'jätka: päev {day} · {area}', en: 'continue: day {day} · {area}' },
+  'shell.menu.row.careerNew': {
+    et: 'uus karjäär: prefektuur ja esimene sektor',
+    en: 'new career: a prefecture and a first sector',
   },
-  'shell.menu.news.incidents': {
-    et: 'Üle 250 sündmusetüübi, sealhulgas kõik 116 väljakutset 2024. ja 2025. aasta versioonidest.',
-    en: 'Over 250 incident types, including all 116 call-outs from the 2024 and 2025 versions.',
+  'shell.menu.row.daily': { et: '{area} · {slot} · {state}', en: '{area} · {slot} · {state}' },
+  'shell.menu.row.quick': { et: 'üks vahetus, vabad seaded', en: 'one shift, your own settings' },
+  'shell.menu.row.director': { et: 'stseenid, HUD peidetav', en: 'scenes, the HUD can hide' },
+  'shell.menu.row.settings': { et: 'keel, heli, kaart, ligipääs', en: 'language, sound, map, access' },
+  'shell.menu.row.credits': { et: 'autorid, andmed, litsentsid', en: 'authors, data, licences' },
+  'shell.menu.keys': { et: 'Klahvid', en: 'Keys' },
+  'shell.menu.keys.move': { et: 'vali', en: 'move' },
+  'shell.menu.keys.open': { et: 'ava', en: 'open' },
+  'shell.menu.keys.direct': { et: 'otsevalik', en: 'direct' },
+
+  // ── Menu: Karjäär ──
+  'shell.menu.dayMonth': { et: 'päev {day} · kuu {month}', en: 'day {day} · month {month}' },
+  'shell.menu.areaLine': { et: '{area}, {region}', en: '{area}, {region}' },
+  'shell.menu.kpi.money': { et: 'Eelarve', en: 'Budget' },
+  'shell.menu.kpi.rep': { et: 'Staatus', en: 'Status' },
+  'shell.menu.kpi.rank': { et: 'Auaste', en: 'Rank' },
+  'shell.menu.kpi.payday': { et: 'Palgapäev', en: 'Payday' },
+  'shell.menu.kpi.last': { et: 'Viimane', en: 'Last' },
+  'shell.menu.kpi.shifts': { et: 'Vahetusi', en: 'Shifts' },
+  'shell.menu.kpi.onDay': { et: 'päev {day}', en: 'day {day}' },
+  'shell.menu.kpi.paydayIn': { et: 'vahetuse pärast', en: 'shifts away' },
+  'shell.menu.kpi.paydayNext': { et: 'järgmine vahetus', en: 'the next shift' },
+  'shell.menu.kpi.best': { et: 'parim {score}', en: 'best {score}' },
+  'shell.menu.kpi.bestDay': { et: 'parim {score}, päev {day}', en: 'best {score}, day {day}' },
+  'shell.menu.kpi.grade': { et: 'hinne {grade}', en: 'grade {grade}' },
+  'shell.menu.chart': { et: 'Vahetused {from}-{to}', en: 'Shifts {from}-{to}' },
+  'shell.menu.chart.one': { et: 'Vahetus {from}', en: 'Shift {from}' },
+  'shell.menu.chart.avg': { et: 'keskmine', en: 'average' },
+  'shell.menu.chart.aria': {
+    et: 'Vahetuste hinded ja punktid päevadel {from} kuni {to}: {list}',
+    en: 'Grades and scores of the shifts on days {from} to {to}: {list}',
   },
-  'shell.menu.news.registry': {
-    et: 'Andmebaas: isikukoodid, juhiload, relvaload, karistused ja tagaotsitavad.',
-    en: 'Database: personal ID codes, licences, weapon permits, records and wanted persons.',
+  'shell.menu.start': { et: 'Alusta vahetust · päev {day}', en: 'Start shift · day {day}' },
+  'shell.menu.next.day': { et: 'päevavahetus', en: 'day shift' },
+  'shell.menu.next.night': { et: 'öövahetus', en: 'night shift' },
+  'shell.menu.hq': { et: 'Peakorter', en: 'Headquarters' },
+  'shell.menu.newCareer': { et: 'Uus karjäär', en: 'New career' },
+  'shell.menu.newCareer.text': {
+    et: 'Alustad nooremkonstaablina ühe sektori laua taga. Head vahetused tõstavad Staatust ja auastet, prefekt pakub uusi sektoreid ja hiljem teisi prefektuure.',
+    en: 'You start as a junior constable at one sector desk. Good shifts raise your Staatus and rank; the prefect offers new sectors and later other prefectures.',
   },
-  'shell.menu.news.calls': {
-    et: 'Interaktiivsed 112-kõned Häirekeskusest, ka venekeelsed helistajad.',
-    en: 'Interactive 112 transfers from the Emergency Response Centre, including Russian-speaking callers.',
+  'shell.menu.newCareer.start': { et: 'Alusta karjääri', en: 'Start a career' },
+  'shell.menu.newCareer.meta': { et: 'uus', en: 'new' },
+
+  // ── Menu: Teated ──
+  'shell.menu.notices': { et: 'Teated', en: 'Notices' },
+  'shell.menu.notices.all': { et: 'Kõik', en: 'All' },
+  'shell.menu.notices.allAria': { et: 'Kõik teated peakorteris', en: 'All notices in the headquarters' },
+  'shell.menu.note.prefect': { et: 'Prefekt', en: 'Prefect' },
+  'shell.menu.note.staff': { et: 'Personal', en: 'Staff' },
+  'shell.menu.note.fleet': { et: 'Autopark', en: 'Fleet' },
+  'shell.menu.note.budget': { et: 'Eelarve', en: 'Budget' },
+  'shell.menu.note.rank': { et: 'Auaste', en: 'Rank' },
+  'shell.menu.note.award': { et: 'Saavutus', en: 'Achievement' },
+  'shell.menu.note.info': { et: 'Teade', en: 'Notice' },
+  'shell.menu.note.day': { et: 'P{day}', en: 'D{day}' },
+  'shell.menu.note.offer': {
+    et: 'Pakub lisasektorit: {names}. Vasta peakorteris.',
+    en: 'Offers you another sector: {names}. Answer in the headquarters.',
   },
-  'shell.menu.news.radio': {
-    et: 'ESTER-raadio, toetuse palved, jälitused ja piirkonna läbiotsimine.',
-    en: 'ESTER radio, backup requests, pursuits and area searches.',
+  'shell.menu.note.fleetText': {
+    et: '{model} ({plate}): seisukord {pct} %.',
+    en: '{model} ({plate}): condition {pct}%.',
   },
-  'shell.menu.news.time': {
-    et: 'Päev ja öö, ilm, jaaniõhtu ning vana-aasta öö.',
-    en: "Day and night, weather, Midsummer Eve and New Year's Eve.",
+
+  // ── Menu: map legend ──
+  'shell.menu.legend': { et: 'Kaardi märgid', en: 'Map key' },
+  'shell.menu.legend.mine': { et: 'Sinu sektor', en: 'Your sector' },
+  'shell.menu.legend.whole': { et: 'Sinu prefektuur', en: 'Your prefecture' },
+  'shell.menu.legend.offer': { et: 'Pakkumine', en: 'Offer' },
+  'shell.menu.legend.challenge': { et: 'Väljakutse', en: 'Challenge' },
+  'shell.menu.legend.pref': { et: 'Prefektuuri piir', en: 'Prefecture border' },
+  'shell.menu.legend.sector': { et: 'Sektori piir', en: 'Sector border' },
+  'shell.menu.legend.scale': { et: 'Mõõtkava, {km} km', en: 'Scale, {km} km' },
+
+  // ── Frame (top bar and footer of the out-of-game screens) ──
+  'shell.frame.signIn': { et: 'Logi kontoga sisse', en: 'Sign in to an account' },
+  'shell.frame.local': { et: 'Salvestus selles brauseris', en: 'Saved in this browser' },
+  'shell.frame.mapCredit': {
+    et: 'Kaart: Maa- ja Ruumiamet, Natural Earth',
+    en: 'Map: Estonian Land and Spatial Development Board, Natural Earth',
   },
-  'shell.menu.news.career': {
-    et: 'Karjäär 2025. aasta vaimus: Staatus, eelarve, palkamine, sõidukid ja uuendused.',
-    en: 'Career in the spirit of 2025: Staatus, budget, hiring, vehicles and upgrades.',
+  'shell.frame.mapCreditShort': {
+    et: 'kaart: Maa- ja Ruumiamet, Natural Earth',
+    en: 'map: Estonian Land and Spatial Development Board, Natural Earth',
   },
-  'shell.menu.news.director': {
-    et: 'Režissööri režiim politseifilmide tegemiseks.',
-    en: 'Director mode for making police films.',
+  'shell.frame.disclaimer': {
+    et: 'Mitteametlik fännimäng, ei ole seotud Politsei- ja Piirivalveametiga. Hädaolukorras helista 112.',
+    en: 'Unofficial fan game, not affiliated with the Estonian Police and Border Guard Board. In an emergency call 112.',
   },
-  'shell.menu.tip': {
-    et: 'Vihje: menüüs liigu nooleklahvidega või vajuta numbrit 1-{n}.',
-    en: 'Tip: move through the menu with the arrow keys or press 1-{n}.',
-  },
+
+  // ── Duty map ──
+  'shell.map.yours': { et: 'sinu sektor', en: 'your sector' },
+  'shell.map.fi': { et: 'SOOME', en: 'FINLAND' },
+  'shell.map.lv': { et: 'LÄTI', en: 'LATVIA' },
+  'shell.map.ru': { et: 'VENEMAA', en: 'RUSSIA' },
+  'shell.map.gulf': { et: 'Soome laht', en: 'Gulf of Finland' },
+  'shell.map.baltic': { et: 'Läänemeri', en: 'Baltic Sea' },
+  'shell.map.riga': { et: 'Liivi laht', en: 'Gulf of Riga' },
+  'shell.map.peipus': { et: 'Peipsi järv', en: 'Lake Peipus' },
 
   // ── Briefing ──
   'shell.brief.title.free': { et: 'Kiirmäng', en: 'Quick play' },

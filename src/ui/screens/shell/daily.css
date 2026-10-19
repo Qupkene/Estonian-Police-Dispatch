@@ -1,147 +1,4 @@
-/* Päeva väljakutse: the menu tile and the daily board (src/ui/screens/shell/Daily.tsx) */
-.sh-daily {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-width: 620px;
-  margin-bottom: 12px;
-  padding: 12px 16px 12px;
-  border-color: color-mix(in srgb, var(--gold) 42%, var(--line));
-  background: linear-gradient(
-    115deg,
-    color-mix(in srgb, var(--gold) 11%, var(--bg-2)),
-    color-mix(in srgb, var(--bg-1) 88%, transparent) 62%
-  );
-  backdrop-filter: blur(6px);
-  animation: sh-menu-in var(--dur-3) var(--ease) both;
-}
-.sh-daily__head {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-}
-.sh-daily__badge {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  color: var(--gold);
-  background: color-mix(in srgb, var(--gold) 16%, var(--bg-3));
-}
-.sh-daily__title {
-  margin: 0;
-  font-size: var(--fs-sm);
-  font-weight: 750;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--gold);
-}
-.sh-daily__day {
-  font-size: var(--fs-sm);
-  color: var(--text-2);
-}
-.sh-daily__next {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: auto;
-  font-size: var(--fs-xs);
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
-}
-.sh-daily__area {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 2px 10px;
-}
-.sh-daily__sector {
-  font-size: 22px;
-  font-weight: 800;
-  line-height: 1.15;
-}
-.sh-daily__region {
-  font-size: var(--fs-sm);
-  color: var(--text-2);
-}
-.sh-daily__facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.sh-daily__facts li {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-3) 60%, transparent);
-  font-size: var(--fs-sm);
-  color: var(--text-1);
-}
-.sh-daily__facts .ui-icon {
-  color: var(--accent-2);
-}
-.sh-daily__facts li.is-harsh {
-  border-color: color-mix(in srgb, var(--warn) 55%, var(--line));
-}
-.sh-daily__facts li.is-harsh .ui-icon {
-  color: var(--warn);
-}
-.sh-daily__harsh {
-  padding: 0 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 750;
-  text-transform: uppercase;
-  color: var(--bg-0);
-  background: var(--warn);
-}
-.sh-daily__foot {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  padding-top: 9px;
-  border-top: 1px solid var(--line);
-}
-.sh-daily__status {
-  flex: 1 1 260px;
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: var(--text-2);
-}
-.sh-daily__status.is-mine {
-  color: var(--text-0);
-}
-.sh-daily__status .ui-icon {
-  flex: none;
-  margin-top: 2px;
-  color: var(--gold);
-}
-.sh-daily__practice {
-  color: var(--text-3);
-}
-.sh-daily__actions {
-  display: flex;
-  gap: 8px;
-  margin-left: auto;
-}
-.sh-daily .sh-error {
-  margin: 0;
-}
-
-/* Daily board (dialog) */
+/* Päeva väljakutse: the daily board dialog (src/ui/screens/shell/Daily.tsx). The menu's card is in menu.css. */
 .sh-dboard {
   display: flex;
   flex-direction: column;
@@ -192,15 +49,118 @@
   color: var(--text-2);
 }
 
-@media (max-width: 600px) {
-  .sh-daily__next {
-    margin-left: 0;
-    width: 100%;
-  }
-  .sh-daily__actions {
-    width: 100%;
-  }
-  .sh-daily__actions .ui-btn {
-    flex: 1;
-  }
+/* Rows of the board (the same look as the 2.0 menu leaderboard) */
+.sh-lb__state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 64px;
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+.sh-lb__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sh-lb__row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 26px 34px;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 3px 8px;
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+}
+.sh-lb__row:nth-child(odd) {
+  background: color-mix(in srgb, var(--bg-3) 55%, transparent);
+}
+.sh-lb__row.is-me {
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-2));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.sh-lb__rank {
+  color: var(--text-3);
+  font-weight: 700;
+  text-align: center;
+}
+.sh-lb__row.is-top1 .sh-lb__rank {
+  color: var(--gold);
+}
+.sh-lb__row.is-top2 .sh-lb__rank,
+.sh-lb__row.is-top3 .sh-lb__rank {
+  color: var(--text-1);
+}
+.sh-lb__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+.sh-lb__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 650;
+  color: var(--text-0);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sh-lb__you {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--accent);
+}
+.sh-lb__meta {
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sh-lb__grade {
+  --gc: var(--text-2);
+  display: grid;
+  place-items: center;
+  height: 22px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: var(--fs-sm);
+  color: var(--gc);
+  background: color-mix(in srgb, var(--gc) 14%, transparent);
+}
+.sh-lb__grade--gold {
+  --gc: var(--gold);
+}
+.sh-lb__grade--ok {
+  --gc: var(--ok);
+}
+.sh-lb__grade--accent {
+  --gc: var(--accent-2);
+}
+.sh-lb__grade--warn {
+  --gc: var(--warn);
+}
+.sh-lb__grade--danger {
+  --gc: var(--danger);
+}
+.sh-lb__score {
+  font-weight: 750;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }

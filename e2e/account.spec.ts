@@ -167,7 +167,7 @@ test.describe.serial('accounts', () => {
     // Log back in: the menu shows the account and the leaderboard knows us.
     await login(page);
     await expect(page.locator('.sh-acct__name')).toHaveText(NAME);
-    await expect(page.locator('.sh-lb__row.is-me')).toContainText(NAME);
+    await expect(page.locator('.vk-lb__row.is-me')).toContainText(NAME);
     await cloudSaved(page);
 
     expect(errors, errors.join('\n')).toEqual([]);

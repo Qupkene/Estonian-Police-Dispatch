@@ -2,6 +2,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/inter';
 import '@fontsource-variable/jetbrains-mono';
+// The out-of-game screens (Valvekaart, ui/screens/shell/vk.css): Archivo with its width axis, Instrument Sans.
+import '@fontsource-variable/archivo/wdth.css';
+import '@fontsource-variable/instrument-sans';
 import './ui/styles/global.css';
 import { App } from './app/App';
 import { registerSW } from './pwa';

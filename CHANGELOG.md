@@ -2,6 +2,18 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.11.0 (2026-10-19)
+
+- **Uus peamenüü (Valvekaart):** kogu ekraan on Eesti valvekaart, kus on näha sinu sektor, prefekti pakkumine ja päeva väljakutse koht. Kaardi peal on menüü, teated, päeva väljakutse, karjääri ülevaade koos viimaste vahetuste hinnetega ja edetabel. Ülemisel ribal on kuupäev, kell ja konto ning all versioon ja klahvivihjed.
+- Uued fondid (Archivo, Instrument Sans), tume ja hele teema, telefonis oma paigutus. Klaasikumad, helendused ja reklaamtekstid on menüüst eemaldatud.
+
+<details>
+<summary>English</summary>
+
+New main menu (Valvekaart): the whole screen is a duty map of Estonia with your sector, the prefect's offer and the daily challenge marked, with flat panels for the menu, notices, the daily challenge, a career summary and the leaderboard. New fonts, dark and light themes, a phone layout; the glass, glow and marketing copy are gone.
+
+</details>
+
 ## 2.10.0 (2026-10-19)
 
 - **Päeva väljakutse:** iga päev üks vahetus, mis on kõigile sama: sama sektor, kellaaeg, ilm ja samad kõned samal ajal, mida iganes sa teed. Kolm mängutundi, tavaline raskus. Uus väljakutse tuleb Eesti aja järgi keskööl ja sektorid vahelduvad.
