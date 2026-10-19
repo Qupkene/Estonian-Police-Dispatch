@@ -12,7 +12,7 @@ deploy scripts. Keep it in sync when something changes.
 ```
 server/
   api/index.php        single router for every /api/* request
-  lib/*.php            db, http helpers, auth, saves, scores, deploy hook
+  lib/*.php            db, http helpers, auth, saves, scores, daily challenge, deploy hook
   dev-router.php       router for `php -S` during local development
 deploy/
   mainserver/          installer, update script, systemd units, container Caddyfile, compose
@@ -119,6 +119,8 @@ Errors: `{ "error": "<code>", "message": "<Estonian text>" }` with a fitting sta
 | DELETE | /api/save/{slot}?base= | | `{ ok: true, updated }` (keeps a deletion marker); 409 `save_conflict` as for PUT |
 | POST | /api/score | `{ regionId, mode, difficulty, score, grade, incidents, arrests, start }` | `{ ok: true, rank }` (logged-in users only) |
 | GET | /api/scores?region=&limit= | | `{ scores: [{ name, score, grade, regionId, difficulty, incidents, at }] }` best per user |
+| POST | /api/daily | `{ day, regionId, sector, score, grade, incidents, arrests, started? }` | `{ ok: true, counted, rank, players }` (logged-in users only; the first run of the day counts) |
+| GET | /api/daily?day=YYYY-MM-DD | | `{ day, players, scores: [{ name, score, grade, incidents, at, rank }], me: { ...row, rank } \| null }` top 50 of the day |
 | POST | /api/deploy-hook | GitHub webhook | 202 `{ queued: sha }` or 200 `{ ignored: reason }` |
 | POST | /api/tts | `{ text, voice, speed? }` | `audio/wav` (Estonian radio speech, TartuNLP Neurokõne, cached); 400 invalid, 429 too many, 503 `tts_unavailable` |
 
@@ -142,7 +144,7 @@ General:
 - Unknown path: 404 `not_found`. Known path, wrong method: 405 `method_not_allowed` with an `Allow` header.
   Missing `X-EPD: 1` on POST/PUT/DELETE (except `/api/deploy-hook`): 403 `csrf`. Uncaught failure:
   500 `server_error` (logged with `error_log`, no details in the reply).
-- Small JSON endpoints (register, login, logout, score, DELETE /api/me) accept at most 64 kB, else
+- Small JSON endpoints (register, login, logout, score, daily, DELETE /api/me) accept at most 64 kB, else
   413 `too_large`. A body that is not a JSON object: 400 `bad_json`. An empty body counts as `{}`.
 - Validation errors may carry `field` (the offending body field), e.g.
   `{ "error": "invalid_score", "message": "Vigane väli: score.", "field": "score" }`.
@@ -164,7 +166,7 @@ Accounts and sessions:
   before the password, so a blocked IP gets 429 even with the right password.
 - `DELETE /api/me`: 401 `auth_required` when not logged in, 400 `password_required` without a password,
   403 `wrong_password` for a wrong one (the session stays valid).
-- `X-EPD-User`: every route that needs a login (saves, `POST /api/score`, `DELETE /api/me`) compares the
+- `X-EPD-User`: every route that needs a login (saves, `POST /api/score`, `POST /api/daily`, `DELETE /api/me`) compares the
   header, when sent, with the session's account and answers 409 `user_mismatch` when they differ. The
   cookie is shared by all tabs of a browser, so after another tab logged in as someone else, a tab that
   still syncs the first account cannot write into the second one. Without the header nothing is checked.
@@ -253,6 +255,40 @@ Leaderboard:
 - `GET /api/scores`: public. `region` empty or missing = all regions, unknown region = 400 `bad_region`.
   `limit` defaults to 20 and is clamped to 1..50. Sorted by score, ties go to the earlier `at` (when the
   shift was submitted).
+
+Daily challenge, Päeva väljakutse (`server/lib/daily.php`, client `src/sim/daily.ts`, `src/net/daily.ts`):
+
+- Every day has one shift, the same for everyone. The client builds it from the date alone
+  (`dailyChallenge('YYYY-MM-DD')`): one starter sector (docs/SECTORS.md; every starter sector comes up once
+  in each run of N consecutive days, N = their number, in a shuffled order without the same sector on two
+  days in a row; the four whole prefectures while there is no sector data), a start in the morning,
+  afternoon, evening or night (Friday and Saturday nights more often), weather from the season (harsh
+  now and then), difficulty `normal`, 3 game hours, mode `free`, `fixedSchedule` and a seed from the date.
+  The date is the calendar day in Europe/Tallinn; a new challenge opens at midnight there. A daily run is
+  a free shift with `sim.flags.daily = 'YYYY-MM-DD'` (and `flags.dailyStarted`, the real start in unix ms).
+- Daily runs never go to `POST /api/score` or the normal leaderboard; the report posts them once to
+  `POST /api/daily` (only when played signed in to an account, like scores). Guests can play; their result
+  stays in the browser (`epd:daily.guest`, the first one of the day) and never counts.
+- `POST /api/daily`: 401 `auth_required` without a session, 409 `user_mismatch` as for scores. Body fields
+  as for `POST /api/score` (`regionId`, `score` 0 to 100, `grade`, `incidents` at least 1 else 400
+  `empty_shift`, `arrests`), plus `day` (a real date `YYYY-MM-DD`), `sector` (a sector id or `''` for a whole
+  prefecture) and optional `started` (unix ms, the real time the run was started); invalid fields give
+  400 `invalid_score` with `field`. Rate limits are those of `POST /api/score` (a login is required; there
+  is no extra per-request limit, and only one row per player and day is ever stored).
+- `day` must be today in Tallinn, or yesterday when `started` lies before midnight (within yesterday) and
+  the run arrives within 4 hours after midnight; otherwise 400 `day_closed` (field `day`). A `started` more
+  than 10 minutes in the future is 400 `invalid_score`.
+- The first run of a player and day is stored (table `daily_scores`, schema step 3, `UNIQUE (user_id, day)`)
+  and answers `counted: true`; every later one answers `counted: false` and changes nothing (a replay is
+  practice). `rank` is the place of the player's counted run: 1 + the number of players with a strictly
+  higher score that day; `players` is the number of players with a counted run that day.
+- `GET /api/daily?day=`: public. `day` missing or empty = today in Tallinn; not a real date = 400 `bad_day`.
+  `scores` is the top 50 sorted by score, ties to the earlier `at` (when the run was submitted), each with
+  its `rank` (same rule as above, so equal scores share a place). `me` is the caller's counted run with its
+  rank when signed in (else `null`), also when it is not in the top 50.
+- Deleting an account deletes its daily rows too.
+- `EPD_TEST_CLOCK=1` lets `X-EPD-Test-Now: <unix ms>` set the clock of the day rules, but only under PHP's
+  built-in server (`tests/server.test.ts`); FrankenPHP ignores it.
 
 Speech (`POST /api/tts`, `server/lib/tts.php`):
 

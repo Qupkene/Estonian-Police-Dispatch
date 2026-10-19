@@ -440,7 +440,7 @@
   align-items: center;
 }
 .sh-menu__hero {
-  margin-bottom: 22px;
+  margin-bottom: 16px;
   animation: epd-fade-in var(--dur-3) var(--ease);
 }
 .sh-menu__title {
@@ -684,6 +684,26 @@
   gap: 0;
   padding-top: 4px;
   font-size: var(--fs-xs);
+}
+
+/* A short desktop screen (900 px and less): a smaller title, so the daily challenge tile and the whole menu
+   list (with "Jätka" as well) fit without scrolling. */
+@media (min-width: 1061px) and (max-height: 980px) {
+  .sh-menu__hero {
+    margin-bottom: 14px;
+  }
+  .sh-menu__title {
+    font-size: clamp(64px, 7vw, 108px);
+  }
+  .sh-menu__name {
+    margin-top: 6px;
+  }
+}
+@media (min-width: 1061px) and (max-height: 860px) {
+  .sh-menu__item {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
 }
 
 @media (max-width: 1060px) {

@@ -1,0 +1,122 @@
+// UI strings for the daily challenge, Päeva väljakutse (src/sim/daily.ts, src/net/daily.ts, menu tile, board, report).
+import type { Dict } from '../index';
+
+export default {
+  'daily.title': { et: 'Päeva väljakutse', en: 'Daily challenge' },
+  'daily.sub': {
+    et: 'Täna mängivad kõik sama vahetust. Arvesse läheb päeva esimene tulemus.',
+    en: 'Everyone plays the same shift today. Your first result of the day counts.',
+  },
+  'daily.whole': { et: 'kogu prefektuur', en: 'the whole prefecture' },
+  'daily.date': { et: '{wd} {date}', en: '{wd} {date}' },
+  'daily.wd.0': { et: 'esmaspäev', en: 'Monday' },
+  'daily.wd.1': { et: 'teisipäev', en: 'Tuesday' },
+  'daily.wd.2': { et: 'kolmapäev', en: 'Wednesday' },
+  'daily.wd.3': { et: 'neljapäev', en: 'Thursday' },
+  'daily.wd.4': { et: 'reede', en: 'Friday' },
+  'daily.wd.5': { et: 'laupäev', en: 'Saturday' },
+  'daily.wd.6': { et: 'pühapäev', en: 'Sunday' },
+  'daily.slot.morning': { et: 'Hommik', en: 'Morning' },
+  'daily.slot.afternoon': { et: 'Pärastlõuna', en: 'Afternoon' },
+  'daily.slot.evening': { et: 'Õhtu', en: 'Evening' },
+  'daily.slot.night': { et: 'Öö', en: 'Night' },
+  'daily.hours': { et: '{from}-{to}', en: '{from}-{to}' },
+  'daily.wx.clear': { et: 'Selge', en: 'Clear' },
+  'daily.wx.cloudy': { et: 'Pilves', en: 'Overcast' },
+  'daily.wx.rain': { et: 'Vihmasadu', en: 'Rain' },
+  'daily.wx.snow': { et: 'Lumesadu', en: 'Snowfall' },
+  'daily.wx.sleet': { et: 'Lörtsisadu', en: 'Sleet' },
+  'daily.wx.fog': { et: 'Udu', en: 'Fog' },
+  'daily.wx.storm': { et: 'Torm', en: 'Gale' },
+  'daily.wx.storm.summer': { et: 'Äike ja hoovihm', en: 'Thunderstorm' },
+  'daily.wx.storm.winter': { et: 'Tuisk', en: 'Blizzard' },
+  'daily.harsh': { et: 'Raske ilm', en: 'Harsh weather' },
+  'daily.diff': { et: 'Tavaline, 3 tundi', en: 'Normal, 3 hours' },
+  'daily.play': { et: 'Alusta väljakutset', en: 'Start the challenge' },
+  'daily.practice': { et: 'Harjuta uuesti', en: 'Practise again' },
+  'daily.resume': { et: 'Jätka väljakutset', en: 'Continue the challenge' },
+  'daily.report': { et: 'Vaata tulemust', en: 'See your result' },
+  'daily.board': { et: 'Edetabel', en: 'Leaderboard' },
+  'daily.next': { et: 'Uus väljakutse {time} pärast', en: 'Next challenge in {time}' },
+  'daily.players': { et: '{n} mängijat', en: '{n} players' },
+  'daily.players.one': { et: '1 mängija', en: '1 player' },
+  'daily.played': { et: 'Täna on mänginud {n} mängijat.', en: '{n} players have played today.' },
+  'daily.played.one': { et: 'Täna on mänginud 1 mängija.', en: '1 player has played today.' },
+  'daily.mine': {
+    et: 'Sinu tulemus: {score}/100 ({grade}), koht {rank}/{n}',
+    en: 'Your result: {score}/100 ({grade}), place {rank}/{n}',
+  },
+  'daily.mine.practice': {
+    et: 'Uus mäng on harjutus ega lähe arvesse.',
+    en: 'Another run is practice and does not count.',
+  },
+  'daily.mine.guest': {
+    et: 'Sinu tulemus: {score}/100 ({grade}). Arvesse läheb see ainult kontoga.',
+    en: 'Your result: {score}/100 ({grade}). It only counts with an account.',
+  },
+  'daily.guest': {
+    et: 'Mängida saad ka külalisena, aga tulemus läheb arvesse ainult kontoga.',
+    en: "You can play as a guest, but only an account's result counts.",
+  },
+  'daily.offline': {
+    et: 'Päeva edetabel töötab politsei.eu serveris.',
+    en: 'The daily leaderboard works on the politsei.eu server.',
+  },
+  'daily.first': { et: 'Keegi pole veel mänginud. Ole esimene!', en: 'Nobody has played yet. Be the first!' },
+  'daily.firstCounts': {
+    et: 'Arvesse läheb päeva esimene tulemus.',
+    en: 'Your first result of the day counts.',
+  },
+  'daily.startError': {
+    et: 'Väljakutset ei õnnestunud alustada: {err}',
+    en: 'Could not start the challenge: {err}',
+  },
+
+  // ── Board ──
+  'daily.board.title': { et: 'Päeva väljakutse edetabel', en: 'Daily challenge leaderboard' },
+  'daily.board.days': { et: 'Päev', en: 'Day' },
+  'daily.tab.today': { et: 'Täna', en: 'Today' },
+  'daily.tab.yesterday': { et: 'Eile', en: 'Yesterday' },
+  'daily.board.loading': { et: 'Laadin edetabelit…', en: 'Loading the leaderboard…' },
+  'daily.board.error': { et: 'Edetabelit ei õnnestunud laadida.', en: 'Could not load the leaderboard.' },
+  'daily.board.empty': {
+    et: 'Sel päeval pole keegi väljakutset veel lõpetanud.',
+    en: 'Nobody has finished this challenge yet.',
+  },
+  'daily.board.me': { et: 'Sinu koht', en: 'Your place' },
+  'daily.board.guest': {
+    et: 'Logi kontoga sisse, et ka sinu tulemus arvesse läheks.',
+    en: 'Sign in to an account so that your result counts too.',
+  },
+  'daily.board.incidents': { et: '{n} sündmust', en: '{n} incidents' },
+  'daily.board.incidents.one': { et: '1 sündmus', en: '1 incident' },
+  'daily.board.close': { et: 'Sulge', en: 'Close' },
+
+  // ── Report ──
+  'daily.rep.rank': { et: 'Päeva väljakutse: koht {rank}/{n}', en: 'Daily challenge: place {rank}/{n}' },
+  'daily.rep.replay': {
+    et: 'Kordus ei läinud arvesse: kehtib päeva esimene tulemus.',
+    en: 'This replay did not count: your first result of the day stands.',
+  },
+  'daily.rep.sending': {
+    et: 'Saadan päeva väljakutse tulemust…',
+    en: 'Sending your daily challenge result…',
+  },
+  'daily.rep.closed': {
+    et: 'Selle päeva väljakutse on läbi, tulemust ei arvestatud.',
+    en: "That day's challenge is over, the result did not count.",
+  },
+  'daily.rep.guest': {
+    et: 'Päeva väljakutse: külalise tulemus ei lähe arvesse. Loo konto peamenüüs.',
+    en: "Daily challenge: a guest's result does not count. Create an account in the main menu.",
+  },
+  'daily.rep.empty': {
+    et: 'Sündmusteta vahetus päeva edetabelisse ei lähe.',
+    en: 'A shift without incidents does not go on the daily leaderboard.',
+  },
+  'daily.rep.offline': {
+    et: 'Päeva väljakutse: tulemust saab arvestada ainult politsei.eu serveris.',
+    en: 'Daily challenge: results only count on the politsei.eu server.',
+  },
+  'daily.rep.board': { et: 'Päeva edetabel', en: 'Daily leaderboard' },
+} satisfies Dict;

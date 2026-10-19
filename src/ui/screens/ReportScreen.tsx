@@ -1,17 +1,21 @@
 // End-of-shift report: grade, stats, response times, highlights, career payout and the newspaper.
 // Owned by ui-shell.
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useGame } from '@/store/game';
+import { shiftKeyOf, useGame } from '@/store/game';
 import { useCareer } from '@/store/career';
 import { useAccount } from '@/net/account';
 import { submitScoreOnce, unrankedReason } from '@/net/scores';
+import { rememberGuestDaily, submitDailyOnce, type DailyResult, type DailyRun } from '@/net/daily';
+import { ApiError } from '@/net/api';
 import { useLang, useT } from '@/i18n';
 import { sfx } from '@/audio/sfx';
 import { ddmmyyyy, hhmm, wall } from '@/sim/time';
 import type { LedgerEntry, Officer, Priority, ShiftReport } from '@/sim/types';
 import type { ReportExtras } from '@/sim/report';
+import { dailyChallenge, dailyDateOf, dailyStartedOf, todayInTallinn } from '@/sim/daily';
 import { Badge, Button, Empty, Icon, PriorityChip, Spinner, type IconName } from '@/ui/components';
 import { Newspaper } from './shell/Newspaper';
+import { DailyBoardModal } from './shell/Daily';
 import { ShellPage } from './shell/ShellPage';
 import {
   formatDecimal,
@@ -70,6 +74,13 @@ export function ReportScreen() {
     return map;
   }, [sim]);
 
+  // A daily challenge run (src/sim/daily.ts) goes to the day's own board, never to the normal leaderboard.
+  const dailyRun: DailyRun | null = useMemo(() => {
+    const day = report && sim && report.shiftKey === shiftKeyOf(sim) ? dailyDateOf(sim) : null;
+    if (!day) return null;
+    return { day, sector: sim?.sectors?.[0] ?? dailyChallenge(day).sector, started: dailyStartedOf(sim) };
+  }, [report, sim]);
+
   const toMenu = () => quitShift();
   const toCareer = () => {
     quitShift();
@@ -114,7 +125,7 @@ export function ReportScreen() {
   return (
     <ShellPage
       title={t('shell.rep.title')}
-      subtitle={`${region.name[lang]} · ${ddmmyyyy(report.start)} ${hhmm(report.start)}-${hhmm(report.end)} · ${t(`shell.mode.${report.mode}`)} · ${t(`shell.diff.${report.difficulty}`)}`}
+      subtitle={`${region.name[lang]} · ${ddmmyyyy(report.start)} ${hhmm(report.start)}-${hhmm(report.end)} · ${dailyRun ? t('daily.title') : t(`shell.mode.${report.mode}`)} · ${t(`shell.diff.${report.difficulty}`)}`}
       icon="newspaper"
       onBack={toMenu}
       actions={
@@ -134,7 +145,7 @@ export function ReportScreen() {
               <span className="mono">{Math.round(report.score)}</span> / 100 {t('shell.rep.points')}
             </div>
             <EarlyEndLine report={report} />
-            <RankLine report={report} />
+            {dailyRun ? <DailyLine report={report} run={dailyRun} /> : <RankLine report={report} />}
             <div className="sh-grade__chips">
               <Badge tone="accent" icon="star">
                 +{report.xp} XP
@@ -429,6 +440,111 @@ function RankLine({ report }: { report: ShiftReport }) {
           <Icon name="cloud" size={14} /> {t('account.cloud.error')}
         </p>
       )}
+    </>
+  );
+}
+
+type DailyState =
+  | { status: 'idle' }
+  | { status: 'sending' }
+  | { status: 'done'; result: DailyResult }
+  | { status: 'closed' }
+  | { status: 'error' };
+
+/** Daily challenge line on the grade card: the place on the day's board (accounts) or why it did not count. */
+function DailyLine({ report, run }: { report: ShiftReport; run: DailyRun }) {
+  const t = useT();
+  const backend = useAccount((s) => s.backend);
+  const user = useAccount((s) => s.user);
+  const cloud = useAccount((s) => s.cloud);
+  const gameUser = useGame((s) => s.user);
+  const [state, setState] = useState<DailyState>({ status: 'idle' });
+  const [attempt, setAttempt] = useState(0);
+  const [boardOpen, setBoardOpen] = useState(false);
+  // Only a run played signed in to the account counts: guests never post.
+  const loggedIn = !!user && gameUser?.method === 'account';
+  const empty = !report.stats?.incidents;
+
+  useEffect(() => {
+    // A guest's result stays in this browser, for the menu tile.
+    if (!loggedIn && !empty) rememberGuestDaily(run.day, report);
+  }, [report, run, loggedIn, empty]);
+
+  useEffect(() => {
+    if (!loggedIn || empty) return;
+    let alive = true;
+    setState({ status: 'sending' });
+    // submitDailyOnce posts each report exactly once (StrictMode and re-renders included).
+    submitDailyOnce(report, run)
+      .then((result) => alive && setState({ status: 'done', result }))
+      .catch(
+        (e: unknown) =>
+          alive &&
+          setState({ status: e instanceof ApiError && e.code === 'day_closed' ? 'closed' : 'error' }),
+      );
+    return () => {
+      alive = false;
+    };
+  }, [report, run, loggedIn, empty, attempt]);
+
+  if (!loggedIn)
+    return (
+      <p className="sh-grade__rank sh-grade__rank--hint" data-testid="daily-rank">
+        <Icon name="target" size={14} /> {t(backend === 'online' ? 'daily.rep.guest' : 'daily.rep.offline')}
+      </p>
+    );
+  if (empty)
+    return (
+      <p className="sh-grade__rank sh-grade__rank--hint" data-testid="daily-rank">
+        {t('daily.rep.empty')}
+      </p>
+    );
+  return (
+    <>
+      {state.status === 'done' ? (
+        <div data-testid="daily-rank">
+          {/* A replay of the day is practice: the place shown is that of the first, counted run. */}
+          {!state.result.counted && (
+            <p className="sh-grade__rank sh-grade__rank--hint">{t('daily.rep.replay')}</p>
+          )}
+          <p className="sh-grade__rank">
+            <Icon name="target" size={15} />
+            {t('daily.rep.rank', {
+              rank: state.result.rank ?? '-',
+              n: state.result.players ?? state.result.rank ?? '-',
+            })}
+            <Button size="sm" variant="ghost" icon="list" onClick={() => setBoardOpen(true)}>
+              {t('daily.rep.board')}
+            </Button>
+          </p>
+        </div>
+      ) : state.status === 'closed' ? (
+        <p className="sh-grade__rank sh-grade__rank--hint" data-testid="daily-rank">
+          <Icon name="clock" size={14} /> {t('daily.rep.closed')}
+        </p>
+      ) : state.status === 'error' ? (
+        <p className="sh-grade__rank sh-grade__rank--error">
+          <Icon name="warning" size={14} /> {t('account.rep.error')}
+          <Button size="sm" variant="ghost" icon="refresh" onClick={() => setAttempt((n) => n + 1)}>
+            {t('account.rep.retry')}
+          </Button>
+        </p>
+      ) : (
+        <p className="sh-grade__rank sh-grade__rank--hint" role="status">
+          <Spinner size={13} /> {t('daily.rep.sending')}
+        </p>
+      )}
+      {cloud === 'error' && (
+        <p className="sh-grade__rank sh-grade__rank--error" role="status">
+          <Icon name="cloud" size={14} /> {t('account.cloud.error')}
+        </p>
+      )}
+      <DailyBoardModal
+        open={boardOpen}
+        onClose={() => setBoardOpen(false)}
+        today={todayInTallinn()}
+        day={run.day}
+      />
     </>
   );
 }
