@@ -580,9 +580,18 @@ const NB_BEYOND: [LngLat, LngLat][] = [
     [22.11, 60.44],
     [33, 63],
   ],
+  // Russia east of the cut, with the Gulf of Finland running on to the Neva bay between the two boxes.
   [
     [29.39, 55],
+    [33, 59.98],
+  ],
+  [
+    [29.39, 60.17],
     [33, 63],
+  ],
+  [
+    [30.25, 59.97],
+    [33, 60.18],
   ],
   [
     [21.41, 55],
@@ -591,6 +600,29 @@ const NB_BEYOND: [LngLat, LngLat][] = [
   [
     [24.33, 55],
     [29.4, 57.21],
+  ],
+];
+/**
+ * West of those boxes the cut runs through the sea: rough coastlines of south-west Finland (Turku to Rauma) and
+ * of Kurzeme (Ventspils to Klaipėda) close the land there, so a wide screen shows no straight edge.
+ */
+const NB_WEST_COASTS: LngLat[][] = [
+  [
+    [22.11, 60.44],
+    [21.95, 60.52],
+    [21.6, 60.62],
+    [21.38, 60.78],
+    [21.42, 61.1],
+    [21.3, 61.6],
+    [21.2, 63],
+  ],
+  [
+    [21.41, 57.21],
+    [21.38, 57.0],
+    [21.18, 56.88],
+    [21.0, 56.5],
+    [21.05, 56.0],
+    [21.1, 55],
   ],
 ];
 const onCut = (a: LngLat, b: LngLat) =>
@@ -791,6 +823,14 @@ export function baseMap(view: MapView): BaseMap {
     }
   for (const [[w, s], [e, n]] of NB_BEYOND)
     nbRings.push([...along([w, s], [e, s]), ...along([e, n], [w, n])]);
+  // The gulf's shores east of the cut.
+  nbCoast.push([...along([29.39, 59.98], [30.25, 59.98]), ...along([30.25, 60.17], [29.39, 60.17])]);
+  // The western coasts close along the boxes' west edges, so the rings meet them without overlapping.
+  for (const coast of NB_WEST_COASTS) {
+    const [first, last] = [coast[0], coast[coast.length - 1]];
+    nbRings.push([...coast, ...along([first[0], last[1]], first)]);
+    nbCoast.push(coast);
+  }
   const nbTol = Math.max(view.tol, 0.8);
 
   const roads = (pred: (kind: string) => boolean) =>

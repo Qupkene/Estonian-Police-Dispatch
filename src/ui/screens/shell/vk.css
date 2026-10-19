@@ -740,9 +740,11 @@ button.vk-acct__who:hover .vk-acct__name {
 /* ── The duty map (DutyMap.tsx) ───────────────────────────────────────────── */
 
 .vk-map {
+  position: relative;
   display: block;
   width: 100%;
   height: 100%;
+  overflow: hidden;
   animation: vk-map-in 0.24s ease both;
 }
 .vk-map.is-empty {
@@ -753,184 +755,15 @@ button.vk-acct__who:hover .vk-acct__name {
     opacity: 0;
   }
 }
-.vk-map__sea {
-  fill: var(--vk-sea);
-}
-.vk-map__grat {
-  fill: none;
-  stroke: var(--vk-grat);
-  stroke-width: 1;
-}
-.vk-map__waterlines use {
-  fill: none;
-  stroke-linejoin: round;
-}
-.vk-map__wl {
-  stroke: var(--vk-waterline);
-}
-.vk-map__wl-gap {
-  stroke: var(--vk-sea);
-}
-.vk-map__wl.vk-map__wl--3 {
-  stroke-opacity: 0.3;
-  stroke-width: 25.2;
-}
-.vk-map__wl-gap.vk-map__wl--3 {
-  stroke-width: 24;
-}
-.vk-map__wl.vk-map__wl--2 {
-  stroke-opacity: 0.5;
-  stroke-width: 15.2;
-}
-.vk-map__wl-gap.vk-map__wl--2 {
-  stroke-width: 14;
-}
-.vk-map__wl.vk-map__wl--1 {
-  stroke-opacity: 0.75;
-  stroke-width: 6.8;
-}
-.vk-map__wl-gap.vk-map__wl--1 {
-  stroke-width: 5.6;
-}
-.vk-map--strip .vk-map__wl.vk-map__wl--3 {
-  stroke-width: 13;
-}
-.vk-map--strip .vk-map__wl-gap.vk-map__wl--3 {
-  stroke-width: 12;
-}
-.vk-map--strip .vk-map__wl.vk-map__wl--2 {
-  stroke-width: 7.5;
-}
-.vk-map--strip .vk-map__wl-gap.vk-map__wl--2 {
-  stroke-width: 6.5;
-}
-.vk-map--strip .vk-map__wl.vk-map__wl--1 {
-  stroke-width: 3.4;
-}
-.vk-map--strip .vk-map__wl-gap.vk-map__wl--1 {
-  stroke-width: 2.4;
-}
-.vk-map__nb {
-  fill: var(--vk-nb);
-}
-.vk-map__nb-line {
-  fill: none;
-  stroke: var(--vk-nb-line);
-  stroke-width: 0.8;
-  stroke-linejoin: round;
-}
-/* Natural Earth's neighbours are coarse: the land border gets a band of their colour so no sea shows between. */
-.vk-map__seam {
-  fill: none;
-  stroke: var(--vk-nb);
-  stroke-width: 8;
-  stroke-linejoin: round;
-}
-.vk-map__land {
-  fill: var(--vk-land);
-}
-.vk-map__home {
-  fill: var(--vk-home);
-  stroke: var(--vk-home);
-  stroke-width: 0.8;
-}
-.vk-map__whole {
-  fill: var(--vk-acc);
-  fill-opacity: 0.2;
-  stroke: var(--vk-acc);
-  stroke-width: 1.3;
-  stroke-linejoin: round;
-}
-.vk-map__lake {
-  fill: var(--vk-sea);
-  stroke: var(--vk-coast);
-  stroke-width: 0.8;
-}
-.vk-map__road {
-  fill: none;
-  stroke: var(--vk-road);
-  stroke-width: 1.25;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.vk-map__road--local {
-  stroke-width: 0.7;
-}
-.vk-map--strip .vk-map__road {
-  stroke-width: 0.8;
-}
-.vk-map__sector-line {
-  fill: none;
-  stroke: var(--vk-sector-line);
-  stroke-width: 1;
-  stroke-dasharray: 1 2.4;
-  stroke-linecap: round;
-}
-.vk-map__pref-line {
-  fill: none;
-  stroke: var(--vk-pref-line);
-  stroke-width: 1.1;
-  stroke-dasharray: 7 2.5 1.5 2.5;
-}
-.vk-map--strip .vk-map__pref-line {
-  stroke-width: 0.9;
-  stroke-dasharray: 5 2 1.2 2;
-}
-.vk-map__hatch {
-  fill: var(--vk-acc);
-  fill-opacity: var(--vk-hatch-opacity);
-}
-.vk-map__offer {
-  stroke: var(--vk-acc);
-  stroke-width: 1.3;
-  stroke-dasharray: 4 2.5;
-  stroke-linejoin: round;
-}
-.vk-map--strip .vk-map__offer {
-  stroke-width: 1;
-  stroke-dasharray: 3 2;
-}
-.vk-map__challenge {
-  fill: var(--vk-amb);
-  fill-opacity: 0.16;
-  stroke: var(--vk-amb);
-  stroke-width: 1.2;
-  stroke-linejoin: round;
-}
-.vk-map__coast {
-  fill: none;
-  stroke: var(--vk-coast);
-  stroke-width: 1;
-  stroke-linejoin: round;
-}
-.vk-map--strip .vk-map__coast {
-  stroke-width: 0.8;
-}
-.vk-map__border {
-  fill: none;
-  stroke: var(--vk-border);
-  stroke-width: 1.8;
-  stroke-dasharray: 8 3;
-}
-.vk-map--strip .vk-map__border {
-  stroke-width: 1.4;
-  stroke-dasharray: 5 2;
-}
-.vk-map__mine {
-  fill: var(--vk-acc);
-  stroke: var(--vk-acc);
-  stroke-opacity: 0.3;
-  stroke-width: 7;
-  stroke-linejoin: round;
-  paint-order: stroke;
-}
-.vk-map__mine.is-large {
-  fill-opacity: 0.42;
-  stroke-opacity: 1;
-  stroke-width: 1.5;
-}
-.vk-map--strip .vk-map__mine {
-  stroke-width: 5;
+/* The shapes (sea to the player's sectors) are painted into the canvas, widths and dashes in dutyMapCanvas.ts,
+   colours from the tokens above; the dots, pin and names are the SVG on top. */
+.vk-map__canvas,
+.vk-map__ink {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .vk-map__leader {
   fill: none;
@@ -1560,4 +1393,297 @@ button.vk-acct__who:hover .vk-acct__name {
 }
 .vk-ui .ui-field__input {
   border-radius: 5px;
+}
+
+/* ── Pages (ShellPage.tsx): briefing, report, settings, credits, original versions ── */
+
+.vk-page {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  isolation: isolate;
+}
+.vk-page > * {
+  flex-shrink: 0;
+}
+.vk-page__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.vk-pagehead__meta ~ .vk-page__actions {
+  margin-left: 0;
+}
+.vk-page__main {
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 16px;
+}
+.vk-page__account {
+  display: flex;
+  align-items: center;
+  margin: 0 12px;
+  padding: 10px 6px 10px 14px;
+  box-shadow: none;
+}
+.vk-page__account .vk-acct {
+  flex: 1;
+  justify-content: space-between;
+}
+.vk-page__account .vk-acct__who,
+.vk-page__account .vk-acct__signin {
+  min-height: 44px;
+}
+.vk-page__account .vk-acct__out {
+  height: 44px;
+  padding: 0 16px;
+}
+.vk-page__account .vk-acct__menu {
+  top: auto;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: auto;
+}
+@media (max-width: 1099px) {
+  .vk-page .vk-pagehead {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 8px 12px 12px 4px;
+  }
+  .vk-page .vk-pagehead__line {
+    flex: 1 1 100%;
+    order: 3;
+    padding-left: 8px;
+    white-space: normal;
+  }
+  .vk-page .vk-pagehead__title {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .vk-page__actions {
+    flex: 1 1 100%;
+    order: 4;
+    margin-left: 8px;
+  }
+  .vk-page__actions > * {
+    flex: 1;
+  }
+  .vk-page .vk-go {
+    justify-content: space-between;
+    height: 48px;
+  }
+  .vk-page .vk-go__key {
+    display: none;
+  }
+  .vk-page__main {
+    padding: 12px;
+  }
+}
+@media (max-width: 640px) {
+  .vk-page button,
+  .vk-page .vk-seg button {
+    min-height: 44px;
+  }
+}
+
+/* A panel's text and the rows of a panel. */
+.vk-panel__body {
+  padding: 12px 14px 14px;
+}
+.vk-panel__body > p {
+  margin: 0 0 8px;
+  text-wrap: pretty;
+}
+.vk-panel__body > p:last-child {
+  margin-bottom: 0;
+}
+.vk-panel__meta {
+  margin-left: auto;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--vk-text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vk-panel__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--vk-line-2);
+  background: var(--vk-panel-2);
+}
+.vk-dim {
+  color: var(--vk-text-3);
+}
+
+/* Key and value rows: a label at the left, the value (often mono) at the right. */
+.vk-kv {
+  margin: 0;
+}
+.vk-kv > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 32px;
+  padding: 7px 14px;
+}
+.vk-kv > div + div {
+  border-top: 1px solid var(--vk-line-2);
+}
+.vk-kv dt {
+  flex: none;
+  color: var(--vk-text-2);
+}
+.vk-kv dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--vk-text-0);
+  text-align: right;
+}
+.vk-kv dd.vk-mono {
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A one-line message in a panel: a warning, an error, a state. */
+.vk-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--vk-line);
+  border-left: 2px solid var(--vk-text-3);
+  border-radius: 4px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-1);
+  font-size: 12.5px;
+  text-wrap: pretty;
+}
+.vk-msg.is-warn {
+  border-left-color: var(--vk-amb);
+}
+.vk-msg.is-bad {
+  border-left-color: var(--vk-bad);
+}
+.vk-msg.is-ok {
+  border-left-color: var(--vk-ok);
+}
+.vk-msg strong {
+  color: var(--vk-text-0);
+}
+
+/* A checkbox with its label and a line under it (the sign-out dialog). */
+.vk-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--vk-line);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.vk-check input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--vk-acc);
+}
+.vk-check__text {
+  display: grid;
+  gap: 2px;
+}
+.vk-check__label {
+  color: var(--vk-text-0);
+  font-weight: 600;
+}
+.vk-check__hint {
+  font-size: 12px;
+  color: var(--vk-text-3);
+}
+
+/* Dialog bodies (AccountChip, the daily board, settings). */
+.vk-dialog {
+  display: grid;
+  gap: 12px;
+}
+.vk-dialog p {
+  margin: 0;
+  color: var(--vk-text-1);
+  text-wrap: pretty;
+}
+
+/* Dialogs portalled to the body keep the frame's tokens without a box of their own. */
+.vk-layer {
+  display: contents;
+}
+
+/* A note at the bottom of the screen (useToast). */
+.vk-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 44px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 16px;
+  border: 1px solid var(--vk-line);
+  border-radius: 5px;
+  background: var(--vk-panel);
+  box-shadow: var(--vk-shadow);
+  color: var(--vk-text-0);
+  font-weight: 600;
+  transform: translateX(-50%);
+  animation: vk-toast-in 0.16s ease both;
+}
+@keyframes vk-toast-in {
+  from {
+    opacity: 0;
+  }
+}
+.vk-toast__dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--vk-acc);
+}
+.vk-toast.is-ok .vk-toast__dot {
+  background: var(--vk-ok);
+}
+.vk-toast.is-gold .vk-toast__dot {
+  background: var(--vk-amb);
+}
+.vk-toast.is-danger .vk-toast__dot {
+  background: var(--vk-bad);
+}
+
+/* A grade as a large bordered letter (the report). */
+.vk-grade--lg {
+  width: 56px;
+  height: 56px;
+  border-width: 2px;
+  border-radius: 6px;
+  font-size: 30px;
+  font-weight: 600;
+}
+.vk-ui .ui-modal__icon {
+  display: none;
+}
+.vk-table th.is-num {
+  font-family: var(--vk-font-display);
+  font-size: 10px;
 }

@@ -10,6 +10,7 @@ import { Modal } from '@/ui/components';
 import type { CareerProfile, Lang, RegionId } from '@/sim/types';
 import { careerFigures, nextShiftKind, menuNotices, shiftBars, type Notice } from '../shell/menuModel';
 import { MonoNumbers, noticeText } from '../shell/notices';
+import { PageBack } from '../shell/ShellFrame';
 import { wall } from '@/sim/time';
 import {
   calendarOf,
@@ -118,22 +119,7 @@ export function PageHead({
 
 export function BackButton() {
   const t = useT();
-  return (
-    <button
-      type="button"
-      className="vk-back"
-      onClick={() => useGame.getState().setScreen('menu')}
-      aria-keyshortcuts="Escape"
-    >
-      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-        <path d="M10 3.5 5.5 8l4.5 4.5" />
-      </svg>
-      {t('career.vk.back')}
-      <kbd className="vk-kbd" aria-hidden="true">
-        Esc
-      </kbd>
-    </button>
-  );
+  return <PageBack label={t('career.vk.back')} onBack={() => useGame.getState().setScreen('menu')} />;
 }
 
 // ── Strip of figures ─────────────────────────────────────────────────────────

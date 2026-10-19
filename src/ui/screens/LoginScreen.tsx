@@ -3,15 +3,16 @@
 // The "Klassika" tab is the real account login when the server answers (src/net/account.ts);
 // both fields empty is still the 2024 easter egg. Owned by ui-shell.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { createPortal } from 'react-dom';
 import { useGame, type LoginUser } from '@/store/game';
 import { useAccount, type AccountUser } from '@/net/account';
 import { nameProblem, PASSWORD_MIN } from '@/net/sync';
 import { useLang, useT } from '@/i18n';
 import { sfx } from '@/audio/sfx';
-import { Badge, Button, Emblem, Icon, IconButton, Spinner, Tabs, TextField } from '@/ui/components';
-import { Backdrop } from './shell/Backdrop';
-import { Disclaimer, LangToggle, useToast } from './shell/ShellPage';
+import { Button, Icon, IconButton, Spinner, Tabs, TextField } from '@/ui/components';
+import { useToast } from './shell/ShellPage';
+import { DutyMap, NO_DUTY } from './shell/DutyMap';
+import { ShellFooter, ShellTopBar, STACKED, useMedia } from './shell/ShellFrame';
+import { VkLayer } from './shell/VkLayer';
 import { accountErrorText } from './shell/accountText';
 import { LogoutDialog } from './shell/AccountChip';
 import {
@@ -23,7 +24,7 @@ import {
   VERSION,
   type GeneratedIdentity,
 } from './shell/helpers';
-import './shell/shell.css';
+import './shell/vk.css';
 import './shell/login.css';
 
 type Method = 'idcard' | 'mobiilid' | 'smartid' | 'legacy';
@@ -43,6 +44,7 @@ export function LoginScreen() {
   const [success, setSuccess] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
   const toast = useToast(3000);
+  const stacked = useMedia(STACKED);
 
   const shuffle = () => {
     const s = (seed * 1664525 + 1013904223) >>> 0;
@@ -92,7 +94,7 @@ export function LoginScreen() {
     }
     sfx.unlock();
     sfx.play('login');
-    toast.show(t('shell.login.legacy.welcome'), 'gold', 'star');
+    toast.show(t('shell.login.legacy.welcome'), 'gold');
     setLeaving(true); // 2024: the login box faded out for one second
     setTimeout(() => login({ name: finalName(), method: 'legacy' }), 1100);
   };
@@ -104,102 +106,84 @@ export function LoginScreen() {
   };
 
   return (
-    <div className={`sh-screen sh-login${leaving ? ' is-leaving' : ''}`}>
-      <Backdrop variant="radar" />
+    <div
+      className={`vk vk-ui vk-login sh-login${stacked ? ' is-stacked' : ''}${leaving ? ' is-leaving' : ''}`}
+    >
       {toast.node}
-      <div className="sh-login__top">
-        <LangToggle />
-      </div>
-      <div className="sh-login__wrap">
-        <section className="sh-login__brand">
-          <Emblem size={96} />
-          <div className="sh-login__word">EPD</div>
-          <div className="sh-login__name">{t('shell.login.brand.tag')}</div>
-          <div className="sh-login__tag">{t('shell.login.brand.sub')}</div>
-          <ul className="sh-login__facts">
-            <li>
-              <Icon name="map" size={16} /> {t('shell.login.fact.map')}
-            </li>
-            <li>
-              <Icon name="radio" size={16} /> {t('shell.login.fact.radio')}
-            </li>
-            <li>
-              <Icon name="fingerprint" size={16} /> {t('shell.login.fact.registry')}
-            </li>
-          </ul>
-          <div className="sh-login__ver mono">v{VERSION}</div>
-        </section>
-
-        <section className="sh-login__card sh-card" aria-labelledby="sh-login-title">
+      <ShellTopBar account={false} />
+      <main className="vk-login__main">
+        <div className={stacked ? 'vk-login__strip' : 'vk-login__map'}>
+          <DutyMap variant={stacked ? 'strip' : 'full'} input={NO_DUTY} />
+        </div>
+        <section className="vk-panel vk-login__panel" aria-labelledby="sh-login-title">
+          <div className="vk-panel__head">
+            <h1 className="vk-h" id="sh-login-title">
+              {t('shell.login.title')}
+            </h1>
+            <span className="vk-meta">EPD-CAD {VERSION}</span>
+          </div>
           {success ? (
-            <div className="sh-login__success" role="status">
-              <div className="sh-login__check">
-                <Icon name="check" size={40} />
-              </div>
-              <div className="sh-login__successTitle">{t('shell.login.success')}</div>
-              <div className="sh-muted">{t('shell.login.welcome', { name: success })}</div>
+            <div className="vk-login__success" role="status">
+              <p className="vk-login__successTitle">
+                <span className="vk-login__ok" aria-hidden="true" />
+                {t('shell.login.success')}
+              </p>
+              <p>{t('shell.login.welcome', { name: success })}</p>
             </div>
           ) : (
             <>
-              <header className="sh-login__head">
-                <h1 id="sh-login-title">{t('shell.login.title')}</h1>
-                <Badge tone="ok" icon="lock">
-                  {t('shell.login.secure')}
-                </Badge>
-              </header>
-              {accountUser && (
-                <div className="sh-resume" role="status">
-                  <span className="sh-resume__icon" aria-hidden="true">
-                    <Icon name="cloud" size={18} />
-                  </span>
-                  <span className="sh-resume__text">
-                    <strong>{t('account.resume.title', { name: accountUser.name })}</strong>
-                    <span>{t('account.resume.text')}</span>
-                  </span>
-                  <span className="sh-resume__actions">
-                    <Button variant="primary" iconRight="chevron-right" onClick={() => accountLogin(accountUser)}>
-                      {t('account.resume.continue')}
-                    </Button>
-                    <IconButton icon="logout" label={t('account.logout')} onClick={() => setConfirmLogout(true)} />
-                  </span>
-                </div>
-              )}
-              {sessionLost && !accountUser && (
-                <p className="sh-login__lost" role="status">
-                  <Icon name="warning" size={14} />
-                  {t('account.lost')}
-                </p>
-              )}
-              <TextField
-                label={t('shell.login.name')}
-                icon="user"
-                value={name}
-                onChange={setName}
-                maxLength={40}
-                autoComplete="off"
-                hint={t('shell.login.nameHint')}
-                trailing={
-                  <IconButton
-                    icon="refresh"
-                    size="sm"
-                    label={t('shell.login.shuffle')}
-                    onClick={shuffle}
-                    className="sh-login__shuffle"
-                  />
-                }
-              />
+              <div className="vk-login__top">
+                {accountUser && (
+                  <div className="vk-login__resume" role="status">
+                    <p>
+                      <strong>{t('account.resume.title', { name: accountUser.name })}</strong>
+                      <span>{t('account.resume.text')}</span>
+                    </p>
+                    <div className="vk-login__resumeActions">
+                      <Button variant="primary" onClick={() => accountLogin(accountUser)}>
+                        {t('account.resume.continue')}
+                      </Button>
+                      <Button variant="ghost" onClick={() => setConfirmLogout(true)}>
+                        {t('account.logout')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {sessionLost && !accountUser && (
+                  <p className="vk-msg is-warn" role="status">
+                    {t('account.lost')}
+                  </p>
+                )}
+                <TextField
+                  label={t('shell.login.name')}
+                  value={name}
+                  onChange={setName}
+                  maxLength={40}
+                  autoComplete="off"
+                  hint={t('shell.login.nameHint')}
+                  trailing={
+                    <IconButton
+                      icon="refresh"
+                      size="sm"
+                      label={t('shell.login.shuffle')}
+                      onClick={shuffle}
+                      className="vk-login__shuffle"
+                    />
+                  }
+                />
+              </div>
               <Tabs<Method>
-                className="sh-login__tabs"
+                className="vk-login__tabs"
                 value={method}
                 onChange={setMethod}
                 tabs={[
-                  { id: 'idcard', label: t('shell.login.tab.idcard'), icon: 'id' },
-                  { id: 'mobiilid', label: t('shell.login.tab.mobiilid'), icon: 'phone' },
-                  { id: 'smartid', label: t('shell.login.tab.smartid'), icon: 'shield' },
-                  { id: 'legacy', label: t('shell.login.tab.legacy'), icon: 'keyboard' },
+                  { id: 'idcard', label: t('shell.login.tab.idcard') },
+                  { id: 'mobiilid', label: t('shell.login.tab.mobiilid') },
+                  { id: 'smartid', label: t('shell.login.tab.smartid') },
+                  { id: 'legacy', label: t('shell.login.tab.legacy') },
                 ]}
               />
-              <div className="sh-login__body" role="tabpanel">
+              <div className="vk-login__flow" role="tabpanel">
                 {method === 'idcard' && (
                   <IdCardFlow
                     key={id.idcode}
@@ -226,30 +210,46 @@ export function LoginScreen() {
                 )}
                 {method === 'legacy' && <LegacyForm onLegacy={legacyLogin} onAccount={accountLogin} />}
               </div>
-              <div className="sh-login__alt">
-                <span className="sh-dim">{t('shell.login.or')}</span>
-                <Button variant="ghost" icon="user" onClick={guest}>
+              <div className="vk-login__alt">
+                <span>{t('shell.login.or')}</span>
+                <button type="button" className="vk-btn vk-btn--ghost" onClick={guest} data-sfx="click">
                   {t('shell.login.guest')}
-                </Button>
+                </button>
               </div>
-              <p className="sh-login__sim">
+              <p className="vk-login__sim">
                 {/* The account form does send data: its note says what the server keeps. */}
-                {t(backend === 'online' && method === 'legacy' ? 'account.login.simNote' : 'shell.login.simNote')}
+                {t(
+                  backend === 'online' && method === 'legacy'
+                    ? 'account.login.simNote'
+                    : 'shell.login.simNote',
+                )}
               </p>
               {backend === 'online' && method !== 'legacy' && !accountUser && (
-                <button type="button" className="sh-login__acct" onClick={() => setMethod('legacy')}>
-                  <Icon name="cloud" size={14} />
-                  {t('account.login.hint')}
-                </button>
+                <p className="vk-login__acct">
+                  <button type="button" className="vk-linkbtn" onClick={() => setMethod('legacy')}>
+                    {t('account.login.hint')}
+                  </button>
+                </p>
               )}
             </>
           )}
+          <dl className="vk-login__sys">
+            <div>
+              <dt>{t('shell.login.sys.server')}</dt>
+              <dd>
+                <span className={`vk-login__dot is-${backend}`} aria-hidden="true" />
+                {t(`shell.login.sys.${backend}`)}
+              </dd>
+            </div>
+          </dl>
         </section>
-      </div>
-      <Disclaimer className="sh-login__disc" />
-      {confirmLogout &&
-        accountUser &&
-        createPortal(<LogoutDialog name={accountUser.name} onClose={() => setConfirmLogout(false)} />, document.body)}
+      </main>
+      <ShellFooter />
+      {confirmLogout && accountUser && (
+        <VkLayer>
+          <LogoutDialog name={accountUser.name} onClose={() => setConfirmLogout(false)} />
+        </VkLayer>
+      )}
     </div>
   );
 }
@@ -296,31 +296,33 @@ function IdCardFlow({
     else sfx.play('error');
   };
 
+  const steps: { key: string; on: boolean; done: boolean }[] = [
+    {
+      key: 'card',
+      on: phase === 'insert' || phase === 'reading',
+      done: phase === 'pin' || phase === 'verifying',
+    },
+    { key: 'pin', on: phase === 'pin', done: phase === 'verifying' },
+    { key: 'cert', on: phase === 'verifying', done: false },
+  ];
   return (
-    <div className="sh-id">
-      <div className={`sh-id__reader is-${phase}`} aria-hidden="true">
-        <div className="sh-id__card">
-          <div className="sh-id__chip" />
-          <div className="sh-id__photo" />
-          <div className="sh-id__lines">
-            <i />
-            <i />
-            <i />
-          </div>
-          <div className="sh-id__flower">
-            <Emblem size={22} />
-          </div>
-        </div>
-        <div className="sh-id__slot">
-          <span className="sh-id__led" />
-          <span className="sh-id__brand mono">USB · CCID</span>
-        </div>
-      </div>
-
+    <div className="sh-id vk-id">
+      <ol className="vk-steps" aria-label={t('shell.login.id.steps')}>
+        {steps.map((st, i) => (
+          <li
+            key={st.key}
+            className={st.done ? 'is-done' : st.on ? 'is-on' : undefined}
+            aria-current={st.on ? 'step' : undefined}
+          >
+            <span className="vk-steps__n">{i + 1}</span>
+            {t(`shell.login.id.step.${st.key}`)}
+          </li>
+        ))}
+      </ol>
       {phase === 'insert' && (
         <div className="sh-id__step">
           <p>{t('shell.login.id.insert')}</p>
-          <Button variant="primary" size="lg" icon="id" onClick={() => setPhase('reading')} block>
+          <Button variant="primary" size="lg" onClick={() => setPhase('reading')} block>
             {t('shell.login.id.insertBtn')}
           </Button>
         </div>
@@ -332,11 +334,16 @@ function IdCardFlow({
       )}
       {(phase === 'pin' || phase === 'verifying') && (
         <form className="sh-id__step" onSubmit={submit}>
-          <div className="sh-id__owner">
-            <span className="sh-dim">{t('shell.login.id.owner')}</span>
-            <strong>{name.toUpperCase()}</strong>
-            <span className="mono sh-muted">{identity.idcode}</span>
-          </div>
+          <dl className="vk-kv vk-id__owner">
+            <div>
+              <dt>{t('shell.login.id.owner')}</dt>
+              <dd>{name.toUpperCase()}</dd>
+            </div>
+            <div>
+              <dt>{t('shell.login.idcode')}</dt>
+              <dd className="vk-mono">{identity.idcode}</dd>
+            </div>
+          </dl>
           <label className="sh-pin" onClick={() => pinRef.current?.focus()}>
             <span className="sh-pin__label">{t('shell.login.id.pin')}</span>
             <span className="sh-pin__boxes">
@@ -400,14 +407,7 @@ function IdCardFlow({
                   OK
                 </button>
               </div>
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                icon="lock"
-                disabled={!isValidPin1(pin)}
-                block
-              >
+              <Button type="submit" variant="primary" size="lg" disabled={!isValidPin1(pin)} block>
                 {t('shell.login.confirm')}
               </Button>
             </>
@@ -481,7 +481,6 @@ function MobileFlow({
         {kind === 'mobiilid' && (
           <TextField
             label={t('shell.login.mid.phone')}
-            icon="phone"
             value={phone}
             onChange={setPhone}
             inputMode="tel"
@@ -491,7 +490,6 @@ function MobileFlow({
         )}
         <TextField
           label={t('shell.login.idcode')}
-          icon="id"
           value={idcode}
           onChange={setIdcode}
           inputMode="numeric"
@@ -500,7 +498,7 @@ function MobileFlow({
           mono
         />
         {kind === 'smartid' && <p className="sh-mid__note">{t('shell.login.sid.note')}</p>}
-        <Button type="submit" variant="primary" size="lg" iconRight="chevron-right" block>
+        <Button type="submit" variant="primary" size="lg" block>
           {t('shell.login.continue')}
         </Button>
       </form>
@@ -527,17 +525,11 @@ function MobileFlow({
               : t('shell.login.waiting', { time: formatCountdown(left) })}
           </span>
         </div>
-        <Button
-          variant="ghost"
-          icon="close"
-          onClick={() => setPhase('form')}
-          disabled={phase === 'confirmed'}
-        >
+        <Button variant="ghost" onClick={() => setPhase('form')} disabled={phase === 'confirmed'}>
           {t('shell.login.cancel')}
         </Button>
       </div>
       <div className={`sh-phone sh-phone--${kind}`} aria-hidden="true">
-        <div className="sh-phone__notch" />
         <div className="sh-phone__app">{appName}</div>
         <div className="sh-phone__title">{t('shell.login.phone.request')}</div>
         <div className="sh-phone__code mono">{code}</div>
@@ -566,7 +558,9 @@ function LegacyForm({ onLegacy, onAccount }: { onLegacy: () => void; onAccount: 
   const lang = useLang();
   const backend = useAccount((s) => s.backend);
   const busy = useAccount((s) => s.busy);
-  const [mode, setMode] = useState<LegacyMode>(() => (useAccount.getState().intent === 'register' ? 'register' : 'login'));
+  const [mode, setMode] = useState<LegacyMode>(() =>
+    useAccount.getState().intent === 'register' ? 'register' : 'login',
+  );
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
   const [pass2, setPass2] = useState('');

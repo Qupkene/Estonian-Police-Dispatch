@@ -1,6 +1,6 @@
 // End-of-shift report: grade, stats, response times, highlights, career payout and the newspaper.
 // Owned by ui-shell.
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { shiftKeyOf, useGame } from '@/store/game';
 import { useCareer } from '@/store/career';
 import { useAccount } from '@/net/account';
@@ -13,14 +13,14 @@ import { ddmmyyyy, hhmm, wall } from '@/sim/time';
 import type { LedgerEntry, Officer, Priority, ShiftReport } from '@/sim/types';
 import type { ReportExtras } from '@/sim/report';
 import { dailyChallenge, dailyDateOf, dailyStartedOf, todayInTallinn } from '@/sim/daily';
-import { Badge, Button, Empty, Icon, PriorityChip, Spinner, type IconName } from '@/ui/components';
+import { Button, PriorityChip, Spinner } from '@/ui/components';
 import { Newspaper } from './shell/Newspaper';
 import { DailyBoardModal } from './shell/Daily';
-import { ShellPage } from './shell/ShellPage';
+import { ShellPage, useEnter } from './shell/ShellPage';
+import { MonoNumbers } from './shell/notices';
 import {
   formatDecimal,
   formatMoney,
-  gradeTone,
   ledgerNet,
   mean,
   regionSummary,
@@ -94,275 +94,383 @@ export function ReportScreen() {
 
   if (!report) {
     return (
-      <ShellPage title={t('shell.rep.title')} icon="newspaper" onBack={() => setScreen('menu')}>
-        <div className="sh-card sh-card--pad">
-          <Empty
-            icon="newspaper"
-            title={t('shell.rep.none')}
-            action={
-              <Button variant="primary" icon="home" onClick={() => setScreen('menu')}>
-                {t('shell.rep.toMenu')}
-              </Button>
-            }
-          >
-            {t('shell.rep.noneText')}
-          </Empty>
-        </div>
+      <ShellPage title={t('shell.rep.title')} onBack={() => setScreen('menu')} backTo="menu">
+        <section className="vk-panel vk-rep__none" aria-labelledby="vk-rep-none">
+          <div className="vk-panel__head">
+            <h2 className="vk-h" id="vk-rep-none">
+              {t('shell.rep.none')}
+            </h2>
+          </div>
+          <div className="vk-panel__body">
+            <p>{t('shell.rep.noneText')}</p>
+          </div>
+          <div className="vk-panel__foot">
+            <button type="button" className="vk-btn vk-btn--primary" onClick={() => setScreen('menu')}>
+              {t('shell.rep.toMenu')}
+            </button>
+          </div>
+        </section>
       </ShellPage>
     );
   }
 
   const st = report.stats;
   const region = regionSummary(report.regionId);
-  const tone = gradeTone(report.grade);
   const allTimes = PRIOS.flatMap((p) => st.responseTimes?.[p] ?? []);
   const avgAll = mean(allTimes);
   const replies = st.repliesCorrect + st.repliesWrong;
+  const referrals = st.referralsCorrect + st.referralsWrong;
   const career = report.mode === 'career';
   const cr = careerResult.get(report);
   const issue = (wall(report.end).month - 1) * 31 + wall(report.end).day;
+  const grade = report.grade;
+  const rep = report.reputationDelta;
+  const repText = `${rep >= 0 ? '+' : '−'}${formatDecimal(Math.abs(rep), lang, Number.isInteger(rep) ? 0 : 1)}`;
+  const hasHq = career || !!useCareer.getState().profile;
+
+  const cells: {
+    key: string;
+    label: string;
+    value: ReactNode;
+    sub?: ReactNode;
+    tone?: 'warn' | 'bad' | 'ok';
+  }[] = [
+    {
+      key: 'grade',
+      label: t('shell.rep.grade'),
+      value: (
+        <>
+          <span className={`vk-grade vk-grade--${grade}`}>{grade}</span>
+          {Math.round(report.score)}
+          <small>/100</small>
+        </>
+      ),
+      sub: t(`shell.rep.verdict.${grade}`),
+    },
+    {
+      key: 'incidents',
+      label: t('shell.rep.s.incidents'),
+      value: st.incidents,
+      sub: t('shell.rep.s.closedN', { n: st.closed }),
+    },
+    {
+      key: 'resp',
+      label: t('shell.rep.s.avgResp'),
+      value:
+        avgAll === null ? (
+          '-'
+        ) : (
+          <>
+            {formatDecimal(avgAll, lang)}
+            <small>min</small>
+          </>
+        ),
+    },
+    { key: 'arrests', label: t('shell.rep.s.arrests'), value: st.arrests },
+    {
+      key: 'calls',
+      label: t('shell.rep.s.calls'),
+      value: st.callsAnswered,
+      sub: t('shell.rep.s.missedN', { n: st.callsMissed }),
+      tone: st.callsMissed > 0 ? 'warn' : undefined,
+    },
+    { key: 'xp', label: t('shell.rep.xp'), value: `+${report.xp}`, sub: report.playerName },
+    ...(career
+      ? [
+          {
+            key: 'rep',
+            label: t('shell.rep.repShort'),
+            value: repText,
+            tone: rep > 0 ? ('ok' as const) : rep < 0 ? ('bad' as const) : undefined,
+          },
+        ]
+      : []),
+  ];
+
+  const rows: { label: string; value: ReactNode; note?: ReactNode; tone?: 'warn' | 'bad' }[] = [
+    {
+      label: t('shell.rep.s.replies'),
+      value: replies ? `${Math.round((st.repliesCorrect / replies) * 100)} %` : '-',
+      note: t('shell.rep.s.queriesN', { n: st.queries }),
+    },
+    {
+      label: t('shell.rep.s.referrals'),
+      value: `${st.referralsCorrect}/${referrals}`,
+      note: t('shell.rep.s.falseN', { n: st.falseAlarms }),
+    },
+    { label: t('shell.rep.s.pursuits'), value: `${st.pursuitsCaught}/${st.pursuits}` },
+    { label: t('shell.rep.s.expired'), value: st.expired, tone: st.expired > 0 ? 'warn' : undefined },
+    {
+      label: t('shell.rep.s.injured'),
+      value: st.officerInjuries,
+      note: t('shell.rep.s.civilN', { n: st.civilianInjuries }),
+      tone: st.officerInjuries > 0 ? 'bad' : undefined,
+    },
+    { label: t('shell.rep.s.km'), value: formatDecimal(report.kmDriven, lang, 0) },
+  ];
 
   return (
     <ShellPage
       title={t('shell.rep.title')}
       subtitle={`${region.name[lang]} · ${ddmmyyyy(report.start)} ${hhmm(report.start)}-${hhmm(report.end)} · ${dailyRun ? t('daily.title') : t(`shell.mode.${report.mode}`)} · ${t(`shell.diff.${report.difficulty}`)}`}
-      icon="newspaper"
       onBack={toMenu}
+      backTo="menu"
       actions={
-        <Button variant="primary" icon="play" onClick={newShift}>
-          {t('shell.rep.newShift')}
-        </Button>
+        <button type="button" className="vk-btn vk-btn--primary vk-go" onClick={newShift} data-sfx="click">
+          <span>{t('shell.rep.newShift')}</span>
+          <span className="vk-go__key" aria-hidden="true">
+            ⏎
+          </span>
+        </button>
+      }
+      keys={
+        <li>
+          <kbd className="vk-kbd">⏎</kbd> {t('shell.rep.newShift').toLocaleLowerCase()}
+        </li>
       }
     >
-      <div className="sh-rep">
-        {/* ── Grade ── */}
-        <section className={`sh-card sh-grade sh-grade--${tone}`}>
-          <GradeRing grade={report.grade} score={report.score} />
-          <div className="sh-grade__text">
-            <div className="sh-grade__label">{t('shell.rep.grade')}</div>
-            <div className="sh-grade__verdict">{t(`shell.rep.verdict.${report.grade}`)}</div>
-            <div className="sh-grade__score">
-              <span className="mono">{Math.round(report.score)}</span> / 100 {t('shell.rep.points')}
+      <Enter fn={newShift} />
+      <dl
+        className="vk-strip vk-panel vk-rep__strip"
+        style={{ '--vk-strip-n': cells.length } as CSSProperties}
+      >
+        {cells.map((c) => (
+          <div key={c.key} className={`vk-strip__cell vk-rep__cell--${c.key}`}>
+            <dt>{c.label}</dt>
+            <dd className={`vk-strip__value${c.tone ? ` is-${c.tone}` : ''}`}>{c.value}</dd>
+            {c.sub && <dd className="vk-strip__sub">{c.sub}</dd>}
+          </div>
+        ))}
+      </dl>
+
+      <div className="vk-rep">
+        <div className="vk-rep__col">
+          {/* ── Result: the early end and the leaderboard or the daily challenge ── */}
+          <section className="vk-panel" aria-labelledby="vk-rep-result">
+            <div className="vk-panel__head">
+              <h2 className="vk-h" id="vk-rep-result">
+                {t('shell.rep.result')}
+              </h2>
             </div>
-            <EarlyEndLine report={report} />
-            {dailyRun ? <DailyLine report={report} run={dailyRun} /> : <RankLine report={report} />}
-            <div className="sh-grade__chips">
-              <Badge tone="accent" icon="star">
-                +{report.xp} XP
-              </Badge>
-              {career && (
-                <Badge tone={report.reputationDelta >= 0 ? 'ok' : 'danger'} icon="trophy">
-                  {t('shell.rep.repShort')} {report.reputationDelta >= 0 ? '+' : '−'}
-                  {formatDecimal(
-                    Math.abs(report.reputationDelta),
-                    lang,
-                    Number.isInteger(report.reputationDelta) ? 0 : 1,
-                  )}
-                </Badge>
-              )}
-              <Badge tone="neutral" icon="user">
-                {report.playerName}
-              </Badge>
-            </div>
-          </div>
-        </section>
-
-        {/* ── Stats ── */}
-        <section className="sh-card sh-card--pad sh-rep__stats">
-          <h2 className="sh-section-title">
-            <Icon name="stats" size={14} /> {t('shell.rep.stats')}
-          </h2>
-          <div className="sh-tiles">
-            <Tile
-              icon="list"
-              label={t('shell.rep.s.incidents')}
-              value={st.incidents}
-              sub={t('shell.rep.s.closedN', { n: st.closed })}
-            />
-            <Tile
-              icon="timer"
-              label={t('shell.rep.s.avgResp')}
-              value={avgAll === null ? '-' : `${formatDecimal(avgAll, lang)} min`}
-            />
-            <Tile icon="handcuffs" label={t('shell.rep.s.arrests')} value={st.arrests} />
-            <Tile
-              icon="phone"
-              label={t('shell.rep.s.calls')}
-              value={st.callsAnswered}
-              sub={st.callsMissed ? t('shell.rep.s.missedN', { n: st.callsMissed }) : undefined}
-              warn={st.callsMissed > 0}
-            />
-            <Tile
-              icon="fingerprint"
-              label={t('shell.rep.s.replies')}
-              value={replies ? `${Math.round((st.repliesCorrect / replies) * 100)}%` : '-'}
-              sub={t('shell.rep.s.queriesN', { n: st.queries })}
-            />
-            <Tile
-              icon="car"
-              label={t('shell.rep.s.pursuits')}
-              value={`${st.pursuitsCaught}/${st.pursuits}`}
-            />
-            <Tile icon="clock" label={t('shell.rep.s.expired')} value={st.expired} warn={st.expired > 0} />
-            <Tile
-              icon="ambulance"
-              label={t('shell.rep.s.injured')}
-              value={st.officerInjuries}
-              sub={t('shell.rep.s.civilN', { n: st.civilianInjuries })}
-              warn={st.officerInjuries > 0}
-            />
-            <Tile icon="route" label={t('shell.rep.s.km')} value={formatDecimal(report.kmDriven, lang, 0)} />
-            <Tile
-              icon="flag"
-              label={t('shell.rep.s.referrals')}
-              value={`${st.referralsCorrect}/${st.referralsCorrect + st.referralsWrong}`}
-              sub={t('shell.rep.s.falseN', { n: st.falseAlarms })}
-            />
-          </div>
-        </section>
-
-        {/* ── Response times ── */}
-        <section className="sh-card sh-card--pad sh-rep__resp">
-          <h2 className="sh-section-title">
-            <Icon name="gauge" size={14} /> {t('shell.rep.response')}
-          </h2>
-          <div className="sh-resp">
-            {PRIOS.map((p) => (
-              <RespBar
-                key={p}
-                p={p}
-                actual={report.avgResponse?.[p]}
-                count={st.responseTimes?.[p]?.length ?? 0}
-                total={st.byPriority?.[p] ?? 0}
-              />
-            ))}
-          </div>
-          <p className="sh-dim sh-resp__note">{t('shell.rep.responseNote')}</p>
-        </section>
-
-        {/* ── Highlights ── */}
-        <section className="sh-card sh-card--pad sh-rep__hl">
-          <h2 className="sh-section-title">
-            <Icon name="flag" size={14} /> {t('shell.rep.highlights')}
-          </h2>
-          {report.highlights?.length ? (
-            <ul className="sh-hl">
-              {report.highlights.map((h, i) => (
-                <li key={`${h.incidentId}-${i}`} className={h.good ? 'is-good' : 'is-bad'}>
-                  <Icon name={h.good ? 'check' : 'warning'} size={16} />
-                  <div>
-                    <strong>{h.title[lang] || h.title.et}</strong>
-                    <span>{h.text[lang] || h.text.et}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="sh-muted">{t('shell.rep.noHighlights')}</p>
-          )}
-          <h2 className="sh-section-title sh-rep__gap">
-            <Icon name="ambulance" size={14} /> {t('shell.rep.injuries')}
-          </h2>
-          {report.injuredOfficers?.length ? (
-            <ul className="sh-inj">
-              {report.injuredOfficers.map((id) => {
-                const o = officers.get(id);
-                return (
-                  <li key={id}>
-                    <Icon name="user" size={14} />
-                    {o ? `${o.firstName} ${o.lastName}` : id}
-                    {o && 'callsign' in o && o.callsign && (
-                      <span className="mono sh-dim"> · {o.callsign}</span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="sh-muted">{t('shell.rep.noInjuries')}</p>
-          )}
-        </section>
-
-        {/* ── Career ── */}
-        {career && (
-          <section className="sh-card sh-card--pad sh-rep__career">
-            <h2 className="sh-section-title">
-              <Icon name="money" size={14} /> {t('shell.rep.career')}
-            </h2>
-            {cr?.error && (
-              <p className="sh-error" role="alert">
-                <Icon name="warning" size={16} /> {t('shell.rep.careerError', { err: cr.error })}
+            <div className="vk-rep__lines">
+              <p className="vk-rep__line">
+                <span className={`vk-grade vk-grade--${grade}`}>{grade}</span>
+                <span>
+                  <strong>{t(`shell.rep.verdict.${grade}`)}</strong>{' '}
+                  <span className="vk-mono">{Math.round(report.score)}</span>/100 {t('shell.rep.points')}
+                </span>
               </p>
+              <EarlyEndLine report={report} />
+              {dailyRun ? <DailyLine report={report} run={dailyRun} /> : <RankLine report={report} />}
+            </div>
+          </section>
+
+          {/* ── Statistics ── */}
+          <section className="vk-panel" aria-labelledby="vk-rep-stats">
+            <div className="vk-panel__head">
+              <h2 className="vk-h" id="vk-rep-stats">
+                {t('shell.rep.stats')}
+              </h2>
+            </div>
+            <table className="vk-table vk-rep__stats">
+              <caption>{t('shell.rep.stats')}</caption>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.label}>
+                    <th scope="row">{r.label}</th>
+                    <td className={`is-num is-strong${r.tone ? ` vk-rep__${r.tone}` : ''}`}>{r.value}</td>
+                    <td className="vk-rep__note">{r.note}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          {/* ── Response times ── */}
+          <section className="vk-panel" aria-labelledby="vk-rep-resp">
+            <div className="vk-panel__head">
+              <h2 className="vk-h" id="vk-rep-resp">
+                {t('shell.rep.response')}
+              </h2>
+            </div>
+            <table className="vk-table vk-rep__resp">
+              <caption>{t('shell.rep.response')}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">{t('shell.rep.col.prio')}</th>
+                  <th scope="col" className="is-num">
+                    {t('shell.rep.col.avg')}
+                  </th>
+                  <th scope="col" className="is-num">
+                    {t('shell.rep.col.target')}
+                  </th>
+                  <th scope="col" className="is-num">
+                    {t('shell.rep.col.count')}
+                  </th>
+                  <th scope="col" className="vk-rep__barHead">
+                    <span className="vk-sr">{t('shell.rep.col.bar')}</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {PRIOS.map((p) => (
+                  <RespRow
+                    key={p}
+                    p={p}
+                    actual={report.avgResponse?.[p]}
+                    count={st.responseTimes?.[p]?.length ?? 0}
+                    total={st.byPriority?.[p] ?? 0}
+                  />
+                ))}
+              </tbody>
+            </table>
+            <p className="vk-rep__foot">{t('shell.rep.responseNote')}</p>
+          </section>
+        </div>
+
+        <div className="vk-rep__col">
+          {/* ── Key moments ── */}
+          <section className="vk-panel" aria-labelledby="vk-rep-hl">
+            <div className="vk-panel__head">
+              <h2 className="vk-h" id="vk-rep-hl">
+                {t('shell.rep.highlights')}
+              </h2>
+              {!!report.highlights?.length && <span className="vk-count">{report.highlights.length}</span>}
+            </div>
+            {report.highlights?.length ? (
+              <ul className="vk-rep__log">
+                {report.highlights.map((h, i) => (
+                  <li key={`${h.incidentId}-${i}`} className={h.good ? 'is-good' : 'is-bad'}>
+                    <span className="vk-rep__mark" aria-hidden="true" />
+                    <span className="vk-sr">{t(h.good ? 'shell.rep.good' : 'shell.rep.bad')}: </span>
+                    <div>
+                      <strong>{h.title[lang] || h.title.et}</strong>
+                      <span>
+                        <MonoNumbers text={h.text[lang] || h.text.et} />
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="vk-panel__body vk-dim">{t('shell.rep.noHighlights')}</p>
             )}
-            <div className="sh-career">
+            <div className="vk-panel__head vk-rep__subhead">
+              <h3 className="vk-h">{t('shell.rep.injuries')}</h3>
+              {!!report.injuredOfficers?.length && (
+                <span className="vk-count">{report.injuredOfficers.length}</span>
+              )}
+            </div>
+            {report.injuredOfficers?.length ? (
+              <ul className="vk-rep__inj">
+                {report.injuredOfficers.map((id) => {
+                  const o = officers.get(id);
+                  return (
+                    <li key={id}>
+                      {o ? `${o.firstName} ${o.lastName}` : id}
+                      {o && 'callsign' in o && o.callsign && (
+                        <span className="vk-mono vk-dim"> {o.callsign}</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="vk-panel__body vk-dim">{t('shell.rep.noInjuries')}</p>
+            )}
+          </section>
+
+          {/* ── Career: the ledger as a statement, the inbox ── */}
+          {career && (
+            <section className="vk-panel" aria-labelledby="vk-rep-career">
+              <div className="vk-panel__head">
+                <h2 className="vk-h" id="vk-rep-career">
+                  {t('shell.rep.career')}
+                </h2>
+              </div>
+              {cr?.error && (
+                <p className="vk-msg is-bad vk-rep__err" role="alert">
+                  {t('shell.rep.careerError', { err: cr.error })}
+                </p>
+              )}
               {/* The ledger already holds the bonus, fuel, overtime and fines, so it is the only list. */}
-              <div className="sh-earn">
-                {cr && cr.ledger.length > 0 && (
-                  <>
-                    <h3 className="sh-rep__sub">{t('shell.rep.ledger')}</h3>
+              {cr && cr.ledger.length > 0 && (
+                <table className="vk-table vk-rep__ledger">
+                  <caption>{t('shell.rep.ledger')}</caption>
+                  <tbody>
                     {cr.ledger.map((l, i) => (
                       <EarnRow key={i} label={l.text[lang] || l.text.et} amount={l.amount} />
                     ))}
+                  </tbody>
+                  <tfoot>
                     <EarnRow label={t('shell.rep.e.net')} amount={ledgerNet(cr.ledger)} total />
-                  </>
-                )}
-              </div>
-              <div className="sh-career__side">
-                {inbox.length > 0 && (
-                  <>
-                    <h3 className="sh-rep__sub">
-                      {t('shell.rep.inbox')} <Badge tone="info">{inbox.length}</Badge>
-                    </h3>
-                    <ul className="sh-inbox">
-                      {inbox.map((m, i) => (
-                        <li key={i}>
-                          <Icon name="send" size={14} />
-                          {m[lang] || m.et}
-                        </li>
-                      ))}
-                    </ul>
-                    <Button size="sm" variant="ghost" icon="check" onClick={clearInbox}>
+                  </tfoot>
+                </table>
+              )}
+              {inbox.length > 0 && (
+                <>
+                  <div className="vk-panel__head vk-rep__subhead">
+                    <h3 className="vk-h">{t('shell.rep.inbox')}</h3>
+                    <span className="vk-count">{inbox.length}</span>
+                    <button type="button" className="vk-linkbtn vk-rep__read" onClick={clearInbox}>
                       {t('shell.rep.markRead')}
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ── Newspaper ── */}
-        <section className="sh-rep__paper">
-          <h2 className="sh-section-title">
-            <Icon name="newspaper" size={14} /> {t('shell.rep.paper')}
-          </h2>
-          <Newspaper
-            paper={report.newspaper}
-            lang={lang}
-            issue={issue}
-            weather={sim?.weather ? sim.weather.text[lang] : undefined}
-          />
-        </section>
-
-        <section className="sh-rep__actions">
-          <Button size="lg" icon="home" onClick={toMenu}>
-            {t('shell.rep.toMenu')}
-          </Button>
-          {(career || useCareer.getState().profile) && (
-            <Button size="lg" icon="building" onClick={toCareer}>
-              {t('shell.rep.toHq')}
-            </Button>
+                    </button>
+                  </div>
+                  <ul className="vk-rep__inbox">
+                    {inbox.map((m, i) => (
+                      <li key={i}>
+                        <MonoNumbers text={m[lang] || m.et} />
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </section>
           )}
-          <Button size="lg" variant="primary" icon="play" onClick={newShift}>
-            {t('shell.rep.newShift')}
-          </Button>
-        </section>
+        </div>
+      </div>
+
+      {/* ── Newspaper ── */}
+      <section className="vk-rep__paper" aria-labelledby="vk-rep-paper">
+        <h2 className="vk-h vk-rep__paperHead" id="vk-rep-paper">
+          {t('shell.rep.paper')}
+        </h2>
+        <Newspaper
+          paper={report.newspaper}
+          lang={lang}
+          issue={issue}
+          weather={sim?.weather ? sim.weather.text[lang] : undefined}
+        />
+      </section>
+
+      <div className="vk-rep__actions">
+        <button type="button" className="vk-btn" onClick={toMenu}>
+          {t('shell.rep.toMenu')}
+        </button>
+        {hasHq && (
+          <button type="button" className="vk-btn" onClick={toCareer}>
+            {t('shell.rep.toHq')}
+          </button>
+        )}
+        <button type="button" className="vk-btn vk-btn--primary" onClick={newShift}>
+          {t('shell.rep.newShift')}
+        </button>
       </div>
     </ShellPage>
   );
 }
 
-type RankState = { status: 'idle' } | { status: 'sending' } | { status: 'done'; rank: number | null } | { status: 'error' };
+/** Enter starts a new shift (the page's main action). */
+function Enter({ fn }: { fn: () => void }) {
+  const ref = useRef(fn);
+  ref.current = fn;
+  const stable = useMemo(() => () => ref.current(), []);
+  useEnter(stable);
+  return null;
+}
+
+type RankState =
+  { status: 'idle' } | { status: 'sending' } | { status: 'done'; rank: number | null } | { status: 'error' };
 
 /** Grade card note when the shift was ended before its end time (src/sim/report.ts earlyEndFactor). */
 function EarlyEndLine({ report }: { report: ShiftReport }) {
@@ -370,8 +478,12 @@ function EarlyEndLine({ report }: { report: ShiftReport }) {
   const e = (report as ShiftReport & { extras?: ReportExtras }).extras?.earlyEnd;
   if (!e) return null;
   return (
-    <p className="sh-grade__early" data-testid="early-end">
-      {t('shell.rep.earlyEnd', { served: Math.round(e.served * 100), raw: e.rawScore, pct: Math.round(e.factor * 100) })}
+    <p className="vk-rep__line vk-rep__early" data-testid="early-end">
+      {t('shell.rep.earlyEnd', {
+        served: Math.round(e.served * 100),
+        raw: e.rawScore,
+        pct: Math.round(e.factor * 100),
+      })}
     </p>
   );
 }
@@ -404,40 +516,34 @@ function RankLine({ report }: { report: ShiftReport }) {
   }, [report, loggedIn, ranked, attempt]);
 
   if (backend !== 'online') return null;
-  if (!loggedIn)
-    return (
-      <p className="sh-grade__rank sh-grade__rank--hint">
-        <Icon name="cloud" size={14} /> {t('account.rep.guest')}
-      </p>
-    );
+  if (!loggedIn) return <p className="vk-rep__line is-hint">{t('account.rep.guest')}</p>;
   return (
     <>
       {!ranked ? (
-        <p className="sh-grade__rank sh-grade__rank--hint">
+        <p className="vk-rep__line is-hint">
           {t(unranked === 'empty' ? 'account.rep.empty' : 'account.rep.notRanked')}
         </p>
       ) : state.status === 'done' ? (
-        <p className="sh-grade__rank" data-testid="leaderboard-rank">
-          <Icon name="trophy" size={15} />
+        <p className="vk-rep__line is-rank" data-testid="leaderboard-rank">
           {state.rank ? t('account.rep.rank', { rank: state.rank }) : t('account.rep.ranked')}
           {/* The server ranks within the shift's prefecture. */}
-          {state.rank ? <span className="sh-grade__rankRegion">({t(`account.lb.region.${report.regionId}`)})</span> : null}
+          {state.rank ? <span className="vk-dim">({t(`account.lb.region.${report.regionId}`)})</span> : null}
         </p>
       ) : state.status === 'error' ? (
-        <p className="sh-grade__rank sh-grade__rank--error">
-          <Icon name="warning" size={14} /> {t('account.rep.error')}
-          <Button size="sm" variant="ghost" icon="refresh" onClick={() => setAttempt((n) => n + 1)}>
+        <p className="vk-rep__line is-error">
+          {t('account.rep.error')}
+          <Button size="sm" variant="ghost" onClick={() => setAttempt((n) => n + 1)}>
             {t('account.rep.retry')}
           </Button>
         </p>
       ) : (
-        <p className="sh-grade__rank sh-grade__rank--hint" role="status">
+        <p className="vk-rep__line is-hint" role="status">
           <Spinner size={13} /> {t('account.rep.sending')}
         </p>
       )}
       {cloud === 'error' && (
-        <p className="sh-grade__rank sh-grade__rank--error" role="status">
-          <Icon name="cloud" size={14} /> {t('account.cloud.error')}
+        <p className="vk-rep__line is-error" role="status">
+          {t('account.cloud.error')}
         </p>
       )}
     </>
@@ -489,13 +595,13 @@ function DailyLine({ report, run }: { report: ShiftReport; run: DailyRun }) {
 
   if (!loggedIn)
     return (
-      <p className="sh-grade__rank sh-grade__rank--hint" data-testid="daily-rank">
-        <Icon name="target" size={14} /> {t(backend === 'online' ? 'daily.rep.guest' : 'daily.rep.offline')}
+      <p className="vk-rep__line is-hint" data-testid="daily-rank">
+        {t(backend === 'online' ? 'daily.rep.guest' : 'daily.rep.offline')}
       </p>
     );
   if (empty)
     return (
-      <p className="sh-grade__rank sh-grade__rank--hint" data-testid="daily-rank">
+      <p className="vk-rep__line is-hint" data-testid="daily-rank">
         {t('daily.rep.empty')}
       </p>
     );
@@ -504,39 +610,36 @@ function DailyLine({ report, run }: { report: ShiftReport; run: DailyRun }) {
       {state.status === 'done' ? (
         <div data-testid="daily-rank">
           {/* A replay of the day is practice: the place shown is that of the first, counted run. */}
-          {!state.result.counted && (
-            <p className="sh-grade__rank sh-grade__rank--hint">{t('daily.rep.replay')}</p>
-          )}
-          <p className="sh-grade__rank">
-            <Icon name="target" size={15} />
+          {!state.result.counted && <p className="vk-rep__line is-hint">{t('daily.rep.replay')}</p>}
+          <p className="vk-rep__line is-rank">
             {t('daily.rep.rank', {
               rank: state.result.rank ?? '-',
               n: state.result.players ?? state.result.rank ?? '-',
             })}
-            <Button size="sm" variant="ghost" icon="list" onClick={() => setBoardOpen(true)}>
+            <Button size="sm" variant="ghost" onClick={() => setBoardOpen(true)}>
               {t('daily.rep.board')}
             </Button>
           </p>
         </div>
       ) : state.status === 'closed' ? (
-        <p className="sh-grade__rank sh-grade__rank--hint" data-testid="daily-rank">
-          <Icon name="clock" size={14} /> {t('daily.rep.closed')}
+        <p className="vk-rep__line is-hint" data-testid="daily-rank">
+          {t('daily.rep.closed')}
         </p>
       ) : state.status === 'error' ? (
-        <p className="sh-grade__rank sh-grade__rank--error">
-          <Icon name="warning" size={14} /> {t('account.rep.error')}
-          <Button size="sm" variant="ghost" icon="refresh" onClick={() => setAttempt((n) => n + 1)}>
+        <p className="vk-rep__line is-error">
+          {t('account.rep.error')}
+          <Button size="sm" variant="ghost" onClick={() => setAttempt((n) => n + 1)}>
             {t('account.rep.retry')}
           </Button>
         </p>
       ) : (
-        <p className="sh-grade__rank sh-grade__rank--hint" role="status">
+        <p className="vk-rep__line is-hint" role="status">
           <Spinner size={13} /> {t('daily.rep.sending')}
         </p>
       )}
       {cloud === 'error' && (
-        <p className="sh-grade__rank sh-grade__rank--error" role="status">
-          <Icon name="cloud" size={14} /> {t('account.cloud.error')}
+        <p className="vk-rep__line is-error" role="status">
+          {t('account.cloud.error')}
         </p>
       )}
       <DailyBoardModal
@@ -549,52 +652,7 @@ function DailyLine({ report, run }: { report: ShiftReport; run: DailyRun }) {
   );
 }
 
-function GradeRing({ grade, score }: { grade: ShiftReport['grade']; score: number }) {
-  const r = 52;
-  const c = 2 * Math.PI * r;
-  const v = Math.max(0, Math.min(100, score)) / 100;
-  return (
-    <div className="sh-ring" aria-label={`${grade} · ${Math.round(score)}/100`} role="img">
-      <svg viewBox="0 0 128 128">
-        <circle cx="64" cy="64" r={r} className="sh-ring__track" />
-        <circle
-          cx="64"
-          cy="64"
-          r={r}
-          className="sh-ring__val"
-          strokeDasharray={`${c * v} ${c}`}
-          transform="rotate(-90 64 64)"
-        />
-      </svg>
-      <span className="sh-ring__grade">{grade}</span>
-    </div>
-  );
-}
-
-function Tile({
-  icon,
-  label,
-  value,
-  sub,
-  warn,
-}: {
-  icon: IconName;
-  label: string;
-  value: ReactNode;
-  sub?: string;
-  warn?: boolean;
-}) {
-  return (
-    <div className={`sh-tile${warn ? ' is-warn' : ''}`}>
-      <Icon name={icon} size={16} />
-      <div className="sh-tile__value">{value}</div>
-      <div className="sh-tile__label">{label}</div>
-      {sub && <div className="sh-tile__sub">{sub}</div>}
-    </div>
-  );
-}
-
-function RespBar({
+function RespRow({
   p,
   actual,
   count,
@@ -605,45 +663,39 @@ function RespBar({
   count: number;
   total: number;
 }) {
-  const t = useT();
   const lang = useLang();
   const target = SLA_TARGETS[p];
   const tone = responseTone(actual, target);
-  const max = target * 2;
-  const w = actual === undefined ? 0 : Math.min(1, actual / max);
+  // The bar runs to twice the target; the tick is the target.
+  const w = actual === undefined ? 0 : Math.min(1, actual / (target * 2));
   return (
-    <div className={`sh-resp__row sh-resp__row--${tone}`}>
-      <PriorityChip p={p} />
-      <svg className="sh-resp__bar" viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true">
-        <rect x="0" y="3" width="200" height="8" rx="4" className="sh-resp__track" />
-        <rect
-          x="0"
-          y="3"
-          width={Math.max(actual === undefined ? 0 : 4, 200 * w)}
-          height="8"
-          rx="4"
-          className="sh-resp__fill"
-        />
-        <line x1="100" x2="100" y1="0" y2="14" className="sh-resp__target" />
-      </svg>
-      <div className="sh-resp__val">
-        <strong className="mono">{actual === undefined ? '-' : `${formatDecimal(actual, lang)} min`}</strong>
-        <span className="sh-dim">
-          {t('shell.rep.target', { min: target })} · {count}/{total}
+    <tr className={`vk-rep__resp--${tone}`}>
+      <td>
+        <PriorityChip p={p} />
+      </td>
+      <td className="is-num is-strong vk-rep__respVal">
+        {actual === undefined ? '-' : `${formatDecimal(actual, lang)} min`}
+      </td>
+      <td className="is-num">{target} min</td>
+      <td className="is-num">
+        {count}/{total}
+      </td>
+      <td className="vk-rep__barCell">
+        <span className="vk-rep__bar" aria-hidden="true">
+          <span style={{ width: `${w * 100}%` }} />
         </span>
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }
 
 function EarnRow({ label, amount, total }: { label: string; amount: number; total?: boolean }) {
   const lang = useLang();
+  const tone = Math.round(amount) === 0 ? '' : amount > 0 ? ' vk-up' : ' vk-down';
   return (
-    <div className={`sh-earn__row${total ? ' is-total' : ''}`}>
-      <span>{label}</span>
-      <span className={`mono ${Math.round(amount) === 0 ? 'is-zero' : amount > 0 ? 'is-plus' : 'is-minus'}`}>
-        {formatMoney(amount === 0 ? 0 : amount, lang, true)}
-      </span>
-    </div>
+    <tr className={total ? 'is-total' : undefined}>
+      <th scope="row">{label}</th>
+      <td className={`is-num${tone}`}>{formatMoney(amount === 0 ? 0 : amount, lang, true)}</td>
+    </tr>
   );
 }

@@ -19,6 +19,7 @@ export default {
   },
 
   'shell.back': { et: 'Tagasi', en: 'Back' },
+  'shell.page.toShift': { et: 'Vahetus', en: 'Shift' },
   'shell.audio.hk': { et: 'Häirekeskus', en: 'Emergency Centre' },
   'shell.mode.career': { et: 'Karjäär', en: 'Career' },
   'shell.mode.free': { et: 'Kiirmäng', en: 'Quick play' },
@@ -58,18 +59,6 @@ export default {
 
   // ── Login ──
   'shell.login.title': { et: 'Sisselogimine', en: 'Sign in' },
-  'shell.login.secure': { et: 'Turvaline ühendus', en: 'Secure connection' },
-  'shell.login.brand.tag': { et: 'Eesti Politsei Dispetšer', en: 'Estonian Police Dispatch' },
-  'shell.login.brand.sub': { et: 'Juhtimiskeskuse simulaator', en: 'Command centre simulator' },
-  'shell.login.fact.map': {
-    et: 'Päris Eesti kaart ja reaalajas liikuvad ekipaažid',
-    en: 'A real map of Estonia with crews moving in real time',
-  },
-  'shell.login.fact.radio': {
-    et: 'Raadioside, 112-kõned ja jälitused',
-    en: 'Radio traffic, 112 calls and pursuits',
-  },
-  'shell.login.fact.registry': { et: 'Isikute ja sõidukite andmebaas', en: 'Person and vehicle database' },
   'shell.login.name': { et: 'Dispetšeri nimi', en: 'Dispatcher name' },
   'shell.login.nameHint': {
     et: 'Kuvatakse raadiosides ja vahetuse aruandes.',
@@ -132,6 +121,14 @@ export default {
   'shell.login.or': { et: 'või', en: 'or' },
   'shell.login.guest': { et: 'Jätka külalisena', en: 'Continue as guest' },
   'shell.login.guestName': { et: 'Külaline', en: 'Guest' },
+  'shell.login.id.steps': { et: 'ID-kaardiga sisselogimise sammud', en: 'ID card sign-in steps' },
+  'shell.login.id.step.card': { et: 'Kaart', en: 'Card' },
+  'shell.login.id.step.pin': { et: 'PIN1', en: 'PIN1' },
+  'shell.login.id.step.cert': { et: 'Sertifikaat', en: 'Certificate' },
+  'shell.login.sys.server': { et: 'Kontoserver', en: 'Account server' },
+  'shell.login.sys.unknown': { et: 'kontrollin ühendust…', en: 'checking the connection…' },
+  'shell.login.sys.online': { et: 'politsei.eu, kontod töötavad', en: 'politsei.eu, accounts work' },
+  'shell.login.sys.offline': { et: 'ühenduseta, ainult külalisena', en: 'offline, guest play only' },
   'shell.login.simNote': {
     et: 'Simulatsioon: päris ID-kaarti, Mobiil-ID-d ega Smart-ID-d ei kasutata ja andmeid ei saadeta kuhugi.',
     en: 'Simulation: no real ID card, Mobile-ID or Smart-ID is used and no data leaves your browser.',
@@ -296,11 +293,9 @@ export default {
   'shell.brief.title.free': { et: 'Kiirmäng', en: 'Quick play' },
   'shell.brief.title.director': { et: 'Režissööri režiim', en: 'Director mode' },
   'shell.brief.title.career': { et: 'Vahetuse ettevalmistus', en: 'Shift preparation' },
-  'shell.brief.subtitle': {
-    et: 'Vali prefektuur ja vahetuse tingimused',
-    en: 'Choose a prefecture and the shift conditions',
-  },
   'shell.brief.region': { et: 'Prefektuur', en: 'Prefecture' },
+  'shell.brief.conditions': { et: 'Tingimused', en: 'Conditions' },
+  'shell.brief.autoWeather': { et: 'Prognoos: {weather}', en: 'Forecast: {weather}' },
   'shell.brief.mapHint': {
     et: 'Vali kaardilt või nooleklahvidega',
     en: 'Pick on the map or with the arrow keys',
@@ -402,7 +397,6 @@ export default {
     et: 'Vahetust ei õnnestunud alustada: {err}',
     en: 'Could not start the shift: {err}',
   },
-  'shell.brief.career.profile': { et: 'Karjääriprofiil', en: 'Career profile' },
   'shell.brief.career.name': { et: 'Dispetšer', en: 'Dispatcher' },
   'shell.brief.career.rank': { et: 'Auaste', en: 'Rank' },
   'shell.brief.career.day': { et: 'Päev', en: 'Day' },
@@ -586,7 +580,13 @@ export default {
     en: "Grey base map and orthophotos (WMTS); county boundaries (via Who's On First).",
   },
   'shell.cred.src.noto': { et: 'Kaardi kirjad.', en: 'Map labels.' },
-  'shell.cred.src.inter': { et: 'Liidese kiri.', en: 'Interface typeface.' },
+  'shell.cred.src.inter': { et: 'Vahetuse töölaua kiri.', en: 'Typeface of the shift desk.' },
+  'shell.cred.src.archivo': { et: 'Menüüde pealkirjad ja sildid.', en: 'Headings and labels of the menus.' },
+  'shell.cred.src.instrument': { et: 'Menüüde ja lehtede tekst.', en: 'Text of the menus and pages.' },
+  'shell.cred.legal': { et: 'Õiguslik märkus', en: 'Legal note' },
+  'shell.cred.col.name': { et: 'Allikas', en: 'Source' },
+  'shell.cred.col.use': { et: 'Kasutus', en: 'Used for' },
+  'shell.cred.col.licence': { et: 'Litsents', en: 'Licence' },
   'shell.cred.src.jbm': { et: 'Kellaajad, koodid ja raadiolog.', en: 'Clocks, codes and the radio log.' },
   'shell.cred.src.maplibre': { et: 'Vektorkaardi mootor.', en: 'Vector map engine.' },
   'shell.cred.src.react': {
@@ -604,7 +604,6 @@ export default {
 
   // ── Legacy ──
   'shell.leg.title': { et: 'Algsed versioonid', en: 'Original versions' },
-  'shell.leg.subtitle': { et: 'Kust kõik alguse sai', en: 'Where it all began' },
   'shell.leg.intro': {
     et: 'Need on originaalfailid täpselt sellisena, nagu neid 2024. ja 2025. aastal mängiti. Avanevad uues vahelehes.',
     en: 'These are the original files exactly as they were played in 2024 and 2025. They open in a new tab.',
@@ -653,6 +652,15 @@ export default {
   'shell.rep.verdict.D': { et: 'Raske vahetus', en: 'A rough shift' },
   'shell.rep.verdict.F': { et: 'Vahetus ebaõnnestus', en: 'The shift failed' },
   'shell.rep.stats': { et: 'Statistika', en: 'Statistics' },
+  'shell.rep.result': { et: 'Tulemus', en: 'Result' },
+  'shell.rep.xp': { et: 'Kogemus', en: 'Experience' },
+  'shell.rep.good': { et: 'hästi', en: 'went well' },
+  'shell.rep.bad': { et: 'halvasti', en: 'went badly' },
+  'shell.rep.col.prio': { et: 'Prioriteet', en: 'Priority' },
+  'shell.rep.col.avg': { et: 'Keskmine', en: 'Average' },
+  'shell.rep.col.target': { et: 'Eesmärk', en: 'Target' },
+  'shell.rep.col.count': { et: 'Jõudis', en: 'Reached' },
+  'shell.rep.col.bar': { et: 'Aeg eesmärgi suhtes', en: 'Time against the target' },
   'shell.rep.s.incidents': { et: 'Sündmusi', en: 'Incidents' },
   'shell.rep.s.closedN': { et: 'lõpetatud {n}', en: '{n} closed' },
   'shell.rep.s.avgResp': { et: 'Keskmine reageerimisaeg', en: 'Average response' },
@@ -671,8 +679,8 @@ export default {
   'shell.rep.response': { et: 'Reageerimisajad prioriteedi järgi', en: 'Response times by priority' },
   'shell.rep.target': { et: 'eesmärk {min} min', en: 'target {min} min' },
   'shell.rep.responseNote': {
-    et: 'Kriipsjoon näitab linna sihtaega; riba lõpp on kahekordne sihtaeg.',
-    en: 'The dashed line marks the urban target; the bar ends at twice the target.',
+    et: 'Kriips riba keskel on linna sihtaeg; riba lõpp on kahekordne sihtaeg.',
+    en: 'The tick in the middle of the bar is the urban target; the bar ends at twice the target.',
   },
   'shell.rep.highlights': { et: 'Olulisemad hetked', en: 'Highlights' },
   'shell.rep.noHighlights': {

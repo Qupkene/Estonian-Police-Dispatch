@@ -396,6 +396,7 @@ export default {
   'career.brief.sectors': { et: 'Sinu sektorid', en: 'Your sectors' },
   'career.brief.posts': { et: 'Avatud politseipunktid', en: 'Open police posts' },
   'career.brief.cover': { et: 'Öine katmine', en: 'Night cover' },
+  'career.brief.coverWord': { et: 'katad täna', en: 'your cover tonight' },
   'career.brief.coverText': {
     et: 'Täna öösel katad ka sektorit {names}. Seal sinu ekipaaže ei paikne, sõit võtab aega.',
     en: 'Tonight you also cover {names}. None of your crews is based there, so drives take longer.',

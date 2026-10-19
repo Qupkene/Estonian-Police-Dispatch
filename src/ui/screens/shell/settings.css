@@ -1,189 +1,202 @@
-/* Settings screen */
-.sh-set {
+/* Settings (SettingsScreen.tsx) on the Valvekaart frame (ShellPage, vk.css): a panel per section, a row per
+   setting (label and line at the left, the control at the right), the map styles as a choice of four. */
+
+.vk-set {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 12px;
   align-items: start;
 }
-.sh-set__sec {
-  padding: 18px 20px 8px;
+.vk-set__sec {
+  box-shadow: none;
 }
-.sh-set__sec.is-wide {
+.vk-set__sec.is-wide {
   grid-column: 1 / -1;
-  padding-bottom: 18px;
 }
-.sh-set__row {
+.vk-set__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 12px 0;
-  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  gap: 20px;
+  min-height: 56px;
+  padding: 10px 14px;
 }
-.sh-section-title + .sh-set__row,
-.sh-set__note + .sh-set__row {
-  border-top: 0;
+.vk-set__row + .vk-set__row,
+.vk-set__note + .vk-set__row {
+  border-top: 1px solid var(--vk-line-2);
 }
-.sh-set__text {
+.vk-set__text {
   min-width: 0;
 }
-.sh-set__label {
-  font-weight: 650;
+.vk-set__label {
+  font-weight: 600;
+  color: var(--vk-text-0);
 }
-.sh-set__desc {
+.vk-set__desc {
   margin-top: 2px;
-  font-size: var(--fs-sm);
-  color: var(--text-2);
-  line-height: 1.5;
+  font-size: 12.5px;
+  color: var(--vk-text-2);
+  text-wrap: pretty;
 }
-.sh-set__desc .ui-badge {
-  margin-top: 4px;
-}
-.sh-set__ctrl {
+.vk-set__ctrl {
   flex: none;
   display: flex;
   align-items: center;
+  gap: 8px;
 }
-.sh-set__slider {
-  width: 200px;
+.vk-set__slider {
+  width: 220px;
 }
-.sh-set__slider--btn {
+.vk-set__slider--btn {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 10px;
-  width: 280px;
+  width: 300px;
 }
-.sh-set__slider--btn .ui-slider {
+.vk-set__slider--btn > :first-child {
   flex: 1;
 }
-.sh-set__inline {
+.vk-set__inline {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
-.sh-set__note {
-  margin: -4px 0 4px;
-  font-size: var(--fs-sm);
-  color: var(--text-2);
+.vk-set__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+  font-size: 12px;
+  white-space: nowrap;
 }
-.sh-set__confirm {
+.vk-set__state::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.vk-set__state.is-ok {
+  color: var(--vk-ok);
+}
+.vk-set__state.is-warn {
+  color: var(--vk-amb);
+}
+.vk-set__note {
   margin: 0;
-  line-height: 1.6;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: var(--vk-text-2);
+  text-wrap: pretty;
 }
-.sh-set__swatches {
+.vk-set__swatches {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 4px 0 14px;
+  gap: 6px;
+  padding: 4px 14px 14px;
+}
+.vk-set__confirm {
+  margin: 0 0 8px;
+  color: var(--vk-text-1);
 }
 
-/* map style cards with CSS-drawn previews */
-.sh-mapstyles {
+/* Map styles: four choices, each with a small picture of its look. */
+.vk-mapstyles {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
+  padding: 14px;
 }
-.sh-mapstyle {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 8px 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--bg-1);
-  color: var(--text-0);
+.vk-mapstyle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: start;
+  gap: 4px 8px;
+  padding: 8px 8px 10px;
+  border: 1px solid var(--vk-line);
+  border-radius: 6px;
+  background: var(--vk-panel-2);
+  color: inherit;
+  font: inherit;
   text-align: left;
-  transition:
-    border-color var(--dur-1) var(--ease),
-    box-shadow var(--dur-2) var(--ease),
-    transform var(--dur-1) var(--ease);
+  cursor: pointer;
+  transition: border-color 0.12s ease;
 }
-.sh-mapstyle:hover {
-  border-color: var(--line-3);
-  transform: translateY(-1px);
+.vk-mapstyle:hover {
+  border-color: var(--vk-text-3);
 }
-.sh-mapstyle.is-active {
-  border-color: var(--accent);
-  box-shadow:
-    0 0 0 1px var(--accent),
-    0 8px 24px color-mix(in srgb, var(--accent) 22%, transparent);
+.vk-mapstyle.is-active {
+  border-color: var(--vk-acc);
+  box-shadow: inset 0 0 0 1px var(--vk-acc);
 }
-.sh-mapstyle:focus-visible {
-  outline: none;
-  box-shadow:
-    0 0 0 2px var(--bg-0),
-    0 0 0 4px var(--accent-2);
+.vk-mapstyle__name {
+  font-weight: 600;
+  color: var(--vk-text-0);
 }
-.sh-mapstyle__name {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 4px;
-  font-weight: 650;
+.vk-mapstyle__net {
+  align-self: center;
+  font: 400 11px/1 var(--vk-font-mono);
+  color: var(--vk-text-3);
 }
-.sh-mapstyle__desc {
-  padding: 0 4px;
-  font-size: var(--fs-xs);
-  color: var(--text-2);
+.vk-mapstyle__desc {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--vk-text-2);
 }
-.sh-mapstyle__prev {
-  /* Preview palettes (illustrative only, real styles live in src/map). */
+.vk-mapstyle__prev {
+  /* Preview palettes (illustrative only, the real styles live in src/map). */
   --mp-bg: #0d1117;
   --mp-road: #2b3442;
   --mp-road2: #3a4556;
   --mp-water: #0a1a2b;
   --mp-pin: var(--p1);
   position: relative;
+  grid-column: 1 / -1;
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: 9px;
+  margin-bottom: 4px;
+  border-radius: 3px;
   overflow: hidden;
   background: radial-gradient(60% 50% at 85% 85%, var(--mp-water) 0 60%, transparent 61%), var(--mp-bg);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.18);
 }
-.sh-mapstyle__prev i {
+.vk-mapstyle__prev i {
   position: absolute;
   background: var(--mp-road);
-  border-radius: 2px;
 }
-.sh-mapstyle__prev i:nth-child(1) {
+.vk-mapstyle__prev i:nth-child(1) {
   left: -10%;
   right: -10%;
   top: 38%;
-  height: 5px;
+  height: 4px;
   transform: rotate(-12deg);
   background: var(--mp-road2);
 }
-.sh-mapstyle__prev i:nth-child(2) {
+.vk-mapstyle__prev i:nth-child(2) {
   top: -10%;
   bottom: -10%;
   left: 42%;
   width: 3px;
   transform: rotate(18deg);
 }
-.sh-mapstyle__prev i:nth-child(3) {
+.vk-mapstyle__prev i:nth-child(3) {
   left: 10%;
   right: 30%;
   top: 70%;
-  height: 3px;
+  height: 2px;
   transform: rotate(6deg);
 }
-.sh-mapstyle__prev b {
+.vk-mapstyle__prev b {
   position: absolute;
   left: 58%;
   top: 30%;
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--mp-pin);
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--mp-pin) 35%, transparent),
-    0 0 12px var(--mp-pin);
 }
-.sh-mapstyle__prev--tactical {
+.vk-mapstyle__prev--tactical {
   --mp-bg: #08131f;
   --mp-road: #1d4a6b;
   --mp-road2: #2c6f9b;
@@ -194,13 +207,13 @@
     radial-gradient(60% 50% at 85% 85%, var(--mp-water) 0 60%, transparent 61%),
     var(--mp-bg);
 }
-.sh-mapstyle__prev--maaamet {
+.vk-mapstyle__prev--maaamet {
   --mp-bg: #e6e6e3;
   --mp-road: #b9b9b5;
   --mp-road2: #9d9d98;
   --mp-water: #c6d3dc;
 }
-.sh-mapstyle__prev--foto {
+.vk-mapstyle__prev--foto {
   --mp-bg: #4d5a37;
   --mp-road: #a59e8a;
   --mp-road2: #c9c2ad;
@@ -211,21 +224,41 @@
     radial-gradient(60% 50% at 85% 85%, var(--mp-water) 0 60%, transparent 61%), var(--mp-bg);
 }
 
-@media (max-width: 980px) {
-  .sh-set {
-    grid-template-columns: 1fr;
+@media (max-width: 1099px) {
+  .vk-set {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .sh-mapstyles {
+  .vk-mapstyles {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 560px) {
-  .sh-set__row {
+  .vk-set__row {
     flex-direction: column;
     align-items: flex-start;
+    gap: 10px;
   }
-  .sh-set__slider,
-  .sh-set__slider--btn {
+  .vk-set__ctrl,
+  .vk-set__slider,
+  .vk-set__slider--btn {
     width: 100%;
+  }
+  .vk-set__ctrl .ui-seg {
+    flex: 1;
+  }
+  .vk-set__ctrl .ui-seg__opt {
+    flex: 1;
+    justify-content: center;
+  }
+  /* A switch stays at the end of its row. */
+  .vk-set__row:has(> .vk-set__ctrl > .ui-toggle) {
+    flex-direction: row;
+    align-items: center;
+  }
+  .vk-set__row:has(> .vk-set__ctrl > .ui-toggle) .vk-set__ctrl {
+    width: auto;
+  }
+  .vk-mapstyle {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
