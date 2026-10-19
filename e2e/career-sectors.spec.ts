@@ -29,7 +29,10 @@ test('a new career at the Tartu linn desk plays its own area', async ({ page }) 
   await epd(page, 'e.career.getState().reset()');
 
   // Onboarding: the prefecture, then the first sector.
-  await page.getByRole('button', { name: /Karjäär/ }).first().click();
+  await page
+    .getByRole('button', { name: /Karjäär/ })
+    .first()
+    .click();
   await expect.poll(() => screen(page)).toBe('career');
   const name = page.getByLabel('Dispetšeri nimi');
   await name.fill('Mari Maasikas');
@@ -39,25 +42,34 @@ test('a new career at the Tartu linn desk plays its own area', async ({ page }) 
   const tartu = sectors.getByRole('radio', { name: /Tartu linn/ });
   await expect(tartu).toContainText('keskmine');
   await sectors.getByRole('radio', { name: /Viljandimaa/ }).click();
-  await expect(page.locator('.cr-onb__sectors svg [data-sector="louna-viljandi"].is-picked').first()).toBeAttached();
+  await expect(
+    page.locator('.cr-onb__sectors svg [data-sector="louna-viljandi"].is-picked').first(),
+  ).toBeAttached();
   await tartu.click();
   await expect(tartu).toHaveAttribute('aria-checked', 'true');
-  await expect(page.locator('.cr-onb__sectors svg [data-sector="louna-tartu"].is-picked').first()).toBeAttached();
+  await expect(
+    page.locator('.cr-onb__sectors svg [data-sector="louna-tartu"].is-picked').first(),
+  ).toBeAttached();
   await page.getByRole('button', { name: 'Asu ametisse' }).click();
 
   await expect
-    .poll(() => epd(page, 'const p = e.career.getState().profile; return p && { region: p.regionId, sectors: p.sectors }'))
+    .poll(() =>
+      epd(
+        page,
+        'const p = e.career.getState().profile; return p && { region: p.regionId, sectors: p.sectors }',
+      ),
+    )
     .toEqual({ region: 'louna', sectors: { louna: ['louna-tartu'] } });
 
   // HQ: the position and the area of responsibility.
-  await expect(page.locator('.cr-head__pos')).toHaveText('Operatiivinfo haldur');
+  await expect(page.locator('.cr-head__pos')).toHaveText('operatiivinfo haldur');
   const area = page.locator('.cr-area');
   await expect(area).toContainText('Vastutusala');
   await expect(area.locator('.cr-area__row.is-covered')).toHaveText(/Tartu linn/);
   await expect(area.locator('.cr-area__row.is-neighbour')).toContainText('Tartumaa ja Elva');
 
   // Briefing: the shift's area and the roster by station.
-  await page.getByRole('button', { name: /Alusta järgmist vahetust/ }).click();
+  await page.getByRole('button', { name: /Alusta vahetust · päev/ }).click();
   await expect.poll(() => screen(page)).toBe('briefing');
   const brief = page.locator('.sh-brief__area');
   await expect(brief).toBeVisible();
@@ -66,7 +78,10 @@ test('a new career at the Tartu linn desk plays its own area', async ({ page }) 
   await expect(page.locator('.sh-order__area')).toContainText('Vastutusala: Tartu linn.');
   await expect(page.locator('.sh-roster__station').first()).toContainText('Tartu');
 
-  await page.getByRole('button', { name: /Alusta vahetust/ }).first().click();
+  await page
+    .getByRole('button', { name: /Alusta vahetust/ })
+    .first()
+    .click();
   await expect.poll(() => screen(page), LOAD).toBe('game');
   await epd(page, 'e.game.getState().setSpeed(0)');
 
@@ -112,14 +127,17 @@ test('a career from before sectors keeps the whole prefecture', async ({ page })
      c.update((p) => { const { sectors, sectorsChangedDay, offer, openPosts, ...old } = p; return old; });
      e.game.getState().setScreen('career');`,
   );
-  await expect(page.locator('.cr-head__pos')).toHaveText('Vahetuse vanem');
-  await expect(page.locator('.cr-area .cr-area__region')).toContainText('kogu prefektuur');
+  await expect(page.locator('.cr-head__pos')).toHaveText('vahetuse vanem');
+  await expect(page.locator('.cr-area .cr-area__region')).toContainText(/kõik \d+ sektorit/);
   await expect(page.locator('.cr-offer')).toHaveCount(0);
 
-  await page.getByRole('button', { name: /Alusta järgmist vahetust/ }).click();
+  await page.getByRole('button', { name: /Alusta vahetust · päev/ }).click();
   await expect.poll(() => screen(page)).toBe('briefing');
   await expect(page.locator('.sh-brief__area')).toHaveCount(0);
-  await page.getByRole('button', { name: /Alusta vahetust/ }).first().click();
+  await page
+    .getByRole('button', { name: /Alusta vahetust/ })
+    .first()
+    .click();
   await expect.poll(() => screen(page), LOAD).toBe('game');
   expect(await epd(page, 'return e.game.getState().sim.sectors ?? null')).toBeNull();
   await expect(page.locator('.epdm')).toBeVisible(LOAD);

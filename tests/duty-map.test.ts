@@ -73,6 +73,23 @@ describe('projection', () => {
     expect(y).toBeGreaterThan(20);
     expect(y).toBeLessThan(380);
   });
+
+  it('fits a prefecture between side panels: centred in what the pads leave free', () => {
+    const pad = { top: 28, right: 404, bottom: 64, left: 376 };
+    const v = fitView(REGIONS.louna.bounds, 1440, 640, pad);
+    const [[w, s], [e, n]] = REGIONS.louna.bounds;
+    const corners = [project(v, [w, s]), project(v, [e, n]), project(v, [w, n]), project(v, [e, s])];
+    for (const [x, y] of corners) {
+      expect(x).toBeGreaterThanOrEqual(pad.left - 0.5);
+      expect(x).toBeLessThanOrEqual(1440 - pad.right + 0.5);
+      expect(y).toBeGreaterThanOrEqual(pad.top - 0.5);
+      expect(y).toBeLessThanOrEqual(640 - pad.bottom + 0.5);
+    }
+    expect(v.at).toEqual([
+      pad.left + (1440 - pad.left - pad.right) / 2,
+      pad.top + (640 - pad.top - pad.bottom) / 2,
+    ]);
+  });
 });
 
 describe('paths', () => {
@@ -238,7 +255,11 @@ describe('the player overlay', () => {
   });
 
   it("a challenge at the player's own desk keeps the desk's name and adds only its marker", () => {
-    const o = dutyOverlay(DESKTOP_VIEW, { ...input, challenge: { sector: 'louna-tartu', regionId: 'louna' } }, names);
+    const o = dutyOverlay(
+      DESKTOP_VIEW,
+      { ...input, challenge: { sector: 'louna-tartu', regionId: 'louna' } },
+      names,
+    );
     expect(o.labels.some((l) => l.kind === 'challenge')).toBe(false);
     expect(o.labels.filter((l) => l.kind === 'mine')).toHaveLength(1);
     expect(o.challengePin).not.toBeNull();
@@ -248,5 +269,47 @@ describe('the player overlay', () => {
     const o = dutyOverlay(STRIP_VIEW, input, names, true);
     expect(o.labels.some((l) => l.kind === 'offer' || l.kind === 'town')).toBe(false);
     expect(o.labels.find((l) => l.kind === 'mine')?.text).toBe('TARTU LINN');
+  });
+});
+
+describe("the colleagues' sectors (career page)", () => {
+  const view = fitView(REGIONS.louna.bounds, 1440, 640, { top: 28, right: 404, bottom: 64, left: 376 });
+  const others = ['louna-jogeva', 'louna-viljandi', 'louna-polva', 'louna-voru', 'louna-valga'].filter(
+    (id) => !!sectorById(id),
+  );
+  const input: DutyInput = {
+    mine: ['louna-tartu'],
+    whole: [],
+    offered: ['louna-tartumaa'],
+    challenge: null,
+    home: 'louna',
+    others,
+  };
+  const overlay = dutyOverlay(view, input, {
+    ...names,
+    offerSub: (id) => `pakkumine · ${sectorById(id)!.colleague!.firstName}`,
+    otherSub: (id) => sectorById(id)!.colleague!.lastName,
+  });
+
+  it('names each one with its dispatcher under it, clear of the other labels', () => {
+    const other = overlay.labels.filter((l) => l.kind === 'other');
+    const subs = overlay.labels.filter((l) => l.kind === 'otherSub');
+    expect(other.length).toBeGreaterThanOrEqual(others.length - 1);
+    expect(subs.length).toBeGreaterThan(0);
+    for (const s of subs) expect(other.some((o) => o.x === s.x && s.y > o.y)).toBe(true);
+    expect(overlay.labels.some((l) => l.kind === 'offerSub' && l.text.startsWith('pakkumine · '))).toBe(true);
+  });
+
+  it("never names the player's or the offered sector as a colleague's", () => {
+    const texts = overlay.labels.filter((l) => l.kind === 'other').map((l) => l.text);
+    expect(texts).not.toContain(names.sector('louna-tartu').name);
+    expect(texts).not.toContain(names.sector('louna-tartumaa').name);
+  });
+
+  it('leaves them out where the input has none (the menu)', () => {
+    const plain = dutyOverlay(view, { ...input, others: undefined }, names);
+    expect(
+      plain.labels.some((l) => l.kind === 'other' || l.kind === 'otherSub' || l.kind === 'offerSub'),
+    ).toBe(false);
   });
 });

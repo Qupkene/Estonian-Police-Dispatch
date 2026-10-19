@@ -262,6 +262,7 @@ export default {
   'shell.menu.legend.challenge': { et: 'Väljakutse', en: 'Challenge' },
   'shell.menu.legend.pref': { et: 'Prefektuuri piir', en: 'Prefecture border' },
   'shell.menu.legend.sector': { et: 'Sektori piir', en: 'Sector border' },
+  'shell.menu.legend.colleague': { et: 'AI kolleeg', en: 'AI colleague' },
   'shell.menu.legend.scale': { et: 'Mõõtkava, {km} km', en: 'Scale, {km} km' },
 
   // ── Frame (top bar and footer of the out-of-game screens) ──
@@ -282,6 +283,7 @@ export default {
 
   // ── Duty map ──
   'shell.map.yours': { et: 'sinu sektor', en: 'your sector' },
+  'shell.map.offer': { et: 'pakkumine', en: 'on offer' },
   'shell.map.fi': { et: 'SOOME', en: 'FINLAND' },
   'shell.map.lv': { et: 'LÄTI', en: 'LATVIA' },
   'shell.map.ru': { et: 'VENEMAA', en: 'RUSSIA' },

@@ -1,18 +1,16 @@
-// "Vastutusala" (the career's area of responsibility) and the prefect's offer of new sectors (docs/SECTORS.md).
+// "Vastutusala" (the career's area of responsibility), the prefect's offer of new sectors and the police posts
+// (docs/SECTORS.md), as Valvekaart panels on the career page's duty map.
 import { useEffect, useMemo, useState } from 'react';
-import { SECTOR_HANDOVER } from '@/data/economy';
 import { REGIONS } from '@/data/regions';
 import { useLang, useT, useTx } from '@/i18n';
 import { offerProgress, positionTitle } from '@/sim/careerSectors';
 import { sectorById } from '@/sim/sectors';
 import type { CareerProfile, RegionId, SectorDef } from '@/sim/types';
-import { Badge, Button, Emblem, Icon, Modal } from '@/ui/components';
-import { fmtMoney, safe } from './helpers';
-import { SectorMap, type SectorPaint } from './SectorMap';
-import { careerDailyBudget, useSectorActions } from './sectorActions';
-import { colleagueName, coverageOf, coveredIn, postRows, sectorRows, unlockedOrder, wholeIn, type PostRow, type SectorState } from './sectors';
-
-const STATE_PAINT: Record<SectorState, SectorPaint> = { covered: 'mine', offered: 'offered', neighbour: 'neighbour', later: 'other' };
+import { Modal, Button } from '@/ui/components';
+import { fmtMoney, rankName, safe } from './helpers';
+import { nextRegionRank, offerFacts } from './hqModel';
+import { useSectorActions } from './sectorActions';
+import { coverageOf, postRows, sectorRows, wholeIn, type PostRow, type SectorState } from './sectors';
 
 /** The player's post in the juhtimiskeskus ("Operatiivinfo haldur", "Vahetuse vanem" ...). */
 export function usePosition(profile: CareerProfile): string {
@@ -20,190 +18,330 @@ export function usePosition(profile: CareerProfile): string {
   return tx(safe(() => positionTitle(profile), { et: 'Operatiivinfo haldur', en: 'Dispatcher' }));
 }
 
-// ── Vastutusala ─────────────────────────────────────────────────────────────
-
-export function AreaCard({ profile }: { profile: CareerProfile }) {
+/** Coverage of the career in a prefecture for one-line summaries ("Tartu linn", "kogu prefektuur"). */
+export function useAreaLabel(profile: CareerProfile, regionId: RegionId): string {
   const t = useT();
   const tx = useTx();
-  const position = usePosition(profile);
-  const regions = useMemo(() => unlockedOrder(profile), [profile]);
-  const [shown, setShown] = useState<RegionId>(profile.regionId);
-  useEffect(() => {
-    if (!regions.includes(shown)) setShown(profile.regionId);
-  }, [regions, shown, profile.regionId]);
-  const rows = useMemo(() => safe(() => sectorRows(profile, shown), []), [profile, shown]);
-  const cover = coverageOf(profile, shown);
-  if (!rows.length && regions.length < 2) return null;
-  const paint = Object.fromEntries(rows.map((r) => [r.sector.id, STATE_PAINT[r.state]]));
-  const regionName = t(`career.region.${shown}.name`);
+  if (safe(() => wholeIn(profile, regionId), true)) return t('career.area.wholeShort');
+  const c = coverageOf(profile, regionId);
+  return c.names.length
+    ? c.names.map((n) => tx(n)).join(', ')
+    : t('career.area.count', { n: c.covered, total: c.total });
+}
 
+function lowerFirst(s: string, lang: string): string {
+  return s ? s[0].toLocaleLowerCase(lang) + s.slice(1) : s;
+}
+
+/** The swatch of a sector's state, as on the map and in its key. */
+export function Swatch({ state }: { state: SectorState | 'mine' }) {
+  const cls =
+    state === 'covered' || state === 'mine' ? 'is-mine' : state === 'offered' ? 'is-offer' : 'is-other';
+  return <span className={`cr-swatch ${cls}`} aria-hidden="true" />;
+}
+
+// ── Vastutusala ─────────────────────────────────────────────────────────────
+
+export function AreaPanel({ profile, regionId }: { profile: CareerProfile; regionId: RegionId }) {
+  const t = useT();
+  const tx = useTx();
+  const rows = useMemo(() => safe(() => sectorRows(profile, regionId), []), [profile, regionId]);
+  const cover = coverageOf(profile, regionId);
+  const regionName = t(`career.region.${regionId}.name`);
+  const lockRank = nextRegionRank(profile);
+  const lockName = lockRank !== null ? tx(rankName(lockRank)) : '';
+  const count = cover.whole
+    ? t('career.vk.area.all', { total: cover.total })
+    : t(cover.covered === 1 ? 'career.vk.area.one' : 'career.vk.area.many', {
+        n: cover.covered,
+        total: cover.total,
+      });
+  const stateText = (s: SectorState) => t(`career.vk.area.state.${s}`);
   return (
-    <section className="cr-card cr-area" aria-labelledby="cr-area-title">
-      <header className="cr-kpi__head">
-        <Icon name="map" size={14} />
-        <span id="cr-area-title">{t('career.area.title')}</span>
-        <span className="cr-area__pos" title={t('career.area.positionHint')}>
-          <Icon name="id" size={12} /> {position}
+    <section className="vk-panel cr-area" aria-labelledby="cr-area-title">
+      <div className="vk-panel__head">
+        <h2 className="vk-h" id="cr-area-title">
+          {t('career.area.title')}
+        </h2>
+        <span className="vk-panel__meta cr-area__region">
+          {regionName}, {count}
         </span>
-      </header>
-
-      <div className="cr-area__body">
-        <div className="cr-area__mapcol">
-          {rows.length > 0 ? (
-            <SectorMap regionId={shown} paint={paint} labels="mine" className="cr-area__map" />
-          ) : (
-            <div className="cr-area__nomap">
-              <Icon name="map" size={22} />
-            </div>
-          )}
-          <ul className="cr-area__legend" aria-hidden="true">
-            <li className="is-mine">{t('career.area.legend.mine')}</li>
-            {rows.some((r) => r.state === 'offered') && <li className="is-offered">{t('career.area.legend.offered')}</li>}
-            {rows.some((r) => r.state === 'neighbour') && <li className="is-neighbour">{t('career.area.legend.neighbour')}</li>}
-          </ul>
-        </div>
-
-        <div className="cr-area__info">
-          <h3 className="cr-area__region">
-            {regionName}
-            <span className="dim">
-              {cover.whole ? t('career.area.whole') : t('career.area.count', { n: cover.covered, total: cover.total })}
-            </span>
-          </h3>
-          {rows.length > 0 && (
-            <ul className="cr-area__list">
-              {rows.map((r) => (
-                <li key={r.sector.id} className={`cr-area__row is-${r.state}`}>
-                  <span className="cr-area__dot" aria-hidden="true" />
-                  <span className="cr-area__name">{tx(r.sector.name)}</span>
-                  <span className="cr-area__state">
-                    {r.state === 'covered'
-                      ? t('career.area.state.covered')
-                      : r.state === 'offered'
-                        ? t('career.area.state.offered')
-                        : r.state === 'neighbour'
-                          ? t('career.area.state.neighbour', { name: r.colleague })
-                          : t('career.area.state.later', { name: r.colleague })}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <NextOffer profile={profile} regionId={shown} whole={cover.whole} />
-        </div>
       </div>
-
-      {!cover.whole && <Posts profile={profile} regionId={shown} />}
-
-      {regions.length > 1 && (
-        <div className="cr-area__regions">
-          <span className="cr-field__label">{t('career.area.regions')}</span>
-          <div className="cr-area__regionlist" role="group" aria-label={t('career.area.regions')}>
-            {regions.map((id) => {
-              const c = coverageOf(profile, id);
+      {rows.length > 0 && (
+        <table className="vk-table cr-area__table">
+          <caption>{t('career.vk.area.caption', { region: regionName })}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{t('career.vk.col.sector')}</th>
+              <th scope="col">{t('career.vk.col.desk')}</th>
+              <th scope="col" className="is-end">
+                {t('career.vk.col.state')}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const mine = r.state === 'covered';
               return (
-                <button key={id} type="button" className={`cr-area__regionbtn${id === shown ? ' is-active' : ''}`} aria-pressed={id === shown} onClick={() => setShown(id)}>
-                  <strong>{t(`career.region.${id}.name`)}</strong>
-                  <span>
-                    {c.whole
-                      ? t('career.area.wholeShort')
-                      : c.names.length
-                        ? c.names.map((n) => tx(n)).join(', ')
-                        : t('career.area.count', { n: c.covered, total: c.total })}
-                  </span>
-                </button>
+                <tr key={r.sector.id} className={`cr-area__row is-${r.state}`} data-sector={r.sector.id}>
+                  <td>
+                    <span className="cr-area__name">
+                      <Swatch state={r.state} />
+                      {tx(r.sector.name)}
+                    </span>
+                  </td>
+                  <td className="cr-area__desk" title={mine ? profile.name : r.colleague}>
+                    {mine ? (
+                      profile.name
+                    ) : (
+                      <>
+                        <span className="cr-ai" title={t('career.vk.aiTitle')}>
+                          AI
+                        </span>
+                        {r.colleague}
+                      </>
+                    )}
+                  </td>
+                  <td className="is-end cr-area__state">{stateText(r.state)}</td>
+                </tr>
               );
             })}
-          </div>
-        </div>
+          </tbody>
+        </table>
       )}
+      <div className="cr-area__foot">
+        <p>{cover.whole ? t('career.area.wholeText') : t('career.vk.area.foot')}</p>
+        {lockName && <p>{t('career.vk.area.lock', { rank: lockName })}</p>}
+      </div>
     </section>
   );
 }
 
-function NextOffer({ profile, regionId, whole }: { profile: CareerProfile; regionId: RegionId; whole: boolean }) {
+// ── The prefect's offer ─────────────────────────────────────────────────────
+
+export function OfferPanel({ profile }: { profile: CareerProfile }) {
   const t = useT();
   const tx = useTx();
-  if (whole) return <p className="cr-area__next is-done">{t('career.area.wholeText')}</p>;
-  if (profile.offer) return <p className="cr-area__next is-ready">{t('career.area.offerWaiting')}</p>;
-  const prog = safe(() => offerProgress(profile, regionId), { ready: false, needs: [] });
-  if (prog.ready)
-    return (
-      <p className="cr-area__next is-ready">
-        <Icon name="star" size={13} /> {t('career.area.ready')}
-      </p>
-    );
-  if (!prog.needs.length) return null;
+  const lang = useLang();
+  const { accept, decline } = useSectorActions();
+  const offer = profile.offer;
+  const choices = useMemo(
+    () => (offer?.choices ?? []).map((id) => sectorById(id)).filter((x): x is SectorDef => !!x),
+    [offer],
+  );
+  const [pick, setPick] = useState(0);
+  useEffect(() => setPick(0), [offer]);
+  if (!offer || !choices.length) return null;
+  const chosen = choices[Math.min(pick, choices.length - 1)];
+  const facts = offerFacts(profile, chosen.id);
+  const commander = REGIONS[offer.regionId]?.commander;
+  const first = profile.name.trim().split(/\s+/)[0] || profile.name;
+  const one = choices.length === 1;
+  const quote = t(one ? 'career.offer.textOne' : 'career.offer.text', {
+    name: first,
+    sector: tx(chosen.name),
+  });
   return (
-    <div className="cr-area__next">
-      <span className="cr-area__nextTitle">{t('career.area.needs')}</span>
-      <ul>
-        {prog.needs.map((n, i) => (
-          <li key={i}>
-            <Icon name="chevron-right" size={11} /> {tx(n)}
-          </li>
-        ))}
-      </ul>
-    </div>
+    <section className="vk-panel cr-offer" aria-labelledby="cr-offer-title">
+      <div className="vk-panel__head">
+        <Swatch state="offered" />
+        <h2 className="vk-h" id="cr-offer-title">
+          {t('career.vk.offer.title')}
+        </h2>
+        <span className="vk-meta">{t('career.dayN', { n: offer.day })}</span>
+      </div>
+      {!one && (
+        <div className="cr-offer__pick">
+          <span className="vk-label" id="cr-offer-pick">
+            {t('career.vk.offer.choices')}
+          </span>
+          <span className="vk-seg" role="group" aria-labelledby="cr-offer-pick">
+            {choices.map((c, i) => (
+              <button key={c.id} type="button" aria-pressed={c.id === chosen.id} onClick={() => setPick(i)}>
+                {tx(c.name)}
+              </button>
+            ))}
+          </span>
+        </div>
+      )}
+      <article className="cr-offercard" data-sector={chosen.id}>
+        <div className="cr-offer__body">
+          <p className="cr-offer__name">{tx(chosen.name)}</p>
+          <p className="cr-offer__from">
+            {commander
+              ? `${commander.name}, ${lowerFirst(tx(commander.title), lang)}`
+              : t('career.offer.prefect')}
+          </p>
+          <blockquote className="cr-offer__quote">„{quote}“</blockquote>
+          <p className="cr-offer__blurb">{tx(chosen.blurb)}</p>
+        </div>
+        <dl className="cr-offer__facts">
+          <div>
+            <dt>{t('career.vk.offer.position')}</dt>
+            <dd>{lowerFirst(tx(facts.positionAfter), lang)}</dd>
+          </div>
+          <div>
+            <dt>{t('career.kpi.dailyBudget')}</dt>
+            <dd className="vk-mono">
+              {fmtMoney(facts.budget, lang)} → {fmtMoney(facts.budgetAfter, lang)}
+            </dd>
+          </div>
+          <div>
+            <dt>{t('career.vk.offer.grant')}</dt>
+            <dd className="vk-mono vk-up">{fmtMoney(facts.grant, lang, { sign: true })}</dd>
+          </div>
+          <div>
+            <dt>{t('career.vk.offer.staff')}</dt>
+            <dd>
+              <span className="vk-mono">
+                +{facts.staff[0]}-{facts.staff[1]}
+              </span>{' '}
+              {t('career.vk.offer.staffV')}
+            </dd>
+          </div>
+          <div>
+            <dt>{t('career.tab.fleet')}</dt>
+            <dd>
+              <span className="vk-mono">+2</span> {t('career.vk.offer.carsV')}
+            </dd>
+          </div>
+          {facts.colleague && (
+            <div>
+              <dt>{t('career.vk.offer.now')}</dt>
+              <dd>
+                <span className="cr-ai">AI</span>
+                {facts.colleague}
+              </dd>
+            </div>
+          )}
+        </dl>
+        <div className="cr-panel__actions">
+          <button
+            type="button"
+            className="vk-btn cr-offer__take"
+            onClick={() => accept(chosen.id)}
+            aria-label={t('career.offer.takeLabel', { name: tx(chosen.name) })}
+          >
+            {t('career.vk.offer.accept')}
+          </button>
+          <button type="button" className="vk-btn vk-btn--ghost" onClick={decline}>
+            {t('career.offer.notNow')}
+          </button>
+        </div>
+        <p className="cr-offer__hint">{t('career.vk.offer.hint')}</p>
+      </article>
+    </section>
   );
 }
 
-function Posts({ profile, regionId }: { profile: CareerProfile; regionId: RegionId }) {
+/** No offer yet: what the prefect waits for before the next one (or that the prefecture is whole). */
+export function NextOfferPanel({ profile, regionId }: { profile: CareerProfile; regionId: RegionId }) {
+  const t = useT();
+  const tx = useTx();
+  const prog = safe(() => offerProgress(profile, regionId), { ready: false, needs: [] });
+  if (!prog.ready && !prog.needs.length) return null;
+  return (
+    <section className="vk-panel cr-nextoffer" aria-labelledby="cr-nextoffer-title">
+      <div className="vk-panel__head">
+        <Swatch state="offered" />
+        <h2 className="vk-h" id="cr-nextoffer-title">
+          {t('career.vk.offer.title')}
+        </h2>
+        <span className="vk-panel__meta">{t('career.vk.offer.none')}</span>
+      </div>
+      <div className="cr-nextoffer__body">
+        {prog.ready ? (
+          <p>{t('career.area.ready')}</p>
+        ) : (
+          <>
+            <p>{t('career.area.needs')}</p>
+            <ul className="cr-rank__unlocks">
+              {prog.needs.map((n, i) => (
+                <li key={i}>
+                  <span aria-hidden="true">·</span>
+                  {tx(n)}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ── Police posts ────────────────────────────────────────────────────────────
+
+export function PostsPanel({ profile, regionId }: { profile: CareerProfile; regionId: RegionId }) {
   const t = useT();
   const tx = useTx();
   const lang = useLang();
   const { openPost } = useSectorActions();
   const rows = useMemo(() => safe(() => postRows(profile, regionId), []), [profile, regionId]);
   const [confirm, setConfirm] = useState<PostRow | null>(null);
-  if (!rows.length) return null;
+  if (!rows.length || safe(() => wholeIn(profile, regionId), true)) return null;
   const nameOf = (r: PostRow) => (r.station ? tx(r.station.name) : r.stationId);
   const close = () => setConfirm(null);
   return (
-    <div className="cr-area__posts">
-      <div className="cr-area__postsHead">
-        <span className="cr-field__label">{t('career.posts.title')}</span>
-        <span className="dim">{t('career.posts.lead')}</span>
+    <section className="vk-panel cr-posts" aria-labelledby="cr-posts-title">
+      <div className="vk-panel__head">
+        <h2 className="vk-h" id="cr-posts-title">
+          {t('career.posts.title')}
+        </h2>
+        <span className="vk-panel__meta">{t('career.posts.lead')}</span>
       </div>
-      <ul className="cr-posts">
-        {rows.map((r) => {
-          const short = profile.money < r.price;
-          return (
-            <li key={r.stationId} className={`cr-post${r.open ? ' is-open' : ''}`}>
-              <span className="cr-post__icon" aria-hidden="true">
-                <Icon name="building" size={14} />
-              </span>
-              <span className="cr-post__text">
-                <strong>{nameOf(r)}</strong>
-                <span className="dim">{tx(r.sector.name)}</span>
-              </span>
-              {r.open ? (
-                <Badge tone="ok" icon="check">
-                  {t('career.posts.open')}
-                </Badge>
-              ) : (
-                <span className="cr-post__buy">
-                  <span className="cr-post__price mono">
-                    {fmtMoney(r.price, lang)}
-                    <small>
-                      {' '}
-                      + {fmtMoney(r.upkeep, lang)} {t('career.perMonth')}
-                    </small>
-                  </span>
-                  <Button size="sm" variant="secondary" icon="plus" disabled={short} title={short ? t('career.posts.noMoney') : undefined} onClick={() => setConfirm(r)}>
-                    {t('career.posts.openBtn')}
-                  </Button>
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      <table className="vk-table">
+        <caption>{t('career.posts.title')}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{t('career.vk.col.post')}</th>
+            <th scope="col">{t('career.vk.col.sector')}</th>
+            <th scope="col" className="is-num">
+              {t('career.posts.price')}
+            </th>
+            <th scope="col" className="is-num">
+              {t('career.posts.upkeep')}
+            </th>
+            <th scope="col" className="is-end">
+              {t('career.vk.col.state')}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const short = profile.money < r.price;
+            return (
+              <tr key={r.stationId} className={`cr-post${r.open ? ' is-open' : ''}`}>
+                <td className="is-strong">{nameOf(r)}</td>
+                <td>{tx(r.sector.name)}</td>
+                <td className="is-num">{fmtMoney(r.price, lang)}</td>
+                <td className="is-num">
+                  {fmtMoney(r.upkeep, lang)} {t('career.perMonth')}
+                </td>
+                <td className="is-end">
+                  {r.open ? (
+                    <span className="vk-up">{t('career.posts.open')}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="vk-btn cr-post__open"
+                      disabled={short}
+                      title={short ? t('career.posts.noMoney') : undefined}
+                      onClick={() => setConfirm(r)}
+                    >
+                      {t('career.posts.openBtn')}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
       <Modal
         open={!!confirm}
         onClose={close}
         title={confirm ? t('career.posts.confirmTitle', { name: nameOf(confirm) }) : ''}
-        icon="building"
-        tone="accent"
         width={460}
         footer={
           <>
@@ -212,7 +350,6 @@ function Posts({ profile, regionId }: { profile: CareerProfile; regionId: Region
             </Button>
             <Button
               variant="primary"
-              icon="check"
               onClick={() => {
                 if (confirm && openPost(confirm.stationId, nameOf(confirm))) close();
               }}
@@ -244,112 +381,6 @@ function Posts({ profile, regionId }: { profile: CareerProfile; regionId: Region
           </>
         )}
       </Modal>
-    </div>
-  );
-}
-
-// ── The prefect's offer ─────────────────────────────────────────────────────
-
-export function OfferCard({ profile }: { profile: CareerProfile }) {
-  const t = useT();
-  const tx = useTx();
-  const lang = useLang();
-  const { accept, decline } = useSectorActions();
-  const offer = profile.offer;
-  const choices = useMemo(() => (offer?.choices ?? []).map((id) => sectorById(id)).filter((x): x is SectorDef => !!x), [offer]);
-  if (!offer || !choices.length) return null;
-  const region = REGIONS[offer.regionId];
-  const commander = region?.commander;
-  const first = profile.name.trim().split(/\s+/)[0] || profile.name;
-  const paint: Record<string, SectorPaint> = Object.fromEntries([
-    ...coveredIn(profile, offer.regionId).map((id) => [id, 'mine' as SectorPaint]),
-    ...choices.map((c) => [c.id, 'offered' as SectorPaint]),
-  ]);
-  const one = choices.length === 1;
-  // How much the daily budget grows with the sector (the rule itself, on the profile as it would be).
-  const covered = coveredIn(profile, offer.regionId);
-  const gain = (id: string) =>
-    careerDailyBudget({ ...profile, sectors: { ...profile.sectors, [offer.regionId]: [...covered, id] } }, offer.regionId) -
-    careerDailyBudget(profile, offer.regionId);
-  return (
-    <section className="cr-offer" aria-labelledby="cr-offer-title">
-      <div className="cr-offer__note">
-        <header className="cr-offer__head">
-          <Emblem size={40} />
-          <div>
-            <p className="cr-eyebrow">{t('career.offer.eyebrow', { region: t(`career.region.${offer.regionId}.name`) })}</p>
-            <h2 id="cr-offer-title" className="cr-offer__title">
-              {t(one ? 'career.offer.titleOne' : 'career.offer.title')}
-            </h2>
-          </div>
-        </header>
-        <p className="cr-offer__text">
-          {t(one ? 'career.offer.textOne' : 'career.offer.text', { name: first, sector: tx(choices[0].name) })}
-        </p>
-        <footer className="cr-offer__sign">
-          <span className="cr-offer__sigName">{commander?.name ?? t('career.offer.prefect')}</span>
-          {commander && <span className="dim">{tx(commander.title)}</span>}
-        </footer>
-        <SectorMap regionId={offer.regionId} paint={paint} labels="mine" className="cr-offer__map" />
-      </div>
-      <div className="cr-offer__choices">
-        {choices.map((c) => (
-          <article key={c.id} className="cr-offercard" data-sector={c.id}>
-            <header>
-              <h3>{tx(c.name)}</h3>
-              <span className="cr-offercard__now">{t('career.offer.now', { name: colleagueName(c) })}</span>
-            </header>
-            <p>{tx(c.blurb)}</p>
-            {c.traits.length > 0 && (
-              <div className="cr-offercard__traits">
-                {c.traits.map((tr, i) => (
-                  <span key={i} className="cr-chip">
-                    {tx(tr)}
-                  </span>
-                ))}
-              </div>
-            )}
-            <dl className="cr-offercard__comes" aria-label={t('career.offer.comes')}>
-              <div>
-                <dt>{t('career.offer.k.staff')}</dt>
-                <dd className="mono">{t('career.offer.v.staff', { lo: SECTOR_HANDOVER.staff[0], hi: SECTOR_HANDOVER.staff[1] })}</dd>
-              </div>
-              <div>
-                <dt>{t('career.offer.k.cars')}</dt>
-                <dd className="mono">{t('career.offer.v.cars')}</dd>
-              </div>
-              {gain(c.id) > 0 && (
-                <div>
-                  <dt>{t('career.offer.k.budget')}</dt>
-                  <dd className="mono">+{fmtMoney(gain(c.id), lang)}</dd>
-                </div>
-              )}
-              <div>
-                <dt>{t('career.offer.k.grant')}</dt>
-                <dd className="mono">{fmtMoney(SECTOR_HANDOVER.grant, lang)}</dd>
-              </div>
-            </dl>
-            <Button variant="primary" icon="check" onClick={() => accept(c.id)} block aria-label={t('career.offer.takeLabel', { name: tx(c.name) })}>
-              {t('career.offer.take')}
-            </Button>
-          </article>
-        ))}
-        <div className="cr-offer__later">
-          <Button variant="ghost" icon="clock" onClick={decline}>
-            {t('career.offer.notNow')}
-          </Button>
-          <span className="dim">{t('career.offer.notNowHint')}</span>
-        </div>
-      </div>
     </section>
   );
-}
-
-/** Coverage of the career in a prefecture for one-line summaries ("Tartu linn", "kogu prefektuur"). */
-export function useAreaLabel(profile: CareerProfile, regionId: RegionId): string {
-  const t = useT();
-  const tx = useTx();
-  if (safe(() => wholeIn(profile, regionId), true)) return t('career.area.wholeShort');
-  const c = coverageOf(profile, regionId);
-  return c.names.length ? c.names.map((n) => tx(n)).join(', ') : t('career.area.count', { n: c.covered, total: c.total });
 }
