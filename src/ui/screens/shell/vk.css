@@ -1,0 +1,911 @@
+/* Valvekaart: tokens, frame and panels of the out-of-game screens (menu, and later career, login, briefing,
+   report). Everything is scoped to .vk, so the in-game CAD UI keeps its own tokens (ui/styles/tokens.css).
+   Prefix: vk-. Archivo for display and section heads, Instrument Sans for text, JetBrains Mono for every
+   number, code and time. Blue is the player's, amber the daily challenge, green and red only good and bad. */
+
+.vk {
+  /* Map */
+  --vk-sea: oklch(0.175 0.026 248);
+  --vk-grat: oklch(0.235 0.026 245);
+  --vk-waterline: oklch(0.42 0.05 236);
+  --vk-nb: oklch(0.215 0.014 250);
+  --vk-nb-line: oklch(0.31 0.016 250);
+  --vk-land: oklch(0.255 0.016 250);
+  --vk-home: oklch(0.285 0.022 248);
+  --vk-coast: oklch(0.66 0.04 236);
+  --vk-border: oklch(0.74 0.03 240);
+  --vk-pref-line: oklch(0.64 0.026 245);
+  --vk-sector-line: oklch(0.56 0.022 245);
+  --vk-road: oklch(0.5 0.02 250);
+  --vk-halo: oklch(0.175 0.026 248);
+  --vk-water-ink: oklch(0.68 0.045 236);
+  --vk-hatch-opacity: 0.55;
+  --vk-bar-opacity: 0.55;
+
+  /* Surfaces */
+  --vk-chrome: oklch(0.185 0.014 252);
+  --vk-panel: oklch(0.2 0.014 252);
+  --vk-panel-2: oklch(0.22 0.015 252);
+  --vk-raise: oklch(0.255 0.016 252);
+  --vk-line: oklch(0.31 0.016 252);
+  --vk-line-2: oklch(0.26 0.014 252);
+  --vk-shadow: 0 1px 0 oklch(0 0 0 / 0.4), 0 22px 48px -20px oklch(0 0 0 / 0.85);
+
+  /* Ink: text-0 strongest, text-3 the faintest that still reads (4.5:1 on every surface) */
+  --vk-text-0: oklch(0.96 0.006 240);
+  --vk-text-1: oklch(0.84 0.012 240);
+  --vk-text-2: oklch(0.72 0.016 242);
+  --vk-text-3: oklch(0.67 0.018 244);
+
+  /* Meaning */
+  --vk-acc: oklch(0.79 0.12 232);
+  --vk-acc-hover: oklch(0.86 0.1 232);
+  --vk-on-acc: oklch(0.17 0.03 245);
+  --vk-on-acc-soft: oklch(0.17 0.03 245 / 0.14);
+  --vk-amb: oklch(0.79 0.12 75);
+  --vk-ok: oklch(0.79 0.13 155);
+  --vk-bad: oklch(0.72 0.15 25);
+
+  --vk-font-display: 'Archivo Variable', Archivo, 'Helvetica Neue', 'Segoe UI', sans-serif;
+  --vk-font-text: 'Instrument Sans Variable', 'Instrument Sans', 'Helvetica Neue', 'Segoe UI', sans-serif;
+  --vk-font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+
+  color-scheme: dark;
+  background: var(--vk-sea);
+  color: var(--vk-text-1);
+  font-family: var(--vk-font-text);
+  font-size: 13px;
+  line-height: 1.45;
+  /* Inter's stylistic sets from the body do not apply to these faces. */
+  font-feature-settings: normal;
+  -webkit-font-smoothing: antialiased;
+}
+
+:root[data-theme='light'] .vk {
+  --vk-sea: oklch(0.925 0.02 228);
+  --vk-grat: oklch(0.875 0.022 228);
+  --vk-waterline: oklch(0.68 0.06 232);
+  --vk-nb: oklch(0.955 0.006 95);
+  --vk-nb-line: oklch(0.82 0.012 95);
+  --vk-land: oklch(0.992 0.004 95);
+  --vk-home: oklch(0.965 0.016 236);
+  --vk-coast: oklch(0.48 0.06 236);
+  --vk-border: oklch(0.38 0.03 245);
+  --vk-pref-line: oklch(0.5 0.03 245);
+  --vk-sector-line: oklch(0.62 0.02 245);
+  --vk-road: oklch(0.76 0.04 70);
+  --vk-halo: oklch(0.992 0.004 95);
+  --vk-water-ink: oklch(0.46 0.07 236);
+  --vk-bar-opacity: 0.45;
+
+  --vk-chrome: oklch(0.985 0.003 240);
+  --vk-panel: oklch(0.995 0.002 240);
+  --vk-panel-2: oklch(0.975 0.004 240);
+  --vk-raise: oklch(0.95 0.01 240);
+  --vk-line: oklch(0.86 0.008 240);
+  --vk-line-2: oklch(0.915 0.006 240);
+  --vk-shadow: 0 1px 2px oklch(0.3 0.02 250 / 0.1), 0 16px 36px -18px oklch(0.3 0.04 250 / 0.35);
+
+  --vk-text-0: oklch(0.21 0.02 252);
+  --vk-text-1: oklch(0.36 0.02 250);
+  --vk-text-2: oklch(0.46 0.02 248);
+  --vk-text-3: oklch(0.5 0.02 246);
+
+  --vk-acc: oklch(0.53 0.14 248);
+  --vk-acc-hover: oklch(0.47 0.14 248);
+  --vk-on-acc: oklch(0.99 0.004 240);
+  --vk-on-acc-soft: oklch(0.99 0.004 240 / 0.18);
+  --vk-amb: oklch(0.53 0.14 62);
+  --vk-ok: oklch(0.5 0.12 155);
+  --vk-bad: oklch(0.52 0.17 27);
+
+  color-scheme: light;
+}
+
+.vk *,
+.vk *::before,
+.vk *::after {
+  box-sizing: border-box;
+}
+.vk a {
+  color: var(--vk-acc);
+  text-decoration: none;
+}
+.vk a:hover {
+  color: var(--vk-text-0);
+}
+.vk :focus-visible {
+  outline: 2px solid var(--vk-acc);
+  outline-offset: -2px;
+}
+.vk ::selection {
+  background: var(--vk-acc);
+  color: var(--vk-on-acc);
+}
+.vk-mono {
+  font-family: var(--vk-font-mono);
+}
+.vk-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── Panels ───────────────────────────────────────────────────────────────── */
+
+.vk-panel {
+  background: var(--vk-panel);
+  border: 1px solid var(--vk-line);
+  border-radius: 6px;
+  box-shadow: var(--vk-shadow);
+  overflow: hidden;
+}
+.vk-panel__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--vk-line-2);
+  background: var(--vk-panel-2);
+}
+/* Section heads: wide, letter-spaced capitals. */
+.vk-h {
+  margin: 0;
+  font-family: var(--vk-font-display);
+  font-size: 11px;
+  font-weight: 600;
+  font-stretch: 118%;
+  letter-spacing: 0.16em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: var(--vk-text-2);
+}
+.vk-label {
+  margin: 0;
+  font-family: var(--vk-font-display);
+  font-size: 10px;
+  font-weight: 600;
+  font-stretch: 112%;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--vk-text-3);
+}
+.vk-meta {
+  margin-left: auto;
+  font-family: var(--vk-font-mono);
+  font-size: 11px;
+  color: var(--vk-text-3);
+  white-space: nowrap;
+}
+.vk-count {
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--vk-raise);
+  font: 600 10.5px/1 var(--vk-font-mono);
+  color: var(--vk-text-1);
+}
+
+/* ── Buttons, keys, grades ────────────────────────────────────────────────── */
+
+.vk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--vk-line);
+  border-radius: 5px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-0);
+  font: 600 13px/1 var(--vk-font-text);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+}
+.vk-btn:hover {
+  background: var(--vk-raise);
+  border-color: var(--vk-text-3);
+}
+.vk-btn--ghost {
+  background: transparent;
+  color: var(--vk-text-1);
+  font-weight: 500;
+}
+.vk-btn--primary {
+  border-color: transparent;
+  background: var(--vk-acc);
+  color: var(--vk-on-acc);
+}
+.vk-btn--primary:hover {
+  border-color: transparent;
+  background: var(--vk-acc-hover);
+}
+.vk-btn--primary:focus-visible {
+  outline-offset: 2px;
+}
+.vk-btn:active {
+  transform: translateY(1px);
+}
+.vk-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+}
+.vk-linkbtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--vk-acc);
+  font: inherit;
+  cursor: pointer;
+}
+.vk-linkbtn:hover {
+  color: var(--vk-text-0);
+}
+
+.vk-kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border: 1px solid var(--vk-line);
+  border-radius: 3px;
+  font: 500 10px/1 var(--vk-font-mono);
+  color: var(--vk-text-2);
+}
+
+.vk-grade {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font: 600 11px/1 var(--vk-font-mono);
+}
+.vk-grade--S {
+  color: var(--vk-amb);
+}
+.vk-grade--A {
+  color: var(--vk-ok);
+}
+.vk-grade--B {
+  color: var(--vk-text-1);
+}
+.vk-grade--C {
+  color: var(--vk-text-3);
+}
+.vk-grade--D,
+.vk-grade--F {
+  color: var(--vk-bad);
+}
+.vk-up {
+  color: var(--vk-ok);
+}
+.vk-down {
+  color: var(--vk-bad);
+}
+
+/* The challenge's mark: an amber ring with a dot. */
+.vk-mark {
+  flex: none;
+  fill: none;
+  stroke: var(--vk-amb);
+  stroke-width: 1.4;
+}
+.vk-mark circle + circle {
+  fill: var(--vk-amb);
+  stroke: none;
+}
+
+/* ── Top bar ──────────────────────────────────────────────────────────────── */
+
+.vk-top {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  height: 44px;
+  background: var(--vk-chrome);
+  border-bottom: 1px solid var(--vk-line);
+}
+.vk-top__cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px;
+  white-space: nowrap;
+}
+.vk-top__cell + .vk-top__cell {
+  border-left: 1px solid var(--vk-line-2);
+}
+.vk-top__spacer {
+  flex: 1;
+}
+.vk-top__spacer + .vk-top__cell {
+  border-left: 0;
+}
+.vk-brand {
+  margin: 0;
+  font-family: var(--vk-font-display);
+  font-size: 16px;
+  font-weight: 800;
+  font-stretch: 125%;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: var(--vk-text-0);
+}
+.vk-top__name {
+  font-size: 12.5px;
+  color: var(--vk-text-2);
+}
+.vk-top__date {
+  font: 400 12px/1 var(--vk-font-mono);
+  color: var(--vk-text-2);
+}
+.vk-top__clock {
+  font: 600 15px/1 var(--vk-font-mono);
+  color: var(--vk-text-0);
+}
+
+.vk-lang {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--vk-line);
+  border-radius: 6px;
+}
+.vk-lang button {
+  min-width: 34px;
+  height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vk-text-2);
+  font: 500 11.5px/1 var(--vk-font-mono);
+  cursor: pointer;
+}
+.vk-lang button:hover {
+  background: var(--vk-raise);
+  color: var(--vk-text-0);
+}
+.vk-lang button[aria-pressed='true'] {
+  background: var(--vk-raise);
+  color: var(--vk-text-0);
+  font-weight: 600;
+}
+
+/* ── Account ──────────────────────────────────────────────────────────────── */
+
+.vk-acct {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.vk-acct__who {
+  display: grid;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1.25;
+  text-align: left;
+}
+button.vk-acct__who {
+  cursor: pointer;
+  border-radius: 4px;
+}
+button.vk-acct__who:hover .vk-acct__name {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.vk-acct__name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vk-text-0);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vk-acct__method {
+  margin-left: 6px;
+  font: 400 12px/1 var(--vk-font-mono);
+  color: var(--vk-text-3);
+}
+.vk-acct__state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--vk-text-3);
+  white-space: nowrap;
+}
+.vk-acct__dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--vk-text-3);
+}
+.vk-acct__dot.is-saved {
+  border-color: var(--vk-ok);
+  background: var(--vk-ok);
+}
+.vk-acct__dot.is-saving {
+  border-color: var(--vk-acc);
+  background: var(--vk-acc);
+}
+.vk-acct__dot.is-error {
+  border-color: var(--vk-bad);
+  background: var(--vk-bad);
+}
+.vk-acct__out {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+.vk-acct__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  min-width: 240px;
+  padding: 6px;
+  background: var(--vk-panel);
+  border: 1px solid var(--vk-line);
+  border-radius: 6px;
+  box-shadow: var(--vk-shadow);
+}
+.vk-acct__menuHead {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--vk-line-2);
+  font-size: 12px;
+  color: var(--vk-text-3);
+}
+.vk-acct__menuHead strong {
+  font-size: 13px;
+  color: var(--vk-text-0);
+}
+.vk-acct__lost {
+  color: var(--vk-bad);
+}
+.vk-acct__item {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--vk-text-1);
+  font: 500 13px/1 var(--vk-font-text);
+  text-align: left;
+  cursor: pointer;
+}
+.vk-acct__item:hover,
+.vk-acct__item:focus-visible {
+  background: var(--vk-raise);
+  color: var(--vk-text-0);
+}
+.vk-acct__item.is-danger {
+  color: var(--vk-bad);
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+
+.vk-foot {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 16px;
+  background: var(--vk-chrome);
+  border-top: 1px solid var(--vk-line);
+  font-size: 11px;
+  color: var(--vk-text-3);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.vk-foot__version {
+  font-family: var(--vk-font-mono);
+}
+.vk-foot__disclaimer {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 11.5px;
+  text-align: center;
+  text-overflow: ellipsis;
+}
+.vk-foot__keys {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vk-foot__keys li {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+@media (max-width: 1099px) {
+  .vk-foot {
+    display: block;
+    height: auto;
+    padding: 20px 16px 28px;
+    background: none;
+    border-top: 0;
+    font-size: 12.5px;
+    line-height: 18px;
+    white-space: normal;
+  }
+  .vk-foot__disclaimer {
+    font-size: 12.5px;
+    text-align: left;
+    text-wrap: pretty;
+  }
+  .vk-foot__line {
+    margin: 8px 0 0;
+    font: 400 11.5px/18px var(--vk-font-mono);
+  }
+  .vk-foot__keys,
+  .vk-foot > .vk-foot__version,
+  .vk-foot > .vk-foot__credit {
+    display: none;
+  }
+}
+@media (min-width: 1100px) {
+  .vk-foot__line {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vk *,
+  .vk *::before,
+  .vk *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ── The duty map (DutyMap.tsx) ───────────────────────────────────────────── */
+
+.vk-map {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: vk-map-in 0.24s ease both;
+}
+.vk-map.is-empty {
+  animation: none;
+}
+@keyframes vk-map-in {
+  from {
+    opacity: 0;
+  }
+}
+.vk-map__sea {
+  fill: var(--vk-sea);
+}
+.vk-map__grat {
+  fill: none;
+  stroke: var(--vk-grat);
+  stroke-width: 1;
+}
+.vk-map__waterlines use {
+  fill: none;
+  stroke-linejoin: round;
+}
+.vk-map__wl {
+  stroke: var(--vk-waterline);
+}
+.vk-map__wl-gap {
+  stroke: var(--vk-sea);
+}
+.vk-map__wl.vk-map__wl--3 {
+  stroke-opacity: 0.3;
+  stroke-width: 25.2;
+}
+.vk-map__wl-gap.vk-map__wl--3 {
+  stroke-width: 24;
+}
+.vk-map__wl.vk-map__wl--2 {
+  stroke-opacity: 0.5;
+  stroke-width: 15.2;
+}
+.vk-map__wl-gap.vk-map__wl--2 {
+  stroke-width: 14;
+}
+.vk-map__wl.vk-map__wl--1 {
+  stroke-opacity: 0.75;
+  stroke-width: 6.8;
+}
+.vk-map__wl-gap.vk-map__wl--1 {
+  stroke-width: 5.6;
+}
+.vk-map--strip .vk-map__wl.vk-map__wl--3 {
+  stroke-width: 13;
+}
+.vk-map--strip .vk-map__wl-gap.vk-map__wl--3 {
+  stroke-width: 12;
+}
+.vk-map--strip .vk-map__wl.vk-map__wl--2 {
+  stroke-width: 7.5;
+}
+.vk-map--strip .vk-map__wl-gap.vk-map__wl--2 {
+  stroke-width: 6.5;
+}
+.vk-map--strip .vk-map__wl.vk-map__wl--1 {
+  stroke-width: 3.4;
+}
+.vk-map--strip .vk-map__wl-gap.vk-map__wl--1 {
+  stroke-width: 2.4;
+}
+.vk-map__nb {
+  fill: var(--vk-nb);
+}
+.vk-map__nb-line {
+  fill: none;
+  stroke: var(--vk-nb-line);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+/* Natural Earth's neighbours are coarse: the land border gets a band of their colour so no sea shows between. */
+.vk-map__seam {
+  fill: none;
+  stroke: var(--vk-nb);
+  stroke-width: 8;
+  stroke-linejoin: round;
+}
+.vk-map__land {
+  fill: var(--vk-land);
+}
+.vk-map__home {
+  fill: var(--vk-home);
+  stroke: var(--vk-home);
+  stroke-width: 0.8;
+}
+.vk-map__whole {
+  fill: var(--vk-acc);
+  fill-opacity: 0.2;
+  stroke: var(--vk-acc);
+  stroke-width: 1.3;
+  stroke-linejoin: round;
+}
+.vk-map__lake {
+  fill: var(--vk-sea);
+  stroke: var(--vk-coast);
+  stroke-width: 0.8;
+}
+.vk-map__road {
+  fill: none;
+  stroke: var(--vk-road);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.vk-map__road--local {
+  stroke-width: 0.7;
+}
+.vk-map--strip .vk-map__road {
+  stroke-width: 0.8;
+}
+.vk-map__sector-line {
+  fill: none;
+  stroke: var(--vk-sector-line);
+  stroke-width: 1;
+  stroke-dasharray: 1 2.4;
+  stroke-linecap: round;
+}
+.vk-map__pref-line {
+  fill: none;
+  stroke: var(--vk-pref-line);
+  stroke-width: 1.1;
+  stroke-dasharray: 7 2.5 1.5 2.5;
+}
+.vk-map--strip .vk-map__pref-line {
+  stroke-width: 0.9;
+  stroke-dasharray: 5 2 1.2 2;
+}
+.vk-map__hatch {
+  fill: var(--vk-acc);
+  fill-opacity: var(--vk-hatch-opacity);
+}
+.vk-map__offer {
+  stroke: var(--vk-acc);
+  stroke-width: 1.3;
+  stroke-dasharray: 4 2.5;
+  stroke-linejoin: round;
+}
+.vk-map--strip .vk-map__offer {
+  stroke-width: 1;
+  stroke-dasharray: 3 2;
+}
+.vk-map__challenge {
+  fill: var(--vk-amb);
+  fill-opacity: 0.16;
+  stroke: var(--vk-amb);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+.vk-map__coast {
+  fill: none;
+  stroke: var(--vk-coast);
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+.vk-map--strip .vk-map__coast {
+  stroke-width: 0.8;
+}
+.vk-map__border {
+  fill: none;
+  stroke: var(--vk-border);
+  stroke-width: 1.8;
+  stroke-dasharray: 8 3;
+}
+.vk-map--strip .vk-map__border {
+  stroke-width: 1.4;
+  stroke-dasharray: 5 2;
+}
+.vk-map__mine {
+  fill: var(--vk-acc);
+  stroke: var(--vk-acc);
+  stroke-opacity: 0.3;
+  stroke-width: 7;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+.vk-map__mine.is-large {
+  fill-opacity: 0.42;
+  stroke-opacity: 1;
+  stroke-width: 1.5;
+}
+.vk-map--strip .vk-map__mine {
+  stroke-width: 5;
+}
+.vk-map__leader {
+  fill: none;
+  stroke: var(--vk-amb);
+  stroke-width: 1;
+}
+.vk-map__pin circle {
+  fill: none;
+  stroke: var(--vk-amb);
+  stroke-width: 1.5;
+}
+.vk-map__pin circle + circle {
+  fill: var(--vk-amb);
+  stroke: none;
+}
+.vk-map__dots circle {
+  fill: var(--vk-text-1);
+  stroke: var(--vk-halo);
+  stroke-width: 1.6;
+  paint-order: stroke;
+}
+.vk-map__dots .is-size0 {
+  fill: var(--vk-text-0);
+}
+.vk-map__dots .is-ring {
+  fill: none;
+  stroke: var(--vk-text-1);
+  stroke-width: 1;
+}
+.vk-map__country,
+.vk-map__region {
+  font-family: var(--vk-font-display);
+  font-size: 10.5px;
+  font-weight: 500;
+  font-stretch: 125%;
+  letter-spacing: 0.5em;
+  fill: var(--vk-text-3);
+  text-anchor: middle;
+}
+.vk-map__region {
+  font-weight: 600;
+  letter-spacing: 0.42em;
+}
+.vk-map__water {
+  font-family: var(--vk-font-display);
+  font-size: 12px;
+  font-style: italic;
+  letter-spacing: 0.14em;
+  fill: var(--vk-water-ink);
+  text-anchor: middle;
+}
+.vk-map--strip .vk-map__water {
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+}
+.vk-map__region,
+.vk-map__label {
+  stroke: var(--vk-halo);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+.vk-map__label {
+  font-family: var(--vk-font-text);
+  font-size: 11.5px;
+  font-weight: 500;
+  fill: var(--vk-text-2);
+}
+.vk-map__label.is-city {
+  font-size: 12.5px;
+  font-weight: 600;
+  fill: var(--vk-text-1);
+}
+.vk-map__label.is-capital,
+.vk-map__label.is-challenge {
+  font-size: 13.5px;
+  font-weight: 600;
+  fill: var(--vk-text-0);
+  stroke-width: 3.5px;
+}
+.vk-map__label.is-mine {
+  font-family: var(--vk-font-display);
+  font-size: 12px;
+  font-weight: 700;
+  font-stretch: 115%;
+  letter-spacing: 0.1em;
+  fill: var(--vk-acc);
+  stroke-width: 3.5px;
+}
+.vk-map__label.is-mineSub {
+  fill: var(--vk-text-1);
+}
+.vk-map__label.is-offer {
+  font-weight: 600;
+  fill: var(--vk-acc);
+}
+.vk-map--strip .vk-map__label {
+  font-size: 10.5px;
+}
+.vk-map--strip .vk-map__label.is-city {
+  font-size: 11px;
+  font-weight: 500;
+}
+.vk-map--strip .vk-map__label.is-capital,
+.vk-map--strip .vk-map__label.is-challenge {
+  font-size: 12px;
+  stroke-width: 3px;
+}
+.vk-map--strip .vk-map__label.is-mine {
+  font-size: 10.5px;
+  font-stretch: 112%;
+  letter-spacing: 0.08em;
+  stroke-width: 3px;
+}
+.vk-map__deg {
+  font-family: var(--vk-font-mono);
+  font-size: 10px;
+  fill: var(--vk-text-3);
+}

@@ -1,18 +1,26 @@
-// Menu chip of a logged-in account: name, cloud save state, sign out (confirmed, optionally removing the
-// account's data from this browser), and account deletion.
+// The signed-in account in the shell's top bar: name, cloud save state and when it last succeeded, sign out
+// (confirmed, optionally removing the account's data from this browser), and account deletion in its menu.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useAccount } from '@/net/account';
 import { useGame } from '@/store/game';
 import { useLang, useT } from '@/i18n';
-import { Button, Icon, IconButton, Modal, TextField } from '@/ui/components';
-import { accountErrorText, cloudKey, initialsOf } from './accountText';
+import { hhmm } from '@/sim/time';
+import { Button, Icon, Modal, TextField } from '@/ui/components';
+import { accountErrorText, cloudKey } from './accountText';
 
 const fmtDate = (ms: number) => {
   const d = new Date(ms > 1e11 ? ms : ms * 1000); // tolerate unix seconds
   if (Number.isNaN(d.getTime())) return '';
   return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
 };
+
+// When the cloud save last succeeded (this tab, this session): the account store keeps only the state.
+let savedAt: number | null = null;
+useAccount.subscribe((s, prev) => {
+  if (!s.user) savedAt = null;
+  else if (s.cloud === 'saved' && prev.cloud !== 'saved') savedAt = Date.now();
+});
 
 export function AccountChip() {
   const t = useT();
@@ -55,63 +63,58 @@ export function AccountChip() {
 
   const name = user?.name ?? gameUser?.name ?? '?';
   const state = user ? cloud : 'off';
+  const status = (
+    <>
+      <span className={`vk-acct__dot is-${state}`} aria-hidden="true" />
+      <span data-testid="cloud-state">{t(cloudKey(state))}</span>
+      {state === 'saved' && savedAt !== null && <span className="vk-mono">{hhmm(savedAt)}</span>}
+    </>
+  );
 
   return (
-    <div className="sh-acct" ref={rootRef}>
+    <div className="vk-acct sh-acct" ref={rootRef}>
       <button
         type="button"
-        className="sh-acct__btn"
+        className="vk-acct__who sh-acct__btn"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`${name} · ${t('account.chip.menu')}`}
+        title={t('account.chip.menu')}
         onClick={() => setOpen((o) => !o)}
       >
-        <span className="sh-user__avatar" aria-hidden="true">
-          {initialsOf(name)}
-        </span>
-        <span className="sh-acct__text">
-          <span className="sh-acct__name">{name}</span>
-          <span className={`sh-acct__cloud is-${state}`} data-testid="cloud-state">
-            <Icon name={state === 'error' ? 'warning' : 'cloud'} size={11} />
-            {t(cloudKey(state))}
-          </span>
-        </span>
-        <Icon name="chevron-down" size={14} className="sh-acct__chev" />
+        <span className="vk-acct__name sh-acct__name">{name}</span>
+        <span className="vk-acct__state">{status}</span>
       </button>
-      <IconButton icon="logout" size="sm" label={t('account.logout')} onClick={signOut} />
+      <button type="button" className="vk-btn vk-btn--ghost vk-acct__out" onClick={signOut}>
+        {t('account.logout')}
+      </button>
 
       {open && (
-        <div className="sh-acct__menu" role="menu" aria-label={t('account.chip.menu')}>
-          <div className="sh-acct__menuHead">
+        <div className="vk-acct__menu" role="menu" aria-label={t('account.chip.menu')}>
+          <div className="vk-acct__menuHead">
             <strong>{name}</strong>
-            {user && user.created ? <span className="sh-dim">{t('account.chip.since', { date: fmtDate(user.created) })}</span> : null}
-            <span className={`sh-acct__cloud is-${state}`}>
-              <Icon name={state === 'error' ? 'warning' : 'cloud'} size={12} />
-              {t(cloudKey(state))}
-            </span>
-            {lost && <span className="sh-acct__lost">{t('account.lost')}</span>}
+            {user && user.created ? <span>{t('account.chip.since', { date: fmtDate(user.created) })}</span> : null}
+            <span className="vk-acct__state">{status}</span>
+            {lost && <span className="vk-acct__lost">{t('account.lost')}</span>}
           </div>
-          <button type="button" role="menuitem" className="sh-acct__item" onClick={signOut}>
-            <Icon name={lost ? 'user' : 'logout'} size={16} />
+          <button type="button" role="menuitem" className="vk-acct__item" onClick={signOut}>
             {lost ? t('account.chip.relogin') : t('account.logout')}
           </button>
           {user && (
             <button
               type="button"
               role="menuitem"
-              className="sh-acct__item is-danger"
+              className="vk-acct__item is-danger"
               onClick={() => {
                 setOpen(false);
                 setConfirmDelete(true);
               }}
             >
-              <Icon name="close" size={16} />
               {t('account.delete')}
             </button>
           )}
         </div>
       )}
-      {/* Portal: the chip's backdrop-filter would otherwise become the modal's containing block. */}
+      {/* On document.body: a modal inside the top bar would be clipped by it. */}
       {confirmDelete &&
         createPortal(<DeleteAccount open name={name} onClose={() => setConfirmDelete(false)} />, document.body)}
       {confirmLogout &&

@@ -1,5 +1,6 @@
-// Päeva väljakutse (daily challenge, src/sim/daily.ts): the main menu tile and the daily leaderboard dialog.
-import { useEffect, useMemo, useState } from 'react';
+// Päeva väljakutse (daily challenge, src/sim/daily.ts): its state for the main menu (useDaily), the menu's card
+// and the daily leaderboard dialog.
+import { useEffect, useMemo, useState, type Ref } from 'react';
 import { createPortal } from 'react-dom';
 import { useGame } from '@/store/game';
 import { useAccount } from '@/net/account';
@@ -20,9 +21,8 @@ import {
 import { sectorById } from '@/sim/sectors';
 import { durationText, hhmm, HOUR, wall } from '@/sim/time';
 import type { SimState } from '@/sim/types';
-import { Button, Icon, Modal, Segmented, Spinner, type IconName } from '@/ui/components';
+import { Button, Modal, Segmented, Spinner } from '@/ui/components';
 import { gradeTone, regionSummary } from './helpers';
-import './menu.css';
 import './daily.css';
 
 /** Current time, refreshed every `ms` (the countdown and the change of day). */
@@ -35,16 +35,6 @@ function useNow(ms: number): number {
   return now;
 }
 
-const WX_ICON: Record<DailyChallenge['weather'], IconName> = {
-  clear: 'sun',
-  cloudy: 'cloud',
-  rain: 'rain',
-  snow: 'snow',
-  sleet: 'snow',
-  fog: 'fog',
-  storm: 'wind',
-};
-
 /** Translation key of a challenge's weather (a storm is a blizzard in winter, a thunderstorm in summer). */
 function weatherKey(c: DailyChallenge): string {
   if (c.weather !== 'storm') return `daily.wx.${c.weather}`;
@@ -53,6 +43,9 @@ function weatherKey(c: DailyChallenge): string {
   if (month <= 2 || month === 12) return 'daily.wx.storm.winter';
   return 'daily.wx.storm';
 }
+
+/** Weather that slows the crews and brings more road accidents in the simulation (sim/weather road and traffic factors). */
+const ROUGH: DailyChallenge['weather'][] = ['rain', 'snow', 'sleet', 'fog', 'storm'];
 
 /** Texts describing a challenge: area, day, time and weather. */
 function useDescribe() {
@@ -67,6 +60,7 @@ function useDescribe() {
     return {
       area: sector ? tx(sector.name) : region,
       region: sector ? region : t('daily.whole'),
+      weekdayShort: t(`daily.wd.short.${wd}`),
       day: t('daily.date', { wd: t(`daily.wd.${wd}`), date: `${p.d}.${p.m}.` }),
       slot: t(`daily.slot.${c.slot}`),
       hours: t('daily.hours', { from: hhmm(c.start), to: hhmm(c.start + c.hours * HOUR) }),
@@ -79,10 +73,14 @@ function playersText(t: ReturnType<typeof useT>, n: number): string {
   return n === 1 ? t('daily.players.one') : t('daily.players', { n });
 }
 
-/** Main menu tile: today's challenge, the player's result and place, and the way in. */
-export function DailyTile({ saved }: { saved: SimState | null }) {
+export type DailyState = ReturnType<typeof useDaily>;
+
+/**
+ * Today's challenge for the menu: what it is, the player's result and place, the status line, and the way in
+ * (today's run in the save is continued, never started over).
+ */
+export function useDaily(saved: SimState | null) {
   const t = useT();
-  const lang = useLang();
   const describe = useDescribe();
   const now = useNow(30_000);
   const today = todayInTallinn(now);
@@ -158,75 +156,148 @@ export function DailyTile({ saved }: { saved: SimState | null }) {
     note = t('daily.firstCounts');
   } else status = t('daily.sub');
 
+  /** Short state for the menu row: not played, in progress, or the score. */
+  const short = resumable
+    ? t(resumable.ended ? 'daily.state.ended' : 'daily.state.running')
+    : mine || local
+      ? t('daily.state.score', { score: (mine ?? local)!.score, grade: (mine ?? local)!.grade })
+      : t('daily.state.todo');
+
+  return {
+    today,
+    now,
+    c,
+    d,
+    backend,
+    board,
+    mine,
+    local,
+    resumable,
+    played,
+    play,
+    status,
+    note,
+    short,
+    error,
+    boardOpen,
+    setBoardOpen,
+  };
+}
+
+/** The menu's card: today's challenge, the player's result and place, and the way in. */
+export function DailyCard({
+  daily,
+  className,
+  playRef,
+}: {
+  daily: DailyState;
+  className?: string;
+  playRef?: Ref<HTMLButtonElement>;
+}) {
+  const t = useT();
+  const lang = useLang();
+  const { c, d, now, board, resumable, played, play, status, note, error, backend } = daily;
+  const rough = ROUGH.includes(c.weather);
+  const p = parseDate(c.date)!;
   return (
-    <section className="sh-card sh-daily" aria-labelledby="sh-daily-title" data-testid="daily-tile">
-      <div className="sh-daily__head">
-        <span className="sh-daily__badge" aria-hidden="true">
-          <Icon name="target" size={18} />
-        </span>
-        <h2 className="sh-daily__title" id="sh-daily-title">
+    <section
+      className={`vk-panel vk-day${className ? ' ' + className : ''}`}
+      aria-labelledby="vk-day-title"
+      data-testid="daily-tile"
+    >
+      <div className="vk-panel__head">
+        <svg className="vk-mark" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+          <circle cx="7" cy="7" r="5.2" />
+          <circle cx="7" cy="7" r="2" />
+        </svg>
+        <h2 className="vk-h" id="vk-day-title">
           {t('daily.title')}
         </h2>
-        <span className="sh-daily__day">{d.day}</span>
-        <span className="sh-daily__next">
-          <Icon name="timer" size={13} />
-          {t('daily.next', { time: durationText(nextChallengeAt(now) - now, lang) })}
+        <span className="vk-meta">
+          {d.weekdayShort} {`${String(p.d).padStart(2, '0')}.${String(p.m).padStart(2, '0')}`}
+          {board && <span className="vk-day__players"> · {playersText(t, board.players)}</span>}
         </span>
       </div>
-      <div className="sh-daily__area">
-        <strong className="sh-daily__sector">{d.area}</strong>
-        <span className="sh-daily__region">{d.region}</span>
-      </div>
-      <ul className="sh-daily__facts">
-        <li>
-          <Icon name={c.slot === 'night' ? 'moon' : 'clock'} size={14} />
-          {d.slot} {d.hours}
-        </li>
-        <li className={c.harsh ? 'is-harsh' : undefined} title={c.harsh ? t('daily.harsh') : undefined}>
-          <Icon name={WX_ICON[c.weather]} size={14} />
-          {d.weather}
-          {c.harsh && <span className="sh-daily__harsh">{t('daily.harsh')}</span>}
-        </li>
-        <li>
-          <Icon name="gauge" size={14} />
-          {t('daily.diff')}
-        </li>
-      </ul>
-      <div className="sh-daily__foot">
-        <p className={`sh-daily__status${mine || local ? ' is-mine' : ''}`} data-testid="daily-status">
-          {(mine || local) && <Icon name="trophy" size={14} />}
-          <span>
-            {status}
-            {note && <span className="sh-daily__practice"> {note}</span>}
-          </span>
+      <div className="vk-day__body">
+        <p className="vk-day__title">
+          <strong className="sh-daily__sector">{d.area}</strong>
+          <span>{d.region}</span>
         </p>
-        <div className="sh-daily__actions">
-          {backend === 'online' && (
-            <Button size="sm" variant="ghost" icon="list" onClick={() => setBoardOpen(true)}>
-              {t('daily.board')}
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant={played && !resumable ? 'secondary' : 'primary'}
-            icon={resumable?.ended ? 'newspaper' : 'play'}
+        <dl className="vk-day__facts">
+          <div>
+            <dt className="vk-label">{t('daily.fact.time')}</dt>
+            <dd>
+              {d.slot} <span className="vk-mono">{d.hours}</span>
+            </dd>
+          </div>
+          <div>
+            <dt className="vk-label">{t('daily.fact.weather')}</dt>
+            <dd
+              className={c.harsh ? 'vk-day__harsh' : undefined}
+              title={c.harsh ? t('daily.harsh') : undefined}
+            >
+              {d.weather}
+              {c.harsh && <span className="vk-sr"> ({t('daily.harsh')})</span>}
+            </dd>
+          </div>
+          <div>
+            <dt className="vk-label">{t('daily.fact.level')}</dt>
+            <dd>{t('daily.diff')}</dd>
+          </div>
+        </dl>
+        {rough && (
+          <p className="vk-day__warn">
+            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M8 1.8 1.2 14h13.6z" />
+              <path d="M8 6.2v3.6M8 11.6v.4" />
+            </svg>
+            <span>
+              <strong>{d.weather}:</strong> {t('daily.wx.effect')}
+            </span>
+          </p>
+        )}
+      </div>
+      <div className="vk-day__foot">
+        <div className="vk-day__actions">
+          <button
+            type="button"
+            className={`vk-btn${played && !resumable ? ' vk-btn--ghost' : ''}`}
             onClick={play}
             data-sfx="click"
+            ref={playRef}
           >
             {resumable
               ? t(resumable.ended ? 'daily.report' : 'daily.resume')
               : played
                 ? t('daily.practice')
                 : t('daily.play')}
-          </Button>
+          </button>
+          {backend === 'online' && (
+            <button
+              type="button"
+              className="vk-btn vk-btn--ghost vk-day__board"
+              onClick={() => daily.setBoardOpen(true)}
+            >
+              {t('daily.board')}
+            </button>
+          )}
         </div>
+        <p className="vk-day__status">
+          <span data-testid="daily-status">
+            {status}
+            {note && <span className="vk-day__note"> {note}</span>}
+          </span>{' '}
+          <span className="vk-day__next">
+            {t('daily.next', { time: durationText(nextChallengeAt(now) - now, lang) })}.
+          </span>
+        </p>
       </div>
       {error && (
-        <p className="sh-error" role="alert">
-          <Icon name="warning" size={14} /> {error}
+        <p className="vk-day__error" role="alert">
+          {error}
         </p>
       )}
-      <DailyBoardModal open={boardOpen} onClose={() => setBoardOpen(false)} today={today} />
+      <DailyBoardModal open={daily.boardOpen} onClose={() => daily.setBoardOpen(false)} today={daily.today} />
     </section>
   );
 }

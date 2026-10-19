@@ -1,41 +1,73 @@
-// Main menu. Owned by ui-shell.
-import { useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
+// Main menu (Valvekaart): the duty map of Estonia with the player's desk, the prefect's offer and today's challenge
+// on it, and flat panels over it: Teenistus (the menu), Teated, the daily challenge, Karjäär and Edetabel. On a
+// narrow screen the map is a strip on top and the panels stack. Owned by ui-shell.
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { clearAutosave, loadAutosave, shiftKeyOf, useGame, type Screen } from '@/store/game';
 import { useCareer } from '@/store/career';
 import { useAccount } from '@/net/account';
-import { useLang, useT } from '@/i18n';
-import type { GameMode } from '@/sim/types';
-import { ddmmyyyy, hhmm } from '@/sim/time';
-import { Badge, Button, Emblem, Icon, IconButton, type IconName } from '@/ui/components';
-import { AccountChip } from './shell/AccountChip';
+import { t as translate, useLang, useT, useTx } from '@/i18n';
+import { sectorById } from '@/sim/sectors';
+import { ddmmyyyy, hhmm, wall } from '@/sim/time';
+import type { CareerProfile, GameMode, Lang } from '@/sim/types';
+import { DailyCard, useDaily } from './shell/Daily';
+import { DutyMap, type MapLayout } from './shell/DutyMap';
 import { Leaderboard } from './shell/Leaderboard';
-import { DailyTile } from './shell/Daily';
-import { Backdrop } from './shell/Backdrop';
-import { Disclaimer, LangToggle } from './shell/ShellPage';
-import { formatMoney, regionSummary, VERSION } from './shell/helpers';
+import { ShellAccount, ShellFooter, ShellTopBar, STACKED, useMedia } from './shell/ShellFrame';
+import { regionSummary } from './shell/helpers';
+import {
+  barHeight,
+  careerFigures,
+  homeArea,
+  mapInput,
+  menuNotices,
+  nextShiftKind,
+  shiftBars,
+  type Notice,
+} from './shell/menuModel';
+import type { DutyInput } from './shell/dutyMap';
+import { fmtMoney, fmtNum } from './career/helpers';
 import './shell/shell.css';
+import './shell/vk.css';
 import './shell/menu.css';
 
-interface Item {
-  id: string;
-  icon: IconName;
+interface Row {
+  id: 'career' | 'daily' | 'quick' | 'director' | 'settings' | 'legacy' | 'credits';
+  system?: boolean;
   title: string;
   desc: string;
-  primary?: boolean;
-  badge?: string;
+  mono?: boolean;
+  mark?: 'mine' | 'challenge';
   run: () => void;
 }
 
-const NEWS: { icon: IconName; key: string }[] = [
-  { icon: 'map', key: 'shell.menu.news.map' },
-  { icon: 'list', key: 'shell.menu.news.incidents' },
-  { icon: 'fingerprint', key: 'shell.menu.news.registry' },
-  { icon: 'phone', key: 'shell.menu.news.calls' },
-  { icon: 'radio', key: 'shell.menu.news.radio' },
-  { icon: 'moon', key: 'shell.menu.news.time' },
-  { icon: 'briefcase', key: 'shell.menu.news.career' },
-  { icon: 'film', key: 'shell.menu.news.director' },
-];
+/** A career profile the menu can show (a broken save goes to the career screen, which explains it). */
+function usable(p: CareerProfile | null): p is CareerProfile {
+  return (
+    !!p &&
+    typeof p === 'object' &&
+    typeof p.money === 'number' &&
+    typeof p.day === 'number' &&
+    Array.isArray(p.staff) &&
+    typeof p.regionId === 'string'
+  );
+}
+
+/** The career's desks in its home prefecture ("Tartu linn"), or the prefecture when it covers it whole. */
+function areaName(p: CareerProfile, lang: Lang): { area: string; region: string } {
+  const home = homeArea(p);
+  const region = regionSummary(home.regionId).name[lang];
+  const names = home.sectors.map((id) => sectorById(id)?.name[lang]).filter((x): x is string => !!x);
+  return { area: home.whole || !names.length ? region : names.join(', '), region };
+}
 
 export function MenuScreen() {
   const t = useT();
@@ -44,8 +76,8 @@ export function MenuScreen() {
   const setScreen = useGame((s) => s.setScreen);
   const setBriefing = useGame((s) => s.setBriefing);
   const resumeShift = useGame((s) => s.resumeShift);
-  const logout = useGame((s) => s.logout);
-  const profile = useCareer((s) => s.profile);
+  const stored = useCareer((s) => s.profile);
+  const inbox = useCareer((s) => s.inbox);
   const backend = useAccount((s) => s.backend);
   const accountUser = useAccount((s) => s.user);
   // Re-read when a cloud save landed in the browser after the menu opened, or another identity's data (the
@@ -55,9 +87,12 @@ export function MenuScreen() {
   const loaded = useMemo(() => loadAutosave(), [pulls, space]);
   // A career shift this profile has already been paid for (an old copy from another device) is over:
   // it is never offered again, and the stale copy is removed here and in the cloud.
-  const paidAlready = !!loaded && loaded.mode === 'career' && !!profile?.paidShifts?.includes(shiftKeyOf(loaded));
+  const paidAlready =
+    !!loaded && loaded.mode === 'career' && !!stored?.paidShifts?.includes(shiftKeyOf(loaded));
   const saved = paidAlready ? null : loaded;
-  const isAccount = user?.method === 'account';
+  const profile = usable(stored) ? stored : null;
+  const stacked = useMedia(STACKED);
+  const daily = useDaily(saved);
 
   useEffect(() => {
     if (paidAlready) clearAutosave();
@@ -67,233 +102,768 @@ export function MenuScreen() {
     void useAccount.getState().init();
   }, []);
 
-  const createAccount = () => {
-    useAccount.getState().setIntent('register');
-    logout();
-  };
-  const listRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const leftRef = useRef<HTMLDivElement>(null);
+  const rightRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const dailyPlayRef = useRef<HTMLButtonElement>(null);
 
   const go = (s: Screen) => () => setScreen(s);
   const brief = (mode: GameMode) => () => {
     setBriefing({ mode });
     setScreen('briefing');
   };
+  const where = profile ? areaName(profile, lang) : null;
 
-  const items: Item[] = [];
-  if (saved) {
-    const r = regionSummary(saved.regionId);
-    const vars = {
-      region: r.name[lang],
-      date: ddmmyyyy(saved.now),
-      time: hhmm(saved.now),
-      mode: t(`shell.mode.${saved.mode}`),
-    };
-    // A shift whose clock ran out before its report was opened is not continued: it opens the report.
-    items.push({
-      id: 'continue',
-      icon: saved.ended ? 'newspaper' : 'play',
-      title: saved.ended ? t('game.end.report') : t('shell.menu.continue'),
-      desc: saved.ended ? t('game.pending.desc', vars) : t('shell.menu.continueDesc', vars),
-      primary: true,
-      run: () => resumeShift(saved),
-    });
-  }
-  items.push(
+  const rows: Row[] = [
     {
       id: 'career',
-      icon: 'briefcase',
       title: t('shell.menu.career'),
-      desc: profile
-        ? t('shell.menu.careerDescProfile', {
-            day: profile.day,
-            money: formatMoney(profile.money, lang),
-            rep: Math.round(profile.reputation),
-          })
-        : t('shell.menu.careerDesc'),
-      primary: !saved,
+      desc:
+        profile && where
+          ? t('shell.menu.row.career', { day: profile.day, area: where.area })
+          : t('shell.menu.row.careerNew'),
+      mark: profile ? 'mine' : undefined,
       run: go('career'),
     },
     {
-      id: 'quick',
-      icon: 'siren',
-      title: t('shell.menu.quick'),
-      desc: t('shell.menu.quickDesc'),
-      run: brief('free'),
+      id: 'daily',
+      title: t('daily.title'),
+      desc: t('shell.menu.row.daily', {
+        area: daily.d.area,
+        slot: daily.d.slot.toLocaleLowerCase(lang),
+        state: daily.short,
+      }),
+      mark: 'challenge',
+      // The card holds the way in (and the rule that only the first run counts): the row takes you there.
+      run: () => {
+        dailyPlayRef.current?.focus();
+        dailyPlayRef.current?.scrollIntoView({ block: 'nearest' });
+      },
     },
+    { id: 'quick', title: t('shell.menu.quick'), desc: t('shell.menu.row.quick'), run: brief('free') },
     {
       id: 'director',
-      icon: 'film',
       title: t('shell.menu.director'),
-      desc: t('shell.menu.directorDesc'),
+      desc: t('shell.menu.row.director'),
       run: brief('director'),
     },
     {
       id: 'settings',
-      icon: 'settings',
+      system: true,
       title: t('shell.menu.settings'),
-      desc: t('shell.menu.settingsDesc'),
+      desc: t('shell.menu.row.settings'),
       run: go('settings'),
     },
     {
       id: 'legacy',
-      icon: 'book',
+      system: true,
       title: t('shell.menu.legacy'),
-      desc: t('shell.menu.legacyDesc'),
-      badge: '2024 · 2025',
+      desc: '2024, 2025',
+      mono: true,
       run: go('legacy'),
     },
     {
       id: 'credits',
-      icon: 'star',
+      system: true,
       title: t('shell.menu.credits'),
-      desc: t('shell.menu.creditsDesc'),
+      desc: t('shell.menu.row.credits'),
       run: go('credits'),
     },
-  );
+  ];
+
+  // The primary action: continue the saved shift, else the next career shift, else a new career.
+  const primary: { label: string; line: string | null; run: () => void } = saved
+    ? {
+        label: saved.ended ? t('game.end.report') : t('shell.menu.continue'),
+        line: t(saved.ended ? 'game.pending.desc' : 'shell.menu.continueDesc', {
+          region: regionSummary(saved.regionId).name[lang],
+          date: ddmmyyyy(saved.now),
+          time: hhmm(saved.now),
+          mode: t(`shell.mode.${saved.mode}`),
+        }),
+        // A shift whose clock ran out before its report was opened is not continued: it opens the report.
+        run: () => resumeShift(saved),
+      }
+    : profile && where
+      ? (() => {
+          const next = nextShiftKind(wall(Date.now()).hour);
+          return {
+            label: t('shell.menu.start', { day: profile.day }),
+            line: `${t(`shell.menu.next.${next.kind}`)} ${next.from}-${next.to} · ${where.area}`,
+            run: () => {
+              setBriefing({ mode: 'career', regionId: profile.regionId });
+              setScreen('briefing');
+            },
+          };
+        })()
+      : { label: t('shell.menu.newCareer.start'), line: null, run: go('career') };
 
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    const btns = Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>('.sh-menu__item') ?? []);
+    const root = rootRef.current;
+    // Keys typed in a dialog (portalled, but still inside this tree for React) or a field are theirs.
+    if (!root || !root.contains(e.target as Node) || e.altKey || e.ctrlKey || e.metaKey) return;
+    if ((e.target as HTMLElement).closest('input, textarea, select, [role="menu"]')) return;
+    const btns = Array.from(root.querySelectorAll<HTMLButtonElement>('.vk-row'));
     const i = btns.indexOf(document.activeElement as HTMLButtonElement);
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       const n = e.key === 'ArrowDown' ? (i + 1) % btns.length : (i - 1 + btns.length) % btns.length;
       btns[i < 0 ? 0 : n]?.focus();
-    } else if (/^[1-9]$/.test(e.key) && !e.altKey && !e.ctrlKey && !e.metaKey) {
-      const it = items[Number(e.key) - 1];
-      if (it) {
+    } else if (/^[1-7]$/.test(e.key)) {
+      const row = rows[Number(e.key) - 1];
+      if (row) {
         e.preventDefault();
-        it.run();
+        row.run();
       }
     }
   };
 
-  const methodLabel = user
-    ? user.method === 'account'
-      ? t('account.method')
-      : user.method === 'legacy'
-      ? t('shell.login.method.legacy')
-      : user.method === 'guest'
-        ? t('shell.login.guestName')
-        : t(`shell.login.tab.${user.method}`)
-    : '';
-  const initials = (user?.name ?? '?')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join('');
+  const input = useMemo<DutyInput>(
+    () => mapInput(profile, { sector: daily.c.sector, regionId: daily.c.regionId }),
+    [profile, daily.c.sector, daily.c.regionId],
+  );
+  const notices = useMemo(() => menuNotices(profile, inbox), [profile, inbox]);
+
+  // Where the panels leave the map visible (degree labels, the leader to the challenge card); resize only.
+  const [layout, setLayout] = useState<MapLayout | null>(null);
+  useLayoutEffect(() => {
+    const main = mainRef.current;
+    if (stacked || !main) return;
+    const measure = () => {
+      const m = main.getBoundingClientRect();
+      if (!m.width || !m.height) return;
+      const scale = Math.max(m.width / 1440, m.height / 828);
+      const l = leftRef.current?.getBoundingClientRect();
+      const c = cardRef.current?.getBoundingClientRect();
+      const next: MapLayout = {
+        scale,
+        offX: (m.width - 1440 * scale) / 2,
+        offY: (m.height - 828 * scale) / 2,
+        left: l ? l.right - m.left : 0,
+        card: c ? { left: c.left - m.left, right: c.right - m.left, bottom: c.bottom - m.top } : null,
+      };
+      setLayout((prev) => (prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+    };
+    measure();
+    if (typeof ResizeObserver !== 'function') return;
+    const ro = new ResizeObserver(measure);
+    for (const el of [main, leftRef.current, cardRef.current]) if (el) ro.observe(el);
+    return () => ro.disconnect();
+  }, [stacked]);
+
+  useWholeRows([leftRef, rightRef], !stacked);
+
+  const service = <ServicePanel rows={rows} stacked={stacked} focusFirst={!saved} />;
+  const career = (
+    <CareerPanel
+      profile={profile}
+      where={where}
+      primary={primary}
+      focusPrimary={!!saved}
+      resuming={!!saved}
+      stacked={stacked}
+    />
+  );
+  const dailyCard = <DailyCard daily={daily} playRef={dailyPlayRef} />;
+  const noticesPanel = notices.length > 0 ? <NoticesPanel notices={notices} max={stacked ? 3 : 3} /> : null;
+  const board = backend === 'online' ? <Leaderboard me={accountUser?.name ?? null} /> : null;
+  const legend = <Legend input={input} compact={stacked} scale={layout?.scale ?? 1} />;
 
   return (
-    <div className="sh-screen sh-menu" onKeyDown={onKey}>
-      <Backdrop variant="grid" />
-      <header className="sh-menu__top">
-        <div className="sh-menu__logo">
-          <Emblem size={30} />
-          <span className="mono">EPD {VERSION}</span>
-        </div>
-        <div className="sh-menu__topRight">
-          <LangToggle />
-          {isAccount && <AccountChip />}
-          {user && !isAccount && (
-            <div className="sh-user" title={user.idcode ? `${user.name} · ${user.idcode}` : user.name}>
-              <span className="sh-user__avatar" aria-hidden="true">
-                {initials}
-              </span>
-              <span className="sh-user__text">
-                <span className="sh-user__name">{user.name}</span>
-                <span className="sh-user__method">
-                  <Icon
-                    name={user.method === 'legacy' ? 'keyboard' : user.method === 'guest' ? 'user' : 'lock'}
-                    size={11}
-                  />
-                  {methodLabel}
-                </span>
-              </span>
-              <IconButton icon="logout" size="sm" label={t('shell.menu.logout')} onClick={logout} />
+    <div className={`vk vk-menu${stacked ? ' is-stacked' : ''}`} ref={rootRef} onKeyDown={onKey}>
+      <ShellTopBar brandAs="h1" account={!stacked} />
+      <main className="vk-menu__main" ref={mainRef}>
+        {stacked ? (
+          <>
+            <div className="vk-menu__strip">
+              <DutyMap variant="strip" input={input} />
+              {legend}
             </div>
-          )}
-        </div>
-      </header>
-
-      <main className="sh-menu__main">
-        <section className="sh-menu__left">
-          <div className="sh-menu__hero">
-            <h1 className="sh-menu__title">EPD</h1>
-            <div className="sh-menu__name">{t('shell.menu.name')}</div>
-            <div className="sh-menu__sub">{t('shell.menu.sub')}</div>
-          </div>
-          <DailyTile saved={saved} />
-          <nav className="sh-menu__list" ref={listRef} aria-label={t('shell.menu.aria')}>
-            {items.map((it, i) => (
-              <button
-                key={it.id}
-                type="button"
-                className={`sh-menu__item${it.primary ? ' is-primary' : ''}`}
-                onClick={it.run}
-                data-sfx-hover
-                data-sfx="click"
-                autoFocus={i === 0}
-                style={{ animationDelay: `${60 + i * 45}ms` }}
-              >
-                <span className="sh-menu__icon">
-                  <Icon name={it.icon} size={20} />
-                </span>
-                <span className="sh-menu__text">
-                  <span className="sh-menu__itemTitle">
-                    {it.title}
-                    {it.badge && <Badge tone="gold">{it.badge}</Badge>}
-                  </span>
-                  <span className="sh-menu__desc">{it.desc}</span>
-                </span>
-                <kbd className="sh-menu__key">{i + 1}</kbd>
-                <Icon name="chevron-right" size={18} className="sh-menu__chev" />
-              </button>
-            ))}
-          </nav>
-        </section>
-
-        <aside className="sh-menu__right">
-          {backend === 'online' && !isAccount && (
-            <section className="sh-card sh-guest">
-              <span className="sh-guest__icon" aria-hidden="true">
-                <Icon name="cloud" size={18} />
-              </span>
-              <div className="sh-guest__text">
-                <strong>{t('account.guest.title')}</strong>
-                <span>{t('account.guest.text')}</span>
+            <div className="vk-menu__stack">
+              {career}
+              {service}
+              {dailyCard}
+              {noticesPanel}
+              {board}
+              {user && (
+                <section className="vk-panel vk-menu__account" aria-label={t('account.method')}>
+                  <ShellAccount />
+                </section>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="vk-menu__map">
+              <DutyMap variant="full" input={input} layout={layout} />
+            </div>
+            <div className="vk-menu__docks">
+              <div className="vk-menu__col vk-menu__col--left" ref={leftRef}>
+                {service}
+                {noticesPanel}
               </div>
-              <Button size="sm" variant="primary" icon="user" onClick={createAccount}>
-                {t('account.guest.cta')}
-              </Button>
-            </section>
-          )}
-          {backend === 'online' && <Leaderboard me={accountUser?.name ?? null} />}
-          <section className="sh-card sh-news">
-            <h2 className="sh-news__title">
-              <Icon name="star" size={16} /> {t('shell.menu.news')}
-              <Badge tone="accent">2.0</Badge>
-            </h2>
-            <ul className="sh-news__list">
-              {NEWS.map((n) => (
-                <li key={n.key}>
-                  <span className="sh-news__icon">
-                    <Icon name={n.icon} size={16} />
-                  </span>
-                  <span>{t(n.key)}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-          <section className="sh-card sh-tip">
-            <Icon name="keyboard" size={16} />
-            <span>{t('shell.menu.tip', { n: items.length })}</span>
-          </section>
-        </aside>
+              <div className="vk-menu__center">
+                <div className="vk-menu__daily" ref={cardRef}>
+                  {dailyCard}
+                </div>
+                {legend}
+              </div>
+              <div className="vk-menu__col vk-menu__col--right" ref={rightRef}>
+                {career}
+                {board}
+              </div>
+            </div>
+          </>
+        )}
       </main>
-      <footer className="sh-menu__foot">
-        <span className="mono sh-dim">v{VERSION} · politsei.eu</span>
-        <Disclaimer />
-      </footer>
+      <ShellFooter>{!stacked && <MenuKeys />}</ShellFooter>
     </div>
+  );
+}
+
+/**
+ * A panel that scrolls inside a short window (Teated, Edetabel) ends at a whole row: its list is cut to the rows
+ * that fit, so no row shows half. Re-fitted when the window resizes or the list changes.
+ */
+function useWholeRows(cols: RefObject<HTMLElement | null>[], active: boolean) {
+  useLayoutEffect(() => {
+    if (!active || typeof ResizeObserver !== 'function') return;
+    let frame = 0;
+    const fit = () => {
+      frame = 0;
+      for (const col of cols) {
+        for (const body of col.current?.querySelectorAll<HTMLElement>('[data-fit-rows]') ?? []) {
+          body.style.maxHeight = '';
+          const avail = body.clientHeight;
+          if (body.scrollHeight <= avail + 1) continue;
+          const top = body.getBoundingClientRect().top;
+          let fitTo = 0;
+          for (const row of body.querySelectorAll<HTMLElement>(':scope > li, tbody > tr')) {
+            const bottom = row.getBoundingClientRect().bottom - top;
+            if (bottom > avail + 0.5) break;
+            fitTo = bottom;
+          }
+          if (fitTo > 0) body.style.maxHeight = `${Math.floor(fitTo)}px`;
+        }
+      }
+    };
+    const later = () => {
+      if (!frame) frame = requestAnimationFrame(fit);
+    };
+    fit();
+    const ro = new ResizeObserver(later);
+    const mo = new MutationObserver(later);
+    for (const col of cols)
+      if (col.current) {
+        ro.observe(col.current);
+        mo.observe(col.current, { childList: true, subtree: true });
+      }
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+      cancelAnimationFrame(frame);
+    };
+    // The refs are stable; `active` switches it on and off.
+  }, [active]);
+}
+
+// ── Teenistus ────────────────────────────────────────────────────────────────
+
+function ServicePanel({ rows, stacked, focusFirst }: { rows: Row[]; stacked: boolean; focusFirst: boolean }) {
+  const t = useT();
+  const item = (r: Row, i: number) => (
+    <li key={r.id}>
+      <button
+        type="button"
+        className={`vk-row${r.system ? ' is-system' : ''}`}
+        onClick={r.run}
+        aria-keyshortcuts={String(i + 1)}
+        data-sfx-hover
+        data-sfx="click"
+        autoFocus={focusFirst && i === 0}
+      >
+        <span className="vk-row__key" aria-hidden="true">
+          {i + 1}
+        </span>
+        <span className="vk-row__text">
+          <span className="vk-row__title">{r.title}</span>
+          <span className={`vk-row__desc${r.mono ? ' vk-mono' : ''}`}>{r.desc}</span>
+        </span>
+        <span className="vk-row__end" aria-hidden="true">
+          {r.mark === 'mine' && <span className="vk-row__mine" />}
+          {r.mark === 'challenge' && (
+            <svg className="vk-mark" width="14" height="14" viewBox="0 0 14 14">
+              <circle cx="7" cy="7" r="5.2" />
+              <circle cx="7" cy="7" r="2" />
+            </svg>
+          )}
+          {stacked ? (
+            <svg className="vk-row__chev" width="16" height="16" viewBox="0 0 16 16">
+              <path d="M6 3.5 10.5 8 6 12.5" />
+            </svg>
+          ) : (
+            <span className="vk-kbd vk-row__enter">⏎</span>
+          )}
+        </span>
+      </button>
+    </li>
+  );
+  return (
+    <nav className="vk-panel vk-svc" aria-labelledby="vk-svc-title">
+      <div className="vk-panel__head">
+        <h2 className="vk-h" id="vk-svc-title">
+          {t('shell.menu.service')}
+        </h2>
+        {!stacked && <span className="vk-meta">1-{rows.length}</span>}
+      </div>
+      <ul className="vk-svc__list">{rows.map((r, i) => (r.system ? null : item(r, i)))}</ul>
+      <p className="vk-svc__group vk-label" id="vk-svc-system">
+        {t('shell.menu.system')}
+      </p>
+      <ul className="vk-svc__list" aria-labelledby="vk-svc-system">
+        {rows.map((r, i) => (r.system ? item(r, i) : null))}
+      </ul>
+    </nav>
+  );
+}
+
+// ── Karjäär ──────────────────────────────────────────────────────────────────
+
+const GRADE_LETTERS = ['S', 'A', 'B', 'C', 'D', 'F'];
+const gradeOf = (g: string) => (GRADE_LETTERS.includes(g) ? g : 'F');
+
+function Delta({ value, money, lang }: { value: number; money?: boolean; lang: Lang }) {
+  const cls = value > 0 ? 'vk-up' : value < 0 ? 'vk-down' : undefined;
+  return (
+    <span className={`vk-mono${cls ? ' ' + cls : ''}`}>
+      {money ? fmtMoney(value, lang, { sign: true }) : (value > 0 ? '+' : '') + fmtNum(value, lang)}
+    </span>
+  );
+}
+
+function CareerPanel({
+  profile,
+  where,
+  primary,
+  focusPrimary,
+  resuming,
+  stacked,
+}: {
+  profile: CareerProfile | null;
+  where: { area: string; region: string } | null;
+  primary: { label: string; line: string | null; run: () => void };
+  focusPrimary: boolean;
+  /** The primary button continues a saved shift: a new career still needs its own way in. */
+  resuming: boolean;
+  stacked: boolean;
+}) {
+  const t = useT();
+  const lang = useLang();
+  const tx = useTx();
+  const f = useMemo(() => (profile ? careerFigures(profile) : null), [profile]);
+  const chart = useMemo(() => (profile ? shiftBars(profile) : null), [profile]);
+  const go = useGame((s) => s.setScreen);
+
+  const action = (
+    <div className="vk-car__go">
+      <button
+        type="button"
+        className="vk-btn vk-btn--primary vk-car__start"
+        onClick={primary.run}
+        autoFocus={focusPrimary}
+        data-sfx="click"
+      >
+        <span>{primary.label}</span>
+        {!stacked && (
+          <span className="vk-car__enter" aria-hidden="true">
+            ⏎
+          </span>
+        )}
+      </button>
+      <p className="vk-car__line">
+        {primary.line && <span>{primary.line}</span>}
+        {profile && (
+          <button type="button" className="vk-linkbtn vk-car__hq" onClick={() => go('career')}>
+            {t('shell.menu.hq')}
+            {stacked && (
+              <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M6 3.5 10.5 8 6 12.5" />
+              </svg>
+            )}
+          </button>
+        )}
+      </p>
+    </div>
+  );
+
+  if (!profile || !f || !where)
+    return (
+      <section className="vk-panel vk-car is-new" aria-labelledby="vk-car-title">
+        <div className="vk-panel__head">
+          <h2 className="vk-h" id="vk-car-title">
+            {t('shell.menu.career')}
+          </h2>
+          <span className="vk-meta">{t('shell.menu.newCareer.meta')}</span>
+        </div>
+        <div className="vk-car__id">
+          <p className="vk-car__name">{t('shell.menu.newCareer')}</p>
+          <p className="vk-car__intro">{t('shell.menu.newCareer.text')}</p>
+        </div>
+        {action}
+        {resuming && (
+          <p className="vk-car__also">
+            <button type="button" className="vk-linkbtn" onClick={() => go('career')}>
+              {t('shell.menu.newCareer.start')}
+            </button>
+          </p>
+        )}
+      </section>
+    );
+
+  const onDay = (day: number | null) => (day !== null ? ` ${t('shell.menu.kpi.onDay', { day })}` : '');
+  const kpis: { key: string; label: string; sub: ReactNode; value: ReactNode; bar?: number }[] = [
+    {
+      key: 'money',
+      label: t('shell.menu.kpi.money'),
+      sub:
+        f.moneyDelta !== null ? (
+          <>
+            <Delta value={f.moneyDelta} money lang={lang} />
+            {onDay(f.lastDay)}
+          </>
+        ) : null,
+      value: fmtMoney(f.money, lang),
+    },
+    {
+      key: 'rep',
+      label: t('shell.menu.kpi.rep'),
+      sub:
+        f.repDelta !== null ? (
+          <>
+            <Delta value={f.repDelta} lang={lang} />
+            {onDay(f.lastDay)}
+          </>
+        ) : null,
+      value: (
+        <>
+          {f.rep}
+          <small>/100</small>
+        </>
+      ),
+      bar: f.rep / 100,
+    },
+    {
+      key: 'rank',
+      label: t('shell.menu.kpi.rank'),
+      sub: tx(f.rank),
+      value: (
+        <>
+          {fmtNum(f.xp, lang)}
+          <small>{f.nextXp !== null ? `/${fmtNum(f.nextXp, lang)} XP` : ' XP'}</small>
+        </>
+      ),
+      bar: f.rankProgress,
+    },
+    {
+      key: 'payday',
+      label: t('shell.menu.kpi.payday'),
+      sub: f.payday === 1 ? t('shell.menu.kpi.paydayNext') : t('shell.menu.kpi.paydayIn'),
+      value: f.payday,
+    },
+  ];
+  if (f.last)
+    kpis.push({
+      key: 'last',
+      label: t('shell.menu.kpi.last'),
+      sub: t('shell.menu.kpi.onDay', { day: f.last.day }),
+      value: (
+        <>
+          <span
+            className={`vk-grade vk-grade--${gradeOf(f.last.grade)}`}
+            role="img"
+            aria-label={t('shell.menu.kpi.grade', { grade: f.last.grade })}
+          >
+            {f.last.grade}
+          </span>
+          {f.last.score}
+        </>
+      ),
+    });
+  kpis.push({
+    key: 'shifts',
+    label: t('shell.menu.kpi.shifts'),
+    sub: f.best
+      ? f.best.day !== null
+        ? t('shell.menu.kpi.bestDay', { score: f.best.score, day: f.best.day })
+        : t('shell.menu.kpi.best', { score: f.best.score })
+      : null,
+    value: f.shifts,
+  });
+
+  return (
+    <section className="vk-panel vk-car" aria-labelledby="vk-car-title">
+      <div className="vk-panel__head">
+        <h2 className="vk-h" id="vk-car-title">
+          {t('shell.menu.career')}
+        </h2>
+        <span className="vk-meta">{t('shell.menu.dayMonth', { day: f.day, month: f.month })}</span>
+      </div>
+      <div className="vk-car__id">
+        <p className="vk-car__who">
+          <span className="vk-car__name">{profile.name}</span>
+          <span className="vk-car__badge vk-mono">{profile.badge}</span>
+        </p>
+        <p className="vk-car__pos">
+          {tx(f.rank)} · {lowerFirst(tx(f.position), lang)}
+        </p>
+        <p className="vk-car__area">
+          <span className="vk-car__swatch" aria-hidden="true" />
+          {where.area === where.region
+            ? where.region
+            : t('shell.menu.areaLine', { area: where.area, region: where.region })}
+        </p>
+      </div>
+      <dl className="vk-kpis">
+        {kpis.map((k) => (
+          <div key={k.key} className={`vk-kpi is-${k.key}`}>
+            <dt>{k.label}</dt>
+            <dd className="vk-kpi__value vk-mono">{k.value}</dd>
+            <dd className="vk-kpi__sub">{k.sub}</dd>
+            {k.bar !== undefined && (
+              <span className="vk-kpi__bar" aria-hidden="true">
+                <span style={{ width: `${Math.round(Math.max(0, Math.min(1, k.bar)) * 1000) / 10}%` }} />
+              </span>
+            )}
+          </div>
+        ))}
+      </dl>
+      {chart && (
+        <div className="vk-car__chart">
+          <p className="vk-car__chartHead">
+            <span className="vk-label">
+              {chart.from === chart.to
+                ? t('shell.menu.chart.one', { from: chart.from })
+                : t('shell.menu.chart', { from: chart.from, to: chart.to })}
+            </span>
+            <span>
+              {t('shell.menu.chart.avg')} <span className="vk-mono vk-car__avg">{chart.avg}</span>
+            </span>
+          </p>
+          <div
+            className="vk-bars"
+            role="img"
+            aria-label={t('shell.menu.chart.aria', {
+              from: chart.from,
+              to: chart.to,
+              list: chart.bars.map((b) => `${b.grade} ${b.score}`).join(', '),
+            })}
+            style={{ gridTemplateColumns: `repeat(${chart.bars.length}, 1fr)` }}
+          >
+            <span
+              className="vk-bars__avg"
+              style={{ bottom: `${barHeight(chart.avg, 100)}%` }}
+              aria-hidden="true"
+            />
+            {chart.bars.map((b, i) => (
+              <i
+                key={`${b.day}-${i}`}
+                className={i === chart.bars.length - 1 ? 'is-last' : undefined}
+                style={{ height: `${barHeight(b.score, 100)}%` }}
+              />
+            ))}
+          </div>
+          <div
+            className="vk-bars__grades"
+            aria-hidden="true"
+            style={{ gridTemplateColumns: `repeat(${chart.bars.length}, 1fr)` }}
+          >
+            {chart.bars.map((b, i) => (
+              <span key={`${b.day}-${i}`} className={`vk-grade-ink vk-grade--${gradeOf(b.grade)}`}>
+                {b.grade}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {action}
+    </section>
+  );
+}
+
+function lowerFirst(s: string, lang: Lang): string {
+  return s ? s[0].toLocaleLowerCase(lang) + s.slice(1) : s;
+}
+
+// ── Teated ───────────────────────────────────────────────────────────────────
+
+/** Numbers, money, percentages and distances in a sentence set in mono, as everywhere on these screens. */
+function MonoNumbers({ text }: { text: string }) {
+  const parts = text.split(
+    /(\d+(?:[\u00a0\u202f ]\d{3})*(?:[.,]\d+)?(?:[\u00a0 ]?(?:€|%|km|min|XP|m\/s))?)/g,
+  );
+  return (
+    <>
+      {parts.map((p, i) =>
+        i % 2 ? (
+          <span key={i} className="vk-mono vk-num">
+            {p}
+          </span>
+        ) : (
+          p
+        ),
+      )}
+    </>
+  );
+}
+
+function NoticesPanel({ notices, max }: { notices: Notice[]; max: number }) {
+  const t = useT();
+  const lang = useLang();
+  const go = useGame((s) => s.setScreen);
+  const textOf = (n: Notice): string => {
+    if ('et' in n.text) return n.text[lang] || n.text.et;
+    const vars: Record<string, string | number> = {};
+    for (const [k, v] of Object.entries(n.text.vars)) vars[k] = typeof v === 'object' ? v[lang] || v.et : v;
+    return translate(n.text.key, lang, vars);
+  };
+  return (
+    <section className="vk-panel vk-notes" aria-labelledby="vk-notes-title">
+      <div className="vk-panel__head">
+        <h2 className="vk-h" id="vk-notes-title">
+          {t('shell.menu.notices')}
+        </h2>
+        <span className="vk-count">{notices.length}</span>
+        <button
+          type="button"
+          className="vk-linkbtn vk-notes__all"
+          onClick={() => go('career')}
+          aria-label={t('shell.menu.notices.allAria')}
+        >
+          {t('shell.menu.notices.all')}
+        </button>
+      </div>
+      <ul className="vk-notes__list" data-fit-rows>
+        {notices.slice(0, max).map((n, i) => (
+          <li key={i} className="vk-note">
+            <p className="vk-note__head">
+              <span className={`vk-note__dot${n.day === null ? ' is-state' : ''}`} aria-hidden="true" />
+              <span className="vk-note__kind">{t(`shell.menu.note.${n.kind}`)}</span>
+              {n.day !== null && <span className="vk-meta">{t('shell.menu.note.day', { day: n.day })}</span>}
+            </p>
+            <p className="vk-note__text">
+              <MonoNumbers text={textOf(n)} />
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// ── Map key and keyboard ─────────────────────────────────────────────────────
+
+function Legend({ input, compact, scale }: { input: DutyInput; compact: boolean; scale: number }) {
+  const t = useT();
+  const items: ReactNode[] = [];
+  if (input.mine.length)
+    items.push(
+      <li key="mine">
+        <span className="vk-legend__mine" aria-hidden="true" />
+        {t('shell.menu.legend.mine')}
+      </li>,
+    );
+  if (input.whole.length)
+    items.push(
+      <li key="whole">
+        <span className="vk-legend__whole" aria-hidden="true" />
+        {t('shell.menu.legend.whole')}
+      </li>,
+    );
+  if (input.offered.length)
+    items.push(
+      <li key="offer">
+        <span className="vk-legend__offer" aria-hidden="true" />
+        {t('shell.menu.legend.offer')}
+      </li>,
+    );
+  if (input.challenge)
+    items.push(
+      <li key="challenge">
+        <svg className="vk-mark" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+          <circle cx="7" cy="7" r="5.2" />
+          <circle cx="7" cy="7" r="2" />
+        </svg>
+        {t('shell.menu.legend.challenge')}
+      </li>,
+    );
+  if (!compact) {
+    items.push(
+      <li key="pref">
+        <svg width="22" height="6" viewBox="0 0 22 6" aria-hidden="true">
+          <path className="vk-legend__pref" d="M0 3H22" />
+        </svg>
+        {t('shell.menu.legend.pref')}
+      </li>,
+    );
+    if (input.home)
+      items.push(
+        <li key="sector">
+          <svg width="22" height="6" viewBox="0 0 22 6" aria-hidden="true">
+            <path className="vk-legend__sector" d="M1 3H21" />
+          </svg>
+          {t('shell.menu.legend.sector')}
+        </li>,
+      );
+    // 50 km at the map's scale (1.82 px per km at 1:1).
+    const half = 25 * 1.82 * scale;
+    items.push(
+      <li key="scale" className="vk-legend__scale">
+        <svg
+          width={Math.round(half * 2 + 22)}
+          height="22"
+          viewBox={`0 0 ${half * 2 + 22} 22`}
+          role="img"
+          aria-label={t('shell.menu.legend.scale', { km: 50 })}
+        >
+          <rect x="1" y="14" width={half} height="4" className="vk-legend__bar" />
+          <rect x={1 + half} y="14.5" width={half} height="3" className="vk-legend__bar is-open" />
+          <text x="1" y="10">
+            0
+          </text>
+          <text x={1 + half} y="10" textAnchor="middle">
+            25
+          </text>
+          <text x={1 + half * 2} y="10" textAnchor="middle">
+            50 km
+          </text>
+        </svg>
+      </li>,
+    );
+  }
+  if (!items.length) return null;
+  return (
+    <ul className={`vk-legend${compact ? ' is-compact' : ' vk-panel'}`} aria-label={t('shell.menu.legend')}>
+      {items}
+    </ul>
+  );
+}
+
+function MenuKeys() {
+  const t = useT();
+  return (
+    <ul className="vk-foot__keys" aria-label={t('shell.menu.keys')}>
+      <li>
+        <kbd className="vk-kbd">↑</kbd>
+        <kbd className="vk-kbd">↓</kbd> {t('shell.menu.keys.move')}
+      </li>
+      <li>
+        <kbd className="vk-kbd">⏎</kbd> {t('shell.menu.keys.open')}
+      </li>
+      <li>
+        <kbd className="vk-kbd">1</kbd>-<kbd className="vk-kbd">7</kbd> {t('shell.menu.keys.direct')}
+      </li>
+    </ul>
   );
 }

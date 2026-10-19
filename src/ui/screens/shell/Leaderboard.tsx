@@ -1,16 +1,17 @@
-// Menu card: top 10 of the leaderboard (best shift per player), filterable by prefecture.
+// Menu panel: top 10 of the leaderboard (best shift per player), filterable by prefecture, the player's own row
+// highlighted.
 import { useEffect, useState } from 'react';
 import type { RegionId } from '@/sim/types';
 import { fetchScores, type ScoreRow } from '@/net/scores';
 import { useT } from '@/i18n';
-import { Button, Icon, Segmented, Spinner } from '@/ui/components';
-import { gradeTone } from './helpers';
+import { Spinner } from '@/ui/components';
 
 type Filter = 'all' | RegionId;
 const FILTERS: Filter[] = ['all', 'pohja', 'ida', 'louna', 'laane'];
 const REGION_IDS = ['pohja', 'ida', 'louna', 'laane'];
+const GRADES = ['S', 'A', 'B', 'C', 'D', 'F'];
 
-export function Leaderboard({ me }: { me?: string | null }) {
+export function Leaderboard({ me, className }: { me?: string | null; className?: string }) {
   const t = useT();
   const [filter, setFilter] = useState<Filter>('all');
   const [rows, setRows] = useState<ScoreRow[] | null>(null);
@@ -30,64 +31,88 @@ export function Leaderboard({ me }: { me?: string | null }) {
   }, [filter, reload]);
 
   const regionName = (id: string) => (REGION_IDS.includes(id) ? t(`account.lb.region.${id}`) : id);
-  const diffName = (d: string) => (d ? t(`shell.diff.${d}`) : '');
   const meKey = me?.trim().toLocaleLowerCase('et');
+  const filterName = filter === 'all' ? t('account.lb.all') : regionName(filter);
 
   return (
-    <section className="sh-card sh-lb" aria-labelledby="sh-lb-title">
-      <h2 className="sh-lb__title" id="sh-lb-title">
-        <Icon name="trophy" size={16} /> {t('account.lb.title')}
-        <span className="sh-lb__top mono">{t('account.lb.top')}</span>
-      </h2>
-      <Segmented<Filter>
-        size="sm"
-        className="sh-lb__filter"
-        label={t('account.lb.filter')}
-        value={filter}
-        onChange={setFilter}
-        options={FILTERS.map((f) => ({ value: f, label: f === 'all' ? t('account.lb.all') : regionName(f) }))}
-      />
-      {error ? (
-        <div className="sh-lb__state">
-          <span>{t('account.lb.error')}</span>
-          <Button size="sm" variant="ghost" icon="refresh" onClick={() => setReload((n) => n + 1)}>
-            {t('account.lb.retry')}
-          </Button>
-        </div>
-      ) : rows === null ? (
-        <div className="sh-lb__state" role="status">
-          <Spinner size={14} /> {t('account.lb.loading')}
-        </div>
-      ) : rows.length === 0 ? (
-        <p className="sh-lb__state">{t('account.lb.empty')}</p>
-      ) : (
-        <ol className="sh-lb__list">
-          {rows.map((r, i) => {
-            const mine = !!meKey && r.name.toLocaleLowerCase('et') === meKey;
-            const tone = gradeTone((r.grade || 'F') as 'S' | 'A' | 'B' | 'C' | 'D' | 'F');
-            return (
-              <li key={`${r.name}-${i}`} className={`sh-lb__row${mine ? ' is-me' : ''}${i < 3 ? ` is-top${i + 1}` : ''}`}>
-                <span className="sh-lb__rank mono">{i + 1}</span>
-                <span className="sh-lb__who">
-                  <span className="sh-lb__name">
-                    {r.name}
-                    {mine && <span className="sh-lb__you">{t('account.lb.you')}</span>}
-                  </span>
-                  <span className="sh-lb__meta">
-                    {[regionName(String(r.regionId)), diffName(String(r.difficulty))].filter(Boolean).join(' · ')}
-                  </span>
-                </span>
-                <span className={`sh-lb__grade sh-lb__grade--${tone}`} title={r.grade}>
-                  {r.grade}
-                </span>
-                <span className="sh-lb__score mono" title={t('account.lb.score', { score: Math.round(r.score) })}>
-                  {Math.round(r.score)}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-      )}
+    <section className={`vk-panel vk-lb${className ? ' ' + className : ''}`} aria-labelledby="vk-lb-title">
+      <div className="vk-panel__head">
+        <h2 className="vk-h" id="vk-lb-title">
+          {t('account.lb.title')}
+        </h2>
+        <span className="vk-lb__what">{t('account.lb.best')}</span>
+      </div>
+      <div className="vk-lb__tabs" role="group" aria-label={t('account.lb.filter')}>
+        {FILTERS.map((f) => (
+          <button
+            key={f}
+            type="button"
+            className="vk-lb__tab"
+            aria-pressed={filter === f}
+            onClick={() => setFilter(f)}
+          >
+            {f === 'all' ? t('account.lb.all') : regionName(f)}
+          </button>
+        ))}
+      </div>
+      <div className="vk-lb__body" data-fit-rows>
+        {error ? (
+          <div className="vk-lb__state">
+            <span>{t('account.lb.error')}</span>
+            <button type="button" className="vk-btn vk-btn--ghost" onClick={() => setReload((n) => n + 1)}>
+              {t('account.lb.retry')}
+            </button>
+          </div>
+        ) : rows === null ? (
+          <div className="vk-lb__state" role="status">
+            <Spinner size={14} /> {t('account.lb.loading')}
+          </div>
+        ) : rows.length === 0 ? (
+          <p className="vk-lb__state">{t('account.lb.empty')}</p>
+        ) : (
+          <table className="vk-lb__table">
+            <caption className="vk-sr">{t('account.lb.caption', { filter: filterName })}</caption>
+            <thead className="vk-sr">
+              <tr>
+                <th scope="col">{t('account.lb.col.rank')}</th>
+                <th scope="col">{t('account.lb.col.name')}</th>
+                <th scope="col">{t('account.lb.col.region')}</th>
+                <th scope="col">{t('account.lb.col.grade')}</th>
+                <th scope="col">{t('account.lb.col.score')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => {
+                const mine = !!meKey && r.name.toLocaleLowerCase('et') === meKey;
+                const grade = GRADES.includes(r.grade) ? r.grade : 'F';
+                return (
+                  <tr
+                    key={`${r.name}-${i}`}
+                    className={`vk-lb__row${mine ? ' is-me' : ''}`}
+                    aria-current={mine ? 'true' : undefined}
+                  >
+                    <td className="vk-lb__rank vk-mono">{i + 1}</td>
+                    <td className="vk-lb__name">
+                      {r.name}
+                      {mine && <span className="vk-lb__you"> ({t('account.lb.you')})</span>}
+                    </td>
+                    <td className="vk-lb__region">{regionName(String(r.regionId))}</td>
+                    <td className="vk-lb__grade">
+                      <span className={`vk-grade vk-grade--${grade}`}>{r.grade || '-'}</span>
+                    </td>
+                    <td
+                      className="vk-lb__score vk-mono"
+                      title={t('account.lb.score', { score: Math.round(r.score) })}
+                    >
+                      {Math.round(r.score)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
     </section>
   );
 }

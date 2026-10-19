@@ -113,16 +113,18 @@ export default {
   },
 
   // ── Guest hint (menu) ──
-  'account.guest.title': { et: 'Mängi igas seadmes', en: 'Play on every device' },
-  'account.guest.text': {
-    et: 'Konto hoiab sinu karjääri ja salvestused alles igas seadmes ning viib tulemused edetabelisse.',
-    en: 'An account keeps your career and saves on every device and puts your results on the leaderboard.',
-  },
-  'account.guest.cta': { et: 'Loo konto', en: 'Create account' },
-
   // ── Leaderboard ──
   'account.lb.title': { et: 'Edetabel', en: 'Leaderboard' },
-  'account.lb.top': { et: 'TOP 10', en: 'TOP 10' },
+  'account.lb.best': { et: 'parim vahetus', en: 'best shift' },
+  'account.lb.caption': {
+    et: 'Edetabel, {filter}: iga mängija parim vahetus',
+    en: "Leaderboard, {filter}: each player's best shift",
+  },
+  'account.lb.col.rank': { et: 'Koht', en: 'Place' },
+  'account.lb.col.name': { et: 'Mängija', en: 'Player' },
+  'account.lb.col.region': { et: 'Prefektuur', en: 'Prefecture' },
+  'account.lb.col.grade': { et: 'Hinne', en: 'Grade' },
+  'account.lb.col.score': { et: 'Punktid', en: 'Score' },
   'account.lb.filter': { et: 'Prefektuur', en: 'Prefecture' },
   'account.lb.all': { et: 'Kõik', en: 'All' },
   'account.lb.region.pohja': { et: 'Põhja', en: 'North' },

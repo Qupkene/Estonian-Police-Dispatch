@@ -343,6 +343,33 @@ export function makeProjection(bounds: [LngLat, LngLat], width: number, pad = 8)
   };
 }
 
+// L-EST97 (EPSG:3301): the Lambert conformal conic of the Estonian base map. GRS80, standard parallels 58° and
+// 59°20′, origin 57.5176° N 24° E, false easting 500 km, false northing 6375 km.
+const LEST_A = 6378137;
+const LEST_F = 1 / 298.257222101;
+const LEST_E = Math.sqrt(2 * LEST_F - LEST_F * LEST_F);
+const RAD = Math.PI / 180;
+const lestM = (p: number) => Math.cos(p) / Math.sqrt(1 - LEST_E * LEST_E * Math.sin(p) ** 2);
+const lestT = (p: number) =>
+  Math.tan(Math.PI / 4 - p / 2) / ((1 - LEST_E * Math.sin(p)) / (1 + LEST_E * Math.sin(p))) ** (LEST_E / 2);
+const LEST_P1 = (59 + 1 / 3) * RAD;
+const LEST_P2 = 58 * RAD;
+const LEST_N = (Math.log(lestM(LEST_P1)) - Math.log(lestM(LEST_P2))) / (Math.log(lestT(LEST_P1)) - Math.log(lestT(LEST_P2)));
+const LEST_FF = lestM(LEST_P1) / (LEST_N * lestT(LEST_P1) ** LEST_N);
+const LEST_RHO0 = LEST_A * LEST_FF * lestT(57.51755393055556 * RAD) ** LEST_N;
+
+/**
+ * L-EST97 in kilometres, shifted so Estonia sits near the origin: x = easting − 360 km (east), y = 6650 km −
+ * northing (south, as on screen). The duty map (dutyMap.ts) draws in these units times its scale.
+ */
+export function lest97([lon, lat]: LngLat): [number, number] {
+  const rho = LEST_A * LEST_FF * lestT(lat * RAD) ** LEST_N;
+  const th = LEST_N * (lon * RAD - 24 * RAD);
+  const e = 500_000 + rho * Math.sin(th);
+  const n = 6_375_000 + LEST_RHO0 - rho * Math.cos(th);
+  return [(e - 360_000) / 1000, (6_650_000 - n) / 1000];
+}
+
 /** Drop vertices closer than `minDist` (in projected units) to the previously kept one. */
 export function simplifyRing(pts: [number, number][], minDist: number): [number, number][] {
   if (pts.length <= 4) return pts;
