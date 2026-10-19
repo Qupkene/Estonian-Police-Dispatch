@@ -1,0 +1,17 @@
+#!/bin/sh
+# Every update that reaches the game bumps the version (CLAUDE.md, "Versioon"). Enabled with
+# `git config core.hooksPath .githooks`, which the SessionStart hook in .claude/settings.json runs.
+# stdin: <local ref> <local sha> <remote ref> <remote sha>, one line per pushed ref.
+zero=0000000000000000000000000000000000000000
+root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+[ -f "$root/scripts/check-version.mjs" ] || exit 0
+command -v node >/dev/null 2>&1 || exit 0
+git fetch -q origin main 2>/dev/null
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue
+  case "$remote_ref" in refs/tags/*) continue ;; esac
+  node "$root/scripts/check-version.mjs" --base origin/main --head "$local_sha"
+  # 1: the rule is broken, stop the push. 2: git could not compare (no origin/main yet), let CI decide.
+  [ $? -eq 1 ] && exit 1
+done
+exit 0

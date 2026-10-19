@@ -1,4 +1,5 @@
 // Pure helpers for the shell screens (no DOM / React), unit-tested in tests/shell.test.ts.
+import { version } from '../../../../package.json';
 import countiesGeo from '@/data/geo/counties.json';
 import { REGIONS, REGION_IDS } from '@/data/regions';
 import { makeIdcode } from '@/gen/isikukood';
@@ -7,7 +8,8 @@ import { tallinnTime, wall } from '@/sim/time';
 import { rosterSpecsFor } from '@/sim/units';
 import type { CareerProfile, Difficulty, Gender, LngLat, Priority, RegionDef, RegionId, ShiftReport, Text } from '@/sim/types';
 
-export const VERSION = '2.0.0';
+/** The game's version. package.json is its only source (CLAUDE.md, "Versioon"). */
+export const VERSION: string = version;
 
 // ── Names, codes, phone numbers (login simulation) ──────────────────────────
 
