@@ -12,6 +12,7 @@ require_once dirname(__DIR__) . '/lib/db.php';
 require_once dirname(__DIR__) . '/lib/auth.php';
 require_once dirname(__DIR__) . '/lib/saves.php';
 require_once dirname(__DIR__) . '/lib/scores.php';
+require_once dirname(__DIR__) . '/lib/daily.php';
 require_once dirname(__DIR__) . '/lib/hook.php';
 require_once dirname(__DIR__) . '/lib/tts.php';
 
@@ -34,6 +35,8 @@ function epd_routes(): array
         ['DELETE', '#^/api/save/([A-Za-z0-9_-]{1,32})$#', epd_route_save_delete(...)],
         ['POST', '#^/api/score$#', epd_route_score_post(...)],
         ['GET', '#^/api/scores$#', epd_route_scores_get(...)],
+        ['POST', '#^/api/daily$#', epd_route_daily_post(...)],
+        ['GET', '#^/api/daily$#', epd_route_daily_get(...)],
         ['POST', '#^/api/deploy-hook$#', epd_route_deploy_hook(...)],
         ['POST', '#^/api/tts$#', epd_route_tts(...)],
     ];

@@ -1,0 +1,206 @@
+/* Päeva väljakutse: the menu tile and the daily board (src/ui/screens/shell/Daily.tsx) */
+.sh-daily {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 620px;
+  margin-bottom: 12px;
+  padding: 12px 16px 12px;
+  border-color: color-mix(in srgb, var(--gold) 42%, var(--line));
+  background: linear-gradient(
+    115deg,
+    color-mix(in srgb, var(--gold) 11%, var(--bg-2)),
+    color-mix(in srgb, var(--bg-1) 88%, transparent) 62%
+  );
+  backdrop-filter: blur(6px);
+  animation: sh-menu-in var(--dur-3) var(--ease) both;
+}
+.sh-daily__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.sh-daily__badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 16%, var(--bg-3));
+}
+.sh-daily__title {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.sh-daily__day {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.sh-daily__next {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.sh-daily__area {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+.sh-daily__sector {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.sh-daily__region {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.sh-daily__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sh-daily__facts li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-3) 60%, transparent);
+  font-size: var(--fs-sm);
+  color: var(--text-1);
+}
+.sh-daily__facts .ui-icon {
+  color: var(--accent-2);
+}
+.sh-daily__facts li.is-harsh {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--line));
+}
+.sh-daily__facts li.is-harsh .ui-icon {
+  color: var(--warn);
+}
+.sh-daily__harsh {
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: uppercase;
+  color: var(--bg-0);
+  background: var(--warn);
+}
+.sh-daily__foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+}
+.sh-daily__status {
+  flex: 1 1 260px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.sh-daily__status.is-mine {
+  color: var(--text-0);
+}
+.sh-daily__status .ui-icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--gold);
+}
+.sh-daily__practice {
+  color: var(--text-3);
+}
+.sh-daily__actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+.sh-daily .sh-error {
+  margin: 0;
+}
+
+/* Daily board (dialog) */
+.sh-dboard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sh-dboard__tabs {
+  align-self: stretch;
+  display: flex;
+}
+.sh-dboard__tabs .ui-seg__opt {
+  flex: 1;
+}
+.sh-dboard__about {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--bg-3) 55%, transparent);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.sh-dboard__about strong {
+  padding-right: 90px;
+  font-size: var(--fs-md);
+  color: var(--text-0);
+}
+.sh-dboard__players {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.sh-dboard__list {
+  max-height: min(52vh, 460px);
+  overflow-y: auto;
+}
+.sh-dboard__gap {
+  line-height: 1;
+  text-align: center;
+  color: var(--text-3);
+}
+.sh-dboard__guest {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+@media (max-width: 600px) {
+  .sh-daily__next {
+    margin-left: 0;
+    width: 100%;
+  }
+  .sh-daily__actions {
+    width: 100%;
+  }
+  .sh-daily__actions .ui-btn {
+    flex: 1;
+  }
+}

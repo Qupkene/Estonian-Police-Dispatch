@@ -9,6 +9,7 @@ import { ddmmyyyy, hhmm } from '@/sim/time';
 import { Badge, Button, Emblem, Icon, IconButton, type IconName } from '@/ui/components';
 import { AccountChip } from './shell/AccountChip';
 import { Leaderboard } from './shell/Leaderboard';
+import { DailyTile } from './shell/Daily';
 import { Backdrop } from './shell/Backdrop';
 import { Disclaimer, LangToggle } from './shell/ShellPage';
 import { formatMoney, regionSummary, VERSION } from './shell/helpers';
@@ -221,6 +222,7 @@ export function MenuScreen() {
             <div className="sh-menu__name">{t('shell.menu.name')}</div>
             <div className="sh-menu__sub">{t('shell.menu.sub')}</div>
           </div>
+          <DailyTile saved={saved} />
           <nav className="sh-menu__list" ref={listRef} aria-label={t('shell.menu.aria')}>
             {items.map((it, i) => (
               <button

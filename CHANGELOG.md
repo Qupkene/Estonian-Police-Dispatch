@@ -2,6 +2,18 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.10.0 (2026-10-19)
+
+- **Päeva väljakutse:** iga päev üks vahetus, mis on kõigile sama: sama sektor, kellaaeg, ilm ja samad kõned samal ajal, mida iganes sa teed. Kolm mängutundi, tavaline raskus. Uus väljakutse tuleb Eesti aja järgi keskööl ja sektorid vahelduvad.
+- **Päeva edetabel:** arvesse läheb päeva esimene tulemus (kontoga mängides), edasi saab harjutada. Peamenüüs on väljakutse kaart, mängijate arv ja sinu koht.
+
+<details>
+<summary>English</summary>
+
+Daily challenge: one shift a day that is the same for everyone (sector, time, weather and the same calls at the same times), 3 game hours on normal. The first run of the day counts on the day's own leaderboard (signed in); replays are practice. A tile on the main menu shows the challenge, the number of players and your place.
+
+</details>
+
 ## 2.9.0 (2026-10-19)
 
 - **Karjäär algab ühest sektorist:** uus karjäär algab juhtimiskeskuses ühe sektori laua tagant ja sektori valid ise (kaheksa algsektorit üle Eesti). Kõned tulevad sinu sektorist ja selle piirilt, ekipaažid on sinu sektori jaoskondades.

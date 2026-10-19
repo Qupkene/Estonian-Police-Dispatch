@@ -255,7 +255,7 @@ function epd_delete_user(PDO $db, int $userId): void
 {
     epd_transaction($db, static function (PDO $db) use ($userId): void {
         // Explicit deletes as well as ON DELETE CASCADE, so nothing is left even without foreign keys.
-        foreach (['DELETE FROM saves WHERE user_id = ?', 'DELETE FROM scores WHERE user_id = ?', 'DELETE FROM users WHERE id = ?'] as $sql) {
+        foreach (['DELETE FROM saves WHERE user_id = ?', 'DELETE FROM scores WHERE user_id = ?', 'DELETE FROM daily_scores WHERE user_id = ?', 'DELETE FROM users WHERE id = ?'] as $sql) {
             $db->prepare($sql)->execute([$userId]);
         }
     });

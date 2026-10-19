@@ -133,6 +133,23 @@ function epd_migrations(): array
             'CREATE INDEX rate_events_ip ON rate_events (bucket, ip, at)',
             'CREATE INDEX rate_events_at ON rate_events (at)',
         ],
+        // Päeva väljakutse (server/lib/daily.php): one counted run per player and day.
+        3 => [
+            'CREATE TABLE daily_scores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                day TEXT NOT NULL,
+                region_id TEXT NOT NULL,
+                sector TEXT NOT NULL DEFAULT \'\',
+                score INTEGER NOT NULL,
+                grade TEXT NOT NULL,
+                incidents INTEGER NOT NULL,
+                arrests INTEGER NOT NULL DEFAULT 0,
+                at INTEGER NOT NULL,
+                UNIQUE (user_id, day)
+            )',
+            'CREATE INDEX daily_scores_day ON daily_scores (day, score)',
+        ],
     ];
 }
 

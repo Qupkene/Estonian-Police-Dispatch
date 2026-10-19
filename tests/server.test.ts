@@ -254,7 +254,8 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
     writeFileSync(join(dataDir, 'not-a-dir'), 'x');
     [main, untrusted, broken] = await Promise.all([
       // The test runner plays the relay: X-Forwarded-For from 127.0.0.1 is trusted.
-      startPhp({ EPD_DATA: dataDir, EPD_TRUSTED_PROXY: '127.0.0.1', EPD_FAST_HASH: '1' }),
+      // EPD_TEST_CLOCK: X-EPD-Test-Now sets the clock of the daily challenge's day rules.
+      startPhp({ EPD_DATA: dataDir, EPD_TRUSTED_PROXY: '127.0.0.1', EPD_FAST_HASH: '1', EPD_TEST_CLOCK: '1' }),
       // Same data, but the relay is somebody else: X-Forwarded-For must be ignored.
       startPhp({ EPD_DATA: dataDir, EPD_TRUSTED_PROXY: '10.99.0.1', EPD_FAST_HASH: '1' }),
       // Data directory cannot be created: every request fails with a clean 500.
@@ -754,6 +755,205 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
     });
   });
 
+  describe('daily challenge', () => {
+    const DAY = '2026-10-19';
+    /** Noon of DAY in Tallinn (EEST, UTC+3), and the midnight that ends it. */
+    const NOON = Date.UTC(2026, 9, 19, 9, 0);
+    const MIDNIGHT = Date.UTC(2026, 9, 19, 21, 0);
+    const RUN = {
+      day: DAY,
+      regionId: 'louna',
+      sector: 'louna-tartu',
+      score: 70,
+      grade: 'B',
+      incidents: 12,
+      arrests: 2,
+    };
+    const at = (ms: number) => ({ headers: { 'X-EPD-Test-Now': String(ms) } });
+    let carol: Client;
+
+    it('needs a login', async () => {
+      const r = await client().post('/api/daily', RUN, at(NOON));
+      expect(r.status).toBe(401);
+      expect(r.json.error).toBe('auth_required');
+      expect((await alice.post('/api/daily', RUN, { ...at(NOON), csrf: false })).status).toBe(403);
+    });
+
+    it('validates the fields like scores', async () => {
+      const cases: [Record<string, unknown>, string][] = [
+        [{ score: 101 }, 'score'],
+        [{ score: '70' }, 'score'],
+        [{ grade: 'E' }, 'grade'],
+        [{ regionId: 'tartu' }, 'regionId'],
+        [{ arrests: -1 }, 'arrests'],
+        [{ day: '2026-02-30' }, 'day'],
+        [{ day: '19.10.2026' }, 'day'],
+        [{ day: undefined }, 'day'],
+        [{ sector: 'Tartu linn' }, 'sector'],
+        [{ sector: 7 }, 'sector'],
+        [{ started: 'eile' }, 'started'],
+        [{ started: NOON + 3_600_000 }, 'started'],
+      ];
+      for (const [patch, field] of cases) {
+        const r = await alice.post('/api/daily', { ...RUN, ...patch }, at(NOON));
+        expect(r.status, field).toBe(400);
+        expect(r.json, field).toMatchObject({ error: 'invalid_score', field });
+      }
+      const empty = await alice.post('/api/daily', { ...RUN, incidents: 0 }, at(NOON));
+      expect(empty.status).toBe(400);
+      expect(empty.json).toMatchObject({ error: 'empty_shift', field: 'incidents' });
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM daily_scores`))).toEqual([[0]]);
+    });
+
+    it('counts the first run of the day; a replay is practice and changes nothing', async () => {
+      const scoresBefore = (await client().get('/api/scores?limit=50')).json.scores;
+      expect((await alice.post('/api/daily', RUN, at(NOON))).json).toEqual({
+        ok: true,
+        counted: true,
+        rank: 1,
+        players: 1,
+      });
+      expect(
+        (await alice.post('/api/daily', { ...RUN, score: 99, grade: 'S' }, at(NOON + 60_000))).json,
+      ).toEqual({
+        ok: true,
+        counted: false,
+        rank: 1,
+        players: 1,
+      });
+      expect(
+        (await bob.post('/api/daily', { ...RUN, score: 80, grade: 'A' }, at(NOON + 120_000))).json,
+      ).toEqual({
+        ok: true,
+        counted: true,
+        rank: 1,
+        players: 2,
+      });
+      // Alice's counted 70 is now behind Bob's 80; her replay still does not count.
+      expect(
+        (await alice.post('/api/daily', { ...RUN, score: 100, grade: 'S' }, at(NOON + 180_000))).json,
+      ).toEqual({
+        ok: true,
+        counted: false,
+        rank: 2,
+        players: 2,
+      });
+      // Equal scores share a place.
+      carol = client();
+      expect((await register(carol, 'Carol')).status).toBe(200);
+      expect(
+        (await carol.post('/api/daily', { ...RUN, score: 80, grade: 'A', sector: '' }, at(NOON + 240_000)))
+          .json,
+      ).toEqual({
+        ok: true,
+        counted: true,
+        rank: 1,
+        players: 3,
+      });
+      expect(
+        JSON.parse(
+          sql(
+            `SELECT score, grade FROM daily_scores d JOIN users u ON u.id = d.user_id WHERE u.name = 'Alice'`,
+          ),
+        ),
+      ).toEqual([[70, 'B']]);
+      // Daily runs stay off the normal leaderboard.
+      expect((await client().get('/api/scores?limit=50')).json.scores).toEqual(scoresBefore);
+    });
+
+    it('takes only today, or yesterday shortly after midnight for a run started before it', async () => {
+      const dora = client();
+      expect((await register(dora, 'Dora')).status).toBe(200);
+      const closed = async (body: Record<string, unknown>, now: number) => {
+        const r = await dora.post('/api/daily', { ...RUN, ...body }, at(now));
+        expect(r.status, JSON.stringify(body)).toBe(400);
+        expect(r.json).toMatchObject({ error: 'day_closed', field: 'day' });
+      };
+      await closed({ day: '2026-10-18' }, NOON);
+      await closed({ day: '2026-10-20' }, NOON);
+      await closed({ day: '2026-10-18', started: NOON - 86_400_000 }, NOON);
+      const after = MIDNIGHT + 90 * 60_000; // 01:30 on the 20th
+      // Yesterday's run without a start time, or started after midnight: closed.
+      await closed({}, after);
+      await closed({ started: MIDNIGHT + 60_000 }, after);
+      // Started before the day began: not that day's run.
+      await closed({ started: MIDNIGHT - 25 * 3_600_000 }, after);
+      // Started at 23:40 and sent too late (04:30): closed.
+      await closed({ started: MIDNIGHT - 20 * 60_000 }, MIDNIGHT + 270 * 60_000);
+      // Started at 23:40 and sent at 01:30: counts for the 19th.
+      const ok = await dora.post(
+        '/api/daily',
+        { ...RUN, score: 50, grade: 'D', started: MIDNIGHT - 20 * 60_000 },
+        at(after),
+      );
+      expect(ok.json).toEqual({ ok: true, counted: true, rank: 4, players: 4 });
+      // And at 01:30 the 20th is today.
+      const today = await dora.post(
+        '/api/daily',
+        { ...RUN, day: '2026-10-20', score: 60, grade: 'C' },
+        at(after),
+      );
+      expect(today.json).toEqual({ ok: true, counted: true, rank: 1, players: 1 });
+    });
+
+    it('lists the day: top runs, the number of players and the caller', async () => {
+      const r = await client().get(`/api/daily?day=${DAY}`);
+      expect(r.status).toBe(200);
+      expect(r.headers.get('cache-control')).toBe('no-store');
+      expect(r.json).toEqual({
+        day: DAY,
+        players: 4,
+        scores: [
+          { name: 'Bob', score: 80, grade: 'A', incidents: 12, at: NOON + 120_000, rank: 1 },
+          { name: 'Carol', score: 80, grade: 'A', incidents: 12, at: NOON + 240_000, rank: 1 },
+          { name: 'Alice', score: 70, grade: 'B', incidents: 12, at: NOON, rank: 3 },
+          { name: 'Dora', score: 50, grade: 'D', incidents: 12, at: MIDNIGHT + 90 * 60_000, rank: 4 },
+        ],
+        me: null,
+      });
+      expect((await alice.get(`/api/daily?day=${DAY}`)).json.me).toEqual({
+        name: 'Alice',
+        score: 70,
+        grade: 'B',
+        incidents: 12,
+        at: NOON,
+        rank: 3,
+      });
+      const empty = await alice.get('/api/daily?day=2026-10-01');
+      expect(empty.json).toEqual({ day: '2026-10-01', players: 0, scores: [], me: null });
+      // Without a day: today in Tallinn.
+      const today = await client().get('/api/daily', at(MIDNIGHT + 60_000));
+      expect(today.json.day).toBe('2026-10-20');
+      expect(today.json.scores.map((s: Json) => s.name)).toEqual(['Dora']);
+      for (const bad of ['2026-02-30', 'today', '2026-1-5']) {
+        const b = await client().get(`/api/daily?day=${bad}`);
+        expect(b.status, bad).toBe(400);
+        expect(b.json.error).toBe('bad_day');
+      }
+      expect((await client().req('DELETE', '/api/daily')).status).toBe(405);
+    });
+
+    it('shows at most 50 runs, and the caller also when further down', async () => {
+      const day = '2026-10-21';
+      const noon = NOON + 2 * 86_400_000;
+      const players: Client[] = [];
+      for (let i = 0; i < 51; i++) {
+        const c = client(`198.51.100.${i + 1}`);
+        expect((await register(c, `Daily${i}`)).status).toBe(200);
+        expect(
+          (await c.post('/api/daily', { ...RUN, day, score: 100 - i, grade: 'A' }, at(noon + i))).json
+            .counted,
+        ).toBe(true);
+        players.push(c);
+      }
+      const r = await players[50].get(`/api/daily?day=${day}`);
+      expect(r.json.players).toBe(51);
+      expect(r.json.scores).toHaveLength(50);
+      expect(r.json.scores[49]).toMatchObject({ name: 'Daily49', rank: 50 });
+      expect(r.json.me).toMatchObject({ name: 'Daily50', score: 50, rank: 51 });
+    });
+  });
+
   describe('rate limiting', () => {
     it('blocks the 11th failed login for the same IP and name', async () => {
       expect((await register(client(), 'Ratty', 'right-password')).status).toBe(200);
@@ -825,13 +1025,15 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
 
     it('deletes the user with all saves and scores and ends the session', async () => {
       expect(JSON.parse(sql(`SELECT COUNT(*) FROM scores WHERE user_id = ${bobId}`))).toEqual([[3]]);
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM daily_scores WHERE user_id = ${bobId}`))).toEqual([[1]]);
       const r = await bob.del('/api/me', { password: 'salajane-123' });
       expect(r.status).toBe(200);
       expect(r.json).toEqual({ ok: true });
       expect(bob.session).toBeUndefined();
       expect((await bob.get('/api/me')).json.user).toBeNull();
       expect((await login(client(), 'Bob')).status).toBe(401);
-      for (const table of ['users WHERE id', 'saves WHERE user_id', 'scores WHERE user_id']) {
+      const tables = ['users WHERE id', 'saves WHERE user_id', 'scores WHERE user_id', 'daily_scores WHERE user_id'];
+      for (const table of tables) {
         expect(JSON.parse(sql(`SELECT COUNT(*) FROM ${table} = ${bobId}`)), table).toEqual([[0]]);
       }
       const board = await client().get('/api/scores?region=pohja');
