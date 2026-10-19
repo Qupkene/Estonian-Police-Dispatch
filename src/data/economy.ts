@@ -24,13 +24,13 @@ const T = (et: string, en: string) => ({ et, en });
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const RANKS: Rank[] = [
-  { name: T('Nooremkonstaabel', 'Junior Constable'), xp: 0, unlocks: [T('Koduprefektuur, patrull- ja kriminaalekipaažid', 'Home prefecture, patrol and CID crews')] },
-  { name: T('Konstaabel', 'Constable'), xp: 400, unlocks: [T('Elektrišokirelvad, MDT, naelamatid, tõlkeliin', 'Tasers, MDT, spike strips, interpreter line'), T('Mootorrattad ja elektripatrull', 'Motorcycles and electric patrol cars')] },
-  { name: T('Vanemkonstaabel', 'Senior Constable'), xp: 1100, unlocks: [T('Teine prefektuur', 'A second prefecture'), T('ANPR, droonid, politseipsühholoog', 'ANPR, drones, police psychologist'), T('Kiirreageerijate maastur, K9-auto', 'Rapid-response SUV, K9 car')] },
-  { name: T('Ülemkonstaabel', 'Chief Constable'), xp: 2200, unlocks: [T('Koerte kennel, läbirääkijad', 'K9 kennel, negotiators'), T('Liiklusjärelevalve BMW', 'BMW traffic car')] },
-  { name: T('Komissar', 'Commissioner'), xp: 3800, unlocks: [T('Kolmas prefektuur', 'A third prefecture'), T('Lisapolitseipunkt, märulibuss', 'Extra police post, riot van')] },
-  { name: T('Vanemkomissar', 'Senior Commissioner'), xp: 6000, unlocks: [T('Lennusalga helikopteritunnid', 'Air unit helicopter hours'), T('Patrullkaater', 'Patrol boat')] },
-  { name: T('Politseileitnant', 'Police Lieutenant'), xp: 9000, unlocks: [T('Kõik prefektuurid', 'All prefectures'), T('K-komando valmidus, soomusbuss', 'K-komando on call, armoured van')] },
+  { name: T('Nooremkonstaabel', 'Junior Constable'), xp: 0, unlocks: [T('Üks sektor koduprefektuuris, patrull- ja kriminaalekipaažid', 'One sector of the home prefecture, patrol and CID crews')] },
+  { name: T('Konstaabel', 'Constable'), xp: 400, unlocks: [T('Prefekt võib pakkuda teist sektorit', 'The prefect may offer a second sector'), T('Elektrišokirelvad, MDT, naelamatid, tõlkeliin', 'Tasers, MDT, spike strips, interpreter line'), T('Mootorrattad ja elektripatrull', 'Motorcycles and electric patrol cars')] },
+  { name: T('Vanemkonstaabel', 'Senior Constable'), xp: 1100, unlocks: [T('Teine prefektuur, prefekt võib pakkuda kolmandat sektorit', 'A second prefecture, the prefect may offer a third sector'), T('ANPR, droonid, politseipsühholoog', 'ANPR, drones, police psychologist'), T('Kiirreageerijate maastur, K9-auto', 'Rapid-response SUV, K9 car')] },
+  { name: T('Ülemkonstaabel', 'Chief Constable'), xp: 2200, unlocks: [T('Prefekt võib pakkuda neljandat sektorit', 'The prefect may offer a fourth sector'), T('Koerte kennel, läbirääkijad', 'K9 kennel, negotiators'), T('Liiklusjärelevalve BMW', 'BMW traffic car')] },
+  { name: T('Komissar', 'Commissioner'), xp: 3800, unlocks: [T('Kolmas prefektuur, prefekt võib pakkuda viiendat sektorit', 'A third prefecture, the prefect may offer a fifth sector'), T('Lisapolitseipunkt, märulibuss', 'Extra police post, riot van')] },
+  { name: T('Vanemkomissar', 'Senior Commissioner'), xp: 6000, unlocks: [T('Prefekt võib pakkuda kuuendat sektorit', 'The prefect may offer a sixth sector'), T('Lennusalga helikopteritunnid', 'Air unit helicopter hours'), T('Patrullkaater', 'Patrol boat')] },
+  { name: T('Politseileitnant', 'Police Lieutenant'), xp: 9000, unlocks: [T('Kõik prefektuurid, prefekt võib pakkuda kõiki sektoreid', 'All prefectures, the prefect may offer every sector'), T('K-komando valmidus, soomusbuss', 'K-komando on call, armoured van')] },
   { name: T('Politseikapten', 'Police Captain'), xp: 13000, unlocks: [T('Juhtimiskeskuse grupijuht', 'Command centre group leader')] },
   { name: T('Politseimajor', 'Police Major'), xp: 18000, unlocks: [T('Prefektuuri büroo juht', 'Head of a prefecture bureau')] },
   { name: T('Politseikolonelleitnant', 'Police Lieutenant Colonel'), xp: 24500, unlocks: [T('Prefekti asetäitja', 'Deputy prefect')] },
@@ -390,7 +390,8 @@ export const ACHIEVEMENTS: Achievement[] = [
  * 112-and-priorities.md §1.3), so it gets the most; Lääne the least.
  */
 export const DAILY_BUDGET: Record<RegionId, number> = { pohja: 2000, ida: 1600, louna: 1600, laane: 1400 };
-export const START_MONEY = 40000;
+/** Money a new career starts with (one sector, docs/SECTORS.md). */
+export const START_MONEY = 30000;
 export const START_REPUTATION = 25;
 /** Hiring cost = first month's salary paid up front (incl. uniform & gear), as in the 2025 version. */
 export const HIRE_COST_MONTHS = 1;
@@ -400,3 +401,33 @@ export const SEVERANCE_MONTHS = 0.5;
 export const RESALE_FACTOR = 0.6;
 /** Maximum staff size. */
 export const MAX_STAFF = 40;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sectors (docs/SECTORS.md, rules in src/sim/careerSectors.ts)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Daily budget of a career created with sectors: base + per sector it covers, counted over all its prefectures
+ * (one sector 1 150 €, five 2 750 €), never below DAILY_BUDGET in a prefecture it covers whole. A new career's
+ * force for one sector costs about 850 € a day; each further sector comes with 3-4 officers and 2 cars (about
+ * 300-350 € a day), so taking one on never costs money. A career converted from before sectors keeps exactly
+ * DAILY_BUDGET (src/sim/career.ts dailyBudget).
+ */
+export const SECTOR_BUDGET = { base: 750, perSector: 400 };
+
+/**
+ * When the prefect offers more sectors: `shifts` paid shifts since the last change of responsibility, and a
+ * Staatus and a rank that rise with the sectors covered in the prefecture (n): Staatus at least
+ * `reputation + reputationStep × (n - 1)` (30, 37, 44 ...), rank index at least n (Konstaabel for the second
+ * sector, Vanemkonstaabel for the third ...). A declined offer returns `declinePause` shifts later.
+ */
+export const SECTOR_OFFER = { shifts: 3, reputation: 30, reputationStep: 7, maxReputation: 70, declinePause: 2 };
+
+/**
+ * What comes with an accepted sector: 3-4 officers of the area (some tired, morale `lowMorale`), two used cars
+ * (condition `condition`), and a one-off handover grant from the prefecture (€).
+ */
+export const SECTOR_HANDOVER = { staff: [3, 4], lowMorale: [0.32, 0.48], condition: [0.45, 0.7], grant: 3000 } as const;
+
+/** Staatus for each call of an AI colleague the player helped with in a shift (ReportExtras.helpGiven), at most `max`. */
+export const COLLEAGUE_HELP = { reputation: 1, max: 3 };

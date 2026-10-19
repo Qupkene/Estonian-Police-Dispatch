@@ -245,3 +245,9 @@ export function parseQueryRef(text: string): { kind: 'person'; q: string } | { k
   if (plate) return { kind: 'vehicle', q: `${plate[1]} ${plate[2]}` };
   return null;
 }
+
+/** Sector id of a neighbouring desk's call for help (incident tag `help:<sectorId>`, docs/SECTORS.md). */
+export function helpSectorId(inc: Pick<Incident, 'tags'>): string | null {
+  const tag = (inc.tags ?? []).find((x) => typeof x === 'string' && x.startsWith('help:'));
+  return tag ? tag.slice(5) : null;
+}

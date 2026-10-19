@@ -5,11 +5,12 @@ import { useT, useTx } from '@/i18n';
 import { Badge, Button, Icon, type IconName } from '@/ui/components';
 import type { Recommendation } from '@/sim/selectors';
 import { MIN } from '@/sim/time';
+import { sectorById } from '@/sim/sectors';
 import type { Incident, RadioMsg, SimState, SpeakerLang, Text, UnitStatus, UnitType, Weather } from '@/sim/types';
 import { STATUS_CODE } from '@/sim/types';
 import { checkRecord, replyRadio } from './actions';
 import { answeredReply, querySubject } from './data';
-import { countdown } from './format';
+import { countdown, helpSectorId } from './format';
 
 /** Re-render on every sim tick and return the live (mutable) sim object. */
 export function useSim(): SimState | null {
@@ -62,6 +63,27 @@ export function SourceTag({ source }: { source: Incident['source'] }) {
     <span className={`gm-src gm-src--${source}`} title={t(`game.srcLong.${source}`)}>
       <Icon name={SOURCE_ICON[source] ?? 'info'} size={11} />
       {t(`game.src.${source}`)}
+    </span>
+  );
+}
+
+/**
+ * "Abipalve · Viljandimaa": a colleague at a neighbouring desk asks for help with a call just across the
+ * border (tag help:<sectorId>). Nothing for any other incident.
+ */
+export function HelpTag({ inc, short }: { inc: Pick<Incident, 'tags'>; /** Just "Abipalve" (a tight row). */ short?: boolean }) {
+  const t = useT();
+  const tx = useTx();
+  const id = helpSectorId(inc);
+  if (id === null) return null;
+  const sector = id ? sectorById(id) : undefined;
+  const c = sector?.colleague;
+  const who = c ? `${c.firstName} ${c.lastName}` : '';
+  const name = sector ? tx(sector.name) : '';
+  return (
+    <span className="gm-help" title={who && name ? t('game.help.title', { name: who, sector: name }) : t('game.help.titleShort')}>
+      <Icon name="users" size={11} />
+      <span className="gm-help__text">{name && !short ? t('game.help.badge', { sector: name }) : t('game.help.badgeShort')}</span>
     </span>
   );
 }

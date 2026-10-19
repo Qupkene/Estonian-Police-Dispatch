@@ -1,12 +1,13 @@
 import { useGame } from '@/store/game';
 import { useT, useTx } from '@/i18n';
 import { Badge, Button, Empty, Icon, Kbd, PriorityChip } from '@/ui/components';
+import { sectorById } from '@/sim/sectors';
 import { hhmm, MIN } from '@/sim/time';
 import type { Incident, Priority, SimState } from '@/sim/types';
 import { acknowledge, sendBackup, setPriority } from './actions';
 import { activeBackup, selPendingRadio, selTemplate } from './data';
-import { countdown } from './format';
-import { RadioReplies, Section, SourceTag, useSim } from './bits';
+import { countdown, helpSectorId } from './format';
+import { HelpTag, RadioReplies, Section, SourceTag, useSim } from './bits';
 import { RejectMenu } from './EventQueue';
 import {
   AgencyBlock,
@@ -64,6 +65,7 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
             {t(`game.state.${inc.state}`)}
           </Badge>
           <SourceTag source={inc.source} />
+          <HelpTag inc={inc} />
           <span className="gm-inc__created mono">{t('game.inc.created', { t: hhmm(inc.createdAt) })}</span>
         </div>
         <div className="gm-inc__titlerow">
@@ -123,6 +125,7 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
 
       <div className="gm-inc__body">
         {closed && <OutcomeBlock inc={inc} />}
+        {!closed && <HelpNote inc={inc} />}
 
         {backup && (
           <div className="gm-backup" role="alert">
@@ -192,6 +195,26 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
         <PersonsBlock sim={sim} inc={inc} tpl={tpl} />
         <TimelineBlock inc={inc} />
       </div>
+    </div>
+  );
+}
+
+/** A colleague's call for help: who asks, and what happens when nobody is sent. */
+function HelpNote({ inc }: { inc: Incident }) {
+  const t = useT();
+  const tx = useTx();
+  const id = helpSectorId(inc);
+  if (id === null) return null;
+  const sector = id ? sectorById(id) : undefined;
+  const c = sector?.colleague;
+  return (
+    <div className="gm-helpnote" role="note">
+      <Icon name="users" size={16} />
+      <p>
+        {c && sector
+          ? t('game.help.note', { name: `${c.firstName} ${c.lastName}`, sector: tx(sector.name) })
+          : t('game.help.noteShort')}
+      </p>
     </div>
   );
 }

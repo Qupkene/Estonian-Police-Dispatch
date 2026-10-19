@@ -187,6 +187,38 @@ export interface RegionDef {
   commander?: { name: string; title: Text; badge: string; gender: Gender };
 }
 
+export type SectorDifficulty = 'easy' | 'normal' | 'hard';
+
+/**
+ * A sector: the part of a prefecture one desk of the juhtimiskeskus covers (docs/SECTORS.md). A career starts
+ * with one and takes on more; the other sectors are run by AI colleagues. Data in src/data/sectors.ts.
+ */
+export interface SectorDef {
+  id: string; // 'louna-tartu'
+  regionId: RegionId;
+  name: Text; // 'Tartu linn'
+  /** Upper-case map label, e.g. 'TARTU'. */
+  short: string;
+  /**
+   * Which locations belong here, most specific first: a Tallinn district, then a town name, then a county.
+   * When several sectors match (a county split in two), the one whose main station is nearest wins.
+   */
+  match: { districts?: string[]; towns?: string[]; counties?: string[] };
+  /** Stations whose crews serve the sector; the first is the main station (always staffed). */
+  stationIds: string[];
+  /** Posts a career can open with money so one crew is based there instead of the main station. */
+  posts?: { stationId: string; price: number; upkeep: number }[];
+  /** Adjacent sectors of the same prefecture. */
+  neighbours: string[];
+  /** A sector a new career can start in. */
+  starter?: { difficulty: SectorDifficulty };
+  blurb: Text;
+  /** Short tags shown on the sector card ('Tudengid', 'Ööelu', 'Emajõgi'). */
+  traits: Text[];
+  /** The AI colleague who runs this sector's desk while it is not the player's. */
+  colleague: { firstName: string; lastName: string; gender: Gender };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Registry (rahvastikuregister / liiklusregister / karistusregister mock)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -830,8 +862,11 @@ export interface Incident {
     score: number;
     breakdown: ScoreBreakdown;
   };
-  /** Player closed it by referring / phone advice / marking duplicate or prank. */
-  closedBy?: 'units' | 'referral' | 'phone' | 'duplicate' | 'prank' | 'expired' | 'director';
+  /**
+   * Player closed it by referring / phone advice / marking duplicate or prank. 'colleague': the neighbouring
+   * desk took over a colleague's call for help nobody was sent to (tag help:<sectorId>, docs/SECTORS.md).
+   */
+  closedBy?: 'units' | 'referral' | 'phone' | 'duplicate' | 'prank' | 'expired' | 'director' | 'colleague';
   tags: string[];
   easterEgg?: boolean;
 }
@@ -989,6 +1024,18 @@ export interface NewShiftOptions {
   upgrades?: string[];
   /** Career reputation ("Staatus") going into the shift, 0..100. */
   reputation?: number;
+  /**
+   * Sectors the player covers this shift (SectorDef ids of `regionId`). Missing or empty: the whole prefecture,
+   * as before sectors existed. Calls spawn only here and the units come from these sectors' stations.
+   */
+  sectors?: string[];
+  /** Career: posts opened with money (station ids), each gets one of the area's crews. */
+  openPosts?: string[];
+  /**
+   * The same calls at the same times and places whatever the player does (daily challenge): the spawner and
+   * incident generation draw from their own stream, `SimState.spawnRng`.
+   */
+  fixedSchedule?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1101,6 +1148,12 @@ export interface SimState {
   stats: ShiftStats;
   /** Free-form flags for tutorial / director / achievements. */
   flags: Record<string, number | string | boolean>;
+  /** Sectors the player covers (NewShiftOptions.sectors). Missing: the whole prefecture (also every older save). */
+  sectors?: string[];
+  /** Sectors covered for this night only (öine katmine): calls spawn there too, no crew is based there. */
+  coverSectors?: string[];
+  /** Spawner and incident-generation stream of a fixed-schedule shift (NewShiftOptions.fixedSchedule). */
+  spawnRng?: number;
 }
 
 export interface CareerProfile {
@@ -1135,6 +1188,21 @@ export interface CareerProfile {
   stats: { shifts: number; incidents: number; arrests: number; bestScore: number; pursuitsCaught: number };
   /** ShiftReport.shiftKey of the latest paid shifts (newest last): a replayed save never pays twice. */
   paidShifts?: string[];
+  /**
+   * Sectors under the player's responsibility per prefecture (docs/SECTORS.md). A prefecture missing here is
+   * covered whole: careers from before sectors are normalised to every sector of each unlocked prefecture.
+   */
+  sectors?: Partial<Record<RegionId, string[]>>;
+  /** Posts opened with career money (station ids from SectorDef.posts). */
+  openPosts?: string[];
+  /** The prefect's standing offer of new sectors, answered on the career screen. */
+  offer?: { regionId: RegionId; choices: string[]; day: number };
+  /**
+   * Career day of the last change of responsibility (start, accepted or declined offer): paces the next offer
+   * (a decline sets it a few days ahead). Missing on a career converted from before sectors: it keeps covering
+   * every unlocked prefecture whole and keeps the old daily budget (src/sim/careerSectors.ts isSectorCareer).
+   */
+  sectorsChangedDay?: number;
 }
 
 export interface Upgrade {

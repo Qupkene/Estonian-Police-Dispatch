@@ -2,9 +2,11 @@
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useGame } from '@/store/game';
 import { useCareer } from '@/store/career';
-import { useLang, useT } from '@/i18n';
+import { useLang, useT, useTx } from '@/i18n';
 import { sfx } from '@/audio/sfx';
+import { REGIONS } from '@/data/regions';
 import { rankOf, rosterFromCareer } from '@/sim/career';
+import { areaStations, neighbourSectors, sectorById } from '@/sim/sectors';
 import { dayInfo, weekdayFactor } from '@/sim/calendar';
 import { shiftKindOf } from '@/sim/engine';
 import { Rng } from '@/sim/rng';
@@ -14,6 +16,8 @@ import { initialWeather } from '@/sim/weather';
 import type { Difficulty, GameMode, NewShiftOptions, RegionId, RosterUnit, Text, Weather } from '@/sim/types';
 import { Badge, Button, Emblem, Empty, Icon, type IconName } from '@/ui/components';
 import { EstoniaMap } from './shell/EstoniaMap';
+import { SectorMap, type SectorPaint } from './career/SectorMap';
+import { careerShiftArea, colleagueName, rosterByStation, stationName, type ShiftArea } from './career/sectors';
 import { ShellPage } from './shell/ShellPage';
 import {
   careerShiftRegion,
@@ -58,6 +62,7 @@ function safe<T>(fn: () => T): T | null {
 
 export function BriefingScreen() {
   const t = useT();
+  const tx = useTx();
   const lang = useLang();
   const briefing = useGame((s) => s.briefing);
   const user = useGame((s) => s.user);
@@ -137,6 +142,17 @@ export function BriefingScreen() {
   }, [start, hours, shift, difficulty]);
 
   const shiftKind = shiftKindOf(start);
+  const area: ShiftArea | null = useMemo(
+    () => (career && profile ? safe(() => careerShiftArea(profile, regionId)) : null),
+    [career, profile, regionId],
+  );
+  const areaOn = !!area && area.sectors.length > 0;
+  const areaName = (ids: string[]) =>
+    ids
+      .map((id) => sectorById(id)?.name)
+      .filter((x): x is Text => !!x)
+      .map((x) => x[lang])
+      .join(', ');
   const roster: RosterUnit[] | null = useMemo(
     () => (career && profile ? safe(() => rosterFromCareer(profile, shiftKind, regionId)) : null),
     [career, profile, shiftKind, regionId],
@@ -161,6 +177,7 @@ export function BriefingScreen() {
             roster: roster && roster.length ? roster : undefined,
             upgrades: profile.upgrades,
             reputation: profile.reputation,
+            ...(areaOn ? { sectors: area!.sectors, openPosts: area!.posts } : {}),
           }
         : {}),
     };
@@ -249,7 +266,11 @@ export function BriefingScreen() {
             <p>{region.description[lang]}</p>
             <div className="sh-brief__facts">
               <Fact icon="building" label={t('shell.brief.hq')} value={region.hqCity} />
-              <Fact icon="home" label={t('shell.brief.stations')} value={region.stations || '-'} />
+              <Fact
+                icon="home"
+                label={t('shell.brief.stations')}
+                value={(areaOn && safe(() => areaStations(REGIONS[regionId], area!.sectors, area!.posts).length)) || region.stations || '-'}
+              />
               <Fact
                 icon="car"
                 label={t('shell.brief.units')}
@@ -280,6 +301,8 @@ export function BriefingScreen() {
               </div>
             </div>
           )}
+
+          {areaOn && <AreaPanel regionId={regionId} area={area!} />}
 
           <div className="sh-card sh-card--pad">
             <h2 className="sh-section-title">
@@ -404,6 +427,12 @@ export function BriefingScreen() {
                     hours,
                   })}
                 </li>
+                {areaOn && (
+                  <li className="sh-order__area">
+                    {t('career.brief.orderArea', { area: areaName(area!.sectors) })}
+                    {area!.cover.length > 0 && <> {t('career.brief.orderCover', { names: areaName(area!.cover) })}</>}
+                  </li>
+                )}
                 <li>
                   {forecast
                     ? t('shell.brief.orderWeather', { weather: forecast.text[lang] })
@@ -448,18 +477,33 @@ export function BriefingScreen() {
                 <Icon name="users" size={14} /> {t('shell.brief.career.roster')}
               </h2>
               {roster && roster.length ? (
-                <ul className="sh-roster__list">
-                  {roster.map((u) => (
-                    <li key={u.callsign}>
-                      <span className="mono sh-roster__cs">{u.callsign}</span>
-                      <Badge tone={u.onCall ? 'warn' : 'accent'}>{t(`shell.unit.${u.type}`)}</Badge>
-                      <span className="sh-roster__veh">{u.vehicle}</span>
-                      <span className="sh-roster__crew">
-                        {u.crew.map((c) => `${c.firstName[0]}. ${c.lastName}`).join(', ')}
-                      </span>
-                    </li>
+                <div className="sh-roster__groups">
+                  {rosterByStation(regionId, roster).map((g) => (
+                    <section key={g.stationId} className="sh-roster__group">
+                      <h3 className="sh-roster__station">
+                        <Icon name="building" size={12} />
+                        <span>{tx(g.name)}</span>
+                        <span className="sh-roster__count">
+                          {g.units.length === 1
+                            ? t('career.brief.stationOne')
+                            : t('career.brief.station', { n: g.units.length })}
+                        </span>
+                      </h3>
+                      <ul className="sh-roster__list">
+                        {g.units.map((u) => (
+                          <li key={u.callsign}>
+                            <span className="mono sh-roster__cs">{u.callsign}</span>
+                            <Badge tone={u.onCall ? 'warn' : 'accent'}>{t(`shell.unit.${u.type}`)}</Badge>
+                            <span className="sh-roster__veh">{u.vehicle}</span>
+                            <span className="sh-roster__crew">
+                              {u.crew.map((c) => `${c.firstName[0]}. ${c.lastName}`).join(', ')}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
                   ))}
-                </ul>
+                </div>
               ) : (
                 <p className="sh-muted">{t('shell.brief.career.noRoster')}</p>
               )}
@@ -482,6 +526,67 @@ export function BriefingScreen() {
         </section>
       </div>
     </ShellPage>
+  );
+}
+
+/** The career shift's area: sectors, opened posts, tonight's cover and the neighbouring desks. */
+function AreaPanel({ regionId, area }: { regionId: RegionId; area: ShiftArea }) {
+  const t = useT();
+  const tx = useTx();
+  const own = new Set(area.sectors);
+  const neighbours = safe(() => neighbourSectors([...area.sectors, ...area.cover]).filter((x) => x.regionId === regionId)) ?? [];
+  const paint: Record<string, SectorPaint> = Object.fromEntries([
+    ...neighbours.map((x) => [x.id, 'neighbour' as SectorPaint]),
+    ...area.cover.map((id) => [id, 'cover' as SectorPaint]),
+    ...area.sectors.map((id) => [id, 'mine' as SectorPaint]),
+  ]);
+  const names = (ids: string[]) =>
+    ids
+      .map((id) => sectorById(id))
+      .filter((x) => !!x)
+      .map((x) => tx(x!.name))
+      .join(', ');
+  return (
+    <div className="sh-card sh-card--pad sh-brief__area" data-area={area.sectors.join(' ')}>
+      <h2 className="sh-section-title">
+        <Icon name="target" size={14} /> {t('career.brief.area')}
+      </h2>
+      <div className="sh-brief__areaGrid">
+        <SectorMap regionId={regionId} paint={paint} labels="mine" className="sh-brief__areaMap" />
+        <dl className="sh-brief__areaList">
+          <div>
+            <dt>{t('career.brief.sectors')}</dt>
+            <dd className="sh-brief__areaNames">{names(area.sectors.filter((id) => own.has(id)))}</dd>
+          </div>
+          {area.posts.length > 0 && (
+            <div>
+              <dt>{t('career.brief.posts')}</dt>
+              <dd>{area.posts.map((id) => tx(stationName(regionId, id))).join(', ')}</dd>
+            </div>
+          )}
+          {area.cover.length > 0 && (
+            <div className="is-cover">
+              <dt>{t('career.brief.cover')}</dt>
+              <dd>{t('career.brief.coverText', { names: names(area.cover) })}</dd>
+            </div>
+          )}
+          {neighbours.length > 0 && (
+            <div>
+              <dt>{t('career.brief.neighbours')}</dt>
+              <dd>
+                <ul className="sh-brief__desks">
+                  {neighbours.map((x) => (
+                    <li key={x.id}>
+                      <strong>{tx(x.name)}</strong> · {colleagueName(x)}
+                    </li>
+                  ))}
+                </ul>
+              </dd>
+            </div>
+          )}
+        </dl>
+      </div>
+    </div>
   );
 }
 

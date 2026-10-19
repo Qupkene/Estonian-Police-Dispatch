@@ -127,7 +127,10 @@ Poisson process: rate/h = `region.callVolume × hourCurve[h] × weekdayFactor ×
 difficultyFactor × weatherFactor`. Default hour curve peaks 22-02 (1.6×), lowest 04-07 (0.45×).
 Difficulty factor (tuned for fun over realism): cadet 0.4, normal 0.65, veteran 0.9, realistic 1.25.
 Career shifts also multiply by the career `loadFactor` (§4.12). Callers wait `CALLER_PATIENCE`
-(1.4) times the template's expiry.
+(1.4) times the template's expiry. A sector shift (docs/SECTORS.md) spawns only inside its area and also
+multiplies by `areaCallFactor` (the area's population share ^ 0.6, at least 2 calls an hour before the
+other factors); a `fixedSchedule` shift (daily challenge) draws arrivals, incidents and weather from
+`SimState.spawnRng`, each at its own time, so every player gets the same calls.
 Template choice weight = `template.weight × hourProfile(template.hours)[h] × weekendBoost ×
 season/month filter × region filter × place-availability × repetition`. Easter eggs (`easterEgg: true`) are
 scaled to about 4 % of events (never more than 7 %). `legacy: true` templates are normal content.
@@ -266,9 +269,10 @@ but translates.
 
 ### 4.12 Career & economy (2025 idea, expanded)
 Persistent profile (localStorage): name, badge number, home region, career day, **money**
-(start 40 000 €, 12 officers, 7 cars), **Staatus** (start 25, 0..100), rank, xp, staff, fleet, upgrades, ledger,
-history, achievements, recruit pool.
-* A career shift = one day. After each shift: daily base budget (region-dependent, ~1 600 €)
+(start 30 000 €, 10 officers, 5 cars and one sector; see docs/SECTORS.md for sectors, offers and posts),
+**Staatus** (start 25, 0..100), rank, xp, staff, fleet, upgrades, ledger, history, achievements, recruit pool.
+* A career shift = one day. After each shift: daily base budget (750 € + 400 € per sector covered; a career
+  from before sectors keeps the region-dependent ~1 600 €)
   + performance bonus (from shift score & reputation delta, like the 2025 formula) − daily
   salaries (monthly/30) − vehicle upkeep − fuel (km × 0.14 €) − overtime.
 * Every 30 days: payday summary, recruit pool refresh (8-10 candidates), month report.
@@ -412,6 +416,16 @@ proovitakse järgmisel laadimisel uuesti (`migrateLayout`, `tests/saves-upgrade.
   loendid ja objektid saavad vaikeväärtuse, vigased kirjed visatakse välja ükshaaval (mitte kogu
   loend), arvud jäävad arvudeks. Sama normaliseerijat kasutab pilvest tulev karjäär
   (`src/net/account.ts`). Kui midagi tuli välja jätta, jääb originaal `epd:backup.career.repaired`.
+* Karjäär 2.0 (sektorid, docs/SECTORS.md) lisas profiilile valikulised väljad `sectors`, `openPosts`, `offer` ja
+  `sectorsChangedDay`, versiooni tõstmata. Normaliseerija kontrollib neid (vigased kirjed ükshaaval välja) ja
+  `withSectors` annab sektoriteta karjäärile iga avatud prefektuuri kõik sektorid: see mängib täpselt nagu enne
+  (terve prefektuur, sama päevaeelarve), töötajad, autod, raha ja ajalugu jäävad puutumata ning täidetud väli
+  kirjutatakse järgmise muudatusega. Eelmise väljalaske (2.8.0) normaliseerija hoiab uued väljad alles
+  (`tests/upgrade-paths.test.ts`); sektorikarjääri kuldfiksatuur on `tests/fixtures/saves/sectors/`.
+* Vahetuse salvestus sai sektoritega (docs/SECTORS.md) valikulised väljad `sectors`, `coverSectors` ja
+  `spawnRng`, versiooni tõstmata: puuduv väli tähendab tervet prefektuuri ja tavalist juhuvoogu, nii et iga
+  vanem salvestus jätkub täpselt nagu enne (`tests/sectors.test.ts`), ja eelmine väljalase mängib sektoriga
+  salvestuse edasi terve prefektuurina.
 * Vahetuse salvestus viiakse sammudega (`SIM_STEPS`) praeguse SimState versioonini. Kui seda ei saa
   jätkata, liigub see oma varukoopiavõtmesse ja põhivõti vabaneb; ilma koopiata ei kustutata seda
   kunagi. Ainult vahetus, mille aruanne on juba olemas, eemaldatakse lihtsalt.

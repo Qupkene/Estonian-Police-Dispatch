@@ -2,6 +2,21 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.9.0 (2026-10-19)
+
+- **Karjäär algab ühest sektorist:** uus karjäär algab juhtimiskeskuses ühe sektori laua tagant ja sektori valid ise (kaheksa algsektorit üle Eesti). Kõned tulevad sinu sektorist ja selle piirilt, ekipaažid on sinu sektori jaoskondades.
+- **Vastutusala kasvab:** kui vahetused lähevad hästi, pakub prefekt sulle uut naabersektorit. Sellega tulevad kaasa inimesed, kaks kasutatud autot ja üleandmistoetus ning päevaeelarve kasvab. Raha eest saab sektorisse avada lisapostid.
+- **Ametikoht:** operatiivinfo haldurist vanem-operatiivinfo haldur, vahetuse vanem, grupijuht ja keskuse juht, vastavalt sellele, kui palju sinu vastutusel on.
+- **Sektorite kaart** karjääri lehel ja vahetuse eelinfos näitab sinu sektoreid, pakkumist ja naabreid. Mängus on sinu ala kaardil välja joonistatud.
+- **Vanad karjäärid jätkavad nagu enne:** terve prefektuur, sama eelarve ja ametikoht vahetuse vanem. Salvestused ja edenemine jäävad alles.
+
+<details>
+<summary>English</summary>
+
+A new career starts at one sector desk of the command centre, in a starter sector you choose. Calls come from your sector and its border. The prefect offers neighbouring sectors (with officers, two used cars and a grant), the daily budget grows with them, and money opens extra posts. Your position follows how much you cover. A sector map on the career page and the briefing, and your area outlined in game. Existing careers keep the whole prefecture and play exactly as before.
+
+</details>
+
 ## 2.8.0 (2026-10-18)
 
 - **Teised ametid kaardil:** kutsutud kiirabi, Päästeameti auto, lastekaitse, omavalitsus, Keskkonnaamet, veterinaar, toll, Transpordiamet, KAPO ja merepääste paat sõidavad kaardil sündmuskohale ja jõuavad kohale täpselt siis, kui raadio seda teatab. Kiirabi on punane, kiirabil ja päästjatel vilguvad sõidu ajal sinised tuled.

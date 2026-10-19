@@ -159,11 +159,12 @@ export function buildHeat(s: SimState, incCoord?: IncCoordFn): FeatureCollection
 }
 
 /** Police stations of the region as labelled points. */
-export function buildStations(region: RegionDef | undefined, lang: Lang): FeatureCollection<Point> {
+export function buildStations(region: RegionDef | undefined, lang: Lang, area?: ReadonlySet<string> | null): FeatureCollection<Point> {
   const features: Feature<Point>[] = (region?.stations ?? []).map((st) => ({
     type: 'Feature',
     geometry: { type: 'Point', coordinates: st.coord },
-    properties: { id: st.id, short: st.short, name: st.name?.[lang] || st.name?.et || st.short, kind: st.kind },
+    // `area`: 1 = one of the shift area's stations, -1 = outside it, 0 = the whole prefecture is covered.
+    properties: { id: st.id, short: st.short, name: st.name?.[lang] || st.name?.et || st.short, kind: st.kind, area: area ? (area.has(st.id) ? 1 : -1) : 0 },
   }));
   return { type: 'FeatureCollection', features };
 }

@@ -39,6 +39,8 @@ export interface MapToolbarProps {
   canFollow: boolean;
   heat: boolean;
   tilt: boolean;
+  /** Tooltip of the recenter button (the shift's area or the whole prefecture). */
+  recenterLabel?: string;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onRecenter: () => void;
@@ -80,7 +82,13 @@ export function MapToolbar(p: MapToolbarProps) {
         </button>
       </div>
       <div className="epdm-tools__group">
-        <button type="button" className="epdm-tool" onClick={p.onRecenter} aria-label={tr('map.recenter')} title={tr('map.recenter')}>
+        <button
+          type="button"
+          className="epdm-tool"
+          onClick={p.onRecenter}
+          aria-label={p.recenterLabel ?? tr('map.recenter')}
+          title={p.recenterLabel ?? tr('map.recenter')}
+        >
           <Ico d={I.home} />
         </button>
         <button

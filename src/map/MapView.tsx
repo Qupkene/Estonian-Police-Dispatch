@@ -3,7 +3,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Lang, LngLat, RegionId, SimState } from '@/sim/types';
 import { useSettings, type MapStyleKey } from '@/store/settings';
 import { t } from '@/i18n';
+import { sectorById } from '@/sim/sectors';
 import { MapController, webglSupported, type FallbackReason } from './controller';
+import { shiftArea } from './area';
 import { MapToolbar } from './MapToolbar';
 import './map.css';
 
@@ -118,7 +120,14 @@ export function MapView(p: MapViewProps) {
     if (f && ctlRef.current) ctlRef.current.focus(f.coord, f.zoom);
   }, [focusN]);
 
-  const tr = (k: string) => t(k, p.lang);
+  const tr = (k: string, vars?: Record<string, string | number>) => t(k, p.lang, vars);
+  const area = shiftArea(p.sim);
+  const nameOf = (id: string) => {
+    const x = sectorById(id);
+    return x ? x.name[p.lang] || x.name.et : '';
+  };
+  const areaNames = area.sectors.map(nameOf).filter(Boolean);
+  const coverNames = area.cover.map(nameOf).filter(Boolean);
 
   const pickStyle = (key: MapStyleKey) => {
     setPickedStyle({ key, prop: p.styleKey });
@@ -132,8 +141,27 @@ export function MapView(p: MapViewProps) {
   const rootClass = `epdm${p.cinematic ? ' epdm--cine' : ''}${reducedMotion ? ' epdm--rm' : ''}${glError ? ' epdm--nogl' : ''}`;
 
   return (
-    <div ref={rootRef} className={rootClass} role="region" aria-label={tr('map.region')}>
+    <div ref={rootRef} className={rootClass} role="region" aria-label={tr('map.region')} data-area={area.sectors.join(' ') || undefined}>
       <div ref={mapElRef} className="epdm__map" />
+      {!glError && !p.cinematic && areaNames.length > 0 && (
+        <button
+          type="button"
+          className="epdm-area"
+          onClick={() => ctlRef.current?.recenter()}
+          title={tr('map.area.hint')}
+          aria-label={`${tr('map.area.title')}: ${areaNames.join(', ')}. ${tr('map.area.hint')}`}
+        >
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 6.5 9 4l6 2.5L20 4v13.5L15 20l-6-2.5L4 20z" />
+            <path d="M9 4v13.5M15 6.5V20" />
+          </svg>
+          <span className="epdm-area__text">
+            <span className="epdm-area__k">{tr('map.area.title')}</span>
+            <span className="epdm-area__v">{areaNames.join(', ')}</span>
+            {coverNames.length > 0 && <span className="epdm-area__cover">{tr('map.area.cover', { names: coverNames.join(', ') })}</span>}
+          </span>
+        </button>
+      )}
       {glError && (
         <div className="epdm-nogl" role="alert">
           <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden="true">
@@ -154,6 +182,7 @@ export function MapView(p: MapViewProps) {
           canFollow={!!p.selectedUnitId}
           heat={heat}
           tilt={tilt}
+          recenterLabel={tr(area.sectors.length ? 'map.recenterArea' : 'map.recenter')}
           onZoomIn={() => ctlRef.current?.zoomBy(1)}
           onZoomOut={() => ctlRef.current?.zoomBy(-1)}
           onRecenter={() => {

@@ -20,7 +20,7 @@ export function RecruitTab({ profile }: { profile: CareerProfile }) {
   const [hired, setHired] = useState<string | null>(null);
   const recruits = profile.recruits ?? [];
   const costs = costsOf(profile);
-  const budget = monthlyBudget(profile.regionId);
+  const budget = monthlyBudget(profile.regionId, profile);
   const cal = calendarOf(profile.day);
   const counts = recruits.reduce<Partial<Record<UnitType, number>>>((acc, c) => ((acc[c.specialty] = (acc[c.specialty] ?? 0) + 1), acc), {});
 

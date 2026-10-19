@@ -991,6 +991,73 @@
   border-color: #fbbf24;
 }
 
+/* ── The shift's area (sectors): chip at the top left, the dimmed outside is drawn by the style ── */
+.epdm-area {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 7px;
+  max-width: min(320px, calc(100% - 76px));
+  padding: 6px 11px 6px 9px;
+  border: 1px solid rgba(127, 178, 255, 0.4);
+  border-radius: 10px;
+  background: var(--epdm-glass);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  color: #9fc2ff;
+  font: 600 11px/1.25 var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur-1, 120ms);
+}
+.epdm-area svg {
+  flex: none;
+  margin-top: 1px;
+}
+.epdm-area:hover,
+.epdm-area:focus-visible {
+  border-color: #9fc2ff;
+  outline: none;
+}
+.epdm-area__text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.epdm-area__k {
+  color: var(--text-2);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.epdm-area__v {
+  overflow: hidden;
+  color: var(--text-0);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.epdm-area__cover {
+  color: #f2c14e;
+  font-weight: 500;
+}
+.epdm--cine .epdm-area {
+  display: none;
+}
+@media (max-width: 520px) {
+  .epdm-area {
+    top: 8px;
+    left: 8px;
+    padding: 5px 9px 5px 7px;
+  }
+  .epdm-area__k {
+    display: none;
+  }
+}
+
 /* ── WebGL fallback ──────────────────────────────────────────────────────────── */
 .epdm-nogl {
   position: absolute;

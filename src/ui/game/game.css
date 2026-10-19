@@ -902,6 +902,71 @@
   border: 1px solid var(--line-2);
   background: var(--bg-0);
 }
+/* A neighbouring desk's call for help (tag help:<sectorId>). */
+.gm-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  height: 17px;
+  padding: 0 6px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--gold) 12%, var(--bg-0));
+  color: var(--gold-ink);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gm-help .ui-icon {
+  flex: none;
+}
+.gm-help__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gm-card__help {
+  display: flex;
+  min-width: 0;
+}
+.gm-closed__row .gm-help {
+  flex: none;
+  max-width: 40%;
+}
+.gm-helpnote {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 10px 12px 0;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--gold) 8%, var(--bg-1));
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+.gm-helpnote .ui-icon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--gold-ink);
+}
+.gm-helpnote p {
+  margin: 0;
+}
+.gm-top__brand-text .gm-top__area {
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--accent-2);
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .gm-src--call {
   color: var(--accent-2);
   border-color: color-mix(in srgb, var(--accent-2) 45%, transparent);

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import * as rules from '@/sim/career';
+import * as sectorRules from '@/sim/careerSectors';
 import { DAY, isoDate } from '@/sim/time';
 import type { CareerProfile, LedgerEntry, RegionId, ShiftReport, Text } from '@/sim/types';
 import { guardedPersist, keepBackup, normalizeCareerState, overState } from './migrate';
@@ -50,12 +51,19 @@ interface CareerStore {
   profile: CareerProfile | null;
   /** Messages from the last applied shift (payday, injuries, promotions…) to show once. */
   inbox: Text[];
-  create: (name: string, badge: string, regionId: RegionId) => void;
+  /** A new career at one desk: `startSector` (a sector of `regionId`), by default its first starter sector. */
+  create: (name: string, badge: string, regionId: RegionId, startSector?: string) => void;
   /** Replace the profile with the result of a pure rule. */
   update: (fn: (p: CareerProfile) => CareerProfile) => void;
   /** Run a rule that may fail; returns the error text if it did. */
   attempt: (fn: (p: CareerProfile) => { profile: CareerProfile; error?: Text }) => Text | undefined;
   applyReport: (r: ShiftReport) => LedgerEntry[];
+  /** Take a sector the prefect offered (docs/SECTORS.md); returns the error text if it could not. */
+  acceptOffer: (sectorId: string) => Text | undefined;
+  /** Say no to the prefect's offer; a new one comes some shifts later. */
+  declineOffer: () => void;
+  /** Open a police post in a covered sector with career money; returns the error text if it could not. */
+  openPost: (stationId: string) => Text | undefined;
   clearInbox: () => void;
   reset: () => void;
 }
@@ -65,8 +73,8 @@ export const useCareer = create<CareerStore>()(
     (set, get) => ({
       profile: null,
       inbox: [],
-      create: (name, badge, regionId) => {
-        const profile = rules.newCareer(name, badge, regionId, (Date.now() ^ 0x5eed) >>> 0);
+      create: (name, badge, regionId, startSector) => {
+        const profile = rules.newCareer(name, badge, regionId, (Date.now() ^ 0x5eed) >>> 0, startSector);
         backupCareer(get(), 'create');
         set({ profile, inbox: [] });
       },
@@ -97,6 +105,9 @@ export const useCareer = create<CareerStore>()(
         set({ profile, inbox: out.messages });
         return out.ledger;
       },
+      acceptOffer: (sectorId) => get().attempt((p) => sectorRules.acceptOffer(p, sectorId)),
+      declineOffer: () => get().update(sectorRules.declineOffer),
+      openPost: (stationId) => get().attempt((p) => sectorRules.openPost(p, stationId)),
       clearInbox: () => set({ inbox: [] }),
       reset: () => {
         backupCareer(get(), 'reset');

@@ -9,6 +9,7 @@ import { onUnitArrived } from './incidents';
 import { waterBodiesNear } from './land';
 import { phrase, radioVars, unitPhrase, unitSay } from './radio';
 import { Rng, withRng } from './rng';
+import { mainStation, sectorStationIds } from './sectors';
 import { HOUR, MIN } from './time';
 import type {
   Difficulty,
@@ -618,6 +619,60 @@ export function rosterSpecsFor(region: RegionDef, shift: 'day' | 'night', diffic
 
 const PATROL_TYPES: UnitType[] = ['patrol', 'aux', 'traffic', 'k9', 'rapid', 'border', 'community'];
 
+/** Unit types that answer general calls. The career load and a sector's minimum force are measured in these. */
+export const RESPONSE_TYPES: ReadonlySet<UnitType> = new Set<UnitType>(['patrol', 'rapid', 'aux', 'traffic', 'k9', 'border', 'community']);
+
+/** A sector shift on the default roster keeps at least this many response units (lent from the nearest stations). */
+export const MIN_AREA_RESPONSE = 3;
+
+/**
+ * Callsign for a crew based at a station: a free one of the station's regular roster (this shift's first),
+ * else the number after the station's highest; undefined when the station has no crew of the type.
+ */
+export function stationCallsign(region: RegionDef, type: UnitType, stationId: string, shift: 'day' | 'night', used: ReadonlySet<string>): string | undefined {
+  const own = region.roster.filter((x) => x.type === type && x.stationId === stationId);
+  const inShift = (x: UnitSpec) => (x.shift ?? 'both') === 'both' || x.shift === shift;
+  const spec = own.find((x) => inShift(x) && !used.has(x.callsign)) ?? own.find((x) => !used.has(x.callsign));
+  if (spec) return spec.callsign;
+  const nums = own.map((x) => /^(.*?)(\d+)$/.exec(x.callsign)).filter((m): m is RegExpExecArray => !!m);
+  if (!nums.length) return undefined;
+  const top = nums.reduce((a, m) => (Number(m[2]) > Number(a[2]) ? m : a));
+  for (let n = Number(top[2]) + 1; n < Number(top[2]) + 200; n++) if (!used.has(`${top[1]}${n}`)) return `${top[1]}${n}`;
+  return undefined;
+}
+
+/**
+ * Sector shift on the default roster (free play, the daily challenge): the units of the sectors' stations,
+ * plus the prefecture's on-call assets (K-komando, helicopter). When that leaves fewer than
+ * MIN_AREA_RESPONSE response units, the nearest other crews (patrols first) are lent to the first sector's
+ * main station, under a callsign of that station.
+ */
+export function areaRosterSpecs(region: RegionDef, specs: UnitSpec[], area: string[], shift: 'day' | 'night' = 'day'): UnitSpec[] {
+  const stations = sectorStationIds(area);
+  const keep = new Set(specs.filter((sp) => stations.includes(sp.stationId) || (sp.onCall && (sp.type === 'special' || sp.type === 'heli'))));
+  const response = (sp: UnitSpec) => !sp.onCall && RESPONSE_TYPES.has(sp.type);
+  let n = [...keep].filter(response).length;
+  const home = mainStation(region, area[0]);
+  const lent = new Map<UnitSpec, UnitSpec>();
+  if (n < MIN_AREA_RESPONSE && home) {
+    const used = new Set(specs.map((sp) => sp.callsign));
+    const dist = (sp: UnitSpec) => haversineKm(stationById(region, sp.stationId)?.coord ?? region.center, home.coord);
+    const extra = specs.filter((sp) => !keep.has(sp) && response(sp)).sort((a, b) => (a.type === 'patrol' ? 0 : 1) - (b.type === 'patrol' ? 0 : 1) || dist(a) - dist(b));
+    for (const sp of extra) {
+      if (n >= MIN_AREA_RESPONSE) break;
+      keep.add(sp);
+      const callsign = stationCallsign(region, sp.type, home.id, shift, used) ?? sp.callsign;
+      used.add(callsign);
+      const { zone: _zone, crewNames: _names, ...rest } = sp;
+      void _zone;
+      void _names;
+      lent.set(sp, { ...rest, callsign, stationId: home.id, ...(home.zone ? { zone: home.zone } : {}) });
+      n++;
+    }
+  }
+  return [...specs.filter((sp) => keep.has(sp) && !lent.has(sp)), ...lent.values()];
+}
+
 function placeUnitStart(s: SimState, r: Rng, u: Unit): void {
   const home = unitHome(s, u);
   u.pos = home;
@@ -651,6 +706,17 @@ export function buildUnits(s: SimState, r: Rng, opts: NewShiftOptions): void {
     if (hasUpgrade(s, 'k9kennel') && !haveType('k9')) {
       for (const x of region.roster.filter((y) => y.type === 'k9').slice(0, 2)) specs.push({ ...x, crew: [], crewN: x.crew });
     }
+    // A sector shift bases its field crews in the area (the K9 teams of the kennel at its main station).
+    const home = s.sectors?.length ? mainStation(region, s.sectors[0]) : undefined;
+    if (home && s.sectors) {
+      const inArea = new Set(sectorStationIds(s.sectors));
+      for (const sp of specs) {
+        if (sp.onCall || inArea.has(sp.stationId)) continue;
+        sp.stationId = home.id;
+        if (home.zone) sp.zone = home.zone;
+        else delete sp.zone;
+      }
+    }
     if (hasUpgrade(s, 'heli_hours') && !haveType('heli')) {
       const src = region.roster.filter((x) => x.type === 'heli');
       if (src.length) for (const x of src) specs.push({ ...x, crew: [], crewN: x.crew, onCall: true });
@@ -660,7 +726,8 @@ export function buildUnits(s: SimState, r: Rng, opts: NewShiftOptions): void {
       }
     }
   } else {
-    for (const sp of rosterSpecsFor(region, shift, opts.difficulty)) {
+    const all = rosterSpecsFor(region, shift, opts.difficulty);
+    for (const sp of s.sectors?.length ? areaRosterSpecs(region, all, s.sectors, shift) : all) {
       specs.push({ callsign: sp.callsign, type: sp.type, stationId: sp.stationId, vehicle: sp.vehicle, crew: [], crewN: sp.crew, onCall: sp.onCall, zone: sp.zone, crewNames: sp.crewNames });
     }
   }

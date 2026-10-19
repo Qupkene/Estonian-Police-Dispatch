@@ -14,6 +14,7 @@ import type { Incident, Lang, LngLat, RegionId, SimState, Unit } from '@/sim/typ
 import type { MapStyleKey } from '@/store/settings';
 import { REGIONS } from '@/data/regions';
 import { sun, unitPos } from '@/sim/selectors';
+import { areaBounds, areaStations } from '@/sim/sectors';
 import {
   buildStyle,
   isRasterSource,
@@ -27,6 +28,7 @@ import {
 } from './style';
 import { knownStreetProbe, probeStreetTiles, type StreetProbe } from './streetTiles';
 import { MAX_BOUNDS } from './geodata';
+import { areaKey, areaStationIds, buildArea, shiftArea } from './area';
 import { buildHeat, buildPursuits, buildRoutes, buildSearches, buildStations, declutterOffsets, isMoving, remainingPath } from './overlays';
 import { roadDisplay, roadService, type RoadDisplay } from './roads';
 import { agencyDisplay, type AgencyVehicle } from './agencies';
@@ -102,6 +104,8 @@ const NO_VEHICLES: readonly AgencyVehicle[] = [];
 const RASTER_ERR_LIMIT = 6;
 const RASTER_ERR_WINDOW_MS = 10_000;
 const OVERLAY_INTERVAL_MS = 100;
+/** How close the camera may come when it fits a small area (one city sector). */
+const AREA_MAX_ZOOM = 13;
 
 function absBase(): string {
   const base = import.meta.env.BASE_URL || '/';
@@ -162,6 +166,13 @@ export class MapController {
   private warned = new Set<string>();
   private lostTimer: ReturnType<typeof setTimeout> | undefined;
   private tilted = false;
+  /** The shift's area (SimState.sectors / coverSectors) as last seen; rebuilt only when it changes. */
+  private areaSim: SimState | null = null;
+  private areaRefs: [unknown, unknown] = [undefined, undefined];
+  private areaKey = '';
+  private area: { sectors: string[]; cover: string[] } = { sectors: [], cover: [] };
+  private areaDirty = false;
+  private areaStationSet: Set<string> | null = null;
   private onlineListener = () => {
     if (this.fallback === 'network') this.retryOnline();
   };
@@ -237,6 +248,8 @@ export class MapController {
     window.addEventListener('online', this.onlineListener);
     if (import.meta.env.DEV) Object.assign(window as object, { __epdMap: this.map, __epdMapCtl: this });
     this.onZoom();
+    // A shift covering sectors starts on its area, not on the whole prefecture.
+    if (this.syncArea(this.getProps().sim)) this.recenter(true);
     this.loop();
   }
 
@@ -259,6 +272,7 @@ export class MapController {
 
   private applyStyle() {
     if (this.destroyed) return;
+    this.areaDirty ||= this.area.sectors.length > 0;
     try {
       this.map.setStyle(this.buildStyle(), { diff: true });
     } catch (e) {
@@ -295,12 +309,17 @@ export class MapController {
     if (lang === this.lang) return;
     this.lang = lang;
     this.stationsDirty = true;
+    this.areaDirty ||= this.area.sectors.length > 0;
   }
 
   setRegion(regionId: RegionId) {
     if (regionId === this.regionId) return;
     this.regionId = regionId;
     this.stationsDirty = true;
+    // The area belongs to the sim's prefecture: look at it again.
+    this.areaKey = '\u0000';
+    this.areaSim = null;
+    this.syncArea(this.getProps().sim);
     this.recenter();
   }
 
@@ -385,14 +404,66 @@ export class MapController {
     this.map.easeTo({ zoom: this.map.getZoom() + delta, duration: this.motionOK ? 250 : 0 });
   }
 
-  recenter() {
+  /** The whole prefecture, or the shift's area when it covers sectors. `jump`: no animation (first view). */
+  recenter(jump = false) {
     const r = REGIONS[this.regionId];
     if (!r) return;
-    const opts = { duration: this.motionOK ? 900 : 0, pitch: this.map.getPitch(), bearing: 0 };
+    const opts = { duration: this.motionOK && !jump ? 900 : 0, pitch: this.map.getPitch(), bearing: 0 };
+    if (this.area.sectors.length) {
+      try {
+        const a = areaBounds(r, [...this.area.sectors, ...this.area.cover]);
+        if (a && a[0][0] < a[1][0] && a[0][1] < a[1][1]) {
+          this.map.fitBounds(a, { ...opts, padding: this.fitPadding(), maxZoom: AREA_MAX_ZOOM });
+          return;
+        }
+      } catch {
+        /* the prefecture below */
+      }
+    }
     const b = r.bounds;
     const valid = b && b[0][0] < b[1][0] && b[0][1] < b[1][1] && b[1][0] - b[0][0] < 5;
     if (valid) this.map.fitBounds(b, { ...opts, padding: 40, maxZoom: r.zoom + 1 });
     else this.map.flyTo({ ...opts, center: r.center, zoom: r.zoom });
+  }
+
+  /** Room around a fitted area: less on a phone-sized map. */
+  private fitPadding(): number {
+    try {
+      const c = this.map.getContainer();
+      return Math.max(16, Math.min(56, Math.round(Math.min(c.clientWidth, c.clientHeight) * 0.07)));
+    } catch {
+      return 40;
+    }
+  }
+
+  /**
+   * Notice a change of the shift's area (a new sim, or sectors set on it). Reference checks only, so it costs
+   * nothing per frame; the area source and the stations are rebuilt when the area really changed. Returns
+   * true when it did.
+   */
+  private syncArea(s: SimState | null | undefined): boolean {
+    if (!s) return false;
+    if (s === this.areaSim && s.sectors === this.areaRefs[0] && s.coverSectors === this.areaRefs[1]) return false;
+    this.areaSim = s;
+    this.areaRefs = [s.sectors, s.coverSectors];
+    const key = areaKey(s);
+    if (key === this.areaKey) return false;
+    const first = this.areaKey === '';
+    this.areaKey = key;
+    this.area = shiftArea(s);
+    this.areaDirty = true;
+    this.stationsDirty = true;
+    this.areaStationSet = null;
+    if (this.area.sectors.length) {
+      const r = REGIONS[this.regionId];
+      const units = Object.values(s.units ?? {}).map((u) => u.stationId);
+      try {
+        this.areaStationSet = areaStationIds(r, areaStations(r, this.area.sectors), units);
+      } catch {
+        this.areaStationSet = areaStationIds(r, [], units);
+      }
+    }
+    return !first || this.area.sectors.length > 0;
   }
 
   focus(target: LngLat, zoom?: number) {
@@ -620,6 +691,7 @@ export class MapController {
     const s = p.sim;
     if (!s || !s.units) return;
     const realNow = performance.now();
+    if (this.syncArea(s)) this.recenter();
 
     if (p.highlightUnitIds !== this.highlightSrc) {
       this.highlightSrc = p.highlightUnitIds;
@@ -740,7 +812,12 @@ export class MapController {
     if (this.stationsDirty && this.map.getSource(SRC.stations)) {
       this.stationsDirty = false;
       for (const id of OVERLAY_SOURCES) this.overlayEmpty[id] = false;
-      this.setSource(SRC.stations, buildStations(REGIONS[this.regionId], this.lang), true);
+      this.setSource(SRC.stations, buildStations(REGIONS[this.regionId], this.lang, this.areaStationSet), true);
+    }
+    if (this.areaDirty && this.map.getSource(SRC.area)) {
+      this.areaDirty = false;
+      this.setSource(SRC.area, buildArea(REGIONS[this.regionId], this.area, this.lang), true);
+      this.root.dataset.areaShown = this.area.sectors.join(' ');
     }
     this.setSource(SRC.routes, buildRoutes(s, this.posOf, p.selectedIncidentId, p.selectedUnitId, this.remainingOf));
     this.setSource(SRC.pursuit, buildPursuits(s, this.trailOf));

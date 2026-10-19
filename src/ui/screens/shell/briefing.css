@@ -502,6 +502,87 @@
   font-size: var(--fs-xs);
 }
 
+/* roster grouped by station */
+.sh-roster__groups {
+  display: grid;
+  gap: 12px;
+  max-height: 340px;
+  overflow: auto;
+  padding-right: 2px;
+}
+.sh-roster__groups .sh-roster__list {
+  max-height: none;
+  overflow: visible;
+}
+.sh-roster__station {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+.sh-roster__station .ui-icon {
+  color: var(--accent-2);
+}
+.sh-roster__count {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+
+/* career: the shift's area (sectors) */
+.sh-brief__areaGrid {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.sh-brief__areaMap {
+  max-height: 220px;
+}
+.sh-brief__areaList {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+.sh-brief__areaList dt {
+  margin-bottom: 2px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.sh-brief__areaList dd {
+  margin: 0;
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+.sh-brief__areaNames {
+  color: var(--text-0) !important;
+  font-size: var(--fs-lg) !important;
+  font-weight: 700;
+}
+.sh-brief__areaList .is-cover dt,
+.sh-brief__areaList .is-cover dd {
+  color: var(--gold-ink);
+}
+.sh-brief__desks {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sh-brief__desks strong {
+  color: var(--text-0);
+  font-weight: 600;
+}
+
 .sh-brief__start {
   display: flex;
   flex-direction: column;
@@ -534,6 +615,13 @@
 @media (max-width: 640px) {
   .sh-brief__facts {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .sh-brief__areaGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sh-brief__areaMap {
+    justify-self: center;
+    width: min(240px, 100%);
   }
   .sh-choices--diff,
   .sh-choices--row {

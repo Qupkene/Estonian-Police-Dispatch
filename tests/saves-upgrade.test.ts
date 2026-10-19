@@ -17,6 +17,8 @@ import { autosave, loadAutosave, stopLoop, useGame } from '@/store/game';
 import { keepBackup, normalizeCareerProfile, readBackups } from '@/store/migrate';
 import { parseMeta, SLOTS } from '@/net/sync';
 import { rankOf, rosterFromCareer } from '@/sim/career';
+import { careerSectors, coversWholeRegion } from '@/sim/careerSectors';
+import { sectorsOf } from '@/sim/sectors';
 import { createShift, finalizeShift, step } from '@/sim/engine';
 import * as cmd from '@/sim/commands';
 import { queue, recommendUnits } from '@/sim/selectors';
@@ -35,6 +37,13 @@ const raw = (set: string, f: string) => readFileSync(join(ROOT, set, f), 'utf8')
 
 type Stored<T> = { state: T; version: number };
 type CareerData = { profile: CareerProfile | null; inbox: unknown[] };
+
+/**
+ * What this version makes of a stored profile: a career from before sectors gets every sector of each unlocked
+ * prefecture (docs/SECTORS.md, "Old careers"); everything else stays exactly as it was.
+ */
+const upgraded = (p: CareerProfile): CareerProfile =>
+  p.sectors ? p : { ...p, sectors: Object.fromEntries(p.unlockedRegions.map((r) => [r, sectorsOf(r).map((x) => x.id)])) };
 
 /** Backup keys of the guest (epd:backup.*) and of every account cache (epd:acct:<id>:backup.*). */
 const backupKeys = () => Object.keys(localStorage).filter((k) => /^epd:(acct:\d+:)?backup\./.test(k));
@@ -117,7 +126,15 @@ for (const set of SETS) {
             expect(p.history).toHaveLength(want.history.length);
             expect(p.recruits).toHaveLength(want.recruits.length);
             expect(p.stats).toEqual(want.stats);
-            expect(p).toEqual(want);
+            expect(p.staff).toEqual(want.staff);
+            expect(p.fleet).toEqual(want.fleet);
+            expect(p.history).toEqual(want.history);
+            // A career from before sectors covers every unlocked prefecture whole, so it plays as it did.
+            for (const r of want.unlockedRegions) {
+              if (!want.sectors) expect(careerSectors(p, r)).toEqual(sectorsOf(r).map((x) => x.id));
+              if (!want.sectors) expect(coversWholeRegion(p, r)).toBe(true);
+            }
+            expect(p).toEqual(upgraded(want));
           }
           // Loading alone changes nothing in the browser and needs no backup.
           expect(localStorage.getItem('epd:career')).toBe(text);
@@ -127,7 +144,7 @@ for (const set of SETS) {
             useCareer.getState().update((p) => ({ ...p, money: p.money + 1 }));
             const after = JSON.parse(localStorage.getItem('epd:career')!) as Stored<CareerData>;
             expect(after.version).toBe(stored.version);
-            expect(after.state.profile).toEqual({ ...want, money: want.money + 1 });
+            expect(after.state.profile).toEqual({ ...upgraded(want), money: want.money + 1 });
             expect(after.state.inbox).toEqual(stored.state.inbox);
           }
         });
@@ -151,6 +168,9 @@ for (const set of SETS) {
           roster,
           upgrades: before.upgrades,
           reputation: before.reputation,
+          // The career's area: every sector (the whole prefecture, as before) for a career from before sectors.
+          sectors: careerSectors(before, before.regionId),
+          openPosts: before.openPosts,
         });
         playOn(sim, 3 * 60);
         expect(sim.ended).toBe(true);
@@ -159,15 +179,20 @@ for (const set of SETS) {
         const after = useCareer.getState().profile!;
         expect(after.day).toBe(before.day + 1);
         expect(after.stats.shifts).toBe(before.stats.shifts + 1);
-        expect(after.paidShifts).toEqual([report.shiftKey]);
+        expect(after.paidShifts).toEqual([...(before.paidShifts ?? []), report.shiftKey]);
         expect(after.ledger.length).toBeGreaterThan(before.ledger.length);
         expect(after.achievements).toEqual(expect.arrayContaining(before.achievements));
         expect((after as CareerProfile & { counters?: unknown }).counters).toBeTruthy();
+        // The area, the posts and a waiting offer stay as they were.
+        expect(after.sectors).toEqual(before.sectors);
+        expect(after.openPosts).toEqual(before.openPosts);
+        expect(after.sectorsChangedDay).toEqual(before.sectorsChangedDay);
+        if (before.offer) expect(after.offer).toEqual(before.offer);
         expect(JSON.parse(localStorage.getItem('epd:career')!).state.profile.day).toBe(before.day + 1);
       });
     });
 
-    describe('settings (epd:settings)', () => {
+    if (files(set, /^epd-settings.*\.json$/).length) describe('settings (epd:settings)', () => {
       for (const f of files(set, /^epd-settings.*\.json$/)) {
         it(`${f}: every value survives`, async () => {
           const text = raw(set, f);
@@ -185,7 +210,7 @@ for (const set of SETS) {
       }
     });
 
-    describe('shift autosave (epd:autosave)', () => {
+    if (files(set, /^epd-autosave.*\.json$/).length) describe('shift autosave (epd:autosave)', () => {
       for (const f of files(set, /^epd-autosave.*\.json$/)) {
         it(`${f}: loads unchanged and resumes (same incidents, units, calls, clock), then plays on`, () => {
           const text = raw(set, f);
@@ -224,7 +249,7 @@ for (const set of SETS) {
       }
     });
 
-    describe('sync marker (epd:sync)', () => {
+    if (files(set, /^epd-sync.*\.json$/).length) describe('sync marker (epd:sync)', () => {
       for (const f of files(set, /^epd-sync.*\.json$/)) {
         it(`${f}: is understood, and unknown history counts as changed (never replaced without a backup)`, () => {
           const text = raw(set, f);
@@ -258,7 +283,7 @@ for (const set of SETS) {
           api.load(7, res);
           const page = await boot();
           const c = res.career as CareerData;
-          expect(page.useCareer.getState().profile).toEqual(c.profile);
+          expect(page.useCareer.getState().profile).toEqual(upgraded(c.profile!));
           expect(page.useCareer.getState().inbox).toEqual(c.inbox);
           const st = page.useSettings.getState() as unknown as Record<string, unknown>;
           for (const [k, v] of Object.entries(res.settings as Record<string, unknown>))
@@ -268,7 +293,7 @@ for (const set of SETS) {
           expect(api.json(7, 'career')).toEqual(res.career);
         });
 
-        it('the browser that synced it before the update: nothing is replaced, re-uploaded or backed up', async () => {
+        it('the browser that synced it before the update: nothing is replaced or backed up, only sectors are added', async () => {
           const res = cloud();
           const sameAsCloud = [
             ['epd:career', 'epd-career.json', 'career'],
@@ -286,9 +311,17 @@ for (const set of SETS) {
           api.cookie = 7;
           api.load(7, res);
           const page = await boot();
-          expect(page.useCareer.getState().profile).toEqual((res.career as CareerData).profile);
+          const cloudCareer = res.career as CareerData;
+          expect(page.useCareer.getState().profile).toEqual(upgraded(cloudCareer.profile!));
           expect(page.game.loadAutosave()).toEqual(res.autosave);
-          expect(api.writes()).toEqual([]);
+          // The 92ed7f5 marker counts every slot as changed here. A career from before sectors loads with its
+          // sectors filled in (docs/SECTORS.md), so it differs from the cloud copy and goes up once, on the
+          // version it was synced with: the cloud copy plus `sectors`, nothing lost. Nothing else is written.
+          const writes = api.writes();
+          expect(writes.filter((c) => c.path !== '/api/save/career')).toEqual([]);
+          const careerUp = writes.length > 0;
+          expect(careerUp).toBe(!cloudCareer.profile!.sectors);
+          if (careerUp) expect(api.json(7, 'career')).toEqual({ ...cloudCareer, profile: upgraded(cloudCareer.profile!) });
           expect(backupKeys()).toEqual([]);
           // The account's data moved into its own namespace, byte for byte; the guest's keys hold none of it.
           expect(localStorage.getItem('epd:acct:7:career')).toBe(raw(set, 'epd-career.json'));
@@ -296,8 +329,9 @@ for (const set of SETS) {
           expect(localStorage.getItem('epd:career')).toBeNull();
           expect(localStorage.getItem('epd:autosave')).toBeNull();
           const meta = JSON.parse(localStorage.getItem('epd:acct:7:sync')!);
-          for (const slot of ['career', 'settings', 'autosave']) {
-            expect(meta.slots[slot]).toEqual({ owner: 7, base: res.updated[slot], dirty: false });
+          for (const slot of ['career', 'settings', 'autosave'] as const) {
+            const base = slot === 'career' && careerUp ? api.rows.get('7:career')!.updated : res.updated[slot];
+            expect(meta.slots[slot]).toEqual({ owner: 7, base, dirty: false });
           }
         });
 
@@ -310,10 +344,10 @@ for (const set of SETS) {
           const other = (JSON.parse(raw(set, 'epd-career-new.json')) as Stored<CareerData>).state;
           api.write(7, 'career', other);
           const page = await boot();
-          expect(page.useCareer.getState().profile).toEqual((JSON.parse(guest) as Stored<CareerData>).state.profile);
+          expect(page.useCareer.getState().profile).toEqual(upgraded((JSON.parse(guest) as Stored<CareerData>).state.profile!));
           expect(await page.useAccount.getState().login('mari_tamm', 'x')).toBe(true);
           await settle();
-          expect(page.useCareer.getState().profile).toEqual(other.profile);
+          expect(page.useCareer.getState().profile).toEqual(upgraded(other.profile!));
           expect(api.json(7, 'career')).toEqual(other);
           // The guest's career never left its key, and a copy waits for a rollback to 92ed7f5 (src/net/sync.ts legacyMeta).
           expect(localStorage.getItem('epd:career')).toBe(guest);
@@ -321,7 +355,7 @@ for (const set of SETS) {
           const out = page.useAccount.getState().logout();
           await vi.advanceTimersByTimeAsync(3500);
           await out;
-          expect(page.useCareer.getState().profile).toEqual((JSON.parse(guest) as Stored<CareerData>).state.profile);
+          expect(page.useCareer.getState().profile).toEqual(upgraded((JSON.parse(guest) as Stored<CareerData>).state.profile!));
         });
       });
     }
@@ -393,9 +427,9 @@ describe('a newer or unknown version is kept untouched', () => {
     const old = JSON.stringify({ ...f, version: 0 });
     localStorage.setItem('epd:career', old);
     await useCareer.persist.rehydrate();
-    expect(useCareer.getState().profile).toEqual(f.state.profile);
+    expect(useCareer.getState().profile).toEqual(upgraded(f.state.profile!));
     expect(localStorage.getItem('epd:backup.career.v0')).toBe(old);
-    expect(JSON.parse(localStorage.getItem('epd:career')!)).toEqual({ ...f, version: 1 });
+    expect(JSON.parse(localStorage.getItem('epd:career')!)).toEqual({ ...f, state: { ...f.state, profile: upgraded(f.state.profile!) }, version: 1 });
   });
 });
 
@@ -489,7 +523,7 @@ describe('nothing is replaced without a copy', () => {
     useCareer.getState().reset();
     const [b] = readBackups('career');
     expect(b).toMatchObject({ reason: 'reset', unique: true });
-    expect(b.data).toEqual(f.state);
+    expect(b.data).toEqual({ ...f.state, profile: upgraded(f.state.profile!) });
   });
 
   it('a new shift taking the save key keeps the other unfinished shift', () => {
@@ -618,7 +652,7 @@ describe('each identity has its own browser data: account data moves out of the 
     localStorage.setItem('epd:backup.autosave', JSON.stringify({ at: 1, reason: 'cloud', unique: true, owner: null, data: guestShift }));
     localStorage.setItem('epd:sync', JSON.stringify({ v: 2, account: 7, slots: { career: synced(10), settings: synced(10), autosave: synced(10) } }));
     const page = await boot();
-    expect(page.useCareer.getState().profile).toEqual(guest.profile);
+    expect(page.useCareer.getState().profile).toEqual(upgraded(guest.profile!));
     expect(JSON.parse(localStorage.getItem('epd:career')!)).toEqual({ state: guest, version: 1 });
     expect(page.game.loadAutosave()?.seed).toBe(guestShift.seed);
     expect(localStorage.getItem('epd:backup.career')).toBe(resetBackup);
@@ -649,7 +683,7 @@ describe('each identity has its own browser data: account data moves out of the 
       localStorage.setItem('epd:autosave', fx('epd-autosave-free.json'));
       if (marker !== null) localStorage.setItem('epd:sync', marker);
       const page = await boot();
-      expect(page.useCareer.getState().profile).toEqual(state('epd-career.json').profile);
+      expect(page.useCareer.getState().profile).toEqual(upgraded(state('epd-career.json').profile!));
       expect(localStorage.getItem('epd:career')).toBe(fx('epd-career.json'));
       expect(page.game.loadAutosave()?.seed).toBe((JSON.parse(fx('epd-autosave-free.json')) as SimState).seed);
       expect(Object.keys(localStorage).filter((k) => k.startsWith('epd:acct:'))).toEqual([]);
@@ -670,7 +704,7 @@ describe('each identity has its own browser data: account data moves out of the 
     const page = await boot();
     expect(localStorage.getItem('epd:acct:7:career')).toBe(fx('epd-career.json'));
     expect(localStorage.getItem('epd:acct:7:backup.career.replaced')).toBe(cached);
-    expect(page.useCareer.getState().profile).toEqual(guest.profile);
+    expect(page.useCareer.getState().profile).toEqual(upgraded(guest.profile!));
   });
 
   it('when storage refuses the move nothing is lost, and it is tried again on the next load', async () => {
