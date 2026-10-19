@@ -39,7 +39,7 @@ import { radioClosure } from './radioText';
 import { fillText, genitiveName, type Vars } from './text';
 import { hhmm, isoDate, MIN } from './time';
 import {
-  arrestHouse,
+  custodyDestination,
   coverage,
   crewSkill,
   moveUnit,
@@ -1299,13 +1299,14 @@ function startTransport(s: SimState, inc: Incident, u: Unit, dest: TransportBeat
   let place = '';
   let key = dest === 'home' ? 'transportHome' : 'transportStation';
   if (dest === 'arrest') {
-    // Island arrests go to the island's own holding cells, not over the ferry to the mainland.
-    const st = arrestHouse(s, inc.location.zone);
-    if (st) {
-      to = st.coord;
-      place = st.name.et;
+    // Island arrests go to the island's own holding cells, not over the ferry to the mainland; far
+    // from the arrest house the detainee goes to the nearest jaoskond first (custodyDestination).
+    const c = custodyDestination(s, inc.location.coord, inc.location.zone);
+    if (c) {
+      to = c.station.coord;
+      place = c.station.name.et;
     }
-    key = 'transportArrest';
+    key = c?.local ? 'transportArrestLocal' : 'transportArrest';
   } else if (dest === 'hospital') {
     const h = nearestHospital(s, inc.location.coord, inc.location.zone);
     if (h) {

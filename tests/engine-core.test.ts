@@ -1133,6 +1133,16 @@ describe('dispatch recommendations and unit movement with real content', () => {
     expect(E.units.arrestHouse(s, 'kihnu')?.id).toBe('la-parnu-arest');
   });
 
+  it('Lõuna: an arrest far from Tartu goes to the nearest jaoskond, one near Tartu to the prison', (ctx) => {
+    if (!ready) return ctx.skip();
+    const s = night('louna');
+    const far = E.units.custodyDestination(s, town('louna', 'Viljandi'));
+    expect(far?.local).toBe(true);
+    expect(far?.station.id).toBe('lo-viljandi');
+    const near = E.units.custodyDestination(s, town('louna', 'Tartu'));
+    expect(near).toEqual({ station: E.units.arrestHouse(s), local: false });
+  });
+
   const pursuitShift = () => E.engine.createShift(opts({ seed: 9, regionId: 'pohja', mode: 'director', start: Date.UTC(2026, 9, 16, 19, 0) }));
 
   it('pursuit: an off-duty helicopter is not sent', (ctx) => {
