@@ -14,13 +14,15 @@ import {
 import { clearAutosave, loadAutosave, shiftKeyOf, useGame, type Screen } from '@/store/game';
 import { useCareer } from '@/store/career';
 import { useAccount } from '@/net/account';
-import { t as translate, useLang, useT, useTx } from '@/i18n';
+import { useLang, useT, useTx } from '@/i18n';
 import { sectorById } from '@/sim/sectors';
 import { ddmmyyyy, hhmm, wall } from '@/sim/time';
 import type { CareerProfile, GameMode, Lang } from '@/sim/types';
 import { DailyCard, useDaily } from './shell/Daily';
 import { DutyMap, type MapLayout } from './shell/DutyMap';
 import { Leaderboard } from './shell/Leaderboard';
+import { MapLegend } from './shell/MapLegend';
+import { MonoNumbers, noticeText } from './shell/notices';
 import { ShellAccount, ShellFooter, ShellTopBar, STACKED, useMedia } from './shell/ShellFrame';
 import { regionSummary } from './shell/helpers';
 import {
@@ -269,7 +271,8 @@ export function MenuScreen() {
   const dailyCard = <DailyCard daily={daily} playRef={dailyPlayRef} />;
   const noticesPanel = notices.length > 0 ? <NoticesPanel notices={notices} max={stacked ? 3 : 3} /> : null;
   const board = backend === 'online' ? <Leaderboard me={accountUser?.name ?? null} /> : null;
-  const legend = <Legend input={input} compact={stacked} scale={layout?.scale ?? 1} />;
+  // 1.82 px per km on the 1:1 map.
+  const legend = <MapLegend input={input} compact={stacked} pxPerKm={1.82 * (layout?.scale ?? 1)} />;
 
   return (
     <div className={`vk vk-menu${stacked ? ' is-stacked' : ''}`} ref={rootRef} onKeyDown={onKey}>
@@ -698,36 +701,11 @@ function lowerFirst(s: string, lang: Lang): string {
 
 // ── Teated ───────────────────────────────────────────────────────────────────
 
-/** Numbers, money, percentages and distances in a sentence set in mono, as everywhere on these screens. */
-function MonoNumbers({ text }: { text: string }) {
-  const parts = text.split(
-    /(\d+(?:[\u00a0\u202f ]\d{3})*(?:[.,]\d+)?(?:[\u00a0 ]?(?:€|%|km|min|XP|m\/s))?)/g,
-  );
-  return (
-    <>
-      {parts.map((p, i) =>
-        i % 2 ? (
-          <span key={i} className="vk-mono vk-num">
-            {p}
-          </span>
-        ) : (
-          p
-        ),
-      )}
-    </>
-  );
-}
-
 function NoticesPanel({ notices, max }: { notices: Notice[]; max: number }) {
   const t = useT();
   const lang = useLang();
   const go = useGame((s) => s.setScreen);
-  const textOf = (n: Notice): string => {
-    if ('et' in n.text) return n.text[lang] || n.text.et;
-    const vars: Record<string, string | number> = {};
-    for (const [k, v] of Object.entries(n.text.vars)) vars[k] = typeof v === 'object' ? v[lang] || v.et : v;
-    return translate(n.text.key, lang, vars);
-  };
+  const textOf = (n: Notice) => noticeText(n, lang);
   return (
     <section className="vk-panel vk-notes" aria-labelledby="vk-notes-title">
       <div className="vk-panel__head">
@@ -762,93 +740,7 @@ function NoticesPanel({ notices, max }: { notices: Notice[]; max: number }) {
   );
 }
 
-// ── Map key and keyboard ─────────────────────────────────────────────────────
-
-function Legend({ input, compact, scale }: { input: DutyInput; compact: boolean; scale: number }) {
-  const t = useT();
-  const items: ReactNode[] = [];
-  if (input.mine.length)
-    items.push(
-      <li key="mine">
-        <span className="vk-legend__mine" aria-hidden="true" />
-        {t('shell.menu.legend.mine')}
-      </li>,
-    );
-  if (input.whole.length)
-    items.push(
-      <li key="whole">
-        <span className="vk-legend__whole" aria-hidden="true" />
-        {t('shell.menu.legend.whole')}
-      </li>,
-    );
-  if (input.offered.length)
-    items.push(
-      <li key="offer">
-        <span className="vk-legend__offer" aria-hidden="true" />
-        {t('shell.menu.legend.offer')}
-      </li>,
-    );
-  if (input.challenge)
-    items.push(
-      <li key="challenge">
-        <svg className="vk-mark" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-          <circle cx="7" cy="7" r="5.2" />
-          <circle cx="7" cy="7" r="2" />
-        </svg>
-        {t('shell.menu.legend.challenge')}
-      </li>,
-    );
-  if (!compact) {
-    items.push(
-      <li key="pref">
-        <svg width="22" height="6" viewBox="0 0 22 6" aria-hidden="true">
-          <path className="vk-legend__pref" d="M0 3H22" />
-        </svg>
-        {t('shell.menu.legend.pref')}
-      </li>,
-    );
-    if (input.home)
-      items.push(
-        <li key="sector">
-          <svg width="22" height="6" viewBox="0 0 22 6" aria-hidden="true">
-            <path className="vk-legend__sector" d="M1 3H21" />
-          </svg>
-          {t('shell.menu.legend.sector')}
-        </li>,
-      );
-    // 50 km at the map's scale (1.82 px per km at 1:1).
-    const half = 25 * 1.82 * scale;
-    items.push(
-      <li key="scale" className="vk-legend__scale">
-        <svg
-          width={Math.round(half * 2 + 22)}
-          height="22"
-          viewBox={`0 0 ${half * 2 + 22} 22`}
-          role="img"
-          aria-label={t('shell.menu.legend.scale', { km: 50 })}
-        >
-          <rect x="1" y="14" width={half} height="4" className="vk-legend__bar" />
-          <rect x={1 + half} y="14.5" width={half} height="3" className="vk-legend__bar is-open" />
-          <text x="1" y="10">
-            0
-          </text>
-          <text x={1 + half} y="10" textAnchor="middle">
-            25
-          </text>
-          <text x={1 + half * 2} y="10" textAnchor="middle">
-            50 km
-          </text>
-        </svg>
-      </li>,
-    );
-  }
-  if (!items.length) return null;
-  return (
-    <ul className={`vk-legend${compact ? ' is-compact' : ' vk-panel'}`} aria-label={t('shell.menu.legend')}>
-      {items}
-    </ul>
-  );
-}
+// ── Keyboard ─────────────────────────────────────────────────────────────────
 
 function MenuKeys() {
   const t = useT();

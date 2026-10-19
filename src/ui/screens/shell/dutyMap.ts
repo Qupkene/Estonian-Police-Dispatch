@@ -57,9 +57,16 @@ export const STRIP_VIEW: MapView = {
   minArea: 3,
 };
 
-/** A view of `width` × `height` px fitting `bounds` with `pad` px around (a prefecture, an area). */
-export function fitView(bounds: [LngLat, LngLat], width: number, height: number, pad = 24): MapView {
+/** Room to leave around a fitted view (px): one number for every side, or each side on its own. */
+export type ViewPad = number | { top: number; right: number; bottom: number; left: number };
+
+/**
+ * A view of `width` × `height` px fitting `bounds` with `pad` px around (a prefecture, an area). With a pad per
+ * side the bounds are centred in what the pads leave free (the map between a screen's side panels).
+ */
+export function fitView(bounds: [LngLat, LngLat], width: number, height: number, pad: ViewPad = 24): MapView {
   const [[w, s], [e, n]] = bounds;
+  const p = typeof pad === 'number' ? { top: pad, right: pad, bottom: pad, left: pad } : pad;
   const pts = [
     [w, s],
     [e, s],
@@ -67,21 +74,27 @@ export function fitView(bounds: [LngLat, LngLat], width: number, height: number,
     [e, n],
     [(w + e) / 2, n],
     [(w + e) / 2, s],
-  ].map((p) => lest97(p as LngLat));
-  const xs = pts.map((p) => p[0]);
-  const ys = pts.map((p) => p[1]);
+  ].map((q) => lest97(q as LngLat));
+  const xs = pts.map((q) => q[0]);
+  const ys = pts.map((q) => q[1]);
   const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-  const scale = Math.min((width - pad * 2) / Math.max(1, x1 - x0), (height - pad * 2) / Math.max(1, y1 - y0));
+  const freeW = Math.max(40, width - p.left - p.right);
+  const freeH = Math.max(40, height - p.top - p.bottom);
+  const scale = Math.min(freeW / Math.max(1, x1 - x0), freeH / Math.max(1, y1 - y0));
   return {
     width,
     height,
     scale,
     origin: [(x0 + x1) / 2, (y0 + y1) / 2],
-    at: [width / 2, height / 2],
+    at: [p.left + freeW / 2, p.top + freeH / 2],
     tol: 0.35,
     minArea: 6,
   };
 }
+
+/** A stable key of a view (the caches of its layers). */
+export const viewKey = (v: MapView) =>
+  [v.width, v.height, v.scale, ...v.origin, ...v.at, v.tol, v.minArea].join(',');
 
 /** Map point → view px. */
 export function project(view: MapView, ll: LngLat): XY {
@@ -91,9 +104,6 @@ export function project(view: MapView, ll: LngLat): XY {
 function fromKm(view: MapView, [x, y]: XY): XY {
   return [(x - view.origin[0]) * view.scale + view.at[0], (y - view.origin[1]) * view.scale + view.at[1]];
 }
-
-const viewKey = (v: MapView) =>
-  [v.width, v.height, v.scale, ...v.origin, ...v.at, v.tol, v.minArea].join(',');
 
 // ── Polylines and rings in px ───────────────────────────────────────────────
 
@@ -1010,10 +1020,22 @@ export interface DutyInput {
   challenge: { sector: string; regionId: RegionId } | null;
   /** The player's home prefecture: tinted, with its sector lines. */
   home: RegionId | null;
+  /** Colleagues' sectors to name on the map, each with who holds its desk (the career screen's own prefecture). */
+  others?: readonly string[];
 }
 
 export interface PlacedText extends MapText {
-  kind: 'mine' | 'mineSub' | 'offer' | 'challenge' | 'capital' | 'city' | 'town';
+  kind:
+    | 'mine'
+    | 'mineSub'
+    | 'offer'
+    | 'offerSub'
+    | 'other'
+    | 'otherSub'
+    | 'challenge'
+    | 'capital'
+    | 'city'
+    | 'town';
 }
 
 export interface DutyOverlay {
@@ -1050,6 +1072,9 @@ export interface OverlayNames {
   sector: (id: string) => { name: string; short: string };
   /** "sinu sektor". */
   mineSub: string;
+  /** Under an offered or a colleague's sector: "pakkumine · Maarja Tamm", "Rein Kask" (none: the name only). */
+  offerSub?: (id: string) => string;
+  otherSub?: (id: string) => string;
 }
 
 /**
@@ -1086,12 +1111,12 @@ export function dutyOverlay(
     cands: PlacedText[],
     size: number,
     width: number,
-    sub?: { text: string; size: number; width: number },
+    sub?: { kind: PlacedText['kind']; text: string; size: number; width: number },
   ) => {
     for (const c of cands) {
       const b = boxOf(c, size, width);
       const s: PlacedText | null = sub
-        ? { kind: 'mineSub', text: sub.text, x: c.x, y: c.y + sub.size + 3, anchor: c.anchor }
+        ? { kind: sub.kind, text: sub.text, x: c.x, y: c.y + sub.size + 3, anchor: c.anchor }
         : null;
       const sb = s && sub ? boxOf(s, sub.size, sub.width) : null;
       if (!inView(b) || placed.some((p) => hits(p, b)) || (sb && placed.some((p) => hits(p, sb)))) continue;
@@ -1173,16 +1198,35 @@ export function dutyOverlay(
     const w = textWidth(text, 12 * k, 'display', compact ? 0.08 : 0.1);
     const subW = textWidth(names.mineSub, 11.5 * k, 'text');
     tryPlace(around(s, 'mine', text, 12 * k, Math.max(w, subW)), 12 * k, w, {
+      kind: 'mineSub',
       text: names.mineSub,
       size: 11.5 * k,
       width: subW,
     });
   }
-  for (const s of compact ? [] : offered) {
+  // Named sectors with a line under: the offer, then the colleagues' (largest first, so the roomy ones place).
+  const named = (s: SectorShape, kind: 'offer' | 'other', sub: string) => {
     const text = names.sector(s.id).name;
-    const w = textWidth(text, 11.5, 'text');
-    tryPlace(around(s, 'offer', text, 11.5, w), 11.5, w);
-  }
+    const w = textWidth(text, 11.5, 'text') * (kind === 'other' ? 1.04 : 1);
+    if (!sub) return tryPlace(around(s, kind, text, 11.5, w), 11.5, w);
+    const subW = textWidth(sub, 11, 'text');
+    const subKind = kind === 'offer' ? 'offerSub' : 'otherSub';
+    // A name whose line has no room goes up alone.
+    return (
+      tryPlace(around(s, kind, text, 11.5, Math.max(w, subW)), 11.5, w, {
+        kind: subKind,
+        text: sub,
+        size: 11,
+        width: subW,
+      }) || tryPlace(around(s, kind, text, 11.5, w), 11.5, w)
+    );
+  };
+  for (const s of compact ? [] : offered) named(s, 'offer', names.offerSub?.(s.id) ?? '');
+  const taken = new Set([...mine, ...offered].map((s) => s.id));
+  const others = compact
+    ? []
+    : shapes((input.others ?? []).filter((id) => !taken.has(id) && id !== challenge?.id));
+  for (const s of others) named(s, 'other', names.otherSub?.(s.id) ?? '');
   for (const tw of towns) {
     const town = TOWNS.find((x) => x.name === tw.name)!;
     const spec = (compact && town.small) || town;

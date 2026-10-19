@@ -1,7 +1,7 @@
 // Valvekaart: the duty map behind the out-of-game screens (geometry in dutyMap.ts, colours in vk.css). A static
 // SVG: its layers are built once per view and cached, the first time in idle time so the panels paint first;
 // nothing on it moves. Decorative (aria-hidden): the panels and the legend say everything it shows.
-import { memo, useEffect, useId, useState } from 'react';
+import { memo, useEffect, useId, useRef, useState } from 'react';
 import { t as translate, useLang } from '@/i18n';
 import { sectorById } from '@/sim/sectors';
 import type { Lang } from '@/sim/types';
@@ -18,6 +18,7 @@ import {
   type MapView,
   type SectorShape,
   type XY,
+  viewKey,
 } from './dutyMap';
 
 /** Where the full map sits on screen: its slice scale and offset, the left panel's edge and the challenge card. */
@@ -48,29 +49,45 @@ interface Built {
 
 const built = new Map<string, Built>();
 
-function build(view: MapView, input: DutyInput, lang: Lang, compact: boolean): Built {
+/** Who holds a sector's desk ("Maarja Tamm"), for the colleagues' labels. */
+function colleagueOf(id: string): string {
+  const c = sectorById(id)?.colleague;
+  return c ? `${c.firstName} ${c.lastName}`.trim() : '';
+}
+
+function build(view: MapView, input: DutyInput, lang: Lang, compact: boolean, who: string): Built {
+  const yours = translate('shell.map.yours', lang);
+  const offer = translate('shell.map.offer', lang);
   return {
     base: baseMap(view),
     overlay: dutyOverlay(
       view,
       input,
-      { sector: (id) => sectorNames(id, lang), mineSub: translate('shell.map.yours', lang) },
+      {
+        sector: (id) => sectorNames(id, lang),
+        mineSub: who ? `${yours} · ${who}` : yours,
+        // Only the career screen names the colleagues; there the offer says whose desk it is too.
+        offerSub: input.others ? (id) => [offer, colleagueOf(id)].filter(Boolean).join(' · ') : undefined,
+        otherSub: colleagueOf,
+      },
       compact,
     ),
   };
 }
 
-/** The built map: at once when cached, else after the first paint (idle time). */
-function useBuilt(view: MapView, input: DutyInput, lang: Lang, compact: boolean): Built | null {
-  const key = `${compact}|${lang}|${JSON.stringify(input)}`;
+/** The built map: at once when cached, else after the first paint (idle time); meanwhile the last one built. */
+function useBuilt(view: MapView, input: DutyInput, lang: Lang, compact: boolean, who: string): Built | null {
+  const key = `${viewKey(view)}|${compact}|${lang}|${who}|${JSON.stringify(input)}`;
   const [, setTick] = useState(0);
+  const last = useRef<Built | null>(null);
   const hit = built.get(key) ?? null;
+  if (hit) last.current = hit;
   useEffect(() => {
     if (built.has(key)) return;
     let alive = true;
     const run = () => {
       if (!alive) return;
-      built.set(key, build(view, input, lang, compact));
+      built.set(key, build(view, input, lang, compact, who));
       if (built.size > 12) built.delete(built.keys().next().value!);
       setTick((n) => n + 1);
     };
@@ -88,25 +105,32 @@ function useBuilt(view: MapView, input: DutyInput, lang: Lang, compact: boolean)
     };
     // `key` covers the view, the input, the language and the size.
   }, [key]);
-  return hit;
+  // A resized view keeps showing the previous map (stretched a little) until its own is built.
+  return hit ?? (last.current && last.current.base.view.width > 0 ? last.current : null);
 }
 
 export const DutyMap = memo(function DutyMap({
   variant,
   input,
   layout,
+  view: focus,
+  who = '',
 }: {
   variant: 'full' | 'strip';
   input: DutyInput;
   /** The full map's place on screen (degree labels, the challenge leader); none: neither is drawn. */
   layout?: MapLayout | null;
+  /** A view of its own (fitView: a prefecture between a screen's panels) instead of the variant's whole country. */
+  view?: MapView;
+  /** The player's name under "sinu sektor" (the career screen). */
+  who?: string;
 }) {
   const lang = useLang();
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const full = variant === 'full';
-  const view = full ? DESKTOP_VIEW : STRIP_VIEW;
-  const map = useBuilt(view, input, lang, !full);
-  const { width: w, height: h } = view;
+  const view = focus ?? (full ? DESKTOP_VIEW : STRIP_VIEW);
+  const map = useBuilt(view, input, lang, !full, who);
+  const { width: w, height: h } = map?.base.view ?? view;
   if (!map)
     return (
       <svg
@@ -273,7 +297,7 @@ export const DutyMap = memo(function DutyMap({
             (full || n.key === 'gulf' || n.key === 'riga'),
         )
         .map((n) => {
-          const at = full ? n : stripWater(n.key, n);
+          const at = full || focus ? n : stripWater(n.key, n);
           const words = n.key === 'peipus' ? splitLast(name(n.key)) : [name(n.key)];
           return (
             <text key={n.key} className="vk-map__water" x={at.x.toFixed(1)} y={at.y.toFixed(1)}>

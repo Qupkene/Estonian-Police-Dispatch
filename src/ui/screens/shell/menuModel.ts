@@ -130,6 +130,8 @@ export interface Notice {
   day: number | null;
   /** The text itself (a career message), or an i18n key with its variables (a Text one in the shown language). */
   text: Text | { key: string; vars: Record<string, string | number | Text> };
+  /** Index of the career message it shows (it can be dismissed); none for the offer and the fleet. */
+  inbox?: number;
 }
 
 /** What a career message (sim/career applyShiftReport) is about, from its Estonian text. */
@@ -163,12 +165,12 @@ export function menuNotices(p: CareerProfile | null, inbox: readonly Text[]): No
       text: { key: 'shell.menu.note.offer', vars: { names } },
     });
   }
-  for (const m of inbox ?? []) {
-    if (!m || typeof m.et !== 'string') continue;
+  (inbox ?? []).forEach((m, i) => {
+    if (!m || typeof m.et !== 'string') return;
     // The offer has its own notice above.
-    if (p.offer && /^Prefekt pakub/.test(m.et)) continue;
-    out.push({ kind: noticeKind(m), day: lastDay, text: m });
-  }
+    if (p.offer && /^Prefekt pakub/.test(m.et)) return;
+    out.push({ kind: noticeKind(m), day: lastDay, text: m, inbox: i });
+  });
   const worn = (Array.isArray(p.fleet) ? p.fleet : [])
     .filter((v) => Number.isFinite(v.condition) && v.condition < WORN)
     .sort((a, b) => a.condition - b.condition)[0];

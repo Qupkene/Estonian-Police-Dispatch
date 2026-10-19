@@ -2,6 +2,18 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.12.0 (2026-10-19)
+
+- **Uus karjääri leht (Valvekaart):** üleval on näitajate riba (eelarve, kuukulud, Staatus, auaste, palgapäev, viimane vahetus) ja nupp vahetuse alustamiseks. Keskel on sinu prefektuuri kaart, kus on näha sinu sektor, prefekti pakkumine ja kolleegide sektorid. Vasakul on vastutusala tabel ja paremal prefekti pakkumine.
+- Allpool on järgmise vahetuse ekipaažid, viimaste vahetuste hinded, autopark, teated, järgmine auaste, politseipunktid ja kõik haldusvahekaardid (personal, värbamine, autopark, uuendused, eelarve, ajalugu). Uue karjääri alustamine, hele teema ja telefonivaade on samas stiilis.
+
+<details>
+<summary>English</summary>
+
+New career page in the Valvekaart style: a figure strip and the start button, a duty map of your prefecture with your sector, the offer and colleagues, the area table and the prefect's offer, then crews, recent grades, fleet, notices, next rank, posts and every management tab. Onboarding, light theme and phone layout restyled too.
+
+</details>
+
 ## 2.11.1 (2026-10-19)
 
 - **Kinnipeetu viiakse lähimasse jaoskonda:** kui arestimaja (Lõunas Tartu vangla) on sündmuskohast üle 30 km kaugusel, viib ekipaaž kinnipeetu lähimasse politseijaoskonda menetlusse, näiteks Viljandist Viljandi jaoskonda. Edasine konvoi vanglasse toimub hiljem ega koorma sinu ekipaaže.
