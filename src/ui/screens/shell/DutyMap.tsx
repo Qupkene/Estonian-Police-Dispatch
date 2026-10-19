@@ -1,7 +1,9 @@
-// Valvekaart: the duty map behind the out-of-game screens (geometry in dutyMap.ts, colours in vk.css). A static
-// SVG: its layers are built once per view and cached, the first time in idle time so the panels paint first;
-// nothing on it moves. Decorative (aria-hidden): the panels and the legend say everything it shows.
-import { memo, useEffect, useId, useRef, useState } from 'react';
+// Valvekaart: the duty map behind the out-of-game screens (geometry in dutyMap.ts, colours in vk.css). Static:
+// its layers are built once per view and cached, the first time in idle time so the panels paint first; nothing
+// on it moves. The shapes are painted once into a canvas (dutyMapCanvas.ts: a full-screen SVG of them cost
+// seconds of raster on machines without GPU raster), the dots, pin and names go on top as SVG. Decorative
+// (aria-hidden): the panels and the legend say everything it shows.
+import { memo, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { t as translate, useLang } from '@/i18n';
 import { sectorById } from '@/sim/sectors';
 import type { Lang } from '@/sim/types';
@@ -16,10 +18,10 @@ import {
   type DutyOverlay,
   type MapNameKey,
   type MapView,
-  type SectorShape,
   type XY,
   viewKey,
 } from './dutyMap';
+import { frameOf, paintMap, readColours } from './dutyMapCanvas';
 
 /** Where the full map sits on screen: its slice scale and offset, the left panel's edge and the challenge card. */
 export interface MapLayout {
@@ -45,6 +47,7 @@ function sectorNames(id: string, lang: Lang): { name: string; short: string } {
 interface Built {
   base: BaseMap;
   overlay: DutyOverlay;
+  input: DutyInput;
 }
 
 const built = new Map<string, Built>();
@@ -66,6 +69,7 @@ function build(
   const yours = translate('shell.map.yours', lang);
   const offer = offerWord || translate('shell.map.offer', lang);
   return {
+    input,
     base: baseMap(view),
     overlay: dutyOverlay(
       view,
@@ -123,6 +127,37 @@ function useBuilt(
   return hit ?? (last.current && last.current.base.view.width > 0 ? last.current : null);
 }
 
+/** The box's size (CSS px) and the device pixel ratio, and a tick for each theme change: when to repaint. */
+function usePaintTarget(ref: RefObject<HTMLElement | null>) {
+  const [box, setBox] = useState<{ w: number; h: number; dpr: number } | null>(null);
+  const [theme, setTheme] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      const next = { w: Math.round(r.width), h: Math.round(r.height), dpr: window.devicePixelRatio || 1 };
+      setBox((b) => (b && b.w === next.w && b.h === next.h && b.dpr === next.dpr ? b : next));
+    };
+    measure();
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    // Zoom changes the pixel ratio and fires a resize.
+    window.addEventListener('resize', measure);
+    const mo = new MutationObserver(() => setTheme((n) => n + 1));
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', measure);
+      mo.disconnect();
+    };
+  }, [ref]);
+  return { box, theme };
+}
+
+/** Device px of the canvas at most (a 4K screen at 2x is 33 Mpx): past it the ratio is lowered. */
+const MAX_CANVAS_PX = 16_000_000;
+
 export const DutyMap = memo(function DutyMap({
   variant,
   input,
@@ -143,32 +178,42 @@ export const DutyMap = memo(function DutyMap({
   offerWord?: string;
 }) {
   const lang = useLang();
-  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const full = variant === 'full';
   const view = focus ?? (full ? DESKTOP_VIEW : STRIP_VIEW);
   const map = useBuilt(view, input, lang, !full, who, offerWord);
   const { width: w, height: h } = map?.base.view ?? view;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { box, theme } = usePaintTarget(rootRef);
+
+  // The shapes, painted once per map, size, pixel ratio and theme (not on every render).
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    const root = rootRef.current;
+    if (!canvas || !root || !map || !box || box.w < 1 || box.h < 1) return;
+    const dpr = Math.min(box.dpr, Math.sqrt(MAX_CANVAS_PX / (box.w * box.h)));
+    const cw = Math.max(1, Math.round(box.w * dpr));
+    const chh = Math.max(1, Math.round(box.h * dpr));
+    if (canvas.width !== cw) canvas.width = cw;
+    if (canvas.height !== chh) canvas.height = chh;
+    // A canvas kept in memory, not on the GPU: painted once, then only composited (and no GPU raster needed).
+    const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
+    if (!ctx) return;
+    const { width: vw, height: vh } = map.base.view;
+    paintMap(ctx, frameOf(vw, vh, cw, chh, full), map.base, map.overlay, map.input, full, readColours(root));
+  }, [map, box, theme, full]);
+
   if (!map)
     return (
-      <svg
+      <div
+        ref={rootRef}
         className={`vk-map vk-map--${variant} is-empty`}
-        viewBox={`0 0 ${w} ${h}`}
+        style={{ aspectRatio: `${w} / ${h}` }}
         aria-hidden="true"
-        focusable="false"
       />
     );
   const { base, overlay } = map;
   const name = (k: MapNameKey) => translate(`shell.map.${k}`, lang);
-  const clipId = (s: SectorShape) => `${uid}-c-${s.id}`;
-  // One clip per sector (the challenge can be the player's own desk).
-  const clipped = [
-    ...new Map(
-      [...overlay.mine, ...overlay.offered, ...(overlay.challenge ? [overlay.challenge] : [])]
-        .filter((s) => s.clip)
-        .map((s) => [s.id, s]),
-    ).values(),
-  ];
-  const clipAttr = (s: SectorShape) => (s.clip ? `url(#${clipId(s)})` : undefined);
 
   // Degree labels and the leader need to know what the panels leave visible.
   let degrees: { text: string; x: number; y: number }[] = [];
@@ -188,167 +233,112 @@ export const DutyMap = memo(function DutyMap({
   const pin: XY | null = overlay.challengePin;
 
   return (
-    <svg
+    <div
+      ref={rootRef}
       className={`vk-map vk-map--${variant}`}
-      viewBox={`0 0 ${w} ${h}`}
-      preserveAspectRatio={full ? 'xMidYMid slice' : 'xMidYMid meet'}
+      style={{ aspectRatio: `${w} / ${h}` }}
       aria-hidden="true"
-      focusable="false"
     >
-      <defs>
-        <path id={`${uid}-land`} d={base.land} />
-        <pattern
-          id={`${uid}-hatch`}
-          width={full ? 4 : 3}
-          height={full ? 4 : 3}
-          patternUnits="userSpaceOnUse"
-          patternTransform="rotate(45)"
-        >
-          <rect className="vk-map__hatch" width={full ? 1.1 : 0.9} height={full ? 4 : 3} />
-        </pattern>
-        {clipped.map((s) => (
-          <clipPath key={s.id} id={clipId(s)}>
-            <path d={s.clip!} />
-          </clipPath>
-        ))}
-      </defs>
-      <rect className="vk-map__sea" width={w} height={h} />
-      {full && <path className="vk-map__grat" d={base.graticule} />}
-      <g className="vk-map__waterlines">
-        <use href={`#${uid}-land`} className="vk-map__wl vk-map__wl--3" />
-        <use href={`#${uid}-land`} className="vk-map__wl-gap vk-map__wl--3" />
-        <use href={`#${uid}-land`} className="vk-map__wl vk-map__wl--2" />
-        <use href={`#${uid}-land`} className="vk-map__wl-gap vk-map__wl--2" />
-        <use href={`#${uid}-land`} className="vk-map__wl vk-map__wl--1" />
-        <use href={`#${uid}-land`} className="vk-map__wl-gap vk-map__wl--1" />
-      </g>
-      <path className="vk-map__nb" d={base.neighbours} />
-      <path className="vk-map__nb-line" d={base.neighbourCoast} />
-      <path className="vk-map__seam" d={base.border} />
-      <use href={`#${uid}-land`} className="vk-map__land" />
-      {input.home && <path className="vk-map__home" d={base.prefectures[input.home]} />}
-      {input.whole.map((id) => (
-        <path key={id} className="vk-map__whole" d={base.prefectures[id]} />
-      ))}
-      <path className="vk-map__lake" d={base.lakes} />
-      {full && <path className="vk-map__road vk-map__road--local" d={base.roadsLocal} />}
-      <path className="vk-map__road" d={base.roadsMain} />
-      {full && input.home && <path className="vk-map__sector-line" d={base.countyLines[input.home]} />}
-      <path className="vk-map__pref-line" d={base.prefLines} />
-      {overlay.offered.map((s) => (
-        <path
-          key={s.id}
-          className="vk-map__offer"
-          d={s.d}
-          fill={`url(#${uid}-hatch)`}
-          clipPath={clipAttr(s)}
-        />
-      ))}
-      {overlay.challenge && (
-        <path className="vk-map__challenge" d={overlay.challenge.d} clipPath={clipAttr(overlay.challenge)} />
-      )}
-      <path className="vk-map__coast" d={base.coast} />
-      <path className="vk-map__border" d={base.border} />
-      {overlay.mine.map((s) => (
-        <path
-          key={s.id}
-          className={`vk-map__mine${s.area > 2500 ? ' is-large' : ''}`}
-          d={s.d}
-          clipPath={clipAttr(s)}
-        />
-      ))}
-      {leader && (
-        <path
-          className="vk-map__leader"
-          d={`M${leader.x.toFixed(1)} ${leader.y0.toFixed(1)}V${leader.y1.toFixed(1)}`}
-        />
-      )}
-      {pin && (
-        <g className="vk-map__pin" transform={`translate(${pin[0].toFixed(1)} ${pin[1].toFixed(1)})`}>
-          <circle r={full ? 8 : 6} />
-          <circle r={full ? 2.8 : 2.2} />
-        </g>
-      )}
-      <g className="vk-map__dots">
-        {overlay.towns.map((tw) => (
-          <circle
-            key={tw.name}
-            className={`is-size${tw.size}`}
-            cx={tw.x.toFixed(1)}
-            cy={tw.y.toFixed(1)}
-            r={tw.size === 0 ? 3.1 : tw.size === 1 ? 2.5 : 1.9}
+      <canvas ref={canvasRef} className="vk-map__canvas" />
+      <svg
+        className="vk-map__ink"
+        viewBox={`0 0 ${w} ${h}`}
+        preserveAspectRatio={full ? 'xMidYMid slice' : 'xMidYMid meet'}
+        focusable="false"
+      >
+        {leader && (
+          <path
+            className="vk-map__leader"
+            d={`M${leader.x.toFixed(1)} ${leader.y0.toFixed(1)}V${leader.y1.toFixed(1)}`}
           />
-        ))}
-        {overlay.towns
-          .filter((tw) => tw.size === 0 && full)
-          .map((tw) => (
+        )}
+        {pin && (
+          <g className="vk-map__pin" transform={`translate(${pin[0].toFixed(1)} ${pin[1].toFixed(1)})`}>
+            <circle r={full ? 8 : 6} />
+            <circle r={full ? 2.8 : 2.2} />
+          </g>
+        )}
+        <g className="vk-map__dots">
+          {overlay.towns.map((tw) => (
             <circle
-              key={`${tw.name}-ring`}
-              className="is-ring"
+              key={tw.name}
+              className={`is-size${tw.size}`}
               cx={tw.x.toFixed(1)}
               cy={tw.y.toFixed(1)}
-              r={6.2}
+              r={tw.size === 0 ? 3.1 : tw.size === 1 ? 2.5 : 1.9}
             />
           ))}
-      </g>
-      {full &&
-        base.names
-          .filter((n) => n.key === 'fi' || n.key === 'lv' || n.key === 'ru')
-          .map((n) => (
-            <text
-              key={n.key}
-              className="vk-map__country"
-              x={n.x.toFixed(1)}
-              y={n.y.toFixed(1)}
-              transform={n.rotate ? `rotate(${n.rotate} ${n.x.toFixed(1)} ${n.y.toFixed(1)})` : undefined}
-            >
-              {name(n.key)}
+          {overlay.towns
+            .filter((tw) => tw.size === 0 && full)
+            .map((tw) => (
+              <circle
+                key={`${tw.name}-ring`}
+                className="is-ring"
+                cx={tw.x.toFixed(1)}
+                cy={tw.y.toFixed(1)}
+                r={6.2}
+              />
+            ))}
+        </g>
+        {full &&
+          base.names
+            .filter((n) => n.key === 'fi' || n.key === 'lv' || n.key === 'ru')
+            .map((n) => (
+              <text
+                key={n.key}
+                className="vk-map__country"
+                x={n.x.toFixed(1)}
+                y={n.y.toFixed(1)}
+                transform={n.rotate ? `rotate(${n.rotate} ${n.x.toFixed(1)} ${n.y.toFixed(1)})` : undefined}
+              >
+                {name(n.key)}
+              </text>
+            ))}
+        {base.names
+          .filter(
+            (n) =>
+              n.key !== 'fi' &&
+              n.key !== 'lv' &&
+              n.key !== 'ru' &&
+              (full || n.key === 'gulf' || n.key === 'riga'),
+          )
+          .map((n) => {
+            const at = full || focus ? n : stripWater(n.key, n);
+            const words = n.key === 'peipus' ? splitLast(name(n.key)) : [name(n.key)];
+            return (
+              <text key={n.key} className="vk-map__water" x={at.x.toFixed(1)} y={at.y.toFixed(1)}>
+                {words.map((word, i) => (
+                  <tspan key={i} x={at.x.toFixed(1)} dy={i ? 15 : 0}>
+                    {word}
+                  </tspan>
+                ))}
+              </text>
+            );
+          })}
+        {full &&
+          base.regionLabels.map((r) => (
+            <text key={r.id} className="vk-map__region" x={r.x.toFixed(1)} y={r.y.toFixed(1)}>
+              {translate(`career.region.${r.id}.short`, lang)}
             </text>
           ))}
-      {base.names
-        .filter(
-          (n) =>
-            n.key !== 'fi' &&
-            n.key !== 'lv' &&
-            n.key !== 'ru' &&
-            (full || n.key === 'gulf' || n.key === 'riga'),
-        )
-        .map((n) => {
-          const at = full || focus ? n : stripWater(n.key, n);
-          const words = n.key === 'peipus' ? splitLast(name(n.key)) : [name(n.key)];
-          return (
-            <text key={n.key} className="vk-map__water" x={at.x.toFixed(1)} y={at.y.toFixed(1)}>
-              {words.map((word, i) => (
-                <tspan key={i} x={at.x.toFixed(1)} dy={i ? 15 : 0}>
-                  {word}
-                </tspan>
-              ))}
-            </text>
-          );
-        })}
-      {full &&
-        base.regionLabels.map((r) => (
-          <text key={r.id} className="vk-map__region" x={r.x.toFixed(1)} y={r.y.toFixed(1)}>
-            {translate(`career.region.${r.id}.short`, lang)}
+        {overlay.labels.map((l, i) => (
+          <text
+            key={`${l.kind}-${i}`}
+            className={`vk-map__label is-${l.kind}`}
+            x={l.x.toFixed(1)}
+            y={l.y.toFixed(1)}
+            textAnchor={l.anchor ?? 'start'}
+          >
+            {l.text}
           </text>
         ))}
-      {overlay.labels.map((l, i) => (
-        <text
-          key={`${l.kind}-${i}`}
-          className={`vk-map__label is-${l.kind}`}
-          x={l.x.toFixed(1)}
-          y={l.y.toFixed(1)}
-          textAnchor={l.anchor ?? 'start'}
-        >
-          {l.text}
-        </text>
-      ))}
-      {degrees.map((d) => (
-        <text key={d.text} className="vk-map__deg" x={d.x.toFixed(1)} y={d.y.toFixed(1)}>
-          {d.text}
-        </text>
-      ))}
-    </svg>
+        {degrees.map((d) => (
+          <text key={d.text} className="vk-map__deg" x={d.x.toFixed(1)} y={d.y.toFixed(1)}>
+            {d.text}
+          </text>
+        ))}
+      </svg>
+    </div>
   );
 });
 

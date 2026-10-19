@@ -740,9 +740,11 @@ button.vk-acct__who:hover .vk-acct__name {
 /* ── The duty map (DutyMap.tsx) ───────────────────────────────────────────── */
 
 .vk-map {
+  position: relative;
   display: block;
   width: 100%;
   height: 100%;
+  overflow: hidden;
   animation: vk-map-in 0.24s ease both;
 }
 .vk-map.is-empty {
@@ -753,184 +755,15 @@ button.vk-acct__who:hover .vk-acct__name {
     opacity: 0;
   }
 }
-.vk-map__sea {
-  fill: var(--vk-sea);
-}
-.vk-map__grat {
-  fill: none;
-  stroke: var(--vk-grat);
-  stroke-width: 1;
-}
-.vk-map__waterlines use {
-  fill: none;
-  stroke-linejoin: round;
-}
-.vk-map__wl {
-  stroke: var(--vk-waterline);
-}
-.vk-map__wl-gap {
-  stroke: var(--vk-sea);
-}
-.vk-map__wl.vk-map__wl--3 {
-  stroke-opacity: 0.3;
-  stroke-width: 25.2;
-}
-.vk-map__wl-gap.vk-map__wl--3 {
-  stroke-width: 24;
-}
-.vk-map__wl.vk-map__wl--2 {
-  stroke-opacity: 0.5;
-  stroke-width: 15.2;
-}
-.vk-map__wl-gap.vk-map__wl--2 {
-  stroke-width: 14;
-}
-.vk-map__wl.vk-map__wl--1 {
-  stroke-opacity: 0.75;
-  stroke-width: 6.8;
-}
-.vk-map__wl-gap.vk-map__wl--1 {
-  stroke-width: 5.6;
-}
-.vk-map--strip .vk-map__wl.vk-map__wl--3 {
-  stroke-width: 13;
-}
-.vk-map--strip .vk-map__wl-gap.vk-map__wl--3 {
-  stroke-width: 12;
-}
-.vk-map--strip .vk-map__wl.vk-map__wl--2 {
-  stroke-width: 7.5;
-}
-.vk-map--strip .vk-map__wl-gap.vk-map__wl--2 {
-  stroke-width: 6.5;
-}
-.vk-map--strip .vk-map__wl.vk-map__wl--1 {
-  stroke-width: 3.4;
-}
-.vk-map--strip .vk-map__wl-gap.vk-map__wl--1 {
-  stroke-width: 2.4;
-}
-.vk-map__nb {
-  fill: var(--vk-nb);
-}
-.vk-map__nb-line {
-  fill: none;
-  stroke: var(--vk-nb-line);
-  stroke-width: 0.8;
-  stroke-linejoin: round;
-}
-/* Natural Earth's neighbours are coarse: the land border gets a band of their colour so no sea shows between. */
-.vk-map__seam {
-  fill: none;
-  stroke: var(--vk-nb);
-  stroke-width: 8;
-  stroke-linejoin: round;
-}
-.vk-map__land {
-  fill: var(--vk-land);
-}
-.vk-map__home {
-  fill: var(--vk-home);
-  stroke: var(--vk-home);
-  stroke-width: 0.8;
-}
-.vk-map__whole {
-  fill: var(--vk-acc);
-  fill-opacity: 0.2;
-  stroke: var(--vk-acc);
-  stroke-width: 1.3;
-  stroke-linejoin: round;
-}
-.vk-map__lake {
-  fill: var(--vk-sea);
-  stroke: var(--vk-coast);
-  stroke-width: 0.8;
-}
-.vk-map__road {
-  fill: none;
-  stroke: var(--vk-road);
-  stroke-width: 1.25;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.vk-map__road--local {
-  stroke-width: 0.7;
-}
-.vk-map--strip .vk-map__road {
-  stroke-width: 0.8;
-}
-.vk-map__sector-line {
-  fill: none;
-  stroke: var(--vk-sector-line);
-  stroke-width: 1;
-  stroke-dasharray: 1 2.4;
-  stroke-linecap: round;
-}
-.vk-map__pref-line {
-  fill: none;
-  stroke: var(--vk-pref-line);
-  stroke-width: 1.1;
-  stroke-dasharray: 7 2.5 1.5 2.5;
-}
-.vk-map--strip .vk-map__pref-line {
-  stroke-width: 0.9;
-  stroke-dasharray: 5 2 1.2 2;
-}
-.vk-map__hatch {
-  fill: var(--vk-acc);
-  fill-opacity: var(--vk-hatch-opacity);
-}
-.vk-map__offer {
-  stroke: var(--vk-acc);
-  stroke-width: 1.3;
-  stroke-dasharray: 4 2.5;
-  stroke-linejoin: round;
-}
-.vk-map--strip .vk-map__offer {
-  stroke-width: 1;
-  stroke-dasharray: 3 2;
-}
-.vk-map__challenge {
-  fill: var(--vk-amb);
-  fill-opacity: 0.16;
-  stroke: var(--vk-amb);
-  stroke-width: 1.2;
-  stroke-linejoin: round;
-}
-.vk-map__coast {
-  fill: none;
-  stroke: var(--vk-coast);
-  stroke-width: 1;
-  stroke-linejoin: round;
-}
-.vk-map--strip .vk-map__coast {
-  stroke-width: 0.8;
-}
-.vk-map__border {
-  fill: none;
-  stroke: var(--vk-border);
-  stroke-width: 1.8;
-  stroke-dasharray: 8 3;
-}
-.vk-map--strip .vk-map__border {
-  stroke-width: 1.4;
-  stroke-dasharray: 5 2;
-}
-.vk-map__mine {
-  fill: var(--vk-acc);
-  stroke: var(--vk-acc);
-  stroke-opacity: 0.3;
-  stroke-width: 7;
-  stroke-linejoin: round;
-  paint-order: stroke;
-}
-.vk-map__mine.is-large {
-  fill-opacity: 0.42;
-  stroke-opacity: 1;
-  stroke-width: 1.5;
-}
-.vk-map--strip .vk-map__mine {
-  stroke-width: 5;
+/* The shapes (sea to the player's sectors) are painted into the canvas, widths and dashes in dutyMapCanvas.ts,
+   colours from the tokens above; the dots, pin and names are the SVG on top. */
+.vk-map__canvas,
+.vk-map__ink {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .vk-map__leader {
   fill: none;

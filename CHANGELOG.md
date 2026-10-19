@@ -7,6 +7,7 @@ Kõik olulised muudatused on kirjas siin. Each version has a short English summa
 - **Kõik menüüd Valvekaardis:** laadimisekraan, sisselogimine, vahetuse eelinfo, aruanne, seaded, tiitrid, algsed versioonid ja päeva edetabel on nüüd sama kujundusega nagu peamenüü ja karjäär. Tumedas, heledas ja telefonis.
 - Sisselogimisel on kaardi taustal lihtne paneel ilma radari, helendava logo ja reklaamita. ID-kaardi sisselogimisel on kolm sammu, 2024. aasta Klassika jääb alles.
 - Eelinfo kaardil on sinu ala ja tänane katmine, ekipaažid on tabelis, päevakäsk jääb paberina. Aruandes on helendava ringi asemel tihe numbririba ja tabelid, ajaleht jääb.
+- **Kiirem:** taustakaart joonistatakse ühe korra pildiks, nii et vahetuse alustamine ja jätkamine on ka graafikakiirenduseta arvutis kiire.
 
 <details>
 <summary>English</summary>
