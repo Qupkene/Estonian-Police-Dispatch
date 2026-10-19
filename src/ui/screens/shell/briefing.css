@@ -1,31 +1,93 @@
-/* Briefing screen */
-.sh-brief {
+/* Shift briefing (BriefingScreen.tsx) on the Valvekaart frame (ShellPage, vk.css): the prefecture picker, the
+   career area on the duty map, the conditions as segmented rows, and the päevakäsk as a document the system
+   produced. Prefix: vk-brief, vk-doc (the e2e tests still use .sh-brief__area, .sh-order__area and
+   .sh-roster__station). */
+
+.vk-brief__strip {
+  margin-bottom: 12px;
+  box-shadow: none;
+}
+.vk-brief__strip .vk-strip__value--text {
+  font-family: var(--vk-font-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+.vk-strip__badge {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--vk-line);
+  border-radius: 3px;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--vk-text-2);
+}
+.vk-brief {
   display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
   align-items: start;
 }
-.sh-brief__gap {
-  margin-top: 18px;
+.vk-brief__col {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.vk-brief .vk-panel {
+  box-shadow: none;
+}
+.vk-brief__empty {
+  max-width: 560px;
 }
 
-/* map card */
-.sh-brief__mapCard {
-  padding: 18px 18px 16px;
-  position: sticky;
-  top: 76px;
+/* ── Prefecture: the picker and its facts ─────────────────────────────── */
+
+.vk-brief__regionBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
 }
-.sh-brief__mapWrap {
-  position: relative;
-  margin: -4px -6px 4px;
+.vk-brief__mapWrap {
+  padding: 14px;
+  border-right: 1px solid var(--vk-line-2);
+  background: var(--vk-sea);
 }
-.sh-brief__mapHint {
-  position: absolute;
-  right: 8px;
-  bottom: 6px;
-  font-size: var(--fs-xs);
-  color: var(--text-3);
+.vk-brief__regionText {
+  min-width: 0;
 }
+.vk-brief__regionName {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px 8px;
+  font-family: var(--vk-font-display);
+  font-size: 17px;
+  font-weight: 650;
+  font-stretch: 108%;
+  color: var(--vk-text-0);
+}
+.vk-brief__tag {
+  padding: 1px 6px;
+  border: 1px solid var(--vk-amb);
+  border-radius: 3px;
+  font-family: var(--vk-font-text);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--vk-amb);
+}
+.vk-brief__regionText .vk-kv {
+  border-top: 1px solid var(--vk-line-2);
+  border-bottom: 1px solid var(--vk-line-2);
+}
+.vk-brief__desc {
+  margin: 0;
+  padding: 10px 14px 14px;
+  font-size: 12.5px;
+  color: var(--vk-text-2);
+  text-wrap: pretty;
+}
+
+/* The picker (EstoniaMap.tsx): the frame's land and lines; the picked prefecture in the accent. */
 .sh-map {
   display: block;
   width: 100%;
@@ -33,610 +95,351 @@
   overflow: visible;
 }
 .sh-map__region {
-  --rc: var(--accent);
   cursor: pointer;
   outline: none;
 }
-.sh-map__region--ida {
-  --rc: var(--st-break);
-}
-.sh-map__region--louna {
-  --rc: var(--warn);
-}
-.sh-map__region--laane {
-  --rc: var(--st-transport);
-}
 .sh-map__county {
-  fill: color-mix(in srgb, var(--rc, var(--text-3)) 16%, var(--bg-2));
-  stroke: color-mix(in srgb, var(--rc, var(--text-3)) 45%, var(--bg-0));
-  stroke-width: 0.8;
+  fill: var(--vk-land);
+  stroke: var(--vk-sector-line);
+  stroke-width: 0.7;
   stroke-linejoin: round;
-  transition:
-    fill var(--dur-2) var(--ease),
-    stroke var(--dur-2) var(--ease);
+  transition: fill 0.12s ease;
 }
 .sh-map__county--none {
-  fill: var(--bg-3);
-  stroke: var(--line-2);
+  fill: var(--vk-nb);
+  stroke: var(--vk-nb-line);
 }
 .sh-map__region.is-hover .sh-map__county {
-  fill: color-mix(in srgb, var(--rc) 30%, var(--bg-2));
+  fill: var(--vk-home);
 }
 .sh-map__region.is-selected .sh-map__county {
-  fill: color-mix(in srgb, var(--rc) 46%, var(--bg-2));
-  stroke: color-mix(in srgb, var(--rc) 80%, white 20%);
+  fill: color-mix(in oklch, var(--vk-acc) 28%, var(--vk-land));
+  stroke: var(--vk-acc);
   stroke-width: 1;
 }
 .sh-map__region:focus-visible .sh-map__county {
-  stroke: var(--accent-2);
-  stroke-width: 2;
+  stroke: var(--vk-acc);
+  stroke-width: 2.2;
 }
 .sh-map__region.is-locked {
   cursor: not-allowed;
-  opacity: 0.35;
+}
+.sh-map__region.is-locked .sh-map__county {
+  fill: var(--vk-nb);
 }
 .sh-map__labels {
   pointer-events: none;
 }
 .sh-map__labels.is-locked {
-  opacity: 0.4;
+  opacity: 0.55;
 }
 .sh-map__label {
-  font-family: var(--font-ui);
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  fill: var(--text-1);
+  font-family: var(--vk-font-display);
+  font-size: 13px;
+  font-weight: 600;
+  font-stretch: 125%;
+  letter-spacing: 0.3em;
+  fill: var(--vk-text-2);
   paint-order: stroke;
-  stroke: var(--bg-0);
-  stroke-width: 3.5px;
+  stroke: var(--vk-halo);
+  stroke-width: 3px;
   stroke-linejoin: round;
 }
 .sh-map__labels.is-selected .sh-map__label {
-  fill: var(--text-0);
-  font-size: 17px;
+  fill: var(--vk-text-0);
 }
 .sh-map__city {
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 600;
-  fill: var(--text-2);
+  font-family: var(--vk-font-text);
+  font-size: 11.5px;
+  font-weight: 500;
+  fill: var(--vk-text-1);
   paint-order: stroke;
-  stroke: var(--bg-0);
+  stroke: var(--vk-halo);
   stroke-width: 3px;
+  stroke-linejoin: round;
 }
 .sh-map__hq {
-  fill: var(--text-0);
-  stroke: var(--bg-0);
-  stroke-width: 2;
+  fill: var(--vk-text-1);
+  stroke: var(--vk-halo);
+  stroke-width: 1.6;
 }
 .sh-map__labels.is-selected .sh-map__hq {
-  fill: var(--accent-2);
+  fill: var(--vk-acc);
 }
 
-.sh-brief__region {
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-}
-.sh-brief__regionHead {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.sh-brief__regionHead h3 {
-  margin: 0;
-  font-size: var(--fs-xl);
-  font-weight: 750;
-}
-.sh-brief__swatch {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--accent);
-}
-.sh-brief__swatch--ida {
-  background: var(--st-break);
-  box-shadow: 0 0 10px var(--st-break);
-}
-.sh-brief__swatch--louna {
-  background: var(--warn);
-  box-shadow: 0 0 10px var(--warn);
-}
-.sh-brief__swatch--laane {
-  background: var(--st-transport);
-  box-shadow: 0 0 10px var(--st-transport);
-}
-.sh-brief__region p {
-  margin: 8px 0 12px;
-  color: var(--text-1);
-}
-.sh-brief__facts {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-}
-.sh-fact {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-rows: auto auto;
-  column-gap: 8px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: var(--bg-1);
-  border: 1px solid var(--line);
-}
-.sh-fact .ui-icon {
-  grid-row: span 2;
-  align-self: center;
-  color: var(--accent-2);
-}
-.sh-fact__label {
-  font-size: var(--fs-xs);
-  color: var(--text-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.sh-fact__value {
-  font-size: var(--fs-lg);
-  font-variant-numeric: tabular-nums;
-}
+/* ── The career area on the duty map ─────────────────────────────────── */
 
-/* options */
-.sh-brief__opts {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.sh-choices {
-  display: grid;
-  gap: 8px;
-}
-.sh-choices--diff {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.sh-choices--row {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-.sh-choices--chips {
-  display: flex;
-  flex-wrap: wrap;
-}
-.sh-choice {
+.vk-brief__areaMap {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--bg-1) 90%, transparent);
-  color: var(--text-0);
-  text-align: left;
-  transition:
-    border-color var(--dur-1) var(--ease),
-    background var(--dur-1) var(--ease),
-    box-shadow var(--dur-2) var(--ease),
-    transform var(--dur-1) var(--ease);
+  height: 300px;
+  overflow: hidden;
+  background: var(--vk-sea);
+  border-bottom: 1px solid var(--vk-line-2);
 }
-.sh-choice:hover {
-  border-color: var(--line-3);
-  background: var(--bg-2);
+.vk-brief__areaMap .vk-legend.is-compact {
+  left: 10px;
+  bottom: 8px;
 }
-.sh-choice:active {
-  transform: translateY(1px);
+.sh-brief__area .vk-kv dt {
+  min-width: 120px;
 }
-.sh-choice.is-active {
-  border-color: color-mix(in srgb, var(--accent) 75%, white 10%);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--accent) 20%, var(--bg-2)),
-    color-mix(in srgb, var(--accent) 8%, var(--bg-1))
-  );
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent),
-    0 6px 18px color-mix(in srgb, var(--accent) 18%, transparent);
-}
-.sh-choice:focus-visible {
-  outline: none;
-  box-shadow:
-    0 0 0 2px var(--bg-0),
-    0 0 0 4px var(--accent-2);
-}
-.sh-choice > .ui-icon {
-  color: var(--text-2);
-}
-.sh-choice.is-active > .ui-icon {
-  color: var(--accent-2);
-}
-.sh-choice__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  gap: 8px;
-}
-.sh-choice__desc {
-  font-size: var(--fs-xs);
-  color: var(--text-2);
-  line-height: 1.35;
-}
-.sh-choices--row .sh-choice {
-  align-items: center;
-  text-align: center;
-  padding: 12px 8px;
-}
-.sh-choices--chips .sh-choice {
-  flex-direction: row;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 11px;
-  border-radius: 999px;
-}
-.sh-choices--chips .sh-choice__desc {
-  font-size: 10px;
-}
-.sh-bars {
-  display: inline-flex;
-  gap: 2px;
-  align-items: flex-end;
-}
-.sh-bars i {
-  width: 4px;
-  border-radius: 1px;
-  background: var(--line-2);
-}
-.sh-bars i:nth-child(1) {
-  height: 6px;
-}
-.sh-bars i:nth-child(2) {
-  height: 9px;
-}
-.sh-bars i:nth-child(3) {
-  height: 12px;
-}
-.sh-bars i:nth-child(4) {
-  height: 15px;
-}
-.sh-bars i.is-on {
-  background: var(--accent-2);
-}
-.sh-choice.is-active .sh-bars i.is-on {
-  background: var(--p2);
-}
-.sh-brief__note {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  margin: 16px 0 0;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--gold) 9%, transparent);
-  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent);
-  color: var(--text-1);
-  font-size: var(--fs-sm);
-}
-.sh-brief__note .ui-icon {
-  color: var(--gold);
-  flex: none;
-  margin-top: 1px;
+.vk-brief__desk {
+  white-space: nowrap;
 }
 
-/* career summary */
-.sh-brief__careerGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+/* ── Conditions: a row per choice, a segmented control in each ────────── */
+
+.vk-brief__rows > .vk-brief__row + .vk-brief__row {
+  border-top: 1px solid var(--vk-line-2);
 }
-.sh-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: var(--bg-1);
-  border: 1px solid var(--line);
+.vk-brief__row {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.vk-brief__rowLabel {
+  padding-top: 9px;
+}
+.vk-brief__rowCtl {
+  display: grid;
+  gap: 6px;
   min-width: 0;
 }
-.sh-stat__label {
-  font-size: var(--fs-xs);
-  color: var(--text-2);
+.vk-brief__rowNote {
+  margin: 0;
+  font-size: 12px;
+  color: var(--vk-text-3);
+  text-wrap: pretty;
 }
-.sh-stat__value {
-  font-variant-numeric: tabular-nums;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.vk-choices {
+  justify-self: start;
+}
+.vk-choices button[aria-checked='true'] {
+  background: var(--vk-raise);
+  color: var(--vk-text-0);
+  font-weight: 600;
+  box-shadow: inset 0 -2px var(--vk-acc);
+}
+.vk-choice__sub {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--vk-text-3);
+}
+.vk-brief__note {
+  margin: 0 14px 14px;
 }
 
-/* order (päevakäsk) */
-.sh-order {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 16px;
-  align-items: start;
-}
-.sh-order__paper {
-  grid-row: span 2;
+/* ── Päevakäsk: a document, paper in the console ───────────────────────── */
+
+.vk-doc {
+  --doc-bg: oklch(0.965 0.008 85);
+  --doc-ink: oklch(0.24 0.012 250);
+  --doc-muted: oklch(0.45 0.012 250);
+  --doc-rule: oklch(0.82 0.01 85);
   position: relative;
-  padding: 24px 28px 20px;
-  border-radius: var(--r-lg);
-  background:
-    radial-gradient(
-      500px 220px at 100% 0%,
-      color-mix(in srgb, var(--accent) 7%, transparent),
-      transparent 70%
-    ),
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-2) 96%, white 4%), var(--bg-1));
-  border: 1px solid var(--line-2);
-  box-shadow: var(--shadow-2);
+  padding: 22px 28px 20px;
+  border: 1px solid var(--vk-line);
+  border-radius: 3px;
+  background: var(--doc-bg);
+  box-shadow: var(--vk-shadow);
+  color: var(--doc-ink);
+  font-family: var(--vk-font-text);
 }
-.sh-order__paper::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 18px;
-  bottom: 18px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: linear-gradient(var(--accent), var(--accent-2));
+:root[data-theme='light'] .vk-doc {
+  --doc-bg: oklch(0.995 0.004 85);
 }
-.sh-order__head {
+.vk-doc__head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 14px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--line-2);
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--doc-ink);
 }
-.sh-order__org {
-  font-weight: 750;
-  font-size: var(--fs-lg);
+.vk-doc__org {
+  font-family: var(--vk-font-display);
+  font-size: 15px;
+  font-weight: 700;
+  font-stretch: 110%;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
-.sh-order__unit {
-  color: var(--text-2);
-  font-size: var(--fs-sm);
+.vk-doc__unit {
+  font-size: 12.5px;
+  color: var(--doc-muted);
 }
-.sh-order__meta {
+.vk-doc__meta {
   margin-left: auto;
+  font: 400 11.5px/1.6 var(--vk-font-mono);
+  color: var(--doc-muted);
   text-align: right;
-  font-size: var(--fs-xs);
-  color: var(--text-2);
+}
+.vk-doc__title {
+  margin: 18px 0 12px;
+  font-family: var(--vk-font-display);
+  font-size: 18px;
+  font-weight: 700;
+  font-stretch: 125%;
+  letter-spacing: 0.3em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.vk-doc__body {
+  font-size: 14px;
   line-height: 1.6;
 }
-.sh-order__title {
-  margin: 18px 0 10px;
-  font-size: var(--fs-xl);
-  font-weight: 800;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  text-align: center;
-}
-.sh-order__body {
-  color: var(--text-1);
-  font-size: var(--fs-md);
-  line-height: 1.65;
-}
-.sh-order__body p {
+.vk-doc__body p {
   margin: 0 0 8px;
 }
-.sh-order__body ol {
+.vk-doc__body ol {
   margin: 0 0 10px;
-  padding-left: 22px;
+  padding-left: 24px;
 }
-.sh-order__body li {
-  margin: 2px 0;
+.vk-doc__body li {
+  margin: 3px 0;
+  padding-left: 4px;
 }
-.sh-order__body li::marker {
-  color: var(--accent-2);
-  font-family: var(--font-mono);
+.vk-doc__body li::marker {
+  font-family: var(--vk-font-mono);
+  font-size: 12.5px;
+  color: var(--doc-muted);
 }
-.sh-order__hl {
-  color: var(--gold);
+.vk-doc__hl {
+  font-weight: 600;
 }
-.sh-order__sign {
+.vk-doc__sign {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 14px;
+  margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px dashed var(--line-2);
+  border-top: 1px solid var(--doc-rule);
 }
-.sh-order__sigName {
+.vk-doc__sigName {
   font-family: Georgia, 'Times New Roman', serif;
+  font-size: 19px;
   font-style: italic;
-  font-size: var(--fs-xl);
-  color: var(--text-0);
 }
-.sh-order__stamp {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border: 1.5px solid color-mix(in srgb, var(--ok) 70%, transparent);
-  border-radius: 6px;
-  color: var(--ok);
-  font-size: var(--fs-xs);
-  font-weight: 750;
+.vk-doc__sigTitle {
+  font-size: 12.5px;
+  color: var(--doc-muted);
+}
+.vk-doc__stamp {
+  padding: 5px 9px;
+  border: 1px solid var(--doc-muted);
+  border-radius: 2px;
+  font: 500 10.5px/1.2 var(--vk-font-mono);
   letter-spacing: 0.06em;
+  color: var(--doc-muted);
   text-transform: uppercase;
-  transform: rotate(-3deg);
 }
 
-.sh-roster__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 260px;
-  overflow: auto;
+/* ── The career roster ─────────────────────────────────────────────────── */
+
+.vk-roster .vk-roster__group th {
+  height: 34px;
+  padding-top: 8px;
+  background: var(--vk-panel-2);
+  font-family: var(--vk-font-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-stretch: 100%;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--vk-text-0);
 }
-.sh-roster__list li {
-  display: grid;
-  grid-template-columns: auto auto 1fr;
-  gap: 2px 8px;
-  align-items: center;
-  padding: 6px 8px;
-  border-radius: 8px;
-  background: var(--bg-1);
-  border: 1px solid var(--line);
-  font-size: var(--fs-sm);
+.vk-roster tbody tr.vk-roster__group:hover {
+  background: var(--vk-panel-2);
 }
-.sh-roster__cs {
-  font-weight: 700;
+.vk-roster__count {
+  margin-left: 8px;
+  font-weight: 400;
+  color: var(--vk-text-3);
 }
-.sh-roster__veh {
-  color: var(--text-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
+.vk-roster td {
+  height: 32px;
+  font-size: 12.5px;
+}
+.vk-roster__cs {
+  color: var(--vk-text-0);
   white-space: nowrap;
 }
-.sh-roster__crew {
-  grid-column: 1 / -1;
-  color: var(--text-3);
-  font-size: var(--fs-xs);
+.vk-roster__veh {
+  color: var(--vk-text-2);
+}
+.vk-roster__crew {
+  color: var(--vk-text-1);
 }
 
-/* roster grouped by station */
-.sh-roster__groups {
-  display: grid;
-  gap: 12px;
-  max-height: 340px;
-  overflow: auto;
-  padding-right: 2px;
-}
-.sh-roster__groups .sh-roster__list {
-  max-height: none;
-  overflow: visible;
-}
-.sh-roster__station {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 6px;
-  color: var(--text-1);
-  font-size: var(--fs-sm);
-  font-weight: 700;
-}
-.sh-roster__station .ui-icon {
-  color: var(--accent-2);
-}
-.sh-roster__count {
-  margin-left: auto;
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-  font-weight: 500;
-}
-
-/* career: the shift's area (sectors) */
-.sh-brief__areaGrid {
-  display: grid;
-  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
-  gap: 14px;
-  align-items: start;
-}
-.sh-brief__areaMap {
-  max-height: 220px;
-}
-.sh-brief__areaList {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-}
-.sh-brief__areaList dt {
-  margin-bottom: 2px;
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.sh-brief__areaList dd {
-  margin: 0;
-  color: var(--text-1);
-  font-size: var(--fs-sm);
-  line-height: 1.45;
-}
-.sh-brief__areaNames {
-  color: var(--text-0) !important;
-  font-size: var(--fs-lg) !important;
-  font-weight: 700;
-}
-.sh-brief__areaList .is-cover dt,
-.sh-brief__areaList .is-cover dd {
-  color: var(--gold-ink);
-}
-.sh-brief__desks {
-  display: grid;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.sh-brief__desks strong {
-  color: var(--text-0);
-  font-weight: 600;
-}
-
-.sh-brief__start {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  position: sticky;
-  bottom: 12px;
-}
-.sh-brief__start .ui-btn--lg {
-  height: 52px;
-  font-size: var(--fs-xl);
-}
-.sh-brief__startHint {
-  font-size: var(--fs-xs);
-  text-align: center;
-}
-@media (max-width: 1100px) {
-  .sh-brief {
-    grid-template-columns: 1fr;
+@media (max-width: 1240px) {
+  .vk-brief__regionBody {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .sh-brief__mapCard {
-    position: static;
+  .vk-brief__mapWrap {
+    border-right: 0;
+    border-bottom: 1px solid var(--vk-line-2);
   }
-  .sh-order {
-    grid-template-columns: 1fr;
+}
+@media (max-width: 1099px) {
+  .vk-brief {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .sh-order__paper {
-    grid-row: auto;
+  .vk-brief__strip.vk-strip {
+    --vk-strip-n: 3 !important;
+  }
+  .vk-brief__strip .vk-strip__cell:nth-child(3n + 1) {
+    border-left: 0;
+  }
+  .vk-brief__strip .vk-strip__cell:nth-child(n + 4) {
+    border-top: 1px solid var(--vk-line-2);
   }
 }
 @media (max-width: 640px) {
-  .sh-brief__facts {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .sh-brief__areaGrid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .sh-brief__areaMap {
-    justify-self: center;
-    width: min(240px, 100%);
-  }
-  .sh-choices--diff,
-  .sh-choices--row {
-    grid-template-columns: 1fr;
-  }
-  .sh-brief__careerGrid {
+  .vk-choices {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-self: stretch;
   }
-  .sh-order__paper {
-    padding: 18px 16px;
+  .vk-choices button {
+    justify-content: center;
+    white-space: normal;
   }
-  .sh-order__head .ui-emblem {
+  .vk-brief__row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .vk-brief__rowLabel {
+    padding-top: 0;
+  }
+  .vk-doc {
+    padding: 16px;
+  }
+  .vk-doc__head {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .vk-doc__meta {
+    margin-left: 0;
+    text-align: left;
+  }
+  .vk-brief__areaMap {
+    height: 240px;
+  }
+  .vk-roster__veh {
     display: none;
   }
-  .sh-brief__headStart {
-    display: none;
+  .vk-brief__strip.vk-strip {
+    --vk-strip-n: 2 !important;
+  }
+  .vk-brief__strip .vk-strip__cell:nth-child(3n + 1) {
+    border-left: 1px solid var(--vk-line-2);
+  }
+  .vk-brief__strip .vk-strip__cell:nth-child(2n + 1) {
+    border-left: 0;
+  }
+  .vk-brief__strip .vk-strip__cell:nth-child(n + 3) {
+    border-top: 1px solid var(--vk-line-2);
   }
 }

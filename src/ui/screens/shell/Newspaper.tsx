@@ -1,6 +1,7 @@
 // Classic broadsheet front page rendering ShiftReport.newspaper.
 import type { Lang, ShiftReport } from '@/sim/types';
 import { useT } from '@/i18n';
+import './newspaper.css';
 
 export function Newspaper({
   paper,

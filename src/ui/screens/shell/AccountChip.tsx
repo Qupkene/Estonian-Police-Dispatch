@@ -1,13 +1,13 @@
 // The signed-in account in the shell's top bar: name, cloud save state and when it last succeeded, sign out
 // (confirmed, optionally removing the account's data from this browser), and account deletion in its menu.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { createPortal } from 'react-dom';
 import { useAccount } from '@/net/account';
 import { useGame } from '@/store/game';
 import { useLang, useT } from '@/i18n';
 import { hhmm } from '@/sim/time';
-import { Button, Icon, Modal, TextField } from '@/ui/components';
+import { Button, Modal, TextField } from '@/ui/components';
 import { accountErrorText, cloudKey } from './accountText';
+import { VkLayer } from './VkLayer';
 
 const fmtDate = (ms: number) => {
   const d = new Date(ms > 1e11 ? ms : ms * 1000); // tolerate unix seconds
@@ -92,7 +92,9 @@ export function AccountChip() {
         <div className="vk-acct__menu" role="menu" aria-label={t('account.chip.menu')}>
           <div className="vk-acct__menuHead">
             <strong>{name}</strong>
-            {user && user.created ? <span>{t('account.chip.since', { date: fmtDate(user.created) })}</span> : null}
+            {user && user.created ? (
+              <span>{t('account.chip.since', { date: fmtDate(user.created) })}</span>
+            ) : null}
             <span className="vk-acct__state">{status}</span>
             {lost && <span className="vk-acct__lost">{t('account.lost')}</span>}
           </div>
@@ -115,13 +117,20 @@ export function AccountChip() {
         </div>
       )}
       {/* On document.body: a modal inside the top bar would be clipped by it. */}
-      {confirmDelete &&
-        createPortal(<DeleteAccount open name={name} onClose={() => setConfirmDelete(false)} />, document.body)}
-      {confirmLogout &&
-        createPortal(
-          <LogoutDialog name={name} onClose={() => setConfirmLogout(false)} onDone={() => useGame.getState().logout()} />,
-          document.body,
-        )}
+      {confirmDelete && (
+        <VkLayer>
+          <DeleteAccount open name={name} onClose={() => setConfirmDelete(false)} />
+        </VkLayer>
+      )}
+      {confirmLogout && (
+        <VkLayer>
+          <LogoutDialog
+            name={name}
+            onClose={() => setConfirmLogout(false)}
+            onDone={() => useGame.getState().logout()}
+          />
+        </VkLayer>
+      )}
     </div>
   );
 }
@@ -131,7 +140,15 @@ export function AccountChip() {
  * (on by default, for shared computers) loses nothing: changes the server does not have yet stay until the next
  * sign-in uploads them.
  */
-export function LogoutDialog({ name, onClose, onDone }: { name: string; onClose: () => void; onDone?: () => void }) {
+export function LogoutDialog({
+  name,
+  onClose,
+  onDone,
+}: {
+  name: string;
+  onClose: () => void;
+  onDone?: () => void;
+}) {
   const t = useT();
   const cloud = useAccount((s) => s.cloud);
   const [forget, setForget] = useState(true);
@@ -160,18 +177,18 @@ export function LogoutDialog({ name, onClose, onDone }: { name: string; onClose:
         </>
       }
     >
-      <div className="sh-acct__logout">
+      <div className="vk-dialog">
         <p>{t('account.logout.text', { name })}</p>
         {cloud === 'error' && (
-          <p className="sh-acct__unsynced" role="status">
-            <Icon name="warning" size={14} /> {t('account.logout.unsynced')}
+          <p className="vk-msg is-bad" role="status">
+            {t('account.logout.unsynced')}
           </p>
         )}
-        <label className="sh-check">
+        <label className="vk-check">
           <input type="checkbox" checked={forget} onChange={(e) => setForget(e.target.checked)} />
-          <span className="sh-check__text">
-            <span className="sh-check__label">{t('account.logout.forget')}</span>
-            <span className="sh-check__hint">{t('account.logout.forgetHint')}</span>
+          <span className="vk-check__text">
+            <span className="vk-check__label">{t('account.logout.forget')}</span>
+            <span className="vk-check__hint">{t('account.logout.forgetHint')}</span>
           </span>
         </label>
       </div>
@@ -214,13 +231,19 @@ function DeleteAccount({ open, name, onClose }: { open: boolean; name: string; o
           <Button variant="ghost" onClick={onClose}>
             {t('account.delete.cancel')}
           </Button>
-          <Button variant="danger" icon="close" loading={busy} disabled={!password} onClick={() => void submit()}>
+          <Button
+            variant="danger"
+            icon="close"
+            loading={busy}
+            disabled={!password}
+            onClick={() => void submit()}
+          >
             {t('account.delete.confirm')}
           </Button>
         </>
       }
     >
-      <form className="sh-acct__delete" onSubmit={submit} ref={formRef}>
+      <form className="vk-dialog" onSubmit={submit} ref={formRef}>
         <p>{t('account.delete.text', { name })}</p>
         <TextField
           label={t('account.delete.password')}

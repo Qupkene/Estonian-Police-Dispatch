@@ -37,7 +37,6 @@ import {
 } from './shell/menuModel';
 import type { DutyInput } from './shell/dutyMap';
 import { fmtMoney, fmtNum } from './career/helpers';
-import './shell/shell.css';
 import './shell/vk.css';
 import './shell/menu.css';
 

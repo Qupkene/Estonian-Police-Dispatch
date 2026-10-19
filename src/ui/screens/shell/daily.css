@@ -1,166 +1,92 @@
-/* Päeva väljakutse: the daily board dialog (src/ui/screens/shell/Daily.tsx). The menu's card is in menu.css. */
-.sh-dboard {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+/* Päeva väljakutse: the daily board dialog (Daily.tsx) on the Valvekaart frame (vk.css, portalled with VkLayer).
+   The menu's card is in menu.css. */
+.vk-dboard {
+  display: grid;
+  gap: 12px;
 }
-.sh-dboard__tabs {
-  align-self: stretch;
+.vk-dboard__tabs {
   display: flex;
 }
-.sh-dboard__tabs .ui-seg__opt {
+.vk-dboard__tabs .ui-seg__opt {
   flex: 1;
 }
-.sh-dboard__about {
-  position: relative;
+.vk-dboard__about {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 10px;
-  border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--bg-3) 55%, transparent);
-  font-size: var(--fs-sm);
-  color: var(--text-2);
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--vk-line-2);
+  border-radius: 5px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-2);
+  font-size: 12.5px;
 }
-.sh-dboard__about strong {
-  padding-right: 90px;
-  font-size: var(--fs-md);
-  color: var(--text-0);
+.vk-dboard__about .vk-mark {
+  margin-top: 2px;
 }
-.sh-dboard__players {
-  position: absolute;
-  top: 9px;
-  right: 10px;
-  font-size: var(--fs-xs);
-  color: var(--text-3);
+.vk-dboard__about p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
 }
-.sh-dboard__list {
+.vk-dboard__about strong {
+  font-size: 14px;
+  color: var(--vk-text-0);
+}
+.vk-dboard__about .vk-meta {
+  margin-left: 0;
+}
+.vk-dboard__list {
   max-height: min(52vh, 460px);
   overflow-y: auto;
+  margin: 0 -18px;
+  border-top: 1px solid var(--vk-line-2);
+  border-bottom: 1px solid var(--vk-line-2);
 }
-.sh-dboard__gap {
-  line-height: 1;
+.vk-dboard__table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--vk-panel);
+}
+.vk-dboard__table td {
+  height: 44px;
+}
+.vk-dboard__who {
+  display: grid;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+  line-height: 1.3;
+}
+.vk-dboard__name {
+  color: var(--vk-text-0);
+  font-weight: 600;
+}
+.vk-dboard__you {
+  font-weight: 400;
+  color: var(--vk-text-2);
+}
+.vk-dboard__meta {
+  font-size: 11.5px;
+  color: var(--vk-text-3);
+}
+.vk-dboard__row.is-me {
+  background: color-mix(in oklch, var(--vk-acc) 12%, transparent);
+  box-shadow: inset 2px 0 var(--vk-acc);
+}
+.vk-dboard__row.is-me:hover {
+  background: color-mix(in oklch, var(--vk-acc) 16%, transparent);
+}
+.vk-dboard__gap td {
+  height: 24px;
+  color: var(--vk-text-3);
   text-align: center;
-  color: var(--text-3);
 }
-.sh-dboard__guest {
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: var(--text-2);
-}
-
-/* Rows of the board (the same look as the 2.0 menu leaderboard) */
-.sh-lb__state {
+.vk-dboard__state {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  min-height: 64px;
+  gap: 10px;
+  min-height: 96px;
   margin: 0;
-  color: var(--text-2);
-  font-size: var(--fs-sm);
-  text-align: center;
-}
-.sh-lb__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.sh-lb__row {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) 26px 34px;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  padding: 3px 8px;
-  border-radius: var(--r-md);
-  font-size: var(--fs-sm);
-}
-.sh-lb__row:nth-child(odd) {
-  background: color-mix(in srgb, var(--bg-3) 55%, transparent);
-}
-.sh-lb__row.is-me {
-  background: color-mix(in srgb, var(--accent) 18%, var(--bg-2));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
-}
-.sh-lb__rank {
-  color: var(--text-3);
-  font-weight: 700;
-  text-align: center;
-}
-.sh-lb__row.is-top1 .sh-lb__rank {
-  color: var(--gold);
-}
-.sh-lb__row.is-top2 .sh-lb__rank,
-.sh-lb__row.is-top3 .sh-lb__rank {
-  color: var(--text-1);
-}
-.sh-lb__who {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.25;
-}
-.sh-lb__name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  overflow: hidden;
-  font-weight: 650;
-  color: var(--text-0);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sh-lb__you {
-  flex: none;
-  padding: 0 5px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #fff;
-  background: var(--accent);
-}
-.sh-lb__meta {
-  overflow: hidden;
-  font-size: var(--fs-xs);
-  color: var(--text-3);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sh-lb__grade {
-  --gc: var(--text-2);
-  display: grid;
-  place-items: center;
-  height: 22px;
-  border-radius: 6px;
-  font-weight: 800;
-  font-size: var(--fs-sm);
-  color: var(--gc);
-  background: color-mix(in srgb, var(--gc) 14%, transparent);
-}
-.sh-lb__grade--gold {
-  --gc: var(--gold);
-}
-.sh-lb__grade--ok {
-  --gc: var(--ok);
-}
-.sh-lb__grade--accent {
-  --gc: var(--accent-2);
-}
-.sh-lb__grade--warn {
-  --gc: var(--warn);
-}
-.sh-lb__grade--danger {
-  --gc: var(--danger);
-}
-.sh-lb__score {
-  font-weight: 750;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+  color: var(--vk-text-2);
 }

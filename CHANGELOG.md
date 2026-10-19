@@ -2,6 +2,19 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.13.0 (2026-10-19)
+
+- **Kõik menüüd Valvekaardis:** laadimisekraan, sisselogimine, vahetuse eelinfo, aruanne, seaded, tiitrid, algsed versioonid ja päeva edetabel on nüüd sama kujundusega nagu peamenüü ja karjäär. Tumedas, heledas ja telefonis.
+- Sisselogimisel on kaardi taustal lihtne paneel ilma radari, helendava logo ja reklaamita. ID-kaardi sisselogimisel on kolm sammu, 2024. aasta Klassika jääb alles.
+- Eelinfo kaardil on sinu ala ja tänane katmine, ekipaažid on tabelis, päevakäsk jääb paberina. Aruandes on helendava ringi asemel tihe numbririba ja tabelid, ajaleht jääb.
+
+<details>
+<summary>English</summary>
+
+Every remaining out-of-game screen now uses the Valvekaart design: boot, sign-in, briefing, report, settings, credits, original versions and the daily board, in dark, light and phone layouts. No radar, glow or marketing on sign-in; the briefing shows your area on the duty map; the report uses a figure strip and tables, and keeps the newspaper.
+
+</details>
+
 ## 2.12.0 (2026-10-19)
 
 - **Uus karjääri leht (Valvekaart):** üleval on näitajate riba (eelarve, kuukulud, Staatus, auaste, palgapäev, viimane vahetus) ja nupp vahetuse alustamiseks. Keskel on sinu prefektuuri kaart, kus on näha sinu sektor, prefekti pakkumine ja kolleegide sektorid. Vasakul on vastutusala tabel ja paremal prefekti pakkumine.

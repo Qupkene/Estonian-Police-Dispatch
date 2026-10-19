@@ -197,3 +197,18 @@ export function ShellFooter({ children }: { children?: ReactNode }) {
     </footer>
   );
 }
+
+/** Back to where the player came from ("Peamenüü Esc"), at the start of a page head. */
+export function PageBack({ label, onBack }: { label: string; onBack: () => void }) {
+  return (
+    <button type="button" className="vk-back" onClick={onBack} aria-keyshortcuts="Escape">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M10 3.5 5.5 8l4.5 4.5" />
+      </svg>
+      {label}
+      <kbd className="vk-kbd" aria-hidden="true">
+        Esc
+      </kbd>
+    </button>
+  );
+}

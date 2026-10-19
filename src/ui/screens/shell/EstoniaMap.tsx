@@ -69,15 +69,6 @@ export function EstoniaMap({
       aria-label={label}
       onKeyDown={onKey}
     >
-      <defs>
-        <filter id="sh-map-glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="6" result="b" />
-          <feMerge>
-            <feMergeNode in="b" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
       {shapes
         .filter((c) => !c.regionId)
         .map((c) => (
@@ -113,7 +104,6 @@ export function EstoniaMap({
             }}
             onMouseEnter={() => setHover(id)}
             onMouseLeave={() => setHover((h) => (h === id ? null : h))}
-            filter={sel ? 'url(#sh-map-glow)' : undefined}
           >
             {shapes
               .filter((c) => c.regionId === id)

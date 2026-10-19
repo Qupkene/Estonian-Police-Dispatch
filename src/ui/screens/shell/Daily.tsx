@@ -1,7 +1,6 @@
 // Päeva väljakutse (daily challenge, src/sim/daily.ts): its state for the main menu (useDaily), the menu's card
 // and the daily leaderboard dialog.
 import { useEffect, useMemo, useState, type Ref } from 'react';
-import { createPortal } from 'react-dom';
 import { useGame } from '@/store/game';
 import { useAccount } from '@/net/account';
 import { fetchDaily, guestDaily, type DailyBoard, type DailyRow } from '@/net/daily';
@@ -22,7 +21,8 @@ import { sectorById } from '@/sim/sectors';
 import { durationText, hhmm, HOUR, wall } from '@/sim/time';
 import type { SimState } from '@/sim/types';
 import { Button, Modal, Segmented, Spinner } from '@/ui/components';
-import { gradeTone, regionSummary } from './helpers';
+import { regionSummary } from './helpers';
+import { VkLayer } from './VkLayer';
 import './daily.css';
 
 /** Current time, refreshed every `ms` (the countdown and the change of day). */
@@ -355,104 +355,128 @@ export function DailyBoardModal({
   const meListed = !!me && !!board?.scores.some((r) => r.name.toLocaleLowerCase('et') === meKey);
 
   if (!open) return null;
-  // On document.body: the cards' backdrop-filter would otherwise pin the fixed overlay inside them.
-  return createPortal(
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={t('daily.board.title')}
-      icon="trophy"
-      width={520}
-      footer={
-        <Button variant="ghost" onClick={onClose}>
-          {t('daily.board.close')}
-        </Button>
-      }
-    >
-      <div className="sh-dboard" data-testid="daily-board">
-        <Segmented<DayTab>
-          size="sm"
-          className="sh-dboard__tabs"
-          label={t('daily.board.days')}
-          value={tab}
-          onChange={setTab}
-          options={[
-            { value: 'today', label: t('daily.tab.today') },
-            { value: 'yesterday', label: t('daily.tab.yesterday') },
-          ]}
-        />
-        <div className="sh-dboard__about">
-          <strong>
-            {d.area} <span className="sh-dim">· {d.region}</span>
-          </strong>
-          <span>
-            {d.day} · {d.slot} {d.hours} · {d.weather}
-          </span>
-          {board && <span className="sh-dboard__players mono">{playersText(t, board.players)}</span>}
+  return (
+    <VkLayer>
+      <Modal
+        open={open}
+        onClose={onClose}
+        title={t('daily.board.title')}
+        width={560}
+        footer={
+          <Button variant="ghost" onClick={onClose}>
+            {t('daily.board.close')}
+          </Button>
+        }
+      >
+        <div className="vk-dboard" data-testid="daily-board">
+          <Segmented<DayTab>
+            size="sm"
+            className="vk-dboard__tabs"
+            label={t('daily.board.days')}
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'today', label: t('daily.tab.today') },
+              { value: 'yesterday', label: t('daily.tab.yesterday') },
+            ]}
+          />
+          <div className="vk-dboard__about">
+            <svg className="vk-mark" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <circle cx="7" cy="7" r="5.2" />
+              <circle cx="7" cy="7" r="2" />
+            </svg>
+            <p>
+              <strong>{d.area}</strong> <span className="vk-dim">{d.region}</span>
+              <br />
+              {d.day} · {d.slot} <span className="vk-mono">{d.hours}</span> · {d.weather}
+            </p>
+            {board && <span className="vk-meta">{playersText(t, board.players)}</span>}
+          </div>
+          {error ? (
+            <div className="vk-dboard__state">
+              <span>{t('daily.board.error')}</span>
+              <Button size="sm" variant="ghost" onClick={() => setReload((n) => n + 1)}>
+                {t('account.lb.retry')}
+              </Button>
+            </div>
+          ) : board === null ? (
+            <div className="vk-dboard__state" role="status">
+              <Spinner size={14} /> {t('daily.board.loading')}
+            </div>
+          ) : board.scores.length === 0 ? (
+            <p className="vk-dboard__state">{t('daily.board.empty')}</p>
+          ) : (
+            <div className="vk-dboard__list">
+              <table className="vk-table vk-dboard__table">
+                <caption>{t('daily.board.title')}</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" className="is-num">
+                      {t('account.lb.col.rank')}
+                    </th>
+                    <th scope="col">{t('account.lb.col.name')}</th>
+                    <th scope="col">{t('account.lb.col.grade')}</th>
+                    <th scope="col" className="is-num">
+                      {t('account.lb.col.score')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {board.scores.map((r, i) => (
+                    <BoardRow
+                      key={`${r.name}-${i}`}
+                      row={r}
+                      mine={!!meKey && r.name.toLocaleLowerCase('et') === meKey}
+                    />
+                  ))}
+                  {me && !meListed && (
+                    <>
+                      <tr className="vk-dboard__gap" aria-hidden="true">
+                        <td colSpan={4}>⋯</td>
+                      </tr>
+                      <BoardRow row={me} mine />
+                    </>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {!loggedIn && <p className="vk-msg">{t('daily.board.guest')}</p>}
         </div>
-        {error ? (
-          <div className="sh-lb__state">
-            <span>{t('daily.board.error')}</span>
-            <Button size="sm" variant="ghost" icon="refresh" onClick={() => setReload((n) => n + 1)}>
-              {t('account.lb.retry')}
-            </Button>
-          </div>
-        ) : board === null ? (
-          <div className="sh-lb__state" role="status">
-            <Spinner size={14} /> {t('daily.board.loading')}
-          </div>
-        ) : board.scores.length === 0 ? (
-          <p className="sh-lb__state">{t('daily.board.empty')}</p>
-        ) : (
-          <ol className="sh-lb__list sh-dboard__list">
-            {board.scores.map((r, i) => (
-              <BoardRow
-                key={`${r.name}-${i}`}
-                row={r}
-                mine={!!meKey && r.name.toLocaleLowerCase('et') === meKey}
-              />
-            ))}
-            {me && !meListed && (
-              <>
-                <li className="sh-dboard__gap" aria-hidden="true">
-                  ⋯
-                </li>
-                <BoardRow row={me} mine />
-              </>
-            )}
-          </ol>
-        )}
-        {!loggedIn && <p className="sh-dboard__guest">{t('daily.board.guest')}</p>}
-      </div>
-    </Modal>,
-    document.body,
+      </Modal>
+    </VkLayer>
   );
 }
 
 function BoardRow({ row, mine }: { row: DailyRow; mine: boolean }) {
   const t = useT();
-  const tone = gradeTone((row.grade || 'F') as 'S' | 'A' | 'B' | 'C' | 'D' | 'F');
+  const grade = ['S', 'A', 'B', 'C', 'D', 'F'].includes(row.grade) ? row.grade : 'F';
   return (
-    <li className={`sh-lb__row${mine ? ' is-me' : ''}${row.rank <= 3 ? ` is-top${row.rank}` : ''}`}>
-      <span className="sh-lb__rank mono">{row.rank}</span>
-      <span className="sh-lb__who">
-        <span className="sh-lb__name">
+    <tr
+      className={`sh-lb__row vk-dboard__row${mine ? ' is-me' : ''}`}
+      aria-current={mine ? 'true' : undefined}
+    >
+      <td className="is-num">{row.rank}</td>
+      <td className="vk-dboard__who">
+        <span className="vk-dboard__name">
           {row.name}
-          {mine && <span className="sh-lb__you">{t('account.lb.you')}</span>}
+          {mine && <span className="vk-dboard__you"> ({t('account.lb.you')})</span>}
         </span>
-        <span className="sh-lb__meta">
+        <span className="vk-dboard__meta">
           {row.incidents === 1
             ? t('daily.board.incidents.one')
             : t('daily.board.incidents', { n: row.incidents })}{' '}
-          · {hhmm(row.at)}
+          · <span className="vk-mono">{hhmm(row.at)}</span>
         </span>
-      </span>
-      <span className={`sh-lb__grade sh-lb__grade--${tone}`} title={row.grade}>
-        {row.grade}
-      </span>
-      <span className="sh-lb__score mono" title={t('account.lb.score', { score: Math.round(row.score) })}>
+      </td>
+      <td>
+        <span className={`vk-grade vk-grade--${grade}`} title={row.grade}>
+          {row.grade || '-'}
+        </span>
+      </td>
+      <td className="is-num is-strong" title={t('account.lb.score', { score: Math.round(row.score) })}>
         {Math.round(row.score)}
-      </span>
-    </li>
+      </td>
+    </tr>
   );
 }

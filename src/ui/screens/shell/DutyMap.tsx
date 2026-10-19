@@ -55,9 +55,16 @@ function colleagueOf(id: string): string {
   return c ? `${c.firstName} ${c.lastName}`.trim() : '';
 }
 
-function build(view: MapView, input: DutyInput, lang: Lang, compact: boolean, who: string): Built {
+function build(
+  view: MapView,
+  input: DutyInput,
+  lang: Lang,
+  compact: boolean,
+  who: string,
+  offerWord: string,
+): Built {
   const yours = translate('shell.map.yours', lang);
-  const offer = translate('shell.map.offer', lang);
+  const offer = offerWord || translate('shell.map.offer', lang);
   return {
     base: baseMap(view),
     overlay: dutyOverlay(
@@ -76,8 +83,15 @@ function build(view: MapView, input: DutyInput, lang: Lang, compact: boolean, wh
 }
 
 /** The built map: at once when cached, else after the first paint (idle time); meanwhile the last one built. */
-function useBuilt(view: MapView, input: DutyInput, lang: Lang, compact: boolean, who: string): Built | null {
-  const key = `${viewKey(view)}|${compact}|${lang}|${who}|${JSON.stringify(input)}`;
+function useBuilt(
+  view: MapView,
+  input: DutyInput,
+  lang: Lang,
+  compact: boolean,
+  who: string,
+  offerWord: string,
+): Built | null {
+  const key = `${viewKey(view)}|${compact}|${lang}|${who}|${offerWord}|${JSON.stringify(input)}`;
   const [, setTick] = useState(0);
   const last = useRef<Built | null>(null);
   const hit = built.get(key) ?? null;
@@ -87,7 +101,7 @@ function useBuilt(view: MapView, input: DutyInput, lang: Lang, compact: boolean,
     let alive = true;
     const run = () => {
       if (!alive) return;
-      built.set(key, build(view, input, lang, compact, who));
+      built.set(key, build(view, input, lang, compact, who, offerWord));
       if (built.size > 12) built.delete(built.keys().next().value!);
       setTick((n) => n + 1);
     };
@@ -115,6 +129,7 @@ export const DutyMap = memo(function DutyMap({
   layout,
   view: focus,
   who = '',
+  offerWord = '',
 }: {
   variant: 'full' | 'strip';
   input: DutyInput;
@@ -124,12 +139,14 @@ export const DutyMap = memo(function DutyMap({
   view?: MapView;
   /** The player's name under "sinu sektor" (the career screen). */
   who?: string;
+  /** What the hatched sectors are, under their names (default "pakkumine"; the briefing: tonight's cover). */
+  offerWord?: string;
 }) {
   const lang = useLang();
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const full = variant === 'full';
   const view = focus ?? (full ? DESKTOP_VIEW : STRIP_VIEW);
-  const map = useBuilt(view, input, lang, !full, who);
+  const map = useBuilt(view, input, lang, !full, who, offerWord);
   const { width: w, height: h } = map?.base.view ?? view;
   if (!map)
     return (
@@ -346,3 +363,6 @@ function splitLast(s: string): string[] {
   const i = s.lastIndexOf(' ');
   return i > 0 ? [s.slice(0, i), s.slice(i + 1)] : [s];
 }
+
+/** The map with nothing of a player's on it (boot and sign-in): the country, its prefectures and towns. */
+export const NO_DUTY: DutyInput = { mine: [], whole: [], offered: [], challenge: null, home: null };

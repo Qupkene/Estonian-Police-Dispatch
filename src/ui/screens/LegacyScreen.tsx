@@ -1,6 +1,5 @@
 // The original 2024 and 2025 versions, playable in a new tab. Owned by ui-shell.
 import { useT } from '@/i18n';
-import { Badge, Button, Icon } from '@/ui/components';
 import { ShellPage } from './shell/ShellPage';
 import './shell/pages.css';
 
@@ -13,10 +12,15 @@ function open(file: string) {
 export function LegacyScreen() {
   const t = useT();
   return (
-    <ShellPage title={t('shell.leg.title')} subtitle={t('shell.leg.subtitle')} icon="book">
-      <p className="sh-leg__intro">{t('shell.leg.intro')}</p>
-      <div className="sh-leg">
-        <article className="sh-card sh-legcard">
+    <ShellPage title={t('shell.leg.title')} subtitle={t('shell.leg.intro')}>
+      <div className="vk-leg">
+        <article className="vk-panel vk-legcard" aria-labelledby="vk-leg-2024">
+          <div className="vk-panel__head">
+            <h2 className="vk-h" id="vk-leg-2024">
+              2024
+            </h2>
+            <span className="vk-panel__meta">{t('shell.leg.v2024')}</span>
+          </div>
           <div className="sh-legprev sh-legprev--2024" aria-hidden="true">
             <div className="sh-legprev__head">Politsei Andmebaas</div>
             <div className="sh-legprev__tabs">
@@ -34,36 +38,33 @@ export function LegacyScreen() {
               ))}
             </div>
           </div>
-          <div className="sh-legcard__body">
-            <div className="sh-legcard__top">
-              <Badge tone="gold">2024</Badge>
-              <span className="sh-dim">{t('shell.leg.v2024')}</span>
-            </div>
-            <h2>„Politsei Andmebaas“</h2>
+          <div className="vk-legcard__body">
+            <h3 className="vk-legcard__title">„Politsei Andmebaas“</h3>
             <p>{t('shell.leg.v2024desc')}</p>
-            <ul className="sh-legcard__list">
-              <li>
-                <Icon name="lock" size={14} /> {t('shell.leg.v2024f1')}
-              </li>
-              <li>
-                <Icon name="list" size={14} /> {t('shell.leg.v2024f2')}
-              </li>
-              <li>
-                <Icon name="search" size={14} /> {t('shell.leg.v2024f3')}
-              </li>
+            <ul className="vk-legcard__list">
+              <li>{t('shell.leg.v2024f1')}</li>
+              <li>{t('shell.leg.v2024f2')}</li>
+              <li>{t('shell.leg.v2024f3')}</li>
             </ul>
-            <Button
-              variant="primary"
-              icon="play"
-              iconRight="chevron-right"
+          </div>
+          <div className="vk-panel__foot">
+            <button
+              type="button"
+              className="vk-btn vk-btn--primary"
               onClick={() => open('politseimang-2024.html')}
             >
               {t('shell.leg.open')}
-            </Button>
+            </button>
           </div>
         </article>
 
-        <article className="sh-card sh-legcard">
+        <article className="vk-panel vk-legcard" aria-labelledby="vk-leg-2025">
+          <div className="vk-panel__head">
+            <h2 className="vk-h" id="vk-leg-2025">
+              2025
+            </h2>
+            <span className="vk-panel__meta">{t('shell.leg.v2025')}</span>
+          </div>
           <div className="sh-legprev sh-legprev--2025" aria-hidden="true">
             <div className="sh-legprev__head">
               Politsei Andmebaas
@@ -85,38 +86,27 @@ export function LegacyScreen() {
               </div>
             </div>
           </div>
-          <div className="sh-legcard__body">
-            <div className="sh-legcard__top">
-              <Badge tone="gold">2025</Badge>
-              <span className="sh-dim">{t('shell.leg.v2025')}</span>
-            </div>
-            <h2>{t('shell.leg.v2025name')}</h2>
+          <div className="vk-legcard__body">
+            <h3 className="vk-legcard__title">{t('shell.leg.v2025name')}</h3>
             <p>{t('shell.leg.v2025desc')}</p>
-            <ul className="sh-legcard__list">
-              <li>
-                <Icon name="star" size={14} /> {t('shell.leg.v2025f1')}
-              </li>
-              <li>
-                <Icon name="users" size={14} /> {t('shell.leg.v2025f2')}
-              </li>
-              <li>
-                <Icon name="siren" size={14} /> {t('shell.leg.v2025f3')}
-              </li>
+            <ul className="vk-legcard__list">
+              <li>{t('shell.leg.v2025f1')}</li>
+              <li>{t('shell.leg.v2025f2')}</li>
+              <li>{t('shell.leg.v2025f3')}</li>
             </ul>
-            <Button
-              variant="primary"
-              icon="play"
-              iconRight="chevron-right"
+          </div>
+          <div className="vk-panel__foot">
+            <button
+              type="button"
+              className="vk-btn vk-btn--primary"
               onClick={() => open('politseimang-2025.html')}
             >
               {t('shell.leg.open')}
-            </Button>
+            </button>
           </div>
         </article>
       </div>
-      <p className="sh-leg__note">
-        <Icon name="warning" size={16} /> {t('shell.leg.note')}
-      </p>
+      <p className="vk-msg is-warn vk-leg__note">{t('shell.leg.note')}</p>
     </ShellPage>
   );
 }

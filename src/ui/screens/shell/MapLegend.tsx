@@ -10,6 +10,7 @@ export function MapLegend({
   pxPerKm,
   km = 50,
   className,
+  offerLabel,
 }: {
   input: DutyInput;
   /** The phone strip: the player's marks only, no borders or scale. */
@@ -19,6 +20,8 @@ export function MapLegend({
   /** Length of the scale bar. */
   km?: number;
   className?: string;
+  /** The hatched sectors' name in the key (default "Pakkumine"). */
+  offerLabel?: string;
 }) {
   const t = useT();
   const items: ReactNode[] = [];
@@ -40,7 +43,7 @@ export function MapLegend({
     items.push(
       <li key="offer">
         <span className="vk-legend__offer" aria-hidden="true" />
-        {t('shell.menu.legend.offer')}
+        {offerLabel ?? t('shell.menu.legend.offer')}
       </li>,
     );
   if (input.others?.length)

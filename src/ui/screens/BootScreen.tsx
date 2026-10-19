@@ -1,13 +1,13 @@
-// Fake CAD workstation boot log → login. Skippable with any key / click. Owned by ui-shell.
+// Fake CAD workstation boot log, then the sign-in. Skippable with any key or click. On the Valvekaart frame: the
+// duty map (empty, built here so the sign-in has it at once), the log in a panel over it. Owned by ui-shell.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGame } from '@/store/game';
 import { useT } from '@/i18n';
 import { sfx } from '@/audio/sfx';
-import { Emblem } from '@/ui/components';
-import { ddmmyyyy, hhmmss } from '@/sim/time';
 import { VERSION } from './shell/helpers';
-import { Backdrop } from './shell/Backdrop';
-import './shell/shell.css';
+import { DutyMap, NO_DUTY } from './shell/DutyMap';
+import { ShellFooter, ShellTopBar } from './shell/ShellFrame';
+import './shell/vk.css';
 import './shell/boot.css';
 
 interface BootLine {
@@ -85,55 +85,60 @@ export function BootScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines]);
 
-  const now = Date.now();
+  const pct = Math.round(progress * 100);
   return (
-    <div className="sh-screen sh-boot" role="status" aria-live="polite" aria-label={t('shell.boot.aria')}>
-      <Backdrop variant="grid" map={false} />
-      <div className="sh-boot__frame">
-        <div className="sh-boot__brand">
-          <Emblem size={84} />
-          <div>
-            <div className="sh-boot__title">EPD-CAD</div>
-            <div className="sh-boot__sub">{t('shell.boot.subtitle')}</div>
-            <div className="sh-boot__meta mono">
-              v{VERSION} · {ddmmyyyy(now)} {hhmmss(now)} · Europe/Tallinn
-            </div>
-          </div>
+    <div className="vk vk-boot">
+      <ShellTopBar account={false} />
+      <main className="vk-boot__main">
+        <div className="vk-boot__map">
+          <DutyMap variant="full" input={NO_DUTY} />
         </div>
-        <ol className="sh-boot__log mono">
-          {lines.slice(0, shown).map((l, i) => (
-            <li key={l.key} className="sh-boot__line">
-              <span className="sh-boot__ts">[{(0.12 + i * 0.26).toFixed(3).padStart(7, ' ')}]</span>
-              <span className="sh-boot__text">
-                {t(l.key, { v: VERSION })}
-                {l.detail && <span className="sh-boot__detail"> {l.detail}</span>}
-              </span>
-              {l.status === 'ok' && (
-                <span className="sh-boot__st sh-boot__st--ok">[ {t('shell.boot.ok')} ]</span>
-              )}
-              {l.status === 'offline' && (
-                <span className="sh-boot__st sh-boot__st--off" title={t('shell.boot.offlineNote')}>
-                  [ {t('shell.boot.offline')} ]
-                </span>
-              )}
-            </li>
-          ))}
-          {shown < lines.length && <li className="sh-boot__cursor">▍</li>}
-        </ol>
-        <div
-          className="sh-boot__bar"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(progress * 100)}
+        <section
+          className="vk-panel vk-boot__panel"
+          role="status"
+          aria-live="polite"
+          aria-label={t('shell.boot.aria')}
         >
-          <div className="sh-boot__fill" style={{ width: `${progress * 100}%` }} />
-        </div>
-        <div className="sh-boot__foot">
-          <span className="mono">{Math.round(progress * 100)}%</span>
-          <span className="sh-boot__skip">{t('shell.boot.skip')}</span>
-        </div>
-      </div>
+          <div className="vk-panel__head">
+            <h1 className="vk-h">EPD-CAD</h1>
+            <span className="vk-boot__sub">{t('shell.boot.subtitle')}</span>
+            <span className="vk-meta">v{VERSION} · Europe/Tallinn</span>
+          </div>
+          <ol className="vk-boot__log">
+            {lines.slice(0, shown).map((l, i) => (
+              <li key={l.key} className="vk-boot__line">
+                <span className="vk-boot__ts">{(0.12 + i * 0.26).toFixed(3).padStart(6, '0')}</span>
+                <span className="vk-boot__text">
+                  {t(l.key, { v: VERSION })}
+                  {l.detail && <span className="vk-boot__detail"> {l.detail}</span>}
+                </span>
+                {l.status === 'ok' && <span className="vk-boot__st is-ok">{t('shell.boot.ok')}</span>}
+                {l.status === 'offline' && (
+                  <span className="vk-boot__st is-off" title={t('shell.boot.offlineNote')}>
+                    {t('shell.boot.offline')}
+                  </span>
+                )}
+              </li>
+            ))}
+            {shown < lines.length && <li className="vk-boot__cursor" aria-hidden="true" />}
+          </ol>
+          <div className="vk-boot__foot">
+            <div
+              className="vk-boot__bar"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={pct}
+              aria-label={t('shell.boot.aria')}
+            >
+              <span style={{ width: `${progress * 100}%` }} />
+            </div>
+            <span className="vk-boot__pct">{pct}%</span>
+            <span className="vk-boot__skip">{t('shell.boot.skip')}</span>
+          </div>
+        </section>
+      </main>
+      <ShellFooter />
     </div>
   );
 }

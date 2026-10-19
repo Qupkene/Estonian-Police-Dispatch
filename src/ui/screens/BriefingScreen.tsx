@@ -1,5 +1,14 @@
 // Shift briefing: prefecture, difficulty, shift, date and weather → "päevakäsk" → start. Owned by ui-shell.
-import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { useGame } from '@/store/game';
 import { useCareer } from '@/store/career';
 import { useLang, useT, useTx } from '@/i18n';
@@ -14,11 +23,18 @@ import { sunTimes } from '@/sim/sun';
 import { DAY, HOUR, hhmm, wall } from '@/sim/time';
 import { initialWeather } from '@/sim/weather';
 import type { Difficulty, GameMode, NewShiftOptions, RegionId, RosterUnit, Text, Weather } from '@/sim/types';
-import { Badge, Button, Emblem, Empty, Icon, type IconName } from '@/ui/components';
 import { EstoniaMap } from './shell/EstoniaMap';
-import { SectorMap, type SectorPaint } from './career/SectorMap';
-import { careerShiftArea, colleagueName, rosterByStation, stationName, type ShiftArea } from './career/sectors';
-import { ShellPage } from './shell/ShellPage';
+import { DutyMap } from './shell/DutyMap';
+import { fitView, type DutyInput, type MapView } from './shell/dutyMap';
+import { MapLegend } from './shell/MapLegend';
+import {
+  careerShiftArea,
+  colleagueName,
+  rosterByStation,
+  stationName,
+  type ShiftArea,
+} from './career/sectors';
+import { ShellPage, useEnter } from './shell/ShellPage';
 import {
   careerShiftRegion,
   DATE_PRESETS,
@@ -40,17 +56,6 @@ const DIFFICULTIES: Difficulty[] = ['cadet', 'normal', 'veteran', 'realistic'];
 const DIFF_FACTOR: Record<Difficulty, number> = { cadet: 0.6, normal: 1, veteran: 1.35, realistic: 1.8 };
 type WeatherPick = Weather['kind'] | 'auto';
 const WEATHERS: WeatherPick[] = ['auto', 'clear', 'cloudy', 'rain', 'snow', 'sleet', 'fog', 'storm'];
-const WEATHER_ICON: Record<WeatherPick, IconName> = {
-  auto: 'refresh',
-  clear: 'sun',
-  cloudy: 'cloud',
-  rain: 'rain',
-  snow: 'snow',
-  sleet: 'rain',
-  fog: 'fog',
-  storm: 'wind',
-};
-const SHIFT_ICON: Record<ShiftPreset, IconName> = { day: 'sun', night: 'moon', short: 'timer' };
 
 function safe<T>(fn: () => T): T | null {
   try {
@@ -158,7 +163,10 @@ export function BriefingScreen() {
     [career, profile, shiftKind, regionId],
   );
   // Units actually on duty for this shift and difficulty (not the whole roster file).
-  const unitsOnDuty = useMemo(() => regionUnitsOnDuty(regionId, shiftKind, difficulty), [regionId, shiftKind, difficulty]);
+  const unitsOnDuty = useMemo(
+    () => regionUnitsOnDuty(regionId, shiftKind, difficulty),
+    [regionId, shiftKind, difficulty],
+  );
   const rank = useMemo(() => (profile ? safe(() => rankOf(profile.xp)) : null), [profile]);
 
   const begin = () => {
@@ -210,213 +218,238 @@ export function BriefingScreen() {
   const startT = hhmm(start);
   const endT = hhmm(start + hours * HOUR);
 
+  const summary = `${region.name[lang]} · ${t(`shell.diff.${difficulty}`)} · ${t(`shell.shift.${shift}`)} ${startT}-${endT} · ${ymdText(date)}`;
+  const startButton = (
+    <button type="button" className="vk-btn vk-btn--primary vk-go" onClick={begin} data-sfx="click">
+      <span>{t('shell.brief.start')}</span>
+      <span className="vk-go__key" aria-hidden="true">
+        ⏎
+      </span>
+    </button>
+  );
+  const startKey = (
+    <li>
+      <kbd className="vk-kbd">⏎</kbd> {t('career.vk.key.start')}
+    </li>
+  );
+
   if (career && !profile) {
     return (
-      <ShellPage title={t('shell.brief.title.career')} icon="briefcase" onBack={() => setScreen('career')}>
-        <div className="sh-card sh-card--pad">
-          <Empty
-            icon="briefcase"
-            title={t('shell.brief.career.noProfileTitle')}
-            action={
-              <Button variant="primary" icon="building" onClick={() => setScreen('career')}>
-                {t('shell.brief.career.toHq')}
-              </Button>
-            }
-          >
-            {t('shell.brief.career.noProfile')}
-          </Empty>
-        </div>
+      <ShellPage title={t('shell.brief.title.career')} onBack={() => setScreen('career')} backTo="career">
+        <section className="vk-panel vk-brief__empty" aria-labelledby="vk-brief-empty">
+          <div className="vk-panel__head">
+            <h2 className="vk-h" id="vk-brief-empty">
+              {t('shell.brief.career.noProfileTitle')}
+            </h2>
+          </div>
+          <div className="vk-panel__body">
+            <p>{t('shell.brief.career.noProfile')}</p>
+          </div>
+          <div className="vk-panel__foot">
+            <button type="button" className="vk-btn vk-btn--primary" onClick={() => setScreen('career')}>
+              {t('shell.brief.career.toHq')}
+            </button>
+          </div>
+        </section>
       </ShellPage>
     );
   }
 
+  const stations =
+    (areaOn && safe(() => areaStations(REGIONS[regionId], area!.sectors, area!.posts).length)) ||
+    region.stations ||
+    '-';
+  const units = career && roster ? roster.length : unitsOnDuty || '-';
+
   return (
     <ShellPage
       title={t(`shell.brief.title.${mode === 'tutorial' ? 'free' : mode}`)}
-      subtitle={t('shell.brief.subtitle')}
-      icon={mode === 'director' ? 'film' : mode === 'career' ? 'briefcase' : 'siren'}
+      subtitle={summary}
+      meta={t('shell.brief.orderNo', { n: `${wall(start).year % 100}-${orderNo}` })}
       onBack={() => setScreen(career ? 'career' : 'menu')}
-      actions={
-        <Button variant="primary" icon="play" onClick={begin} className="sh-brief__headStart">
-          {t('shell.brief.start')}
-        </Button>
-      }
+      backTo={career ? 'career' : 'menu'}
+      actions={startButton}
+      keys={startKey}
+      className="vk-brief-page"
     >
-      <div className="sh-brief">
-        {/* ── Map & prefecture card ── */}
-        <section className="sh-card sh-brief__mapCard">
-          <h2 className="sh-section-title">
-            <Icon name="map" size={14} /> {t('shell.brief.region')}
-          </h2>
-          <div className="sh-brief__mapWrap">
-            <EstoniaMap
-              value={regionId}
-              onChange={setRegionId}
-              allowed={allowed}
-              label={t('shell.brief.region')}
-            />
-            <span className="sh-brief__mapHint">{t('shell.brief.mapHint')}</span>
-          </div>
-          <div className="sh-brief__region" aria-live="polite">
-            <div className="sh-brief__regionHead">
-              <span className={`sh-brief__swatch sh-brief__swatch--${regionId}`} />
-              <h3>{region.name[lang]}</h3>
-              {region.placeholder && <Badge tone="warn">{t('shell.brief.placeholder')}</Badge>}
-            </div>
-            <p>{region.description[lang]}</p>
-            <div className="sh-brief__facts">
-              <Fact icon="building" label={t('shell.brief.hq')} value={region.hqCity} />
-              <Fact
-                icon="home"
-                label={t('shell.brief.stations')}
-                value={(areaOn && safe(() => areaStations(REGIONS[regionId], area!.sectors, area!.posts).length)) || region.stations || '-'}
-              />
-              <Fact
-                icon="car"
-                label={t('shell.brief.units')}
-                value={career && roster ? roster.length : unitsOnDuty || '-'}
-              />
-              <Fact icon="layers" label={t('shell.brief.counties')} value={region.counties.length} />
-            </div>
-          </div>
-        </section>
-
-        {/* ── Options ── */}
-        <section className="sh-brief__opts">
-          {career && profile && (
-            <div className="sh-card sh-card--pad sh-brief__career">
-              <h2 className="sh-section-title">
-                <Icon name="briefcase" size={14} /> {t('shell.brief.career.profile')}
+      <Enter fn={begin} />
+      {career && profile && (
+        <dl className="vk-strip vk-panel vk-brief__strip" style={{ '--vk-strip-n': 6 } as CSSProperties}>
+          <StripCell label={t('shell.brief.career.name')} value={profile.name} sub={profile.badge} />
+          <StripCell label={t('shell.brief.career.rank')} value={rank ? rank.name[lang] : '-'} />
+          <StripCell label={t('shell.brief.career.day')} value={String(profile.day)} mono />
+          <StripCell label={t('shell.brief.career.money')} value={formatMoney(profile.money, lang)} mono />
+          <StripCell
+            label={t('shell.brief.career.rep')}
+            value={
+              <>
+                {Math.round(profile.reputation)}
+                <small>/100</small>
+              </>
+            }
+            mono
+          />
+          <StripCell
+            label={t('shell.brief.career.staff')}
+            value={
+              <>
+                {profile.staff.filter((x) => x.status === 'active').length}
+                <small>/{profile.staff.length}</small>
+              </>
+            }
+            mono
+          />
+        </dl>
+      )}
+      <div className="vk-brief">
+        <div className="vk-brief__col">
+          {/* ── Prefecture ── */}
+          <section className="vk-panel vk-brief__region" aria-labelledby="vk-brief-region">
+            <div className="vk-panel__head">
+              <h2 className="vk-h" id="vk-brief-region">
+                {t('shell.brief.region')}
               </h2>
-              <div className="sh-brief__careerGrid">
-                <Stat label={t('shell.brief.career.name')} value={`${profile.name} · ${profile.badge}`} />
-                <Stat label={t('shell.brief.career.rank')} value={rank ? rank.name[lang] : '-'} />
-                <Stat label={t('shell.brief.career.day')} value={String(profile.day)} />
-                <Stat label={t('shell.brief.career.money')} value={formatMoney(profile.money, lang)} />
-                <Stat label={t('shell.brief.career.rep')} value={`${Math.round(profile.reputation)} / 100`} />
-                <Stat
-                  label={t('shell.brief.career.staff')}
-                  value={`${profile.staff.filter((s) => s.status === 'active').length} / ${profile.staff.length}`}
+              <span className="vk-panel__meta">{t('shell.brief.mapHint')}</span>
+            </div>
+            <div className="vk-brief__regionBody">
+              <div className="vk-brief__mapWrap">
+                <EstoniaMap
+                  value={regionId}
+                  onChange={setRegionId}
+                  allowed={allowed}
+                  label={t('shell.brief.region')}
                 />
               </div>
+              <div className="vk-brief__regionText" aria-live="polite">
+                <h3 className="vk-brief__regionName">
+                  {region.name[lang]}
+                  {region.placeholder && (
+                    <span className="vk-brief__tag">{t('shell.brief.placeholder')}</span>
+                  )}
+                </h3>
+                <dl className="vk-kv">
+                  <div>
+                    <dt>{t('shell.brief.hq')}</dt>
+                    <dd>{region.hqCity}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('shell.brief.stations')}</dt>
+                    <dd className="vk-mono">{stations}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('shell.brief.units')}</dt>
+                    <dd className="vk-mono">{units}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('shell.brief.counties')}</dt>
+                    <dd className="vk-mono">{region.counties.length}</dd>
+                  </div>
+                </dl>
+                <p className="vk-brief__desc">{region.description[lang]}</p>
+              </div>
             </div>
-          )}
+          </section>
 
-          {areaOn && <AreaPanel regionId={regionId} area={area!} />}
+          {areaOn && <AreaPanel regionId={regionId} area={area!} who={profile?.name ?? ''} />}
 
-          <div className="sh-card sh-card--pad">
-            <h2 className="sh-section-title">
-              <Icon name="gauge" size={14} /> {t('shell.brief.difficulty')}
-            </h2>
-            <ChoiceGroup<Difficulty>
-              label={t('shell.brief.difficulty')}
-              value={difficulty}
-              onChange={setDifficulty}
-              className="sh-choices--diff"
-            >
-              {DIFFICULTIES.map((d, i) => (
-                <Choice key={d} value={d}>
-                  <span className="sh-choice__top">
-                    <strong>{t(`shell.diff.${d}`)}</strong>
-                    <span className="sh-bars" aria-hidden="true">
-                      {[0, 1, 2, 3].map((k) => (
-                        <i key={k} className={k <= i ? 'is-on' : ''} />
-                      ))}
-                    </span>
-                  </span>
-                  <span className="sh-choice__desc">{t(`shell.diff.${d}.desc`)}</span>
-                </Choice>
-              ))}
-            </ChoiceGroup>
-          </div>
-
-          <div className="sh-card sh-card--pad">
-            <h2 className="sh-section-title">
-              <Icon name="clock" size={14} /> {t('shell.brief.shift')}
-            </h2>
-            <ChoiceGroup<ShiftPreset>
-              label={t('shell.brief.shift')}
-              value={shift}
-              onChange={setShift}
-              className="sh-choices--row"
-            >
-              {(Object.keys(SHIFT_PRESETS) as ShiftPreset[]).map((s) => (
-                <Choice key={s} value={s}>
-                  <Icon name={SHIFT_ICON[s]} size={18} />
-                  <strong>{t(`shell.shift.${s}`)}</strong>
-                  <span className="sh-choice__desc mono">{t(`shell.shift.${s}.time`)}</span>
-                </Choice>
-              ))}
-            </ChoiceGroup>
-
-            {!career && (
-              <>
-                <h2 className="sh-section-title sh-brief__gap">
-                  <Icon name="flag" size={14} /> {t('shell.brief.date')}
-                </h2>
-                <ChoiceGroup<DatePreset>
-                  label={t('shell.brief.date')}
-                  value={datePreset}
-                  onChange={setDatePreset}
-                  className="sh-choices--chips"
+          {/* ── Conditions ── */}
+          <section className="vk-panel vk-brief__opts" aria-labelledby="vk-brief-opts">
+            <div className="vk-panel__head">
+              <h2 className="vk-h" id="vk-brief-opts">
+                {t('shell.brief.conditions')}
+              </h2>
+            </div>
+            <div className="vk-brief__rows">
+              <OptRow label={t('shell.brief.difficulty')} note={t(`shell.diff.${difficulty}.desc`)}>
+                <ChoiceGroup<Difficulty>
+                  label={t('shell.brief.difficulty')}
+                  value={difficulty}
+                  onChange={setDifficulty}
                 >
-                  {DATE_PRESETS.map((p) => (
-                    <Choice key={p} value={p}>
-                      <strong>{t(`shell.date.${p}`)}</strong>
-                      <span className="sh-choice__desc mono">
-                        {ymdText(resolveDatePreset(p, Date.now()))}
-                      </span>
+                  {DIFFICULTIES.map((d) => (
+                    <Choice key={d} value={d}>
+                      {t(`shell.diff.${d}`)}
                     </Choice>
                   ))}
                 </ChoiceGroup>
-              </>
-            )}
+              </OptRow>
+              <OptRow label={t('shell.brief.shift')}>
+                <ChoiceGroup<ShiftPreset> label={t('shell.brief.shift')} value={shift} onChange={setShift}>
+                  {(Object.keys(SHIFT_PRESETS) as ShiftPreset[]).map((x) => (
+                    <Choice key={x} value={x}>
+                      {t(`shell.shift.${x}`)}{' '}
+                      <span className="vk-mono vk-choice__sub">{t(`shell.shift.${x}.time`)}</span>
+                    </Choice>
+                  ))}
+                </ChoiceGroup>
+              </OptRow>
+              {!career && (
+                <OptRow label={t('shell.brief.date')}>
+                  <ChoiceGroup<DatePreset>
+                    label={t('shell.brief.date')}
+                    value={datePreset}
+                    onChange={setDatePreset}
+                  >
+                    {DATE_PRESETS.map((x) => (
+                      <Choice key={x} value={x}>
+                        {t(`shell.date.${x}`)}{' '}
+                        <span className="vk-mono vk-choice__sub">
+                          {ymdText(resolveDatePreset(x, Date.now()))}
+                        </span>
+                      </Choice>
+                    ))}
+                  </ChoiceGroup>
+                </OptRow>
+              )}
+              <OptRow
+                label={t('shell.brief.weather')}
+                note={
+                  weather === 'auto' && forecast
+                    ? t('shell.brief.autoWeather', { weather: forecast.text[lang] })
+                    : undefined
+                }
+              >
+                <ChoiceGroup<WeatherPick>
+                  label={t('shell.brief.weather')}
+                  value={weather}
+                  onChange={setWeather}
+                >
+                  {WEATHERS.map((w) => (
+                    <Choice key={w} value={w}>
+                      {t(`shell.weather.${w}`)}
+                    </Choice>
+                  ))}
+                </ChoiceGroup>
+              </OptRow>
+            </div>
+            {mode === 'director' && <p className="vk-msg vk-brief__note">{t('shell.brief.director.note')}</p>}
+          </section>
+        </div>
 
-            <h2 className="sh-section-title sh-brief__gap">
-              <Icon name="cloud" size={14} /> {t('shell.brief.weather')}
-            </h2>
-            <ChoiceGroup<WeatherPick>
-              label={t('shell.brief.weather')}
-              value={weather}
-              onChange={setWeather}
-              className="sh-choices--chips sh-choices--weather"
-            >
-              {WEATHERS.map((w) => (
-                <Choice key={w} value={w}>
-                  <Icon name={WEATHER_ICON[w]} size={16} />
-                  <strong>{t(`shell.weather.${w}`)}</strong>
-                </Choice>
-              ))}
-            </ChoiceGroup>
-
-            {mode === 'director' && (
-              <p className="sh-brief__note">
-                <Icon name="film" size={16} /> {t('shell.brief.director.note')}
-              </p>
-            )}
-          </div>
-        </section>
-
-        {/* ── Päevakäsk ── */}
-        <section className="sh-order" aria-labelledby="sh-order-title">
-          <div className="sh-order__paper">
-            <header className="sh-order__head">
-              <Emblem size={44} />
+        <div className="vk-brief__col">
+          {error && (
+            <p className="vk-msg is-bad" role="alert">
+              {error}
+            </p>
+          )}
+          {/* ── Päevakäsk: the order the system produces, as a document ── */}
+          <article className="vk-doc sh-order" aria-labelledby="sh-order-title">
+            <header className="vk-doc__head">
               <div>
-                <div className="sh-order__org">{region.name[lang]}</div>
-                <div className="sh-order__unit">{t('shell.brief.orderUnit')}</div>
+                <div className="vk-doc__org">{region.name[lang]}</div>
+                <div className="vk-doc__unit">{t('shell.brief.orderUnit')}</div>
               </div>
-              <div className="sh-order__meta mono">
+              <div className="vk-doc__meta">
                 <div>
                   {region.hqCity}, {ymdText(date)}
                 </div>
                 <div>{t('shell.brief.orderNo', { n: `${wall(start).year % 100}-${orderNo}` })}</div>
               </div>
             </header>
-            <h2 id="sh-order-title" className="sh-order__title">
+            <h2 id="sh-order-title" className="vk-doc__title">
               {t('shell.brief.order')}
             </h2>
-            <div className="sh-order__body">
+            <div className="vk-doc__body">
               <p>{t('shell.brief.orderIntro', { name: user?.name ?? profile?.name ?? '-' })}</p>
               <ol>
                 <li>
@@ -430,7 +463,9 @@ export function BriefingScreen() {
                 {areaOn && (
                   <li className="sh-order__area">
                     {t('career.brief.orderArea', { area: areaName(area!.sectors) })}
-                    {area!.cover.length > 0 && <> {t('career.brief.orderCover', { names: areaName(area!.cover) })}</>}
+                    {area!.cover.length > 0 && (
+                      <> {t('career.brief.orderCover', { names: areaName(area!.cover) })}</>
+                    )}
                   </li>
                 )}
                 <li>
@@ -446,9 +481,7 @@ export function BriefingScreen() {
                   <li>{t('shell.brief.orderSun', { rise: hhmm(sun.sunrise), set: hhmm(sun.sunset) })}</li>
                 )}
                 {holiday && (
-                  <li className="sh-order__hl">
-                    {t('shell.brief.orderHoliday', { holiday: holiday[lang] })}
-                  </li>
+                  <li className="vk-doc__hl">{t('shell.brief.orderHoliday', { holiday: holiday[lang] })}</li>
                 )}
                 <li>
                   {t('shell.brief.orderLoad', {
@@ -460,156 +493,221 @@ export function BriefingScreen() {
               </ol>
               <p>{t('shell.brief.orderClose')}</p>
             </div>
-            <footer className="sh-order__sign">
+            <footer className="vk-doc__sign">
               <div>
-                <div className="sh-order__sigName">{region.commander.name}</div>
-                <div className="sh-dim">{region.commander.title[lang]}</div>
+                <div className="vk-doc__sigName">{region.commander.name}</div>
+                <div className="vk-doc__sigTitle">{region.commander.title[lang]}</div>
               </div>
-              <div className="sh-order__stamp">
-                <Icon name="check" size={14} /> {t('shell.brief.signed')}
-              </div>
+              <div className="vk-doc__stamp">{t('shell.brief.signed')}</div>
             </footer>
-          </div>
+          </article>
 
           {career && (
-            <div className="sh-card sh-card--pad sh-roster">
-              <h2 className="sh-section-title">
-                <Icon name="users" size={14} /> {t('shell.brief.career.roster')}
-              </h2>
+            <section className="vk-panel vk-brief__roster" aria-labelledby="vk-brief-roster">
+              <div className="vk-panel__head">
+                <h2 className="vk-h" id="vk-brief-roster">
+                  {t('shell.brief.career.roster')}
+                </h2>
+                {roster && roster.length > 0 && (
+                  <span className="vk-panel__meta">
+                    {roster.length === 1
+                      ? t('career.brief.stationOne')
+                      : t('career.brief.station', { n: roster.length })}
+                  </span>
+                )}
+              </div>
               {roster && roster.length ? (
-                <div className="sh-roster__groups">
+                <table className="vk-table vk-roster">
+                  <caption>{t('shell.brief.career.roster')}</caption>
                   {rosterByStation(regionId, roster).map((g) => (
-                    <section key={g.stationId} className="sh-roster__group">
-                      <h3 className="sh-roster__station">
-                        <Icon name="building" size={12} />
-                        <span>{tx(g.name)}</span>
-                        <span className="sh-roster__count">
-                          {g.units.length === 1
-                            ? t('career.brief.stationOne')
-                            : t('career.brief.station', { n: g.units.length })}
-                        </span>
-                      </h3>
-                      <ul className="sh-roster__list">
-                        {g.units.map((u) => (
-                          <li key={u.callsign}>
-                            <span className="mono sh-roster__cs">{u.callsign}</span>
-                            <Badge tone={u.onCall ? 'warn' : 'accent'}>{t(`shell.unit.${u.type}`)}</Badge>
-                            <span className="sh-roster__veh">{u.vehicle}</span>
-                            <span className="sh-roster__crew">
-                              {u.crew.map((c) => `${c.firstName[0]}. ${c.lastName}`).join(', ')}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
+                    <tbody key={g.stationId}>
+                      <tr className="vk-roster__group">
+                        <th scope="colgroup" colSpan={4} className="sh-roster__station">
+                          {tx(g.name)}
+                          <span className="vk-roster__count">
+                            {g.units.length === 1
+                              ? t('career.brief.stationOne')
+                              : t('career.brief.station', { n: g.units.length })}
+                          </span>
+                        </th>
+                      </tr>
+                      {g.units.map((u) => (
+                        <tr key={u.callsign}>
+                          <td className="vk-mono vk-roster__cs">{u.callsign}</td>
+                          <td className={u.onCall ? 'vk-warn' : undefined}>{t(`shell.unit.${u.type}`)}</td>
+                          <td className="vk-roster__veh">{u.vehicle}</td>
+                          <td className="vk-roster__crew">
+                            {u.crew.map((c) => `${c.firstName[0]}. ${c.lastName}`).join(', ')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
                   ))}
-                </div>
+                </table>
               ) : (
-                <p className="sh-muted">{t('shell.brief.career.noRoster')}</p>
+                <p className="vk-panel__body vk-dim">{t('shell.brief.career.noRoster')}</p>
               )}
-            </div>
+            </section>
           )}
-
-          <div className="sh-brief__start">
-            {error && (
-              <p className="sh-error" role="alert">
-                <Icon name="warning" size={16} /> {error}
-              </p>
-            )}
-            <Button variant="primary" size="lg" icon="play" onClick={begin} block>
-              {t('shell.brief.start')}
-            </Button>
-            <span className="sh-dim sh-brief__startHint">
-              {region.short} · {t(`shell.diff.${difficulty}`)} · {startT}-{endT} · {ymdText(date)}
-            </span>
-          </div>
-        </section>
+        </div>
       </div>
     </ShellPage>
   );
 }
 
-/** The career shift's area: sectors, opened posts, tonight's cover and the neighbouring desks. */
-function AreaPanel({ regionId, area }: { regionId: RegionId; area: ShiftArea }) {
+/** Enter starts the shift (ShellPage's main action key). */
+function Enter({ fn }: { fn: () => void }) {
+  const ref = useRef(fn);
+  ref.current = fn;
+  const stable = useMemo(() => () => ref.current(), []);
+  useEnter(stable);
+  return null;
+}
+
+function StripCell({
+  label,
+  value,
+  sub,
+  mono,
+}: {
+  label: string;
+  value: ReactNode;
+  sub?: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="vk-strip__cell">
+      <dt>{label}</dt>
+      <dd className={mono ? 'vk-strip__value' : 'vk-strip__value vk-strip__value--text'}>
+        {value}
+        {sub && <span className="vk-mono vk-strip__badge">{sub}</span>}
+      </dd>
+    </div>
+  );
+}
+
+function OptRow({ label, note, children }: { label: string; note?: string; children: ReactNode }) {
+  return (
+    <div className="vk-brief__row">
+      <span className="vk-label vk-brief__rowLabel">{label}</span>
+      <div className="vk-brief__rowCtl">
+        {children}
+        {note && <p className="vk-brief__rowNote">{note}</p>}
+      </div>
+    </div>
+  );
+}
+
+/** The size of a box (rounded to 16 px, so a scrollbar or a small resize does not rebuild the map in it). */
+function useBoxSize(ref: RefObject<HTMLElement | null>) {
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      const next = { w: Math.round(r.width / 16) * 16, h: Math.round(r.height / 16) * 16 };
+      setSize((prev) => (prev && prev.w === next.w && prev.h === next.h ? prev : next));
+    };
+    measure();
+    if (typeof ResizeObserver !== 'function') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return size;
+}
+
+/** The career shift's area: the duty map on the prefecture (sectors, tonight's cover, the neighbouring desks). */
+function AreaPanel({ regionId, area, who }: { regionId: RegionId; area: ShiftArea; who: string }) {
   const t = useT();
   const tx = useTx();
   const own = new Set(area.sectors);
-  const neighbours = safe(() => neighbourSectors([...area.sectors, ...area.cover]).filter((x) => x.regionId === regionId)) ?? [];
-  const paint: Record<string, SectorPaint> = Object.fromEntries([
-    ...neighbours.map((x) => [x.id, 'neighbour' as SectorPaint]),
-    ...area.cover.map((id) => [id, 'cover' as SectorPaint]),
-    ...area.sectors.map((id) => [id, 'mine' as SectorPaint]),
-  ]);
+  const neighbours =
+    safe(() => neighbourSectors([...area.sectors, ...area.cover]).filter((x) => x.regionId === regionId)) ??
+    [];
   const names = (ids: string[]) =>
     ids
       .map((id) => sectorById(id))
       .filter((x) => !!x)
       .map((x) => tx(x!.name))
       .join(', ');
+  const boxRef = useRef<HTMLDivElement>(null);
+  const size = useBoxSize(boxRef);
+  const input = useMemo<DutyInput>(
+    () => ({
+      mine: area.sectors,
+      whole: [],
+      offered: area.cover,
+      challenge: null,
+      home: regionId,
+      others: neighbours.map((x) => x.id),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [area.sectors.join(), area.cover.join(), regionId, neighbours.map((x) => x.id).join()],
+  );
+  const view = useMemo<MapView | null>(() => {
+    const bounds = REGIONS[regionId]?.bounds;
+    if (!size || !bounds) return null;
+    return fitView(bounds, size.w, size.h, { top: 12, right: 12, bottom: 40, left: 12 });
+  }, [size, regionId]);
+  const coverWord = t('career.brief.coverWord');
   return (
-    <div className="sh-card sh-card--pad sh-brief__area" data-area={area.sectors.join(' ')}>
-      <h2 className="sh-section-title">
-        <Icon name="target" size={14} /> {t('career.brief.area')}
-      </h2>
-      <div className="sh-brief__areaGrid">
-        <SectorMap regionId={regionId} paint={paint} labels="mine" className="sh-brief__areaMap" />
-        <dl className="sh-brief__areaList">
-          <div>
-            <dt>{t('career.brief.sectors')}</dt>
-            <dd className="sh-brief__areaNames">{names(area.sectors.filter((id) => own.has(id)))}</dd>
-          </div>
-          {area.posts.length > 0 && (
-            <div>
-              <dt>{t('career.brief.posts')}</dt>
-              <dd>{area.posts.map((id) => tx(stationName(regionId, id))).join(', ')}</dd>
-            </div>
-          )}
-          {area.cover.length > 0 && (
-            <div className="is-cover">
-              <dt>{t('career.brief.cover')}</dt>
-              <dd>{t('career.brief.coverText', { names: names(area.cover) })}</dd>
-            </div>
-          )}
-          {neighbours.length > 0 && (
-            <div>
-              <dt>{t('career.brief.neighbours')}</dt>
-              <dd>
-                <ul className="sh-brief__desks">
-                  {neighbours.map((x) => (
-                    <li key={x.id}>
-                      <strong>{tx(x.name)}</strong> · {colleagueName(x)}
-                    </li>
-                  ))}
-                </ul>
-              </dd>
-            </div>
-          )}
-        </dl>
+    <section
+      className="vk-panel sh-brief__area"
+      data-area={area.sectors.join(' ')}
+      aria-labelledby="vk-brief-area"
+    >
+      <div className="vk-panel__head">
+        <h2 className="vk-h" id="vk-brief-area">
+          {t('career.brief.area')}
+        </h2>
       </div>
-    </div>
+      <div className="vk-brief__areaMap" ref={boxRef}>
+        {view && (
+          <>
+            <DutyMap variant="full" input={input} view={view} who={who} offerWord={coverWord} />
+            <MapLegend input={input} compact pxPerKm={view.scale} offerLabel={t('career.brief.cover')} />
+          </>
+        )}
+      </div>
+      <dl className="vk-kv">
+        <div>
+          <dt>{t('career.brief.sectors')}</dt>
+          <dd className="sh-brief__areaNames">{names(area.sectors.filter((id) => own.has(id)))}</dd>
+        </div>
+        {area.posts.length > 0 && (
+          <div>
+            <dt>{t('career.brief.posts')}</dt>
+            <dd>{area.posts.map((id) => tx(stationName(regionId, id))).join(', ')}</dd>
+          </div>
+        )}
+        {area.cover.length > 0 && (
+          <div>
+            <dt>{t('career.brief.cover')}</dt>
+            <dd>{t('career.brief.coverText', { names: names(area.cover) })}</dd>
+          </div>
+        )}
+        {neighbours.length > 0 && (
+          <div>
+            <dt>{t('career.brief.neighbours')}</dt>
+            <dd>
+              {neighbours.map((x, i) => (
+                <span key={x.id} className="vk-brief__desk">
+                  {tx(x.name)} <span className="vk-dim">· {colleagueName(x)}</span>
+                  {i < neighbours.length - 1 && <br />}
+                </span>
+              ))}
+            </dd>
+          </div>
+        )}
+      </dl>
+    </section>
   );
 }
 
-function Fact({ icon, label, value }: { icon: IconName; label: string; value: ReactNode }) {
-  return (
-    <div className="sh-fact">
-      <Icon name={icon} size={16} />
-      <span className="sh-fact__label">{label}</span>
-      <strong className="sh-fact__value">{value}</strong>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="sh-stat">
-      <span className="sh-stat__label">{label}</span>
-      <strong className="sh-stat__value">{value}</strong>
-    </div>
-  );
-}
-
-// ── Radio-card group (roving focus, arrow keys) ─────────────────────────────
+// ── Segmented radio group (roving focus, arrow keys) ───────────────────────
 
 interface ChoiceProps<T extends string> {
   value: T;
@@ -624,13 +722,11 @@ function ChoiceGroup<T extends string>({
   onChange,
   label,
   children,
-  className,
 }: {
   value: T;
   onChange: (v: T) => void;
   label: string;
   children: ReactNode;
-  className?: string;
 }) {
   const items = (Array.isArray(children) ? children : [children]).filter(Boolean) as {
     props: ChoiceProps<T>;
@@ -648,12 +744,7 @@ function ChoiceGroup<T extends string>({
     e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')[n]?.focus();
   };
   return (
-    <div
-      className={`sh-choices${className ? ' ' + className : ''}`}
-      role="radiogroup"
-      aria-label={label}
-      onKeyDown={onKey}
-    >
+    <div className="vk-seg vk-choices" role="radiogroup" aria-label={label} onKeyDown={onKey}>
       {items.map(({ props }) => {
         const active = props.value === value;
         return (
@@ -663,7 +754,6 @@ function ChoiceGroup<T extends string>({
             role="radio"
             aria-checked={active}
             tabIndex={active ? 0 : -1}
-            className={`sh-choice${active ? ' is-active' : ''}`}
             onClick={() => onChange(props.value)}
             data-sfx="click"
           >

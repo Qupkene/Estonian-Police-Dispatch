@@ -8,7 +8,7 @@ import { useLang, useT } from '@/i18n';
 import { sfx } from '@/audio/sfx';
 import { onVoicesChanged, speak, speechAvailable, voiceName } from '@/audio/speech';
 import type { Lang } from '@/sim/types';
-import { Badge, Button, Icon, Modal, Segmented, Slider, Toggle, type IconName } from '@/ui/components';
+import { Button, Modal, Segmented, Slider, Toggle } from '@/ui/components';
 import { ShellPage, useToast } from './shell/ShellPage';
 import { clearEpdStorage } from './shell/helpers';
 import './shell/settings.css';
@@ -55,10 +55,10 @@ export function SettingsScreen() {
   };
 
   return (
-    <ShellPage title={t('shell.set.title')} subtitle={t('shell.set.subtitle')} icon="settings">
+    <ShellPage title={t('shell.set.title')} subtitle={t('shell.set.subtitle')}>
       {toast.node}
-      <div className="sh-set">
-        <Section icon="globe" title={t('shell.set.sec.general')}>
+      <div className="vk-set">
+        <Section id="general" title={t('shell.set.sec.general')}>
           <Row label={t('shell.set.lang')} desc={t('shell.set.langDesc')}>
             <Segmented<Lang>
               label={t('shell.set.lang')}
@@ -76,13 +76,13 @@ export function SettingsScreen() {
               value={s.theme}
               onChange={(v) => s.set({ theme: v })}
               options={[
-                { value: 'dark', label: t('shell.set.theme.dark'), icon: 'moon' },
-                { value: 'light', label: t('shell.set.theme.light'), icon: 'sun' },
+                { value: 'dark', label: t('shell.set.theme.dark') },
+                { value: 'light', label: t('shell.set.theme.light') },
               ]}
             />
           </Row>
           <Row label={t('shell.set.scale')} desc={t('shell.set.scaleDesc')}>
-            <div className="sh-set__slider">
+            <div className="vk-set__slider">
               <Slider
                 value={s.uiScale}
                 min={0.85}
@@ -98,9 +98,9 @@ export function SettingsScreen() {
           </Row>
         </Section>
 
-        <Section icon="volume" title={t('shell.set.sec.audio')}>
+        <Section id="audio" title={t('shell.set.sec.audio')}>
           <Row label={t('shell.set.volume')} desc={t('shell.set.volumeDesc')}>
-            <div className="sh-set__slider sh-set__slider--btn">
+            <div className="vk-set__slider vk-set__slider--btn">
               <Slider
                 value={s.volume}
                 min={0}
@@ -111,7 +111,6 @@ export function SettingsScreen() {
               />
               <Button
                 size="sm"
-                icon="volume"
                 onClick={() => {
                   sfx.unlock();
                   sfx.play('newIncident');
@@ -132,26 +131,23 @@ export function SettingsScreen() {
             desc={
               <>
                 {t('shell.set.radioVoiceDesc')}{' '}
-                {voiceOk ? (
-                  <Badge tone="ok" icon="check">
-                    {t('shell.set.voice.ok', { name: vName ?? '' })}
-                  </Badge>
-                ) : (
-                  <Badge tone="warn" icon="warning">
-                    {t('shell.set.voice.none')}
-                  </Badge>
-                )}
+                <span className={`vk-set__state${voiceOk ? ' is-ok' : ' is-warn'}`}>
+                  {voiceOk ? t('shell.set.voice.ok', { name: vName ?? '' }) : t('shell.set.voice.none')}
+                </span>
               </>
             }
           >
-            <div className="sh-set__inline">
+            <div className="vk-set__inline">
               <Button
                 size="sm"
-                icon="mic"
                 disabled={!voiceOk}
                 onClick={() => {
                   sfx.unlock();
-                  speak(t('shell.set.voiceSample'), lang, { radio: true, volume: s.volume, speaker: { from: 'PÕHJA 21' } });
+                  speak(t('shell.set.voiceSample'), lang, {
+                    radio: true,
+                    volume: s.volume,
+                    speaker: { from: 'PÕHJA 21' },
+                  });
                 }}
               >
                 {t('shell.set.test')}
@@ -161,8 +157,8 @@ export function SettingsScreen() {
           </Row>
         </Section>
 
-        <Section icon="map" title={t('shell.set.sec.map')} wide>
-          <div className="sh-mapstyles" role="radiogroup" aria-label={t('shell.set.mapStyle')}>
+        <Section id="map" title={t('shell.set.sec.map')} wide>
+          <div className="vk-mapstyles" role="radiogroup" aria-label={t('shell.set.mapStyle')}>
             {MAP_STYLES.map((m) => {
               const active = s.mapStyle === m;
               return (
@@ -171,41 +167,35 @@ export function SettingsScreen() {
                   type="button"
                   role="radio"
                   aria-checked={active}
-                  className={`sh-mapstyle${active ? ' is-active' : ''}`}
+                  className={`vk-mapstyle${active ? ' is-active' : ''}`}
                   onClick={() => s.set({ mapStyle: m })}
                   data-sfx="click"
                 >
-                  <span className={`sh-mapstyle__prev sh-mapstyle__prev--${m}`} aria-hidden="true">
+                  <span className={`vk-mapstyle__prev vk-mapstyle__prev--${m}`} aria-hidden="true">
                     <i />
                     <i />
                     <i />
                     <b />
                   </span>
-                  <span className="sh-mapstyle__name">
-                    {t(`shell.map.${m}`)}
-                    {m === 'tactical' ? (
-                      <Badge tone="ok">{t('shell.map.offline')}</Badge>
-                    ) : (
-                      <Badge tone="neutral" icon="globe">
-                        {t('shell.map.online')}
-                      </Badge>
-                    )}
+                  <span className="vk-mapstyle__name">{t(`shell.map.${m}`)}</span>
+                  <span className="vk-mapstyle__net">
+                    {m === 'tactical' ? t('shell.map.offline') : t('shell.map.online')}
                   </span>
-                  <span className="sh-mapstyle__desc">{t(`shell.map.${m}.desc`)}</span>
+                  <span className="vk-mapstyle__desc">{t(`shell.map.${m}.desc`)}</span>
                 </button>
               );
             })}
           </div>
         </Section>
 
-        <Section icon="eye" title={t('shell.set.sec.access')}>
+        <Section id="access" title={t('shell.set.sec.access')}>
           <Row label={t('shell.set.reduced')} desc={t('shell.set.reducedDesc')}>
             <Toggle checked={s.reducedMotion} onChange={(v) => s.set({ reducedMotion: v })} />
           </Row>
           <Row label={t('shell.set.colorblind')} desc={t('shell.set.colorblindDesc')}>
             <Toggle checked={s.colorblind} onChange={(v) => s.set({ colorblind: v })} />
           </Row>
-          <div className="sh-set__swatches" aria-hidden="true">
+          <div className="vk-set__swatches" aria-hidden="true">
             {[1, 2, 3, 4].map((p) => (
               <span key={p} className={`ui-prio ui-prio--${p}`}>
                 P{p}
@@ -226,20 +216,15 @@ export function SettingsScreen() {
           </div>
         </Section>
 
-        <Section icon="lock" title={t('shell.set.sec.data')}>
-          <p className="sh-set__note">{t(accountUser ? 'account.set.storage' : 'shell.set.storage')}</p>
+        <Section id="data" title={t('shell.set.sec.data')}>
+          <p className="vk-set__note">{t(accountUser ? 'account.set.storage' : 'shell.set.storage')}</p>
           <Row label={t('shell.set.resetCareer')} desc={t('shell.set.resetCareerDesc')}>
-            <Button
-              variant="secondary"
-              icon="refresh"
-              disabled={!hasCareer}
-              onClick={() => setConfirm('career')}
-            >
+            <Button variant="secondary" disabled={!hasCareer} onClick={() => setConfirm('career')}>
               {t('shell.set.reset')}
             </Button>
           </Row>
           <Row label={t('shell.set.clearAll')} desc={t('shell.set.clearAllDesc')}>
-            <Button variant="danger" icon="close" onClick={() => setConfirm('all')}>
+            <Button variant="danger" onClick={() => setConfirm('all')}>
               {t('shell.set.clear')}
             </Button>
           </Row>
@@ -260,14 +245,13 @@ export function SettingsScreen() {
             </Button>
             <Button
               variant="danger"
-              icon="check"
               loading={clearing}
               onClick={() => {
                 if (confirm === 'all') void doClearAll();
                 else {
                   resetCareer();
                   setConfirm(null);
-                  toast.show(t('shell.set.careerReset'), 'ok', 'check');
+                  toast.show(t('shell.set.careerReset'), 'ok');
                 }
               }}
             >
@@ -276,31 +260,33 @@ export function SettingsScreen() {
           </>
         }
       >
-        <p className="sh-set__confirm">
+        <p className="vk-set__confirm">
           {confirm === 'all' ? t('shell.set.clearAllConfirm') : t('shell.set.resetCareerConfirm')}
         </p>
-        {confirm === 'all' && accountUser && <p className="sh-set__confirm">{t('account.set.clearAll')}</p>}
+        {confirm === 'all' && accountUser && <p className="vk-set__confirm">{t('account.set.clearAll')}</p>}
       </Modal>
     </ShellPage>
   );
 }
 
 function Section({
-  icon,
+  id,
   title,
   children,
   wide,
 }: {
-  icon: IconName;
+  id: string;
   title: string;
   children: ReactNode;
   wide?: boolean;
 }) {
   return (
-    <section className={`sh-card sh-set__sec${wide ? ' is-wide' : ''}`}>
-      <h2 className="sh-section-title">
-        <Icon name={icon} size={14} /> {title}
-      </h2>
+    <section className={`vk-panel vk-set__sec${wide ? ' is-wide' : ''}`} aria-labelledby={`vk-set-${id}`}>
+      <div className="vk-panel__head">
+        <h2 className="vk-h" id={`vk-set-${id}`}>
+          {title}
+        </h2>
+      </div>
       {children}
     </section>
   );
@@ -308,12 +294,12 @@ function Section({
 
 function Row({ label, desc, children }: { label: string; desc?: ReactNode; children: ReactNode }) {
   return (
-    <div className="sh-set__row">
-      <div className="sh-set__text">
-        <div className="sh-set__label">{label}</div>
-        {desc && <div className="sh-set__desc">{desc}</div>}
+    <div className="vk-set__row">
+      <div className="vk-set__text">
+        <div className="vk-set__label">{label}</div>
+        {desc && <div className="vk-set__desc">{desc}</div>}
       </div>
-      <div className="sh-set__ctrl">{children}</div>
+      <div className="vk-set__ctrl">{children}</div>
     </div>
   );
 }

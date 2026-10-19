@@ -1,91 +1,89 @@
-// Common frame for the shell screens: backdrop, header with Back, content area and disclaimer footer.
+// Valvekaart page of the out-of-game screens other than the menu and the career page (briefing, report,
+// settings, credits, original versions): the top bar, the page head (back with Esc, title, the screen's line and
+// main action), the screen's panels and the footer with its keys. Styles in vk.css.
 import { useEffect, useState, type ReactNode } from 'react';
-import { Button, Emblem, Icon, Segmented, type IconName } from '@/ui/components';
 import { useT } from '@/i18n';
-import { useSettings } from '@/store/settings';
-import type { Lang } from '@/sim/types';
-import { Backdrop } from './Backdrop';
-import { goBack } from './nav';
-import './shell.css';
+import { useGame, type Screen } from '@/store/game';
+import { backTarget, goBack } from './nav';
+import { PageBack, ShellAccount, ShellFooter, ShellTopBar, STACKED, useMedia } from './ShellFrame';
+import './vk.css';
+
+/** The back button's words for where it goes. */
+const BACK_KEY: Partial<Record<Screen, string>> = {
+  menu: 'career.vk.back',
+  career: 'shell.menu.career',
+  game: 'shell.page.toShift',
+};
 
 export function ShellPage({
   title,
   subtitle,
-  icon,
+  meta,
   back = true,
   onBack,
+  backTo,
   actions,
+  keys,
   children,
   className,
-  variant = 'grid',
 }: {
   title: ReactNode;
+  /** The line next to the title: what this page is about, in one line of state. */
   subtitle?: ReactNode;
-  icon?: IconName;
+  /** Mono figures at the right of the head (an order number, a date). */
+  meta?: ReactNode;
   back?: boolean;
   onBack?: () => void;
+  /** Where `onBack` goes, for its label (default: the previous screen). */
+  backTo?: Screen;
+  /** The screen's main action, at the end of the head. */
   actions?: ReactNode;
+  /** More keys for the footer (after Esc). */
+  keys?: ReactNode;
   children: ReactNode;
   className?: string;
-  variant?: 'grid' | 'radar';
 }) {
   const t = useT();
+  const user = useGame((s) => s.user);
+  const stacked = useMedia(STACKED);
   const doBack = onBack ?? (() => goBack());
   useEscape(back ? doBack : undefined);
+  const target = backTo ?? (onBack ? undefined : backTarget());
+  const backLabel = t((target && BACK_KEY[target]) || 'shell.back');
   return (
-    <div className={`sh-screen${className ? ' ' + className : ''}`}>
-      <Backdrop variant={variant} />
-      <header className="sh-head">
-        <div className="sh-head__left">
-          {back && (
-            <Button variant="ghost" icon="chevron-left" onClick={doBack} kbd="Esc">
-              {t('shell.back')}
-            </Button>
-          )}
-        </div>
-        <div className="sh-head__brand">
-          <Emblem size={34} />
-          <div className="sh-head__titles">
-            <h1 className="sh-head__title">
-              {icon && <Icon name={icon} size={18} />}
-              {title}
-            </h1>
-            {subtitle && <div className="sh-head__sub">{subtitle}</div>}
-          </div>
-        </div>
-        <div className="sh-head__actions">{actions}</div>
-      </header>
-      <main className="sh-main">{children}</main>
-      <Disclaimer />
+    <div className={`vk vk-ui vk-page${stacked ? ' is-stacked' : ''}${className ? ' ' + className : ''}`}>
+      <ShellTopBar account={!stacked} />
+      <div className="vk-pagehead vk-page__head">
+        {back && (
+          <>
+            <PageBack label={backLabel} onBack={doBack} />
+            <span className="vk-pagehead__rule" aria-hidden="true" />
+          </>
+        )}
+        <h1 className="vk-pagehead__title">{title}</h1>
+        {subtitle && <p className="vk-pagehead__line sh-head__sub">{subtitle}</p>}
+        {meta && <span className="vk-pagehead__meta">{meta}</span>}
+        {actions && <div className="vk-page__actions">{actions}</div>}
+      </div>
+      <main className="vk-page__main">{children}</main>
+      {stacked && user && (
+        <section className="vk-panel vk-page__account" aria-label={t('account.method')}>
+          <ShellAccount />
+        </section>
+      )}
+      <ShellFooter>
+        {!stacked && (back || keys) && (
+          <ul className="vk-foot__keys" aria-label={t('shell.menu.keys')}>
+            {back && (
+              <li>
+                <kbd className="vk-kbd">Esc</kbd> {backLabel.toLocaleLowerCase()}
+              </li>
+            )}
+            {keys}
+          </ul>
+        )}
+      </ShellFooter>
     </div>
-  );
-}
-
-export function Disclaimer({ className }: { className?: string }) {
-  const t = useT();
-  return (
-    <footer className={`sh-disclaimer${className ? ' ' + className : ''}`}>
-      <Icon name="info" size={13} />
-      <span>{t('core.disclaimer')}</span>
-    </footer>
-  );
-}
-
-export function LangToggle() {
-  const lang = useSettings((s) => s.lang);
-  const set = useSettings((s) => s.set);
-  const t = useT();
-  return (
-    <Segmented<Lang>
-      size="sm"
-      label={t('shell.set.lang')}
-      value={lang}
-      onChange={(v) => set({ lang: v })}
-      options={[
-        { value: 'et', label: 'ET', title: 'Eesti keel' },
-        { value: 'en', label: 'EN', title: 'English' },
-      ]}
-    />
   );
 }
 
@@ -109,12 +107,28 @@ export function useEscape(fn?: () => void) {
   }, [fn]);
 }
 
-/** Tiny transient toast. */
+/** Calls `fn` on Enter when nothing that takes Enter itself has the focus (a page's main action). */
+export function useEnter(fn?: () => void) {
+  useEffect(() => {
+    if (!fn) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && el !== document.body && !el.classList.contains('vk-page__main')) return;
+      if (document.querySelector('.ui-modal')) return;
+      e.preventDefault();
+      fn();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fn]);
+}
+
+/** A short note at the bottom of the screen that goes away by itself. */
 export function useToast(ms = 2600) {
   const [toast, setToast] = useState<{
     text: string;
     tone: 'ok' | 'gold' | 'danger' | 'info';
-    icon: IconName;
     n: number;
   } | null>(null);
   useEffect(() => {
@@ -122,11 +136,11 @@ export function useToast(ms = 2600) {
     const id = setTimeout(() => setToast(null), ms);
     return () => clearTimeout(id);
   }, [toast, ms]);
-  const show = (text: string, tone: 'ok' | 'gold' | 'danger' | 'info' = 'info', icon: IconName = 'info') =>
-    setToast({ text, tone, icon, n: Date.now() });
+  const show = (text: string, tone: 'ok' | 'gold' | 'danger' | 'info' = 'info') =>
+    setToast({ text, tone, n: Date.now() });
   const node = toast ? (
-    <div key={toast.n} className={`sh-toast sh-toast--${toast.tone}`} role="status" aria-live="polite">
-      <Icon name={toast.icon} size={16} />
+    <div key={toast.n} className={`vk-toast is-${toast.tone}`} role="status" aria-live="polite">
+      <span className="vk-toast__dot" aria-hidden="true" />
       <span>{toast.text}</span>
     </div>
   ) : null;
