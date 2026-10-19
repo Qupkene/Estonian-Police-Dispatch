@@ -14,6 +14,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Every update that reaches the game bumps the version (CLAUDE.md, "Versioon").
+  version:
+    name: Version bump
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check the version
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            base="origin/$BASE_REF"; head="$PR_HEAD"
+          elif [ "$REF" = "refs/heads/main" ]; then
+            # A push to main compares with the main it replaced (a new branch has no "before").
+            base="$BEFORE"; head="$GITHUB_SHA"
+            if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+              echo "No previous main to compare with."; exit 0
+            fi
+          else
+            base="origin/main"; head="$GITHUB_SHA"
+          fi
+          node scripts/check-version.mjs --base "$base" --head "$head"
+
   build:
     name: Typecheck, test & build
     runs-on: ubuntu-latest

@@ -2,14 +2,180 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.8.0 (2026-10-18)
+
+- **Teised ametid kaardil:** kutsutud kiirabi, Päästeameti auto, lastekaitse, omavalitsus, Keskkonnaamet, veterinaar, toll, Transpordiamet, KAPO ja merepääste paat sõidavad kaardil sündmuskohale ja jõuavad kohale täpselt siis, kui raadio seda teatab. Kiirabi on punane, kiirabil ja päästjatel vilguvad sõidu ajal sinised tuled.
+- **Õige versioon:** mäng näitab nüüd oma tegelikku versiooni ja iga uuendus tõstab seda (väike uuendus 2.x.Y, suurem 2.X.0).
+
+<details>
+<summary>English</summary>
+
+Other agencies drive to the scene on the map (ambulance in red, blue lights on ambulances and rescue trucks) and arrive exactly when the radio says so. The game shows its real version, and every update now bumps it.
+
+</details>
+
+## 2.7.1 (2026-10-18)
+
+- **Konto ja külalise andmed on eraldi:** pärast väljalogimist ei saa külaline enam konto pooleli vahetust ega karjääri jätkata. Konto andmed on serveris ja väljalogimisel saab need sellest brauserist kustutada.
+- Edetabelisse läheb ainult sisse logituna mängitud vahetus.
+
+<details>
+<summary>English</summary>
+
+Account and guest data never mix: after logging out, a guest can no longer continue the account's shift or career. Account data lives on the server and can be removed from the browser at logout. Only shifts played signed in post a score.
+
+</details>
+
+## 2.7.0 (2026-10-18)
+
+- **Venekeelsed helistajad räägivad loo järgi:** iga küsimuse vastus sobib juhtumiga, sugu ja käändeline vene keel on õiged, Eesti kohanimed jäävad ladina tähtedega. Tõlk näitab sama vastuse eesti keeles.
+
+<details>
+<summary>English</summary>
+
+Russian-speaking 112 callers answer from the story like Estonian ones, with correct gender and Russian place names; the interpreter shows the matching Estonian line.
+
+</details>
+
+## 2.6.1 (2026-10-18)
+
+- **Vahetuse varajane lõpetamine:** enne aega lõpetades jääb punktidest alles kõige rohkem pool (mida varem, seda vähem) ja hinne ei saa olla parem kui D.
+
+<details>
+<summary>English</summary>
+
+Ending a shift early keeps at most half the points (fewer the earlier it ends) and can never grade above D.
+
+</details>
+
+## 2.6.0 (2026-10-18)
+
+- **132 lugu:** lähisuhtevägivalla ja teised sagedased väljakutsed räägivad igaüks erinevat lugu ning sama juhtum ei kordu vahetuses enam nii tihti.
+
+<details>
+<summary>English</summary>
+
+132 scenarios: frequent calls such as domestic violence each tell a different story, and the spawner stops repeating itself.
+
+</details>
+
+## 2.5.0 (2026-10-18)
+
+- **35 uut juhtumit,** mis arenevad ja eskaleeruvad vahetuse jooksul.
+
+<details>
+<summary>English</summary>
+
+35 new escalating, story-driven incidents.
+
+</details>
+
+## 2.4.4 (2026-10-18)
+
+- Raadio: kui lahendad ekipaaži palve, vastab ta loomulikult („selge“, „aa okei“) või jääb lihtsalt vait.
+
+<details>
+<summary>English</summary>
+
+Radio: units acknowledge naturally when the player resolves their request.
+
+</details>
+
+## 2.4.3 (2026-10-18)
+
+- Raadio räägib ka 2x kiirusel kõik välja; katkestatud lause järel tuleb loomulik kinnitus.
+
+<details>
+<summary>English</summary>
+
+Radio speaks everything at 2x and adds a natural acknowledgement after a cut line.
+
+</details>
+
+## 2.4.2 (2026-10-18)
+
+- Põgenevad autod ja jälitajad sõidavad teid mööda.
+
+<details>
+<summary>English</summary>
+
+Fleeing vehicles and their chasers drive on the roads.
+
+</details>
+
+## 2.4.1 (2026-10-18)
+
+- Raadio: vananenud lauseid enam ei loeta, kiirusel loetakse ainult olulist, sõnastus on päris raadiokeel ja paragrahve ei loeta.
+
+<details>
+<summary>English</summary>
+
+Radio: stale lines are dropped, only what matters is spoken at speed, real radio phrasing, no law paragraphs.
+
+</details>
+
+## 2.4.0 (2026-10-18)
+
+- **Raadio räägib päris eesti keeles:** TartuNLP Neurokõne meie serveri kaudu.
+
+<details>
+<summary>English</summary>
+
+The radio speaks real Estonian (TartuNLP Neurokõne through our server).
+
+</details>
+
+## 2.3.1 (2026-10-18)
+
+- 112 kõne ajal saab vestluses tagasi üles kerida.
+
+<details>
+<summary>English</summary>
+
+112 call: the conversation can be scrolled back up.
+
+</details>
+
+## 2.3.0 (2026-10-18)
+
+- **Autod sõidavad teid mööda:** marsruudid ja autod järgivad päris teid, väljakutsed on majade ja kaubanduskeskuste juures (teedevõrk ja hooned tehakse serveris tänavakaardist, väliseid teenuseid pole).
+
+<details>
+<summary>English</summary>
+
+Units drive on real roads and calls sit at houses and shopping centres (road graph and buildings are derived on the server from the self-hosted street map).
+
+</details>
+
+## 2.2.0 (2026-10-17)
+
+- **Mängijate andmed jäävad uuendustes alles:** salvestused teisendatakse uude vormi, enne iga uuendust tehakse varukoopia ja andmebaasist hetktõmmis.
+
+<details>
+<summary>English</summary>
+
+Player data survives every update: saves are migrated, and a backup and a database snapshot are taken before each update.
+
+</details>
+
+## 2.1.0 (2026-10-17)
+
+- **Mäng on kergem:** vähem väljakutseid, alguses rohkem ekipaaže ja raha, odavamad autod, rohkem lihavõttemune.
+- 86 vea parandust, lingi eelvaated sotsiaalmeedias ja otsingumootorite tugi.
+
+<details>
+<summary>English</summary>
+
+Easier balance in every mode (fewer calls, more crews and money at the start, cheaper cars, more easter eggs), 86 review fixes, link previews and SEO.
+
+</details>
+
 ## 2.0.0 (2026-10) · EPD 2.0
 
 Mängu täielik uusversioon. Idee on sama mis 2024. ja 2025. aastal, kuid kõik on tehtud uuesti.
 
 - **Uus alus:** Vite, React ja TypeScript. Mäng töötab ka võrguühenduseta (PWA) ja avaldatakse GitHub Pagesis aadressil [politsei.eu](https://politsei.eu).
 - **Päris Eesti kaart:** võrguühenduseta vektorkaart ning võrgus tänavakaart, hallkaart ja ortofoto. Üksused liiguvad kaardil reaalajas.
-- **Autod sõidavad teid mööda:** marsruudid ja autod järgivad päris teid, väljakutsed on majade ja kaubanduskeskuste juures (teedevõrk ja hooned tehakse serveris tänavakaardist, väliseid teenuseid pole).
-- **Teised ametid kaardil:** kutsutud kiirabi, Päästeameti auto, lastekaitse, omavalitsus, Keskkonnaamet, veterinaar, toll, Transpordiamet, KAPO ja merepääste paat sõidavad kaardil sündmuskohale ja jõuavad kohale täpselt siis, kui raadio seda teatab. Kiirabil ja päästjatel vilguvad sõidu ajal sinised tuled.
 - **Neli prefektuuri:** Põhja, Ida, Lõuna ja Lääne, päris linnade, tänavate ja jaoskondadega.
 - **Üle 150 sündmusetüübi**, sealhulgas kõik 116 algset väljakutset. Kohapealsed otsused, toetuse palved, kiirabi kutsumine, kinnipeetute transport, jälitused ja otsingud.
 - **Andmebaas:** kehtivad isikukoodid, numbrimärgid, juhi- ja relvaload ning karistusregistri kanded viidetega Eesti seadustele. Legendaarsed 2025. aasta tegelased on alles.
@@ -29,8 +195,6 @@ A complete remake. Same idea as in 2024 and 2025, rebuilt from scratch.
 
 - New stack: Vite, React and TypeScript. Works offline (PWA); deployed to GitHub Pages at politsei.eu.
 - Real map of Estonia: offline vector map plus online street, grey-scale and orthophoto layers. Units move on the map in real time.
-- Cars drive on the roads: routes and units follow real roads, calls sit at houses and shopping centres (road graph and buildings are derived on the server from the self-hosted street map, no external service).
-- Other agencies on the map: a requested ambulance, Rescue Board truck, child protection worker, local council, Environmental Board, vet, customs, Transport Administration, KAPO or sea rescue boat drives to the scene and arrives exactly when the radio says so. Ambulances and rescue trucks flash blue lights on the way.
 - Four prefectures (Põhja, Ida, Lõuna, Lääne) with real towns, streets and stations.
 - 150+ incident types, including all 116 original calls, with on-scene decisions, backup requests, ambulance requests, detainee transport, pursuits and area searches.
 - Registry (Andmebaas): valid ID codes, plates, licences, weapon permits and criminal records citing Estonian law. The legendary 2025 characters are still there.
