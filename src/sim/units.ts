@@ -165,6 +165,37 @@ export function arrestHouse(s: SimState, zone?: string): Station | undefined {
   return stationById(region, region.arrestHouseId) ?? region.stations.find((x) => x.kind === 'arrest') ?? region.stations[0];
 }
 
+/** An arrest house further than this from the scene: the detainee goes to the nearest jaoskond first. */
+export const LOCAL_CUSTODY_KM = 30;
+
+/**
+ * Where a crew takes a detainee from `from`: the arrest house (arrestHouse) when it is near, else the
+ * nearest jaoskond (`station` or `hq`) of the same zone, where the case is processed; the escort to the
+ * arrest house or prison happens later and is not the dispatcher's job. `local` tells the two apart.
+ */
+export function custodyDestination(
+  s: SimState,
+  from: LngLat,
+  zone?: string,
+): { station: Station; local: boolean } | undefined {
+  const house = arrestHouse(s, zone);
+  if (!house) return undefined;
+  const houseKm = haversineKm(house.coord, from);
+  if (houseKm <= LOCAL_CUSTODY_KM) return { station: house, local: false };
+  let best: Station | undefined;
+  let bd = Infinity;
+  for (const st of regionOf(s).stations) {
+    if (st.kind !== 'station' && st.kind !== 'hq') continue;
+    if ((st.zone ?? 'mainland') !== (zone ?? 'mainland')) continue;
+    const d = haversineKm(st.coord, from);
+    if (d < bd) {
+      bd = d;
+      best = st;
+    }
+  }
+  return best && bd < houseKm ? { station: best, local: true } : { station: house, local: false };
+}
+
 export function nearestStation(s: SimState, p: LngLat, zone?: string): Station | undefined {
   const region = regionOf(s);
   let best: Station | undefined;

@@ -206,6 +206,12 @@ export const RADIO: Record<string, Text[]> = {
     T('{callsign}: kahtlustatav arestimajja, {place}.', '{callsign}: suspect to the arrest house, {place}.'),
     T('{short}: transport, kinnipeetu rahulik.', '{short}: transporting, detainee calm.'),
   ],
+  transportArrestLocal: [
+    T('{callsign}: kinnipeetu peal, jaoskonda menetlusse, {place}.', '{callsign}: detainee on board, to the station for processing, {place}.'),
+    T('{short}: toimetame isiku jaoskonda, {place}.', '{short}: taking the person to the station, {place}.'),
+    T('{callsign}: üks kinni, sihtkoht {place}, edasi konvoiga.', '{callsign}: one in custody, destination {place}, escort onwards later.'),
+    T('{callsign}: isik raudus, viime jaoskonda, {place}.', '{callsign}: subject cuffed, taking them to the station, {place}.'),
+  ],
   transportHospital: [
     T('{callsign}: viime isiku haiglasse, {place}.', '{callsign}: taking the person to hospital, {place}.'),
     T('{short}: transport EMOsse.', '{short}: transport to the ER.'),
