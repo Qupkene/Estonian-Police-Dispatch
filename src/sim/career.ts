@@ -8,6 +8,7 @@
 import {
   ACHIEVEMENTS,
   BASE_SALARY,
+  COLLEAGUE_HELP,
   DAILY_BUDGET,
   EXTRA_REGION_RANKS,
   HIRE_COST_MONTHS,
@@ -17,6 +18,7 @@ import {
   RESALE_FACTOR,
   SALARY_MAX,
   SALARY_MIN,
+  SECTOR_BUDGET,
   SEVERANCE_MONTHS,
   START_MONEY,
   START_REPUTATION,
@@ -26,8 +28,11 @@ import {
 import { REGIONS } from '@/data/regions';
 import { randomName } from '@/gen/names';
 import { makePlate } from '@/gen/vehicle';
+import { careerSectors, coversWholeRegion, isSectorCareer, maybeOffer, postsUpkeep, sectorCount, sectorNames, sectorsForNewRegion, startSector } from './careerSectors';
 import type { ReportExtras, ShiftReportX } from './report';
 import { hashString, Rng } from './rng';
+import { areaShare, normalizeArea, sectorById, sectorStationIds } from './sectors';
+import { RESPONSE_TYPES, stationCallsign } from './units';
 import type {
   Candidate,
   CareerProfile,
@@ -38,6 +43,7 @@ import type {
   RegionDef,
   RegionId,
   RosterUnit,
+  SectorDef,
   ShiftReport,
   SpeakerLang,
   StaffMember,
@@ -49,7 +55,7 @@ import type {
 const T = (et: string, en: string): Text => ({ et, en });
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const r2 = (x: number) => Math.round(x * 100) / 100;
-const euro = (n: number) => `${Math.round(n).toLocaleString('et-EE').replace(/ /g, ' ')} €`;
+export const euro = (n: number) => `${Math.round(n).toLocaleString('et-EE').replace(/ /g, ' ')} €`;
 
 /** Optional extras persisted on the profile object (JSON-safe, not part of the core type). */
 export interface CareerCounters {
@@ -267,11 +273,14 @@ const HOMAGE_2024: { firstName: string; lastName: string; badge: string; gender:
   { firstName: 'Toomas', lastName: 'Perk', badge: '570', gender: 'M', specialty: 'rapid', years: 11, skill: 0.8 },
 ];
 
+/** A Põhja career starts with the 2024 homage crew's patrol officers and Ursula Treen. */
+const HOMAGE_START = HOMAGE_2024.filter((h) => h.specialty === 'patrol' || h.badge === '960');
 /** Extra starting officers in every prefecture (Põhja adds them to the 2024 homage crew): two more patrol cars. */
 const EXTRA_START: UnitType[] = ['patrol', 'patrol', 'patrol', 'patrol'];
-const START_SPECIALTIES: UnitType[] = ['patrol', 'patrol', 'patrol', 'patrol', 'patrol', 'criminal', 'rapid', 'traffic', ...EXTRA_START];
+/** The force for one sector (docs/SECTORS.md): nine patrol officers and an investigator, four patrol cars and one for CID. */
+const START_SPECIALTIES: UnitType[] = ['patrol', 'patrol', 'patrol', 'patrol', 'patrol', 'criminal', ...EXTRA_START];
 
-function makeStaff(
+export function makeStaff(
   id: string,
   o: { firstName: string; lastName: string; badge: string; gender: Gender; specialty: UnitType; years: number; skill: number; avatarSeed: number },
   day: number,
@@ -298,7 +307,7 @@ function makeStaff(
   };
 }
 
-function uniqueBadge(rng: Rng, used: Set<string>): string {
+export function uniqueBadge(rng: Rng, used: Set<string>): string {
   for (let i = 0; i < 200; i++) {
     const b = String(rng.int(10, 999)).padStart(3, '0');
     if (!used.has(b)) {
@@ -311,17 +320,21 @@ function uniqueBadge(rng: Rng, used: Set<string>): string {
   return b;
 }
 
-function fleetVehicle(id: string, catalogId: string, plate: string, day: number): FleetVehicle {
+export function fleetVehicle(id: string, catalogId: string, plate: string, day: number): FleetVehicle {
   const c = VEHICLE_CATALOG.find((v) => v.id === catalogId)!;
   return { id, model: c.model, plate, suits: [...c.suits], condition: 1, boughtDay: day, price: c.price, upkeep: c.upkeep };
 }
 
-export function newCareer(name: string, badge: string, regionId: RegionId, seed: number): CareerProfile {
+/**
+ * A new career at one desk of the prefecture's juhtimiskeskus: it covers `sector` (a sector of `regionId`,
+ * by default its first starter sector) with a force sized for one sector.
+ */
+export function newCareer(name: string, badge: string, regionId: RegionId, seed: number, sector?: string): CareerProfile {
   const rng = new Rng(seed >>> 0);
   const used = new Set<string>([badge]);
   const staff: StaffMember[] = [];
   if (regionId === 'pohja') {
-    HOMAGE_2024.forEach((h, i) => {
+    HOMAGE_START.forEach((h, i) => {
       used.add(h.badge);
       staff.push(makeStaff(`staff-${i + 1}`, { ...h, avatarSeed: hashString(`${h.firstName} ${h.lastName}`) & 0x7fffffff }, 1));
     });
@@ -340,14 +353,12 @@ export function newCareer(name: string, badge: string, regionId: RegionId, seed:
   const fleet: FleetVehicle[] = [
     fleetVehicle('veh-1', 'skoda_octavia_combi', makePlate(rng), 1),
     fleetVehicle('veh-2', 'skoda_octavia_combi', makePlate(rng), 1),
-    // Starting cars cover every starting specialty (patrol, rapid, criminal, traffic).
-    fleetVehicle('veh-3', 'skoda_superb_combi', makePlate(rng), 1),
-    fleetVehicle('veh-4', 'skoda_scala', makePlate(rng), 1),
-    // Two more patrol cars and a spare, for the extra starting officers.
-    fleetVehicle('veh-5', 'skoda_octavia_combi', makePlate(rng), 1),
-    fleetVehicle('veh-6', 'skoda_octavia_combi', makePlate(rng), 1),
-    fleetVehicle('veh-7', 'skoda_scala', makePlate(rng), 1),
+    fleetVehicle('veh-3', 'skoda_octavia_combi', makePlate(rng), 1),
+    fleetVehicle('veh-4', 'skoda_octavia_combi', makePlate(rng), 1),
+    // The investigator's car.
+    fleetVehicle('veh-5', 'skoda_scala', makePlate(rng), 1),
   ];
+  const first = startSector(regionId, sector);
   const base: CareerProfileX = {
     version: 1,
     name,
@@ -368,6 +379,9 @@ export function newCareer(name: string, badge: string, regionId: RegionId, seed:
     achievements: [],
     unlockedRegions: [regionId],
     stats: { shifts: 0, incidents: 0, arrests: 0, bestScore: 0, pursuitsCaught: 0 },
+    sectors: { [regionId]: first ? [first] : [] },
+    openPosts: [],
+    sectorsChangedDay: 1,
     counters: { nightShifts: 0, pranksCaught: 0, aStreak: 0 },
   };
   base.recruits = generateCandidates(rng, 8, base);
@@ -581,21 +595,117 @@ export function rosterFromCareer(p: CareerProfile, shift: 'day' | 'night', regio
       units.find((u) => u.type !== 'heli' && u.type !== 'special' && u._staff.length < 2);
     if (host) host._staff.push(m);
   }
-  return units.map(({ _staff, ...u }) => ({ ...u, crew: _staff.map(toOfficer) }));
+  const roster = units.map(({ _staff, ...u }) => ({ ...u, crew: _staff.map(toOfficer) }));
+  // A career covering part of the prefecture bases its crews in its sectors; covering it whole, as before.
+  const area = normalizeArea(regionId, careerSectors(p, regionId));
+  return area.length ? placeInArea(roster, regionId, shift, area, p.openPosts ?? []) : roster;
+}
+
+/**
+ * Bases a career's crews in its area (docs/SECTORS.md): each post it has opened there gets one crew (a
+ * patrol when there is one), border and boat crews go to the area's border points and harbours, and the
+ * other crews to the sectors' main stations in proportion to the sectors' population. Callsigns follow the
+ * station's regular roster. On-call assets (K-komando, helicopter) keep their prefecture base.
+ */
+function placeInArea(units: RosterUnit[], regionId: RegionId, shift: 'day' | 'night', area: string[], openPosts: string[]): RosterUnit[] {
+  const region = regionOf(regionId);
+  if (!region) return units;
+  const secs = area.map(sectorById).filter((x): x is SectorDef => !!x);
+  const mains: { id: string; w: number; n: number }[] = [];
+  for (const sec of secs) {
+    const w = areaShare(region, [sec.id]);
+    const m = mains.find((x) => x.id === sec.stationIds[0]);
+    if (m) m.w += w;
+    else mains.push({ id: sec.stationIds[0], w, n: 0 });
+  }
+  const posts: string[] = [];
+  for (const sec of secs) for (const x of sec.posts ?? []) if (openPosts.includes(x.stationId) && !posts.includes(x.stationId)) posts.push(x.stationId);
+  const ofKind = (kind: string) => sectorStationIds(area).filter((id) => region.stations.find((x) => x.id === id)?.kind === kind);
+  const special: Partial<Record<UnitType, string[]>> = { border: ofKind('border'), boat: ofKind('harbour') };
+  const field = units.filter((u) => !u.onCall);
+  const at = new Map<RosterUnit, string>();
+  // One crew per opened post, taken from the end of the list so the first crews stay at the main station.
+  for (const post of posts) {
+    const back = [...field].reverse();
+    const free = (u: RosterUnit) => !at.has(u) && RESPONSE_TYPES.has(u.type) && u.type !== 'border';
+    const pick = back.find((u) => free(u) && u.type === 'patrol' && u.crew.length >= 2) ?? back.find((u) => free(u) && u.type === 'patrol') ?? back.find(free);
+    if (pick) at.set(pick, post);
+  }
+  const turn: Partial<Record<UnitType, number>> = {};
+  const total = mains.reduce((a, m) => a + m.w, 0) || 1;
+  let placed = 0;
+  for (const u of field) {
+    if (at.has(u)) continue;
+    const own = special[u.type];
+    if (own?.length) {
+      const k = turn[u.type] ?? 0;
+      turn[u.type] = k + 1;
+      at.set(u, own[k % own.length]);
+      continue;
+    }
+    // The main station furthest below its share of the crews placed so far.
+    placed++;
+    let best = mains[0];
+    let gap = -Infinity;
+    for (const m of mains) {
+      const g = (m.w / total) * placed - m.n;
+      if (g > gap) {
+        gap = g;
+        best = m;
+      }
+    }
+    best.n++;
+    at.set(u, best.id);
+  }
+  const used = new Set(units.filter((u) => u.onCall).map((u) => u.callsign));
+  const signs = new Map<RosterUnit, string>();
+  for (const u of field) {
+    const sign = stationCallsign(region, u.type, at.get(u)!, shift, used);
+    if (sign) {
+      signs.set(u, sign);
+      used.add(sign);
+    }
+  }
+  return units.map((u) => {
+    const stationId = at.get(u);
+    if (!stationId) return u;
+    let callsign = signs.get(u) ?? u.callsign;
+    for (let k = 2; !signs.has(u) && used.has(callsign); k++) callsign = `${u.callsign}-${k}`;
+    used.add(callsign);
+    const zone = region.stations.find((x) => x.id === stationId)?.zone;
+    const { zone: _old, ...rest } = u;
+    void _old;
+    return { ...rest, callsign, stationId, ...(zone ? { zone } : {}) };
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Costs
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Monthly running costs (salaries + upkeep) for display. */
-export function monthlyCosts(p: CareerProfile): { salaries: number; upkeep: number; total: number } {
+/** Monthly running costs (salaries + upkeep of vehicles, upgrades and opened posts) for display; `posts` is part of `upkeep`. */
+export function monthlyCosts(p: CareerProfile): { salaries: number; upkeep: number; total: number; posts: number } {
   const salaries = p.staff.reduce((a, m) => a + m.salary, 0);
-  const upkeep = p.fleet.reduce((a, v) => a + v.upkeep, 0) + p.upgrades.reduce((a, id) => a + (UPGRADES.find((u) => u.id === id)?.upkeep ?? 0), 0);
-  return { salaries, upkeep, total: salaries + upkeep };
+  const posts = postsUpkeep(p);
+  const upkeep = p.fleet.reduce((a, v) => a + v.upkeep, 0) + p.upgrades.reduce((a, id) => a + (UPGRADES.find((u) => u.id === id)?.upkeep ?? 0), 0) + posts;
+  return { salaries, upkeep, total: salaries + upkeep, posts };
 }
 
-function pushLedger(p: CareerProfile, e: LedgerEntry): void {
+/**
+ * Daily budget of a career shift in a prefecture (docs/SECTORS.md). A career converted from before sectors
+ * covers its prefectures whole and gets exactly DAILY_BUDGET, as before. A career created with sectors gets
+ * SECTOR_BUDGET's base plus a share for every sector it covers in all its prefectures (one force answers for
+ * them all, so a prefecture just unlocked is no money trap), and never less than DAILY_BUDGET in a prefecture
+ * it covers whole.
+ */
+export function dailyBudget(p: CareerProfile, regionId: RegionId = p.regionId): number {
+  const whole = DAILY_BUDGET[regionId] ?? DAILY_BUDGET[p.regionId] ?? 1200;
+  if (!isSectorCareer(p)) return whole;
+  const area = SECTOR_BUDGET.base + SECTOR_BUDGET.perSector * sectorCount(p);
+  return coversWholeRegion(p, regionId) ? Math.max(whole, area) : area;
+}
+
+export function pushLedger(p: CareerProfile, e: LedgerEntry): void {
   p.ledger.push(e);
   if (p.ledger.length > 600) p.ledger.splice(0, p.ledger.length - 600);
 }
@@ -685,17 +795,35 @@ export function applyShiftReport(
 
   // ── Money ─────────────────────────────────────────────────────────────────
   const costs = monthlyCosts(p);
-  add('budget', DAILY_BUDGET[r.regionId] ?? DAILY_BUDGET[p.regionId] ?? 1200, T('Prefektuuri päevaeelarve', 'Prefecture daily budget'));
+  const area = isSectorCareer(p) ? sectorCount(p) : 0;
+  add(
+    'budget',
+    dailyBudget(p, r.regionId),
+    area > 0
+      ? T(`Päevaeelarve (${area === 1 ? '1 sektor' : `${area} sektorit`})`, `Daily budget (${area === 1 ? '1 sector' : `${area} sectors`})`)
+      : T('Prefektuuri päevaeelarve', 'Prefecture daily budget'),
+  );
   if (r.earnings.bonus > 0) add('bonus', r.earnings.bonus, T(`Tulemustasu (hinne ${r.grade}, ${r.score} p)`, `Performance bonus (grade ${r.grade}, ${r.score} pts)`));
   add('salary', -costs.salaries / 30, T('Palgad (1/30 kuupalgast)', 'Salaries (1/30 of monthly pay)'));
-  add('upkeep', -costs.upkeep / 30, T('Sõidukite ja täienduste ülalpidamine', 'Vehicle and upgrade upkeep'));
+  add(
+    'upkeep',
+    -costs.upkeep / 30,
+    costs.posts > 0
+      ? T('Sõidukite, täienduste ja politseipunktide ülalpidamine', 'Vehicle, upgrade and police post upkeep')
+      : T('Sõidukite ja täienduste ülalpidamine', 'Vehicle and upgrade upkeep'),
+  );
   if (r.earnings.fuel > 0) add('fuel', -r.earnings.fuel, T(`Kütus (${r.kmDriven} km × 0,14 €)`, `Fuel (${r.kmDriven} km × €0.14)`));
   if (r.earnings.overtime > 0) add('overtime', -r.earnings.overtime, T('Ületunnitöö', 'Overtime'));
   if (r.earnings.fines > 0) add('fine', -r.earnings.fines, T('Trahvid ja hüvitised (aegunud väljakutsed, valed suunamised)', 'Fines and compensation (expired calls, wrong referrals)'));
 
   // ── Reputation, xp, rank ──────────────────────────────────────────────────
   const oldRank = rankOf(p.xp).index;
-  p.reputation = clamp(Math.round(p.reputation + r.reputationDelta), 0, 100);
+  // Calls of the AI colleagues at the neighbouring desks that the player helped with (docs/SECTORS.md).
+  const helped = Math.max(0, Math.floor(Number((ex as { helpGiven?: unknown } | undefined)?.helpGiven) || 0));
+  const helpBonus = Math.min(COLLEAGUE_HELP.max, helped * COLLEAGUE_HELP.reputation);
+  p.reputation = clamp(Math.round(p.reputation + r.reputationDelta + helpBonus), 0, 100);
+  if (helpBonus > 0)
+    messages.push(T(`Naabersektorite kolleegid tänavad abi eest (Staatus +${helpBonus}).`, `Your colleagues at the neighbouring desks thank you for the help (Staatus +${helpBonus}).`));
   p.xp += Math.max(0, Math.round(r.xp));
   const newRank = rankOf(p.xp).index;
   for (let i = oldRank + 1; i <= newRank; i++) {
@@ -710,7 +838,13 @@ export function applyShiftReport(
     if (id && newRank >= minRank && !p.unlockedRegions.includes(id)) {
       p.unlockedRegions.push(id);
       const nm = REGIONS[id]?.name;
-      messages.push(T(`Uus prefektuur avatud: ${nm?.et ?? id}.`, `New prefecture unlocked: ${nm?.en ?? id}.`));
+      // A career created with sectors starts there at one desk; a converted one takes it whole, as before.
+      if (p.sectors) p.sectors[id] = sectorsForNewRegion(p, id);
+      const first = isSectorCareer(p) ? p.sectors?.[id]?.[0] : undefined;
+      if (first) {
+        const sn = sectorNames([first]);
+        messages.push(T(`Uus prefektuur avatud: ${nm?.et ?? id}. Teie esimene sektor seal on ${sn.et}.`, `New prefecture unlocked: ${nm?.en ?? id}. Your first sector there is ${sn.en}.`));
+      } else messages.push(T(`Uus prefektuur avatud: ${nm?.et ?? id}.`, `New prefecture unlocked: ${nm?.en ?? id}.`));
     }
   });
 
@@ -762,7 +896,7 @@ export function applyShiftReport(
 
   // ── Payday every 30 days ──────────────────────────────────────────────────
   const shiftTotal = ledger.reduce((a, e) => a + e.amount, 0);
-  p.history.push({ day, regionId: r.regionId, score: r.score, grade: r.grade, incidents: r.stats.incidents, earnings: shiftTotal, reputationDelta: r.reputationDelta });
+  p.history.push({ day, regionId: r.regionId, score: r.score, grade: r.grade, incidents: r.stats.incidents, earnings: shiftTotal, reputationDelta: r.reputationDelta + helpBonus });
   if (p.history.length > 400) p.history.splice(0, p.history.length - 400);
   if (day % 30 === 0) {
     const month = p.history.filter((h) => h.day > day - 30 && h.day <= day);
@@ -788,6 +922,19 @@ export function applyShiftReport(
   p.money = Math.round(p.money + ledger.reduce((a, e) => a + e.amount, 0));
   p.day = day + 1;
   if (p.money < 0) messages.push(T('Eelarve on miinuses! Vähenda kulusid või paranda tulemusi.', 'The budget is in the red! Cut costs or improve your results.'));
+
+  // ── The prefect's offer of more sectors (docs/SECTORS.md) ─────────────────
+  const offered = maybeOffer(p, r.regionId).offer;
+  if (offered && !p.offer) {
+    p.offer = offered;
+    const names = sectorNames(offered.choices);
+    messages.push(
+      T(
+        `Prefekt pakub teile lisasektorit: ${names.et}. Vastake pakkumisele karjääri ülevaates.`,
+        `The prefect offers you another sector: ${names.en}. Answer the offer in the career overview.`,
+      ),
+    );
+  }
 
   // ── Achievements ──────────────────────────────────────────────────────────
   const earned = checkAchievements(p, r, ctx);

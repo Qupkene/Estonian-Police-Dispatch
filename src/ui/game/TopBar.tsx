@@ -3,6 +3,7 @@ import { useCareer } from '@/store/career';
 import { useLang, useT, useTx } from '@/i18n';
 import { Emblem, Icon, IconButton, Kbd } from '@/ui/components';
 import { dayInfo } from '@/sim/calendar';
+import { sectorById } from '@/sim/sectors';
 import { ddmmyyyy, hhmm, hhmmss, wall } from '@/sim/time';
 import { selLiveStats, selRegion, selShiftProgress, selSun, soft } from './data';
 import { fmtMoney, fmtNum, hmText, roadCondition, weekdayName } from './format';
@@ -37,6 +38,12 @@ export function TopBar() {
   const paused = speedIndex === 0;
   const trust = Math.round(sim.trust);
   const trustTone = trust >= 60 ? 'ok' : trust >= 35 ? 'warn' : 'danger';
+  // A shift covering sectors names them under the prefecture ("Lõuna prefektuur / Tartu linn").
+  const area = (sim.sectors ?? [])
+    .map((id) => sectorById(id)?.name)
+    .filter((x) => !!x)
+    .map((x) => tx(x))
+    .join(', ');
   const newIncoming = sim.incidentOrder.reduce((n, id) => {
     const inc = sim.incidents[id];
     return n + (inc && inc.state === 'incoming' && !sim.flags[`hidden:${id}`] ? 1 : 0);
@@ -59,7 +66,13 @@ export function TopBar() {
         <Emblem size={30} />
         <div className="gm-top__brand-text">
           <strong>{tx(region.name)}</strong>
-          <span>{t('game.centre')}</span>
+          {area ? (
+            <span className="gm-top__area" title={t('game.areaTitle', { area })}>
+              {area}
+            </span>
+          ) : (
+            <span>{t('game.centre')}</span>
+          )}
         </div>
         {director && <span className="gm-top__director">{t('game.director')}</span>}
       </div>

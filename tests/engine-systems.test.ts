@@ -13,6 +13,7 @@ import {
   applyShiftReport,
   buyUpgrade,
   buyVehicle,
+  dailyBudget,
   generateCandidates,
   hire,
   monthlyCosts,
@@ -21,7 +22,11 @@ import {
   rosterFromCareer,
   sellVehicle,
 } from '@/sim/career';
-import { ACHIEVEMENTS, RANKS, UPGRADES, VEHICLE_CATALOG } from '@/data/economy';
+import { acceptOffer, coversWholeRegion, maybeOffer, openPost, positionTitle, withSectors } from '@/sim/careerSectors';
+import { sectorsOf, starterSectors } from '@/sim/sectors';
+import { REGION_IDS, REGIONS } from '@/data/regions';
+import { ACHIEVEMENTS, DAILY_BUDGET, RANKS, UPGRADES, VEHICLE_CATALOG } from '@/data/economy';
+import type { CareerProfile } from '@/sim/types';
 import { Rng } from '@/sim/rng';
 import { hhmm, tallinnTime } from '@/sim/time';
 import type { IncidentTemplate, ShiftReport, SimState } from '@/sim/types';
@@ -595,15 +600,19 @@ describe('economy data', () => {
 });
 
 describe('career', () => {
-  it('newCareer is valid (Põhja homage staff)', () => {
+  it('newCareer is valid (Põhja homage staff, a force for one sector)', () => {
     const p = newCareer('Test', '777', 'pohja', 42);
-    expect(p.money).toBe(40000);
+    expect(p.money).toBe(30000);
     expect(p.reputation).toBe(25);
     expect(p.day).toBe(1);
-    expect(p.staff).toHaveLength(12); // the 2024 homage crew plus four more patrol officers
+    expect(p.staff).toHaveLength(10); // the 2024 homage patrol officers and Ursula Treen, plus four more patrol officers
     expect(p.staff.find((m) => m.badge === '085')?.lastName).toBe('Rebane');
-    expect(p.staff.filter((m) => m.specialty === 'patrol').length).toBeGreaterThanOrEqual(5);
-    expect(p.fleet).toHaveLength(7);
+    expect(p.staff.find((m) => m.badge === '960')?.lastName).toBe('Treen');
+    expect(p.staff.filter((m) => m.specialty === 'patrol')).toHaveLength(9);
+    expect(p.staff.filter((m) => m.specialty === 'criminal')).toHaveLength(1);
+    expect(p.fleet).toHaveLength(5);
+    expect(p.sectorsChangedDay).toBe(1);
+    expect(Object.keys(p.sectors ?? {})).toEqual(['pohja']);
     expect(p.recruits).toHaveLength(8);
     expect(p.unlockedRegions).toEqual(['pohja']);
     for (const m of p.staff) {
@@ -611,8 +620,8 @@ describe('career', () => {
       expect(m.salary).toBeLessThanOrEqual(3400);
     }
     const ida = newCareer('Test', '777', 'ida', 42);
-    expect(ida.staff).toHaveLength(12);
-    expect(new Set(ida.staff.map((m) => m.badge)).size).toBe(12);
+    expect(ida.staff).toHaveLength(10);
+    expect(new Set(ida.staff.map((m) => m.badge)).size).toBe(10);
   });
   it('rosterFromCareer builds crews from staff and fleet', () => {
     const p = newCareer('Test', '777', 'pohja', 42);
@@ -625,7 +634,7 @@ describe('career', () => {
       if (u.type === 'patrol') expect(u.crew.length).toBeGreaterThanOrEqual(2);
       if (u.type === 'criminal') expect(u.crew.length).toBeLessThanOrEqual(2);
     }
-    expect(officerIds).toHaveLength(12); // everyone seated with the starting fleet
+    expect(officerIds).toHaveLength(10); // everyone seated with the starting fleet
     expect(roster.filter((u) => u.type === 'patrol').length).toBeGreaterThanOrEqual(4);
     expect(new Set(roster.map((u) => u.callsign)).size).toBe(roster.length);
     expect(roster.some((u) => u.type === 'k9')).toBe(false);
@@ -635,10 +644,10 @@ describe('career', () => {
     const c = p.recruits[0];
     const r = hire(p, c.id);
     expect(r.error).toBeUndefined();
-    expect(r.profile.staff).toHaveLength(13);
+    expect(r.profile.staff).toHaveLength(11);
     expect(r.profile.money).toBe(p.money - c.salary);
     expect(r.profile.recruits.find((x) => x.id === c.id)).toBeUndefined();
-    expect(p.staff).toHaveLength(12); // input untouched
+    expect(p.staff).toHaveLength(10); // input untouched
     const broke = { ...p, money: 100 };
     expect(buyVehicle(broke, 'skoda_octavia_combi').error).toBeDefined();
     expect(buyUpgrade(broke, 'bodycam').error).toBeDefined();
@@ -716,5 +725,66 @@ describe('career', () => {
       const avg = (xs: typeof cands) => xs.reduce((a, c) => a + c.salary, 0) / xs.length;
       expect(avg(hi)).toBeGreaterThan(avg(lo));
     }
+  });
+});
+
+// The career rules of docs/SECTORS.md against the real sector data (tests/career-sectors.test.ts runs them
+// against small fixture sectors).
+describe('career sectors with the real data', () => {
+  it('starts in the starter sectors of docs/SECTORS.md, and a prefecture unlocked by rank in a normal one', () => {
+    const starters = REGION_IDS.flatMap((r) => starterSectors(r).map((x) => `${x.name.et} (${x.starter!.difficulty})`));
+    expect(starters.sort()).toEqual(
+      ['Tallinna kesklinn (normal)', 'Lasnamäe (hard)', 'Tartu linn (normal)', 'Viljandimaa (easy)', 'Lääne-Virumaa (easy)', 'Narva (hard)', 'Pärnu (normal)', 'Saaremaa (easy)'].sort(),
+    );
+    for (const r of REGION_IDS) {
+      for (const x of starterSectors(r)) {
+        const p = newCareer('Test', '777', r, 42, x.id);
+        expect(p.sectors).toEqual({ [r]: [x.id] });
+        expect(positionTitle(p).et).toBe('Operatiivinfo haldur');
+        // A pleasant start: the budget covers the force with room to spare.
+        expect(dailyBudget(p) - monthlyCosts(p).total / 30).toBeGreaterThan(200);
+      }
+    }
+    const home = { ...newCareer('Test', '777', 'ida', 42, 'ida-narva'), xp: RANKS[2].xp - 10 };
+    const out = applyShiftReport(home, fakeReport({ regionId: 'ida', xp: 50 })).profile;
+    const second = out.unlockedRegions[1];
+    expect(out.sectors![second]).toEqual([starterSectors(second).find((x) => x.starter!.difficulty === 'normal')!.id]);
+  });
+
+  it('grows sector by sector to the whole prefecture, never losing money on a new sector', () => {
+    for (const r of REGION_IDS) {
+      let p: CareerProfile = newCareer('Test', '777', r, 42);
+      for (let k = 1; k < sectorsOf(r).length; k++) {
+        const days = [1, 2, 3].map((d) => ({ day: p.day + d, regionId: r, score: 70, grade: 'B' as const, incidents: 9, earnings: 0, reputationDelta: 3 }));
+        p = maybeOffer({ ...p, reputation: 90, xp: RANKS[8].xp, history: [...p.history, ...days], day: p.day + 4 }, r);
+        expect(p.offer, `${r}: offer ${k}`).toBeDefined();
+        const before = p;
+        p = acceptOffer(p, p.offer!.choices[0]).profile;
+        expect(dailyBudget(p) - dailyBudget(before)).toBeGreaterThan((monthlyCosts(p).total - monthlyCosts(before).total) / 30);
+      }
+      expect(coversWholeRegion(p, r)).toBe(true);
+      expect(positionTitle(p).et).toBe('Vahetuse vanem');
+      expect(dailyBudget(p)).toBeGreaterThanOrEqual(DAILY_BUDGET[r]);
+      expect(maybeOffer({ ...p, day: p.day + 9 }, r).offer).toBeUndefined();
+      // Every post is a station of its prefecture and opens in a covered sector.
+      for (const x of sectorsOf(r))
+        for (const post of x.posts ?? []) {
+          expect(REGIONS[r].stations.some((st) => st.id === post.stationId), post.stationId).toBe(true);
+          expect(openPost({ ...p, money: 1e6 }, post.stationId).error).toBeUndefined();
+        }
+    }
+  });
+
+  it('an old career covers every unlocked prefecture whole and keeps its daily budget', () => {
+    const old = { ...newCareer('Vana', '085', 'louna', 3), unlockedRegions: ['louna', 'pohja'] } as CareerProfile;
+    delete old.sectors;
+    delete old.sectorsChangedDay;
+    delete old.openPosts;
+    const p = withSectors(old);
+    for (const r of ['louna', 'pohja'] as const) {
+      expect(p.sectors![r]).toEqual(sectorsOf(r).map((x) => x.id));
+      expect(dailyBudget(p, r)).toBe(DAILY_BUDGET[r]);
+    }
+    expect(positionTitle(p).et).toBe('Grupijuht');
   });
 });

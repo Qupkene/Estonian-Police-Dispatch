@@ -13,6 +13,8 @@
 import type { PersistStorage, StorageValue } from 'zustand/middleware';
 import { REGION_IDS } from '@/data/regions';
 import { START_MONEY, START_REPUTATION } from '@/data/economy';
+import { isLaterSectorId, withSectors } from '@/sim/careerSectors';
+import { sectorsOf } from '@/sim/sectors';
 import type {
   Candidate,
   CareerProfile,
@@ -411,13 +413,58 @@ function counters(
   return out;
 }
 
+/**
+ * Sectors covered per prefecture: prefecture keys and ids of that prefecture's sectors (a later version's
+ * too, isLaterSectorId), anything else dropped.
+ */
+function sectorMap(v: unknown, issues: Issues): Partial<Record<RegionId, string[]>> | undefined {
+  if (!isPlainObject(v)) {
+    issues.push('sectors');
+    return undefined;
+  }
+  const out: Partial<Record<RegionId, string[]>> = {};
+  for (const [k, ids] of Object.entries(v)) {
+    if (!REGION_IDS.includes(k as RegionId)) {
+      issues.push(`sectors.${k}`);
+      continue;
+    }
+    if (!Array.isArray(ids)) {
+      issues.push(`sectors.${k}`);
+      continue;
+    }
+    const known = new Set(sectorsOf(k as RegionId).map((x) => x.id));
+    out[k as RegionId] = list(
+      ids,
+      (id) => (typeof id === 'string' && (known.has(id) || isLaterSectorId(k as RegionId, id)) ? id : null),
+      issues,
+      `sectors.${k}`,
+    );
+  }
+  return out;
+}
+
+/** The prefect's standing offer: a known prefecture, string choices and a day, else dropped. */
+function sectorOffer(v: unknown, day: number, issues: Issues): CareerProfile['offer'] | undefined {
+  if (!isPlainObject(v) || !REGION_IDS.includes(v.regionId as RegionId)) {
+    issues.push('offer');
+    return undefined;
+  }
+  return {
+    ...v,
+    regionId: v.regionId as RegionId,
+    choices: strings(v.choices, issues, 'offer.choices'),
+    day: num(v.day, day, issues, 'offer.day'),
+  };
+}
+
 const STAT_KEYS = ['shifts', 'incidents', 'arrests', 'bestScore', 'pursuitsCaught'] as const;
 const COUNTER_KEYS = ['nightShifts', 'pranksCaught', 'aStreak'] as const;
 
 /**
  * A career profile the game can run, from whatever was stored: missing lists and objects get defaults,
  * invalid entries are dropped one by one, numbers stay numbers, unknown fields (a newer version's, or
- * extras such as `counters`) are kept. Idempotent: a valid profile comes back deep-equal. Null for "no career".
+ * extras such as `counters`) are kept. A profile from before sectors gets them (withSectors, docs/SECTORS.md).
+ * Idempotent: a valid profile comes back deep-equal. Null for "no career".
  * Every stored value that had to be dropped or replaced is listed in `issues`.
  */
 export function normalizeCareerProfile(x: unknown, issues: Issues = []): CareerProfile | null {
@@ -457,7 +504,22 @@ export function normalizeCareerProfile(x: unknown, issues: Issues = []): CareerP
   };
   if (x.paidShifts !== undefined) p.paidShifts = strings(x.paidShifts, issues, 'paidShifts');
   if (x.counters !== undefined) p.counters = counters(x.counters, COUNTER_KEYS, issues, 'counters');
-  return p as unknown as CareerProfile;
+  // Sectors (docs/SECTORS.md): checked here, then made whole by withSectors, which gives a career from before
+  // sectors every sector of each unlocked prefecture (it plays exactly as before).
+  if (x.sectors !== undefined) {
+    const sectors = sectorMap(x.sectors, issues);
+    if (sectors) p.sectors = sectors;
+    else delete p.sectors;
+  }
+  if (x.openPosts !== undefined) p.openPosts = strings(x.openPosts, issues, 'openPosts');
+  if (x.offer !== undefined) {
+    const offer = sectorOffer(x.offer, p.day as number, issues);
+    if (offer) p.offer = offer;
+    else delete p.offer;
+  }
+  if (x.sectorsChangedDay !== undefined)
+    p.sectorsChangedDay = num(x.sectorsChangedDay, 1, issues, 'sectorsChangedDay');
+  return withSectors(p as unknown as CareerProfile);
 }
 
 /** Messages waiting in the career inbox: texts kept, anything else dropped one by one. */

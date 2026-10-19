@@ -12,9 +12,10 @@ import { isHidden, openIncidentIds, updateIncidents } from './incidents';
 import { jkPhrase } from './radio';
 import { buildReport, earlyEndFactor } from './report';
 import { fmtDate } from './registry';
-import { Rng } from './rng';
+import { hashString, Rng } from './rng';
 import { updateShiftScore } from './scoring';
-import { initCareerLoad, skippedZones, updateSpawner } from './spawner';
+import { neighbourSectors, normalizeArea, sectorById } from './sectors';
+import { FIXED_FOLLOW_UP_SEQ, initCareerLoad, skippedZones, updateSpawner } from './spawner';
 import { ddmmyyyy, hhmm, isoDate, MIN, seasonOf, wall, DAY } from './time';
 import { buildUnits, updateUnits } from './units';
 import { initialWeather, updateWeather } from './weather';
@@ -110,6 +111,14 @@ export function createShift(opts: NewShiftOptions): SimState {
   };
   const region = regionOf(s);
   if (!region) throw new Error(`createShift: unknown region ${opts.regionId}`);
+  // Sectors (docs/SECTORS.md): only a part of the prefecture is set on the state, the whole stays as before.
+  const area = normalizeArea(opts.regionId, opts.sectors);
+  if (area.length) s.sectors = area;
+  // Fixed schedule: the spawner draws from its own stream; incidents raised from the field number apart.
+  if (opts.fixedSchedule) {
+    s.spawnRng = hashString(`epd-spawn:${seed}`) || 1;
+    s.seq.incident = FIXED_FOLLOW_UP_SEQ;
+  }
   // Independent sub-streams so content changes in one part don't reshuffle the others.
   const root = new Rng(s.rng);
   const rWeather = root.fork(1);
@@ -142,6 +151,7 @@ export function createShift(opts: NewShiftOptions): SimState {
   addLegends(s);
   addBulletins(s, rMisc, region);
   addCoverageBulletin(s, region);
+  addAreaBulletin(s);
 
   s.nextSpawnAt = opts.start + rMisc.range(1, 3) * MIN;
 
@@ -345,6 +355,22 @@ function addCoverageBulletin(s: SimState, region: RegionDef): void {
   });
 }
 
+/** Sector shift: the player's sectors and who runs the desks next door (docs/SECTORS.md). */
+function addAreaBulletin(s: SimState): void {
+  const mine = (s.sectors ?? []).map(sectorById).filter((x) => !!x);
+  if (!mine.length) return;
+  const next = neighbourSectors(s.sectors ?? []).filter((x) => x.regionId === s.regionId);
+  const desk = (lang: 'et' | 'en') => next.map((x) => `${x.name[lang]} (${x.colleague.firstName} ${x.colleague.lastName})`).join(', ');
+  pushBulletin(s, {
+    kind: 'order',
+    title: T('Vastutusala', 'Area of responsibility'),
+    text: {
+      et: `Sel vahetusel vastutate: ${mine.map((x) => x.name.et).join(', ')}.${next.length ? ` Naaberlaudades: ${desk('et')}. Ülejäänud prefektuuri väljakutsed lähevad neile.` : ''}`,
+      en: `This shift you cover: ${mine.map((x) => x.name.en).join(', ')}.${next.length ? ` At the neighbouring desks: ${desk('en')}. Calls from the rest of the prefecture go to them.` : ''}`,
+    },
+  });
+}
+
 function addBulletins(s: SimState, r: Rng, region: RegionDef): void {
   const now = s.now;
   const persons = Object.values(s.persons).filter((p) => !p.id.startsWith('legend-'));
@@ -484,10 +510,14 @@ export function step(s: SimState, dtGameMs: number): void {
 }
 
 function substep(s: SimState, h: number): void {
-  try {
-    updateWeather(s);
-  } catch (err) {
-    console.warn('[EPD] updateWeather failed', err);
+  // A fixed schedule's weather is part of the schedule (it moves the call rate and the template mix): the
+  // spawner runs it on the spawn stream, at its own times.
+  if (s.spawnRng === undefined) {
+    try {
+      updateWeather(s);
+    } catch (err) {
+      console.warn('[EPD] updateWeather failed', err);
+    }
   }
   updateSpawner(s);
   updateUnits(s, h);

@@ -14,10 +14,11 @@ import { incidentVars } from './incidents';
 import { Rng, withRng } from './rng';
 import { withScenario } from './scenario';
 import { defaultSla, slaFor } from './scoring';
+import { areaOf, areaShare, areaView, borderPoints, inArea, sectorOf, sectorStationIds, stationShare } from './sectors';
 import { fillText } from './text';
 import { HOUR, isoDate, MIN, seasonOf, wall } from './time';
-import { rosterSpecsFor, stationById, zoneAt } from './units';
-import { weatherCallFactor, weatherTrafficFactor } from './weather';
+import { RESPONSE_TYPES, rosterSpecsFor, stationById, zoneAt } from './units';
+import { updateWeather, weatherCallFactor, weatherTrafficFactor } from './weather';
 import type {
   Difficulty,
   Gender,
@@ -36,7 +37,6 @@ import type {
   SimState,
   SpeakerLang,
   Text,
-  UnitType,
 } from './types';
 
 const T = (et: string, en: string): Text => ({ et, en });
@@ -67,17 +67,37 @@ export function spawnRatePerHour(s: SimState, t: number): number {
     (dayInfo(t).factor || 1) *
     DIFFICULTY_FACTOR[s.difficulty] *
     weatherCallFactor(s.weather);
+  if (areaOf(s).length) r *= areaCallFactor(s);
   if (s.mode === 'career') r *= careerLoadFactor(s);
   if (s.mode === 'tutorial') r *= 0.5;
   return Math.max(0.05, r);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Career load (DESIGN §4.12)
+// Sectors (docs/SECTORS.md)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Unit types that answer general calls. The career load is measured in these. */
-const RESPONSE_TYPES: ReadonlySet<UnitType> = new Set<UnitType>(['patrol', 'rapid', 'aux', 'traffic', 'k9', 'border', 'community']);
+/** A sector shift gets the prefecture's call volume × (the area's population share ^ AREA_SOFTEN)... */
+export const AREA_SOFTEN = 0.6;
+/**
+ * ...but at least this many events an hour (before the hour curve, difficulty and weather): one desk's worth,
+ * so a small rural sector, or a city sector of the busy Põhja, still has a shift's worth of calls.
+ */
+export const AREA_MIN_VOLUME = 2;
+
+/** Call-volume multiplier of the shift's area (night cover included); 1 for a whole-prefecture shift. */
+export function areaCallFactor(s: SimState): number {
+  const area = areaOf(s);
+  if (!area.length) return 1;
+  const region = regionOf(s);
+  const share = areaShare(region, area);
+  const floor = AREA_MIN_VOLUME / Math.max(AREA_MIN_VOLUME, region?.callVolume ?? 3);
+  return Math.min(1, Math.max(floor, Math.pow(share, AREA_SOFTEN)));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Career load (DESIGN §4.12)
+// ─────────────────────────────────────────────────────────────────────────────
 
 /** Lowest career load factor, so a shift with a single crew left still gets calls. */
 export const CAREER_LOAD_FLOOR = 0.1;
@@ -92,15 +112,25 @@ export const CAREER_LOAD_FLOOR = 0.1;
  * - `skipZones`: comma-separated zones that the regular roster staffs but this force does not
  *   (e.g. Saaremaa and Hiiumaa before the player has an island crew). New calls there are moved
  *   to a covered zone, because a 75-105 min ferry trip would expire every one of them.
+ * A sector shift (`s.sectors`) measures both against the regular roster of the sectors' stations; a
+ * station shared with another sector (one main station for Lasnamäe and Ida-Harju) counts by the
+ * sectors' share of it (stationShare).
  */
 export function initCareerLoad(s: SimState): void {
   const region = regionOf(s);
   if (!region) return;
   const shift = s.flags.shiftKind === 'night' ? 'night' : 'day';
-  const regular = rosterSpecsFor(region, shift, 'normal').filter((sp) => !sp.onCall && RESPONSE_TYPES.has(sp.type));
+  let regular = rosterSpecsFor(region, shift, 'normal').filter((sp) => !sp.onCall && RESPONSE_TYPES.has(sp.type));
+  let regularCount = regular.length;
+  const area = s.sectors ?? [];
+  if (area.length) {
+    const stations = sectorStationIds(area);
+    regular = regular.filter((sp) => stations.includes(sp.stationId));
+    regularCount = regular.reduce((a, sp) => a + stationShare(region, area, sp.stationId), 0);
+  }
   const mine = s.unitOrder.map((id) => s.units[id]).filter((u) => !!u && !u.onCall && RESPONSE_TYPES.has(u.type));
   // Square root: a small force gets fewer calls, but not so few that the shift turns dull.
-  const factor = regular.length ? Math.sqrt(mine.length / regular.length) : 1;
+  const factor = regularCount > 0 ? Math.sqrt(mine.length / regularCount) : 1;
   s.flags.loadFactor = Math.round(Math.max(CAREER_LOAD_FLOOR, Math.min(1, factor)) * 1000) / 1000;
   const covered = new Set(mine.map((u) => u.zone || 'mainland'));
   const staffed = new Set(regular.map((sp) => sp.zone ?? stationById(region, sp.stationId)?.zone ?? 'mainland'));
@@ -339,7 +369,9 @@ export function pickTemplate(s: SimState, r: Rng, templates: IncidentTemplate[],
     else normal += ws[i];
   });
   const easterCount = Number(s.flags.easterCount) || 0;
-  const tooMany = (easterCount + 1) / (s.stats.incidents + 1) > 0.07 && s.stats.incidents > 0;
+  // A fixed schedule counts only its own calls (an officer-down follow-up must not change what comes next).
+  const spawned = s.spawnRng === undefined ? s.stats.incidents : Number(s.flags[SPAWN_SEQ]) || 0;
+  const tooMany = (easterCount + 1) / (spawned + 1) > 0.07 && spawned > 0;
   let easterScale = 1;
   if (tooMany || normal <= 0) easterScale = normal <= 0 ? 1 : 0;
   else if (easter > 0) {
@@ -405,8 +437,42 @@ function coveredLocation(r: Rng, region: RegionDef, tpl: IncidentTemplate, skip:
   return undefined;
 }
 
+/** Re-picks of a location until it falls in the shift's area. */
+const AREA_LOCATION_TRIES = 8;
+
+/**
+ * Sector shift: a location for the template inside the shift's area (and outside the career's skipped
+ * zones), picked from the area's own towns, streets and places; undefined when the template has no place
+ * there (a forest call in a city sector).
+ */
+function areaLocation(r: Rng, s: SimState, region: RegionDef, tpl: IncidentTemplate): IncidentLocation | undefined {
+  const view = areaView(region, areaOf(s));
+  const skip = skippedZones(s);
+  for (let i = 0; i < AREA_LOCATION_TRIES; i++) {
+    const loc = templateLocation(r, view, tpl);
+    if (inArea(s, region, loc) && !skip.has(loc.zone ?? 'mainland')) return loc;
+  }
+  return undefined;
+}
+
 function coordText(c: LngLat): string {
   return `Kaardipunkt ${c[1].toFixed(5)}, ${c[0].toFixed(5)}`;
+}
+
+/**
+ * A location in sector `to` close to the shift's area, as a full address: where an AI colleague's call for
+ * help "just across the border" happens (docs/SECTORS.md). One of the `n` nearest addressable points of `to`
+ * (towns, streets, places); undefined on a whole-prefecture shift or when `to` has none.
+ */
+export function borderLocation(s: SimState, r: Rng, to: string, n = 6): IncidentLocation | undefined {
+  const region = regionOf(s);
+  const from = areaOf(s);
+  if (!region || !from.length || from.includes(to)) return undefined;
+  const spots = borderPoints(region, from, to, n * 2)
+    .map((p) => locationFromCoord(s, p))
+    .filter((loc) => sectorOf(region, loc) === to)
+    .slice(0, n);
+  return spots.length ? r.pick(spots) : undefined;
 }
 
 /** Location for a map click (director): nearest street address / place / town, else coordinates. */
@@ -536,18 +602,98 @@ export interface CreateOpts {
   priority?: Priority;
   summary?: Text;
   source?: Incident['source'];
+  /**
+   * Sector shift without `location`: no incident at all when the template cannot be placed in the area
+   * (spawnIncident returns undefined). Otherwise such a template falls back to anywhere in the prefecture.
+   */
+  areaOnly?: boolean;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fixed schedule (daily challenge): the spawner's own random stream
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Flag key: incidents the spawner of a fixed-schedule shift has numbered (its ids are i1, i2...). */
+export const SPAWN_SEQ = 'spawn:seq';
+/** A fixed-schedule shift numbers incidents raised from the field (officer down) from here, apart from the schedule. */
+export const FIXED_FOLLOW_UP_SEQ = 900;
+
+/** The player's stream while `s.rng` is bound to the spawn stream (withSpawnStream). */
+const playerStream = new WeakMap<SimState, number>();
+
+/**
+ * Run `fn` with `s.rng` bound to the spawn stream of a fixed-schedule shift (`s.spawnRng`), so every draw in
+ * it is the same whatever the player did. Without a spawn stream (every other shift) it just runs `fn`.
+ */
+export function withSpawnStream<T>(s: SimState, fn: () => T): T {
+  if (s.spawnRng === undefined || playerStream.has(s)) return fn();
+  playerStream.set(s, s.rng);
+  s.rng = s.spawnRng;
+  try {
+    return fn();
+  } finally {
+    s.spawnRng = s.rng;
+    s.rng = playerStream.get(s)!;
+    playerStream.delete(s);
+  }
+}
+
+/**
+ * Inside withSpawnStream: run `fn` on a stream of its own, seeded by exactly one draw of the spawn stream. For
+ * what may depend on the player (a 112 call rings only while the line is free), so it never moves the
+ * schedule by more than that draw, and every player whose line is free gets the same call.
+ */
+function withSideStream<T>(s: SimState, fn: () => T): T {
+  if (!playerStream.has(s)) return fn();
+  const spawn = new Rng(s.rng);
+  s.rng = spawn.int(0, 0xffffffff);
+  try {
+    return fn();
+  } finally {
+    s.rng = spawn.state;
+  }
+}
+
+/**
+ * Sequence number of a new incident: the shift's own, or on a fixed-schedule shift the schedule's (only the
+ * spawner numbers on it; incidents raised from the field or the director count from FIXED_FOLLOW_UP_SEQ).
+ */
+function nextIncidentSeq(s: SimState): number {
+  if (!playerStream.has(s)) return ++s.seq.incident;
+  let n = (Number(s.flags[SPAWN_SEQ]) || 0) + 1;
+  while (s.incidents[`i${n}`]) n++;
+  s.flags[SPAWN_SEQ] = n;
+  return n;
+}
+
+function releaseIncidentSeq(s: SimState, seq: number): void {
+  if (!playerStream.has(s)) s.seq.incident = seq - 1;
+  else s.flags[SPAWN_SEQ] = seq - 1;
 }
 
 /** Generate a complete incident from a template (not yet published). */
 export function createIncident(s: SimState, base: IncidentTemplate, o: CreateOpts = {}): Incident {
+  return makeIncident(s, base, { ...o, areaOnly: false })!;
+}
+
+/** createIncident; undefined only with `areaOnly` when the template has no place in the shift's area. */
+function makeIncident(s: SimState, base: IncidentTemplate, o: CreateOpts): Incident | undefined {
   const region = regionOf(s);
-  const seq = ++s.seq.incident;
+  const seq = nextIncidentSeq(s);
   const r = withRng(s, (rr) => rr.fork(seq));
   // One story per incident: from here on the template reads as the picked scenario tells it.
   const scenario = pickScenario(s, r, base);
   const tpl = withScenario(base, scenario?.id);
   const now = s.now;
-  let location = o.location ?? templateLocation(r, region, tpl);
+  let picked = o.location;
+  if (!picked && areaOf(s).length) {
+    picked = areaLocation(r, s, region, tpl);
+    if (!picked && o.areaOnly) {
+      releaseIncidentSeq(s, seq);
+      return undefined;
+    }
+  }
+  let location = picked ?? templateLocation(r, region, tpl);
   if (!location.zone) location = { ...location, zone: zoneAt(region, location.coord) };
   const truePriority = o.priority ?? tpl.priority;
   const w = wall(now);
@@ -735,30 +881,48 @@ function safeSurname(lastName: string, gender: Gender, lang: SpeakerLang): strin
   }
 }
 
-/** Create + route through 112 call logic (HK events only) or publish. Returns the incident (or undefined on failure). */
+/**
+ * Create + route through 112 call logic (HK events only) or publish. Returns the incident (or undefined on
+ * failure, or with `o.areaOnly` when the template has no place in the shift's area).
+ */
 export function spawnIncident(s: SimState, tpl: IncidentTemplate, o: CreateOpts = {}): Incident | undefined {
-  let inc: Incident;
+  let inc: Incident | undefined;
   try {
-    inc = createIncident(s, tpl, o);
+    inc = makeIncident(s, tpl, o);
   } catch (err) {
     console.warn(`[EPD] spawn of ${tpl.id} failed`, err);
     return undefined;
   }
-  let call = null;
-  if (inc.source === 'hk') {
-    try {
-      call = maybeCreateCall(s, inc, withScenario(tpl, inc.scenarioId));
-    } catch (err) {
-      console.warn('[EPD] maybeCreateCall failed', err);
+  if (!inc) return undefined;
+  const made = inc;
+  // A fixed schedule rings the call (or publishes the card) on a stream of the incident's own.
+  withSideStream(s, () => {
+    let call = null;
+    if (made.source === 'hk') {
+      try {
+        call = maybeCreateCall(s, made, withScenario(tpl, made.scenarioId));
+      } catch (err) {
+        console.warn('[EPD] maybeCreateCall failed', err);
+      }
     }
-  }
-  if (call) s.flags[`hidden:${inc.id}`] = true;
-  else publishIncident(s, inc);
-  return inc;
+    if (call) s.flags[`hidden:${made.id}`] = true;
+    else publishIncident(s, made);
+  });
+  return made;
 }
 
-/** Per-substep: Poisson arrivals until the shift's end time. */
+/** Templates tried per arrival on a sector shift before the arrival is dropped (none of them fits the area). */
+const AREA_TEMPLATE_TRIES = 3;
+
+/**
+ * Per-substep: Poisson arrivals until the shift's end time. A fixed-schedule shift runs its weather here too
+ * (fixedSchedule), the engine does that for every other shift.
+ */
 export function updateSpawner(s: SimState): void {
+  if (s.spawnRng !== undefined) {
+    withSpawnStream(s, () => fixedSchedule(s));
+    return;
+  }
   if (s.flags.autoSpawn === false || s.now >= s.endTime) {
     if (s.nextSpawnAt < s.now) s.nextSpawnAt = s.now + MIN;
     return;
@@ -767,15 +931,80 @@ export function updateSpawner(s: SimState): void {
   const skip = skippedZones(s);
   while (s.now >= s.nextSpawnAt && s.nextSpawnAt < s.endTime && n < 4) {
     const t = s.nextSpawnAt;
-    const tpl = withRng(s, (r) => pickTemplate(s, r, allTemplates(), t));
-    if (tpl && !skip.size) spawnIncident(s, tpl);
-    else if (tpl) {
-      const location = withRng(s, (r) => coveredLocation(r, regionOf(s), tpl, skip));
-      if (location) spawnIncident(s, tpl, { location });
-    }
-    const rate = spawnRatePerHour(s, t) / HOUR;
-    s.nextSpawnAt = t + Math.max(10_000, withRng(s, (r) => r.exp(rate)));
+    arrive(s, t, skip);
+    nextArrival(s, t);
     n++;
   }
   if (n >= 4 && s.nextSpawnAt < s.now) s.nextSpawnAt = s.now + withRng(s, (r) => r.range(0.5, 2)) * MIN;
+}
+
+/** One arrival at time t: a template, a place for it (in the area, off the skipped zones) and the incident. */
+function arrive(s: SimState, t: number, skip: Set<string>): void {
+  if (areaOf(s).length) {
+    spawnInArea(s, t);
+    return;
+  }
+  const tpl = withRng(s, (r) => pickTemplate(s, r, allTemplates(), t));
+  if (tpl && !skip.size) spawnIncident(s, tpl);
+  else if (tpl) {
+    const location = withRng(s, (r) => coveredLocation(r, regionOf(s), tpl, skip));
+    if (location) spawnIncident(s, tpl, { location });
+  }
+}
+
+/** Draw the time of the arrival after one at t. */
+function nextArrival(s: SimState, t: number): void {
+  const rate = spawnRatePerHour(s, t) / HOUR;
+  s.nextSpawnAt = t + Math.max(10_000, withRng(s, (r) => r.exp(rate)));
+}
+
+/** updateWeather's interval (weather.ts): the weather changes when this long has passed since `wx:last`. */
+const WEATHER_EVERY = 50 * MIN;
+/** Safety cap of schedule events per substep (a substep is 5 s; even a burst has a few). */
+const FIXED_EVENTS_MAX = 32;
+
+/**
+ * Fixed schedule (on the spawn stream): the weather changes and arrivals due by now, in the order of their own
+ * times and each run at its time (the clock is set back to it for the moment). How the game loop slices time
+ * (frame rate, speed, pauses) or what the player does then changes nothing in the schedule.
+ */
+function fixedSchedule(s: SimState): void {
+  const now = s.now;
+  const skip = skippedZones(s);
+  let weatherDue = !s.flags['wx:locked'];
+  try {
+    for (let k = 0; k < FIXED_EVENTS_MAX; k++) {
+      const last = s.flags['wx:last'];
+      const wxAt = !weatherDue ? Infinity : typeof last === 'number' ? last + WEATHER_EVERY : now;
+      const spawnAt = s.flags.autoSpawn !== false && s.nextSpawnAt < s.endTime ? s.nextSpawnAt : Infinity;
+      const at = Math.min(wxAt, spawnAt);
+      if (!(at <= now)) break;
+      s.now = at;
+      if (wxAt <= spawnAt) {
+        try {
+          updateWeather(s);
+        } catch (err) {
+          console.warn('[EPD] updateWeather failed', err);
+        }
+        // A weather that did not move on (another interval, an error) waits for the next substep.
+        if (s.flags['wx:last'] !== at) weatherDue = false;
+      } else {
+        arrive(s, at, skip);
+        nextArrival(s, at);
+      }
+    }
+  } finally {
+    s.now = now;
+  }
+  if (s.flags.autoSpawn === false && s.nextSpawnAt < now) s.nextSpawnAt = now + MIN;
+}
+
+/** Sector shift: one arrival inside the area; a template with no place there gives way to another (a few tries). */
+function spawnInArea(s: SimState, t: number): void {
+  let pool = allTemplates();
+  for (let k = 0; k < AREA_TEMPLATE_TRIES; k++) {
+    const tpl = withRng(s, (r) => pickTemplate(s, r, pool, t));
+    if (!tpl || spawnIncident(s, tpl, { areaOnly: true })) return;
+    pool = pool.filter((x) => x !== tpl);
+  }
 }

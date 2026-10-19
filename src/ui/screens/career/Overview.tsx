@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useCareer } from '@/store/career';
 import { useGame } from '@/store/game';
 import { useLang, useT, useTx } from '@/i18n';
-import { DAILY_BUDGET, RANKS } from '@/data/economy';
+import { RANKS } from '@/data/economy';
 import * as rules from '@/sim/career';
 import { Badge, Button, Emblem, Icon, IconButton, Meter, Modal, Segmented } from '@/ui/components';
 import type { CareerProfile, RegionId, Text } from '@/sim/types';
@@ -26,6 +26,8 @@ import {
 } from './helpers';
 import { useCountUp, useDelta } from './hooks';
 import { Gauge, ScoreColumns, Sparkline } from './Charts';
+import { useAreaLabel, usePosition } from './AreaCard';
+import { careerDailyBudget } from './sectorActions';
 
 // ── Header ───────────────────────────────────────────────────────────────────────────────────
 
@@ -33,6 +35,7 @@ export function HqHeader({ profile, rank }: { profile: CareerProfile; rank: Rank
   const t = useT();
   const tx = useTx();
   const cal = calendarOf(profile.day);
+  const position = usePosition(profile);
   return (
     <header className="cr-head">
       <div className="cr-head__id">
@@ -41,6 +44,8 @@ export function HqHeader({ profile, rank }: { profile: CareerProfile; rank: Rank
           <p className="cr-eyebrow">{t('career.hq.eyebrow')}</p>
           <h1 className="cr-head__title">{t(`career.region.${profile.regionId}.name`)}</h1>
           <p className="cr-head__sub">
+            <span className="cr-head__pos">{position}</span>
+            <span className="cr-dot" />
             <span>{tx(rank.name)}</span>
             <span className="cr-dot" />
             <span>{profile.name}</span>
@@ -70,7 +75,7 @@ function MoneyCard({ profile }: { profile: CareerProfile }) {
   const shown = useCountUp(profile.money);
   const delta = useDelta(profile.money);
   const costs = costsOf(profile);
-  const budget = monthlyBudget(profile.regionId);
+  const budget = monthlyBudget(profile.regionId, profile);
   const net = budget - costs.total;
   const trend = useMemo(() => balanceSeries(profile.money, profile.ledger ?? []).slice(-15).map((p) => p.balance), [profile.money, profile.ledger]);
   return (
@@ -91,7 +96,7 @@ function MoneyCard({ profile }: { profile: CareerProfile }) {
       <dl className="cr-kv">
         <div>
           <dt>{t('career.kpi.dailyBudget')}</dt>
-          <dd className="mono">{fmtMoney(DAILY_BUDGET[profile.regionId] ?? 0, lang)}</dd>
+          <dd className="mono">{fmtMoney(careerDailyBudget(profile), lang)}</dd>
         </div>
         <div>
           <dt>{t('career.kpi.monthNet')}</dt>
@@ -227,7 +232,7 @@ function PaydayCard({ profile }: { profile: CareerProfile }) {
   const lang = useLang();
   const cal = calendarOf(profile.day);
   const costs = costsOf(profile);
-  const budget = monthlyBudget(profile.regionId);
+  const budget = monthlyBudget(profile.regionId, profile);
   return (
     <section className="cr-card cr-kpi cr-kpi--payday">
       <header className="cr-kpi__head">
@@ -289,6 +294,7 @@ export function ShiftBand({ profile }: { profile: CareerProfile }) {
   const recent = history.slice(-12);
   const avg = recent.length ? recent.reduce((s, h) => s + h.score, 0) / recent.length : 0;
   const cal = calendarOf(profile.day);
+  const areaLabel = useAreaLabel(profile, region);
 
   const start = () => {
     const g = useGame.getState();
@@ -357,6 +363,7 @@ export function ShiftBand({ profile }: { profile: CareerProfile }) {
           </Button>
           <span className="cr-cta__where">
             <Icon name="pin" size={12} /> {t(`career.region.${region}.name`)}
+            <span className="cr-cta__area"> · {areaLabel}</span>
           </span>
         </div>
       </section>

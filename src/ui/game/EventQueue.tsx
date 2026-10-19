@@ -5,8 +5,8 @@ import { Button, Empty, Icon, Kbd, PriorityChip, Tabs } from '@/ui/components';
 import type { Agency, Incident, SimState } from '@/sim/types';
 import { acknowledge, closeIncident, selectIncident, sendBackup } from './actions';
 import { activeBackup, recentClosed, selAgeMin, selPendingRadio, selQueue, selSlaMin } from './data';
-import { ageText, countdown, matchesQueueFilter, slaTone, type QueueFilter } from './format';
-import { SourceTag, StatusDot, useSim } from './bits';
+import { ageText, countdown, helpSectorId, matchesQueueFilter, slaTone, type QueueFilter } from './format';
+import { HelpTag, SourceTag, StatusDot, useSim } from './bits';
 import { MenuButton, type MenuItem } from './Menu';
 import { useGameUi } from './uiStore';
 
@@ -141,6 +141,7 @@ function ClosedRow({ inc, selected }: { inc: Incident; selected: boolean }) {
       <PriorityChip p={inc.priority} compact />
       <span className="gm-closed__code mono">{inc.code}</span>
       <span className="gm-closed__title">{tx(inc.title)}</span>
+      {helpSectorId(inc) !== null && <HelpTag inc={inc} short />}
       <span className="gm-closed__res">{inc.outcome ? t(`game.result.${inc.outcome.result}`) : inc.closedBy ? t(`game.closedBy.${inc.closedBy}`) : ''}</span>
       {score !== undefined && <span className={`gm-closed__score mono gm-tone--${tone}`}>{Math.round(score)}</span>}
     </button>
@@ -211,6 +212,11 @@ function QueueCard({ sim, inc, selected, cursor, pendingCount }: { sim: SimState
           {inc.location.address}
         </span>
       </div>
+      {helpSectorId(inc) !== null && (
+        <div className="gm-card__help">
+          <HelpTag inc={inc} />
+        </div>
+      )}
       <div className="gm-card__row gm-card__row--meta">
         <SourceTag source={inc.source} />
         {incoming && <span className="gm-card__newtag">{t('game.queue.new')}</span>}

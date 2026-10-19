@@ -5,13 +5,16 @@
 //   offered or paid a second time, from the browser or from the cloud;
 // - a rollback to 92ed7f5 never uploads the guest's data over an account's cloud copy, and loses nothing on
 //   the way back: epd:sync keeps the format 1 fields that version reads (it knows only the plain keys, which
-//   hold the guest's data since each identity has its own namespace, src/store/space.ts).
+//   hold the guest's data since each identity has its own namespace, src/store/space.ts);
+// - a rollback to 2.8.0 (d7871ad), the release before sectors, keeps a sector career's fields (its own normaliser runs
+//   here), and the career comes back with them.
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { careerShiftPaid, useCareer } from '@/store/career';
 import { autosave, loadAutosave, stopLoop, useGame } from '@/store/game';
 import { rosterFromCareer } from '@/sim/career';
+import { sectorsOf } from '@/sim/sectors';
 import { createShift, step } from '@/sim/engine';
 import { DAY, MIN, tallinnTime, wall } from '@/sim/time';
 import { FOREIGN_OWNER, legacyMeta, parseMeta, SLOTS, type Slot } from '@/net/sync';
@@ -27,6 +30,9 @@ const SAVED_AFTER_REPORT = fixture('92ed7f5-chromium', 'epd-autosave-after-repor
 
 type CareerData = { profile: CareerProfile | null; inbox: unknown[] };
 const stateOf = (raw: string) => (JSON.parse(raw) as { state: CareerData }).state;
+/** A career from before sectors as this version loads it: every sector of each unlocked prefecture (docs/SECTORS.md). */
+const upgraded = (p: CareerProfile): CareerProfile =>
+  p.sectors ? p : { ...p, sectors: Object.fromEntries(p.unlockedRegions.map((r) => [r, sectorsOf(r).map((x) => x.id)])) };
 
 // The first page load transforms the whole module graph: done once here, outside any test's time budget.
 beforeAll(async () => {
@@ -119,7 +125,7 @@ describe('a shift 92ed7f5 saved again after its report', () => {
     api.write(7, 'settings', { volume: 0.4 });
     api.write(7, 'autosave', JSON.parse(SAVED_AFTER_REPORT));
     const page = await boot();
-    expect(page.useCareer.getState().profile).toEqual(stateOf(PAID_CAREER).profile);
+    expect(page.useCareer.getState().profile).toEqual(upgraded(stateOf(PAID_CAREER).profile!));
     expect(page.game.loadAutosave()).toBeNull();
     expect(api.writes()).toEqual([]);
     expect(api.json(7, 'autosave')).toEqual(JSON.parse(SAVED_AFTER_REPORT));
@@ -214,7 +220,9 @@ describe('a rollback to 92ed7f5', () => {
     const page = await boot();
     expect(page.useCareer.getState().profile?.name).toBe('Mari'); // signed in: the account's
     expect(JSON.parse(localStorage.getItem('epd:career')!).state).toEqual(career('Külaline', 5));
-    expect(api.writes().filter((c) => c.path === '/api/save/career')).toEqual([]);
+    // The 92ed7f5 marker counts the slot as changed: the account's own career may go up with its sectors filled
+    // in (docs/SECTORS.md), never the guest's.
+    expect(api.json(7, 'career')).toEqual({ ...career('Mari', 100), profile: upgraded(career('Mari', 100).profile) });
     const out = page.useAccount.getState().logout();
     await vi.advanceTimersByTimeAsync(3500);
     await out;
@@ -291,6 +299,81 @@ describe('a rollback to 92ed7f5', () => {
     expect(legacyMeta(parseMeta(null), 5)).toEqual({ owner: null, updated: { career: 5, settings: 5, autosave: 5 } });
   });
 });
+
+// ── Rollback to the release before sectors (2.8.0, d7871ad) ─────────────────
+
+/** A career of the first version with sectors: one sector, an opened post, the prefect's offer waiting. */
+const SECTOR_CAREER = fixture('sectors', 'epd-career.json');
+
+type Normaliser = Pick<typeof import('@/store/migrate'), 'normalizeCareerState'>;
+
+/**
+ * The career normaliser of 2.8.0 (d7871ad), run as that release had it: its source is kept byte for byte next to the
+ * fixture (tests/fixtures/saves/sectors/README.md). Vite's own transform strips the types; its two imports
+ * (region ids, economy defaults) are handed in. 92ed7f5 had no normaliser: zustand's own merge kept the stored
+ * profile object as it was.
+ */
+async function normaliserOf280(): Promise<Normaliser> {
+  const { transformWithOxc } = await import('vite');
+  const { code } = await transformWithOxc(fixture('sectors', 'migrate.d7871ad.ts.txt'), 'migrate.ts', { lang: 'ts' });
+  const deps: Record<string, unknown> = { '@/data/regions': await import('@/data/regions'), '@/data/economy': await import('@/data/economy') };
+  const names: string[] = [];
+  const body = code
+    .replace(/^import\s*\{([^}]*)\}\s*from\s*["']([^"']+)["'];?$/gm, (_, list: string, from: string) => {
+      if (!(from in deps)) throw new Error(`2.8.0's normaliser imports ${from}`);
+      return `const {${list}} = __deps[${JSON.stringify(from)}];`;
+    })
+    .replace(/^export\s+(function|const|let|class)\s+([A-Za-z_$][\w$]*)/gm, (_, kind: string, name: string) => {
+      names.push(name);
+      return `${kind} ${name}`;
+    });
+  expect(body).not.toMatch(/^\s*(import|export)\s/m);
+  return new Function('__deps', `${body}\nreturn { ${names.join(', ')} };`)(deps) as Normaliser;
+}
+
+describe('a rollback to 2.8.0, the release before sectors', () => {
+  it("keeps a sector career's fields, and this version reads back what it writes unchanged", async () => {
+    const v280 = await normaliserOf280();
+    const stored = stateOf(SECTOR_CAREER);
+    const p0 = stored.profile!;
+    expect(p0.sectors).toEqual({ ida: ['ida-laaneviru'] });
+    expect(p0.openPosts).toEqual(['ida-tapa']);
+    expect(p0.offer).toMatchObject({ regionId: 'ida', choices: ['ida-johvi'] });
+    const issues: string[] = [];
+    const there = v280.normalizeCareerState(stored, issues);
+    expect(issues).toEqual([]);
+    expect(there).toEqual(stored);
+    expect(there.profile!.sectorsChangedDay).toBe(p0.sectorsChangedDay);
+    // Its store writes the normalised state under the same envelope version; this version loads it unchanged.
+    localStorage.setItem('epd:career', JSON.stringify({ state: there, version: 1 }));
+    await useCareer.persist.rehydrate();
+    expect(useCareer.getState().profile).toEqual(p0);
+    expect(Object.keys(localStorage).filter((k) => k.includes('backup'))).toEqual([]);
+  });
+
+  it('keeps the sectors this version gave an old career, and what 2.8.0 added on the way is filled in', async () => {
+    const v280 = await normaliserOf280();
+    // An old career as this version stores it: every sector of its unlocked prefectures.
+    localStorage.setItem('epd:career', fixture('92ed7f5', 'epd-career.json'));
+    await useCareer.persist.rehydrate();
+    const converted = useCareer.getState().profile!;
+    expect(Object.keys(converted.sectors ?? {}).sort()).toEqual([...converted.unlockedRegions].sort());
+    const there = v280.normalizeCareerState({ profile: converted, inbox: [] });
+    expect(there.profile).toEqual(converted);
+    // 2.8.0 unlocks a prefecture by rank on a sector career without knowing sectors: back here it starts there
+    // in one starter sector (a normal one), and nothing else changes.
+    const played = { ...p0Sector(), unlockedRegions: ['ida', 'pohja'] as CareerProfile['unlockedRegions'] };
+    localStorage.setItem('epd:career', JSON.stringify({ state: v280.normalizeCareerState({ profile: played, inbox: [] }), version: 1 }));
+    await useCareer.persist.rehydrate();
+    const back = useCareer.getState().profile!;
+    expect(back.sectors).toEqual({ ida: ['ida-laaneviru'], pohja: ['pohja-kesklinn'] });
+    expect({ ...back, sectors: undefined }).toEqual({ ...played, sectors: undefined });
+  });
+});
+
+function p0Sector(): CareerProfile {
+  return stateOf(SECTOR_CAREER).profile!;
+}
 
 // ── In-memory PHP API (server/lib/saves.php: slot versions, ?base= preconditions) ──
 

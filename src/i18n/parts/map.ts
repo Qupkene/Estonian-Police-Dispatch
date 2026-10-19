@@ -6,6 +6,14 @@ export default {
   'map.zoomIn': { et: 'Suurenda', en: 'Zoom in' },
   'map.zoomOut': { et: 'Vähenda', en: 'Zoom out' },
   'map.recenter': { et: 'Näita kogu prefektuuri', en: 'Show the whole prefecture' },
+  'map.recenterArea': { et: 'Näita oma vastutusala', en: 'Show your area' },
+  // The shift's area (docs/SECTORS.md): the chip on the map, the outside is dimmed.
+  'map.area.title': { et: 'Vastutusala', en: 'Your area' },
+  'map.area.hint': {
+    et: 'Väljaspool vastutusala on kaart tumedam: seal töötavad naaberlaudade kolleegid. Klõpsa, et näidata kogu ala.',
+    en: 'The map is darker outside your area: colleagues at the neighbouring desks cover it. Click to show the whole area.',
+  },
+  'map.area.cover': { et: 'Öösel ka {names}', en: 'Tonight also {names}' },
   'map.follow': { et: 'Jälgi valitud üksust', en: 'Follow selected unit' },
   'map.followOff': { et: 'Lõpeta jälgimine', en: 'Stop following' },
   'map.followNone': { et: 'Jälgimiseks vali esmalt üksus', en: 'Select a unit to follow' },

@@ -6,6 +6,7 @@ import { useT } from '@/i18n';
 import { Button, Icon, Modal, Tabs, TextField, type TabDef } from '@/ui/components';
 import type { CareerProfile } from '@/sim/types';
 import { Onboarding } from './career/Onboarding';
+import { AreaCard, OfferCard } from './career/AreaCard';
 import { HqHeader, Inbox, KpiGrid, ShiftBand, useRank } from './career/Overview';
 import { StaffTab } from './career/StaffTab';
 import { RecruitTab } from './career/RecruitTab';
@@ -54,9 +55,15 @@ function Hq({ profile }: { profile: CareerProfile }) {
   return (
     <div className="cr-hq">
       <HqHeader profile={profile} rank={rank} />
+      <TabBoundary fallback={null}>
+        <OfferCard profile={profile} />
+      </TabBoundary>
       <KpiGrid profile={profile} rank={rank} />
       <ShiftBand profile={profile} />
       <Inbox />
+      <TabBoundary fallback={null}>
+        <AreaCard profile={profile} />
+      </TabBoundary>
       <section className="cr-card cr-tabs">
         <Tabs tabs={tabs} value={tab} onChange={setTab} className="cr-tabs__bar" />
         <TabBoundary key={tab} fallback={<p className="cr-placeholder">{t('career.tabError')}</p>}>

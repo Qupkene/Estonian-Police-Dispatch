@@ -173,9 +173,13 @@ export function costsOf(p: CareerProfile): MonthlyCosts {
   return c && Number.isFinite(c.total) ? c : fallbackCosts(p);
 }
 
-/** Expected monthly base funding for the prefecture (excl. performance bonuses). */
-export function monthlyBudget(regionId: RegionId): number {
-  return (DAILY_BUDGET[regionId] ?? 0) * MONTH_DAYS;
+/**
+ * Expected monthly base funding (excl. performance bonuses): the prefecture's, or with a profile the career's
+ * own daily budget there (it grows with the sectors covered, docs/SECTORS.md).
+ */
+export function monthlyBudget(regionId: RegionId, p?: CareerProfile): number {
+  const daily = p ? safe(() => rules.dailyBudget(p, regionId), DAILY_BUDGET[regionId] ?? 0) : (DAILY_BUDGET[regionId] ?? 0);
+  return daily * MONTH_DAYS;
 }
 
 export type Affordability = 'ok' | 'tight' | 'no';

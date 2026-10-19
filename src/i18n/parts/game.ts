@@ -4,6 +4,7 @@ import type { Dict } from '../index';
 export default {
   // ── Top bar ────────────────────────────────────────────────────────────────
   'game.centre': { et: 'Juhtimiskeskus', en: 'Command Centre' },
+  'game.areaTitle': { et: 'Juhtimiskeskus · sinu vastutusala: {area}', en: 'Command Centre · your area: {area}' },
   'game.director': { et: 'REŽISSÖÖR', en: 'DIRECTOR' },
   'game.paused': { et: 'PAUS', en: 'PAUSED' },
   'game.speed': { et: 'Mängu kiirus', en: 'Game speed' },
@@ -172,6 +173,23 @@ export default {
   'game.closedBy.prank': { et: 'Valekõne', en: 'Hoax call' },
   'game.closedBy.expired': { et: 'Aegus (keegi ei jõudnud kohale)', en: 'Expired (nobody arrived)' },
   'game.closedBy.director': { et: 'Režissööri lõpetatud', en: 'Closed by the director' },
+  'game.closedBy.colleague': { et: 'Naabersektor võttis üle', en: 'The neighbouring sector took over' },
+  // A colleague at a neighbouring desk asks for help (incident tag help:<sectorId>, docs/SECTORS.md).
+  'game.help.badge': { et: 'Abipalve · {sector}', en: 'Help request · {sector}' },
+  'game.help.badgeShort': { et: 'Abipalve', en: 'Help request' },
+  'game.help.title': {
+    et: '{name} naaberlauast ({sector}) palub abi: väljakutse on kohe sinu ala piiri taga.',
+    en: '{name} at the neighbouring desk ({sector}) asks for help: the call is just across your border.',
+  },
+  'game.help.titleShort': { et: 'Naaberlaua kolleeg palub abi.', en: 'A colleague at the neighbouring desk asks for help.' },
+  'game.help.note': {
+    et: '{name} ({sector}) palub abi: tal pole vaba ekipaaži. Kui saadad kellegi, tõstab see sinu Staatust. Kui ei saada, võtab naabersektor väljakutse aja möödudes ise üle, karistust selle eest ei ole.',
+    en: '{name} ({sector}) asks for help: no crew is free over there. Sending someone raises your Staatus. If you do not, the neighbouring sector takes the call back after a while, with no penalty.',
+  },
+  'game.help.noteShort': {
+    et: 'Naaberlaua kolleeg palub abi. Kui keegi ei sõida, võtab naabersektor väljakutse aja möödudes üle.',
+    en: 'A colleague at the neighbouring desk asks for help. If nobody goes, the neighbouring sector takes the call back after a while.',
+  },
 
   // ── Incident panel ────────────────────────────────────────────────────────
   'game.inc.none': { et: 'Sündmust pole valitud', en: 'No event selected' },
