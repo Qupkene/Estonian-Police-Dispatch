@@ -102,7 +102,7 @@ export const TEMPLATES_ENVIRONMENT: IncidentTemplate[] = [
     hours: 'evening',
     weekendBoost: 1.4,
     months: [5, 6, 7, 8],
-    places: ['forest', 'beach', 'park', 'summerhouse', 'lake'],
+    places: ['forest', 'beach', 'park', 'summerhouse'],
     units: { need: [u('patrol')] },
     onScene: [20, 50],
     persons: [

@@ -25,7 +25,7 @@ const REPLY_TONE: Record<string, 'success' | 'danger' | 'warning' | 'secondary'>
 export function PendingStrip({ msgs }: { msgs: RadioMsg[] }) {
   const t = useT();
   const tx = useTx();
-  // Co-op: the radio desk answers the crews (src/sim/coop.ts); the others see who is waiting.
+  // Co-op: the radio desk answers the crews (src/sim/coop.ts); a registry query is anybody's (openToAll).
   const canReply = useCan('radio');
   const sim = useGame((g) => g.sim);
   if (!msgs.length) return null;
@@ -41,7 +41,7 @@ export function PendingStrip({ msgs }: { msgs: RadioMsg[] }) {
           </div>
           <p className="tl-waiting__text">“{tx(m.text)}”</p>
           <div className="tl-waiting__replies">
-            {(canReply && deskCan(sim, { msg: m }) ? (m.replies ?? []) : []).map((r) => (
+            {(m.kind === 'query' || (canReply && deskCan(sim, { msg: m })) ? (m.replies ?? []) : []).map((r) => (
               <Button
                 key={r.id}
                 size="sm"

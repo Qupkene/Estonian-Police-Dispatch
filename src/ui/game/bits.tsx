@@ -165,8 +165,10 @@ export function RadioReplies({ msg, sim, compact }: { msg: RadioMsg; sim: SimSta
   const t = useT();
   const tx = useTx();
   // Co-op: the radio desk answers (src/sim/coop.ts); the other desks see the countdown only. Sector co-op: the desk
-  // of the message's crew or incident (src/sim/desks.ts).
-  const canReply = useCan('radio') && useDeskCan({ msg });
+  // of the message's crew or incident (src/sim/desks.ts). A registry query is anybody's (openToAll).
+  const radioDesk = useCan('radio');
+  const ownDesk = useDeskCan({ msg });
+  const canReply = msg.kind === 'query' || (radioDesk && ownDesk);
   if (!msg.replies?.length) return null;
   if (msg.answered) {
     const r = answeredReply(msg);

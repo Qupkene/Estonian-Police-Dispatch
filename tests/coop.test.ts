@@ -246,6 +246,25 @@ describe('co-op commands', () => {
     expect(s.coop!.lastCmd).toBe(17);
   });
 
+  it('lets any player answer a crew’s registry query, but keeps the other radio replies at the radio desk', () => {
+    const s = fresh();
+    const unit = s.unitOrder[0];
+    const reply = [{ id: 'clean', label: { et: 'Puhas', en: 'Clean' } }];
+    const msg = (id: string, kind: 'query' | 'backup') => {
+      s.radio.push({ id, t: s.now, from: 'PÕHJA 11', text: { et: 'Kontrollige', en: 'Check' }, level: 'routine', kind, unitId: unit, replies: reply as never });
+    };
+    msg('r9001', 'query');
+    msg('r9002', 'backup');
+    // The call-taker (seat 1) answers the query for the radio desk...
+    expect(applyCommand(s, { id: 40, t: 0, s: 1, k: 'reply', a: ['r9001', 'clean'] })).toMatchObject({ ok: true });
+    expect(s.radio.find((m) => m.id === 'r9001')!.answered).toBe('clean');
+    // ...but a backup request stays the radio desk's.
+    expect(applyCommand(s, { id: 41, t: 0, s: 1, k: 'reply', a: ['r9002', 'clean'] })).toMatchObject({ denied: true });
+    // Marking a record as checked is anybody's too.
+    const inc = s.incidentOrder[0];
+    if (inc) expect(applyCommand(s, { id: 42, t: 0, s: 1, k: 'check', a: [inc, '', ''] }).denied).toBeUndefined();
+  });
+
   it('hands a role over while its seat is away and gives it back', () => {
     const s = fresh();
     const c = s.coop!;

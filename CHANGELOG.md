@@ -2,6 +2,19 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.23.1 (2026-10-20)
+
+- **Mitmikmäng:** ekipaaži registripäringule saab nüüd vastata iga mängija, ka sõbra eest, ja registris kontrollitud isik või auto läheb kõigile kirja. Muud raadiovastused jäävad laua juurde.
+- Jälituses ei saa helikopterit enam mitu korda kutsuda: nupp jääb ootele, kui kopter on teel, ja raadio ütleb „Helikopter on juba teel“ ainult ühe korra.
+- Suvilate murdvargus ja loata tuletegemine ei teki enam järve keskele.
+
+<details>
+<summary>English</summary>
+
+Co-op: any player can answer a crew's registry query, a friend's included, and registry checks count for everyone; other radio replies stay with their desk. The pursuit's helicopter button waits while the helicopter is alerted or on its way, and "the helicopter is already on its way" is said once a pursuit. Cottage burglaries and illegal fires no longer happen in the middle of a lake.
+
+</details>
+
 ## 2.23.0 (2026-10-20)
 
 - **Rohkem väljakutseid:** päeva väljakutses tuleb kolme tunni peale nüüd 10 kuni 15 kutset (enne 1 kuni 12), sektori vahetusel umbes neli tunnis ja uues karjääris umbes kolm tunnis. Mäng jääb võidetavaks: testides jõuab hea dispetšer igal pool järele.

@@ -6,6 +6,7 @@ import { Badge, Button, Icon, Kbd, Meter, StatusChip, type IconName } from '@/ui
 import { describePerson, describeVehicle, ageOf } from '@/gen/describe';
 import { personFlags, vehicleFlags, type RecordFlag } from '@/sim/registry';
 import { hhmm, MIN } from '@/sim/time';
+import { heliRequested } from '@/sim/pursuit';
 import type { Agency, Incident, IncidentTemplate, Person, ScoreBreakdown, SimState, TimelineEntry, Lang } from '@/sim/types';
 import { usePending } from '@/store/coop';
 import { checkRecord, dispatch, dispatchPicked, pursuitAction, recallUnit, requestAgency, selectUnit } from './actions';
@@ -391,6 +392,8 @@ export function PursuitBlock({ sim, inc, readOnly }: { sim: SimState; inc: Incid
   const dur = (sim.now - p.startedAt) / MIN;
   // Career only: spike strips are an upgrade (the engine sets the flag outside career).
   const spikesOwned = sim.flags['upg:spikes'] === true;
+  // Alerted, on its way or overhead: the button waits (asking again only repeated the radio line).
+  const heliAsked = heliRequested(sim, inc);
   return (
     <div className={`gm-pursuit${live ? ' is-live' : ''}`}>
       <header>
@@ -421,8 +424,8 @@ export function PursuitBlock({ sim, inc, readOnly }: { sim: SimState; inc: Incid
           <Button size="sm" variant="danger" icon="x" onClick={() => pursuitAction(inc.id, 'terminate')}>
             {t('game.pursuit.terminate')}
           </Button>
-          <Button size="sm" icon="heli" disabled={p.heli} onClick={() => pursuitAction(inc.id, 'heli')}>
-            {p.heli ? t('game.pursuit.heliOn') : t('game.pursuit.heli')}
+          <Button size="sm" icon="heli" disabled={heliAsked} onClick={() => pursuitAction(inc.id, 'heli')}>
+            {p.heli ? t('game.pursuit.heliOn') : heliAsked ? t('game.pursuit.heliComing') : t('game.pursuit.heli')}
           </Button>
           <Button
             size="sm"

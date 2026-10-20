@@ -296,6 +296,17 @@ export const COMMAND_ROLE: Record<string, Need> = {
   host: 'system',
 };
 
+/**
+ * Registry work is everybody's (2.23.1): any player present may answer a crew's registry query and mark a record
+ * as checked, whatever their role or desk, so a friend can step in for the busy one.
+ */
+export function openToAll(s: Pick<SimState, 'radio'>, cmd: Pick<LogCmd, 'k' | 'a'>): boolean {
+  if (cmd.k === 'check') return true;
+  if (cmd.k !== 'reply') return false;
+  const id = Array.isArray(cmd.a) ? str(cmd.a[0]) : '';
+  return s.radio.find((m) => m.id === id)?.kind === 'query';
+}
+
 /** Kinds a player may post (the server refuses the rest). */
 export const PLAYER_KINDS = Object.keys(COMMAND_ROLE).filter((k) => COMMAND_ROLE[k] !== 'system');
 
@@ -372,8 +383,10 @@ export function applyCommand(s: SimState, cmd: LogCmd): CmdResult {
   const c = s.coop;
   if (!c) return NOOP;
   if (cmd.id > c.lastCmd) c.lastCmd = cmd.id;
-  const need = COMMAND_ROLE[cmd.k];
-  if (!need) return NOOP;
+  const role = COMMAND_ROLE[cmd.k];
+  if (!role) return NOOP;
+  const open = role !== 'system' && openToAll(s, cmd);
+  const need: Need = open ? 'any' : role;
   const seat = cmd.s;
   if (need === 'system' && seat !== SERVER_SEAT) return DENIED;
   if (s.ended && need !== 'system') return NOOP;
@@ -382,7 +395,7 @@ export function applyCommand(s: SimState, cmd: LogCmd): CmdResult {
   if (need === 'host' && seat !== c.host) return countDenied(c, seat);
   if (need !== 'any' && need !== 'host' && need !== 'system' && !canAct(c, seat, need))
     return countDenied(c, seat);
-  if (c.mode === 'sector' && seat !== SERVER_SEAT && !deskAllows(s, c, cmd)) {
+  if (c.mode === 'sector' && seat !== SERVER_SEAT && !open && !deskAllows(s, c, cmd)) {
     statsOf(c, seat).denied++;
     return DESK_DENIED;
   }
