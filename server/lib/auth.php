@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/http.php';
 require_once __DIR__ . '/db.php';
+// Account deletion clears the user's room seats (epd_rooms_forget_user); rooms.php only defines functions.
+require_once __DIR__ . '/rooms.php';
 
 const EPD_SESSION_NAME = 'EPDSESS';
 /** Idle expiry of a session: 30 days. */
@@ -254,8 +256,19 @@ function epd_verify_login(PDO $db, ?array $user, string $password): bool
 function epd_delete_user(PDO $db, int $userId): void
 {
     epd_transaction($db, static function (PDO $db) use ($userId): void {
+        // Rooms first: the host's role passes on and rooms nobody is left in close (server/lib/rooms.php).
+        epd_rooms_forget_user($db, $userId);
         // Explicit deletes as well as ON DELETE CASCADE, so nothing is left even without foreign keys.
-        foreach (['DELETE FROM saves WHERE user_id = ?', 'DELETE FROM scores WHERE user_id = ?', 'DELETE FROM daily_scores WHERE user_id = ?', 'DELETE FROM users WHERE id = ?'] as $sql) {
+        $tables = [
+            'DELETE FROM saves WHERE user_id = ?',
+            'DELETE FROM scores WHERE user_id = ?',
+            'DELETE FROM daily_scores WHERE user_id = ?',
+            'DELETE FROM room_results WHERE user_id = ?',
+            'DELETE FROM room_players WHERE user_id = ?',
+            'UPDATE rooms SET host_id = NULL WHERE host_id = ?',
+            'DELETE FROM users WHERE id = ?',
+        ];
+        foreach ($tables as $sql) {
             $db->prepare($sql)->execute([$userId]);
         }
     });

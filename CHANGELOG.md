@@ -2,6 +2,18 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.16.0 (2026-10-20)
+
+- **Mitmikmäng, võistlus:** peamenüüs on uus rida „Mitmikmäng“. Loo ruum ja jaga 6-tähelist koodi, kuni neli sõpra liituvad. Ruumi looja valib prefektuuri, ala, raskuse, pikkuse ja kellaaja ning alustab, kui kõik on valmis. Kõik mängivad täpselt sama vahetust ja aruandes on ruumi tulemuste tabel, mis uueneb ise. Mängimiseks on vaja kontot.
+- Koostöö variandid (sektorid ja rollid) tulevad järgmistes versioonides, plaan on kirjas docs/MULTIPLAYER.md failis.
+
+<details>
+<summary>English</summary>
+
+Multiplayer, race mode: create a room, share its 6-character code, up to four players join; the host picks prefecture, area, difficulty, length and time of day; everyone plays the identical shift and the report shows the room's live results board. Requires an account. Co-op modes follow; the plan is in docs/MULTIPLAYER.md.
+
+</details>
+
 ## 2.15.0 (2026-10-20)
 
 - **Mänguekraan Valvekaardi värvides:** vahetuse ajal on samad pinnad, jooned, tekstid, sinine aktsent ja fondid nagu menüüdes, tumedas ja heledas teemas. Paigutus ja tihedus on täpselt samad. Helendused, üleminekud ja hägustused on eemaldatud, nii et ekraan on rahulikum ja kiirem. Prioriteetide ja üksuste olekute värvid jäävad samade tähendustega, mõne punase ja oranži märgi kontrast on parem.

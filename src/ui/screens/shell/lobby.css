@@ -1,0 +1,406 @@
+/* Mitmikmäng (LobbyScreen.tsx, RoomBoard.tsx) on the Valvekaart frame (vk.css): two columns of panels on a wide
+   screen, one on a narrow one. The room board is also used by the report (ReportScreen.tsx). */
+.vk-mp {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.vk-mp__col {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.vk-mp__notice {
+  max-width: 620px;
+}
+.vk-mp__state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 96px;
+  margin: 0;
+  color: var(--vk-text-2);
+}
+.vk-mp__hint {
+  margin: 0;
+  padding: 0 14px 12px;
+  font-size: 12px;
+  color: var(--vk-text-3);
+  text-wrap: pretty;
+}
+.vk-mp__err {
+  margin: 0 14px 12px;
+}
+
+/* Modes: three choices as rows with a radio mark; the co-op modes are shown, marked as coming. */
+.vk-mp__modes {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px 4px;
+}
+.vk-mp__mode {
+  display: grid;
+  gap: 3px;
+  padding: 9px 12px;
+  border: 1px solid var(--vk-line);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--vk-text-1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.vk-mp__mode:hover:not(:disabled) {
+  border-color: var(--vk-text-3);
+  background: var(--vk-panel-2);
+}
+.vk-mp__mode.is-active {
+  border-color: var(--vk-acc);
+  background: color-mix(in oklch, var(--vk-acc) 8%, transparent);
+}
+.vk-mp__mode:disabled {
+  cursor: default;
+}
+.vk-mp__mode:disabled .vk-mp__modeHead strong,
+.vk-mp__mode:disabled .vk-mp__modeDesc {
+  color: var(--vk-text-3);
+}
+.vk-mp__modeHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vk-mp__modeHead strong {
+  font-size: 13.5px;
+  color: var(--vk-text-0);
+}
+.vk-mp__radio {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--vk-text-3);
+  border-radius: 50%;
+}
+.vk-mp__mode.is-active .vk-mp__radio {
+  border-color: var(--vk-acc);
+  background: radial-gradient(circle, var(--vk-acc) 0 3px, transparent 3.5px);
+}
+.vk-mp__soon {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 1px solid var(--vk-line);
+  border-radius: 3px;
+  font: 600 10px/1.2 var(--vk-font-display);
+  font-stretch: 112%;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vk-text-3);
+}
+.vk-mp__modeDesc {
+  padding-left: 20px;
+  font-size: 12px;
+  color: var(--vk-text-2);
+  text-wrap: pretty;
+}
+
+/* The shift's options: a label column and the controls. */
+.vk-mp__form {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+}
+.vk-mp__field {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+.vk-mp__field .ui-select {
+  display: block;
+  max-width: 320px;
+}
+.vk-mp__kv {
+  border-top: 1px solid var(--vk-line-2);
+}
+
+/* Join with a code. */
+.vk-mp__join {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px 14px;
+}
+.vk-mp__join .vk-mp__hint {
+  padding: 0;
+}
+.vk-mp__joinRow {
+  display: flex;
+  gap: 8px;
+}
+.vk-mp__codeInput {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--vk-line);
+  border-radius: 5px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-0);
+  font: 500 18px/1 var(--vk-font-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.vk-mp__codeInput::placeholder {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--vk-text-3);
+}
+.vk-mp__codeInput:focus-visible {
+  outline: 2px solid var(--vk-acc);
+  outline-offset: 1px;
+}
+.vk-mp__joinRow .vk-btn {
+  height: 40px;
+}
+.vk-mp__how {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px 14px;
+  list-style: none;
+  font-size: 13px;
+  color: var(--vk-text-1);
+}
+.vk-mp__how li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.vk-mp__step {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--vk-line);
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--vk-text-2);
+}
+
+/* The room: its code large, in two groups of three, with the copy button. */
+.vk-mp__codeBox {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  padding: 14px;
+  border-bottom: 1px solid var(--vk-line-2);
+}
+.vk-mp__codeBox .vk-label {
+  flex: 1 1 100%;
+}
+.vk-mp__code {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  line-height: 1.1;
+  color: var(--vk-text-0);
+  white-space: nowrap;
+}
+.vk-mp__codeBox .vk-btn {
+  margin-left: auto;
+}
+
+/* Seats. */
+.vk-mp__seats {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vk-mp__seat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 6px 14px;
+}
+.vk-mp__seat + .vk-mp__seat {
+  border-top: 1px solid var(--vk-line-2);
+}
+.vk-mp__seat.is-me {
+  background: color-mix(in oklch, var(--vk-acc) 9%, transparent);
+  box-shadow: inset 2px 0 var(--vk-acc);
+}
+.vk-mp__seatNo {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--vk-line);
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--vk-text-2);
+}
+.vk-mp__seat.is-free .vk-mp__seatNo {
+  border-style: dashed;
+  color: var(--vk-text-3);
+}
+.vk-mp__seatWho {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+}
+.vk-mp__seatName {
+  overflow: hidden;
+  color: var(--vk-text-0);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vk-mp__tag {
+  padding: 2px 6px;
+  border: 1px solid var(--vk-amb);
+  border-radius: 3px;
+  font: 600 10px/1.2 var(--vk-font-display);
+  font-stretch: 112%;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vk-amb);
+}
+.vk-mp__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--vk-line);
+}
+.vk-mp__dot.is-on {
+  background: var(--vk-ok);
+}
+.vk-mp__ready {
+  flex: none;
+  font: 600 10.5px/1 var(--vk-font-display);
+  font-stretch: 112%;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vk-text-3);
+}
+.vk-mp__ready.is-ready {
+  color: var(--vk-ok);
+}
+.vk-mp__status {
+  display: grid;
+  gap: 8px;
+  padding: 0 14px 12px;
+}
+.vk-mp__leave {
+  margin-left: auto;
+}
+
+/* The board. */
+.vk-mp__board td {
+  height: 44px;
+}
+.vk-mp__who {
+  display: grid;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+  line-height: 1.3;
+}
+.vk-mp__name {
+  color: var(--vk-text-0);
+  font-weight: 600;
+}
+.vk-mp__you {
+  font-weight: 400;
+  color: var(--vk-text-2);
+}
+.vk-mp__meta {
+  font-size: 11.5px;
+  color: var(--vk-text-3);
+}
+.vk-mp__row.is-me {
+  background: color-mix(in oklch, var(--vk-acc) 12%, transparent);
+  box-shadow: inset 2px 0 var(--vk-acc);
+}
+.vk-mp__row.is-playing .vk-mp__name,
+.vk-mp__row.is-left .vk-mp__name {
+  color: var(--vk-text-2);
+  font-weight: 500;
+}
+.vk-mp__pulse {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--vk-line);
+}
+.vk-mp__pulse.is-on {
+  background: var(--vk-amb);
+  animation: vk-mp-pulse 1.6s ease-in-out infinite;
+}
+@keyframes vk-mp-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vk-mp__pulse.is-on {
+    animation: none;
+  }
+}
+.vk-mp__boardNote {
+  padding-top: 10px;
+  border-top: 1px solid var(--vk-line-2);
+}
+
+@media (max-width: 1099px) {
+  .vk-mp {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .vk-mp__col {
+    gap: 12px;
+  }
+  .vk-mp__field {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .vk-mp__field .ui-seg {
+    display: flex;
+  }
+  .vk-mp__field .ui-seg__opt {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+  .vk-mp__field .ui-select {
+    max-width: none;
+  }
+}
+@media (max-width: 480px) {
+  .vk-mp__code {
+    font-size: 28px;
+  }
+  .vk-mp__codeBox .vk-btn {
+    margin-left: 0;
+  }
+}
+
+/* The room board on the report. */
+.vk-rep__roomNote {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--vk-text-3);
+}
+.vk-rep__toRoom {
+  margin-left: auto;
+}

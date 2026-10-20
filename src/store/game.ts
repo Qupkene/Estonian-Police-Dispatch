@@ -26,7 +26,8 @@ export type Screen =
   | 'settings'
   | 'credits'
   | 'career'
-  | 'legacy';
+  | 'legacy'
+  | 'lobby';
 
 export type RightTab = 'incident' | 'unit' | 'registry' | 'stats' | 'bulletins' | 'director';
 

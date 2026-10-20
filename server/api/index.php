@@ -13,6 +13,7 @@ require_once dirname(__DIR__) . '/lib/auth.php';
 require_once dirname(__DIR__) . '/lib/saves.php';
 require_once dirname(__DIR__) . '/lib/scores.php';
 require_once dirname(__DIR__) . '/lib/daily.php';
+require_once dirname(__DIR__) . '/lib/rooms.php';
 require_once dirname(__DIR__) . '/lib/hook.php';
 require_once dirname(__DIR__) . '/lib/tts.php';
 
@@ -37,6 +38,15 @@ function epd_routes(): array
         ['GET', '#^/api/scores$#', epd_route_scores_get(...)],
         ['POST', '#^/api/daily$#', epd_route_daily_post(...)],
         ['GET', '#^/api/daily$#', epd_route_daily_get(...)],
+        ['GET', '#^/api/rooms$#', epd_route_room_mine(...)],
+        ['POST', '#^/api/rooms$#', epd_route_room_create(...)],
+        ['POST', '#^/api/rooms/join$#', epd_route_room_join(...)],
+        ['GET', '#^/api/rooms/([A-Za-z0-9]{6})$#', epd_route_room_get(...)],
+        ['PUT', '#^/api/rooms/([A-Za-z0-9]{6})$#', epd_route_room_update(...)],
+        ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/ready$#', epd_route_room_ready(...)],
+        ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/start$#', epd_route_room_start(...)],
+        ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/leave$#', epd_route_room_leave(...)],
+        ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/result$#', epd_route_room_result(...)],
         ['POST', '#^/api/deploy-hook$#', epd_route_deploy_hook(...)],
         ['POST', '#^/api/tts$#', epd_route_tts(...)],
     ];

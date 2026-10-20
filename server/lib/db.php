@@ -150,6 +150,52 @@ function epd_migrations(): array
             )',
             'CREATE INDEX daily_scores_day ON daily_scores (day, score)',
         ],
+        // Mitmikmäng (server/lib/rooms.php, docs/MULTIPLAYER.md): rooms with a code, their players and the
+        // results of a same-seed race. A deleted account takes its seats and results with it (auth.php).
+        4 => [
+            'CREATE TABLE rooms (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT NOT NULL UNIQUE,
+                mode TEXT NOT NULL DEFAULT \'race\',
+                host_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                region_id TEXT NOT NULL,
+                sector TEXT NOT NULL DEFAULT \'\',
+                difficulty TEXT NOT NULL,
+                hours INTEGER NOT NULL,
+                slot TEXT NOT NULL,
+                seed INTEGER NOT NULL,
+                day TEXT NOT NULL,
+                state TEXT NOT NULL DEFAULT \'lobby\',
+                rev INTEGER NOT NULL DEFAULT 1,
+                created INTEGER NOT NULL,
+                started INTEGER,
+                updated INTEGER NOT NULL
+            )',
+            'CREATE INDEX rooms_created ON rooms (created)',
+            'CREATE INDEX rooms_host ON rooms (host_id)',
+            'CREATE TABLE room_players (
+                room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                seat INTEGER NOT NULL,
+                ready INTEGER NOT NULL DEFAULT 0,
+                joined INTEGER NOT NULL,
+                seen INTEGER NOT NULL,
+                left_at INTEGER,
+                PRIMARY KEY (room_id, user_id)
+            )',
+            'CREATE INDEX room_players_user ON room_players (user_id)',
+            'CREATE TABLE room_results (
+                room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                score INTEGER NOT NULL,
+                grade TEXT NOT NULL,
+                incidents INTEGER NOT NULL,
+                arrests INTEGER NOT NULL DEFAULT 0,
+                at INTEGER NOT NULL,
+                PRIMARY KEY (room_id, user_id)
+            )',
+            'CREATE INDEX room_results_user ON room_results (user_id)',
+        ],
     ];
 }
 

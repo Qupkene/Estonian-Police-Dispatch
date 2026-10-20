@@ -12,7 +12,7 @@ deploy scripts. Keep it in sync when something changes.
 ```
 server/
   api/index.php        single router for every /api/* request
-  lib/*.php            db, http helpers, auth, saves, scores, daily challenge, deploy hook
+  lib/*.php            db, http helpers, auth, saves, scores, daily challenge, rooms, deploy hook
   dev-router.php       router for `php -S` during local development
 deploy/
   mainserver/          installer, update script, systemd units, container Caddyfile, compose
@@ -121,6 +121,15 @@ Errors: `{ "error": "<code>", "message": "<Estonian text>" }` with a fitting sta
 | GET | /api/scores?region=&limit= | | `{ scores: [{ name, score, grade, regionId, difficulty, incidents, at }] }` best per user |
 | POST | /api/daily | `{ day, regionId, sector, score, grade, incidents, arrests, started? }` | `{ ok: true, counted, rank, players }` (logged-in users only; the first run of the day counts) |
 | GET | /api/daily?day=YYYY-MM-DD | | `{ day, players, scores: [{ name, score, grade, incidents, at, rank }], me: { ...row, rank } \| null }` top 50 of the day |
+| GET | /api/rooms | | `{ room \| null }` the caller's open room (lobby or running) |
+| POST | /api/rooms | `{ mode, regionId, sector, difficulty, hours, slot }` | `{ room }` new room, the caller is host |
+| POST | /api/rooms/join | `{ code }` | `{ room }`; 404 unknown code, 409 `room_full` / `room_started`, 429 too many wrong codes |
+| GET | /api/rooms/{code}?v= | | `{ v, room }`, or `{ v, unchanged: true }` while `v` still matches (members only, else 404) |
+| PUT | /api/rooms/{code} | `{ regionId, sector, difficulty, hours, slot }` | `{ room }` (host, lobby) |
+| POST | /api/rooms/{code}/ready | `{ ready }` | `{ room }` |
+| POST | /api/rooms/{code}/start | | `{ room }` (host; at least 2 players, all ready) |
+| POST | /api/rooms/{code}/leave | | `{ ok: true }` |
+| POST | /api/rooms/{code}/result | `{ score, grade, incidents, arrests }` | `{ ok: true, counted, rank, room }` (the first result counts) |
 | POST | /api/deploy-hook | GitHub webhook | 202 `{ queued: sha }` or 200 `{ ignored: reason }` |
 | POST | /api/tts | `{ text, voice, speed? }` | `audio/wav` (Estonian radio speech, TartuNLP Neurokõne, cached); 400 invalid, 429 too many, 503 `tts_unavailable` |
 
@@ -144,7 +153,7 @@ General:
 - Unknown path: 404 `not_found`. Known path, wrong method: 405 `method_not_allowed` with an `Allow` header.
   Missing `X-EPD: 1` on POST/PUT/DELETE (except `/api/deploy-hook`): 403 `csrf`. Uncaught failure:
   500 `server_error` (logged with `error_log`, no details in the reply).
-- Small JSON endpoints (register, login, logout, score, daily, DELETE /api/me) accept at most 64 kB, else
+- Small JSON endpoints (register, login, logout, score, daily, rooms, DELETE /api/me) accept at most 64 kB, else
   413 `too_large`. A body that is not a JSON object: 400 `bad_json`. An empty body counts as `{}`.
 - Validation errors may carry `field` (the offending body field), e.g.
   `{ "error": "invalid_score", "message": "Vigane väli: score.", "field": "score" }`.
@@ -166,7 +175,7 @@ Accounts and sessions:
   before the password, so a blocked IP gets 429 even with the right password.
 - `DELETE /api/me`: 401 `auth_required` when not logged in, 400 `password_required` without a password,
   403 `wrong_password` for a wrong one (the session stays valid).
-- `X-EPD-User`: every route that needs a login (saves, `POST /api/score`, `POST /api/daily`, `DELETE /api/me`) compares the
+- `X-EPD-User`: every route that needs a login (saves, `POST /api/score`, `POST /api/daily`, the room routes, `DELETE /api/me`) compares the
   header, when sent, with the session's account and answers 409 `user_mismatch` when they differ. The
   cookie is shared by all tabs of a browser, so after another tab logged in as someone else, a tab that
   still syncs the first account cannot write into the second one. Without the header nothing is checked.
@@ -289,6 +298,46 @@ Daily challenge, Päeva väljakutse (`server/lib/daily.php`, client `src/sim/dai
 - Deleting an account deletes its daily rows too.
 - `EPD_TEST_CLOCK=1` lets `X-EPD-Test-Now: <unix ms>` set the clock of the day rules, but only under PHP's
   built-in server (`tests/server.test.ts`); FrankenPHP ignores it.
+
+Multiplayer rooms, Mitmikmäng (`server/lib/rooms.php`, client `src/net/rooms.ts`, `src/sim/room.ts`; design in
+docs/MULTIPLAYER.md):
+
+- Every route needs a login (401 `auth_required`, 409 `user_mismatch` as for scores). A room the caller is not
+  in answers 404 `room_not_found`, the same as a missing code.
+- Codes: 6 characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`; routes take them in any case (`/api/rooms/k7m2qx`),
+  `join` also accepts spaces and dashes. Unknown, closed or malformed codes count against the IP: 30 in 10
+  minutes, then 429 `rate_limited` (`rate_events`, bucket `room_miss`).
+- `POST /api/rooms`: `mode` `race` (default; `sector` and `role` answer 400 `mode_unavailable` until phase 2),
+  `regionId`, `sector` (`''` for the whole prefecture, else `<regionId>-<name>`), `difficulty`, `hours` (2, 3, 4
+  or 6, an integer), `slot` (`morning | afternoon | evening | night`); invalid fields give 400 `invalid_room` with
+  `field`. 20 new rooms per IP and hour (`room_create`), else 429. The server draws the seed and the code.
+- A player is in one open room (`lobby` or `running`) at a time: creating or joining another leaves the others.
+  Joining a room one is already in (also after leaving a running one) is coming back, not a second seat. A full
+  room (4) answers 409 `room_full`, a started one 409 `room_started` to anyone not already in it.
+- The room (`room`): `{ code, mode, state, v, host, me, max, options: { regionId, sector, difficulty, hours, slot },
+  seed, day, created, started, players: [{ id, name, seat, host, ready, online, left, done }], results: [{ id,
+  name, score, grade, incidents, arrests, at, rank }] }`. `seed` and `day` (the start day in Tallinn) are `null`
+  until the start. `host` and `me` are account ids. `rank` is 1 + the number of strictly higher scores.
+- `v` = `<revision>.<online seat mask>`. The revision grows on every change; `online` = polled within 20 s. A
+  poll writes the caller's `seen` at most every 5 s. With `?v=` equal to the current tag the answer is
+  `{ v, unchanged: true }`.
+- `PUT /api/rooms/{code}` (host, lobby; 403 `not_host`, 409 `room_started`) replaces the options and clears the
+  other players' ready marks. `ready` must be a boolean. `start`: 403 `not_host`, 409 `too_few` (fewer than 2
+  players), 409 `not_ready`, 409 `room_started`; sets `running`, `started` and `day`.
+- `leave`: in the lobby the seat is freed; in a running room the player stays listed with `left: true` and can
+  no longer send a result (409 `left_room`). The host's role passes to the earliest-joined player still in. A
+  lobby nobody is left in becomes `closed`, a running room `finished`.
+- `result`: fields and limits as for `POST /api/score` (`score` 0 to 100, `grade`, `incidents` at least 1 else
+  400 `empty_shift`, `arrests`); 409 `not_started` in the lobby, 409 `room_closed` for a closed room or one
+  finished over 12 hours ago. The first result of a player counts (`counted: true`), later ones answer
+  `counted: false`. Once every player still in has a result the room is `finished`.
+- Time rules, applied on every read and write: a lobby nobody polled for 30 minutes becomes `closed`, a running
+  room is `finished` 12 hours after its start. Rooms older than 30 days are deleted with their rows (swept on
+  `POST /api/rooms`). Tables `rooms`, `room_players`, `room_results` (schema step 4).
+- Room results never go to `/api/score`, `/api/daily` or their boards. Deleting an account removes its seats and
+  results and passes on the host role (`epd_rooms_forget_user`, in the deletion's transaction).
+- The clock of the room rules is the daily challenge's: `X-EPD-Test-Now` works under `EPD_TEST_CLOCK=1` with
+  PHP's built-in server only.
 
 Speech (`POST /api/tts`, `server/lib/tts.php`):
 

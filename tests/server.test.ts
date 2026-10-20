@@ -234,6 +234,8 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
   let alice: Client;
   let bob: Client;
   let bobId = 0;
+  /** A room Bob hosts when his account is deleted. */
+  let bobRoom = '';
 
   const client = (ip: string | undefined = nextIp()) => new Client(base, ip);
   const register = (c: Client, name: string, password = 'salajane-123') =>
@@ -954,6 +956,280 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
     });
   });
 
+  describe('multiplayer rooms', () => {
+    const OPTS = {
+      mode: 'race',
+      regionId: 'louna',
+      sector: 'louna-tartu',
+      difficulty: 'normal',
+      hours: 3,
+      slot: 'evening',
+    };
+    const RESULT = { score: 74, grade: 'B', incidents: 11, arrests: 2 };
+    const at = (ms: number) => ({ headers: { 'X-EPD-Test-Now': String(ms) } });
+    let hanna: Client;
+    let ivo: Client;
+    let jaan: Client;
+    let kati: Client;
+    let code = '';
+
+    const names = (r: Json) => r.json.room.players.map((p: Json) => p.name);
+    const roomRow = (c: string) => JSON.parse(sql(`SELECT state, host_id FROM rooms WHERE code = '${c}'`));
+
+    it('needs a login and X-EPD', async () => {
+      const guest = client();
+      expect((await guest.post('/api/rooms', OPTS)).status).toBe(401);
+      expect((await guest.get('/api/rooms')).status).toBe(401);
+      expect((await guest.post('/api/rooms/join', { code: 'ABCDEF' })).json.error).toBe('auth_required');
+      expect((await guest.get('/api/rooms/ABCDEF')).status).toBe(401);
+      hanna = client();
+      ivo = client();
+      jaan = client();
+      kati = client();
+      for (const [c, name] of [
+        [hanna, 'Hanna'],
+        [ivo, 'Ivo'],
+        [jaan, 'Jaan'],
+        [kati, 'Kati'],
+      ] as const)
+        expect((await register(c, name)).status).toBe(200);
+      expect((await hanna.post('/api/rooms', OPTS, { csrf: false })).status).toBe(403);
+      expect((await hanna.get('/api/rooms')).json).toEqual({ room: null });
+    });
+
+    it('validates the options and opens only the race mode', async () => {
+      const cases: [Record<string, unknown>, string][] = [
+        [{ regionId: 'tartu' }, 'regionId'],
+        [{ sector: 'pohja-kesklinn' }, 'sector'],
+        [{ sector: 'louna tartu' }, 'sector'],
+        [{ difficulty: 'easy' }, 'difficulty'],
+        [{ hours: 5 }, 'hours'],
+        [{ hours: '3' }, 'hours'],
+        [{ slot: 'noon' }, 'slot'],
+        [{ mode: 'battle' }, 'mode'],
+      ];
+      for (const [patch, field] of cases) {
+        const r = await hanna.post('/api/rooms', { ...OPTS, ...patch });
+        expect(r.status, field).toBe(400);
+        expect(r.json, field).toMatchObject({ error: 'invalid_room', field });
+      }
+      for (const mode of ['sector', 'role']) {
+        const r = await hanna.post('/api/rooms', { ...OPTS, mode });
+        expect(r.status).toBe(400);
+        expect(r.json).toMatchObject({ error: 'mode_unavailable', field: 'mode' });
+      }
+      expect(JSON.parse(sql('SELECT COUNT(*) FROM rooms'))).toEqual([[0]]);
+    });
+
+    it('creates a room with a code, the creator as host and no seed yet', async () => {
+      const r = await hanna.post('/api/rooms', { ...OPTS, sector: '' });
+      expect(r.status).toBe(200);
+      const room = r.json.room;
+      code = room.code;
+      expect(code).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
+      expect(room).toMatchObject({
+        mode: 'race',
+        state: 'lobby',
+        max: 4,
+        seed: null,
+        day: null,
+        started: null,
+        results: [],
+        options: { regionId: 'louna', sector: '', difficulty: 'normal', hours: 3, slot: 'evening' },
+      });
+      expect(room.host).toBe(room.me);
+      expect(room.players).toEqual([
+        {
+          id: room.me,
+          name: 'Hanna',
+          seat: 0,
+          host: true,
+          ready: true,
+          online: true,
+          left: false,
+          done: false,
+        },
+      ]);
+      expect((await hanna.get('/api/rooms')).json.room.code).toBe(code);
+    });
+
+    it('joins by code in any case, keeps rooms to their members and limits seats to four', async () => {
+      const typed = `${code.slice(0, 3).toLowerCase()} ${code.slice(3)}`;
+      const joined = await ivo.post('/api/rooms/join', { code: typed });
+      expect(joined.status).toBe(200);
+      expect(names(joined)).toEqual(['Hanna', 'Ivo']);
+      expect(joined.json.room.players[1]).toMatchObject({ seat: 1, host: false, ready: false });
+      // Joining again is coming back, not a second seat.
+      expect(names(await ivo.post('/api/rooms/join', { code }))).toEqual(['Hanna', 'Ivo']);
+      expect(names(await jaan.post('/api/rooms/join', { code }))).toEqual(['Hanna', 'Ivo', 'Jaan']);
+      expect(names(await kati.post('/api/rooms/join', { code }))).toEqual(['Hanna', 'Ivo', 'Jaan', 'Kati']);
+      const fifth = await alice.post('/api/rooms/join', { code });
+      expect(fifth.status).toBe(409);
+      expect(fifth.json.error).toBe('room_full');
+      // Not a member: the room does not exist for Alice.
+      const peek = await alice.get(`/api/rooms/${code}`);
+      expect(peek.status).toBe(404);
+      expect(peek.json.error).toBe('room_not_found');
+      for (const bad of ['ZZZZZZ', 'abc', 'IIIIII', '']) {
+        const r = await alice.post('/api/rooms/join', { code: bad });
+        expect(r.status, bad).toBe(404);
+        expect(r.json.error).toBe('room_not_found');
+      }
+      expect((await alice.req('DELETE', `/api/rooms/${code}`)).status).toBe(405);
+    });
+
+    it('answers an unchanged room in a few bytes and shows who is online', async () => {
+      const first = await hanna.get(`/api/rooms/${code}`);
+      const v = first.json.v;
+      expect(v).toMatch(/^\d+\.15$/);
+      const same = await hanna.get(`/api/rooms/${code}?v=${v}`);
+      expect(same.json).toEqual({ v, unchanged: true });
+      expect(same.text.length).toBeLessThan(40);
+      // A minute later only the players who polled are online.
+      const later = Date.now() + 60_000;
+      await ivo.get(`/api/rooms/${code}`, at(later));
+      const seen = await hanna.get(`/api/rooms/${code}?v=${v}`, at(later + 1000));
+      expect(seen.json.room.players.map((p: Json) => [p.name, p.online])).toEqual([
+        ['Hanna', true],
+        ['Ivo', true],
+        ['Jaan', false],
+        ['Kati', false],
+      ]);
+      expect(seen.json.v).not.toBe(v);
+    });
+
+    it('lets only the host change the options and start, once everybody is ready', async () => {
+      const notHost = await ivo.req('PUT', `/api/rooms/${code}`, { body: { ...OPTS, hours: 2 } });
+      expect(notHost.status).toBe(403);
+      expect(notHost.json.error).toBe('not_host');
+      expect((await ivo.post(`/api/rooms/${code}/start`)).json.error).toBe('not_host');
+      for (const c of [ivo, jaan, kati])
+        expect((await c.post(`/api/rooms/${code}/ready`, { ready: true })).status).toBe(200);
+      expect((await ivo.post(`/api/rooms/${code}/ready`, { ready: 'yes' })).json).toMatchObject({
+        field: 'ready',
+      });
+      // A change of options clears the others' ready marks.
+      const changed = await hanna.req('PUT', `/api/rooms/${code}`, {
+        body: { ...OPTS, hours: 2, slot: 'night' },
+      });
+      expect(changed.json.room.options).toMatchObject({ hours: 2, slot: 'night', sector: 'louna-tartu' });
+      expect(changed.json.room.players.map((p: Json) => p.ready)).toEqual([true, false, false, false]);
+      const early = await hanna.post(`/api/rooms/${code}/start`);
+      expect(early.status).toBe(409);
+      expect(early.json.error).toBe('not_ready');
+      for (const c of [ivo, jaan, kati]) await c.post(`/api/rooms/${code}/ready`, { ready: true });
+      const started = await hanna.post(`/api/rooms/${code}/start`);
+      expect(started.status).toBe(200);
+      const room = started.json.room;
+      expect(room.state).toBe('running');
+      expect(room.seed).toBeGreaterThan(0);
+      expect(room.day).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      // Every player gets the same shift.
+      const other = (await kati.get(`/api/rooms/${code}`)).json.room;
+      expect([other.seed, other.day, other.options]).toEqual([room.seed, room.day, room.options]);
+      expect((await hanna.post(`/api/rooms/${code}/start`)).json.error).toBe('room_started');
+      expect((await ivo.post(`/api/rooms/${code}/ready`, { ready: false })).json.error).toBe('room_started');
+      const late = await alice.post('/api/rooms/join', { code });
+      expect(late.status).toBe(409);
+      expect(late.json.error).toBe('room_started');
+    });
+
+    it('takes one result per player, ranks them and finishes once everybody still in has sent one', async () => {
+      const scoresBefore = (await client().get('/api/scores?limit=50')).json.scores;
+      const cases: [Record<string, unknown>, string][] = [
+        [{ score: 101 }, 'score'],
+        [{ grade: 'E' }, 'grade'],
+        [{ incidents: 'many' }, 'incidents'],
+      ];
+      for (const [patch, field] of cases) {
+        const r = await hanna.post(`/api/rooms/${code}/result`, { ...RESULT, ...patch });
+        expect(r.status, field).toBe(400);
+        expect(r.json, field).toMatchObject({ error: 'invalid_score', field });
+      }
+      expect((await hanna.post(`/api/rooms/${code}/result`, { ...RESULT, incidents: 0 })).json.error).toBe(
+        'empty_shift',
+      );
+      expect((await alice.post(`/api/rooms/${code}/result`, RESULT)).status).toBe(404);
+
+      const first = await hanna.post(`/api/rooms/${code}/result`, RESULT);
+      expect(first.json).toMatchObject({ ok: true, counted: true, rank: 1 });
+      expect(first.json.room.state).toBe('running');
+      const again = await hanna.post(`/api/rooms/${code}/result`, { ...RESULT, score: 99, grade: 'S' });
+      expect(again.json).toMatchObject({ ok: true, counted: false, rank: 1 });
+      expect(
+        (await ivo.post(`/api/rooms/${code}/result`, { ...RESULT, score: 88, grade: 'A' })).json.rank,
+      ).toBe(1);
+      expect((await jaan.post(`/api/rooms/${code}/result`, { ...RESULT, score: 74 })).json.rank).toBe(2);
+      // Kati leaves without a result: she stays on the board as having left, and the room is finished.
+      expect((await kati.post(`/api/rooms/${code}/leave`)).json).toEqual({ ok: true });
+      const board = (await hanna.get(`/api/rooms/${code}`)).json.room;
+      expect(board.state).toBe('finished');
+      expect(board.results.map((r: Json) => [r.name, r.score, r.rank])).toEqual([
+        ['Ivo', 88, 1],
+        ['Hanna', 74, 2],
+        ['Jaan', 74, 2],
+      ]);
+      expect(board.players.find((p: Json) => p.name === 'Kati')).toMatchObject({ left: true, done: false });
+      expect((await kati.post(`/api/rooms/${code}/result`, RESULT)).json.error).toBe('left_room');
+      expect((await hanna.get('/api/rooms')).json.room).toBeNull();
+      // Room results never reach the normal leaderboard.
+      expect((await client().get('/api/scores?limit=50')).json.scores).toEqual(scoresBefore);
+    });
+
+    it('frees a seat in the lobby, passes the host on and closes an empty lobby', async () => {
+      const r = (await ivo.post('/api/rooms', OPTS)).json.room;
+      await jaan.post('/api/rooms/join', { code: r.code });
+      await hanna.post('/api/rooms/join', { code: r.code });
+      expect((await ivo.post(`/api/rooms/${r.code}/leave`)).status).toBe(200);
+      const after = (await jaan.get(`/api/rooms/${r.code}`)).json.room;
+      expect(after.players.map((p: Json) => [p.name, p.host])).toEqual([
+        ['Jaan', true],
+        ['Hanna', false],
+      ]);
+      expect((await ivo.get(`/api/rooms/${r.code}`)).status).toBe(404);
+      // Joining another room leaves this one.
+      const other = (await kati.post('/api/rooms', OPTS)).json.room;
+      expect(names(await hanna.post('/api/rooms/join', { code: other.code }))).toEqual(['Kati', 'Hanna']);
+      expect(names(await jaan.get(`/api/rooms/${r.code}`))).toEqual(['Jaan']);
+      const alone = await jaan.post(`/api/rooms/${r.code}/start`);
+      expect(alone.status).toBe(409);
+      expect(alone.json.error).toBe('too_few');
+      await jaan.post(`/api/rooms/${r.code}/leave`);
+      expect(roomRow(r.code)).toEqual([['closed', null]]);
+      expect((await alice.post('/api/rooms/join', { code: r.code })).json.error).toBe('room_not_found');
+    });
+
+    it('closes a lobby nobody polled for half an hour', async () => {
+      const r = (await alice.post('/api/rooms', OPTS)).json.room;
+      const soon = await alice.get(`/api/rooms/${r.code}`, at(Date.now() + 20 * 60_000));
+      expect(soon.json.room.state).toBe('lobby');
+      const later = await alice.get(`/api/rooms/${r.code}`, at(Date.now() + 51 * 60_000));
+      expect(later.json.room.state).toBe('closed');
+      expect((await bob.post('/api/rooms/join', { code: r.code })).status).toBe(404);
+    });
+
+    it('limits wrong codes per IP', async () => {
+      const guesser = client();
+      expect((await register(guesser, 'Arvaja')).status).toBe(200);
+      for (let i = 0; i < 30; i++) {
+        expect((await guesser.post('/api/rooms/join', { code: 'QQQQQQ' })).status).toBe(404);
+      }
+      const r = await guesser.post('/api/rooms/join', { code: 'QQQQQQ' });
+      expect(r.status).toBe(429);
+      expect(r.json.error).toBe('rate_limited');
+    });
+
+    it('puts Bob in a room he hosts, for the account deletion below', async () => {
+      const r = (await bob.post('/api/rooms', OPTS)).json.room;
+      bobRoom = r.code;
+      await ivo.post('/api/rooms/join', { code: r.code });
+      await ivo.post(`/api/rooms/${r.code}/ready`, { ready: true });
+      expect((await bob.post(`/api/rooms/${r.code}/start`)).json.room.state).toBe('running');
+      expect((await bob.post(`/api/rooms/${r.code}/result`, RESULT)).json.counted).toBe(true);
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM room_players WHERE user_id = ${bobId}`))).toEqual([[1]]);
+    });
+  });
+
   describe('rate limiting', () => {
     it('blocks the 11th failed login for the same IP and name', async () => {
       expect((await register(client(), 'Ratty', 'right-password')).status).toBe(200);
@@ -1032,10 +1308,33 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       expect(bob.session).toBeUndefined();
       expect((await bob.get('/api/me')).json.user).toBeNull();
       expect((await login(client(), 'Bob')).status).toBe(401);
-      const tables = ['users WHERE id', 'saves WHERE user_id', 'scores WHERE user_id', 'daily_scores WHERE user_id'];
+      const tables = [
+        'users WHERE id',
+        'saves WHERE user_id',
+        'scores WHERE user_id',
+        'daily_scores WHERE user_id',
+        'room_players WHERE user_id',
+        'room_results WHERE user_id',
+        'rooms WHERE host_id',
+      ];
       for (const table of tables) {
         expect(JSON.parse(sql(`SELECT COUNT(*) FROM ${table} = ${bobId}`)), table).toEqual([[0]]);
       }
+      // His room goes on without him: Ivo hosts it now, and Bob's result is off its board.
+      const room = bobRoom;
+      expect(room).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
+      expect(
+        JSON.parse(
+          sql(`SELECT u.name FROM rooms r JOIN users u ON u.id = r.host_id WHERE r.code = '${room}'`),
+        ),
+      ).toEqual([['Ivo']]);
+      expect(
+        JSON.parse(
+          sql(
+            `SELECT COUNT(*) FROM room_results r JOIN rooms m ON m.id = r.room_id WHERE m.code = '${room}'`,
+          ),
+        ),
+      ).toEqual([[0]]);
       const board = await client().get('/api/scores?region=pohja');
       expect(board.json.scores.map((s: Json) => s.name)).toEqual(['Alice']);
       // The name is free again, and the new account starts empty.

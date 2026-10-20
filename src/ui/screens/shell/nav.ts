@@ -11,7 +11,13 @@ useGame.subscribe((s, prev) => {
 export function backTarget(fallback: Screen = 'menu'): Screen {
   const g = useGame.getState();
   if (previous === 'game' && g.sim && !g.sim.ended) return 'game';
-  if (previous === 'career' || previous === 'briefing' || previous === 'menu' || previous === 'report')
+  if (
+    previous === 'career' ||
+    previous === 'briefing' ||
+    previous === 'menu' ||
+    previous === 'report' ||
+    previous === 'lobby'
+  )
     return previous;
   return g.user ? fallback : 'login';
 }

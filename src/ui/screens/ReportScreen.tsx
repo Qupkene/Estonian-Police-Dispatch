@@ -6,6 +6,7 @@ import { useCareer } from '@/store/career';
 import { useAccount } from '@/net/account';
 import { submitScoreOnce, unrankedReason } from '@/net/scores';
 import { rememberGuestDaily, submitDailyOnce, type DailyResult, type DailyRun } from '@/net/daily';
+import { roomErrorKey, submitRoomResultOnce, type Room } from '@/net/rooms';
 import { ApiError } from '@/net/api';
 import { useLang, useT } from '@/i18n';
 import { sfx } from '@/audio/sfx';
@@ -13,9 +14,12 @@ import { ddmmyyyy, hhmm, wall } from '@/sim/time';
 import type { LedgerEntry, Officer, Priority, ShiftReport } from '@/sim/types';
 import type { ReportExtras } from '@/sim/report';
 import { dailyChallenge, dailyDateOf, dailyStartedOf, todayInTallinn } from '@/sim/daily';
+import { displayRoomCode, roomCodeOf } from '@/sim/room';
 import { Button, PpaLogo, PriorityChip, Spinner } from '@/ui/components';
 import { Newspaper } from './shell/Newspaper';
 import { DailyBoardModal } from './shell/Daily';
+import { boardCount, RoomBoard, useLiveRoom } from './shell/RoomBoard';
+import { openLobby } from './shell/lobbyNav';
 import { ShellPage, useEnter } from './shell/ShellPage';
 import { SignedStamp } from './shell/ShellFrame';
 import { MonoNumbers } from './shell/notices';
@@ -29,6 +33,7 @@ import {
   SLA_TARGETS,
 } from './shell/helpers';
 import './shell/report.css';
+import './shell/lobby.css';
 
 /** Reports already applied to the career profile (applyReport must run exactly once per report). */
 const applied = new WeakSet<ShiftReport>();
@@ -81,6 +86,13 @@ export function ReportScreen() {
     if (!day) return null;
     return { day, sector: sim?.sectors?.[0] ?? dailyChallenge(day).sector, started: dailyStartedOf(sim) };
   }, [report, sim]);
+
+  // A multiplayer room run (src/sim/room.ts) goes to the room's board, never to the normal leaderboard.
+  const roomCode = useMemo(
+    () => (!dailyRun && report && sim && report.shiftKey === shiftKeyOf(sim) ? roomCodeOf(sim) : null),
+    [dailyRun, report, sim],
+  );
+  const roomSend = useRoomSubmit(report, roomCode);
 
   const toMenu = () => quitShift();
   const toCareer = () => {
@@ -213,7 +225,7 @@ export function ReportScreen() {
   return (
     <ShellPage
       title={t('shell.rep.title')}
-      subtitle={`${region.name[lang]} · ${ddmmyyyy(report.start)} ${hhmm(report.start)}-${hhmm(report.end)} · ${dailyRun ? t('daily.title') : t(`shell.mode.${report.mode}`)} · ${t(`shell.diff.${report.difficulty}`)}`}
+      subtitle={`${region.name[lang]} · ${ddmmyyyy(report.start)} ${hhmm(report.start)}-${hhmm(report.end)} · ${dailyRun ? t('daily.title') : roomCode ? t('rooms.rep.mode') : t(`shell.mode.${report.mode}`)} · ${t(`shell.diff.${report.difficulty}`)}`}
       onBack={toMenu}
       backTo="menu"
       actions={
@@ -273,9 +285,17 @@ export function ReportScreen() {
                 </span>
               </p>
               <EarlyEndLine report={report} />
-              {dailyRun ? <DailyLine report={report} run={dailyRun} /> : <RankLine report={report} />}
+              {dailyRun ? (
+                <DailyLine report={report} run={dailyRun} />
+              ) : roomCode ? (
+                <RoomLine code={roomCode} send={roomSend} />
+              ) : (
+                <RankLine report={report} />
+              )}
             </div>
           </section>
+
+          {roomCode && <RoomReportBoard code={roomCode} send={roomSend} />}
 
           {/* ── Statistics ── */}
           <section className="vk-panel" aria-labelledby="vk-rep-stats">
@@ -709,5 +729,126 @@ function EarnRow({ label, amount, total }: { label: string; amount: number; tota
       <th scope="row">{label}</th>
       <td className={`is-num${tone}`}>{formatMoney(amount === 0 ? 0 : amount, lang, true)}</td>
     </tr>
+  );
+}
+
+type RoomSend =
+  | { status: 'idle' }
+  | { status: 'sending' }
+  | { status: 'guest' }
+  | { status: 'done'; counted: boolean; rank: number | null; room: Room | null }
+  | { status: 'error'; key: string; retry: boolean };
+
+/** Sends a room run's result once (accounts only) and keeps the answer for the result line and the board. */
+function useRoomSubmit(report: ShiftReport | null, code: string | null) {
+  const user = useAccount((s) => s.user);
+  const gameUser = useGame((s) => s.user);
+  const loggedIn = !!user && gameUser?.method === 'account';
+  const [state, setState] = useState<RoomSend>({ status: 'idle' });
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (!report || !code) return;
+    if (!loggedIn) {
+      setState({ status: 'guest' });
+      return;
+    }
+    let alive = true;
+    setState({ status: 'sending' });
+    submitRoomResultOnce(report, code)
+      .then((r) => alive && setState({ status: 'done', ...r }))
+      .catch((e: unknown) => {
+        if (!alive) return;
+        const key = roomErrorKey(e);
+        // Network trouble may pass; a refusal (empty shift, left the room, closed) will not.
+        setState({ status: 'error', key, retry: /\.(network|timeout|other|rate_limited)$/.test(key) });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [report, code, loggedIn, attempt]);
+  return { state, retry: () => setAttempt((n) => n + 1) };
+}
+
+/** The room line on the grade card: the place in the room, or why the result is not on its board. */
+function RoomLine({ code, send }: { code: string; send: ReturnType<typeof useRoomSubmit> }) {
+  const t = useT();
+  const { state } = send;
+  if (state.status === 'guest')
+    return (
+      <p className="vk-rep__line is-hint" data-testid="room-rank">
+        {t('rooms.rep.guest')}
+      </p>
+    );
+  if (state.status === 'done') {
+    const n = state.room
+      ? Math.max(state.room.results.length, state.room.players.filter((p) => !p.left).length)
+      : null;
+    return (
+      <div data-testid="room-rank">
+        {!state.counted && <p className="vk-rep__line is-hint">{t('rooms.rep.replay')}</p>}
+        <p className="vk-rep__line is-rank">
+          {t('rooms.rep.rank', { code: displayRoomCode(code), rank: state.rank ?? '-', n: n ?? '-' })}
+        </p>
+      </div>
+    );
+  }
+  if (state.status === 'error')
+    return (
+      <p className={`vk-rep__line ${state.retry ? 'is-error' : 'is-hint'}`} data-testid="room-rank">
+        {t(state.key)}
+        {state.retry && (
+          <Button size="sm" variant="ghost" onClick={send.retry}>
+            {t('account.rep.retry')}
+          </Button>
+        )}
+      </p>
+    );
+  return (
+    <p className="vk-rep__line is-hint" role="status">
+      <Spinner size={13} /> {t('rooms.rep.sending')}
+    </p>
+  );
+}
+
+/** The room's board on the report, kept current until every player has finished. */
+function RoomReportBoard({ code, send }: { code: string; send: ReturnType<typeof useRoomSubmit> }) {
+  const t = useT();
+  const seed = send.state.status === 'done' ? send.state.room : null;
+  const active = send.state.status === 'done' || send.state.status === 'error';
+  const { room } = useLiveRoom(code, seed, active);
+  const final = room?.state === 'finished' || room?.state === 'closed';
+  return (
+    <section className="vk-panel" aria-labelledby="vk-rep-room" data-testid="room-report">
+      <div className="vk-panel__head">
+        <h2 className="vk-h" id="vk-rep-room">
+          {t('rooms.board.titleCode', { code: displayRoomCode(code) })}
+        </h2>
+        {room && (
+          <span className="vk-meta">
+            {boardCount(t, room)} · {final ? t('rooms.board.final') : t('rooms.board.live')}
+          </span>
+        )}
+      </div>
+      {room ? (
+        <RoomBoard room={room} />
+      ) : (
+        <p className="vk-mp__state" role="status">
+          <Spinner size={14} /> {t('rooms.rep.sending')}
+        </p>
+      )}
+      <div className="vk-panel__foot">
+        <span className="vk-rep__roomNote">{t('rooms.board.note')}</span>
+        <button
+          type="button"
+          className="vk-btn vk-btn--ghost vk-rep__toRoom"
+          onClick={() => {
+            useGame.getState().quitShift();
+            openLobby(code);
+          }}
+        >
+          {t('rooms.rep.toRoom')}
+        </button>
+      </div>
+    </section>
   );
 }
