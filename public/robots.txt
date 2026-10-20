@@ -1,5 +1,5 @@
 # EPD · Eesti Politsei Dispetšer: https://politsei.eu
-# Mitteametlik fännimäng. Unofficial fan game, not affiliated with PPA.
+# Mitteametlik ja tasuta fännimäng, ei ole PPA toode. Unofficial free fan game, not a PPA product or affiliated with PPA.
 User-agent: *
 Allow: /
 # API vastused on kasutajapõhised, kaardifail on suur binaarfail (Range päringud).

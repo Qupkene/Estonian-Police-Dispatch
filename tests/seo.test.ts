@@ -179,7 +179,7 @@ describe('loading splash', () => {
   it('shows real text to crawlers that do not run JavaScript', () => {
     expect(rootEl.querySelector('h1')!.textContent).toContain('Eesti Politsei Dispetšer');
     expect(rootEl.textContent).toContain('Laadimine…');
-    expect(rootEl.textContent).toContain('Mitteametlik fännimäng');
+    expect(rootEl.textContent).toContain('Mitteametlik ja tasuta fännimäng');
     expect(rootEl.textContent!.length).toBeGreaterThan(150);
     expect(rootEl.querySelector('[role="status"]')!.textContent).toContain('Laadimine');
     // No web fonts or external files before the bundle: only same-origin images.

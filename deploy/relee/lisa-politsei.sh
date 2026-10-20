@@ -196,7 +196,7 @@ cat > "$VARU_KAUST/index.html.uus" <<'VARULEHT'
       <p lang="en">The game server is not responding right now. Please try again in a few minutes.</p>
       <a class="nupp" href="/">Proovi uuesti</a>
       <hr />
-      <small>EPD · Eesti Politsei Dispetšer on mitteametlik fännimäng ega ole seotud Politsei- ja Piirivalveametiga (PPA). Hädaolukorras helista <strong>112</strong>.</small>
+      <small>EPD · Eesti Politsei Dispetšer on mitteametlik ja tasuta fännimäng, mis ei teeni tulu. See ei ole Politsei- ja Piirivalveameti (PPA) ametlik toode ega ametiga seotud. Hädaolukorras helista <strong>112</strong>. Kontakt: info@politsei.eu</small>
     </main>
   </body>
 </html>

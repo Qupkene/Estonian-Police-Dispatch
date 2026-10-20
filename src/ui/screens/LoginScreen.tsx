@@ -1,17 +1,20 @@
 // Estonian e-identity login simulation (ID-kaart / Mobiil-ID / Smart-ID) + the classic 2024 login.
-// The e-ID flows are simulations: any input is accepted after a short delay (guest logins).
-// The "Klassika" tab is the real account login when the server answers (src/net/account.ts);
-// both fields empty is still the 2024 easter egg. Owned by ui-shell.
+// The e-ID flows are simulations: any input is accepted after a short delay (guest logins). On a wide screen the
+// panel is at the right and the duty map is moved left, so Estonia sits in the free space.
+// The "Klassika" tab is the real account login when the server answers (src/net/account.ts), on a screen of its
+// own like the 2024 and 2025 originals (blue page, white box); both fields empty is still the 2024 easter egg.
+// Owned by ui-shell.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useGame, type LoginUser } from '@/store/game';
 import { useAccount, type AccountUser } from '@/net/account';
 import { nameProblem, PASSWORD_MIN } from '@/net/sync';
 import { useLang, useT } from '@/i18n';
 import { sfx } from '@/audio/sfx';
-import { Button, Icon, IconButton, Spinner, Tabs, TextField } from '@/ui/components';
+import { BrandLogo, Button, Icon, IconButton, PpaLogo, Spinner, Tabs, TextField, type Brand } from '@/ui/components';
 import { useToast } from './shell/ShellPage';
 import { DutyMap, NO_DUTY } from './shell/DutyMap';
-import { ShellFooter, ShellTopBar, STACKED, useMedia } from './shell/ShellFrame';
+import { DESKTOP_VIEW, type MapView } from './shell/dutyMap';
+import { ShellFooter, ShellIdent, ShellTopBar, STACKED, useMedia } from './shell/ShellFrame';
 import { VkLayer } from './shell/VkLayer';
 import { accountErrorText } from './shell/accountText';
 import { LogoutDialog } from './shell/AccountChip';
@@ -28,6 +31,9 @@ import './shell/vk.css';
 import './shell/login.css';
 
 type Method = 'idcard' | 'mobiilid' | 'smartid' | 'legacy';
+
+/** The whole-country map moved left (view px), out from under the panel at the right. */
+const LOGIN_VIEW: MapView = { ...DESKTOP_VIEW, at: [DESKTOP_VIEW.at[0] - 250, DESKTOP_VIEW.at[1]] };
 
 export function LoginScreen() {
   const t = useT();
@@ -105,6 +111,77 @@ export function LoginScreen() {
     login({ name: name.trim() || t('shell.login.guestName'), method: 'guest' });
   };
 
+  const resume = accountUser && (
+    <div className="vk-login__resume" role="status">
+      <p>
+        <strong>{t('account.resume.title', { name: accountUser.name })}</strong>
+        <span>{t('account.resume.text')}</span>
+      </p>
+      <div className="vk-login__resumeActions">
+        <Button variant="primary" onClick={() => accountLogin(accountUser)}>
+          {t('account.resume.continue')}
+        </Button>
+        <Button variant="ghost" onClick={() => setConfirmLogout(true)}>
+          {t('account.logout')}
+        </Button>
+      </div>
+    </div>
+  );
+  const logoutDialog = confirmLogout && accountUser && (
+    <VkLayer>
+      <LogoutDialog name={accountUser.name} onClose={() => setConfirmLogout(false)} />
+    </VkLayer>
+  );
+  // The account note says what the server keeps; without the server the e-ID note stands.
+  const simNote = t(backend === 'online' && method === 'legacy' ? 'account.login.simNote' : 'shell.login.simNote');
+
+  if (method === 'legacy')
+    return (
+      <div className={`vk vk-ui sh-login sh-classic${leaving ? ' is-leaving' : ''}`}>
+        {toast.node}
+        <main className="sh-classic__main">
+          <button type="button" className="sh-classic__back" onClick={() => setMethod('idcard')}>
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M10 3.5 5.5 8l4.5 4.5" />
+            </svg>
+            {t('shell.login.classic.back')}
+          </button>
+          <div className="sh-classic__stage">
+            {/* Where the 2024 page had its police picture: PPA's logo in white, then the system's name. */}
+            <div className="sh-classic__mark">
+              <PpaLogo variant="full" height={44} className="sh-classic__ppa" />
+              <p className="sh-classic__name">EPD · {t('shell.menu.name')}</p>
+            </div>
+            {success ? (
+              <div className="sh-legacy__box sh-classic__success" role="status">
+                <h2>{t('shell.login.success')}</h2>
+                <p>{t('shell.login.welcome', { name: success })}</p>
+              </div>
+            ) : (
+              <>
+                {resume && <div className="sh-classic__resume">{resume}</div>}
+                {sessionLost && !accountUser && (
+                  <p className="sh-classic__lost" role="status">
+                    {t('account.lost')}
+                  </p>
+                )}
+                <LegacyForm onLegacy={legacyLogin} onAccount={accountLogin} />
+                <div className="sh-classic__alt">
+                  <span>{t('shell.login.or')}</span>
+                  <button type="button" className="sh-classic__guest" onClick={guest} data-sfx="click">
+                    {t('shell.login.guest')}
+                  </button>
+                </div>
+                <p className="sh-classic__sim">{simNote}</p>
+              </>
+            )}
+          </div>
+        </main>
+        <ShellFooter />
+        {logoutDialog}
+      </div>
+    );
+
   return (
     <div
       className={`vk vk-ui vk-login sh-login${stacked ? ' is-stacked' : ''}${leaving ? ' is-leaving' : ''}`}
@@ -113,7 +190,7 @@ export function LoginScreen() {
       <ShellTopBar account={false} />
       <main className="vk-login__main">
         <div className={stacked ? 'vk-login__strip' : 'vk-login__map'}>
-          <DutyMap variant={stacked ? 'strip' : 'full'} input={NO_DUTY} />
+          <DutyMap variant={stacked ? 'strip' : 'full'} input={NO_DUTY} view={stacked ? undefined : LOGIN_VIEW} />
         </div>
         <section className="vk-panel vk-login__panel" aria-labelledby="sh-login-title">
           <div className="vk-panel__head">
@@ -122,6 +199,7 @@ export function LoginScreen() {
             </h1>
             <span className="vk-meta">EPD-CAD {VERSION}</span>
           </div>
+          <ShellIdent className="vk-login__ident" />
           {success ? (
             <div className="vk-login__success" role="status">
               <p className="vk-login__successTitle">
@@ -133,22 +211,7 @@ export function LoginScreen() {
           ) : (
             <>
               <div className="vk-login__top">
-                {accountUser && (
-                  <div className="vk-login__resume" role="status">
-                    <p>
-                      <strong>{t('account.resume.title', { name: accountUser.name })}</strong>
-                      <span>{t('account.resume.text')}</span>
-                    </p>
-                    <div className="vk-login__resumeActions">
-                      <Button variant="primary" onClick={() => accountLogin(accountUser)}>
-                        {t('account.resume.continue')}
-                      </Button>
-                      <Button variant="ghost" onClick={() => setConfirmLogout(true)}>
-                        {t('account.logout')}
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                {resume}
                 {sessionLost && !accountUser && (
                   <p className="vk-msg is-warn" role="status">
                     {t('account.lost')}
@@ -177,10 +240,10 @@ export function LoginScreen() {
                 value={method}
                 onChange={setMethod}
                 tabs={[
-                  { id: 'idcard', label: t('shell.login.tab.idcard') },
-                  { id: 'mobiilid', label: t('shell.login.tab.mobiilid') },
-                  { id: 'smartid', label: t('shell.login.tab.smartid') },
-                  { id: 'legacy', label: t('shell.login.tab.legacy') },
+                  { id: 'idcard', label: <TabLabel brand="id-kaart" text={t('shell.login.tab.idcard')} /> },
+                  { id: 'mobiilid', label: <TabLabel brand="mobiil-id" text={t('shell.login.tab.mobiilid')} /> },
+                  { id: 'smartid', label: <TabLabel brand="smart-id" text={t('shell.login.tab.smartid')} /> },
+                  { id: 'legacy', label: <span className="vk-login__tabLabel">{t('shell.login.tab.legacy')}</span> },
                 ]}
               />
               <div className="vk-login__flow" role="tabpanel">
@@ -208,7 +271,6 @@ export function LoginScreen() {
                     onDone={(code) => complete('smartid', code)}
                   />
                 )}
-                {method === 'legacy' && <LegacyForm onLegacy={legacyLogin} onAccount={accountLogin} />}
               </div>
               <div className="vk-login__alt">
                 <span>{t('shell.login.or')}</span>
@@ -216,15 +278,8 @@ export function LoginScreen() {
                   {t('shell.login.guest')}
                 </button>
               </div>
-              <p className="vk-login__sim">
-                {/* The account form does send data: its note says what the server keeps. */}
-                {t(
-                  backend === 'online' && method === 'legacy'
-                    ? 'account.login.simNote'
-                    : 'shell.login.simNote',
-                )}
-              </p>
-              {backend === 'online' && method !== 'legacy' && !accountUser && (
+              <p className="vk-login__sim">{simNote}</p>
+              {backend === 'online' && !accountUser && (
                 <p className="vk-login__acct">
                   <button type="button" className="vk-linkbtn" onClick={() => setMethod('legacy')}>
                     {t('account.login.hint')}
@@ -245,12 +300,18 @@ export function LoginScreen() {
         </section>
       </main>
       <ShellFooter />
-      {confirmLogout && accountUser && (
-        <VkLayer>
-          <LogoutDialog name={accountUser.name} onClose={() => setConfirmLogout(false)} />
-        </VkLayer>
-      )}
+      {logoutDialog}
     </div>
+  );
+}
+
+/** A sign-in tab: the method's own logo (used with its owner's permission, if its file is there) and its name. */
+function TabLabel({ brand, text }: { brand: Brand; text: string }) {
+  return (
+    <span className="vk-login__tabLabel">
+      <BrandLogo brand={brand} height={16} decorative />
+      {text}
+    </span>
   );
 }
 
@@ -321,7 +382,10 @@ function IdCardFlow({
       </ol>
       {phase === 'insert' && (
         <div className="sh-id__step">
-          <p>{t('shell.login.id.insert')}</p>
+          <p className="sh-id__insert">
+            <BrandLogo brand="id-kaart" height={30} />
+            {t('shell.login.id.insert')}
+          </p>
           <Button variant="primary" size="lg" onClick={() => setPhase('reading')} block>
             {t('shell.login.id.insertBtn')}
           </Button>
@@ -345,7 +409,10 @@ function IdCardFlow({
             </div>
           </dl>
           <label className="sh-pin" onClick={() => pinRef.current?.focus()}>
-            <span className="sh-pin__label">{t('shell.login.id.pin')}</span>
+            <span className="sh-pin__label">
+              <BrandLogo brand="id-kaart" height={20} decorative />
+              {t('shell.login.id.pin')}
+            </span>
             <span className="sh-pin__boxes">
               {[0, 1, 2, 3].map((i) => (
                 <span
@@ -530,7 +597,10 @@ function MobileFlow({
         </Button>
       </div>
       <div className={`sh-phone sh-phone--${kind}`} aria-hidden="true">
-        <div className="sh-phone__app">{appName}</div>
+        <div className="sh-phone__app">
+          <BrandLogo brand={kind === 'mobiilid' ? 'mobiil-id' : 'smart-id'} height={18} decorative />
+          {appName}
+        </div>
         <div className="sh-phone__title">{t('shell.login.phone.request')}</div>
         <div className="sh-phone__code mono">{code}</div>
         <div className="sh-phone__pin">

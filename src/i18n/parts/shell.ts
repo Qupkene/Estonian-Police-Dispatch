@@ -118,6 +118,10 @@ export default {
     en: 'The original Politsei Andmebaas login (2024).',
   },
   'shell.login.legacy.welcome': { et: 'Tere tagasi, 2024!', en: 'Welcome back, 2024!' },
+  'shell.login.classic.back': {
+    et: 'Tagasi: ID-kaart, Mobiil-ID, Smart-ID',
+    en: 'Back: ID card, Mobile-ID, Smart-ID',
+  },
   'shell.login.or': { et: 'või', en: 'or' },
   'shell.login.guest': { et: 'Jätka külalisena', en: 'Continue as guest' },
   'shell.login.guestName': { et: 'Külaline', en: 'Guest' },
@@ -267,15 +271,15 @@ export default {
   'shell.frame.local': { et: 'Salvestus selles brauseris', en: 'Saved in this browser' },
   'shell.frame.mapCredit': {
     et: 'Kaart: Maa- ja Ruumiamet, Natural Earth',
-    en: 'Map: Estonian Land and Spatial Development Board, Natural Earth',
+    en: 'Map: Maa- ja Ruumiamet, Natural Earth',
   },
   'shell.frame.mapCreditShort': {
     et: 'kaart: Maa- ja Ruumiamet, Natural Earth',
-    en: 'map: Estonian Land and Spatial Development Board, Natural Earth',
+    en: 'map: Maa- ja Ruumiamet, Natural Earth',
   },
   'shell.frame.disclaimer': {
-    et: 'Mitteametlik fännimäng, ei ole seotud Politsei- ja Piirivalveametiga. Hädaolukorras helista 112.',
-    en: 'Unofficial fan game, not affiliated with the Estonian Police and Border Guard Board. In an emergency call 112.',
+    et: 'Mitteametlik ja tasuta fännimäng. Ei ole Politsei- ja Piirivalveameti toode ega ametiga seotud. Hädaolukorras helista 112.',
+    en: 'Unofficial free fan game. Not a product of, or affiliated with, the Police and Border Guard Board. In an emergency call 112.',
   },
 
   // ── Duty map ──
@@ -583,7 +587,6 @@ export default {
   'shell.cred.src.inter': { et: 'Vahetuse töölaua kiri.', en: 'Typeface of the shift desk.' },
   'shell.cred.src.archivo': { et: 'Menüüde pealkirjad ja sildid.', en: 'Headings and labels of the menus.' },
   'shell.cred.src.instrument': { et: 'Menüüde ja lehtede tekst.', en: 'Text of the menus and pages.' },
-  'shell.cred.legal': { et: 'Õiguslik märkus', en: 'Legal note' },
   'shell.cred.col.name': { et: 'Allikas', en: 'Source' },
   'shell.cred.col.use': { et: 'Kasutus', en: 'Used for' },
   'shell.cred.col.licence': { et: 'Litsents', en: 'Licence' },
@@ -593,13 +596,10 @@ export default {
     et: 'Liides, olekuhaldus ja ehitus.',
     en: 'Interface, state management and build.',
   },
-  'shell.cred.research': {
-    et: 'Realismi aluseks on avalikud allikad (ERR, politsei.ee, Riigi Teataja). Kõik isikud, nimed, numbrid ja juhtumid mängus on väljamõeldud.',
-    en: 'Realism is based on public sources (ERR, politsei.ee, Riigi Teataja). All people, names, numbers and incidents in the game are fictional.',
-  },
-  'shell.cred.emblem': {
-    et: 'EPD embleem (kilp, rukkilill ja monogramm) on mängu jaoks loodud originaal. See ei ole PPA ega Eesti riigi sümbol.',
-    en: 'The EPD emblem (shield, cornflower and monogram) is an original made for the game. It is not a PPA or Estonian state symbol.',
+  'shell.cred.contactTitle': { et: 'Kontakt', en: 'Contact' },
+  'shell.cred.contact': {
+    et: 'Küsimused, ettepanekud ja soovid:',
+    en: 'Questions, suggestions and requests:',
   },
 
   // ── Legacy ──

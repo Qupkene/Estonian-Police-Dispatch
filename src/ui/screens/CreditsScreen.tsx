@@ -1,5 +1,6 @@
 // Credits, data sources and licences. Owned by ui-shell.
 import { useT } from '@/i18n';
+import { CONTACT } from './shell/ShellFrame';
 import { ShellPage } from './shell/ShellPage';
 import { VERSION } from './shell/helpers';
 import './shell/pages.css';
@@ -136,16 +137,16 @@ export function CreditsScreen() {
               <p>{t('shell.cred.thanksText')}</p>
             </div>
           </section>
-          <section className="vk-panel" aria-labelledby="vk-cred-legal">
+          <section className="vk-panel" aria-labelledby="vk-cred-contact">
             <div className="vk-panel__head">
-              <h2 className="vk-h" id="vk-cred-legal">
-                {t('shell.cred.legal')}
+              <h2 className="vk-h" id="vk-cred-contact">
+                {t('shell.cred.contactTitle')}
               </h2>
             </div>
             <div className="vk-panel__body">
-              <p className="vk-cred__disclaimer">{t('core.disclaimer')}</p>
-              <p>{t('shell.cred.research')}</p>
-              <p>{t('shell.cred.emblem')}</p>
+              <p className="vk-cred__contact">
+                {t('shell.cred.contact')} <a href={`mailto:${CONTACT}`}>{CONTACT}</a>
+              </p>
             </div>
           </section>
         </div>

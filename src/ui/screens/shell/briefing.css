@@ -257,6 +257,16 @@
   padding-bottom: 12px;
   border-bottom: 2px solid var(--doc-ink);
 }
+.vk-doc__from {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+}
+/* PPA's logo as the letterhead, in the paper's ink. */
+.vk-doc__logo {
+  margin-bottom: 10px;
+  color: var(--doc-ink);
+}
 .vk-doc__org {
   font-family: var(--vk-font-display);
   font-size: 15px;
@@ -326,14 +336,9 @@
   font-size: 12.5px;
   color: var(--doc-muted);
 }
-.vk-doc__stamp {
-  padding: 5px 9px;
-  border: 1px solid var(--doc-muted);
-  border-radius: 2px;
-  font: 500 10.5px/1.2 var(--vk-font-mono);
-  letter-spacing: 0.06em;
+.vk-doc__stamp.vk-stamp {
+  border-color: var(--doc-muted);
   color: var(--doc-muted);
-  text-transform: uppercase;
 }
 
 /* ── The career roster ─────────────────────────────────────────────────── */

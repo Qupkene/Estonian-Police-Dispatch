@@ -2607,3 +2607,14 @@ fieldset.vk-panel {
     transition: none;
   }
 }
+
+/* The head's prefecture with PPA's shield before it. */
+.cr-head__unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  vertical-align: bottom;
+}
+.cr-head__ppa {
+  color: var(--vk-text-0);
+}

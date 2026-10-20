@@ -348,9 +348,90 @@
   line-height: 1;
   color: var(--vk-text-0);
 }
+/* The system owner's mark first, a hairline, then the wordmark. */
+.vk-top__rule {
+  align-self: stretch;
+  width: 1px;
+  margin: 10px 2px;
+  background: var(--vk-line);
+}
 .vk-top__name {
   font-size: 12.5px;
   color: var(--vk-text-2);
+}
+/* PPA's logo (PpaLogo.tsx) in the text colour: the full logo on a wide screen, the shield on a narrow one. */
+.vk-top__ppa {
+  color: var(--vk-text-0);
+}
+.vk-top__ppaMark {
+  display: none;
+}
+@media (max-width: 1099px) {
+  .vk-top__ppaFull {
+    display: none;
+  }
+  .vk-top__ppaMark {
+    display: block;
+  }
+}
+
+/* A document's seal (SignedStamp): the DigiDoc logo and "Digitaalselt allkirjastatud". */
+.vk-stamp {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px;
+  border: 1px solid var(--vk-line);
+  border-radius: 2px;
+  font: 500 10.5px/1.2 var(--vk-font-mono);
+  letter-spacing: 0.06em;
+  color: var(--vk-text-2);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Identity on the boot and sign-in panels (ShellIdent): PPA's logo, a hairline, the EPD name. */
+.vk-ident {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 14px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--vk-line-2);
+}
+.vk-ident__name {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  margin: 0;
+  padding-left: 14px;
+  border-left: 1px solid var(--vk-line);
+}
+.vk-ident__mark {
+  font-family: var(--vk-font-display);
+  font-size: 20px;
+  font-weight: 800;
+  font-stretch: 125%;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: var(--vk-text-0);
+}
+.vk-ident__long {
+  font-size: 12.5px;
+  line-height: 1.2;
+  color: var(--vk-text-2);
+}
+.vk-ident__ppa {
+  color: var(--vk-text-0);
+}
+/* Narrow: the name goes under the logo, without the hairline. */
+@media (max-width: 480px) {
+  .vk-ident__name {
+    flex-basis: 100%;
+    padding-left: 0;
+    border-left: 0;
+  }
 }
 .vk-top__date {
   font: 400 12px/1 var(--vk-font-mono);
@@ -518,7 +599,7 @@ button.vk-acct__who:hover .vk-acct__name {
 .vk-foot {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
   min-width: 0;
   height: 28px;
   padding: 0 16px;
@@ -540,6 +621,9 @@ button.vk-acct__who:hover .vk-acct__name {
   font-size: 11.5px;
   text-align: center;
   text-overflow: ellipsis;
+}
+.vk-foot__contact {
+  flex: none;
 }
 .vk-foot__keys {
   display: flex;
@@ -571,8 +655,13 @@ button.vk-acct__who:hover .vk-acct__name {
     text-align: left;
     text-wrap: pretty;
   }
+  .vk-foot__contact {
+    display: inline-block;
+    margin-top: 2px;
+    padding: 6px 0;
+  }
   .vk-foot__line {
-    margin: 8px 0 0;
+    margin: 4px 0 0;
     font: 400 11.5px/18px var(--vk-font-mono);
   }
   .vk-foot__keys,

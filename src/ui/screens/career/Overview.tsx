@@ -6,7 +6,7 @@ import { useGame } from '@/store/game';
 import { useLang, useT, useTx } from '@/i18n';
 import { RANKS } from '@/data/economy';
 import * as rules from '@/sim/career';
-import { Modal } from '@/ui/components';
+import { Modal, PpaLogo } from '@/ui/components';
 import type { CareerProfile, Lang, RegionId } from '@/sim/types';
 import { careerFigures, nextShiftKind, menuNotices, shiftBars, type Notice } from '../shell/menuModel';
 import { MonoNumbers, noticeText } from '../shell/notices';
@@ -97,7 +97,11 @@ export function PageHead({
       <p className="vk-pagehead__line">
         <strong>{profile.name}</strong> <span className="vk-mono">{profile.badge}</span> · {tx(rank.name)} ·{' '}
         <span className="cr-head__pos">{lowerFirst(position, lang)}</span> ·{' '}
-        {whole ? region : `${area}, ${region}`}
+        <span className="cr-head__unit">
+          {/* The employer: PPA's shield (used with the agency's permission) before the prefecture. */}
+          <PpaLogo variant="emblem" height={18} className="cr-head__ppa" />
+          {whole ? region : `${area}, ${region}`}
+        </span>
       </p>
       <span className="vk-pagehead__meta">
         {t('shell.menu.dayMonth', { day: cal.day, month: cal.month })}

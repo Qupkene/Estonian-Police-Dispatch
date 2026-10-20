@@ -1,8 +1,9 @@
-// Valvekaart frame of the out-of-game screens: the top bar (wordmark, date and clock, language, account) and the
-// footer (version, map credits, disclaimer, the screen's keys). Styles in vk.css. There is no live weather source,
-// so the bar shows none.
+// Valvekaart frame of the out-of-game screens: the top bar (PPA's logo and the EPD wordmark, date and clock,
+// language, account) and the footer (version, map credits, disclaimer, the screen's keys). Styles in vk.css.
+// There is no live weather source, so the bar shows none.
 import { useEffect, useState, type ReactNode } from 'react';
 import { useT } from '@/i18n';
+import { BrandLogo, PpaLogo } from '@/ui/components';
 import { useAccount } from '@/net/account';
 import { useGame } from '@/store/game';
 import { useSettings } from '@/store/settings';
@@ -66,6 +67,10 @@ export function useMedia(query: string): boolean {
 /** Below this width the screens stack into one column with the map as a strip on top. */
 export const STACKED = '(max-width: 1099px)';
 
+/**
+ * The top bar. The system owner's mark comes first: PPA's logo (used with the agency's permission,
+ * docs/PERMISSIONS.md), the full logo on a wide screen and the shield on a narrow one; then the "EPD" wordmark.
+ */
 export function ShellTopBar({
   account = true,
   brandAs = 'p',
@@ -82,6 +87,9 @@ export function ShellTopBar({
   return (
     <header className="vk-top">
       <div className="vk-top__cell vk-top__brand">
+        <PpaLogo variant="full" height={28} className="vk-top__ppa vk-top__ppaFull" />
+        <PpaLogo variant="emblem" height={28} className="vk-top__ppa vk-top__ppaMark" />
+        <span className="vk-top__rule" aria-hidden="true" />
         <Brand className="vk-brand">
           <span aria-hidden="true">EPD</span>
           <span className="vk-sr">{t('shell.menu.name')}</span>
@@ -183,13 +191,44 @@ export function ShellAccount() {
   );
 }
 
+/** The system's identity on the boot and sign-in panels: PPA's logo, then the EPD name. */
+export function ShellIdent({ className }: { className?: string }) {
+  const t = useT();
+  return (
+    <div className={`vk-ident${className ? ' ' + className : ''}`}>
+      <PpaLogo variant="full" height={30} className="vk-ident__ppa" />
+      <p className="vk-ident__name">
+        <span className="vk-ident__mark">EPD</span>
+        <span className="vk-ident__long">{t('shell.menu.name')}</span>
+      </p>
+    </div>
+  );
+}
+
+/** "Digitaalselt allkirjastatud" with the DigiDoc logo (used with RIA's permission): a document's seal. */
+export function SignedStamp({ className }: { className?: string }) {
+  const t = useT();
+  return (
+    <div className={`vk-stamp${className ? ' ' + className : ''}`}>
+      <BrandLogo brand="digidoc" height={18} decorative />
+      <span>{t('shell.brief.signed')}</span>
+    </div>
+  );
+}
+
+/** The contact address, in the footer of every screen and on the credits page. */
+export const CONTACT = 'info@politsei.eu';
+
 export function ShellFooter({ children }: { children?: ReactNode }) {
   const t = useT();
   return (
     <footer className="vk-foot">
-      <span className="vk-foot__version">EPD {VERSION} · politsei.eu</span>
+      <span className="vk-foot__version">EPD {VERSION}</span>
       <span className="vk-foot__credit">{t('shell.frame.mapCredit')}</span>
       <p className="vk-foot__disclaimer">{t('shell.frame.disclaimer')}</p>
+      <a className="vk-foot__contact" href={`mailto:${CONTACT}`}>
+        {CONTACT}
+      </a>
       {children}
       <p className="vk-foot__line">
         EPD {VERSION} · politsei.eu · {t('shell.frame.mapCreditShort')}

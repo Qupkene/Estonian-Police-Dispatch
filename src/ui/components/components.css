@@ -1016,7 +1016,22 @@
 }
 .ui-emblem {
   flex: none;
-  filter: drop-shadow(0 4px 14px rgba(29, 79, 216, 0.35));
+  display: block;
+}
+/* Official logos (BrandLogo.tsx): single-colour files as a mask over the text colour, others as they are. */
+.ui-brand {
+  flex: none;
+  display: block;
+  max-width: none;
+}
+.ui-brand--mask {
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
 }
 
 /* The light theme's accent is already deeper: only a touch darker for 4.5:1 across the gradient. */

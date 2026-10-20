@@ -3,8 +3,8 @@
 Mis on tehtud:
 
 - `index.html`: pealkiri ja kirjeldus, canonical `https://politsei.eu/`, Open Graph ja X/Twitteri suur kaart, JSON-LD (VideoGame + WebApplication ja WebSite), ikoonid ning laadimisleht, mille tekst on nähtav ka ilma JavaScriptita.
-- `public/og-image.png` (1200 × 630, alla 300 kB, et ka WhatsApp eelvaadet näitaks): tehtud päris mängupildist `docs/screenshots/game.png`, HTML-mall renderdati Playwrightiga ja pakiti 256 värvini. `public/og-image.svg` on sama kaardi vektorversioon.
-- `public/icons/`: PNG ikoonid (32, 192, 512, maskable 512 ja apple-touch-icon 180) failist `public/favicon.svg`. `public/screenshots/`: manifesti ekraanipildid (WebP, 1600 × 900).
+- `public/og-image.png` (1200 × 630, alla 300 kB, et ka WhatsApp eelvaadet näitaks): EPD ikoon (sinimustvalge kilp) ja pealkiri ning päris mängupildi väljalõige (sündmuste nimekiri, kaart, raadio; mängu ülariba koos logodega jääb välja), HTML-mall renderdati Playwrightiga ja pakiti 256 värvini. `public/og-image.svg` on sama kaardi vektorversioon. Eelvaates on ainult mängu enda ikoon, mitte PPA ega muu ametlik logo (docs/PERMISSIONS.md).
+- `public/icons/`: PNG ikoonid (32, 192, 512, maskable 512 ja apple-touch-icon 180) ning `public/favicon.ico` (16, 32, 48) failist `public/favicon.svg` (EPD ikoon, sinimustvalge kilp, `src/ui/components/Emblem.tsx`). Maskable ja Apple ikoonil on tume taust ja kilp jääb keskmise 80 % ringi sisse. `public/screenshots/`: manifesti ekraanipildid (WebP, 1600 × 900).
 - `public/manifest.webmanifest`: id, kirjeldus, kategooriad, PNG ja maskable ikoonid ning laiad ekraanipildid, nii näitab Chrome rikkalikumat paigaldusakent.
 - `public/robots.txt` keelab `/api/` ja `/tiles/`, `public/sitemap.xml` sisaldab mängu ja kahte vana versiooni. Uue avaliku lehe lisamisel pane see sitemapi ja uuenda `lastmod`.
 - Caddyfile: `/api/*` vastustel on `X-Robots-Tag: noindex`; robots, sitemap ja pildid tulevad päris failidena koos vahemäluajaga, puuduv fail annab 404, mitte `index.html`-i.

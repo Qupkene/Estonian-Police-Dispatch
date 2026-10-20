@@ -35,7 +35,7 @@ test('boots, logs in the 2024 way and plays a quick shift to the report', async 
   page.on('pageerror', (e) => errors.push(String(e)));
 
   await bootAndLegacyLogin(page);
-  await expect(page.getByText('Mitteametlik fännimäng', { exact: false }).first()).toBeVisible();
+  await expect(page.getByText('Mitteametlik ja tasuta fännimäng', { exact: false }).first()).toBeVisible();
 
   await page.getByRole('button', { name: /Kiirmäng/ }).first().click();
   await expect.poll(() => screen(page)).toBe('briefing');

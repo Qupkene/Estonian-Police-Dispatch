@@ -1,5 +1,6 @@
 /* Sign-in (LoginScreen.tsx) on the Valvekaart frame (vk.css): the empty duty map, the sign-in panel over it at
-   the left; on a narrow screen the map is a strip on top and the panel follows. No justify-content on .sh-login:
+   the right (the map is moved left, LOGIN_VIEW); on a narrow screen the map is a strip on top and the panel
+   follows. The Klassika tab is a screen of its own (.sh-classic, at the end). No justify-content on .sh-login:
    a panel taller than a phone screen would be pushed above the scroll origin. Prefix: vk-login (the e2e tests
    and tests/visual-ui.test.ts still use .sh-login and .sh-legacy). */
 
@@ -20,6 +21,7 @@
   flex: 1 0 auto;
   display: flex;
   align-items: flex-start;
+  justify-content: flex-end;
   min-height: 0;
   padding: 12px;
 }
@@ -39,6 +41,12 @@
 /* 2024: the login box faded out for a second before the game opened. */
 .sh-login.is-leaving .vk-login__panel {
   opacity: 0;
+}
+/* The identity only where the screen is tall enough: below that the panel would scroll at 1280 × 720. */
+@media (max-height: 799px) {
+  .vk-login__ident {
+    display: none;
+  }
 }
 .vk-login__top {
   display: grid;
@@ -61,6 +69,11 @@
   flex: 1;
   justify-content: center;
   padding: 10px 4px;
+}
+.vk-login__tabLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .vk-login__flow {
   display: flex;
@@ -201,6 +214,11 @@
   gap: 14px;
   flex: 1;
 }
+.sh-id__insert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .vk-steps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -281,6 +299,9 @@
   cursor: text;
 }
 .sh-pin__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 600;
   color: var(--vk-text-0);
 }
@@ -434,6 +455,9 @@
   text-align: center;
 }
 .sh-phone__app {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--vk-font-display);
   font-size: 10px;
   font-weight: 600;
@@ -664,4 +688,148 @@
   .sh-pad__key {
     height: 44px;
   }
+}
+
+/* ── Klassika: the 2024 and 2025 sign-in as a screen of its own ──────────────
+   The originals: a full-screen #0071cf page, a picture at the top, a centred white box with "Logi sisse", two
+   inputs and a #0056a5 button. Here the picture is PPA's logo in white. The footer stays (disclaimer). */
+
+.sh-classic {
+  background: #0071cf;
+  color: #fff;
+  font-family: Roboto, Arial, sans-serif;
+}
+.sh-classic__main {
+  position: relative;
+  flex: 1 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 64px 16px 40px;
+}
+.sh-classic__back {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  font: 500 14px/1 Roboto, Arial, sans-serif;
+  cursor: pointer;
+}
+.sh-classic__back svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+.sh-classic__back:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.sh-classic__back:focus-visible,
+.sh-classic__guest:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.sh-classic__stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 360px;
+  transition: opacity 1s ease;
+}
+/* 2024: the login box faded out for a second before the game opened. */
+.sh-classic.is-leaving .sh-classic__stage {
+  opacity: 0;
+}
+.sh-classic__mark {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+.sh-classic__mark {
+  flex-direction: column;
+  gap: 12px;
+}
+.sh-classic__ppa {
+  color: #fff;
+}
+.sh-classic__name {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+.sh-classic .sh-legacy {
+  flex: none;
+  width: 100%;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+}
+.sh-classic__success {
+  max-width: 280px;
+}
+.sh-classic__success p {
+  margin: 0;
+  font-size: 14px;
+}
+.sh-classic__resume {
+  width: 100%;
+  max-width: 320px;
+}
+.sh-classic__resume .vk-login__resume {
+  border-color: transparent;
+  border-left-color: var(--vk-ok);
+}
+.sh-classic__lost {
+  margin: 0;
+  color: #fff;
+  font-size: 13px;
+  text-align: center;
+}
+.sh-classic__alt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+.sh-classic__guest {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  font: 500 14px/1 Roboto, Arial, sans-serif;
+  cursor: pointer;
+}
+.sh-classic__guest:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.sh-classic__sim {
+  max-width: 340px;
+  margin: 0;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+  text-wrap: pretty;
+}
+/* The frame's footer on the blue page: transparent, white text (4.6:1 and up on #0071cf). */
+.sh-classic .vk-foot {
+  background: transparent;
+  border-top-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+.sh-classic .vk-foot a {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }

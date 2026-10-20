@@ -49,9 +49,8 @@
   font-size: 11.5px !important;
   white-space: nowrap;
 }
-.vk-cred__disclaimer {
-  color: var(--vk-text-0);
-  font-weight: 600;
+.vk-cred__contact {
+  margin: 0;
 }
 
 .vk-legcard {
