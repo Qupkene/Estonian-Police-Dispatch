@@ -14,11 +14,14 @@ import {
 import { clearAutosave, loadAutosave, shiftKeyOf, useGame, type Screen } from '@/store/game';
 import { useCareer } from '@/store/career';
 import { useAccount } from '@/net/account';
+import { fetchMyRoom, type Room } from '@/net/rooms';
 import { useLang, useT, useTx } from '@/i18n';
+import { displayRoomCode } from '@/sim/room';
 import { sectorById } from '@/sim/sectors';
 import { ddmmyyyy, hhmm, wall } from '@/sim/time';
 import type { CareerProfile, GameMode, Lang } from '@/sim/types';
 import { DailyCard, useDaily } from './shell/Daily';
+import { openLobby } from './shell/lobbyNav';
 import { DutyMap, type MapLayout } from './shell/DutyMap';
 import { Leaderboard } from './shell/Leaderboard';
 import { MapLegend } from './shell/MapLegend';
@@ -41,7 +44,7 @@ import './shell/vk.css';
 import './shell/menu.css';
 
 interface Row {
-  id: 'career' | 'daily' | 'quick' | 'director' | 'settings' | 'legacy' | 'credits';
+  id: 'career' | 'daily' | 'quick' | 'multi' | 'director' | 'settings' | 'legacy' | 'credits';
   system?: boolean;
   title: string;
   desc: string;
@@ -103,6 +106,23 @@ export function MenuScreen() {
     void useAccount.getState().init();
   }, []);
 
+  // A room the player is still in (a reload, a closed tab): the menu row says so and leads back to it.
+  const signedIn = !!accountUser && user?.method === 'account' && backend === 'online';
+  const [openRoom, setOpenRoom] = useState<Room | null>(null);
+  useEffect(() => {
+    if (!signedIn) {
+      setOpenRoom(null);
+      return;
+    }
+    let alive = true;
+    fetchMyRoom()
+      .then((r) => alive && setOpenRoom(r))
+      .catch(() => alive && setOpenRoom(null));
+    return () => {
+      alive = false;
+    };
+  }, [signedIn, accountUser?.id]);
+
   const rootRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const leftRef = useRef<HTMLDivElement>(null);
@@ -144,6 +164,18 @@ export function MenuScreen() {
       },
     },
     { id: 'quick', title: t('shell.menu.quick'), desc: t('shell.menu.row.quick'), run: brief('free') },
+    {
+      id: 'multi',
+      title: t('rooms.title'),
+      desc: openRoom
+        ? t('rooms.menu.rowIn', {
+            code: displayRoomCode(openRoom.code),
+            state: t(`rooms.state.${openRoom.state}`),
+          })
+        : t('rooms.menu.row'),
+      mark: openRoom ? 'mine' : undefined,
+      run: () => openLobby(),
+    },
     {
       id: 'director',
       title: t('shell.menu.director'),
@@ -212,7 +244,7 @@ export function MenuScreen() {
       e.preventDefault();
       const n = e.key === 'ArrowDown' ? (i + 1) % btns.length : (i - 1 + btns.length) % btns.length;
       btns[i < 0 ? 0 : n]?.focus();
-    } else if (/^[1-7]$/.test(e.key)) {
+    } else if (/^[1-9]$/.test(e.key)) {
       const row = rows[Number(e.key) - 1];
       if (row) {
         e.preventDefault();
@@ -320,7 +352,7 @@ export function MenuScreen() {
           </>
         )}
       </main>
-      <ShellFooter>{!stacked && <MenuKeys />}</ShellFooter>
+      <ShellFooter>{!stacked && <MenuKeys n={rows.length} />}</ShellFooter>
     </div>
   );
 }
@@ -741,7 +773,7 @@ function NoticesPanel({ notices, max }: { notices: Notice[]; max: number }) {
 
 // ── Keyboard ─────────────────────────────────────────────────────────────────
 
-function MenuKeys() {
+function MenuKeys({ n }: { n: number }) {
   const t = useT();
   return (
     <ul className="vk-foot__keys" aria-label={t('shell.menu.keys')}>
@@ -753,7 +785,7 @@ function MenuKeys() {
         <kbd className="vk-kbd">⏎</kbd> {t('shell.menu.keys.open')}
       </li>
       <li>
-        <kbd className="vk-kbd">1</kbd>-<kbd className="vk-kbd">7</kbd> {t('shell.menu.keys.direct')}
+        <kbd className="vk-kbd">1</kbd>-<kbd className="vk-kbd">{n}</kbd> {t('shell.menu.keys.direct')}
       </li>
     </ul>
   );
