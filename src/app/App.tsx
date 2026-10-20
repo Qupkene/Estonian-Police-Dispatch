@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { useGame } from '@/store/game';
 import { useSettings } from '@/store/settings';
 import { useT } from '@/i18n';
-import { Emblem } from '@/ui/components';
+import { PpaLogo } from '@/ui/components';
 import { BootScreen } from '@/ui/screens/BootScreen';
 import { LoginScreen } from '@/ui/screens/LoginScreen';
 import { MenuScreen } from '@/ui/screens/MenuScreen';
@@ -121,7 +121,7 @@ function Loading() {
   const t = useT();
   return (
     <div className="app-loading" role="status">
-      <Emblem size={44} />
+      <PpaLogo height={32} className="app-loading__ppa" />
       <span>{t('game.loading')}</span>
     </div>
   );

@@ -118,6 +118,10 @@ export default {
     en: 'The original Politsei Andmebaas login (2024).',
   },
   'shell.login.legacy.welcome': { et: 'Tere tagasi, 2024!', en: 'Welcome back, 2024!' },
+  'shell.login.classic.back': {
+    et: 'Tagasi: ID-kaart, Mobiil-ID, Smart-ID',
+    en: 'Back: ID card, Mobile-ID, Smart-ID',
+  },
   'shell.login.or': { et: 'või', en: 'or' },
   'shell.login.guest': { et: 'Jätka külalisena', en: 'Continue as guest' },
   'shell.login.guestName': { et: 'Külaline', en: 'Guest' },
@@ -267,15 +271,15 @@ export default {
   'shell.frame.local': { et: 'Salvestus selles brauseris', en: 'Saved in this browser' },
   'shell.frame.mapCredit': {
     et: 'Kaart: Maa- ja Ruumiamet, Natural Earth',
-    en: 'Map: Estonian Land and Spatial Development Board, Natural Earth',
+    en: 'Map: Maa- ja Ruumiamet, Natural Earth',
   },
   'shell.frame.mapCreditShort': {
     et: 'kaart: Maa- ja Ruumiamet, Natural Earth',
-    en: 'map: Estonian Land and Spatial Development Board, Natural Earth',
+    en: 'map: Maa- ja Ruumiamet, Natural Earth',
   },
   'shell.frame.disclaimer': {
-    et: 'Mitteametlik fännimäng, ei ole seotud Politsei- ja Piirivalveametiga. Hädaolukorras helista 112.',
-    en: 'Unofficial fan game, not affiliated with the Estonian Police and Border Guard Board. In an emergency call 112.',
+    et: 'Mitteametlik ja tasuta fännimäng. Ei ole Politsei- ja Piirivalveameti toode ega ametiga seotud. Hädaolukorras helista 112.',
+    en: 'Unofficial free fan game. Not a product of, or affiliated with, the Police and Border Guard Board. In an emergency call 112.',
   },
 
   // ── Duty map ──
@@ -597,9 +601,21 @@ export default {
     et: 'Realismi aluseks on avalikud allikad (ERR, politsei.ee, Riigi Teataja). Kõik isikud, nimed, numbrid ja juhtumid mängus on väljamõeldud.',
     en: 'Realism is based on public sources (ERR, politsei.ee, Riigi Teataja). All people, names, numbers and incidents in the game are fictional.',
   },
+  'shell.cred.ppa': {
+    et: 'Politsei- ja Piirivalveameti logo on kasutatud ameti loal (19.10.2026). Kõik logod on omanike enda failid nende veebilehtedelt, muutmata kujul, ja neid kasutatakse omanike loal mitteärilises mängus koos märkusega, et see on mitteametlik fännimäng.',
+    en: "The logo of the Police and Border Guard Board is used with the agency's permission (19.10.2026). Every logo is its owner's own file from their website, unaltered, used with the owner's permission in a non-commercial game together with the note that it is an unofficial fan game.",
+  },
+  'shell.cred.logos': { et: 'Logod', en: 'Logos' },
+  'shell.cred.col.owner': { et: 'Omanik', en: 'Owner' },
+  'shell.cred.logoUse': { et: 'kasutatud omaniku loal', en: "used with the owner's permission" },
   'shell.cred.emblem': {
-    et: 'EPD embleem (kilp, rukkilill ja monogramm) on mängu jaoks loodud originaal. See ei ole PPA ega Eesti riigi sümbol.',
-    en: 'The EPD emblem (shield, cornflower and monogram) is an original made for the game. It is not a PPA or Estonian state symbol.',
+    et: 'Brauseri vahekaardi ja avaekraani ikoon (sinimustvalge kilp) on mängu jaoks loodud originaal, mitte PPA ega Eesti riigi sümbol. Riigivappi mäng ei kasuta: väike riigivapp on ainult PPA logo sees, nagu see on.',
+    en: 'The browser tab and home screen icon (a blue, black and white shield) is an original made for the game, not a PPA or Estonian state symbol. The game does not use the state coat of arms: the small coat of arms appears only inside the PPA logo, as it is.',
+  },
+  'shell.cred.contact': { et: 'Kontakt ja õiguste küsimused:', en: 'Contact and rights questions:' },
+  'shell.cred.affil': {
+    et: 'EPD ei ole seotud Politsei- ja Piirivalveameti, Kaitsepolitseiameti (KAPO), Riigi Infosüsteemi Ameti (RIA) ega SK ID Solutionsiga ega ole nende ametlik toode. Mäng on tasuta ega teeni tulu.',
+    en: 'EPD is not affiliated with, or an official product of, the Police and Border Guard Board, the Internal Security Service (KAPO), the Information System Authority (RIA) or SK ID Solutions. The game is free and earns no money.',
   },
 
   // ── Legacy ──

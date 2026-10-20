@@ -1,7 +1,7 @@
 import { useGame, SPEEDS } from '@/store/game';
 import { useCareer } from '@/store/career';
 import { useLang, useT, useTx } from '@/i18n';
-import { Emblem, Icon, IconButton, Kbd } from '@/ui/components';
+import { Icon, IconButton, Kbd, PpaLogo } from '@/ui/components';
 import { dayInfo } from '@/sim/calendar';
 import { sectorById } from '@/sim/sectors';
 import { ddmmyyyy, hhmm, hhmmss, wall } from '@/sim/time';
@@ -63,7 +63,7 @@ export function TopBar() {
       </button>
 
       <div className="gm-top__brand">
-        <Emblem size={30} />
+        <PpaLogo variant="emblem" height={28} className="gm-top__ppa" />
         <div className="gm-top__brand-text">
           <strong>{tx(region.name)}</strong>
           {area ? (

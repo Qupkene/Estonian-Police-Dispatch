@@ -105,9 +105,18 @@
   .vk-boot__skip {
     display: none;
   }
+  .vk-boot .vk-top__cell {
+    padding: 0 12px;
+  }
   .vk-boot__log {
     min-height: 0;
     font-size: 11.5px;
     line-height: 21px;
+  }
+}
+@media (max-width: 420px) {
+  /* The clock stays; the date is in the log's header (Europe/Tallinn) and on the next screen. */
+  .vk-boot .vk-top__date {
+    display: none;
   }
 }

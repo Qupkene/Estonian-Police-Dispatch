@@ -1,6 +1,6 @@
 /*
  * EPD · Eesti Politsei Dispetšer: service worker (offline / PWA).
- * Mitteametlik fännimäng, ei ole seotud PPA-ga. Unofficial fan game, not affiliated with PPA.
+ * Mitteametlik ja tasuta fännimäng, ei ole PPA toode. Unofficial free fan game, not a PPA product or affiliated with PPA.
  *
  * Strategies:
  *   navigations              network-first; falls back to the cached page or the cached index when the

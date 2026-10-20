@@ -2,7 +2,7 @@
   "id": "/",
   "name": "EPD · Eesti Politsei Dispetšer",
   "short_name": "EPD",
-  "description": "Politsei juhtimiskeskuse simulaator päris Eesti kaardil: võta vastu 112-kõned, saada patrullid välja ja kontrolli inimesi andmebaasist. Mitteametlik fännimäng, ei ole seotud PPA-ga.",
+  "description": "Politsei juhtimiskeskuse simulaator päris Eesti kaardil: võta vastu 112-kõned, saada patrullid välja ja kontrolli inimesi andmebaasist. Mitteametlik ja tasuta fännimäng, ei ole PPA toode ega PPA-ga seotud.",
   "lang": "et",
   "dir": "ltr",
   "start_url": "./",

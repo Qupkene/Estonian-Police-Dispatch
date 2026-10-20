@@ -196,8 +196,8 @@
   gap: 10px;
   padding-left: 0 !important;
 }
-.gm-top__brand svg {
-  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 35%, transparent));
+.gm-top__ppa {
+  color: var(--text-0);
 }
 .gm-top__brand-text {
   display: flex;

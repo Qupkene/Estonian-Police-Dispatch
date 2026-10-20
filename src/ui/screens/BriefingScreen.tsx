@@ -12,6 +12,7 @@ import {
 import { useGame } from '@/store/game';
 import { useCareer } from '@/store/career';
 import { useLang, useT, useTx } from '@/i18n';
+import { PpaLogo } from '@/ui/components';
 import { sfx } from '@/audio/sfx';
 import { REGIONS } from '@/data/regions';
 import { rankOf, rosterFromCareer } from '@/sim/career';
@@ -35,6 +36,7 @@ import {
   type ShiftArea,
 } from './career/sectors';
 import { ShellPage, useEnter } from './shell/ShellPage';
+import { SignedStamp } from './shell/ShellFrame';
 import {
   careerShiftRegion,
   DATE_PRESETS,
@@ -435,7 +437,8 @@ export function BriefingScreen() {
           {/* ── Päevakäsk: the order the system produces, as a document ── */}
           <article className="vk-doc sh-order" aria-labelledby="sh-order-title">
             <header className="vk-doc__head">
-              <div>
+              <div className="vk-doc__from">
+                <PpaLogo height={30} className="vk-doc__logo" />
                 <div className="vk-doc__org">{region.name[lang]}</div>
                 <div className="vk-doc__unit">{t('shell.brief.orderUnit')}</div>
               </div>
@@ -498,7 +501,7 @@ export function BriefingScreen() {
                 <div className="vk-doc__sigName">{region.commander.name}</div>
                 <div className="vk-doc__sigTitle">{region.commander.title[lang]}</div>
               </div>
-              <div className="vk-doc__stamp">{t('shell.brief.signed')}</div>
+              <SignedStamp className="vk-doc__stamp" />
             </footer>
           </article>
 

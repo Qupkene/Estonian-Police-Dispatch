@@ -13,10 +13,11 @@ import { ddmmyyyy, hhmm, wall } from '@/sim/time';
 import type { LedgerEntry, Officer, Priority, ShiftReport } from '@/sim/types';
 import type { ReportExtras } from '@/sim/report';
 import { dailyChallenge, dailyDateOf, dailyStartedOf, todayInTallinn } from '@/sim/daily';
-import { Button, PriorityChip, Spinner } from '@/ui/components';
+import { Button, PpaLogo, PriorityChip, Spinner } from '@/ui/components';
 import { Newspaper } from './shell/Newspaper';
 import { DailyBoardModal } from './shell/Daily';
 import { ShellPage, useEnter } from './shell/ShellPage';
+import { SignedStamp } from './shell/ShellFrame';
 import { MonoNumbers } from './shell/notices';
 import {
   formatDecimal,
@@ -230,6 +231,17 @@ export function ReportScreen() {
       }
     >
       <Enter fn={newShift} />
+      {/* The report as a document of the prefecture's command centre: PPA's letterhead and the digital seal. */}
+      <header className="vk-panel vk-rep__letter">
+        <PpaLogo height={28} className="vk-rep__logo" />
+        <p className="vk-rep__from">
+          <strong>{region.name[lang]}</strong>
+          <span>
+            {t('shell.brief.orderUnit')} · {t('shell.rep.title')}
+          </span>
+        </p>
+        <SignedStamp />
+      </header>
       <dl
         className="vk-strip vk-panel vk-rep__strip"
         style={{ '--vk-strip-n': cells.length } as CSSProperties}

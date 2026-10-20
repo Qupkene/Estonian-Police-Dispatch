@@ -2,6 +2,20 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.14.0 (2026-10-20)
+
+- **Politsei- ja Piirivalveameti logo ameti loal:** PPA logo on igal ekraanil ülemisel ribal esimesena, laadimisel, sisselogimisel, mängu ülemisel ribal ning päevakäsu ja aruande päises nagu päris dokumendil.
+- **E-identiteedi logod omanike loal:** ID-kaart, Mobiil-ID ja Smart-ID sisselogimisel ning DigiDoci „Allkirjastatud digitaalselt“ tempel päevakäsul ja aruandel.
+- **Klassikaline sisselogimine** on jälle täisekraanil sinisena nagu 2024. aastal, PPA logoga. Tavalise sisselogimise aken on paremal ja kaart vasakul.
+- Uus brauseri- ja äpiikoon (Eesti lipuga kilp). Jalusesse lisati, et mäng on tasuta ega ole PPA toode, ning kontakt info@politsei.eu. Load on kirjas tiitrites.
+
+<details>
+<summary>English</summary>
+
+The PPA logo, used with the agency's permission, now heads every screen, the login, the in-game top bar and the briefing and report letterheads. ID-kaart, Mobiil-ID and Smart-ID logos on the login and a DigiDoc "digitally signed" stamp, with their owners' permission. The classic login is a full blue screen again with the PPA logo; the regular login panel moved right. New favicon and app icon, footer note that the game is free and not a PPA product, contact info@politsei.eu.
+
+</details>
+
 ## 2.13.0 (2026-10-19)
 
 - **Kõik menüüd Valvekaardis:** laadimisekraan, sisselogimine, vahetuse eelinfo, aruanne, seaded, tiitrid, algsed versioonid ja päeva edetabel on nüüd sama kujundusega nagu peamenüü ja karjäär. Tumedas, heledas ja telefonis.

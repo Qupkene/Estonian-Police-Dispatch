@@ -6,7 +6,7 @@ import { useT } from '@/i18n';
 import { sfx } from '@/audio/sfx';
 import { VERSION } from './shell/helpers';
 import { DutyMap, NO_DUTY } from './shell/DutyMap';
-import { ShellFooter, ShellTopBar } from './shell/ShellFrame';
+import { ShellFooter, ShellIdent, ShellTopBar } from './shell/ShellFrame';
 import './shell/vk.css';
 import './shell/boot.css';
 
@@ -104,6 +104,7 @@ export function BootScreen() {
             <span className="vk-boot__sub">{t('shell.boot.subtitle')}</span>
             <span className="vk-meta">v{VERSION} · Europe/Tallinn</span>
           </div>
+          <ShellIdent />
           <ol className="vk-boot__log">
             {lines.slice(0, shown).map((l, i) => (
               <li key={l.key} className="vk-boot__line">

@@ -1,5 +1,7 @@
 // Credits, data sources and licences. Owned by ui-shell.
 import { useT } from '@/i18n';
+import { BrandLogo, type Brand } from '@/ui/components';
+import { CONTACT } from './shell/ShellFrame';
 import { ShellPage } from './shell/ShellPage';
 import { VERSION } from './shell/helpers';
 import './shell/pages.css';
@@ -42,6 +44,14 @@ const DATA: Source[] = [
     descKey: 'shell.cred.src.maaamet',
     url: 'https://maaruum.ee',
   },
+];
+
+/** Official logos in the game, each the owner's own file, used with the owner's permission (docs/PERMISSIONS.md). */
+const LOGOS: { brand: Brand; name: string; owner: string }[] = [
+  { brand: 'ppa', name: 'Politsei- ja Piirivalveamet', owner: 'Politsei- ja Piirivalveamet' },
+  { brand: 'smart-id', name: 'Smart-ID', owner: 'SK ID Solutions' },
+  { brand: 'mobiil-id', name: 'Mobiil-ID', owner: 'SK ID Solutions' },
+  { brand: 'id-kaart', name: 'ID-kaart, DigiDoc (iD)', owner: 'Riigi Infosüsteemi Amet' },
 ];
 
 const SOFTWARE: Source[] = [
@@ -144,9 +154,42 @@ export function CreditsScreen() {
             </div>
             <div className="vk-panel__body">
               <p className="vk-cred__disclaimer">{t('core.disclaimer')}</p>
+              <p>{t('shell.cred.affil')}</p>
               <p>{t('shell.cred.research')}</p>
+            </div>
+            <div className="vk-cred__mark">
+              <p>{t('shell.cred.ppa')}</p>
+            </div>
+            <table className="vk-table vk-cred__logos">
+              <caption>{t('shell.cred.logos')}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">{t('shell.cred.logos')}</th>
+                  <th scope="col">{t('shell.cred.col.owner')}</th>
+                  <th scope="col">{t('shell.cred.col.licence')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {LOGOS.map((l) => (
+                  <tr key={l.brand}>
+                    <th scope="row">
+                      <span className="vk-cred__logo">
+                        <BrandLogo brand={l.brand} height={l.brand === 'ppa' ? 24 : 22} decorative />
+                        <span className={l.brand === 'ppa' ? 'vk-sr' : undefined}>{l.name}</span>
+                      </span>
+                    </th>
+                    <td>{l.owner}</td>
+                    <td>{t('shell.cred.logoUse')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="vk-cred__mark">
               <p>{t('shell.cred.emblem')}</p>
             </div>
+            <p className="vk-cred__contact">
+              {t('shell.cred.contact')} <a href={`mailto:${CONTACT}`}>{CONTACT}</a>
+            </p>
           </section>
         </div>
         <div className="vk-cred__col">
