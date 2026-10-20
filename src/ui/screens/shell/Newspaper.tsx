@@ -1,5 +1,5 @@
 // Classic broadsheet front page rendering ShiftReport.newspaper.
-import type { Lang, ShiftReport } from '@/sim/types';
+import type { Lang, ShiftReport, Text } from '@/sim/types';
 import { useT } from '@/i18n';
 import './newspaper.css';
 
@@ -8,14 +8,20 @@ export function Newspaper({
   lang,
   issue,
   weather,
+  extra,
 }: {
   paper: ShiftReport['newspaper'];
   lang: Lang;
   issue?: number;
   weather?: string;
+  /** A signed piece about the career's story (docs/STORY.md), set after the lead story. */
+  extra?: { title: Text; body: Text; byline: string } | null;
 }) {
   const t = useT();
-  const stories = paper.stories ?? [];
+  const own = paper.stories ?? [];
+  const stories: { title: Text; body: Text; byline?: string }[] = extra
+    ? [...own.slice(0, 1), extra, ...own.slice(1, 3)]
+    : own;
   return (
     <article className="sh-paper" lang={lang} aria-label={t('shell.rep.paper')}>
       <div className="sh-paper__strip">
@@ -54,8 +60,12 @@ export function Newspaper({
           <figcaption>{t('shell.paper.caption')}</figcaption>
         </figure>
         {stories.map((s, i) => (
-          <section key={i} className={`sh-paper__story${i === 0 ? ' is-lead' : ''}`}>
+          <section
+            key={i}
+            className={`sh-paper__story${i === 0 ? ' is-lead' : ''}${s.byline ? ' is-signed' : ''}`}
+          >
             <h4>{s.title[lang] || s.title.et}</h4>
+            {s.byline && <p className="sh-paper__byline">{s.byline}</p>}
             <p>{s.body[lang] || s.body.et}</p>
           </section>
         ))}

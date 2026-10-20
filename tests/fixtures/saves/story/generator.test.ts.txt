@@ -1,0 +1,128 @@
+// @vitest-environment jsdom
+/**
+ * Generator of the golden save fixture in tests/fixtures/saves/story/ (see the README there): a career of the
+ * first version told in chapters (docs/STORY.md), written through its own store and engine.
+ *
+ * It must run against the code of the version whose saves it records, never a later one. From the repository
+ * root of that version:
+ *   cp tests/fixtures/saves/story/generator.test.ts.txt tests/zz-gen-story-fixture.test.ts
+ *   EPD_FIXTURE_OUT=/tmp/fixtures-out npx vitest run tests/zz-gen-story-fixture.test.ts
+ *   rm tests/zz-gen-story-fixture.test.ts
+ * Without EPD_FIXTURE_OUT the test is skipped. The run is deterministic (fixed clock, seeded bot), so the same
+ * code gives the same file.
+ */
+import { describe, expect, it, vi } from 'vitest';
+import { mkdirSync, writeFileSync } from 'node:fs';
+
+const OUT = process.env.EPD_FIXTURE_OUT;
+
+let seed = 12345;
+const rand = () => {
+  seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+  return seed / 2 ** 32;
+};
+
+/** Store a persisted value byte for byte as the browser held it. */
+function writeRaw(name: string, raw: string | null) {
+  if (raw === null) throw new Error(`nothing stored for ${name}`);
+  JSON.parse(raw); // must be valid JSON
+  mkdirSync(OUT!, { recursive: true });
+  writeFileSync(`${OUT}/${name}`, raw);
+}
+
+describe('generate the story save fixture', () => {
+  it.skipIf(!OUT)('writes a career in its first chapter with objectives met and a question waiting', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-19T06:30:00Z'));
+    localStorage.clear();
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    }));
+    await import('@/net/account');
+
+    const { useCareer } = await import('@/store/career');
+    const { useGame, stopLoop } = await import('@/store/game');
+    const rules = await import('@/sim/career');
+    const { careerSectors } = await import('@/sim/careerSectors');
+    const { step } = await import('@/sim/engine');
+    const cmd = await import('@/sim/commands');
+    const { pendingRadio, queue, recommendUnits } = await import('@/sim/selectors');
+    const { correctReply } = await import('@/sim/registry');
+    const { tallinnTime, MIN } = await import('@/sim/time');
+    type SimState = import('@/sim/types').SimState;
+    const QUESTIONS = ['what', 'where', 'injured', 'weapons', 'suspect'] as const;
+
+    function bot(s: SimState, tick: number) {
+      for (const call of s.calls) {
+        if (call.endedAt) continue;
+        if (!call.answeredAt) cmd.answerCall(s, call.id);
+        else if (call.asked.length < QUESTIONS.length) cmd.askCall(s, call.id, QUESTIONS[call.asked.length]);
+        else cmd.endCall(s, call.id, { action: 'create', priority: s.incidents[call.incidentId]?.truePriority ?? 3 });
+      }
+      for (const inc of queue(s)) {
+        if (inc.state === 'incoming') cmd.acknowledge(s, inc.id);
+        const need = inc.need.reduce((a, n) => a + n.count, 0);
+        if (inc.assigned.length === 0 || (tick % 7 === 0 && inc.assigned.length < need)) {
+          const recs = recommendUnits(s, inc.id).filter((r) => r.fit === 'ideal' || r.fit === 'need' || r.fit === 'weak');
+          const want = Math.max(1, need) - inc.assigned.length;
+          if (recs.length && want > 0) cmd.dispatchUnits(s, inc.id, recs.slice(0, want).map((r) => r.unit.id));
+        }
+        for (const n of inc.agencyNeeds) if (!n.requested) cmd.requestAgency(s, inc.id, n.agency);
+      }
+      for (const msg of pendingRadio(s)) {
+        if (!msg.replies?.length) continue;
+        let replyId = msg.replies[0].id;
+        if (msg.kind === 'query' && msg.incidentId) {
+          const inc = s.incidents[msg.incidentId];
+          const subj = inc?.persons.find((p) => msg.text.et.includes(s.persons[p.personId]?.idcode ?? '§§'));
+          const veh = inc?.vehicles.find((v) => msg.text.et.includes(v.plate));
+          if (subj || veh) {
+            const truth = correctReply(s, subj ? { personId: subj.personId } : { plate: veh!.plate });
+            if (rand() < 0.9 && msg.replies.some((r) => r.id === truth)) replyId = truth;
+          }
+        } else if (msg.kind === 'backup' || msg.kind === 'choice') {
+          replyId = msg.replies[Math.floor(rand() * msg.replies.length)].id;
+        }
+        cmd.replyRadio(s, msg.id, replyId);
+      }
+    }
+
+    // ── A new career at the Tartu linn desk ───────────────────────────────────
+    useCareer.getState().create('Liisa Kuusk', '318', 'louna', 'louna-tartu');
+
+    // ── Real shifts until the mentor's question waits and an objective is met ──
+    for (let i = 0; i < 6; i++) {
+      const st = useCareer.getState().profile!.story!;
+      if (i >= 2 && st.choice && st.done.length) break;
+      vi.setSystemTime(new Date(Date.UTC(2026, 9, 19 + i, 4, 0)));
+      const p = useCareer.getState().profile!;
+      useGame.getState().startShift({
+        seed: 8200 + i * 17,
+        regionId: p.regionId,
+        mode: 'career',
+        difficulty: 'normal',
+        start: tallinnTime(2026, 10, 19 + i, 7, 0),
+        hours: 8,
+        playerName: p.name,
+        roster: rules.rosterFromCareer(p, 'day'),
+        upgrades: p.upgrades,
+        reputation: p.reputation,
+        sectors: careerSectors(p, p.regionId),
+        openPosts: p.openPosts,
+      });
+      stopLoop();
+      const s = useGame.getState().sim!;
+      for (let t = 0; t < 8.5 * 60 * 2 && !s.ended; t++) {
+        step(s, MIN / 2);
+        bot(s, t);
+      }
+      useCareer.getState().applyReport(useGame.getState().endShift()!);
+      useGame.getState().quitShift();
+    }
+    const p = useCareer.getState().profile!;
+    expect(p.story!.chapter).toBe(1);
+    expect(p.story!.choice).toMatchObject({ id: 'c1-debrief' });
+    writeRaw('epd-career.json', localStorage.getItem('epd:career'));
+    console.log('career', JSON.stringify({ day: p.day, story: p.story, inbox: useCareer.getState().inbox.length }));
+  }, 600_000);
+});

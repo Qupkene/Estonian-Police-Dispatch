@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import * as rules from '@/sim/career';
 import * as sectorRules from '@/sim/careerSectors';
+import { answerStoryChoice, storyIntro, storyProgress } from '@/sim/story';
 import { DAY, isoDate } from '@/sim/time';
 import type { CareerProfile, LedgerEntry, RegionId, ShiftReport, Text } from '@/sim/types';
 import { guardedPersist, keepBackup, normalizeCareerState, overState } from './migrate';
@@ -64,8 +65,23 @@ interface CareerStore {
   declineOffer: () => void;
   /** Open a police post in a covered sector with career money; returns the error text if it could not. */
   openPost: (stationId: string) => Text | undefined;
+  /** Answer the question a character of the story asked (docs/STORY.md); returns the error text if it could not. */
+  answerChoice: (optionId: string) => Text | undefined;
   clearInbox: () => void;
   reset: () => void;
+}
+
+/**
+ * Set a changed profile, moving its story on (an accepted sector or a hire can meet an objective or begin a chapter,
+ * docs/STORY.md); what the cast says joins the inbox.
+ */
+function setWithStory(next: CareerProfile) {
+  const r = storyProgress(next);
+  useCareer.setState(
+    r.messages.length
+      ? { profile: r.profile, inbox: [...useCareer.getState().inbox, ...r.messages] }
+      : { profile: r.profile },
+  );
 }
 
 export const useCareer = create<CareerStore>()(
@@ -76,17 +92,19 @@ export const useCareer = create<CareerStore>()(
       create: (name, badge, regionId, startSector) => {
         const profile = rules.newCareer(name, badge, regionId, (Date.now() ^ 0x5eed) >>> 0, startSector);
         backupCareer(get(), 'create');
-        set({ profile, inbox: [] });
+        // The first chapter's intro is the new career's first notice (docs/STORY.md).
+        const intro = storyIntro(profile);
+        set({ profile, inbox: intro ? [intro] : [] });
       },
       update: (fn) => {
         const p = get().profile;
-        if (p) set({ profile: fn(p) });
+        if (p) setWithStory(fn(p));
       },
       attempt: (fn) => {
         const p = get().profile;
         if (!p) return undefined;
         const r = fn(p);
-        if (!r.error) set({ profile: r.profile });
+        if (!r.error) setWithStory(r.profile);
         return r.error;
       },
       applyReport: (r) => {
@@ -108,6 +126,14 @@ export const useCareer = create<CareerStore>()(
       acceptOffer: (sectorId) => get().attempt((p) => sectorRules.acceptOffer(p, sectorId)),
       declineOffer: () => get().update(sectorRules.declineOffer),
       openPost: (stationId) => get().attempt((p) => sectorRules.openPost(p, stationId)),
+      answerChoice: (optionId) => {
+        const p = get().profile;
+        if (!p) return undefined;
+        const r = answerStoryChoice(p, optionId);
+        if (r.error) return r.error;
+        set({ profile: r.profile, inbox: r.reply ? [...get().inbox, r.reply] : get().inbox });
+        return undefined;
+      },
       clearInbox: () => set({ inbox: [] }),
       reset: () => {
         backupCareer(get(), 'reset');

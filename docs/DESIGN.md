@@ -284,6 +284,8 @@ Persistent profile (localStorage): name, badge number, home region, career day, 
 * Upgrades (data/economy.ts) change engine numbers (see §6). Rank thresholds unlock regions,
   helicopter, K-komando, Director mode is always free.
 * Injured officers are out for 2-10 days.
+* The career is told in five chapters with a recurring cast (docs/STORY.md): milestones, objectives met by
+  normal play, small questions with modest consequences. It only reads the paid shift's report.
 * Call load follows the force on duty (computed once in `createShift`, kept in `SimState.flags`):
   the spawn rate is multiplied by `loadFactor` = the square root of (response units on duty ÷
   response units of the regular normal-difficulty roster for that shift: patrol, rapid, aux,
@@ -422,6 +424,11 @@ proovitakse järgmisel laadimisel uuesti (`migrateLayout`, `tests/saves-upgrade.
   (terve prefektuur, sama päevaeelarve), töötajad, autod, raha ja ajalugu jäävad puutumata ning täidetud väli
   kirjutatakse järgmise muudatusega. Eelmise väljalaske (2.8.0) normaliseerija hoiab uued väljad alles
   (`tests/upgrade-paths.test.ts`); sektorikarjääri kuldfiksatuur on `tests/fixtures/saves/sectors/`.
+* Karjääri lugu peatükkidena (docs/STORY.md) lisas profiilile valikulise välja `story`, versiooni tõstmata.
+  Normaliseerija kontrollib seda ainult siis, kui see on salvestatud (vigased kirjed ükshaaval välja, tundmatud
+  väljad jäävad alles); vanem karjäär laeb muutmata kujul ja alustab lugu oma järgmise makstud vahetusega peatükist,
+  mis vastab tema olekule, ilma varasemate peatükkide tasudeta. Eelmise väljalaske (2.17.0) normaliseerija hoiab
+  välja alles (`tests/upgrade-paths.test.ts`); loo kuldfiksatuur on `tests/fixtures/saves/story/`.
 * Vahetuse salvestus sai sektoritega (docs/SECTORS.md) valikulised väljad `sectors`, `coverSectors` ja
   `spawnRng`, versiooni tõstmata: puuduv väli tähendab tervet prefektuuri ja tavalist juhuvoogu, nii et iga
   vanem salvestus jätkub täpselt nagu enne (`tests/sectors.test.ts`), ja eelmine väljalase mängib sektoriga

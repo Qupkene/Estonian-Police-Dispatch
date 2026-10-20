@@ -9,7 +9,7 @@ import * as rules from '@/sim/career';
 import { Modal, PpaLogo } from '@/ui/components';
 import type { CareerProfile, Lang, RegionId } from '@/sim/types';
 import { careerFigures, nextShiftKind, menuNotices, shiftBars, type Notice } from '../shell/menuModel';
-import { MonoNumbers, noticeText } from '../shell/notices';
+import { MonoNumbers, NoticeLabel, noticeText } from '../shell/notices';
 import { PageBack } from '../shell/ShellFrame';
 import { wall } from '@/sim/time';
 import {
@@ -605,7 +605,7 @@ export function NoticesPanel({ profile }: { profile: CareerProfile }) {
             <li key={`${n.inbox ?? 'x'}-${i}`} className="vk-note">
               <p className="vk-note__head">
                 <span className={`vk-note__dot${n.day === null ? ' is-state' : ''}`} aria-hidden="true" />
-                <span className="vk-note__kind">{t(`shell.menu.note.${n.kind}`)}</span>
+                <NoticeLabel n={n} />
                 {n.day !== null && (
                   <span className="vk-meta">{t('shell.menu.note.day', { day: n.day })}</span>
                 )}

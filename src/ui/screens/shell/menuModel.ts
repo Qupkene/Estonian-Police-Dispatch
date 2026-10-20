@@ -2,6 +2,7 @@
 // (Teated) and the map's input, all from the career profile. Unit-tested in tests/menu-model.test.ts.
 import { REGIONS } from '@/data/regions';
 import { careerSectors, coversWholeRegion, positionTitle, sectorNames } from '@/sim/careerSectors';
+import { storyView, type StoryMessage } from '@/sim/story';
 import type { DutyInput } from './dutyMap';
 import type { CareerProfile, RegionId, ShiftReport, Text } from '@/sim/types';
 import { calendarOf, rankInfo, safe } from '../career/helpers';
@@ -122,7 +123,7 @@ export function mapInput(
 
 // ── Teated ───────────────────────────────────────────────────────────────────
 
-export type NoticeKind = 'prefect' | 'staff' | 'fleet' | 'budget' | 'rank' | 'award' | 'info';
+export type NoticeKind = 'prefect' | 'staff' | 'fleet' | 'budget' | 'rank' | 'award' | 'story' | 'info';
 
 export interface Notice {
   kind: NoticeKind;
@@ -132,11 +133,25 @@ export interface Notice {
   text: Text | { key: string; vars: Record<string, string | number | Text> };
   /** Index of the career message it shows (it can be dismissed); none for the offer and the fleet. */
   inbox?: number;
+  /** Who speaks (a character of the career's story, docs/STORY.md): shown instead of the kind. */
+  who?: { name: string; role: Text };
 }
+
+/** The speaker of a story message (src/sim/story.ts), when it is one and names one. */
+function whoOf(text: Text): Notice['who'] {
+  const w = (text as Partial<StoryMessage>).who;
+  return w && typeof w.name === 'string' && w.role && typeof w.role.et === 'string' ? w : undefined;
+}
+
+const isStory = (text: Text) => {
+  const s = (text as Partial<StoryMessage>).story;
+  return typeof s === 'object' && s !== null;
+};
 
 /** What a career message (sim/career applyShiftReport) is about, from its Estonian text. */
 export function noticeKind(text: Text): NoticeKind {
   const s = text.et;
+  if (isStory(text)) return 'story';
   if (/^Prefekt pakub|^Uus prefektuur/.test(s)) return 'prefect';
   if (/^Ülendus|^Avanes/.test(s)) return 'rank';
   if (/^Saavutus/.test(s)) return 'award';
@@ -165,11 +180,24 @@ export function menuNotices(p: CareerProfile | null, inbox: readonly Text[]): No
       text: { key: 'shell.menu.note.offer', vars: { names } },
     });
   }
+  // A question a character of the story is waiting to have answered on the career page.
+  const story = safe(() => storyView(p), null);
+  if (story?.choice) {
+    const c = story.choice;
+    out.push({
+      kind: 'story',
+      day: c.day,
+      text: { key: 'story.note.ask', vars: { text: c.text } },
+      who: { name: c.who.name, role: c.who.role },
+    });
+  }
   (inbox ?? []).forEach((m, i) => {
     if (!m || typeof m.et !== 'string') return;
-    // The offer has its own notice above.
+    // The offer has its own notice above, and so does a question still waiting for its answer.
     if (p.offer && /^Prefekt pakub/.test(m.et)) return;
-    out.push({ kind: noticeKind(m), day: lastDay, text: m, inbox: i });
+    if (story?.choice && (m as Partial<StoryMessage>).story?.kind === 'ask') return;
+    const who = whoOf(m);
+    out.push({ kind: noticeKind(m), day: lastDay, text: m, inbox: i, ...(who ? { who } : {}) });
   });
   const worn = (Array.isArray(p.fleet) ? p.fleet : [])
     .filter((v) => Number.isFinite(v.condition) && v.condition < WORN)

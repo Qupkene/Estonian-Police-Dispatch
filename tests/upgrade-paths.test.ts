@@ -7,7 +7,7 @@
 //   the way back: epd:sync keeps the format 1 fields that version reads (it knows only the plain keys, which
 //   hold the guest's data since each identity has its own namespace, src/store/space.ts);
 // - a rollback to 2.8.0 (d7871ad), the release before sectors, keeps a sector career's fields (its own normaliser runs
-//   here), and the career comes back with them.
+//   here), and the career comes back with them; a rollback to 2.17.0 (686f0f1) keeps the career's story.
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -314,13 +314,23 @@ type Normaliser = Pick<typeof import('@/store/migrate'), 'normalizeCareerState'>
  * profile object as it was.
  */
 async function normaliserOf280(): Promise<Normaliser> {
+  return normaliserFrom('sectors', 'migrate.d7871ad.ts.txt');
+}
+
+/** A released career normaliser kept byte for byte next to a fixture set, run with today's modules for its imports. */
+async function normaliserFrom(set: string, file: string): Promise<Normaliser> {
   const { transformWithOxc } = await import('vite');
-  const { code } = await transformWithOxc(fixture('sectors', 'migrate.d7871ad.ts.txt'), 'migrate.ts', { lang: 'ts' });
-  const deps: Record<string, unknown> = { '@/data/regions': await import('@/data/regions'), '@/data/economy': await import('@/data/economy') };
+  const { code } = await transformWithOxc(fixture(set, file), 'migrate.ts', { lang: 'ts' });
+  const deps: Record<string, unknown> = {
+    '@/data/regions': await import('@/data/regions'),
+    '@/data/economy': await import('@/data/economy'),
+    '@/sim/careerSectors': await import('@/sim/careerSectors'),
+    '@/sim/sectors': await import('@/sim/sectors'),
+  };
   const names: string[] = [];
   const body = code
     .replace(/^import\s*\{([^}]*)\}\s*from\s*["']([^"']+)["'];?$/gm, (_, list: string, from: string) => {
-      if (!(from in deps)) throw new Error(`2.8.0's normaliser imports ${from}`);
+      if (!(from in deps)) throw new Error(`${file} imports ${from}`);
       return `const {${list}} = __deps[${JSON.stringify(from)}];`;
     })
     .replace(/^export\s+(function|const|let|class)\s+([A-Za-z_$][\w$]*)/gm, (_, kind: string, name: string) => {
@@ -368,6 +378,26 @@ describe('a rollback to 2.8.0, the release before sectors', () => {
     const back = useCareer.getState().profile!;
     expect(back.sectors).toEqual({ ida: ['ida-laaneviru'], pohja: ['pohja-kesklinn'] });
     expect({ ...back, sectors: undefined }).toEqual({ ...played, sectors: undefined });
+  });
+});
+
+// ── Rollback to the release before the story (2.17.0, 686f0f1) ─────────────
+
+describe('a rollback to 2.17.0, the release before the story', () => {
+  it("keeps a career's story, and this version reads back what it writes unchanged", async () => {
+    const v217 = await normaliserFrom('story', 'migrate.686f0f1.ts.txt');
+    const stored = stateOf(fixture('story', 'epd-career.json'));
+    const p0 = stored.profile!;
+    expect(p0.story).toMatchObject({ chapter: 1, shifts: 2, choice: { id: 'c1-debrief' } });
+    const issues: string[] = [];
+    const there = v217.normalizeCareerState(stored, issues);
+    expect(issues).toEqual([]);
+    expect(there).toEqual(stored);
+    localStorage.setItem('epd:career', JSON.stringify({ state: there, version: 1 }));
+    await useCareer.persist.rehydrate();
+    expect(useCareer.getState().profile).toEqual(p0);
+    expect(useCareer.getState().inbox).toEqual(stored.inbox);
+    expect(Object.keys(localStorage).filter((k) => k.includes('backup'))).toEqual([]);
   });
 });
 

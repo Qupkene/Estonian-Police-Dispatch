@@ -457,6 +457,75 @@ function sectorOffer(v: unknown, day: number, issues: Issues): CareerProfile['of
   };
 }
 
+/**
+ * The career's story (docs/STORY.md): its numbers checked, bad entries dropped one by one, unknown fields kept (a
+ * later version's). An unusable chapter drops the whole story: the career then starts it again at the chapter
+ * its state matches, as a career from before the story does.
+ */
+function storyState(v: unknown, day: number, issues: Issues): CareerProfile['story'] | undefined {
+  const positive = (x: unknown) => typeof x === 'number' && Number.isInteger(x) && x >= 1;
+  if (!isPlainObject(v) || !positive(v.chapter)) {
+    issues.push('story');
+    return undefined;
+  }
+  const chapter = v.chapter as number;
+  const out: Record<string, unknown> = {
+    ...v,
+    chapter,
+    from: positive(v.from) && (v.from as number) <= chapter ? v.from : chapter,
+    since: num(v.since, day, issues, 'story.since'),
+    shifts: num(v.shifts, 0, issues, 'story.shifts'),
+    done: strings(v.done, issues, 'story.done'),
+  };
+  if (v.from !== undefined && out.from !== v.from) issues.push('story.from');
+  if (v.complete !== undefined && typeof v.complete !== 'boolean') {
+    issues.push('story.complete');
+    delete out.complete;
+  }
+  if (v.desk !== undefined && typeof v.desk !== 'string') {
+    issues.push('story.desk');
+    delete out.desk;
+  }
+  if (v.choice !== undefined) {
+    const c = v.choice;
+    if (isPlainObject(c) && typeof c.id === 'string')
+      out.choice = { ...c, id: c.id, day: num(c.day, day, issues, 'story.choice.day') };
+    else {
+      issues.push('story.choice');
+      delete out.choice;
+    }
+  }
+  if (v.answers !== undefined) {
+    if (isPlainObject(v.answers)) {
+      const answers: Record<string, string> = {};
+      for (const [k, a] of Object.entries(v.answers)) {
+        if (typeof a === 'string' && !UNSAFE_KEYS.has(k)) answers[k] = a;
+        else issues.push(`story.answers.${k}`);
+      }
+      out.answers = answers;
+    } else {
+      issues.push('story.answers');
+      delete out.answers;
+    }
+  }
+  if (v.press !== undefined) {
+    const pr = v.press;
+    if (isPlainObject(pr) && typeof pr.day === 'number' && Number.isFinite(pr.day))
+      out.press = {
+        ...pr,
+        day: pr.day,
+        title: toText(pr.title, issues, 'story.press.title'),
+        body: toText(pr.body, issues, 'story.press.body'),
+        byline: str(pr.byline, '', issues, 'story.press.byline'),
+      };
+    else {
+      issues.push('story.press');
+      delete out.press;
+    }
+  }
+  return out as unknown as CareerProfile['story'];
+}
+
 const STAT_KEYS = ['shifts', 'incidents', 'arrests', 'bestScore', 'pursuitsCaught'] as const;
 const COUNTER_KEYS = ['nightShifts', 'pranksCaught', 'aStreak'] as const;
 
@@ -519,6 +588,13 @@ export function normalizeCareerProfile(x: unknown, issues: Issues = []): CareerP
   }
   if (x.sectorsChangedDay !== undefined)
     p.sectorsChangedDay = num(x.sectorsChangedDay, 1, issues, 'sectorsChangedDay');
+  // The story (docs/STORY.md): checked here only when stored. A career from before it gets nothing here (it loads
+  // deep-equal) and starts the story with its next paid shift (src/sim/story.ts).
+  if (x.story !== undefined) {
+    const story = storyState(x.story, p.day as number, issues);
+    if (story) p.story = story;
+    else delete p.story;
+  }
   return withSectors(p as unknown as CareerProfile);
 }
 

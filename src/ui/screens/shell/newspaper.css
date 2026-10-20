@@ -164,7 +164,15 @@
   text-align: justify;
   hyphens: auto;
 }
-.sh-paper__story.is-lead p::first-letter {
+/* A signed piece about the career's story (docs/STORY.md). */
+.sh-paper__story p.sh-paper__byline {
+  margin: 0 0 4px;
+  font-size: 11.5px;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  text-align: left;
+}
+.sh-paper__story.is-lead p:not(.sh-paper__byline)::first-letter {
   float: left;
   margin: 4px 6px 0 0;
   font-size: 3.3em;

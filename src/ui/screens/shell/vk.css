@@ -730,6 +730,19 @@ button.vk-acct__who:hover .vk-acct__name {
   text-transform: uppercase;
   color: var(--vk-text-2);
 }
+/* A story character's message (docs/STORY.md): the speaker instead of the kind, the role after it. */
+.vk-note__head .vk-note__kind {
+  flex: none;
+  white-space: nowrap;
+}
+.vk-note__role {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11.5px;
+  color: var(--vk-text-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .vk-note__text {
   margin: 0;
   color: var(--vk-text-1);

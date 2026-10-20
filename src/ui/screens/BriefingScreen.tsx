@@ -16,6 +16,7 @@ import { PpaLogo } from '@/ui/components';
 import { sfx } from '@/audio/sfx';
 import { REGIONS } from '@/data/regions';
 import { rankOf, rosterFromCareer } from '@/sim/career';
+import { storyOrder } from '@/sim/story';
 import { nightCoverFor } from '@/sim/colleagues';
 import { areaStations, neighbourSectors, sectorById } from '@/sim/sectors';
 import { dayInfo, weekdayFactor } from '@/sim/calendar';
@@ -179,6 +180,12 @@ export function BriefingScreen() {
     [regionId, shiftKind, difficulty],
   );
   const rank = useMemo(() => (profile ? safe(() => rankOf(profile.xp)) : null), [profile]);
+  // The career's story speaks in the order too (docs/STORY.md): the current chapter's line.
+  const storyOrderText = useMemo(
+    () => (career && profile ? safe(() => storyOrder(profile)) : null),
+    [career, profile],
+  );
+  const storyLineText = storyOrderText ? storyOrderText[lang] || storyOrderText.et : null;
 
   const begin = () => {
     setError(null);
@@ -502,6 +509,7 @@ export function BriefingScreen() {
                   })}
                 </li>
                 {mode === 'director' && <li>{t('shell.brief.orderDirector')}</li>}
+                {storyLineText && <li className="sh-order__story">{storyLineText}</li>}
               </ol>
               <p>{t('shell.brief.orderClose')}</p>
             </div>

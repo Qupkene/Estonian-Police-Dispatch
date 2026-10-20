@@ -327,6 +327,25 @@
   font-size: 12.5px;
   color: var(--vk-text-2);
 }
+/* The career's story in one line (docs/STORY.md). */
+.vk-car__story {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--vk-text-2);
+}
+.vk-car__chapter {
+  flex: none;
+  box-sizing: border-box;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--vk-acc);
+}
+.vk-car__ask {
+  color: var(--vk-acc);
+}
 .vk-car__swatch {
   flex: none;
   width: 9px;
