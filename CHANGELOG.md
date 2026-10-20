@@ -2,6 +2,20 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.21.0 (2026-10-20)
+
+- **Mitmikmäng jookseb serveris:** ühine vahetus (rollid ja sektorid) ei käi enam igaühe brauseris, vaid politsei.eu mänguserveris. Brauser saadab käsu kohe ja näeb tulemust umbes kümnendiku sekundiga, enne kulus selleks 2 kuni 3 sekundit.
+- Kõik mängijad näevad täpselt sama seisu, sest vahetust arvutab ainult server. Aruanne tehakse serveri lõppseisust.
+- Kui ühendus katkeb, ühendub mäng ise uuesti ja jätkab sealt, kus vahetus parasjagu on. Serveri uuendus vahetust ei katkesta, toad salvestuvad ja jätkuvad.
+- Võistlus jääb nagu oli: igaüks mängib oma vahetust ise ja seal ei pea midagi ootama.
+
+<details>
+<summary>English</summary>
+
+Co-op shifts (roles and sectors) now run on the politsei.eu game server instead of in every browser: a click takes effect in about a tenth of a second instead of two to three. Everyone sees the same state because only the server simulates, and the report is built from the server's final state. A dropped connection reconnects and continues; a server update saves and resumes the rooms. Race mode is unchanged (each player runs their own copy locally). When the game server is not available, rooms fall back to the previous lockstep.
+
+</details>
+
 ## 2.20.0 (2026-10-20)
 
 - **Mitmikmäng, sektorid:** ruumi looja valib prefektuuri ja 2 kuni 4 naabersektorit ning iga mängija võtab oma laua. Igal laual on oma 112 liin, oma väljakutsed ja oma ekipaažid. Naabrite sündmused ja üksused on kaardil tuhmilt näha.

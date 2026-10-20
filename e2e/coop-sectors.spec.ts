@@ -2,8 +2,8 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 
 /**
  * Sektorite koostöö (sector co-op, docs/MULTIPLAYER.md section 8) against the real PHP API: two accounts in two
- * browser contexts make a Sektorid room in Põhja with two neighbouring desks (Tallinna kesklinn for the host,
- * Lasnamäe for the guest) and play one shared shift. Each desk sees its own queue and its own 112 calls; the
+ * browser contexts make a Sektorid room in Põhja (played on the game server, section 9) with two neighbouring desks
+ * (Tallinna kesklinn for the host, Lasnamäe for the guest) and play one shared shift. Each desk sees its own queue and its own 112 calls; the
  * neighbour's events and crews are dimmed. The host asks the guest for a crew on one of its events, the guest
  * accepts it in the co-op panel, the crew goes. Both clients keep the same digest; the host ends the shift and the
  * two reports match, with the per-desk table.

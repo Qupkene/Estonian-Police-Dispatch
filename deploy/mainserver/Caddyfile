@@ -9,6 +9,7 @@
 #
 # Teed (docs/SERVER.md, punkt 3):
 #   /api/*    PHP, /app/server/api/index.php (ruuter loeb REQUEST_URI-st algse tee)
+#   /mp/*     mänguserver politsei-mp 127.0.0.1:8790 (/mp/health ja WebSocket /mp/ws), maas olles 502
 #   /tiles/*  /srv/tiles failid, Range päringud (PMTiles)
 #   robots.txt, sitemap.xml, og-image.png, /icons/*, /screenshots/*: /app/www failid, puuduv annab 404
 #   muu       /app/www, tundmatu tee annab /index.html
@@ -39,7 +40,8 @@
 
 :80 {
 	# PMTiles on juba pakitud ja loetakse Range päringutega, seda ei pakita uuesti.
-	@pakitav not path /tiles/*
+	# Mänguserveri WebSocketit (/mp/*) ei pakita: ühendus läheb otse läbi.
+	@pakitav not path /tiles/* /mp/*
 	encode @pakitav zstd gzip
 
 	# Turvapäised. "?" = ainult siis, kui PHP pole sama päist ise pannud.
@@ -56,7 +58,7 @@
 	# Mäng: kõik oma serverist (ka tänavakaart /tiles/ ja fondid), ainult Maa- ja Ruumiameti
 	# rastrid tulevad tiles.maaamet.ee-st. MapLibre töölõim võib olla blob:. Google Fonts pole vaja.
 	@mang not path /legacy/*
-	header @mang ?Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.maaamet.ee; font-src 'self' data:; connect-src 'self' https://tiles.maaamet.ee; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+	header @mang ?Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.maaamet.ee; font-src 'self' data:; connect-src 'self' wss://politsei.eu https://tiles.maaamet.ee; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 
 	# Algsed 2024 ja 2025 versioonid on ühefailised lehed: inline skript, Google Fonts,
 	# välised pildid ja heli.
@@ -74,6 +76,14 @@
 		root * /app/server
 		rewrite * /api/index.php
 		php
+	}
+
+	# Mänguserver (politsei-mp, sama võrguruum): reverse_proxy laseb WebSocketi Upgrade'i ise läbi.
+	# Kui server ei tööta, annab Caddy 502 ja klient proovib uuesti.
+	handle /mp/* {
+		header ?Cache-Control "no-store"
+		header X-Robots-Tag "noindex"
+		reverse_proxy 127.0.0.1:8790
 	}
 
 	# Kaart: /tiles/estonia.pmtiles -> /srv/tiles/estonia.pmtiles. file_server vastab Range päringule

@@ -11,7 +11,9 @@ and co-op XP counts in every player's career.
 
 Phase 1 built the shared room foundation and mode (c) end to end. Phases 2 and 3 built the shared, synchronised
 simulation (section 4 chooses how) and mode (b) on top of it; section 7 describes what was built. Phase 4 built
-mode (a) on the same lockstep core; section 8 describes it. Careers and polish are next (section 6).
+mode (a) on the same lockstep core; section 8 describes it. Since 2.21.0 the co-op shifts run on a game server
+(section 9): a click takes effect in about a tenth of a second instead of two or three, and the lockstep core is the
+fallback when the game server is not there. Careers and polish are next (section 6).
 
 Code: `server/lib/rooms.php` (routes in `server/api/index.php`, schema step 4 in `server/lib/db.php`),
 `src/net/rooms.ts`, `src/sim/room.ts`, `src/ui/screens/LobbyScreen.tsx`, `src/ui/screens/shell/RoomBoard.tsx`,
@@ -20,8 +22,9 @@ docs/SERVER.md, "Multiplayer rooms".
 
 ## 1. Constraints
 
-- **Hosting.** PHP 8.4 (FrankenPHP) and SQLite, deployed from `main` by pulling the repository. There is no
-  WebSocket server and none can be added without the owner. Everything real-time runs over plain HTTP.
+- **Hosting.** PHP 8.4 (FrankenPHP) and SQLite, deployed from `main` by pulling the repository. When this
+  design was made there was no WebSocket server, so everything real-time ran over plain HTTP. The owner later
+  asked for the shared shifts to run on the server: section 9 adds a small Node game server with a WebSocket.
 - **No long polling.** A held request occupies one PHP worker for its whole wait; FrankenPHP runs a small
   fixed pool (a few threads per CPU), so ten rooms of four players waiting 25 s each would starve every
   other route. Short polls cost a couple of milliseconds each and free the worker at once. All polling in
@@ -446,4 +449,72 @@ crews lent and help. XP as for role co-op (section 7.4), once per career keyed `
   first.
 - The Playwright run covers two players at two desks in Chromium; three and four desks and a player leaving are
   covered by the unit tests.
+
+## 9. The game server (2.21.0)
+
+The owner's feedback on the lockstep rooms: every click took half a second to a second (in fact two to three: the
+input delay of two turns, the batching and the poll) before anything happened. The decision: run the shared shift
+on the server, not in the browsers. The race mode (c) stays as it is: every player plays their own copy of the
+shift locally, so nothing there waits on the network.
+
+Code: `server/mp/main.ts` (HTTP, WebSocket, the piece clock, saving), `server/mp/room.ts` (one room's shift:
+commands, seats, patches), `server/mp/ticket.ts` (entry tickets), `server/mp/validate.ts` (command shapes, the same
+table as PHP's), `src/sim/patch.ts` (the patches, shared with the client), `livePiece` in `src/sim/coop.ts`,
+`ServerSession` in `src/store/coop.ts`, `src/net/mp.ts`, `server/lib/mp.php` (tickets, the engine choice). Build:
+`vite build -c vite.mp.config.ts` (part of `npm run build`) gives one file, `dist-mp/mp.mjs`, with the simulation
+and the `ws` package inside. Local: `npm run dev:mp` next to `npm run dev:api`; Vite proxies `/mp` with WebSocket.
+Deployment: the `politsei-mp` container (docs/SERVER.md section 2). Tests: `tests/mp.test.ts`, the "game server
+rooms" block of `tests/server.test.ts`, `e2e/coop.spec.ts` and `e2e/coop-sectors.spec.ts` (Playwright starts the
+game server).
+
+### 9.1 How a shift runs
+
+- PHP keeps the rooms, the lobby, the players and the results as before. When the host starts a co-op room and the
+  game server answers its health check (`EPD_MP=1`, `/mp/health` within a second), the room gets `engine: 'server'`.
+  Otherwise it plays in lockstep (sections 4 to 8), so a game server that is down never blocks a room.
+- The game server holds the only running simulation of the room, built from the same seed, day, options and setup
+  rows as every lockstep client would build it (`roomShiftOptions`, `initCoop`, the `setup` command).
+- The clock: every 50 ms (a piece, a twentieth of a turn) the server applies the commands that arrived, steps the
+  shift by `turnGameMs / 20` from the state as it is now (`livePiece`), and sends the changes. Speed, pause and the
+  112 slow-down work as in lockstep; a command counts from the next piece.
+- Commands: `{ t: 'cmd', key, k, a }` up the socket; the same kinds and shapes as the lockstep log (malformed ones
+  are refused at once), 12 at once and 6 a second per seat, 20 000 per room. `applyCommand` checks the roles and
+  desks as before. The issuer gets `{ t: 'ack', key, id, r }` right after the patch that shows the effect; the
+  pending marks in the UI clear then and a refused command shows its reason, as before.
+- Patches (`src/sim/patch.ts`): the server keeps a shadow, the plain JSON copy every client holds, and after every
+  piece sends `{ t: 'p', v, ops, ev }`: the paths that changed and the piece's game events (sounds, toasts). A
+  client applies them to its copy in place and never steps the simulation. Display-only numbers that change every
+  piece (a crew's fatigue, heading and position, the work done on a scene, a pursuit's success) are sent once they
+  moved by more than a small step, so a patch is a few hundred bytes. Joining or rejoining sends the shadow whole
+  (`hello`), and the end of the shift sends the exact state (`full`), so every report is built from the same numbers.
+  Measured on a six-hour Põhja shift: the state grows to about 440 kB, the diff takes 2 to 4 ms per piece.
+- Seats: a seat whose connection closed a minute ago leaves (`left`), connecting again is `back`, and when the
+  host's seat leaves, the host's role moves to the lowest seat still connected (`host`). A second connection of a
+  seat (another tab) replaces the first (close code 4001). Nobody connected: the clock stops.
+- Presence in PHP: the client polls the room every 10 s (the room's idle rule reads `seen`), and fetches a fresh
+  ticket for every connection.
+
+### 9.2 Trust
+
+The ticket (`POST /api/rooms/{code}/ticket`, docs/SERVER.md) is signed with a secret that PHP writes to
+`EPD_DATA/mp/secret` and the game server reads from its own mount of the same folder. It says who the player is,
+their seat and the room's shift, and expires after a minute. The game server believes nothing else a client says.
+The socket gets the ticket as its first message (never in the URL, so it is not in any access log), within 10 s.
+The game server listens on 127.0.0.1 only; the public way in is Caddy's `/mp/*`. Results are still posted by the
+clients, but they are now built from the server's exact final state.
+
+### 9.3 Restarts and failures
+
+- The game server saves every room (gzipped JSON, `rooms/<code>.json.gz`) every 30 s and on SIGTERM; on start it
+  loads the rooms saved in the last 15 minutes. The update script restarts it only when the bundle changed. The
+  players see "Ühendus katkes" for a moment and reconnect by themselves (0.3 s, 1 s, 2 s, 4 s, then every 8 s).
+- A room nobody is connected to is dropped after 15 minutes (2 after its end).
+- If the game server is down when a room starts, the room plays in lockstep. If it goes down during a shift, the
+  players wait on "Ühendus katkes" until it is back; the room continues from its last save (at most 30 s back).
+
+### 9.4 Limits
+
+- One process holds every room; each costs a few MB and 2 to 4 ms per piece late in a long shift.
+- The shift moves on the client in 20 steps a second (the same as lockstep's pieces); a lost or slow connection
+  shows as a pause, not as a different state.
 

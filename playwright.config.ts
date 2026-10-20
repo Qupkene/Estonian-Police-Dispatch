@@ -25,7 +25,22 @@ export default defineConfig({
       // Its data lives in test-results/, which Playwright empties before every run. -q: no access log.
       command: 'php -q -S 127.0.0.1:8787 server/dev-router.php',
       url: 'http://127.0.0.1:8787/api/health',
-      env: { EPD_DATA: './test-results/epd-data', EPD_TTS_UPSTREAM: 'off' },
+      // EPD_MP: co-op rooms start on the game server below when it answers (mp.php).
+      env: {
+        EPD_DATA: './test-results/epd-data',
+        EPD_TTS_UPSTREAM: 'off',
+        EPD_MP: '1',
+        EPD_MP_URL: 'http://127.0.0.1:8790',
+      },
+      reuseExistingServer: true,
+      timeout: 30_000,
+    },
+    {
+      // The game server (server/mp, built by `npm run build` into dist-mp/); vite preview proxies /mp to it. It shares
+      // the secret with the PHP API through the data folder.
+      command: 'node dist-mp/mp.mjs',
+      url: 'http://127.0.0.1:8790/mp/health',
+      env: { EPD_MP_DIR: './test-results/epd-data/mp', EPD_MP_PORT: '8790' },
       reuseExistingServer: true,
       timeout: 30_000,
     },

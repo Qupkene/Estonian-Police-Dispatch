@@ -134,6 +134,20 @@ function epd_coop_system(PDO $db, array $room, string $kind, array $args, int $n
  */
 function epd_coop_setup(PDO $db, array $room, array $players, int $hostId, int $now): void
 {
+    [$hostSeat, $rows] = epd_coop_setup_rows($room, $players, $hostId);
+    epd_coop_append($db, (int) $room['id'], EPD_COOP_SERVER_SEAT, null, 0, 'setup', epd_json([$hostSeat, $rows]), $now);
+    $db->prepare('UPDATE rooms SET host_seat = ? WHERE id = ?')->execute([$hostSeat, $room['id']]);
+}
+
+/**
+ * The setup command's arguments: the host's seat and `[seat, role or desk, name]` per player, by seat. The lockstep
+ * log's first command and the game server's ticket (mp.php) use the same rows.
+ *
+ * @param list<array<string, mixed>> $players
+ * @return array{0: int, 1: list<array{0: int, 1: string, 2: string}>}
+ */
+function epd_coop_setup_rows(array $room, array $players, int $hostId): array
+{
     $rows = [];
     $hostSeat = 0;
     foreach ($players as $p) {
@@ -143,8 +157,7 @@ function epd_coop_setup(PDO $db, array $room, array $players, int $hostId, int $
         }
     }
     usort($rows, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
-    epd_coop_append($db, (int) $room['id'], EPD_COOP_SERVER_SEAT, null, 0, 'setup', epd_json([$hostSeat, $rows]), $now);
-    $db->prepare('UPDATE rooms SET host_seat = ? WHERE id = ?')->execute([$hostSeat, $room['id']]);
+    return [$hostSeat, $rows];
 }
 
 /** The log and the snapshot of a room go (it finished or closed, or it is swept). */
@@ -162,7 +175,8 @@ function epd_coop_forget_room(PDO $db, int $roomId): void
  */
 function epd_coop_sync_seats(PDO $db, array $room, int $now, ?int $pollingUser = null): void
 {
-    if (!epd_coop_is_coop($room) || $room['state'] !== 'running') {
+    // A room on the game server (mp.php) keeps its seats there: it sees the connections itself.
+    if (!epd_coop_is_coop($room) || $room['state'] !== 'running' || epd_mp_engine($room) === 'server') {
         return;
     }
     $roomId = (int) $room['id'];
@@ -209,7 +223,7 @@ function epd_coop_sync_seats(PDO $db, array $room, int $now, ?int $pollingUser =
 /** Would epd_coop_sync_seats write anything? (Polls stay reads while nothing changes.) */
 function epd_coop_seats_dirty(PDO $db, array $room, int $now, int $pollingUser): bool
 {
-    if (!epd_coop_is_coop($room) || $room['state'] !== 'running') {
+    if (!epd_coop_is_coop($room) || $room['state'] !== 'running' || epd_mp_engine($room) === 'server') {
         return false;
     }
     $stmt = $db->prepare('SELECT user_id, seat, seen, left_at, away FROM room_players WHERE room_id = ? ORDER BY joined, seat');
@@ -675,3 +689,5 @@ function epd_route_coop_desk(string $code): ApiReply
     });
     return epd_room_reply($db, $clean, $userId, $now);
 }
+
+require_once __DIR__ . '/mp.php';

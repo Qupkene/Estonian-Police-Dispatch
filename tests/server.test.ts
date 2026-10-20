@@ -21,6 +21,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { createServer } from 'node:net';
+import { createServer as createHttpServer } from 'node:http';
+import { verifyTicket } from '../server/mp/ticket';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -2468,5 +2470,109 @@ describe('deploy keeps player data in place', () => {
     for (const line of code('deploy/mainserver/paigalda.sh')) {
       if (WRITES.test(line)) expect(line).not.toMatch(/epd\.sqlite|sessions/);
     }
+  });
+});
+
+describe.skipIf(!HAS_PHP)('game server rooms (mp.php, docs/MULTIPLAYER.md section 9)', { timeout: 60_000 }, () => {
+  let root = '';
+  let up: PhpServer;
+  let down: PhpServer;
+  let health: ReturnType<typeof createHttpServer>;
+  let healthHits = 0;
+  const OPTS = { mode: 'role', regionId: 'pohja', sector: '', difficulty: 'normal', hours: 2, slot: 'evening' };
+
+  const register = (c: Client, name: string) => c.post('/api/register', { name, password: 'salajane-123' });
+  /** Two players in a started room of `mode` on `server`; returns the clients and the room. */
+  async function started(server: PhpServer, mode: string, names: [string, string]) {
+    const a = new Client(server.base, nextIp());
+    const b = new Client(server.base, nextIp());
+    expect((await register(a, names[0])).status).toBe(200);
+    expect((await register(b, names[1])).status).toBe(200);
+    const code = (await a.post('/api/rooms', { ...OPTS, mode })).json.room.code as string;
+    expect((await b.post('/api/rooms/join', { code })).status).toBe(200);
+    if (mode === 'role') expect((await b.post(`/api/rooms/${code}/role`, { role: 'calls' })).status).toBe(200);
+    await b.post(`/api/rooms/${code}/ready`, { ready: true });
+    const start = await a.post(`/api/rooms/${code}/start`);
+    expect(start.status, JSON.stringify(start.json)).toBe(200);
+    return { a, b, code, room: start.json.room };
+  }
+
+  beforeAll(async () => {
+    root = mkdtempSync(join(tmpdir(), 'epd-mp-test-'));
+    mkdirSync(join(root, 'up'));
+    mkdirSync(join(root, 'down'));
+    const port = await freePort();
+    // A stand-in for the game server's health check: it sees the secret once PHP has written it.
+    health = createHttpServer((req, res) => {
+      healthHits++;
+      const secret = existsSync(join(root, 'up', 'mp', 'secret'));
+      res.writeHead(req.url === '/mp/health' ? 200 : 404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: req.url === '/mp/health', rooms: 0, secret }));
+    });
+    await new Promise<void>((done) => health.listen(port, '127.0.0.1', () => done()));
+    const closed = await freePort();
+    [up, down] = await Promise.all([
+      startPhp({ EPD_DATA: join(root, 'up'), EPD_TRUSTED_PROXY: '127.0.0.1', EPD_FAST_HASH: '1', EPD_MP: '1', EPD_MP_URL: `http://127.0.0.1:${port}` }),
+      startPhp({ EPD_DATA: join(root, 'down'), EPD_TRUSTED_PROXY: '127.0.0.1', EPD_FAST_HASH: '1', EPD_MP: '1', EPD_MP_URL: `http://127.0.0.1:${closed}` }),
+    ]);
+  }, 60_000);
+
+  afterAll(async () => {
+    await Promise.all([stopPhp(up), stopPhp(down)]);
+    await new Promise((done) => health?.close(done));
+    if (root) rmSync(root, { recursive: true, force: true });
+  });
+
+  it('starts a co-op room on the game server and hands its members signed tickets', async () => {
+    const { a, b, code, room } = await started(up, 'role', ['Mari', 'Tõnu']);
+    expect(room.engine).toBe('server');
+    expect(healthHits).toBeGreaterThan(0);
+    const secret = readFileSync(join(root, 'up', 'mp', 'secret'), 'utf8').trim();
+    expect(secret).toMatch(/^[0-9a-f]{64}$/);
+    expect(statSync(join(root, 'up', 'mp', 'secret')).mode & 0o077).toBe(0);
+    const ta = await a.post(`/api/rooms/${code}/ticket`);
+    const tb = await b.post(`/api/rooms/${code}/ticket`);
+    expect(ta.status, JSON.stringify(ta.json)).toBe(200);
+    expect(ta.json.url).toBe('/mp/ws');
+    const ticketA = verifyTicket(ta.json.ticket, secret);
+    const ticketB = verifyTicket(tb.json.ticket, secret);
+    expect(ticketA).toMatchObject({ code, seat: 0, name: 'Mari' });
+    expect(ticketB).toMatchObject({ code, seat: 1, name: 'Tõnu' });
+    // Both describe the same shift: the game server builds it from whichever comes first.
+    expect(ticketA!.room).toEqual(ticketB!.room);
+    expect(ticketA!.room).toMatchObject({
+      code,
+      mode: 'role',
+      seed: room.seed,
+      day: room.day,
+      started: room.started,
+      options: { regionId: 'pohja', sector: '', difficulty: 'normal', hours: 2, slot: 'evening' },
+      setup: [0, [[0, 'dispatch', 'Mari'], [1, 'calls', 'Tõnu']]],
+    });
+    expect(ticketA!.exp - Date.now()).toBeGreaterThan(50_000);
+    expect(ticketA!.exp - Date.now()).toBeLessThanOrEqual(60_000);
+    // A changed byte or another secret breaks it.
+    const t = ta.json.ticket as string;
+    expect(verifyTicket(`${t.slice(0, 5)}${t[5] === 'A' ? 'B' : 'A'}${t.slice(6)}`, secret)).toBeNull();
+    expect(verifyTicket(ta.json.ticket, 'f'.repeat(64))).toBeNull();
+    // Strangers, and a player who left, get none.
+    const stranger = new Client(up.base, nextIp());
+    await register(stranger, 'Võõras');
+    expect((await stranger.post(`/api/rooms/${code}/ticket`)).status).toBe(404);
+    expect((await new Client(up.base, nextIp()).post(`/api/rooms/${code}/ticket`)).status).toBe(401);
+    expect((await b.post(`/api/rooms/${code}/leave`)).status).toBe(200);
+    expect((await b.post(`/api/rooms/${code}/ticket`)).json.error).toBe('left_room');
+  });
+
+  it('keeps race rooms and rooms started while the game server is down on the old path', async () => {
+    const race = await started(up, 'race', ['Kadri', 'Peeter']);
+    expect(race.room.engine).toBe('');
+    expect((await race.a.post(`/api/rooms/${race.code}/ticket`)).json.error).toBe('not_server_room');
+    const lockstep = await started(down, 'role', ['Liis', 'Andres']);
+    expect(lockstep.room.engine).toBe('');
+    expect((await lockstep.a.post(`/api/rooms/${lockstep.code}/ticket`)).json.error).toBe('not_server_room');
+    // The lockstep room still has its log.
+    const log = await lockstep.a.get(`/api/rooms/${lockstep.code}/log?after=0`);
+    expect(log.json.cmds[0]).toMatchObject({ k: 'setup', a: [0, [[0, 'dispatch', 'Liis'], [1, 'calls', 'Andres']]] });
   });
 });
