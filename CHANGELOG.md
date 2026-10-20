@@ -2,6 +2,17 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.21.1 (2026-10-20)
+
+- Eesti lipu kilp on nüüd sakiikoon ka 404 lehel ning 2024. ja 2025. aasta algversioonides, mitte ainult mängus.
+
+<details>
+<summary>English</summary>
+
+The Estonian flag shield is now the tab icon on the 404 page and the 2024 and 2025 original versions too, not only in the game.
+
+</details>
+
 ## 2.21.0 (2026-10-20)
 
 - **Mitmikmäng jookseb serveris:** ühine vahetus (rollid ja sektorid) ei käi enam igaühe brauseris, vaid politsei.eu mänguserveris. Brauser saadab käsu kohe ja näeb tulemust umbes kümnendiku sekundiga, enne kulus selleks 2 kuni 3 sekundit.
