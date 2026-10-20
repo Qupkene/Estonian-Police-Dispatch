@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { shiftKeyOf, useGame } from '@/store/game';
 import { useCareer } from '@/store/career';
+import { storyPress } from '@/sim/story';
 import { useAccount } from '@/net/account';
 import { submitScoreOnce, unrankedReason } from '@/net/scores';
 import { rememberGuestDaily, submitDailyOnce, type DailyResult, type DailyRun } from '@/net/daily';
@@ -50,6 +51,7 @@ export function ReportScreen() {
   const setScreen = useGame((s) => s.setScreen);
   const setBriefing = useGame((s) => s.setBriefing);
   const inbox = useCareer((s) => s.inbox);
+  const careerProfile = useCareer((s) => s.profile);
   const clearInbox = useCareer((s) => s.clearInbox);
   const [, rerender] = useState(0);
 
@@ -140,6 +142,17 @@ export function ReportScreen() {
   const rep = report.reputationDelta;
   const repText = `${rep >= 0 ? '+' : '−'}${formatDecimal(Math.abs(rep), lang, Number.isInteger(rep) ? 0 : 1)}`;
   const hasHq = career || !!useCareer.getState().profile;
+  // The newspaper's piece about the career's story for the shift just paid (docs/STORY.md).
+  const press =
+    career && cr && !cr.error && careerProfile
+      ? (() => {
+          try {
+            return storyPress(careerProfile, careerProfile.day - 1);
+          } catch {
+            return null;
+          }
+        })()
+      : null;
 
   const cells: {
     key: string;
@@ -472,6 +485,7 @@ export function ReportScreen() {
           lang={lang}
           issue={issue}
           weather={sim?.weather ? sim.weather.text[lang] : undefined}
+          extra={press}
         />
       </section>
 

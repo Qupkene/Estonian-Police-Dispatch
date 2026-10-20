@@ -209,3 +209,4 @@ older tab and synced keeps it. Other unknown ids are dropped (with the backup ab
 | Tests | tests/sectors.test.ts, tests/sim-balance.test.ts (sector shifts), tests/career-sectors.test.ts, tests/colleagues.test.ts |
 | Career rules | src/sim/careerSectors.ts, src/sim/career.ts (newCareer, applyShiftReport), src/store/career.ts, src/store/migrate.ts |
 | UI | src/ui/screens/career/*, src/ui/screens/BriefingScreen.tsx, src/map/*, src/ui/game/* |
+| The career in chapters | docs/STORY.md (src/data/story.ts, src/sim/story.ts): the AI colleague of a neighbouring desk is one of its cast |

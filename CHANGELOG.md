@@ -2,6 +2,19 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.18.0 (2026-10-20)
+
+- **Karjäär peatükkides:** viis peatükki (Esimene laud, Naabrid, Vahetuse vanem, Prefektuur, Keskuse juht), mis algavad päris karjääri verstapostidest. Igal peatükil on sissejuhatus, lõpp, neli eesmärki (kolmest piisab) ja väike tasu.
+- **Tegelased:** prefekt, sinu vahetuse vanem, naaberlaua kolleeg, ametiühingu esindaja ja ajakirjanik räägivad teadetes, päevakäsus ja ajalehes. Igas peatükis on üks küsimus, mille vastusel on väike mõju.
+- Karjääri lehel on peatüki paneel ja peamenüüs üks rida. Vanad karjäärid jätkuvad peatükist, mis nende seisuga sobib, ja salvestused jäävad alles.
+
+<details>
+<summary>English</summary>
+
+The career now unfolds in five chapters tied to real milestones, each with an intro, an outro, four objectives (any three) and a small reward. A recurring cast (prefect, shift supervisor mentor, a neighbouring colleague, a union rep and a reporter) speaks through the notices, the briefing and the newspaper, with one choice per chapter. Old careers continue from the matching chapter; saves are kept.
+
+</details>
+
 ## 2.17.0 (2026-10-20)
 
 - **AI kolleegid töötavad päriselt:** karjääri sektorivahetuses palub naaberlaua kolleeg aeg-ajalt abi väljakutsega otse piiri tagant, sinu meeskondade lähedal. Kui saadad üksuse, kasvab Staatus; kui ei saada, võtab kolleeg selle tagasi ilma karistuseta.

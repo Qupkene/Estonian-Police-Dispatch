@@ -63,6 +63,10 @@ test('a new career at the Tartu linn desk plays its own area', async ({ page }) 
 
   // HQ: the position and the area of responsibility.
   await expect(page.locator('.cr-head__pos')).toHaveText('operatiivinfo haldur');
+  // The story's first chapter (docs/STORY.md): its panel, and the mentor's intro among the notices.
+  await expect(page.locator('.cr-story .vk-h')).toHaveText('Peatükk 1 · Esimene laud');
+  await expect(page.locator('.cr-story__list li')).toHaveCount(4);
+  await expect(page.locator('.cr-notes')).toContainText('Mati Tõnisson');
   const area = page.locator('.cr-area');
   await expect(area).toContainText('Vastutusala');
   await expect(area.locator('.cr-area__row.is-covered')).toHaveText(/Tartu linn/);
@@ -76,6 +80,7 @@ test('a new career at the Tartu linn desk plays its own area', async ({ page }) 
   await expect(brief.locator('.sh-brief__areaNames')).toHaveText('Tartu linn');
   await expect(brief).toContainText('Tartumaa ja Elva');
   await expect(page.locator('.sh-order__area')).toContainText('Vastutusala: Tartu linn.');
+  await expect(page.locator('.sh-order__story')).toContainText('juhendaja vahetuse vanem Mati Tõnisson');
   await expect(page.locator('.sh-roster__station').first()).toContainText('Tartu');
 
   await page

@@ -18,6 +18,7 @@ import { fetchMyRoom, type Room } from '@/net/rooms';
 import { useLang, useT, useTx } from '@/i18n';
 import { displayRoomCode } from '@/sim/room';
 import { sectorById } from '@/sim/sectors';
+import { storyLine } from '@/sim/story';
 import { ddmmyyyy, hhmm, wall } from '@/sim/time';
 import type { CareerProfile, GameMode, Lang } from '@/sim/types';
 import { DailyCard, useDaily } from './shell/Daily';
@@ -25,7 +26,7 @@ import { openLobby } from './shell/lobbyNav';
 import { DutyMap, type MapLayout } from './shell/DutyMap';
 import { Leaderboard } from './shell/Leaderboard';
 import { MapLegend } from './shell/MapLegend';
-import { MonoNumbers, noticeText } from './shell/notices';
+import { MonoNumbers, NoticeLabel, noticeText } from './shell/notices';
 import { ShellAccount, ShellFooter, ShellTopBar, STACKED, useMedia } from './shell/ShellFrame';
 import { regionSummary } from './shell/helpers';
 import {
@@ -498,6 +499,15 @@ function CareerPanel({
   const tx = useTx();
   const f = useMemo(() => (profile ? careerFigures(profile) : null), [profile]);
   const chart = useMemo(() => (profile ? shiftBars(profile) : null), [profile]);
+  // The career's story in one line (docs/STORY.md).
+  const story = useMemo(() => {
+    if (!profile) return null;
+    try {
+      return storyLine(profile);
+    } catch {
+      return null;
+    }
+  }, [profile]);
   const go = useGame((s) => s.setScreen);
 
   const action = (
@@ -658,6 +668,23 @@ function CareerPanel({
             ? where.region
             : t('shell.menu.areaLine', { area: where.area, region: where.region })}
         </p>
+        {story && (
+          <p className="vk-car__story">
+            <span className="vk-car__chapter" aria-hidden="true" />
+            <span>
+              {story.state === 'told'
+                ? t('story.menuTold', { total: story.total })
+                : t(story.state === 'waiting' ? 'story.menuWaiting' : 'story.menu', {
+                    n: story.chapter,
+                    total: story.total,
+                    title: tx(story.title),
+                    met: story.met,
+                    need: story.need,
+                  })}
+              {story.ask && <span className="vk-car__ask"> · {t('story.menuAsk')}</span>}
+            </span>
+          </p>
+        )}
       </div>
       <dl className="vk-kpis">
         {kpis.map((k) => (
@@ -758,7 +785,7 @@ function NoticesPanel({ notices, max }: { notices: Notice[]; max: number }) {
           <li key={i} className="vk-note">
             <p className="vk-note__head">
               <span className={`vk-note__dot${n.day === null ? ' is-state' : ''}`} aria-hidden="true" />
-              <span className="vk-note__kind">{t(`shell.menu.note.${n.kind}`)}</span>
+              <NoticeLabel n={n} />
               {n.day !== null && <span className="vk-meta">{t('shell.menu.note.day', { day: n.day })}</span>}
             </p>
             <p className="vk-note__text">

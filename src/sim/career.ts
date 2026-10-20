@@ -30,6 +30,7 @@ import { randomName } from '@/gen/names';
 import { makePlate } from '@/gen/vehicle';
 import { careerSectors, coversWholeRegion, isSectorCareer, maybeOffer, postsUpkeep, sectorCount, sectorNames, sectorsForNewRegion, startSector } from './careerSectors';
 import type { ReportExtras, ShiftReportX } from './report';
+import { initialStory, storyAfterShift } from './story';
 import { hashString, Rng } from './rng';
 import { areaShare, normalizeArea, sectorById, sectorStationIds } from './sectors';
 import { RESPONSE_TYPES, stationCallsign } from './units';
@@ -385,6 +386,8 @@ export function newCareer(name: string, badge: string, regionId: RegionId, seed:
     counters: { nightShifts: 0, pranksCaught: 0, aStreak: 0 },
   };
   base.recruits = generateCandidates(rng, 8, base);
+  // The career's story starts at its first chapter (docs/STORY.md); the store puts the intro in the inbox.
+  base.story = initialStory(base);
   return base;
 }
 
@@ -935,6 +938,11 @@ export function applyShiftReport(
       ),
     );
   }
+
+  // ── The career's story (docs/STORY.md): objectives, chapters, the cast's messages ──
+  const story = storyAfterShift(p, r);
+  ledger.push(...story.ledger);
+  messages.push(...story.messages);
 
   // ── Achievements ──────────────────────────────────────────────────────────
   const earned = checkAchievements(p, r, ctx);

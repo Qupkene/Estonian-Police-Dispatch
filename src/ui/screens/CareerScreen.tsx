@@ -1,5 +1,6 @@
 // Career page (Valvekaart): the head row with the start button, the career's figures, the duty map focused on
-// the prefecture with the Vastutusala table and the prefect's offer over it, then the next shift's crews, the
+// the prefecture with the Vastutusala table and the prefect's offer over it, then the story's chapter panel
+// (docs/STORY.md), the next shift's crews, the
 // last shifts, the fleet, the notices, the next rank, the police posts and the management tabs. Stacked on a
 // narrow screen with the map as a strip on top. Owned by ui-career.
 import { Component, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -30,6 +31,7 @@ import {
   PageHead,
   useRank,
 } from './career/Overview';
+import { StoryPanel } from './career/StoryPanel';
 import { StaffTab } from './career/StaffTab';
 import { RecruitTab } from './career/RecruitTab';
 import { FleetTab } from './career/FleetTab';
@@ -159,6 +161,9 @@ function Hq({ profile, stacked }: { profile: CareerProfile; stacked: boolean }) 
       <main className="cr-hq__main">
         <HqMap profile={profile} regionId={region} stacked={stacked} />
         <div className="cr-grid">
+          <Boundary>
+            <StoryPanel profile={profile} />
+          </Boundary>
           <Boundary>
             <NextShiftPanel
               profile={profile}

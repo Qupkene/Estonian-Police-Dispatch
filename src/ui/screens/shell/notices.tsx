@@ -1,5 +1,5 @@
 // Teated (notices) on the Valvekaart screens: a notice's text in the shown language, its figures set in mono.
-import { t as translate } from '@/i18n';
+import { t as translate, useLang, useT } from '@/i18n';
 import type { Lang } from '@/sim/types';
 import type { Notice } from './menuModel';
 
@@ -29,4 +29,18 @@ export function MonoNumbers({ text }: { text: string }) {
       )}
     </>
   );
+}
+
+/** A notice's head label: the speaker and their role for a story character's message, else the kind. */
+export function NoticeLabel({ n }: { n: Notice }) {
+  const t = useT();
+  const lang = useLang();
+  if (n.who)
+    return (
+      <>
+        <span className="vk-note__kind">{n.who.name}</span>
+        <span className="vk-note__role">{n.who.role[lang] || n.who.role.et}</span>
+      </>
+    );
+  return <span className="vk-note__kind">{t(`shell.menu.note.${n.kind}`)}</span>;
 }

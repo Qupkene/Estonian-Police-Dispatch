@@ -1225,6 +1225,35 @@ export interface CareerProfile {
    * every unlocked prefecture whole and keeps the old daily budget (src/sim/careerSectors.ts isSectorCareer).
    */
   sectorsChangedDay?: number;
+  /**
+   * The career told in chapters (docs/STORY.md, src/sim/story.ts). Missing on a career from before the story: it
+   * starts at the chapter matching its state with its next paid shift, without retroactive rewards.
+   */
+  story?: StoryState;
+}
+
+/** Progress of the career's story (CareerProfile.story, docs/STORY.md). JSON-safe; every field checked on load. */
+export interface StoryState {
+  /** The current chapter, 1-based (STORY_CHAPTERS in src/data/story.ts; a later version may add more). */
+  chapter: number;
+  /** The chapter the story started at: 1 for a new career, later for a career from before the story. */
+  from: number;
+  /** Career day the current chapter began. */
+  since: number;
+  /** Paid shifts played in the current chapter. */
+  shifts: number;
+  /** The neighbouring desk (sector id) whose AI colleague speaks in the story, fixed when the story starts. */
+  desk?: string;
+  /** Objective ids of the current chapter that are met (they stay met). */
+  done: string[];
+  /** The current chapter is finished; the next one begins when its milestone is reached. */
+  complete?: boolean;
+  /** The question a character is waiting to have answered (StoryChoiceDef id) and the day it was asked. */
+  choice?: { id: string; day: number };
+  /** Answered (or lapsed: '-') questions, choice id to option id. */
+  answers?: Record<string, string>;
+  /** The newspaper's piece for the paid shift of `day` (the report's front page shows it once). */
+  press?: { day: number; title: Text; body: Text; byline: string };
 }
 
 export interface Upgrade {
