@@ -131,12 +131,13 @@ describe('modals on a phone (visual-2, acc-ui-2)', () => {
 describe('map chrome (visual-3, visual-7)', () => {
   it('keeps light ink on the always-dark map glass in both themes', () => {
     const root = rule(MAP, '.epdm');
-    const glass = '#090f17';
+    const glass = '#11171c'; // --epdm-glass, nearly opaque
     for (const name of ['--text-0', '--text-1', '--text-2', '--text-3']) {
       expect(root[name], name).toMatch(/^#[0-9a-f]{6}$/);
       expect(contrast(root[name], glass), name).toBeGreaterThanOrEqual(4.5);
     }
-    expect(root['--accent-2']).toBe('#00d0ff');
+    // Valvekaart's dark blue (its lighter step), the same in both themes on the dark map.
+    expect(root['--accent-2']).toBe('#8addff');
   });
 
   it('gives the marker layer its own stacking context below the toolbar', () => {

@@ -1,23 +1,31 @@
-/* EPD design tokens: dark CAD theme (default) + light "päevarežiim". */
+/* EPD design tokens: dark CAD theme (default) + light "päevarežiim".
+   Surfaces, lines, ink, the accent and the type are Valvekaart's (the out-of-game screens, .vk in
+   ui/screens/shell/vk.css), as hex: bg-1 its panel, bg-2 panel-2, bg-3 raise, line its line-2, line-2 its line,
+   text-0 to text-3 its ink, accent its blue (the player's). Keep the two in step. Status and priority colours
+   (--p*, --st-*, --ok, --warn, --danger, --info) are the CAD's own and keep their meaning. */
 :root {
   color-scheme: dark;
-  --bg-0: #06090d;
-  --bg-1: #0b1118;
-  --bg-2: #111a24;
-  --bg-3: #17222f;
-  --bg-4: #1f2c3b;
-  --glass: rgba(13, 20, 29, 0.82);
-  --line: #1e2a38;
-  --line-2: #2a3a4e;
-  --line-3: #3a4e66;
-  --text-0: #eaf1f8;
-  --text-1: #c0ccd9;
-  --text-2: #93a2b4;
-  /* Faintest ink still readable: at least 4.5:1 on --bg-0 to --bg-3. */
-  --text-3: #8090a4;
-  --accent: #3d8bff;
-  --accent-2: #00d0ff;
-  --accent-soft: rgba(61, 139, 255, 0.16);
+  --bg-0: #0a0f14;
+  --bg-1: #11171c;
+  --bg-2: #161b21;
+  --bg-3: #1d232a;
+  --bg-4: #262c33;
+  --glass: rgba(17, 23, 28, 0.94);
+  --line: #1f252b;
+  --line-2: #2b3138;
+  --line-3: #414951;
+  --text-0: #eef2f5;
+  --text-1: #c4ccd2;
+  --text-2: #9ca6ae;
+  /* Faintest ink still readable: at least 4.5:1 on --bg-0 to --bg-4. */
+  --text-3: #8c97a0;
+  /* The player's blue: fills carry dark ink (--on-accent), as on the menu. --accent-2 is its lighter step for
+     text, links and focus. */
+  --accent: #5fc8fa;
+  --accent-hover: #8addff;
+  --accent-2: #8addff;
+  --accent-soft: rgba(95, 200, 250, 0.14);
+  --on-accent: #04111c;
   --gold: #f2c14e;
   /* Dark ink for text and icons on bright fills (warn, gold, status colours). Not themed: the
      fills stay bright in the light theme too, where --bg-0 would be near-white on amber. */
@@ -31,10 +39,15 @@
   --p2-soft: rgba(255, 154, 31, 0.13);
   --p3-soft: rgba(242, 212, 12, 0.11);
   --p4-soft: rgba(77, 163, 255, 0.12);
+  /* P1 and danger as fills under white text (counts, badges, the P1 button): a shade deeper, 5.2:1 and 5.5:1
+     (colour-blind P1 4.6:1); the raw colours are 3.6:1 and 3.8:1 under white. */
+  --p1-fill: color-mix(in srgb, var(--p1) 80%, black);
+  --danger-fill: color-mix(in srgb, var(--danger) 80%, black);
 
   --ok: #22c55e;
   --warn: #f59e0b;
-  --danger: #ef4444;
+  /* A touch lighter than #ef4444: as text it now keeps 4.5:1 on the raised surface (--bg-3) too. */
+  --danger: #f45d5d;
   --info: #38bdf8;
 
   --st-available: #22c55e;
@@ -60,8 +73,11 @@
   --st-enroute-ink: var(--st-enroute);
   --st-onscene-ink: var(--st-onscene);
 
-  --font-ui: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-ui:
+    'Instrument Sans Variable', 'Instrument Sans', 'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  /* Uppercase panel and section labels. */
+  --font-display: 'Archivo Variable', Archivo, 'Helvetica Neue', 'Segoe UI', sans-serif;
 
   --fs-xs: 11px;
   --fs-sm: 12px;
@@ -71,10 +87,11 @@
   --fs-2xl: 24px;
   --fs-3xl: 34px;
 
-  --r-sm: 4px;
-  --r-md: 8px;
-  --r-lg: 12px;
-  --r-xl: 18px;
+  /* Valvekaart's tighter corners (its panels are 6 px). */
+  --r-sm: 3px;
+  --r-md: 5px;
+  --r-lg: 6px;
+  --r-xl: 8px;
 
   --sp-1: 4px;
   --sp-2: 8px;
@@ -83,9 +100,10 @@
   --sp-5: 24px;
   --sp-6: 32px;
 
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45);
-  --shadow-glow: 0 0 0 1px rgba(61, 139, 255, 0.45), 0 0 24px rgba(61, 139, 255, 0.25);
+  /* Flat panels: hairlines do the work, shadows only lift what floats (menus, toasts, modals). */
+  --shadow-1: none;
+  --shadow-2: 0 1px 0 rgba(0, 0, 0, 0.4), 0 16px 36px -14px rgba(0, 0, 0, 0.75);
+  --shadow-glow: 0 0 0 1px rgba(95, 200, 250, 0.55);
 
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --dur-1: 120ms;
@@ -97,29 +115,32 @@
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --bg-0: #e9eef4;
-  --bg-1: #f6f8fb;
-  --bg-2: #ffffff;
-  --bg-3: #eef2f7;
-  --bg-4: #e2e8f0;
-  --glass: rgba(255, 255, 255, 0.88);
-  --line: #d5dde7;
-  --line-2: #c3cedb;
-  --line-3: #a9b7c8;
-  --text-0: #0d1622;
-  --text-1: #263445;
-  --text-2: #4b5c71;
-  --text-3: #55657a;
-  --accent: #1f6fe5;
-  /* The dark theme's #00d0ff cyan is about 1.7:1 on these surfaces. */
-  --accent-2: #076f8c;
-  --accent-soft: rgba(31, 111, 229, 0.12);
-  --shadow-2: 0 8px 24px rgba(15, 30, 50, 0.12);
+  --bg-0: #e7ecf0;
+  --bg-1: #f8fafc;
+  --bg-2: #fcfeff;
+  --bg-3: #f0f4f7;
+  --bg-4: #e9f0f5;
+  --glass: rgba(252, 254, 255, 0.95);
+  --line: #dfe3e6;
+  --line-2: #ccd2d6;
+  --line-3: #b1b9be;
+  --text-0: #121921;
+  --text-1: #353e47;
+  --text-2: #505963;
+  --text-3: #5a656e;
+  --accent: #076fb8;
+  --accent-hover: #005da4;
+  /* The deeper step: 4.5:1 and more on every light surface. */
+  --accent-2: #005da4;
+  --accent-soft: rgba(7, 111, 184, 0.12);
+  --on-accent: #f9fcfe;
+  --shadow-2: 0 1px 2px rgba(20, 30, 45, 0.1), 0 16px 36px -18px rgba(20, 35, 55, 0.35);
+  --shadow-glow: 0 0 0 1px rgba(7, 111, 184, 0.55);
   /* Mixed with --text-0 rather than fixed values, so the colour-blind palette carries through. */
   --warn-ink: color-mix(in srgb, var(--warn) 50%, var(--text-0));
   --gold-ink: color-mix(in srgb, var(--gold) 45%, var(--text-0));
   --ok-ink: color-mix(in srgb, var(--ok) 52%, var(--text-0));
-  --danger-ink: color-mix(in srgb, var(--danger) 72%, var(--text-0));
+  --danger-ink: color-mix(in srgb, var(--danger) 65%, var(--text-0));
   --info-ink: color-mix(in srgb, var(--info) 50%, var(--text-0));
   --p1-ink: color-mix(in srgb, var(--p1) 65%, var(--text-0));
   --p2-ink: color-mix(in srgb, var(--p2) 47%, var(--text-0));

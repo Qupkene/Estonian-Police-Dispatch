@@ -1,6 +1,6 @@
 // Estonian e-identity login simulation (ID-kaart / Mobiil-ID / Smart-ID) + the classic 2024 login.
 // The e-ID flows are simulations: any input is accepted after a short delay (guest logins). On a wide screen the
-// panel is at the right and the duty map is moved left, so Estonia sits in the free space.
+// panel stands in the right half (login.css) and the duty map is moved left, so Estonia sits in the free space.
 // The "Klassika" tab is the real account login when the server answers (src/net/account.ts), on a screen of its
 // own like the 2024 and 2025 originals (blue page, white box); both fields empty is still the 2024 easter egg.
 // Owned by ui-shell.
@@ -32,8 +32,8 @@ import './shell/login.css';
 
 type Method = 'idcard' | 'mobiilid' | 'smartid' | 'legacy';
 
-/** The whole-country map moved left (view px), out from under the panel at the right. */
-const LOGIN_VIEW: MapView = { ...DESKTOP_VIEW, at: [DESKTOP_VIEW.at[0] - 250, DESKTOP_VIEW.at[1]] };
+/** The whole-country map moved left (view px), out from under the panel in the right half. */
+const LOGIN_VIEW: MapView = { ...DESKTOP_VIEW, at: [DESKTOP_VIEW.at[0] - 300, DESKTOP_VIEW.at[1]] };
 
 export function LoginScreen() {
   const t = useT();
@@ -193,13 +193,14 @@ export function LoginScreen() {
           <DutyMap variant={stacked ? 'strip' : 'full'} input={NO_DUTY} view={stacked ? undefined : LOGIN_VIEW} />
         </div>
         <section className="vk-panel vk-login__panel" aria-labelledby="sh-login-title">
-          <div className="vk-panel__head">
+          {/* The system owner's header first, as on an official sign-in page; then what this page is. */}
+          <ShellIdent className="vk-login__ident" />
+          <div className="vk-panel__head vk-login__head">
             <h1 className="vk-h" id="sh-login-title">
               {t('shell.login.title')}
             </h1>
             <span className="vk-meta">EPD-CAD {VERSION}</span>
           </div>
-          <ShellIdent className="vk-login__ident" />
           {success ? (
             <div className="vk-login__success" role="status">
               <p className="vk-login__successTitle">
@@ -243,7 +244,15 @@ export function LoginScreen() {
                   { id: 'idcard', label: <TabLabel brand="id-kaart" text={t('shell.login.tab.idcard')} /> },
                   { id: 'mobiilid', label: <TabLabel brand="mobiil-id" text={t('shell.login.tab.mobiilid')} /> },
                   { id: 'smartid', label: <TabLabel brand="smart-id" text={t('shell.login.tab.smartid')} /> },
-                  { id: 'legacy', label: <span className="vk-login__tabLabel">{t('shell.login.tab.legacy')}</span> },
+                  {
+                    id: 'legacy',
+                    label: (
+                      <span className="vk-login__tabLabel">
+                        <Icon name="lock" size={14} />
+                        {t('shell.login.tab.legacy')}
+                      </span>
+                    ),
+                  },
                 ]}
               />
               <div className="vk-login__flow" role="tabpanel">

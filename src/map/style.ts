@@ -154,17 +154,19 @@ export interface BuildStyleOptions {
 
 /** Tactical palette (also used by the DOM overlays via CSS tokens where possible). */
 export const PALETTE = {
-  sea: '#050c16',
-  neighbor: '#0b131d',
-  neighborLine: '#1a2634',
-  land: '#101b28',
+  // Sea, neighbours, land and lakes in Valvekaart's tones (the menu's duty map, ui/screens/shell/vk.css): the
+  // same lightness as before, less navy. Roads, borders, labels and overlays keep their colours.
+  sea: '#07111b',
+  neighbor: '#0f141a',
+  neighborLine: '#1c232a',
+  land: '#141b24',
   landGlow: '#2f7bff',
   coast: '#2c4560',
-  lake: '#061221',
+  lake: '#081420',
   lakeLine: '#1c3552',
   county: '#3b5878',
   district: '#2b4a6c',
-  districtFill: '#142235',
+  districtFill: '#172331',
   roadMinor: '#22354a',
   roadSecondary: '#2f4b69',
   roadMajor: '#4f8fdc',
@@ -175,7 +177,7 @@ export const PALETTE = {
   labelTown: '#a9b8c9',
   labelVillage: '#7d8ea3',
   labelDistrict: '#6d89aa',
-  halo: '#04080e',
+  halo: '#05090e',
   route: '#3d8bff',
   routeSelected: '#00d0ff',
   pursuit: '#ff2d55',

@@ -1,4 +1,6 @@
-/* EPD design system: shared primitives (owned by ui-shell). Tokens only (see styles/tokens.css). */
+/* EPD design system: shared primitives (owned by ui-shell). Tokens only (see styles/tokens.css).
+   Valvekaart's flat look: plain fills and hairlines, no sheen, glow or blur; the menu screens adapt the same
+   primitives further with .vk-ui (ui/screens/shell/vk.css). */
 
 /* ── Focus ring shared by interactive primitives ──────────────────────────── */
 .ui-btn:focus-visible,
@@ -29,7 +31,7 @@
   padding: 0 12px;
   border: 1px solid var(--btn-border);
   border-radius: var(--r-md);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--btn-bg) 92%, white 8%), var(--btn-bg));
+  background: var(--btn-bg);
   color: var(--btn-fg);
   font-weight: 600;
   font-size: var(--fs-md);
@@ -37,9 +39,7 @@
   line-height: 1;
   white-space: nowrap;
   user-select: none;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    var(--shadow-1);
+  box-shadow: none;
   transition:
     background var(--dur-1) var(--ease),
     border-color var(--dur-1) var(--ease),
@@ -49,18 +49,13 @@
 }
 .ui-btn:hover:not(:disabled),
 .ui-iconbtn:hover:not(:disabled) {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--btn-bg-hover) 88%, white 12%),
-    var(--btn-bg-hover)
-  );
+  background: var(--btn-bg-hover);
   border-color: color-mix(in srgb, var(--btn-border) 60%, var(--text-2) 40%);
 }
 .ui-btn:active:not(:disabled),
 .ui-iconbtn:active:not(:disabled) {
   transform: translateY(1px);
   background: var(--btn-bg);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
 }
 .ui-btn:disabled,
 .ui-iconbtn:disabled {
@@ -90,28 +85,27 @@
   opacity: 0.8;
 }
 
-/* Filled buttons sit a shade below the raw accent/danger colour so white labels keep 4.5:1. */
+/* The player's blue with its own ink (dark on the dark theme's light blue, white on the light theme's deep
+   one: 10:1 and 5.1:1). The danger fill sits a shade below the raw colour so its white label keeps 4.5:1. */
 .ui-btn--primary {
-  --btn-bg: color-mix(in srgb, var(--accent) 76%, #000);
-  --btn-bg-hover: color-mix(in srgb, var(--accent) 84%, #000);
-  --btn-border: color-mix(in srgb, var(--accent) 70%, white 30%);
-  --btn-fg: #fff;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+  --btn-bg: var(--accent);
+  --btn-bg-hover: var(--accent-hover);
+  --btn-border: transparent;
+  --btn-fg: var(--on-accent);
 }
 .ui-btn--primary:hover:not(:disabled) {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent),
-    0 6px 20px color-mix(in srgb, var(--accent) 35%, transparent);
+  border-color: transparent;
+}
+.ui-btn--primary .ui-kbd {
+  background: color-mix(in srgb, var(--on-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--on-accent) 40%, transparent);
+  opacity: 1;
 }
 .ui-btn--danger {
   --btn-bg: color-mix(in srgb, var(--danger) 78%, #000);
   --btn-bg-hover: color-mix(in srgb, var(--danger) 86%, #000);
   --btn-border: color-mix(in srgb, var(--danger) 70%, white 30%);
   --btn-fg: #fff;
-}
-.ui-btn--danger:hover:not(:disabled) {
-  box-shadow: 0 6px 20px color-mix(in srgb, var(--danger) 35%, transparent);
 }
 .ui-btn--success {
   --btn-bg: var(--ok);
@@ -211,12 +205,9 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-1) 94%, white 6%), var(--bg-1) 48px);
+  background: var(--bg-1);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.03),
-    var(--shadow-1);
 }
 .ui-panel__head {
   display: flex;
@@ -237,10 +228,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family: var(--font-display);
   font-size: var(--fs-xs);
-  font-weight: 700;
+  font-weight: 600;
+  font-stretch: 112%;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   color: var(--text-1);
 }
 .ui-panel__actions {
@@ -304,7 +297,6 @@
 }
 .ui-tab.is-active::after {
   transform: scaleX(1);
-  box-shadow: 0 0 10px var(--accent);
 }
 .ui-tab:disabled {
   opacity: 0.4;
@@ -324,7 +316,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--p1);
+  background: var(--p1-fill);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -355,9 +347,7 @@
 }
 .ui-tabs--pill .ui-tab.is-active {
   background: var(--bg-4);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 0 0 1px var(--line-2);
+  box-shadow: 0 0 0 1px var(--line-2);
 }
 
 /* ── Segmented ────────────────────────────────────────────────────────────── */
@@ -394,14 +384,8 @@
 }
 .ui-seg__opt.is-active {
   color: var(--text-0);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--accent) 30%, var(--bg-4)),
-    color-mix(in srgb, var(--accent) 18%, var(--bg-3))
-  );
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent),
-    0 2px 8px color-mix(in srgb, var(--accent) 20%, transparent);
+  background: var(--bg-4);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 .ui-seg__opt:disabled {
   opacity: 0.4;
@@ -471,22 +455,15 @@
   line-height: 1;
   border-radius: 5px;
   color: #0b0f14;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 85%, white 15%), var(--pc));
-  box-shadow:
-    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-    0 0 0 1px color-mix(in srgb, var(--pc) 60%, black 40%);
+  background: var(--pc);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pc) 60%, black 40%);
   flex: none;
 }
 .ui-prio--1 {
   --pc: var(--p1);
-  /* A deeper red than the other chips: white P1 on raw --p1 is only 3.5:1. */
-  background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 86%, black), color-mix(in srgb, var(--pc) 76%, black));
+  /* A deeper red than the other chips: white P1 on raw --p1 is only 3.5:1 (here 5.2:1, colour-blind 4.6:1). */
+  background: color-mix(in srgb, var(--pc) 80%, black);
   color: #fff;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
-  box-shadow:
-    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-    0 0 0 1px color-mix(in srgb, var(--pc) 60%, black 40%),
-    0 0 12px color-mix(in srgb, var(--pc) 45%, transparent);
 }
 .ui-prio--2 {
   --pc: var(--p2);
@@ -526,7 +503,6 @@
   border-radius: 50%;
   flex: none;
   background: var(--sc);
-  box-shadow: 0 0 6px var(--sc);
 }
 .ui-status--available {
   --sc: var(--st-available);
@@ -569,8 +545,7 @@
   grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: 16px;
-  background: color-mix(in srgb, var(--bg-0) 70%, transparent);
-  backdrop-filter: blur(6px) saturate(120%);
+  background: color-mix(in srgb, var(--bg-0) 78%, transparent);
   animation: ui-fade var(--dur-2) var(--ease);
 }
 .ui-modal__card {
@@ -581,12 +556,10 @@
   max-height: calc(100vh - 32px);
   max-height: calc(100dvh - 32px);
   overflow: hidden;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-2) 94%, white 6%), var(--bg-2) 80px);
+  background: var(--bg-2);
   border: 1px solid var(--line-2);
   border-radius: var(--r-xl);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.4),
-    0 24px 64px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--shadow-2);
   animation: ui-pop var(--dur-2) var(--ease);
   outline: none;
 }
@@ -597,14 +570,13 @@
   right: 0;
   top: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  opacity: 0.8;
+  background: var(--accent);
 }
 .ui-modal__card--danger::before {
-  background: linear-gradient(90deg, transparent, var(--danger), transparent);
+  background: var(--danger);
 }
 .ui-modal__card--warn::before {
-  background: linear-gradient(90deg, transparent, var(--warn), transparent);
+  background: var(--warn);
 }
 .ui-modal__head {
   display: flex;
@@ -681,7 +653,6 @@
   border-radius: 11px;
   background: var(--bg-4);
   border: 1px solid var(--line-2);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
   transition:
     background var(--dur-2) var(--ease),
     border-color var(--dur-2) var(--ease),
@@ -694,21 +665,16 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: linear-gradient(180deg, #ffffff, #cfd8e3);
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.5),
-    0 0 0 0.5px rgba(0, 0, 0, 0.2);
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
   transition: transform var(--dur-2) var(--ease);
 }
 .ui-toggle:hover .ui-toggle__track {
   border-color: var(--line-3);
 }
 .ui-toggle__input:checked + .ui-toggle__track {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 85%, white 15%), var(--accent));
-  border-color: color-mix(in srgb, var(--accent) 70%, white 30%);
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.25),
-    0 0 12px color-mix(in srgb, var(--accent) 35%, transparent);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 .ui-toggle__input:checked + .ui-toggle__track .ui-toggle__thumb {
   transform: translateX(16px);
@@ -780,8 +746,7 @@
 .ui-slider input[type='range']::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 3px;
-  background: linear-gradient(90deg, var(--accent) 0, var(--accent-2) var(--pct), var(--bg-4) var(--pct));
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(90deg, var(--accent) 0 var(--pct), var(--bg-4) var(--pct));
 }
 .ui-slider input[type='range']::-moz-range-track {
   height: 6px;
@@ -791,7 +756,7 @@
 .ui-slider input[type='range']::-moz-range-progress {
   height: 6px;
   border-radius: 3px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  background: var(--accent);
 }
 .ui-slider input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -851,7 +816,7 @@
   width: 100%;
   height: 32px;
   padding: 0 32px 0 10px;
-  background: linear-gradient(180deg, var(--bg-3), var(--bg-2));
+  background: var(--bg-3);
   border: 1px solid var(--line-2);
   border-radius: var(--r-md);
   color: var(--text-0);
@@ -906,7 +871,6 @@
   border: 1px solid var(--line-2);
   border-radius: var(--r-md);
   color: var(--text-0);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
   transition:
     border-color var(--dur-1) var(--ease),
     box-shadow var(--dur-1) var(--ease);
@@ -943,7 +907,6 @@
   background: var(--bg-4);
   border-radius: 4px;
   overflow: hidden;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 .ui-meter--sm {
   height: 4px;
@@ -955,8 +918,7 @@
 .ui-meter__fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--mc) 70%, transparent), var(--mc));
-  box-shadow: 0 0 8px color-mix(in srgb, var(--mc) 50%, transparent);
+  background: var(--mc);
   transition: width var(--dur-3) var(--ease);
 }
 .ui-meter--accent {
@@ -989,7 +951,7 @@
   height: 46px;
   border-radius: 50%;
   color: var(--text-3);
-  background: radial-gradient(circle, var(--bg-3), var(--bg-2));
+  background: var(--bg-3);
   border: 1px dashed var(--line-2);
 }
 .ui-empty__title {
@@ -1034,11 +996,6 @@
   mask-size: 100% 100%;
 }
 
-/* The light theme's accent is already deeper: only a touch darker for 4.5:1 across the gradient. */
-:root[data-theme='light'] .ui-btn--primary {
-  --btn-bg: color-mix(in srgb, var(--accent) 90%, #000);
-  --btn-bg-hover: color-mix(in srgb, var(--accent) 96%, #000);
-}
 /* Light theme: badge text mixed further towards the ink, the dark theme's 85% tone is about 2.5:1 on white. */
 :root[data-theme='light'] .ui-badge {
   color: color-mix(in srgb, var(--tone) 45%, var(--text-0));
