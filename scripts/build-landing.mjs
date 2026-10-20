@@ -54,6 +54,20 @@ li{margin:4px 0}
 .card p{margin:0}
 .faq dt{margin-top:18px;font-weight:700}
 .faq dd{margin:4px 0 0}
+@media (max-width:600px){
+body{font-size:16px}
+.top__in{gap:0;padding-top:8px}
+.nav{order:3;width:100%;margin:0 -16px;padding:0 16px;flex-wrap:nowrap;gap:20px;overflow-x:auto;border-top:1px solid var(--line);scrollbar-width:none}
+.nav a{white-space:nowrap;padding:12px 0}
+.main{padding-top:20px}
+h1{font-size:28px}
+h2{font-size:21px;margin-top:32px}
+.lead{font-size:17px}
+.cta .btn{flex:1;justify-content:center}
+figure picture img{max-width:300px;margin:0 auto}
+figcaption{text-align:center}
+.cards{grid-template-columns:1fr}
+}
 .foot{border-top:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:14px}
 .foot__in{padding-top:20px;padding-bottom:28px}
 .foot p{margin:4px 0}
@@ -179,8 +193,9 @@ ${faqHtml}
 `;
 }
 
+/** A screenshot: the wide one on a computer, the phone one (public/screenshots/phone-*.webp) on a phone. */
 const shot = (src, alt, caption) =>
-  `<figure><img src="/screenshots/${src}.webp" width="1600" height="900" alt="${esc(alt)}" loading="lazy" decoding="async" /><figcaption>${caption}</figcaption></figure>`;
+  `<figure><picture><source media="(max-width: 600px)" srcset="/screenshots/phone-${src}.webp" width="780" height="1688" /><img src="/screenshots/${src}.webp" width="1600" height="900" alt="${esc(alt)}" loading="lazy" decoding="async" /></picture><figcaption>${caption}</figcaption></figure>`;
 
 const MODIFIED = '2026-10-20';
 
@@ -202,7 +217,7 @@ export const PAGES = [
     h1: 'Politseimäng, kus sina oled juhtimiskeskuse dispetšer',
     lead: 'EPD (Eesti Politsei Dispetšer) on tasuta politsei mäng, mis töötab otse brauseris. Sa võtad vastu 112-kõnesid, otsustad, kui kiiresti on abi vaja, saadad välja patrullid ja kontrollid inimesi ning sõidukeid andmebaasist. Kõik toimub päris Eesti kaardil, Tallinnast Võruni.',
     body: `
-${shot('game', 'EPD mänguvaade: sündmuste nimekiri, Eesti kaart patrullidega, raadio ja üksuste tabel', 'Juhtimiskeskuse vaade: vasakul sündmused, keskel kaart, all raadio ja üksused.')}
+${shot('game', 'EPD mänguvaade: sündmuste nimekiri, Eesti kaart patrullidega, raadio ja üksuste tabel', 'Juhtimiskeskus: sündmused, kaart, raadio ja üksused.')}
 <h2>Mida sa selles politsei mängus teed</h2>
 <div class="cards">
 <div class="card"><h3>Võtad vastu 112-kõned</h3><p>Helistaja on segaduses, hirmul või purjus. Küsi, kus ta on ja mis juhtus, ning otsusta, kas see on päris hädaolukord, eksitus või pahatahtlik kõne.</p></div>

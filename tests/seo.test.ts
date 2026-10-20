@@ -274,10 +274,11 @@ describe('manifest.webmanifest', () => {
     }
   });
 
-  it('has wide screenshots for the richer install dialog', () => {
-    expect(m.screenshots.length).toBeGreaterThanOrEqual(2);
+  it('has wide and phone screenshots for the richer install dialog', () => {
+    expect(m.screenshots.filter((s) => s.form_factor === 'wide').length).toBeGreaterThanOrEqual(2);
+    expect(m.screenshots.filter((s) => s.form_factor === 'narrow').length).toBeGreaterThanOrEqual(1);
     for (const s of m.screenshots) {
-      expect(s.form_factor).toBe('wide');
+      expect(['wide', 'narrow']).toContain(s.form_factor);
       expect(s.label!.length).toBeGreaterThan(10);
       expect(s.type).toBe('image/webp');
       const file = publicFile(new URL(s.src, MANIFEST_URL).pathname);
@@ -355,7 +356,9 @@ describe('Caddyfile', () => {
       expect(b).toContain('file_server');
       expect(b).not.toContain('try_files');
     }
-    expect(caddy.indexOf('handle @seo {')).toBeLessThan(caddy.indexOf('try_files {path} {path}index.html /index.html'));
+    expect(caddy.indexOf('handle @seo {')).toBeLessThan(
+      caddy.indexOf('try_files {path} {path}index.html /index.html'),
+    );
   });
 });
 

@@ -1,7 +1,8 @@
 /**
- * README screenshots. Run with: SHOTS=1 npm run e2e -- screenshots
- * Writes docs/screenshots/*.png (1600×900). The simulation is advanced directly through the
- * console handle (window.__epd) so the run is fast and repeatable.
+ * README and site screenshots. Run with: SHOTS=1 npm run e2e -- screenshots
+ * Writes docs/screenshots/*.png (1600×900, and phone-*.png at 390×844 x2). The simulation is advanced directly
+ * through the console handle (window.__epd) so the run is fast and repeatable. The site's WebP copies
+ * (public/screenshots/, the manifest and the pages about the game) are made from these (docs/SEO.md).
  */
 import { expect, test, type Page } from '@playwright/test';
 
@@ -14,9 +15,31 @@ const MIN = 60_000;
 const epd = <T = unknown>(page: Page, body: string) =>
   page.evaluate(`(() => { const e = window.__epd; ${body} })()`) as Promise<T>;
 
-async function shot(page: Page, name: string) {
+async function shot(page: Page, name: string, fullPage = false) {
+  // Without the street map file (local runs) the map shows its tactical layer and a notice; the notice stays out.
+  await page.addStyleTag({ content: '.epdm-offline{display:none!important}' });
   await page.waitForTimeout(900);
-  await page.screenshot({ path: `${OUT}/${name}.png` });
+  await page.screenshot({ path: `${OUT}/${name}.png`, fullPage });
+}
+
+/** Into the menu as a guest of the classic login, then a Friday night shift in Tallinn, paused. */
+async function startNight(page: Page) {
+  await page.goto('/');
+  await page.keyboard.press('Space');
+  await expect.poll(() => epd(page, 'return e.game.getState().screen')).toBe('login');
+  await page.getByRole('tab', { name: 'Klassika' }).click();
+  await page.locator('form.sh-legacy button[type="submit"]').click();
+  await expect.poll(() => epd(page, 'return e.game.getState().screen')).toBe('menu');
+}
+
+async function nightShift(page: Page) {
+  await epd(
+    page,
+    `e.game.getState().startShift({ seed: 2026, regionId: 'pohja', mode: 'free', difficulty: 'normal',
+       start: Date.UTC(2026, 9, 16, 19, 0), hours: 8, playerName: 'Ott Koppel' });
+     e.game.getState().setSpeed(0);`,
+  );
+  await expect.poll(() => epd(page, 'return e.game.getState().screen')).toBe('game');
 }
 
 /** Advance the shift by `minutes` game minutes and let a bot accept and dispatch everything. */
@@ -48,7 +71,10 @@ test('capture README screenshots', async ({ page }) => {
   await expect.poll(() => epd(page, 'return e.game.getState().screen')).toBe('menu');
   await shot(page, 'menu');
 
-  await page.getByRole('button', { name: /Kiirmäng/ }).first().click();
+  await page
+    .getByRole('button', { name: /Kiirmäng/ })
+    .first()
+    .click();
   await expect.poll(() => epd(page, 'return e.game.getState().screen')).toBe('briefing');
   await shot(page, 'briefing');
 
@@ -69,7 +95,7 @@ test('capture README screenshots', async ({ page }) => {
      const pick = s.incidentOrder.map((id) => s.incidents[id])
        .filter((i) => i.state === 'dispatched' || i.state === 'onscene')
        .sort((a, b) => a.priority - b.priority)[0];
-     if (pick) { g.select({ incidentId: pick.id }, 'incident'); g.focusMap(pick.location.coord, 12.5); }`,
+     if (pick) { g.select({ incidentId: pick.id }, 'incident'); g.focusMap(pick.location.coord, 10.5); }`,
   );
   // The map chunk loads with the shift and the fly-to needs fresh tiles: give the software renderer time.
   await page.waitForTimeout(3500);
@@ -118,6 +144,43 @@ test('capture README screenshots', async ({ page }) => {
   await shot(page, 'newspaper');
 
   // Career HQ with a fresh profile.
-  await epd(page, `e.career.getState().create('Ott Koppel', '085', 'pohja'); e.game.getState().setScreen('career');`);
+  await epd(
+    page,
+    `e.career.getState().create('Ott Koppel', '085', 'pohja'); e.game.getState().setScreen('career');`,
+  );
   await shot(page, 'career');
+});
+
+test('capture phone screenshots', async ({ browser }) => {
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 2,
+    isMobile: true,
+    hasTouch: true,
+  });
+  await startNight(page);
+  await shot(page, 'phone-menu');
+  await nightShift(page);
+  await play(page, 75);
+  await page.waitForTimeout(3000);
+  await shot(page, 'phone-game');
+  const gotCall = await epd<boolean>(
+    page,
+    `const g = e.game.getState(); const s = g.sim; const { step } = e.engine;
+     for (let m = 0; m < 240 && !s.calls.some((c) => !c.endedAt); m++) step(s, ${MIN});
+     g.bump(); return s.calls.some((c) => !c.endedAt);`,
+  );
+  if (gotCall) {
+    await epd(
+      page,
+      `const g = e.game.getState(); const s = g.sim; const { step, cmd } = e.engine;
+       const c = s.calls.find((x) => !x.endedAt);
+       cmd.answerCall(s, c.id);
+       for (const q of ['what', 'where', 'injured']) { cmd.askCall(s, c.id, q); step(s, 8000); }
+       g.bump();`,
+    );
+    await page.waitForTimeout(2000);
+    await shot(page, 'phone-call');
+  }
+  await page.close();
 });
