@@ -92,6 +92,8 @@ export function CoopPanel() {
       </header>
       {open && (
         <>
+          {/* First, so an open request is never pushed below the fold or under the 112 card. */}
+          {sim && <LendRequests sim={sim} />}
           <ul className="gm-coop__seats" data-testid="coop-seats">
             {c.seats.map((x) => {
               const roles = rolesOf(c, x.seat);
@@ -132,7 +134,6 @@ export function CoopPanel() {
               );
             })}
           </ul>
-          {sim && <LendRequests sim={sim} />}
           <ol className="gm-coop__pings" ref={listRef} aria-live="polite" data-testid="coop-pings">
             {pings.length === 0 && <li className="gm-coop__empty">{t('coop.ping.none')}</li>}
             {pings.slice(-30).map((p) => (

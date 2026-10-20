@@ -3752,6 +3752,11 @@ td.gm-table__task .muted {
   padding: 7px 8px 7px 10px;
   border-bottom: 1px solid var(--line-2);
 }
+/* A lend request waiting for an answer lifts the panel above the 112 card (z-index 40), so it can be
+   answered in the middle of a call. */
+.gm-coop:has(.gm-coop__lend.is-open) {
+  z-index: 41;
+}
 .gm-coop.is-closed .gm-coop__head {
   border-bottom: 0;
 }
