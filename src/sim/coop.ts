@@ -1,0 +1,724 @@
+/**
+ * Mitmikmängu ühisvahetus (co-op, docs/MULTIPLAYER.md sections 4 and 5): deterministic lockstep over a command log
+ * that the server orders. Every client runs the same shift from the same seed; every input that changes shared
+ * state is a log command that takes effect at a fixed turn; the same commands at the same turns give the same
+ * state everywhere. This module is pure: the turn loop, the commands with their permission matrix, the per-seat
+ * counters and the state digest that detects drift. No store, no network, no clock.
+ *
+ * A turn is one second of real time. Its game length follows from shared state only (the speed the host set and
+ * the 112 slow-down), and it is stepped in TURN_PIECES equal pieces, so the substep boundaries fall on the same
+ * game instants on every client and the map can still move twenty times a second.
+ */
+import {
+  closeIncident as cClose,
+  acknowledge as cAck,
+  answerCall,
+  askCall,
+  dispatchUnits,
+  endCall,
+  markChecked,
+  pursuitAction,
+  recallUnit,
+  replyRadio,
+  requestAgency,
+  setPriority,
+  setUnitBreak,
+  toggleInterpreter,
+} from './commands';
+import { emit } from './internal';
+import { searchPersons, searchVehicles } from './registry';
+import { hashString } from './rng';
+import { updateShiftScore } from './scoring';
+import { step } from './engine';
+import type { Agency, CallQuestionId, Priority, ShiftReport, SimState, Text } from './types';
+
+const T = (et: string, en: string): Text => ({ et, en });
+
+/** Game seconds per real second for each speed step (index 0 = paused). The single-player store uses the same. */
+export const TURN_SPEEDS = [0, 15, 30, 60, 120] as const;
+/** Game seconds per real second while a 112 call rings or is in progress. */
+export const CALL_SPEED = 2;
+/** Real length of a turn (ms). */
+export const TURN_MS = 1000;
+/** A turn is stepped in this many equal pieces (every turn length divides evenly). */
+export const TURN_PIECES = 20;
+/** Input delay: a command posted while the server is at turn T takes effect at T + this. */
+export const INPUT_DELAY = 2;
+/** Clients report their digest every this many turns. */
+export const HASH_EVERY = 10;
+/** The host uploads a snapshot every this many turns. */
+export const SNAPSHOT_EVERY = 60;
+/** Seat number of commands the server itself sequences (setup, seats leaving and coming back, host changes). */
+export const SERVER_SEAT = -1;
+const MAX_PINGS = 60;
+
+// ── Roles ────────────────────────────────────────────────────────────────────
+
+/**
+ * Role co-op desks. `calls` (Kõnevastuvõtja) answers 112 and creates the incidents; `dispatch` (Dispetšer)
+ * acknowledges, sets priorities, sends and recalls crews, closes incidents; `radio` (Raadio ja registrid) answers
+ * the crews on the radio, gives breaks and runs the registry checks. With two players the dispatcher also holds the
+ * radio; with four, two players may share a role (two dispatchers split the queue between them, two call-takers
+ * split the ringing calls: whoever answers first takes the call).
+ */
+export type CoopRole = 'calls' | 'dispatch' | 'radio';
+export const COOP_ROLES: CoopRole[] = ['calls', 'dispatch', 'radio'];
+/** Who covers a role nobody present holds, in order. */
+const FALLBACK: Record<CoopRole, CoopRole[]> = {
+  calls: ['dispatch', 'radio'],
+  dispatch: ['radio', 'calls'],
+  radio: ['dispatch', 'calls'],
+};
+/** Default roles by seat: two players split calls and dispatch, a third takes the radio, a fourth dispatches too. */
+export const DEFAULT_ROLES: CoopRole[] = ['dispatch', 'calls', 'radio', 'dispatch'];
+
+export function isCoopRole(v: unknown): v is CoopRole {
+  return typeof v === 'string' && (COOP_ROLES as string[]).includes(v);
+}
+
+export interface CoopSeat {
+  seat: number;
+  name: string;
+  role: CoopRole;
+  /** False after `left` until `back`. */
+  present: boolean;
+}
+
+/** What one seat did in the shift (the report's per-seat counters). */
+export interface SeatStats {
+  /** 112 calls answered. */
+  calls: number;
+  /** Incidents created from a call. */
+  created: number;
+  /** Calls closed without an incident (advice, referral, prank). */
+  callsClosed: number;
+  /** Incidents acknowledged. */
+  acks: number;
+  /** Crews sent. */
+  sent: number;
+  /** Radio replies. */
+  radio: number;
+  /** Incidents closed without units. */
+  closed: number;
+  /** Registry queries. */
+  queries: number;
+  /** Messages to the other seats. */
+  pings: number;
+  /** Commands accepted in all. */
+  commands: number;
+  /** Commands refused (not this seat's role, or nothing left to do). */
+  denied: number;
+}
+
+export interface CoopPing {
+  id: number;
+  seat: number;
+  /** Game time. */
+  t: number;
+  turn: number;
+  text: string;
+}
+
+export interface CoopState {
+  code: string;
+  mode: 'role';
+  /** The last completed turn (-1 before the first). */
+  turn: number;
+  /** Speed index into TURN_SPEEDS (0 = paused). */
+  speed: number;
+  host: number;
+  seats: CoopSeat[];
+  stats: Record<string, SeatStats>;
+  pings: CoopPing[];
+  /** Id of the last log command applied. */
+  lastCmd: number;
+  /** Call id: the seat that answered it. */
+  callSeat: Record<string, number>;
+}
+
+/** One command of the server's log. */
+export interface LogCmd {
+  id: number;
+  /** Turn it takes effect at (applied at the start of that turn, in id order). */
+  t: number;
+  /** Seat that issued it, SERVER_SEAT for the server's own. */
+  s: number;
+  k: string;
+  a: unknown[];
+}
+
+/** A command as a client issues it, before the server orders it. */
+export interface CoopCommand {
+  k: string;
+  a: unknown[];
+}
+
+export function emptySeatStats(): SeatStats {
+  return {
+    calls: 0,
+    created: 0,
+    callsClosed: 0,
+    acks: 0,
+    sent: 0,
+    radio: 0,
+    closed: 0,
+    queries: 0,
+    pings: 0,
+    commands: 0,
+    denied: 0,
+  };
+}
+
+/** Turn a fresh room shift into a co-op one (before turn 0, before any command). */
+export function initCoop(s: SimState, code: string): CoopState {
+  const c: CoopState = {
+    code,
+    mode: 'role',
+    turn: -1,
+    speed: 1,
+    host: 0,
+    seats: [],
+    stats: {},
+    pings: [],
+    lastCmd: 0,
+    callSeat: {},
+  };
+  s.coop = c;
+  return c;
+}
+
+export const isCoop = (s: Pick<SimState, 'coop'> | null | undefined): boolean => !!s?.coop;
+
+function seatOf(c: CoopState, seat: number): CoopSeat | undefined {
+  return c.seats.find((x) => x.seat === seat);
+}
+
+/** Present seats that hold a role, after the fallback when nobody present holds it. */
+export function roleHolders(c: CoopState, role: CoopRole): number[] {
+  const present = c.seats.filter((x) => x.present);
+  for (const r of [role, ...FALLBACK[role]]) {
+    const holders = present.filter((x) => x.role === r).map((x) => x.seat);
+    if (holders.length) return holders;
+  }
+  return [];
+}
+
+/** Roles a seat covers right now: its own plus those it took over. */
+export function rolesOf(c: CoopState, seat: number): CoopRole[] {
+  return COOP_ROLES.filter((r) => roleHolders(c, r).includes(seat));
+}
+
+export function canAct(c: CoopState, seat: number, role: CoopRole): boolean {
+  return seat === SERVER_SEAT || roleHolders(c, role).includes(seat);
+}
+
+// ── Commands ─────────────────────────────────────────────────────────────────
+
+type Need = CoopRole | 'any' | 'host' | 'system';
+
+/** The permission matrix: which role a command needs. */
+export const COMMAND_ROLE: Record<string, Need> = {
+  answer: 'calls',
+  ask: 'calls',
+  interp: 'calls',
+  endcall: 'calls',
+  ack: 'dispatch',
+  prio: 'dispatch',
+  send: 'dispatch',
+  recall: 'dispatch',
+  close: 'dispatch',
+  agency: 'dispatch',
+  pursuit: 'dispatch',
+  reply: 'radio',
+  break: 'radio',
+  check: 'radio',
+  q: 'any',
+  ping: 'any',
+  speed: 'host',
+  end: 'host',
+  setup: 'system',
+  left: 'system',
+  back: 'system',
+  host: 'system',
+};
+
+/** Kinds a player may post (the server refuses the rest). */
+export const PLAYER_KINDS = Object.keys(COMMAND_ROLE).filter((k) => COMMAND_ROLE[k] !== 'system');
+
+export interface CmdResult {
+  ok: boolean;
+  /** Refused by the permission matrix. */
+  denied?: boolean;
+  reason?: Text;
+}
+
+const AGENCIES: Agency[] = [
+  'kiirabi',
+  'paaste',
+  'keskkonnaamet',
+  'kapo',
+  'kov',
+  'sotsiaal',
+  'merepaaste',
+  'tolliamet',
+  'transpordiamet',
+  'veterinaar',
+];
+const QUESTIONS: CallQuestionId[] = [
+  'where',
+  'what',
+  'injured',
+  'weapons',
+  'suspect',
+  'vehicle',
+  'direction',
+  'count',
+  'when',
+  'name',
+  'safe',
+  'children',
+  'intoxicated',
+];
+const str = (v: unknown, max = 64): string => (typeof v === 'string' ? v.slice(0, max) : '');
+const prio = (v: unknown): Priority | undefined => (v === 1 || v === 2 || v === 3 || v === 4 ? v : undefined);
+const agency = (v: unknown): Agency | undefined =>
+  AGENCIES.includes(v as Agency) ? (v as Agency) : undefined;
+
+function statsOf(c: CoopState, seat: number): SeatStats {
+  const k = String(seat);
+  return (c.stats[k] ??= emptySeatStats());
+}
+
+const DENIED: CmdResult = {
+  ok: false,
+  denied: true,
+  reason: T('See ei ole sinu rolli ülesanne.', 'That is not your role’s task.'),
+};
+const NOOP: CmdResult = { ok: false };
+
+/** The answering seat of a call, if it is still present (a call-taker who left frees their calls). */
+function callOwner(c: CoopState, callId: string): number | undefined {
+  const seat = c.callSeat[callId];
+  return seat !== undefined && seatOf(c, seat)?.present ? seat : undefined;
+}
+
+/**
+ * Apply one log command to the shared state. Every client applies the same commands in the same order and rejects
+ * a forbidden one identically. Never throws: a broken command is refused.
+ */
+export function applyCommand(s: SimState, cmd: LogCmd): CmdResult {
+  const c = s.coop;
+  if (!c) return NOOP;
+  if (cmd.id > c.lastCmd) c.lastCmd = cmd.id;
+  const need = COMMAND_ROLE[cmd.k];
+  if (!need) return NOOP;
+  const seat = cmd.s;
+  if (need === 'system' && seat !== SERVER_SEAT) return DENIED;
+  if (s.ended && need !== 'system') return NOOP;
+  const known = seat === SERVER_SEAT || !!seatOf(c, seat);
+  if (!known) return DENIED;
+  if (need === 'host' && seat !== c.host) return countDenied(c, seat);
+  if (need !== 'any' && need !== 'host' && need !== 'system' && !canAct(c, seat, need))
+    return countDenied(c, seat);
+  let r: CmdResult;
+  try {
+    r = run(s, c, cmd);
+  } catch (err) {
+    console.warn('[EPD coop] command failed', cmd.k, err);
+    r = NOOP;
+  }
+  if (seat !== SERVER_SEAT && r.ok) statsOf(c, seat).commands++;
+  return r;
+}
+
+function countDenied(c: CoopState, seat: number): CmdResult {
+  if (seat !== SERVER_SEAT) statsOf(c, seat).denied++;
+  return DENIED;
+}
+
+function run(s: SimState, c: CoopState, cmd: LogCmd): CmdResult {
+  const a = Array.isArray(cmd.a) ? cmd.a : [];
+  const seat = cmd.s;
+  const st = () => statsOf(c, seat);
+  switch (cmd.k) {
+    // ── System (the server's own) ──
+    case 'setup': {
+      // [hostSeat, [[seat, role, name], ...]]
+      const host = typeof a[0] === 'number' ? a[0] : 0;
+      const list = Array.isArray(a[1]) ? a[1] : [];
+      c.seats = [];
+      for (const row of list) {
+        if (!Array.isArray(row) || typeof row[0] !== 'number') continue;
+        const n = row[0];
+        if (n < 0 || n > 3 || c.seats.some((x) => x.seat === n)) continue;
+        c.seats.push({
+          seat: n,
+          role: isCoopRole(row[1]) ? row[1] : 'dispatch',
+          name: str(row[2], 40) || `#${n + 1}`,
+          present: true,
+        });
+        statsOf(c, n);
+      }
+      c.seats.sort((x, y) => x.seat - y.seat);
+      c.host = host;
+      return { ok: true };
+    }
+    case 'left':
+    case 'back': {
+      const x = typeof a[0] === 'number' ? seatOf(c, a[0]) : undefined;
+      if (!x) return NOOP;
+      x.present = cmd.k === 'back';
+      return { ok: true };
+    }
+    case 'host': {
+      if (typeof a[0] !== 'number' || !seatOf(c, a[0])) return NOOP;
+      c.host = a[0];
+      return { ok: true };
+    }
+    // ── Host ──
+    case 'speed': {
+      const i = a[0];
+      if (typeof i !== 'number' || !Number.isInteger(i) || i < 0 || i >= TURN_SPEEDS.length) return NOOP;
+      c.speed = i;
+      return { ok: true };
+    }
+    case 'end': {
+      if (s.ended) return NOOP;
+      s.ended = true;
+      updateShiftScore(s);
+      emit(s, { type: 'shift_end', text: T('Vahetus lõpetati', 'Shift ended') });
+      return { ok: true };
+    }
+    // ── Anyone ──
+    case 'ping': {
+      const text = str(a[0], 140)
+        .replace(/[\u0000-\u001f\u007f]/g, ' ')
+        .trim();
+      if (!text) return NOOP;
+      const last = c.pings[c.pings.length - 1];
+      c.pings.push({ id: (last?.id ?? 0) + 1, seat, t: s.now, turn: c.turn + 1, text });
+      if (c.pings.length > MAX_PINGS) c.pings.splice(0, c.pings.length - MAX_PINGS);
+      st().pings++;
+      return { ok: true };
+    }
+    case 'q': {
+      const q = str(a[1], 64);
+      if (!q.trim()) return NOOP;
+      if (a[0] === 'person') searchPersons(s, q);
+      else if (a[0] === 'vehicle') searchVehicles(s, q);
+      else return NOOP;
+      st().queries++;
+      return { ok: true };
+    }
+    // ── Kõnevastuvõtja ──
+    case 'answer': {
+      const id = str(a[0]);
+      const call = s.calls.find((x) => x.id === id);
+      if (!call || call.endedAt !== undefined || call.answeredAt !== undefined) return NOOP;
+      answerCall(s, id);
+      c.callSeat[id] = seat;
+      st().calls++;
+      return { ok: true };
+    }
+    case 'ask':
+    case 'interp':
+    case 'endcall': {
+      const id = str(a[0]);
+      const call = s.calls.find((x) => x.id === id);
+      if (!call || call.endedAt !== undefined) return NOOP;
+      const owner = callOwner(c, id);
+      if (owner !== undefined && owner !== seat && seat !== SERVER_SEAT) return countDenied(c, seat);
+      if (owner === undefined) {
+        // Asking or deciding on a ringing call answers it.
+        if (call.answeredAt === undefined) st().calls++;
+        c.callSeat[id] = seat;
+      }
+      if (cmd.k === 'ask') {
+        const q = a[1] as CallQuestionId;
+        if (!QUESTIONS.includes(q)) return NOOP;
+        askCall(s, id, q);
+        return { ok: true };
+      }
+      if (cmd.k === 'interp') {
+        toggleInterpreter(s, id);
+        return { ok: true };
+      }
+      const action = a[1];
+      if (action !== 'create' && action !== 'prank' && action !== 'refer' && action !== 'advice') return NOOP;
+      const p = prio(a[2]);
+      if (action === 'create' && !p) return NOOP;
+      endCall(s, id, { action, priority: p, agency: agency(a[3]) });
+      if (action === 'create') st().created++;
+      else st().callsClosed++;
+      return { ok: true };
+    }
+    // ── Dispetšer ──
+    case 'ack': {
+      const inc = s.incidents[str(a[0])];
+      if (!inc || inc.state !== 'incoming') return NOOP;
+      cAck(s, inc.id);
+      st().acks++;
+      return { ok: true };
+    }
+    case 'prio': {
+      const p = prio(a[1]);
+      if (!p || !s.incidents[str(a[0])]) return NOOP;
+      setPriority(s, str(a[0]), p);
+      return { ok: true };
+    }
+    case 'send': {
+      const id = str(a[0]);
+      const units = Array.isArray(a[1])
+        ? a[1].filter((x): x is string => typeof x === 'string').slice(0, 12)
+        : [];
+      const inc = s.incidents[id];
+      if (!inc || !units.length) return NOOP;
+      const before = inc.assigned.length;
+      const r = dispatchUnits(s, id, units);
+      const after = s.incidents[id]?.assigned.length ?? before;
+      if (r.ok) st().sent += Math.max(0, after - before);
+      return r;
+    }
+    case 'recall': {
+      if (!s.units[str(a[0])]) return NOOP;
+      recallUnit(s, str(a[0]));
+      return { ok: true };
+    }
+    case 'close': {
+      const inc = s.incidents[str(a[0])];
+      const how = a[1];
+      if (!inc || inc.state === 'closed') return NOOP;
+      if (how !== 'referral' && how !== 'phone' && how !== 'duplicate' && how !== 'prank') return NOOP;
+      cClose(s, inc.id, how, agency(a[2]));
+      st().closed++;
+      return { ok: true };
+    }
+    case 'agency': {
+      const ag = agency(a[1]);
+      if (!ag || !s.incidents[str(a[0])]) return NOOP;
+      requestAgency(s, str(a[0]), ag);
+      return { ok: true };
+    }
+    case 'pursuit': {
+      const act = a[1];
+      if (act !== 'terminate' && act !== 'heli' && act !== 'spikes') return NOOP;
+      pursuitAction(s, str(a[0]), act);
+      return { ok: true };
+    }
+    // ── Raadio ja registrid ──
+    case 'reply': {
+      const msgId = str(a[0]);
+      const msg = s.radio.find((m) => m.id === msgId);
+      if (!msg || msg.answered) return NOOP;
+      replyRadio(s, msgId, str(a[1]));
+      if (msg.answered) st().radio++;
+      return { ok: !!msg.answered };
+    }
+    case 'break': {
+      if (!s.units[str(a[0])]) return NOOP;
+      setUnitBreak(s, str(a[0]), a[1] === 1 || a[1] === true);
+      return { ok: true };
+    }
+    case 'check': {
+      const id = str(a[0]);
+      if (!s.incidents[id]) return NOOP;
+      const personId = str(a[1]);
+      const plate = str(a[2]);
+      markChecked(s, id, { personId: personId || undefined, plate: plate || undefined });
+      return { ok: true };
+    }
+    default:
+      return NOOP;
+  }
+}
+
+// ── Turns ────────────────────────────────────────────────────────────────────
+
+/** True while a 112 call rings or is in progress (the game then runs near real time). */
+export function callOpen(s: Pick<SimState, 'calls'>): boolean {
+  return Array.isArray(s.calls) && s.calls.some((c) => !c.endedAt);
+}
+
+/** Game seconds per real second at a speed, with the 112 slow-down. Shared by the single-player loop and the turns. */
+export function effectiveSpeed(s: Pick<SimState, 'calls'>, speed: number): number {
+  return speed > CALL_SPEED && callOpen(s) ? CALL_SPEED : speed;
+}
+
+/** Game length of the next turn (ms), from shared state only. Divisible by TURN_PIECES for every speed. */
+export function turnGameMs(s: SimState): number {
+  const c = s.coop;
+  if (!c || s.ended) return 0;
+  const speed = TURN_SPEEDS[c.speed] ?? 0;
+  return effectiveSpeed(s, speed) * TURN_MS;
+}
+
+/** The commands of one turn, in the order they apply. */
+export function commandsOfTurn(log: LogCmd[], turn: number): LogCmd[] {
+  return log.filter((x) => x.t === turn).sort((x, y) => x.id - y.id);
+}
+
+export interface TurnPlan {
+  turn: number;
+  /** Game ms of the turn. */
+  gameMs: number;
+  /** Results of the turn's commands, by command id. */
+  results: Map<number, CmdResult>;
+}
+
+/**
+ * Start the next turn: apply its commands (they must be every command of that turn, in id order) and fix the turn's
+ * game length. Then step it with stepPiece() TURN_PIECES times, or run it whole with runTurn().
+ */
+export function beginTurn(s: SimState, cmds: LogCmd[]): TurnPlan {
+  const c = s.coop!;
+  const turn = c.turn + 1;
+  const results = new Map<number, CmdResult>();
+  for (const cmd of cmds) {
+    if (cmd.t !== turn || cmd.id <= c.lastCmd) continue;
+    results.set(cmd.id, applyCommand(s, cmd));
+  }
+  return { turn, gameMs: turnGameMs(s), results };
+}
+
+/** Step one of the turn's pieces. `piece` is 0..TURN_PIECES-1; the last one closes the turn. */
+export function stepPiece(s: SimState, plan: TurnPlan, piece: number): void {
+  const h = plan.gameMs / TURN_PIECES;
+  if (h > 0) step(s, h);
+  if (piece >= TURN_PIECES - 1) s.coop!.turn = plan.turn;
+}
+
+/** A whole turn at once (catching up, tests). */
+export function runTurn(s: SimState, cmds: LogCmd[]): TurnPlan {
+  const plan = beginTurn(s, cmds);
+  for (let i = 0; i < TURN_PIECES; i++) stepPiece(s, plan, i);
+  return plan;
+}
+
+// ── Digest ───────────────────────────────────────────────────────────────────
+
+function fnv(str: string, seed: number): number {
+  let h = seed >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+const sec = (v: number | undefined): string =>
+  typeof v === 'number' && Number.isFinite(v) ? String(Math.round(v / 1000)) : '-';
+
+/**
+ * Canonical digest of the shared state, as 16 hex digits: the random streams, the clock, the counters, every
+ * incident with its state, priority and crews, every unit with its status and arrival time to the second, the calls
+ * and the stats. Floating point values are rounded, so tiny engine differences do not raise false alarms; the
+ * resync repairs real drift (docs/MULTIPLAYER.md, 4.2).
+ */
+export function simDigest(s: SimState): string {
+  const parts: string[] = [];
+  const q = s.seq;
+  parts.push(
+    `${s.rng}|${s.spawnRng ?? '-'}|${s.now}|${s.ended ? 1 : 0}|${q.incident}.${q.radio}.${q.person}.${q.call}.${q.bulletin}|${sec(s.nextSpawnAt)}|${Math.round(s.trust * 10)}`,
+  );
+  for (const id of s.incidentOrder) {
+    const inc = s.incidents[id];
+    if (!inc) continue;
+    parts.push(`${id}:${inc.state}:${inc.priority}:${inc.assigned.join(',')}:${sec(inc.closedAt)}`);
+  }
+  for (const id of s.unitOrder) {
+    const u = s.units[id];
+    if (!u) continue;
+    parts.push(`${id}:${u.status}:${u.incidentId ?? ''}:${sec(u.move?.arriveAt)}`);
+  }
+  for (const call of s.calls)
+    parts.push(`${call.id}:${sec(call.answeredAt)}:${sec(call.endedAt)}:${call.asked.length}`);
+  const st = s.stats;
+  parts.push(
+    [
+      st.incidents,
+      st.closed,
+      st.arrests,
+      st.escaped,
+      st.expired,
+      st.callsAnswered,
+      st.callsMissed,
+      st.referralsCorrect,
+      st.referralsWrong,
+      st.repliesCorrect,
+      st.repliesWrong,
+      st.queries,
+      st.pursuits,
+      st.pursuitsCaught,
+    ].join('.'),
+  );
+  parts.push(`r${s.radio.length}`);
+  const c = s.coop;
+  if (c) {
+    parts.push(
+      `${c.turn}|${c.speed}|${c.host}|${c.lastCmd}|${c.seats.map((x) => `${x.seat}${x.role}${x.present ? 1 : 0}`).join(',')}|${c.pings.length}`,
+    );
+    for (const k of Object.keys(c.stats).sort()) {
+      const v = c.stats[k];
+      parts.push(
+        `${k}:${v.calls}.${v.created}.${v.callsClosed}.${v.acks}.${v.sent}.${v.radio}.${v.closed}.${v.queries}.${v.pings}.${v.commands}.${v.denied}`,
+      );
+    }
+  }
+  const all = parts.join('\n');
+  return (
+    fnv(all, 0x811c9dc5).toString(16).padStart(8, '0') +
+    hashString(`${all.length}:${all}`).toString(16).padStart(8, '0')
+  );
+}
+
+// ── Report and XP ────────────────────────────────────────────────────────────
+
+/** The co-op part of a report: who sat where and what each seat did. */
+export interface CoopReport {
+  code: string;
+  seats: { seat: number; name: string; role: CoopRole; present: boolean; stats: SeatStats }[];
+  host: number;
+}
+
+export function coopReport(s: SimState): CoopReport | undefined {
+  const c = s.coop;
+  if (!c) return undefined;
+  return {
+    code: c.code,
+    host: c.host,
+    seats: c.seats.map((x) => ({
+      seat: x.seat,
+      name: x.name,
+      role: x.role,
+      present: x.present,
+      stats: { ...emptySeatStats(), ...c.stats[String(x.seat)] },
+    })),
+  };
+}
+
+/** Points of a seat's own work for the XP share. */
+export function seatWork(v: SeatStats): number {
+  return (
+    v.calls * 2 +
+    v.created * 3 +
+    v.callsClosed * 2 +
+    v.acks +
+    v.sent * 2 +
+    v.radio * 2 +
+    v.closed * 2 +
+    Math.min(20, v.queries)
+  );
+}
+
+/**
+ * A player's XP from a co-op shift: the team's XP plus a share for their own work (at most half the team's XP).
+ * The same for every client, since every client holds the same report.
+ */
+export function coopXp(report: Pick<ShiftReport, 'xp'>, seat: SeatStats | undefined): number {
+  const team = Math.max(0, Math.round(report.xp));
+  const own = seat ? Math.min(Math.round(team / 2), seatWork(seat)) : 0;
+  return team + own;
+}
+
+/** Profile key of a co-op shift's XP, so it is paid once per room (CareerProfile.paidShifts). */
+export const coopPaidKey = (code: string): string => `room:${code}`;

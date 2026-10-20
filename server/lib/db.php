@@ -196,6 +196,47 @@ function epd_migrations(): array
             )',
             'CREATE INDEX room_results_user ON room_results (user_id)',
         ],
+        // Ühisvahetus (server/lib/coop.php, docs/MULTIPLAYER.md section 4): the command log the server orders, the
+        // host's latest snapshot, the room's clock and the players' roles, presence and digests. Commands and
+        // snapshots go with a deleted account (auth.php) and with a room that finishes or closes.
+        5 => [
+            'CREATE TABLE room_commands (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                seat INTEGER NOT NULL,
+                turn INTEGER NOT NULL,
+                kind TEXT NOT NULL,
+                args TEXT NOT NULL,
+                at INTEGER NOT NULL
+            )',
+            'CREATE INDEX room_commands_room ON room_commands (room_id, id)',
+            'CREATE INDEX room_commands_user ON room_commands (user_id)',
+            'CREATE TABLE room_snapshots (
+                room_id INTEGER PRIMARY KEY REFERENCES rooms(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                turn INTEGER NOT NULL,
+                cmd_id INTEGER NOT NULL,
+                data BLOB NOT NULL,
+                size INTEGER NOT NULL,
+                at INTEGER NOT NULL
+            )',
+            'CREATE INDEX room_snapshots_user ON room_snapshots (user_id)',
+            'ALTER TABLE rooms ADD COLUMN turn_ms INTEGER NOT NULL DEFAULT 1000',
+            'ALTER TABLE rooms ADD COLUMN input_delay INTEGER NOT NULL DEFAULT 2',
+            'ALTER TABLE rooms ADD COLUMN host_seat INTEGER NOT NULL DEFAULT -1',
+            'ALTER TABLE rooms ADD COLUMN cmd_count INTEGER NOT NULL DEFAULT 0',
+            "ALTER TABLE rooms ADD COLUMN ref_hashes TEXT NOT NULL DEFAULT ''",
+            'ALTER TABLE rooms ADD COLUMN snap_req INTEGER NOT NULL DEFAULT 0',
+            "ALTER TABLE room_players ADD COLUMN role TEXT NOT NULL DEFAULT ''",
+            'ALTER TABLE room_players ADD COLUMN away INTEGER NOT NULL DEFAULT 0',
+            'ALTER TABLE room_players ADD COLUMN hash_turn INTEGER NOT NULL DEFAULT -1',
+            "ALTER TABLE room_players ADD COLUMN hash TEXT NOT NULL DEFAULT ''",
+            'ALTER TABLE room_players ADD COLUMN resync INTEGER NOT NULL DEFAULT -1',
+            'ALTER TABLE room_players ADD COLUMN cmd_tokens REAL NOT NULL DEFAULT 4',
+            'ALTER TABLE room_players ADD COLUMN cmd_at INTEGER NOT NULL DEFAULT 0',
+            'ALTER TABLE room_results ADD COLUMN xp INTEGER NOT NULL DEFAULT 0',
+        ],
     ];
 }
 

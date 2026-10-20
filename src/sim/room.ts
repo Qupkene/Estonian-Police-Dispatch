@@ -20,8 +20,11 @@ export const ROOM_HOURS = [2, 3, 4, 6] as const;
 export const ROOM_SLOTS: RoomSlot[] = ['morning', 'afternoon', 'evening', 'night'];
 export const ROOM_DIFFICULTIES: Difficulty[] = ['cadet', 'normal', 'veteran', 'realistic'];
 export const ROOM_MAX_PLAYERS = 4;
-/** Modes a room can be created with today; the co-op modes come in phase 2. */
-export const OPEN_ROOM_MODES: RoomMode[] = ['race'];
+/** Modes a room can be created with today: the competition and role co-op (sector co-op comes later). */
+export const OPEN_ROOM_MODES: RoomMode[] = ['race', 'role'];
+/** Modes that share one shift over the room's command log (src/sim/coop.ts). */
+export const COOP_ROOM_MODES: RoomMode[] = ['role'];
+export const isCoopMode = (mode: RoomMode): boolean => COOP_ROOM_MODES.includes(mode);
 
 /** What the host chooses in the lobby. */
 export interface RoomOptions {

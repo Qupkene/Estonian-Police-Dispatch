@@ -74,8 +74,9 @@ export default defineConfig({
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   // Local development: the PHP API (npm run dev:api) answers /api; without it the game runs in guest mode.
-  server: { proxy: { '/api': 'http://127.0.0.1:8787' } },
-  preview: { proxy: { '/api': 'http://127.0.0.1:8787' } },
+  // EPD_API_URL points it elsewhere (a second checkout's tests on their own ports).
+  server: { proxy: { '/api': process.env.EPD_API_URL ?? 'http://127.0.0.1:8787' } },
+  preview: { proxy: { '/api': process.env.EPD_API_URL ?? 'http://127.0.0.1:8787' } },
   build: {
     target: 'es2022',
     // The entry chunk holds the menus and the simulation; MapLibre and the in-shift screen are a

@@ -9,6 +9,8 @@ import { sectorById } from '@/sim/sectors';
 import type { Incident, RadioMsg, SimState, SpeakerLang, Text, UnitStatus, UnitType, Weather } from '@/sim/types';
 import { STATUS_CODE } from '@/sim/types';
 import { checkRecord, replyRadio } from './actions';
+import { useCan, useCoopNames } from '@/store/coop';
+import type { CoopRole } from '@/sim/coop';
 import { answeredReply, querySubject } from './data';
 import { countdown, helpSectorId } from './format';
 
@@ -162,6 +164,8 @@ export function useMsg(): (v: Text | string | undefined) => string {
 export function RadioReplies({ msg, sim, compact }: { msg: RadioMsg; sim: SimState; compact?: boolean }) {
   const t = useT();
   const tx = useTx();
+  // Co-op: the radio desk answers (src/sim/coop.ts); the other desks see the countdown only.
+  const canReply = useCan('radio');
   if (!msg.replies?.length) return null;
   if (msg.answered) {
     const r = answeredReply(msg);
@@ -179,17 +183,37 @@ export function RadioReplies({ msg, sim, compact }: { msg: RadioMsg; sim: SimSta
           {t('game.radio.openRegistry')}
         </Button>
       )}
-      {msg.replies.map((r) => (
-        <Button key={r.id} size="sm" className="gm-reply" onClick={() => replyRadio(msg.id, r.id)}>
-          {tx(r.label)}
-        </Button>
-      ))}
+      {canReply ? (
+        msg.replies.map((r) => (
+          <Button key={r.id} size="sm" className="gm-reply" onClick={() => replyRadio(msg.id, r.id)}>
+            {tx(r.label)}
+          </Button>
+        ))
+      ) : (
+        <RoleNote role="radio" inline />
+      )}
       {left !== null && (
         <span className={`gm-replies__cd mono${left < 1.5 ? ' is-urgent' : ''}`}>
           <Icon name="timer" size={11} />
           {countdown(left)}
         </span>
       )}
+    </div>
+  );
+}
+
+/** Co-op: whose desk this control belongs to ("Ekipaaže saadab dispetšer Ivo."). Nothing in single player. */
+export function RoleNote({ role, inline }: { role: CoopRole; inline?: boolean }) {
+  const t = useT();
+  const names = useCoopNames(role);
+  if (names === null) return null;
+  const text = names ? t(`coop.note.${role}`, { name: names }) : t(`coop.note.${role}.nobody`);
+  return inline ? (
+    <span className="gm-rolenote gm-rolenote--inline">{text}</span>
+  ) : (
+    <div className="gm-rolenote" role="note">
+      <Icon name="users" size={13} />
+      <span>{text}</span>
     </div>
   );
 }

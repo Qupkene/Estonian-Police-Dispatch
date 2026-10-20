@@ -13,6 +13,7 @@ import {
   type RoomSlot,
 } from '@/sim/room';
 import { ApiError, request, toApiError } from './api';
+import { isCoopRole, type CoopRole } from '@/sim/coop';
 import { isObj } from './sync';
 
 export type RoomStateName = 'lobby' | 'running' | 'finished' | 'closed';
@@ -28,6 +29,8 @@ export interface RoomPlayer {
   left: boolean;
   /** Has sent a result. */
   done: boolean;
+  /** Role co-op: the role picked in the lobby (or the seat's default). */
+  role?: CoopRole;
 }
 
 export interface RoomResult {
@@ -37,6 +40,8 @@ export interface RoomResult {
   grade: string;
   incidents: number;
   arrests: number;
+  /** Co-op: the player's XP from the shift (the team's plus their share). */
+  xp: number;
   at: number;
   /** 1 + the number of strictly higher scores in the room. */
   rank: number;
@@ -95,6 +100,7 @@ function parsePlayer(v: unknown): RoomPlayer | null {
     online: v.online === true,
     left: v.left === true,
     done: v.done === true,
+    ...(isCoopRole(v.role) ? { role: v.role } : {}),
   };
 }
 
@@ -108,6 +114,7 @@ function parseResult(v: unknown, i: number): RoomResult | null {
     grade: str(v.grade),
     incidents: num(v.incidents),
     arrests: num(v.arrests),
+    xp: num(v.xp),
     at: num(v.at),
     rank: rank > 0 ? Math.round(rank) : i + 1,
   };
@@ -227,13 +234,14 @@ export async function leaveRoom(code: string): Promise<void> {
   await request<unknown>('POST', path(code, '/leave'));
 }
 
-/** Body of POST /api/rooms/{code}/result. */
-export function roomResultBody(r: ShiftReport) {
+/** Body of POST /api/rooms/{code}/result (a co-op player adds their own XP). */
+export function roomResultBody(r: ShiftReport, xp?: number) {
   return {
     score: Math.max(0, Math.min(100, Math.round(r.score))),
     grade: r.grade,
     incidents: r.stats?.incidents ?? 0,
     arrests: r.stats?.arrests ?? 0,
+    ...(xp !== undefined ? { xp: Math.max(0, Math.min(100000, Math.round(xp))) } : {}),
   };
 }
 
@@ -247,10 +255,10 @@ export interface RoomResultReply {
 const submitted = new WeakMap<ShiftReport, Promise<RoomResultReply>>();
 
 /** POST the room run's result once per report (StrictMode and re-renders included); a failure may be retried. */
-export function submitRoomResultOnce(report: ShiftReport, code: string): Promise<RoomResultReply> {
+export function submitRoomResultOnce(report: ShiftReport, code: string, xp?: number): Promise<RoomResultReply> {
   let p = submitted.get(report);
   if (!p) {
-    p = request<unknown>('POST', path(code, '/result'), roomResultBody(report)).then((res) => {
+    p = request<unknown>('POST', path(code, '/result'), roomResultBody(report, xp)).then((res) => {
       const o = isObj(res) ? res : {};
       const rank = num(o.rank);
       return { counted: o.counted !== false, rank: rank > 0 ? rank : null, room: parseRoom(o.room) };
@@ -278,6 +286,10 @@ export function roomErrorKey(e: unknown): string {
     'mode_unavailable',
     'empty_shift',
     'left_room',
+    'not_coop',
+    'not_running',
+    'log_full',
+    'invalid_command',
     'network',
     'timeout',
   ];

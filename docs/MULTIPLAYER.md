@@ -9,8 +9,9 @@ and co-op XP counts in every player's career.
 | (b) role co-op | Rollide koostöö | One shared area, the roles split: a call-taker answers 112, a dispatcher sends the crews. |
 | (c) same-seed competition | Võistlus | Everyone plays the identical shift on their own; the results are compared. |
 
-Phase 1 (this document plus the code next to it) builds the shared room foundation and mode (c) end to end.
-Modes (a) and (b) need a shared, synchronised simulation; section 4 chooses how, section 6 plans the phases.
+Phase 1 built the shared room foundation and mode (c) end to end. Phases 2 and 3 built the shared, synchronised
+simulation (section 4 chooses how) and mode (b) on top of it; section 7 describes what was built. Mode (a) is the
+next phase (section 6).
 
 Code: `server/lib/rooms.php` (routes in `server/api/index.php`, schema step 4 in `server/lib/db.php`),
 `src/net/rooms.ts`, `src/sim/room.ts`, `src/ui/screens/LobbyScreen.tsx`, `src/ui/screens/shell/RoomBoard.tsx`,
@@ -225,15 +226,114 @@ counters in the stats.
 
 1. **Rooms and Võistlus (done).** Schema step 4, the room routes, the lobby, the room shift from the seed with
    `fixedSchedule`, the room board on the report, the menu entry, tests (server, client, two-browser e2e).
-2. **Lockstep core.** Schema step 5 (`room_commands` with an index on `(room_id, id)`, `room_snapshots`, clock
+2. **Lockstep core (done, section 7).** Schema step 5 (`room_commands` with an index on `(room_id, id)`, `room_snapshots`, clock
    columns on `rooms` with defaults); `POST /api/rooms/{code}/cmd`, `GET /api/rooms/{code}/log?after=&h=`,
    `PUT` and `GET /api/rooms/{code}/snapshot`; the turn loop in the store; command serialisation; the state
    digest; pause and speed. Tests: two sims fed the same log stay hash-equal for a whole shift in every
    prefecture (vitest); Chromium against Firefox and WebKit in Playwright for cross-engine floating point;
    resync after a forced divergence; reconnect mid-shift.
-3. **Role co-op (b).** Roles in the lobby, the permission matrix, the call-taker and dispatcher layouts of the
+3. **Role co-op (b) (done, section 7).** Roles in the lobby, the permission matrix, the call-taker and dispatcher layouts of the
    game screen, per-seat counters, the co-op report.
 4. **Sector co-op (a).** Desk choice in the lobby, multi-sector shifts with per-desk queues and crews, lending,
    AI colleagues for empty desks.
 5. **Careers and polish.** Co-op XP into careers (section 4.6), achievements, a rematch with the same options,
    an invite link (`?ruum=K7M2QX`), spectators.
+
+## 7. Phases 2 and 3 as built
+
+Code: `src/sim/coop.ts` (turns, commands, permission matrix, digest, per-seat counters, co-op XP),
+`src/store/coop.ts` (the tab's session: polling, batching, playback, digests, snapshots, resync, rejoin),
+`src/net/coop.ts` (the HTTP calls, gzip with `CompressionStream`), `server/lib/coop.php` (routes, schema step 5 in
+`server/lib/db.php`), the in-game panel `src/ui/game/CoopPanel.tsx`, the role gates in the game screen, the lobby's
+role picker (`src/ui/screens/LobbyScreen.tsx`) and the team table on the report. API reference: docs/SERVER.md,
+"Co-op rooms". Tests: `tests/coop.test.ts`, `tests/server.test.ts` ("co-op lockstep"), `e2e/coop.spec.ts`.
+
+### 7.1 The turn loop
+
+- A co-op shift is an ordinary room shift (`roomShiftOptions`, `fixedSchedule`, `flags.room`) with `sim.coop`
+  (`initCoop`): the turn last completed, the speed index, the host seat, the seats with roles and presence, the
+  per-seat counters, the pings, the id of the last command applied and which seat answered which call. It is part
+  of `SimState`, so it travels in snapshots and the digest covers it. The dispatcher on duty is named
+  `Meeskond K7M 2QX` on every client (the name goes into a bulletin).
+- The store's loop (`src/store/game.ts`) calls the session instead of `step(dtReal x speed)` while `sim.coop` is
+  set (`loopHooks`). Single player is untouched apart from the 112 slow-down rule moving into `effectiveSpeed`
+  (`src/sim/coop.ts`), shared by both loops; it reads shared state only (`sim.calls`), so it is deterministic.
+- `beginTurn(sim, cmds)` applies every command of the next turn in id order and fixes the turn's game length from
+  shared state: `TURN_SPEEDS[speed] x 1 s`, or `CALL_SPEED x 1 s` while a call is open, 0 when paused or over.
+  The turn is then stepped in `TURN_PIECES` (20) equal pieces with `step()`; every speed divides evenly, so the
+  substeps fall on the same game instants everywhere and the map still moves 20 times a second.
+- Playback runs one turn behind the server's clock (`LAG_TURNS`), estimated from the log answers (the sample with
+  the shortest round trip). A turn is played only when every command up to it is known: after a complete answer
+  at server turn S that is S + delay - 1. Behind by more than four turns the client catches up with a 30 ms budget
+  per frame (status "Järele jõudmas").
+- Every input that changes shared state is a command: the game screen's wrappers (`src/ui/game/actions.ts`), the
+  call card, the registry (queries log through `q`, checks through `check`) and the radio strip call
+  `coopIssue(kind, args)`, which in single player returns false and the old local call runs. Selection, camera,
+  panels and the local registry search stay out of the log. Commands go up in batches (at most every 500 ms, 20
+  per batch); the UI shows them as pending (the answer button says "Ühendan…", a send button "Saadan…") until the
+  log brings them back two or three seconds later. A refused command of one's own comes back as a toast or the
+  dispatch error.
+- Pause and speed are the host's `speed` command; ending early is the host's `end` command, so the shift ends for
+  everyone at the same state and every client builds the same report. The pause menu never pauses a co-op shift;
+  "Välju (saad naasta)" stops the session, and the lobby's "Liitu vahetusega" rejoins.
+
+### 7.2 Digest, resync, rejoin
+
+- `simDigest` (16 hex digits): the random streams, `now`, the id counters, every incident (state, priority, crews,
+  closing time to the second), every unit (status, incident, arrival to the second), the calls, the stats, trust
+  to 0.1 and the co-op state. Every client sends it every 10 turns with its poll; the server compares it with the
+  host's of the same turn and flags a mismatch.
+- A flagged client waits up to 6 s for the host's fresh snapshot (the server asked the host for one), loads it,
+  replays the log after its `lastCmd` as fast as the frame budget allows, and says `ack=1`. The host uploads a
+  snapshot every 60 turns, on request, and when it becomes host.
+- Rejoin is the same path: `startCoop` loads the latest snapshot (or a fresh shift from the seed when there is none)
+  and the log after it. The local autosave is never written for a co-op shift (`autosave`, `saveNow`), so the
+  menu's "continue" can never resume it as a single-player shift; the menu's room row leads back to the lobby.
+- Command ids grow with the server's turn, so the commands of turns up to k are exactly the ids up to the
+  snapshot's `cmd`; the replay skips anything already applied.
+
+### 7.3 Roles (mode b)
+
+- Desks: `calls` (Kõnevastuvõtja: `answer`, `ask`, `interp`, `endcall`), `dispatch` (Dispetšer: `ack`, `prio`,
+  `send`, `recall`, `close`, `agency`, `pursuit`), `radio` (Raadio ja registrid: `reply`, `break`, `check`).
+  Anyone: `q` (registry query log), `ping`. Host: `speed`, `end`. Server only: `setup`, `left`, `back`, `host`.
+- The choice for three and four players: the third desk is **Raadio ja registrid**, because the crews' radio
+  requests ("kontrollige isikut") and the registry checks belong together and are steady work of their own. A
+  fourth player picks any desk; the lobby suggests a **second dispatcher** (seat 3's default), since dispatching is
+  the heaviest load. Two players in one role share it: two dispatchers work the same queue (the log orders a
+  double send, the second finds the crew busy), two call-takers split the calls (whoever answers first keeps the
+  call, the other's card shows the next one).
+- A desk nobody present holds falls to another: calls to dispatch, then radio; dispatch to radio, then calls; radio
+  to dispatch, then calls. So two players are a call-taker and a dispatcher who also keeps the radio, and a seat
+  that leaves (`left`) hands its desk over until it is `back`. The lobby says which desk would be covered by whom.
+- The permission check runs inside the sim when a command is applied (`applyCommand`), so every client refuses a
+  forbidden command identically; refused commands count in the seat's `denied`. The UI hides what the desk cannot
+  do: the call card only for call-takers (the others see a strip "112 kõne heliseb. Vastab ..."), acknowledge,
+  priority, crews, agencies and pursuit actions only for the dispatcher, radio replies and breaks only for the
+  radio desk, A and D only for the dispatcher, speed buttons only for the host. Everybody sees the same map.
+- Pings: `ping [text]`, at most 140 characters, the last 60 kept in `sim.coop.pings`, shown in the panel with
+  three quick messages.
+
+### 7.4 Report and XP
+
+- The report carries `coop` (seats, roles, presence and each seat's counters: calls, incidents created, calls
+  closed, acknowledged, crews sent, radio replies, closed, queries, pings, commands, refused). The table "Meeskonna
+  töö" is the same on every report.
+- XP: `coopXp` = the team's XP + the seat's own work (`seatWork`, at most half the team's). It goes into the
+  player's own career once per room, keyed `room:<code>` in `paidShifts` (`applyCoopXp`, `applyCoopShift`): XP,
+  promotions (and the prefectures a rank opens), the shift count, incidents, arrests and achievements. Never money,
+  staff, fleet, reputation, the career day or its history. Each player posts the team's result with their XP to
+  `/result` (`room_results.xp`).
+
+### 7.5 Limits
+
+- Cross-engine floating point (section 4.2) is repaired by resync, not prevented; the Playwright run covers
+  Chromium only. A client whose digest keeps drifting resyncs again at the next mismatch.
+- A hidden tab's animation frames stop: that client falls behind and catches up when shown; a hidden host sends no
+  digests or snapshots meanwhile (the others play on).
+- A command takes effect 2 to 3 s after the click for everybody, the issuer included.
+- Deleting an account removes its commands from a running room's log; players in the room are unaffected (they
+  hold the state) and the host is asked for a fresh snapshot at once, so a rejoin needs only the commands after it.
+  Within the first minute of a shift, before the first snapshot, a rejoin replays from the seed without them.
+- Results are reported by each client, as in Võistlus; a modified client could still send another score.
+

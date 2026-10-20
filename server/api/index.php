@@ -47,6 +47,11 @@ function epd_routes(): array
         ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/start$#', epd_route_room_start(...)],
         ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/leave$#', epd_route_room_leave(...)],
         ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/result$#', epd_route_room_result(...)],
+        ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/role$#', epd_route_coop_role(...)],
+        ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/cmd$#', epd_route_coop_cmd(...)],
+        ['GET', '#^/api/rooms/([A-Za-z0-9]{6})/log$#', epd_route_coop_log(...)],
+        ['PUT', '#^/api/rooms/([A-Za-z0-9]{6})/snapshot$#', epd_route_coop_snapshot_put(...)],
+        ['GET', '#^/api/rooms/([A-Za-z0-9]{6})/snapshot$#', epd_route_coop_snapshot_get(...)],
         ['POST', '#^/api/deploy-hook$#', epd_route_deploy_hook(...)],
         ['POST', '#^/api/tts$#', epd_route_tts(...)],
     ];

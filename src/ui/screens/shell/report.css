@@ -345,3 +345,21 @@
     height: 44px;
   }
 }
+
+/* Co-op: the team's per-desk counters (narrow screens scroll the table, not the page). */
+.vk-rep__coopWrap {
+  overflow-x: auto;
+}
+.vk-rep__coop tr.is-me th,
+.vk-rep__coop tr.is-me td {
+  background: color-mix(in oklch, var(--vk-acc) 8%, transparent);
+}
+.vk-rep__coop th,
+.vk-rep__coop td {
+  padding-left: 8px;
+  padding-right: 8px;
+  white-space: nowrap;
+}
+.vk-rep__coop thead th {
+  letter-spacing: 0.06em;
+}

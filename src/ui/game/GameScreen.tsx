@@ -23,6 +23,7 @@ import { UnitBoard } from './UnitBoard';
 import { RadioPanel } from './RadioPanel';
 import { Toasts, useToastFeed } from './Toasts';
 import { PauseMenu, ShiftEndModal } from './Modals';
+import { CoopPanel } from './CoopPanel';
 import { useHotkeys } from './useHotkeys';
 import { useGameUi, type MobileTab } from './uiStore';
 import './game.css';
@@ -111,6 +112,7 @@ export function GameScreen() {
       </section>
       <MobileNav />
       <Toasts />
+      {sim.coop && <CoopPanel />}
       <CallTaker />
       <ShiftEndModal />
       <PauseMenu />

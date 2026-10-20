@@ -23,9 +23,9 @@ const EPD_ROOM_MAX_PLAYERS = 4;
 /** Code alphabet: capitals and digits without the look-alikes I, O, 0 and 1 (32 symbols, 32^6 codes). */
 const EPD_ROOM_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const EPD_ROOM_CODE_PATTERN = '/^[A-HJ-NP-Z2-9]{6}$/';
-/** Phase 1 plays `race`; `sector` and `role` are the co-op modes of phase 2. */
+/** `race` (same-seed competition) and `role` (role co-op over the command log, coop.php) are open; `sector` comes later. */
 const EPD_ROOM_MODES = ['race', 'sector', 'role'];
-const EPD_ROOM_OPEN_MODES = ['race'];
+const EPD_ROOM_OPEN_MODES = ['race', 'role'];
 const EPD_ROOM_HOURS = [2, 3, 4, 6];
 const EPD_ROOM_SLOTS = ['morning', 'afternoon', 'evening', 'night'];
 /** A player counts as online when their last poll is this recent (ms). */
@@ -134,7 +134,7 @@ function epd_room_by_id(PDO $db, int $id): ?array
 function epd_room_players(PDO $db, int $roomId): array
 {
     $stmt = $db->prepare(
-        'SELECT p.user_id, p.seat, p.ready, p.joined, p.seen, p.left_at, u.name
+        'SELECT p.user_id, p.seat, p.ready, p.joined, p.seen, p.left_at, p.role, u.name
          FROM room_players p JOIN users u ON u.id = p.user_id
          WHERE p.room_id = ? ORDER BY p.seat'
     );
@@ -151,9 +151,15 @@ function epd_room_member(PDO $db, int $roomId, int $userId): ?array
     return is_array($row) ? $row : null;
 }
 
-/** Note a change: the revision grows, so every poller fetches the room again. */
+/**
+ * Note a change: the revision grows, so every poller fetches the room again. A room that finishes or closes loses its
+ * co-op command log and snapshot (coop.php): they exist only while it runs.
+ */
 function epd_room_bump(PDO $db, int $roomId, int $now, array $set = []): void
 {
+    if (in_array($set['state'] ?? null, ['finished', 'closed'], true)) {
+        epd_coop_forget_room($db, $roomId);
+    }
     $cols = ['rev = rev + 1', 'updated = :now'];
     $params = [':now' => $now, ':id' => $roomId];
     foreach ($set as $col => $value) {
@@ -182,6 +188,13 @@ function epd_room_refresh(PDO $db, array $room, int $now): array
         }
     } elseif ($room['state'] === 'running' && (int) $room['started'] < $now - EPD_ROOM_RUN_MAX_MS) {
         $next = 'finished';
+    } elseif ($room['state'] === 'running' && epd_coop_is_coop($room)) {
+        // A shared shift nobody has polled for 15 minutes is over.
+        $stmt = $db->prepare('SELECT MAX(seen) FROM room_players WHERE room_id = ?');
+        $stmt->execute([$room['id']]);
+        if (max((int) $stmt->fetchColumn(), (int) $room['started']) < $now - EPD_COOP_IDLE_MS) {
+            $next = 'finished';
+        }
     }
     if ($next === null) {
         return $room;
@@ -193,12 +206,12 @@ function epd_room_refresh(PDO $db, array $room, int $now): array
 /**
  * Results of a room, best first, each with its place (1 + the number of strictly higher scores).
  *
- * @return list<array{id: int, name: string, score: int, grade: string, incidents: int, arrests: int, at: int, rank: int}>
+ * @return list<array{id: int, name: string, score: int, grade: string, incidents: int, arrests: int, xp: int, at: int, rank: int}>
  */
 function epd_room_results(PDO $db, int $roomId): array
 {
     $stmt = $db->prepare(
-        'SELECT r.user_id, u.name, r.score, r.grade, r.incidents, r.arrests, r.at,
+        'SELECT r.user_id, u.name, r.score, r.grade, r.incidents, r.arrests, r.xp, r.at,
                 RANK() OVER (ORDER BY r.score DESC) AS rank
          FROM room_results r JOIN users u ON u.id = r.user_id
          WHERE r.room_id = ?
@@ -214,6 +227,7 @@ function epd_room_results(PDO $db, int $roomId): array
             'grade' => (string) $r['grade'],
             'incidents' => (int) $r['incidents'],
             'arrests' => (int) $r['arrests'],
+            'xp' => (int) $r['xp'],
             'at' => (int) $r['at'],
             'rank' => (int) $r['rank'],
         ];
@@ -268,6 +282,8 @@ function epd_room_public(PDO $db, array $room, int $userId, int $now): array
             'online' => $p['left_at'] === null && (int) $p['seen'] >= $now - EPD_ROOM_ONLINE_MS,
             'left' => $p['left_at'] !== null,
             'done' => in_array($id, $done, true),
+            // Role co-op: the role chosen in the lobby, or the seat's default (coop.php).
+            'role' => epd_coop_role_of($p),
         ];
     }
     $running = $room['state'] !== 'lobby';
@@ -314,6 +330,10 @@ function epd_room_count(PDO $db, int $roomId): int
 function epd_room_remove(PDO $db, array $room, int $userId, int $now, bool $forget = false): void
 {
     $roomId = (int) $room['id'];
+    if ($forget) {
+        // A deleted account's seat leaves a running shared shift before its row goes (coop.php).
+        epd_coop_forget_seat($db, $room, $userId, $now);
+    }
     if ($forget || $room['state'] === 'lobby') {
         $db->prepare('DELETE FROM room_players WHERE room_id = ? AND user_id = ?')->execute([$roomId, $userId]);
         if ($forget) {
@@ -337,6 +357,10 @@ function epd_room_remove(PDO $db, array $room, int $userId, int $now, bool $forg
         $set += epd_room_finish_if_done($db, $roomId);
     }
     epd_room_bump($db, $roomId, $now, $set);
+    if ($room['state'] === 'running' && ($set['state'] ?? 'running') === 'running') {
+        // A shared shift hears of it in its log: the seat leaves, the host's role may move (coop.php).
+        epd_coop_sync_seats($db, epd_room_by_id($db, $roomId) ?? $room, $now);
+    }
 }
 
 /**
@@ -382,12 +406,17 @@ function epd_rooms_forget_user(PDO $db, int $userId): void
     }
     // Rooms the user still hosts without a seat (should not exist) lose their host too.
     $db->prepare('UPDATE rooms SET host_id = NULL WHERE host_id = ?')->execute([$userId]);
+    // The user's commands and uploaded snapshots go too (the host was asked for a fresh snapshot above).
+    $db->prepare('DELETE FROM room_commands WHERE user_id = ?')->execute([$userId]);
+    $db->prepare('DELETE FROM room_snapshots WHERE user_id = ?')->execute([$userId]);
 }
 
 /** Rooms older than 30 days go, with their players and results. */
 function epd_rooms_sweep(PDO $db, int $now): void
 {
     $old = $now - EPD_ROOM_KEEP_MS;
+    $db->prepare('DELETE FROM room_commands WHERE room_id IN (SELECT id FROM rooms WHERE created < ?)')->execute([$old]);
+    $db->prepare('DELETE FROM room_snapshots WHERE room_id IN (SELECT id FROM rooms WHERE created < ?)')->execute([$old]);
     $db->prepare('DELETE FROM room_results WHERE room_id IN (SELECT id FROM rooms WHERE created < ?)')->execute([$old]);
     $db->prepare('DELETE FROM room_players WHERE room_id IN (SELECT id FROM rooms WHERE created < ?)')->execute([$old]);
     $db->prepare('DELETE FROM rooms WHERE created < ?')->execute([$old]);
@@ -668,6 +697,10 @@ function epd_route_room_start(string $code): ApiReply
             }
         }
         epd_room_bump($db, (int) $room['id'], $now, ['state' => 'running', 'started' => $now, 'day' => epd_daily_date($now)]);
+        if (epd_coop_is_coop($room)) {
+            // The shared shift's first log command: who sits where with which role.
+            epd_coop_setup($db, $room, $players, $userId, $now);
+        }
         return (string) $room['code'];
     });
     return epd_room_reply($db, $clean, $userId, $now);
@@ -690,8 +723,9 @@ function epd_route_room_leave(string $code): ApiReply
 }
 
 /**
- * POST /api/rooms/{code}/result `{ score, grade, incidents, arrests }`: a player's result of the room's shift, the
- * first one counts. The room is finished once every player still in it has sent one.
+ * POST /api/rooms/{code}/result `{ score, grade, incidents, arrests, xp? }`: a player's result of the room's shift,
+ * the first one counts. In co-op every player sends the team's result with their own XP. The room is finished once
+ * every player still in it has sent one.
  */
 function epd_route_room_result(string $code): ApiReply
 {
@@ -703,6 +737,7 @@ function epd_route_room_result(string $code): ApiReply
         'grade' => epd_enum_field($body, 'grade', EPD_GRADES),
         'incidents' => epd_number_field($body, 'incidents', 0, 100000),
         'arrests' => epd_number_field($body, 'arrests', 0, 100000),
+        'xp' => array_key_exists('xp', $body) ? epd_number_field($body, 'xp', 0, 100000) : 0,
     ];
     // A shift with no incidents gets a flat grade from the sim; it says nothing about the player.
     if ($row['incidents'] < 1) {
@@ -722,10 +757,10 @@ function epd_route_room_result(string $code): ApiReply
             epd_fail(409, 'left_room', 'Sa lahkusid sellest ruumist.');
         }
         $insert = $db->prepare(
-            'INSERT INTO room_results (room_id, user_id, score, grade, incidents, arrests, at) VALUES (?, ?, ?, ?, ?, ?, ?)
+            'INSERT INTO room_results (room_id, user_id, score, grade, incidents, arrests, xp, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (room_id, user_id) DO NOTHING'
         );
-        $insert->execute([$room['id'], $userId, $row['score'], $row['grade'], $row['incidents'], $row['arrests'], $now]);
+        $insert->execute([$room['id'], $userId, $row['score'], $row['grade'], $row['incidents'], $row['arrests'], $row['xp'], $now]);
         $counted = $insert->rowCount() === 1;
         if ($counted) {
             epd_room_bump($db, (int) $room['id'], $now, $room['state'] === 'running' ? epd_room_finish_if_done($db, (int) $room['id']) : []);
@@ -747,3 +782,6 @@ function epd_route_room_result(string $code): ApiReply
         'room' => $room === null ? null : epd_room_public($db, $room, $userId, $now),
     ]);
 }
+
+// The shared shift (command log, clock, digests, snapshots) builds on everything above.
+require_once __DIR__ . '/coop.php';

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { Person, RadioMsg, SimState, Vehicle } from '@/sim/types';
 import { markChecked } from '@/sim/commands';
+import { coopIssue, myRoles } from '@/store/coop';
 import { hhmm } from '@/sim/time';
 import { useGame } from '@/store/game';
 import { useLang, useT, useTx } from '@/i18n';
@@ -96,7 +97,13 @@ export function RegistryPanel() {
     if (!s) return;
     const ref = refOf(view);
     const ids = uncheckedLinks(s, ref);
-    if (ids.length) run((st) => ids.forEach((id) => markChecked(st, id, ref)));
+    if (!ids.length) return;
+    if (s.coop) {
+      // Co-op: the radio desk's checks go through the room (cosmetic for the others, so skipped).
+      if (myRoles(s)?.includes('radio')) for (const id of ids) coopIssue('check', [id, ref.personId ?? '', ref.plate ?? '']);
+      return;
+    }
+    run((st) => ids.forEach((id) => markChecked(st, id, ref)));
   }, [viewKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleClassic = () => {

@@ -31,6 +31,7 @@ import {
   displayRoomCode,
   markRoom,
   normalizeRoomCode,
+  isCoopMode,
   OPEN_ROOM_MODES,
   ROOM_DIFFICULTIES,
   ROOM_HOURS,
@@ -42,6 +43,9 @@ import {
   type RoomOptions,
 } from '@/sim/room';
 import { hhmm, HOUR } from '@/sim/time';
+import { COOP_ROLES, DEFAULT_ROLES, type CoopRole } from '@/sim/coop';
+import { setRoomRole } from '@/net/coop';
+import { startCoop } from '@/store/coop';
 import type { Difficulty, RegionId } from '@/sim/types';
 import { Button, Modal, Segmented, Select, Spinner } from '@/ui/components';
 import { ShellPage, useToast } from './shell/ShellPage';
@@ -52,7 +56,7 @@ import { VkLayer } from './shell/VkLayer';
 import './shell/lobby.css';
 
 const REGIONS: RegionId[] = ['pohja', 'ida', 'louna', 'laane'];
-const MODES: RoomMode[] = ['race', 'sector', 'role'];
+const MODES: RoomMode[] = ['race', 'role', 'sector'];
 
 /** Options for a prefecture: its first starter sector, as a new career would get. */
 function optionsFor(regionId: RegionId, prev: RoomOptions): RoomOptions {
@@ -525,8 +529,19 @@ function RoomView({
   }, [room.code, room.state]);
 
   /** Into the room's shift: the saved run of it when there is one, else a new run from the room's seed. */
+  const coop = isCoopMode(room.mode);
   const play = () => {
     if (!shift) return;
+    if (coop) {
+      // A shared shift: the room's latest snapshot and log (the first time, or back after a reload).
+      startCoop(room.code, shift)
+        .then(() => sfx.play('dispatch'))
+        .catch((e: unknown) => {
+          sfx.play('error');
+          setError(t(roomErrorKey(e)));
+        });
+      return;
+    }
     if (saved) {
       resumeShift(saved);
       return;
@@ -666,13 +681,13 @@ function RoomView({
                   {t(room.state === 'finished' ? 'rooms.run.sentDone' : 'rooms.run.sent')}
                 </p>
               ) : (
-                <p>{t('rooms.run.text', { time: room.started ? hhmm(room.started) : '-' })}</p>
+                <p>{t(coop ? 'coop.run.text' : 'rooms.run.text', { time: room.started ? hhmm(room.started) : '-' })}</p>
               )}
             </div>
             {room.state === 'running' && !mine && me && !me.left && (
               <div className="vk-panel__foot">
                 <button type="button" className="vk-btn vk-btn--primary" onClick={play} data-sfx="click">
-                  {saved ? t(saved.ended ? 'rooms.run.report' : 'rooms.run.resume') : t('rooms.run.start')}
+                  {coop ? t('coop.run.join') : saved ? t(saved.ended ? 'rooms.run.report' : 'rooms.run.resume') : t('rooms.run.start')}
                 </button>
               </div>
             )}
@@ -692,6 +707,7 @@ function RoomView({
               </span>
             </div>
             <Seats room={room} />
+            {coop && <RolePicker room={room} busy={busy} onPick={(role) => void act(async () => void (await setRoomRole(room.code, role)))} />}
             <div className="vk-mp__status">
               {host ? (
                 <p className={`vk-msg${block ? '' : ' is-ok'}`} data-testid="room-block">
@@ -746,7 +762,7 @@ function RoomView({
           <section className="vk-panel" aria-labelledby="vk-mp-rules">
             <div className="vk-panel__head">
               <h2 className="vk-h" id="vk-mp-rules">
-                {t('rooms.rules.title')}
+                {t(coop ? 'coop.rules.title' : 'rooms.rules.title')}
               </h2>
             </div>
             <ol className="vk-mp__how">
@@ -755,7 +771,7 @@ function RoomView({
                   <span className="vk-mp__step vk-mono" aria-hidden="true">
                     {n}
                   </span>
-                  <span>{t(`rooms.rules.${n}`)}</span>
+                  <span>{t(`${coop ? 'coop' : 'rooms'}.rules.${n}`)}</span>
                 </li>
               ))}
             </ol>
@@ -848,6 +864,11 @@ function Seats({ room }: { room: Room }) {
                 {p.host && <span className="vk-mp__tag">{t('rooms.badge.host')}</span>}
                 {p.id === room.me && <span className="vk-dim">({t('rooms.badge.you')})</span>}
               </span>
+              {isCoopMode(room.mode) && (
+                <span className="vk-mp__role" data-testid="seat-role">
+                  {t(`coop.role.${p.role ?? DEFAULT_ROLES[i % 4]}`)}
+                </span>
+              )}
               <span className={`vk-mp__ready${p.ready ? ' is-ready' : ''}`}>
                 {!p.online ? t('rooms.p.offline') : p.ready ? t('rooms.p.ready') : t('rooms.p.waiting')}
               </span>
@@ -858,5 +879,46 @@ function Seats({ room }: { room: Room }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Role co-op: this player's desk, and what the room's line-up means (who takes over a desk nobody picked). */
+function RolePicker({ room, busy, onPick }: { room: Room; busy: boolean; onPick: (r: CoopRole) => void }) {
+  const t = useT();
+  const me = meIn(room);
+  if (!me || room.state !== 'lobby') return null;
+  const here = present(room);
+  const roleOf = (p: (typeof here)[number]) => p.role ?? DEFAULT_ROLES[p.seat % 4];
+  const mine = roleOf(me);
+  const missing = COOP_ROLES.filter((r) => !here.some((p) => roleOf(p) === r));
+  return (
+    <div className="vk-mp__roles" data-testid="role-picker">
+      <span className="vk-label" id="vk-mp-role">
+        {t('coop.role.pick')}
+      </span>
+      <div className="vk-mp__modes" role="radiogroup" aria-labelledby="vk-mp-role">
+        {COOP_ROLES.map((r) => (
+          <button
+            key={r}
+            type="button"
+            role="radio"
+            aria-checked={mine === r}
+            disabled={busy}
+            className={`vk-mp__mode${mine === r ? ' is-active' : ''}`}
+            onClick={() => mine !== r && onPick(r)}
+          >
+            <span className="vk-mp__modeHead">
+              <span className="vk-mp__radio" aria-hidden="true" />
+              <strong>{t(`coop.role.${r}`)}</strong>
+              <span className="vk-dim">{here.filter((p) => roleOf(p) === r).length || ''}</span>
+            </span>
+            <span className="vk-mp__modeDesc">{t(`coop.role.${r}.desc`)}</span>
+          </button>
+        ))}
+      </div>
+      <p className="vk-mp__hint" data-testid="role-hint">
+        {missing.length ? missing.map((r) => t(`coop.role.${r}.cover`)).join(' ') : t('coop.role.allCovered')}
+      </p>
+    </div>
   );
 }

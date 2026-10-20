@@ -7,6 +7,7 @@ import { describePerson, describeVehicle, ageOf } from '@/gen/describe';
 import { personFlags, vehicleFlags, type RecordFlag } from '@/sim/registry';
 import { hhmm, MIN } from '@/sim/time';
 import type { Agency, Incident, IncidentTemplate, Person, ScoreBreakdown, SimState, TimelineEntry, Lang } from '@/sim/types';
+import { usePending } from '@/store/coop';
 import { checkRecord, dispatch, dispatchPicked, pursuitAction, recallUnit, requestAgency, selectUnit } from './actions';
 import { assignedUnits, bestFor, isIdentified, selRecs, soft } from './data';
 import { allMet, countdown, fmtKm, fmtNum, needCoverage, unitEtaMin } from './format';
@@ -197,6 +198,8 @@ export function RecommendBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
   const shown = all ? recs : recs.slice(0, 6);
   // Same rule as the D key: no automatic pick → plain "Saada", disabled until the player picks.
   const top = bestFor(recs);
+  // Co-op: a send on its way to the room (2-3 s) is not sent twice.
+  const sending = usePending('send', inc.id);
 
   return (
     <Section
@@ -259,8 +262,8 @@ export function RecommendBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
         </div>
       )}
       <div className="gm-recs__actions">
-        <Button variant="primary" icon="send" disabled={!picks.length && !top} onClick={() => dispatchPicked(inc.id)}>
-          {picks.length ? t('game.inc.sendN', { n: picks.length }) : top ? t('game.inc.sendTop', { c: top.unit.callsign }) : t('game.inc.send')}
+        <Button variant="primary" icon="send" disabled={(!picks.length && !top) || sending} onClick={() => dispatchPicked(inc.id)}>
+          {sending ? t('coop.sending') : picks.length ? t('game.inc.sendN', { n: picks.length }) : top ? t('game.inc.sendTop', { c: top.unit.callsign }) : t('game.inc.send')}
           <Kbd>D</Kbd>
         </Button>
         {picks.length > 0 && (
@@ -281,7 +284,7 @@ export function RecommendBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
 
 // ── Assigned units ───────────────────────────────────────────────────────────
 
-export function AssignedBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
+export function AssignedBlock({ sim, inc, readOnly }: { sim: SimState; inc: Incident; readOnly?: boolean }) {
   const t = useT();
   const units = assignedUnits(sim, inc);
   return (
@@ -303,7 +306,7 @@ export function AssignedBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
                 </span>
                 <StatusChip status={u.status} label={t(`game.status.${u.status}`)} />
                 <span className="gm-asg__eta mono">{eta !== null ? t('game.eta', { t: countdown(eta) }) : u.status === 'onscene' ? t('game.inc.arrived') : ''}</span>
-                {inc.state !== 'closed' && (
+                {inc.state !== 'closed' && !readOnly && (
                   <Button size="sm" variant="ghost" icon="x" onClick={() => recallUnit(u.id)}>
                     {t('game.inc.recall')}
                   </Button>
@@ -319,10 +322,11 @@ export function AssignedBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
 
 // ── Agencies ─────────────────────────────────────────────────────────────────
 
-export function AgencyBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
+export function AgencyBlock({ sim, inc, readOnly }: { sim: SimState; inc: Incident; readOnly?: boolean }) {
   const t = useT();
   const tx = useTx();
-  const closed = inc.state === 'closed';
+  // Read-only (another co-op desk): the list without the buttons.
+  const closed = inc.state === 'closed' || !!readOnly;
   const listed = new Set(inc.agencyNeeds.map((a) => a.agency));
   const others = AGENCIES.filter((a) => !listed.has(a));
   if (closed && !inc.agencyNeeds.length) return null;
@@ -379,7 +383,7 @@ export function AgencyBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
 
 // ── Pursuit / search ─────────────────────────────────────────────────────────
 
-export function PursuitBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
+export function PursuitBlock({ sim, inc, readOnly }: { sim: SimState; inc: Incident; readOnly?: boolean }) {
   const t = useT();
   const p = inc.pursuit;
   if (!p) return null;
@@ -412,7 +416,7 @@ export function PursuitBlock({ sim, inc }: { sim: SimState; inc: Incident }) {
           <b className="mono">{Math.round(p.risk * 100)}%</b>
         </div>
       </div>
-      {live && (
+      {live && !readOnly && (
         <div className="gm-pursuit__actions">
           <Button size="sm" variant="danger" icon="x" onClick={() => pursuitAction(inc.id, 'terminate')}>
             {t('game.pursuit.terminate')}

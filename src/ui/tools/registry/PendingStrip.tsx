@@ -4,6 +4,7 @@ import { replyRadio } from '@/sim/commands';
 import { hhmm } from '@/sim/time';
 import { Button, Icon } from '@/ui/components';
 import { useT, useTx } from '@/i18n';
+import { coopIssue, useCan } from '@/store/coop';
 import { run } from '../lib/engine';
 
 const REPLY_TONE: Record<string, 'success' | 'danger' | 'warning' | 'secondary'> = {
@@ -23,6 +24,8 @@ const REPLY_TONE: Record<string, 'success' | 'danger' | 'warning' | 'secondary'>
 export function PendingStrip({ msgs }: { msgs: RadioMsg[] }) {
   const t = useT();
   const tx = useTx();
+  // Co-op: the radio desk answers the crews (src/sim/coop.ts); the others see who is waiting.
+  const canReply = useCan('radio');
   if (!msgs.length) return null;
   return (
     <div className="tl-waiting" role="region" aria-label={t('tools.reg.officerWaiting')}>
@@ -36,8 +39,13 @@ export function PendingStrip({ msgs }: { msgs: RadioMsg[] }) {
           </div>
           <p className="tl-waiting__text">“{tx(m.text)}”</p>
           <div className="tl-waiting__replies">
-            {(m.replies ?? []).map((r) => (
-              <Button key={r.id} size="sm" variant={REPLY_TONE[r.id] ?? 'secondary'} onClick={() => run((s) => replyRadio(s, m.id, r.id))}>
+            {(canReply ? (m.replies ?? []) : []).map((r) => (
+              <Button
+                key={r.id}
+                size="sm"
+                variant={REPLY_TONE[r.id] ?? 'secondary'}
+                onClick={() => coopIssue('reply', [m.id, r.id]) || run((s) => replyRadio(s, m.id, r.id))}
+              >
                 {tx(r.label)}
               </Button>
             ))}

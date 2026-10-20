@@ -828,28 +828,7 @@ export function applyShiftReport(
   if (helpBonus > 0)
     messages.push(T(`Naabersektorite kolleegid tänavad abi eest (Staatus +${helpBonus}).`, `Your colleagues at the neighbouring desks thank you for the help (Staatus +${helpBonus}).`));
   p.xp += Math.max(0, Math.round(r.xp));
-  const newRank = rankOf(p.xp).index;
-  for (let i = oldRank + 1; i <= newRank; i++) {
-    const rk = RANKS[i];
-    messages.push(T(`Ülendus! Teie uus auaste on ${rk.name.et.toLowerCase()}.`, `Promotion! Your new rank is ${rk.name.en}.`));
-    for (const u of rk.unlocks) messages.push(T(`Avanes: ${u.et}`, `Unlocked: ${u.en}`));
-  }
-  // Region unlocks by rank.
-  const order = REGION_UNLOCK_ORDER.filter((id) => id !== p.regionId);
-  EXTRA_REGION_RANKS.forEach((minRank, i) => {
-    const id = order[i];
-    if (id && newRank >= minRank && !p.unlockedRegions.includes(id)) {
-      p.unlockedRegions.push(id);
-      const nm = REGIONS[id]?.name;
-      // A career created with sectors starts there at one desk; a converted one takes it whole, as before.
-      if (p.sectors) p.sectors[id] = sectorsForNewRegion(p, id);
-      const first = isSectorCareer(p) ? p.sectors?.[id]?.[0] : undefined;
-      if (first) {
-        const sn = sectorNames([first]);
-        messages.push(T(`Uus prefektuur avatud: ${nm?.et ?? id}. Teie esimene sektor seal on ${sn.et}.`, `New prefecture unlocked: ${nm?.en ?? id}. Your first sector there is ${sn.en}.`));
-      } else messages.push(T(`Uus prefektuur avatud: ${nm?.et ?? id}.`, `New prefecture unlocked: ${nm?.en ?? id}.`));
-    }
-  });
+  promote(p, oldRank, messages);
 
   // ── Staff: injuries, recovery, xp, morale ─────────────────────────────────
   const injured = new Set(r.injuredOfficers);
@@ -953,6 +932,58 @@ export function applyShiftReport(
   }
 
   return { profile: p, ledger, messages };
+}
+
+
+/** Promotions and the prefectures a new rank opens, after p.xp grew from a rank of `oldRank`. */
+function promote(p: CareerProfileX, oldRank: number, messages: Text[]): void {
+  const newRank = rankOf(p.xp).index;
+  for (let i = oldRank + 1; i <= newRank; i++) {
+    const rk = RANKS[i];
+    messages.push(T(`Ülendus! Teie uus auaste on ${rk.name.et.toLowerCase()}.`, `Promotion! Your new rank is ${rk.name.en}.`));
+    for (const u of rk.unlocks) messages.push(T(`Avanes: ${u.et}`, `Unlocked: ${u.en}`));
+  }
+  // Region unlocks by rank.
+  const order = REGION_UNLOCK_ORDER.filter((id) => id !== p.regionId);
+  EXTRA_REGION_RANKS.forEach((minRank, i) => {
+    const id = order[i];
+    if (id && newRank >= minRank && !p.unlockedRegions.includes(id)) {
+      p.unlockedRegions.push(id);
+      const nm = REGIONS[id]?.name;
+      // A career created with sectors starts there at one desk; a converted one takes it whole, as before.
+      if (p.sectors) p.sectors[id] = sectorsForNewRegion(p, id);
+      const first = isSectorCareer(p) ? p.sectors?.[id]?.[0] : undefined;
+      if (first) {
+        const sn = sectorNames([first]);
+        messages.push(T(`Uus prefektuur avatud: ${nm?.et ?? id}. Teie esimene sektor seal on ${sn.et}.`, `New prefecture unlocked: ${nm?.en ?? id}. Your first sector there is ${sn.en}.`));
+      } else messages.push(T(`Uus prefektuur avatud: ${nm?.et ?? id}.`, `New prefecture unlocked: ${nm?.en ?? id}.`));
+    }
+  });
+}
+
+/**
+ * A co-op room shift in a player's own career (docs/MULTIPLAYER.md, 4.6): the XP (team plus own share), promotions,
+ * the shift count and achievements. Never money, staff, fleet, reputation or the career day: those belong to the
+ * career's own sector. The caller pays it once per room (CareerProfile.paidShifts, key room:<code>).
+ */
+export function applyCoopShift(p0: CareerProfile, r: ShiftReport, xp: number, ctx?: AchievementContext): { profile: CareerProfile; messages: Text[] } {
+  const p = clone(p0) as CareerProfileX;
+  const messages: Text[] = [];
+  const oldRank = rankOf(p.xp).index;
+  const gain = Math.max(0, Math.round(xp));
+  p.xp += gain;
+  messages.push(T(`Ühisvahetus: +${gain} kogemuspunkti.`, `Shared shift: +${gain} experience.`));
+  promote(p, oldRank, messages);
+  p.stats.shifts += 1;
+  p.stats.incidents += r.stats.incidents;
+  p.stats.arrests += r.stats.arrests;
+  p.stats.pursuitsCaught += r.stats.pursuitsCaught;
+  for (const id of checkAchievements(p, r, ctx)) {
+    const a = ACHIEVEMENTS.find((x) => x.id === id)!;
+    p.achievements.push(id);
+    messages.push(T(`Saavutus: ${a.name.et}!`, `Achievement: ${a.name.en}!`));
+  }
+  return { profile: p, messages };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

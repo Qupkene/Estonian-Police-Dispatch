@@ -1,6 +1,7 @@
 // Pause menu and end-of-shift dialog.
 import { useEffect, useRef, useState } from 'react';
 import { autosave, useGame } from '@/store/game';
+import { coopIssue, useCoop } from '@/store/coop';
 import { useSettings, type MapStyleKey } from '@/store/settings';
 import { useT } from '@/i18n';
 import { Button, Kbd, Modal, Select, Slider } from '@/ui/components';
@@ -40,6 +41,8 @@ export function PauseMenu() {
   const open = useGameUi((s) => s.pauseOpen);
   const setUi = useGameUi((s) => s.set);
   const mode = useGame((s) => s.sim?.mode);
+  const coop = useGame((s) => !!s.sim?.coop);
+  const isHost = useCoop((s) => s.isHost);
   const volume = useSettings((s) => s.volume);
   const mapStyle = useSettings((s) => s.mapStyle);
   const lang = useSettings((s) => s.lang);
@@ -50,6 +53,8 @@ export function PauseMenu() {
   // Opening the menu pauses the game; closing restores the previous speed.
   useEffect(() => {
     const g = useGame.getState();
+    // A co-op shift goes on for the others: the menu never pauses it.
+    if (g.sim?.coop) return;
     if (open) {
       setConfirm(false);
       if (g.speedIndex > 0 && g.sim) {
@@ -109,7 +114,7 @@ export function PauseMenu() {
 
         {confirm ? (
           <div className="gm-pause__confirm" role="alert">
-            <p>{t('game.pause.confirmEnd')}</p>
+            <p>{coop ? t('coop.pause.confirmEnd') : t('game.pause.confirmEnd')}</p>
             <EarlyEndWarning />
             <div>
               <Button variant="ghost" onClick={() => setConfirm(false)}>
@@ -119,7 +124,11 @@ export function PauseMenu() {
                 variant="danger"
                 icon="flag"
                 onClick={() => {
-                  if (finishShift()) setUi({ pauseOpen: false });
+                  // Co-op: the host ends the shift for everybody, through the room.
+                  if (coop) {
+                    coopIssue('end', []);
+                    setUi({ pauseOpen: false });
+                  } else if (finishShift()) setUi({ pauseOpen: false });
                 }}
               >
                 {t('game.pause.confirmYes')}
@@ -138,11 +147,13 @@ export function PauseMenu() {
                 g.quitShift();
               }}
             >
-              {director ? t('game.pause.quit') : t('game.pause.saveQuit')}
+              {director ? t('game.pause.quit') : coop ? t('coop.pause.leave') : t('game.pause.saveQuit')}
             </Button>
-            <Button variant="danger" icon="flag" onClick={() => setConfirm(true)}>
-              {t('game.pause.endShift')}
-            </Button>
+            {(!coop || isHost) && (
+              <Button variant="danger" icon="flag" onClick={() => setConfirm(true)}>
+                {coop ? t('coop.pause.endAll') : t('game.pause.endShift')}
+              </Button>
+            )}
           </div>
         )}
       </div>

@@ -27,15 +27,15 @@ export default {
     et: 'Kõik teevad sama vahetuse omaette: samad väljakutsed samal ajal ja samas kohas. Tulemused pannakse kõrvuti.',
     en: 'Everyone works the same shift on their own: the same calls at the same times and places. Results side by side.',
   },
-  'rooms.mode.sector': { et: 'Sektorite koostöö', en: 'Sector co-op' },
+  'rooms.mode.sector': { et: 'Sektorid', en: 'Sectors' },
   'rooms.mode.sector.desc': {
     et: 'Ühine vahetus, igaüks juhib sama prefektuuri naabersektori pulti ja laenab vajadusel ekipaaže.',
     en: 'One shared shift: each player runs a neighbouring sector desk of the same prefecture and lends crews when needed.',
   },
-  'rooms.mode.role': { et: 'Rollide koostöö', en: 'Role co-op' },
+  'rooms.mode.role': { et: 'Rollid', en: 'Roles' },
   'rooms.mode.role.desc': {
-    et: 'Üks ala, rollid jagatud: kõnevastuvõtja võtab vastu 112 kõned, dispetšer saadab ekipaaže.',
-    en: 'One area, split roles: the call-taker answers 112, the dispatcher sends the crews.',
+    et: 'Üks ühine vahetus, töölauad jagatud: kõnevastuvõtja võtab vastu 112 kõned, dispetšer saadab ekipaaže, kolmas mängija hoiab raadiot ja registreid.',
+    en: 'One shared shift with split desks: the call-taker answers 112, the dispatcher sends the crews, a third player keeps the radio and the registries.',
   },
   'rooms.mode.soon': { et: 'Tulekul', en: 'Coming soon' },
 

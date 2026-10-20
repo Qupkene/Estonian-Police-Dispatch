@@ -5,6 +5,7 @@ import { hhmm } from '@/sim/time';
 import type { Officer, SimState, Unit } from '@/sim/types';
 import { STATUS_CODE } from '@/sim/types';
 import { dispatch, recallUnit, selectIncident, setUnitBreak } from './actions';
+import { useCan } from '@/store/coop';
 import { selRegion } from './data';
 import { countdown, unitEtaMin } from './format';
 import { Section, UnitTypeIcon, useMsg, useSim } from './bits';
@@ -83,6 +84,9 @@ function UnitDetail({ sim, u, selIncId }: { sim: SimState; u: Unit; selIncId?: s
   const err = selIncId ? useGameUi.getState().dispatchError[selIncId] : undefined;
   const onBreak = u.status === 'break';
   const canBreak = u.status === 'available' || onBreak;
+  // Co-op: crews are sent and recalled by the dispatcher, breaks given by the radio desk (src/sim/coop.ts).
+  const canDispatch = useCan('dispatch');
+  const canRadio = useCan('radio');
   const alreadyThere = selInc ? selInc.assigned.includes(u.id) : false;
 
   let task: string;
@@ -152,18 +156,18 @@ function UnitDetail({ sim, u, selIncId }: { sim: SimState; u: Unit; selIncId?: s
         <Button
           variant="primary"
           icon="send"
-          disabled={!selInc || alreadyThere || u.status === 'offduty'}
+          disabled={!canDispatch || !selInc || alreadyThere || u.status === 'offduty'}
           title={selInc ? undefined : t('game.unit.sendHint')}
           onClick={() => selInc && dispatch(selInc.id, [u.id])}
         >
           {selInc ? t('game.unit.sendTo', { n: `${selInc.code} · ${selInc.number.split('-').pop()}` }) : t('game.inc.send')}
         </Button>
-        {u.incidentId && (
+        {u.incidentId && canDispatch && (
           <Button size="sm" icon="x" onClick={() => recallUnit(u.id)}>
             {t('game.inc.recall')}
           </Button>
         )}
-        <Button size="sm" icon={onBreak ? 'play' : 'pause'} disabled={!canBreak} onClick={() => setUnitBreak(u.id, !onBreak)}>
+        <Button size="sm" icon={onBreak ? 'play' : 'pause'} disabled={!canBreak || !canRadio} onClick={() => setUnitBreak(u.id, !onBreak)}>
           {onBreak ? t('game.unit.endBreak') : t('game.unit.break')}
         </Button>
         <Button size="sm" icon="map" onClick={() => g.focusMap(u.pos, 15)}>
