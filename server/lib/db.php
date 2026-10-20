@@ -243,6 +243,11 @@ function epd_migrations(): array
             "ALTER TABLE rooms ADD COLUMN desks TEXT NOT NULL DEFAULT ''",
             "ALTER TABLE room_players ADD COLUMN desk TEXT NOT NULL DEFAULT ''",
         ],
+        // Mänguserver (mp.php, docs/MULTIPLAYER.md section 9): 'server' when the game server runs the room's shift,
+        // '' for lockstep and race rooms.
+        7 => [
+            "ALTER TABLE rooms ADD COLUMN engine TEXT NOT NULL DEFAULT ''",
+        ],
     ];
 }
 

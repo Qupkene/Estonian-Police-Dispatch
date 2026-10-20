@@ -344,6 +344,8 @@ function epd_room_public(PDO $db, array $room, int $userId, int $now): array
         'day' => $running ? (string) $room['day'] : null,
         'created' => (int) $room['created'],
         'started' => $room['started'] === null ? null : (int) $room['started'],
+        // 'server': the shift runs on the game server (mp.php); '' plays it in lockstep or alone.
+        'engine' => epd_mp_engine($room),
         'players' => $list,
         'results' => $results,
     ];
@@ -717,7 +719,11 @@ function epd_route_room_start(string $code): ApiReply
     $userId = (int) $user['id'];
     $db = epd_db();
     $now = epd_room_now_ms();
-    $clean = epd_room_tx($db, static function (PDO $db) use ($code, $userId, $now): string {
+    // Asked before the transaction (a network call must not hold the database's write lock), for co-op rooms only.
+    $peek = epd_room_clean_code($code);
+    $peekRoom = $peek === null ? null : epd_room_by_code($db, $peek);
+    $serverEngine = $peekRoom !== null && epd_coop_is_coop($peekRoom) && epd_mp_ready();
+    $clean = epd_room_tx($db, static function (PDO $db) use ($code, $userId, $now, $serverEngine): string {
         [$room] = epd_room_for_member($db, $code, $userId, $now);
         if ((int) ($room['host_id'] ?? 0) !== $userId) {
             epd_fail(403, 'not_host', 'Vahetuse saab alustada ainult ruumi looja.');
@@ -734,7 +740,12 @@ function epd_route_room_start(string $code): ApiReply
                 epd_fail(409, 'not_ready', 'Kõik mängijad ei ole veel valmis.');
             }
         }
-        epd_room_bump($db, (int) $room['id'], $now, ['state' => 'running', 'started' => $now, 'day' => epd_daily_date($now)]);
+        $start = ['state' => 'running', 'started' => $now, 'day' => epd_daily_date($now)];
+        if ($serverEngine && epd_coop_is_coop($room)) {
+            // The game server runs this shift (mp.php); the setup row below still records who started where.
+            $start['engine'] = 'server';
+        }
+        epd_room_bump($db, (int) $room['id'], $now, $start);
         if (epd_coop_is_coop($room)) {
             // The shared shift's first log command: who sits where with which role.
             epd_coop_setup($db, $room, $players, $userId, $now);

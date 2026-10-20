@@ -252,6 +252,14 @@ export default {
     en: 'A shift without incidents does not go on the room board.',
   },
   'rooms.err.left_room': { et: 'Sa lahkusid sellest ruumist.', en: 'You left this room.' },
+  'rooms.err.mp_unavailable': {
+    et: 'Mänguserver ei vasta. Proovi hetke pärast uuesti.',
+    en: 'The game server does not answer. Try again in a moment.',
+  },
+  'rooms.err.replaced': {
+    et: 'See vahetus avati teises aknas.',
+    en: 'This shift was opened in another window.',
+  },
   'rooms.err.network': {
     et: 'Server ei vasta, proovin uuesti.',
     en: 'The server does not answer, retrying.',

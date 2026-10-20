@@ -3,14 +3,19 @@
 # Sama muster nagu mc-veeb (relee-veeb + veeb) ja raadio (relee-raadio + raadio):
 #   relee-politsei  WireGuardi külgkonteiner veeb võrgus, WG aadress 10.99.0.5
 #   politsei        FrankenPHP relee-politsei võrguruumis, kuulab :80 ainult seal
+#   politsei-mp     mänguserver (Node, server/mp, docs/MULTIPLAYER.md punkt 9) samas võrguruumis,
+#                   kuulab 127.0.0.1:8790; Caddy saadab /mp/* sinna (HTTP ja WebSocket)
 #
 # Paigaldab deploy/mainserver/paigalda.sh. POLITSEI_IP (vaba aadress veeb võrgus) on failis .env
 # samas kaustas, selle valib paigaldaja.
 #
-# NB: kui relee-politsei eraldi taaskäivitub või luuakse uuesti, jääb politsei vana võrguruumi
-# külge ja kaotab võrgu (nagu veeb mc-veebis). Parandus:
-#   cd /opt/stack/politsei && docker compose up -d --force-recreate politsei
+# NB: kui relee-politsei eraldi taaskäivitub või luuakse uuesti, jäävad politsei ja politsei-mp vana
+# võrguruumi külge ja kaotavad võrgu (nagu veeb mc-veebis). Parandus:
+#   cd /opt/stack/politsei && docker compose up -d --force-recreate politsei politsei-mp
 # politsei-uuenda.sh kontrollib seda iga 10 minuti järel ja teeb sama ise.
+#
+# Mänguserveri fail mp/mp.mjs tuleb ehitusest (npm run build, dist-mp/), selle kopeerib sinna
+# politsei-uuenda.sh (eelmine jääb kausta mp.prev) ja taaskäivitab politsei-mp.
 
 name: politsei
 
@@ -49,6 +54,10 @@ services:
       # saadab /text-to-speech/* edasi api.tartunlp.ai-le (deploy/relee/lisa-tts.sh).
       # Helifailide vahemälu on /data/tts (kuni 300 MB).
       EPD_TTS_UPSTREAM: http://10.99.0.1/text-to-speech/v2
+      # Mänguserver (politsei-mp, sama võrguruum). PHP küsib toa alguses /mp/health; kui see ei
+      # vasta või EPD_MP puudub, mängib tuba nagu varem (lockstep brauserites).
+      EPD_MP: "1"
+      EPD_MP_URL: http://127.0.0.1:8790
       # Pildi vaikimisi XDG_DATA_HOME on /data, see on siin mängu andmekaust.
       # Caddy oma failid (TLS-i pole, ainult lukud ja autosave) jäävad konteinerisse.
       XDG_CONFIG_HOME: /caddy/config
@@ -62,6 +71,32 @@ services:
       - ./tiles:/srv/tiles:ro
       - ./conf:/etc/epd:ro
     restart: unless-stopped
+
+  politsei-mp:
+    image: node:22
+    container_name: politsei-mp
+    # Sama võrguruum: politsei (Caddy ja PHP) jõuab 127.0.0.1:8790 peale, väljast seda ei näe.
+    network_mode: service:relee-politsei
+    depends_on:
+      relee-politsei:
+        condition: service_started
+        restart: true
+    command: ["node", "/app/mp/mp.mjs"]
+    environment:
+      EPD_MP_PORT: "8790"
+      EPD_MP_HOST: 127.0.0.1
+      # Ühine saladus (data/mp/secret, teeb PHP) ja käimasolevad toad (data/mp/rooms/*.json.gz).
+      EPD_MP_DIR: /data/mp
+      TZ: Europe/Tallinn
+      NODE_ENV: production
+    volumes:
+      # Kaust, mitte fail (bind mount osutab inode'ile): politsei-uuenda.sh vahetab kausta sisu.
+      - ./mp:/app/mp:ro
+      # Ainult data/mp, mitte kogu data/: mänguserver ei näe mängijate andmebaasi ega sessioone.
+      - ./data/mp:/data/mp
+    restart: unless-stopped
+    # SIGTERM-i peale salvestab server toad ja jätkab neid pärast taaskäivitust.
+    stop_grace_period: 20s
 
 networks:
   veeb:

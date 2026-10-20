@@ -65,6 +65,11 @@ function serviceWorkerManifest(): Plugin {
   };
 }
 
+const devProxy = {
+  '/api': process.env.EPD_API_URL ?? 'http://127.0.0.1:8787',
+  '/mp': { target: process.env.EPD_MP_URL ?? 'http://127.0.0.1:8790', ws: true },
+};
+
 // Custom domain (politsei.eu) serves the game from the site root.
 // Set BASE_PATH=/Estonian-Police-Dispatch/ for a plain github.io project page.
 export default defineConfig({
@@ -74,9 +79,10 @@ export default defineConfig({
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   // Local development: the PHP API (npm run dev:api) answers /api; without it the game runs in guest mode.
-  // EPD_API_URL points it elsewhere (a second checkout's tests on their own ports).
-  server: { proxy: { '/api': process.env.EPD_API_URL ?? 'http://127.0.0.1:8787' } },
-  preview: { proxy: { '/api': process.env.EPD_API_URL ?? 'http://127.0.0.1:8787' } },
+  // The game server (npm run dev:mp) answers /mp, the co-op rooms' WebSocket.
+  // EPD_API_URL and EPD_MP_URL point them elsewhere (a second checkout's tests on their own ports).
+  server: { proxy: devProxy },
+  preview: { proxy: devProxy },
   build: {
     target: 'es2022',
     // The entry chunk holds the menus and the simulation; MapLibre and the in-shift screen are a

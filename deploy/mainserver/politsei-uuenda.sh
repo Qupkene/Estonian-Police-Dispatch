@@ -13,11 +13,13 @@
 #                    repo skriptiga, kui need puuduvad või on vananenud; koos --joud alati
 #   --abi            see tekst
 #
-# Käik: pilet ära, lukk, võrguruumi kontroll, origin/main tipp (git ls-remote), võrdlus
-# failiga www/version.txt, GitHubi check-runs, ehitus node:22 konteineris, dist ja php -l
-# kontroll, andmebaasi varukoopia (ilma selleta vahetust ei tule), www.prev koopia, rsync www/
-# sisse, repo checkout, tervisekontroll, kaardiandmed. Vea korral taastatakse www ja repo
-# eelmisele versioonile. Kaardiandmete viga uuendust ei katkesta ega tühista.
+# Käik: pilet ära, lukk, võrguruumi kontroll (politsei ja politsei-mp), origin/main tipp
+# (git ls-remote), võrdlus failiga www/version.txt, GitHubi check-runs, ehitus node:22
+# konteineris, dist, php -l ja mänguserveri (dist-mp/mp.mjs, node --check) kontroll, andmebaasi
+# varukoopia (ilma selleta vahetust ei tule), www.prev koopia, rsync www/ sisse, repo checkout,
+# mp.prev koopia, mänguserver mp/ sisse ja politsei-mp taaskäivitus (toad salvestuvad ja
+# jätkuvad), tervisekontroll (ka /mp/health), kaardiandmed. Vea korral taastatakse www, repo ja
+# mp eelmisele versioonile. Kaardiandmete viga uuendust ei katkesta ega tühista.
 # Mängijate andmeid (data/epd.sqlite, data/sessions/, data/deploy-secret) ja kaarti
 # (tiles/estonia.pmtiles) skript ei muuda. tiles/ alla kirjutab ainult kaardiandmete samm
 # (roads-v1.bin, buildings-v1.bin ja nende .gz, ajutise faili ja ümbernimetamisega). data/ all
@@ -58,6 +60,12 @@ NODE_PILT=node:22
 PHP_PILT=dunglas/frankenphp:1-php8.4
 SIDECAR=relee-politsei
 VEEB=politsei
+# Mänguserver (server/mp): üks fail mp/mp.mjs, konteiner politsei-mp relee-politsei võrguruumis.
+# Konteiner näeb data/ alt ainult data/mp kausta (toad ja saladus), skript seda ei puutu.
+MP_KONT=politsei-mp
+MP="$JUUR/mp"
+MP_PREV="$JUUR/mp.prev"
+MP_PORT=8790
 
 JOUD=0
 VARUNDA=0
@@ -69,6 +77,8 @@ EELMINE_SHA=""
 SERVER_INODE=""
 CADDY_UUS=0
 CADDY_VAHETATUD=0
+MP_UUS=0
+MP_VAHETATUD=0
 TG_TOKEN=""
 TG_CHAT=""
 
@@ -77,7 +87,7 @@ for arg in "$@"; do
         --joud) JOUD=1 ;;
         --varunda) VARUNDA=1 ;;
         --kaardiandmed) KAARDIANDMED=1 ;;
-        --abi|-h|--help) sed -n '2,25p' "$0"; exit 0 ;;
+        --abi|-h|--help) sed -n '2,27p' "$0"; exit 0 ;;
         *) echo "Tundmatu võti: $arg (vaata --abi)" >&2; exit 2 ;;
     esac
 done
@@ -226,16 +236,63 @@ tervis() {
             logi "Hoiatus: /api/health version on '$apiver'"
         fi
     fi
+    if [ -s "$MP/mp.mjs" ] && mp_konteiner; then
+        mp_tervis || return 1
+    fi
     return 0
 }
 
-# relee-politsei taaskäivitus või uus konteiner jätab politsei vana võrguruumi külge.
+mp_konteiner() {
+    docker inspect "$MP_KONT" >/dev/null 2>&1
+}
+
+on_ok() {
+    [ "$(printf '%s' "$1" | jq -r '.ok // false' 2>/dev/null || true)" = true ]
+}
+
+# Mänguserveri /mp/health: otse politsei konteinerist (sama võrguruum, 127.0.0.1:8790) ja Caddy
+# kaudu, kui Caddyfile'is on /mp/ tee. Node käivitub umbes sekundiga, ootan kuni 20 s.
+mp_tervis() {
+    local vastus=""
+    for _ in $(seq 1 20); do
+        vastus="$(docker exec "$VEEB" curl -fsS -m 3 "http://127.0.0.1:$MP_PORT/mp/health" 2>/dev/null || true)"
+        on_ok "$vastus" && break
+        sleep 1
+    done
+    if ! on_ok "$vastus"; then
+        logi "Tervis: mänguserver ($MP_KONT) ei anna /mp/health ok:true (docker logs $MP_KONT)"
+        return 1
+    fi
+    if grep -q 'handle /mp/\*' "$CONF/Caddyfile" 2>/dev/null; then
+        for _ in 1 2 3; do
+            vastus="$(http_get /mp/health || true)"
+            on_ok "$vastus" && break
+            sleep 2
+        done
+        if ! on_ok "$vastus"; then
+            logi "Tervis: /mp/health Caddy kaudu ei anna ok:true"
+            return 1
+        fi
+    fi
+    return 0
+}
+
+# relee-politsei taaskäivitus või uus konteiner jätab politsei ja politsei-mp vana võrguruumi külge.
 kontrolli_vorguruumi() {
-    local s_id s_pid v_mode v_pid s_ns v_ns vaja=0
+    kontrolli_vorguruum "$VEEB"
+    kontrolli_vorguruum "$MP_KONT"
+}
+
+kontrolli_vorguruum() {
+    local kont="$1" s_id s_pid v_mode v_pid s_ns v_ns vaja=0
+    # Ilma mänguserveri failita jääb politsei-mp seisma (taasta peatas selle), seda ei looda.
+    if [ "$kont" = "$MP_KONT" ] && [ ! -s "$MP/mp.mjs" ]; then
+        return 0
+    fi
     s_id="$(docker inspect -f '{{.Id}}' "$SIDECAR" 2>/dev/null)" || return 0
-    v_mode="$(docker inspect -f '{{.HostConfig.NetworkMode}}' "$VEEB" 2>/dev/null)" || return 0
+    v_mode="$(docker inspect -f '{{.HostConfig.NetworkMode}}' "$kont" 2>/dev/null)" || return 0
     s_pid="$(docker inspect -f '{{.State.Pid}}' "$SIDECAR" 2>/dev/null || echo 0)"
-    v_pid="$(docker inspect -f '{{.State.Pid}}' "$VEEB" 2>/dev/null || echo 0)"
+    v_pid="$(docker inspect -f '{{.State.Pid}}' "$kont" 2>/dev/null || echo 0)"
     [ "$s_pid" -gt 0 ] || return 0
     if [ "$v_mode" != "container:$s_id" ]; then
         vaja=1
@@ -247,11 +304,11 @@ kontrolli_vorguruumi() {
         fi
     fi
     if [ "$vaja" = 1 ]; then
-        logi "politsei on relee-politsei vana võrguruumi küljes, loon konteineri uuesti"
-        if docker compose -f "$KOMPOSE" up -d --force-recreate "$VEEB"; then
-            teata "politsei.eu: relee-politsei oli taaskäivitunud, politsei konteiner loodi uuesti"
+        logi "$kont on relee-politsei vana võrguruumi küljes, loon konteineri uuesti"
+        if docker compose -f "$KOMPOSE" up -d --force-recreate "$kont"; then
+            teata "politsei.eu: relee-politsei oli taaskäivitunud, $kont konteiner loodi uuesti"
         else
-            logi "VIGA: politsei uuesti loomine ebaõnnestus"
+            logi "VIGA: $kont uuesti loomine ebaõnnestus"
         fi
     fi
 }
@@ -338,6 +395,21 @@ kontrolli_php() {
     docker run --rm --network none -v "$s:/s:ro" "$PHP_PILT" \
         sh -c 'find /s -name "*.php" -exec sh -c '\''for f; do out=$(php -l "$f" 2>&1) || { echo "$out"; exit 1; }; done'\'' sh {} +' \
         || { logi "php -l leidis vea"; return 1; }
+}
+
+# Mänguserver (npm run build teeb dist-mp/mp.mjs): fail olemas ja node --check läbib. Vanemas
+# commitis dist-mp puudub: mänguserveri sammud jäävad vahele (MP_UUS=0), see pole viga.
+kontrolli_mp() {
+    local d="$EHITUS/src/dist-mp"
+    MP_UUS=0
+    if [ ! -d "$d" ]; then
+        logi "dist-mp/ puudub selles commitis, mänguserveri sammud jäävad vahele"
+        return 0
+    fi
+    [ -s "$d/mp.mjs" ] || { logi "dist-mp: mp.mjs puudub või on tühi"; return 1; }
+    docker run --rm --network none -v "$d:/x:ro" "$NODE_PILT" node --check /x/mp.mjs \
+        || { logi "dist-mp: node --check leidis vea"; return 1; }
+    MP_UUS=1
 }
 
 # Uus Caddyfile reposse: kontrolli frankenphp-ga, rakenda pärast vahetust reloadiga.
@@ -549,6 +621,41 @@ vaheta() {
     if [ "$CADDY_UUS" = 1 ]; then
         rakenda_caddy || return 1
     fi
+    if [ "$MP_UUS" = 1 ]; then
+        vaheta_mp || return 1
+    fi
+}
+
+# Mänguserver: mp.prev koopia, uus fail kausta mp/ (sisu, mitte kaust: bind mount osutab
+# inode'ile) ja politsei-mp taaskäivitus. SIGTERM-i peale salvestab server toad (data/mp/rooms)
+# ja jätkab neid pärast käivitust. Kui fail ei muutunud, jääb töötav server puutumata.
+# rsync --checksum: sama suuruse ja ajaga fail kopeeritakse ikkagi (fail on väike).
+# Selles funktsioonis set -e ei kehti (kutsutakse || kaudu), seega iga samm || return 1.
+vaheta_mp() {
+    local d="$EHITUS/src/dist-mp"
+    install -d -m 0755 "$MP" "$MP_PREV" || return 1
+    if diff -rq "$d" "$MP" >/dev/null 2>&1; then
+        logi "Mänguserver ei muutunud"
+    else
+        rsync -a --checksum --delete "$MP/" "$MP_PREV/" || return 1
+        MP_VAHETATUD=1
+        rsync -a --checksum --delete-after --delay-updates "$d/" "$MP/" || return 1
+        logi "Mänguserver kopeeritud: $MP/mp.mjs (eelmine: $MP_PREV)"
+    fi
+    # Seisnud konteiner võib olla vana relee-politsei võrguruumi küljes (nt pärast taastamist).
+    kontrolli_vorguruum "$MP_KONT"
+    if mp_konteiner; then
+        if [ "$MP_VAHETATUD" = 1 ] \
+            || [ "$(docker inspect -f '{{.State.Running}}' "$MP_KONT" 2>/dev/null || true)" != true ]; then
+            logi "Taaskäivitan $MP_KONT (toad salvestuvad ja jätkuvad)"
+            docker restart -t 20 "$MP_KONT" >/dev/null || { logi "$MP_KONT taaskäivitus ebaõnnestus"; return 1; }
+        fi
+    elif docker compose -f "$KOMPOSE" config --services 2>/dev/null | grep -qx "$MP_KONT"; then
+        logi "Konteinerit $MP_KONT veel pole, loon selle"
+        docker compose -f "$KOMPOSE" up -d --no-deps "$MP_KONT" || { logi "$MP_KONT loomine ebaõnnestus"; return 1; }
+    else
+        logi "NB: konteinerit $MP_KONT veel pole (vana compose.yml), mänguserver jääb ootele. Rakenda: sudo bash $REPO/deploy/mainserver/paigalda.sh"
+    fi
 }
 
 taasta() {
@@ -572,6 +679,21 @@ taasta() {
             logi "Vana Caddyfile taastatud"
         else
             logi "VIGA: vana Caddyfile taastamine ebaõnnestus"
+        fi
+    fi
+    if [ "$MP_VAHETATUD" = 1 ]; then
+        if rsync -a --checksum --delete "$MP_PREV/" "$MP/"; then
+            logi "Eelmine mänguserver taastatud"
+        else
+            logi "VIGA: mänguserveri taastamine ebaõnnestus"
+        fi
+        if mp_konteiner; then
+            if [ -s "$MP/mp.mjs" ]; then
+                docker restart -t 20 "$MP_KONT" >/dev/null || logi "VIGA: $MP_KONT taaskäivitus ebaõnnestus"
+            else
+                # Eelmises versioonis mänguserverit polnud: konteiner seisma, muidu käivitub ringiratast.
+                docker stop -t 20 "$MP_KONT" >/dev/null || logi "VIGA: $MP_KONT peatamine ebaõnnestus"
+            fi
         fi
     fi
     vana="$(tr -d '[:space:]' 2>/dev/null < "$WWW/version.txt" || true)"
@@ -803,6 +925,7 @@ if ! ehita "$tipp"; then
 fi
 kontrolli_dist || ebaonnestus "dist kontroll"
 kontrolli_php || ebaonnestus "php -l"
+kontrolli_mp || ebaonnestus "mänguserveri kontroll"
 kontrolli_caddy || ebaonnestus "Caddyfile kontroll"
 paigaldusfailide_teade
 
@@ -825,7 +948,7 @@ if ! varunda_andmebaas "${paigas:-}"; then
 fi
 rm -f "$OLEK/varu-kukkus.txt"
 
-# 9. Vahetus: www.prev, rsync, checkout, vajadusel Caddy reload.
+# 9. Vahetus: www.prev, rsync, checkout, vajadusel Caddy reload, mänguserver ja politsei-mp.
 vaheta "$tipp" || ebaonnestus "vahetus ebaõnnestus"
 
 # 10. Tervisekontroll.

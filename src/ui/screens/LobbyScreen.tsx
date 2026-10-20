@@ -562,7 +562,7 @@ function RoomView({
     if (!shift) return;
     if (coop) {
       // A shared shift: the room's latest snapshot and log (the first time, or back after a reload).
-      startCoop(room.code, shift)
+      startCoop(room.code, shift, room.engine)
         .then(() => sfx.play('dispatch'))
         .catch((e: unknown) => {
           sfx.play('error');

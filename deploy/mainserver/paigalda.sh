@@ -11,9 +11,10 @@
 #
 # Käik: eelkontroll, veeb võrgu vaba IP, WG aadressi kontroll, kaustad, repo, WireGuardi võtmed,
 # webhooki saladus, konfid ajutisse kausta, Dockeri pildid, kontrollid (compose config,
-# frankenphp validate, php -l, wg-quick strip, bash -n), kaart ja kaardiandmed (teed ja hooned),
-# varukoopiad (andmebaas ja konfid) ja paigaldus, docker compose up, tervisekontroll, esimene
-# ehitus, systemd unitid.
+# frankenphp validate, php -l, wg-quick strip, bash -n, mänguserveri node --check), kaart ja
+# kaardiandmed (teed ja hooned), varukoopiad (andmebaas ja konfid) ja paigaldus (ka mänguserver
+# mp/mp.mjs), docker compose up (relee-politsei, politsei, politsei-mp), tervisekontroll (ka
+# /mp/health), esimene ehitus, systemd unitid.
 # Vea korral pärast paigalduse algust taastatakse eelmised failid ja konteinerid ise.
 
 set -euo pipefail
@@ -44,7 +45,7 @@ KAART_UUESTI=0
 for arg in "$@"; do
     case "$arg" in
         --kaart) KAART_UUESTI=1 ;;
-        --abi|-h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+        --abi|-h|--help) sed -n '2,19p' "$0"; exit 0 ;;
         *) echo "Tundmatu võti: $arg (vaata --abi)" >&2; exit 2 ;;
     esac
 done
@@ -67,6 +68,10 @@ PAIGALDUS_ALANUD=0
 VALMIS=0
 OLEMAS_ENNE=0
 JOOKSIS_ENNE=0
+MP_OLEMAS_ENNE=0
+# Mänguserver (server/mp): paigas oleva versiooni ehitus (dist-mp), kopeeritakse kausta mp/.
+MP_ALLIKAS=""
+MP_KOPEERITUD=0
 VANA_WG_IMG=""
 VANA_PHP_IMG=""
 UUS_VOTI=0
@@ -114,6 +119,13 @@ taasta() {
         fi
     done
     systemctl daemon-reload
+    if [ "$MP_KOPEERITUD" = 1 ] && [ -d "$VARU/mp" ]; then
+        rsync -a --checksum --delete "$VARU/mp/" "$JUUR/mp/"
+    fi
+    # Varem politsei-mp-d polnud: vana compose.yml seda ei tunne, konteiner ära.
+    if [ "$MP_OLEMAS_ENNE" != 1 ]; then
+        docker rm -f politsei-mp >/dev/null 2>&1
+    fi
     if [ "$OLEMAS_ENNE" = 1 ] && [ -f "$JUUR/compose.yml" ]; then
         if [ "$JOOKSIS_ENNE" = 1 ]; then
             # Uued pildid võisid olla vea põhjus: vanad sildid tagasi enne taaskäivitust.
@@ -124,7 +136,7 @@ taasta() {
             docker compose -f "$JUUR/compose.yml" stop
         fi
     else
-        docker rm -f politsei relee-politsei >/dev/null 2>&1
+        docker rm -f politsei-mp politsei relee-politsei >/dev/null 2>&1
     fi
     echo "!! Taastatud. Varukoopia: $VARU"
     echo "!! Võtmed, saladus, kaart ja andmed jäid alles. Paranda viga ja käivita paigaldus uuesti."
@@ -410,6 +422,9 @@ info "vaba"
 if docker inspect relee-politsei >/dev/null 2>&1; then
     OLEMAS_ENNE=1
 fi
+if docker inspect politsei-mp >/dev/null 2>&1; then
+    MP_OLEMAS_ENNE=1
+fi
 if [ "$(docker inspect -f '{{.State.Running}}' politsei 2>/dev/null || echo false)" = true ]; then
     JOOKSIS_ENNE=1
 fi
@@ -425,11 +440,12 @@ flock -w 900 9 || die "politsei-uuenda.sh jookseb juba üle 15 minuti"
 # ================================================================ 4. kaustad
 samm "Kaustad $JUUR"
 install -d -m 0755 "$JUUR" "$JUUR/www" "$JUUR/www.prev" "$JUUR/tiles" "$JUUR/conf" \
-    "$JUUR/bin" "$JUUR/ehitus"
+    "$JUUR/bin" "$JUUR/ehitus" "$JUUR/mp" "$JUUR/mp.prev"
 install -d -m 0750 "$JUUR/data" "$JUUR/data/control" "$JUUR/olek" "$JUUR/varu"
-install -d -m 0700 "$JUUR/wg"
+# Mänguserveri andmed (saladus ja toad): politsei-mp näeb data/ alt ainult seda kausta.
+install -d -m 0700 "$JUUR/wg" "$JUUR/data/mp"
 [ -d "$JUUR/repo" ] || install -d -m 0755 "$JUUR/repo"
-info "repo www www.prev data data/control tiles wg conf olek ehitus bin varu"
+info "repo www www.prev mp mp.prev data data/control data/mp tiles wg conf olek ehitus bin varu"
 
 # ================================================================ 5. repo
 samm "Repo $REPO_URL ($HARU)"
@@ -547,6 +563,22 @@ if docker run --rm --network none -v "$STAGE/wg:/w:ro" --entrypoint wg-quick "$W
 else
     hoiata "wg-quick strip ei õnnestunud: $(tail -n 1 "$STAGE/wg.log")"
 fi
+# Mänguserver: paigas oleva versiooni ehitus (ehitus/src, sama version.txt mis www-l, selle kirjutas
+# politsei-uuenda.sh vahetusel). Teise commiti ehitust (nt ebaõnnestunud uuendus) ei kasutata.
+if [ -s "$JUUR/ehitus/src/dist-mp/mp.mjs" ] && [ -s "$JUUR/www/version.txt" ] \
+    && cmp -s "$JUUR/ehitus/src/dist/version.txt" "$JUUR/www/version.txt"; then
+    if docker run --rm --network none -v "$JUUR/ehitus/src/dist-mp:/x:ro" "$NODE_PILT" \
+            node --check /x/mp.mjs >"$STAGE/mp.log" 2>&1; then
+        MP_ALLIKAS="$JUUR/ehitus/src/dist-mp"
+        info "node --check mp.mjs ($(cut -c1-7 "$JUUR/www/version.txt")): korras"
+    else
+        hoiata "node --check mp.mjs ei läbinud: $(tail -n 1 "$STAGE/mp.log"). Mänguserver tuleb uuendusega."
+    fi
+elif [ -s "$JUUR/mp/mp.mjs" ]; then
+    info "mänguserver on juba paigas ($JUUR/mp/mp.mjs)"
+else
+    info "mänguserveri ehitust veel pole, selle toob esimene ehitus (politsei-uuenda.sh)"
+fi
 if command -v systemd-analyze >/dev/null 2>&1; then
     systemd-analyze verify "$STAGE/systemd/politsei-uuenda.timer" "$STAGE/systemd/politsei-uuenda.path" \
         >/dev/null 2>"$STAGE/systemd.log" || hoiata "systemd-analyze: $(head -n 1 "$STAGE/systemd.log")"
@@ -596,6 +628,13 @@ for i in "${!SIHID[@]}"; do
 done
 info "varukoopia: $VARU"
 info "paigaldatud: compose.yml .env conf/Caddyfile wg/wg0.conf politsei-uuenda.sh systemd unitid"
+# Mänguserver kausta mp/: sisu, mitte kaust (bind mount osutab inode'ile). Vana sisu läheb varukoopiasse.
+if [ -n "$MP_ALLIKAS" ] && ! diff -rq "$MP_ALLIKAS" "$JUUR/mp" >/dev/null 2>&1; then
+    rsync -a --checksum --delete "$JUUR/mp/" "$VARU/mp/"
+    MP_KOPEERITUD=1
+    rsync -a --checksum --delete-after --delay-updates "$MP_ALLIKAS/" "$JUUR/mp/"
+    info "mänguserver: $JUUR/mp/mp.mjs"
+fi
 if [ ! -e "$JUUR/www/index.html" ]; then
     cat > "$JUUR/www/index.html" <<'EOF'
 <!doctype html>
@@ -610,11 +649,23 @@ fi
 systemctl daemon-reload
 
 # ================================================================ 12. konteinerid
-samm "Konteinerid relee-politsei ja politsei"
+samm "Konteinerid relee-politsei, politsei ja politsei-mp"
+# Ilma mänguserveri failita jääb politsei-mp käivitamata (muidu käivituks ringiratast), selle
+# loob esimene ehitus (politsei-uuenda.sh). Tühi loend = kõik teenused.
+TEENUSED=()
+if [ ! -s "$JUUR/mp/mp.mjs" ]; then
+    TEENUSED=(relee-politsei politsei)
+    info "mänguserveri faili veel pole, politsei-mp jääb praegu käivitamata"
+fi
 if [ "$MUUTUS_WG" = 1 ] || [ "$MUUTUS_CADDY" = 1 ]; then
-    docker compose -f "$JUUR/compose.yml" up -d --force-recreate
+    docker compose -f "$JUUR/compose.yml" up -d --force-recreate "${TEENUSED[@]}"
 else
-    docker compose -f "$JUUR/compose.yml" up -d
+    docker compose -f "$JUUR/compose.yml" up -d "${TEENUSED[@]}"
+fi
+# Uus fail mp/ kaustas: compose ei loo konteinerit uuesti, kui konfiguratsioon on sama. SIGTERM-i
+# peale salvestab server toad ja jätkab neid pärast käivitust.
+if [ "$MP_KOPEERITUD" = 1 ]; then
+    docker restart -t 20 politsei-mp >/dev/null || die "politsei-mp taaskäivitus ebaõnnestus (docker logs politsei-mp)"
 fi
 ok=0
 for _ in $(seq 1 30); do
@@ -632,6 +683,24 @@ if [ -f "$JUUR/repo/server/api/index.php" ]; then
         || die "/api/health ei anna ok:true (docker logs politsei): ${api:0:200}"
     info "/api/health: $api"
 fi
+if [ -s "$JUUR/mp/mp.mjs" ]; then
+    # Node käivitub umbes sekundiga. Otse (politsei konteinerist, sama võrguruum) ja Caddy kaudu.
+    ok=0
+    mp=""
+    for _ in $(seq 1 20); do
+        mp="$(docker exec politsei curl -fsS -m 3 http://127.0.0.1:8790/mp/health 2>/dev/null || true)"
+        if [ "$(printf '%s' "$mp" | jq -r '.ok // false' 2>/dev/null || true)" = true ]; then
+            ok=1
+            break
+        fi
+        sleep 1
+    done
+    [ "$ok" = 1 ] || die "mänguserver ei anna /mp/health ok:true (docker logs politsei-mp): ${mp:0:200}"
+    mp="$(http_get /mp/health || true)"
+    [ "$(printf '%s' "$mp" | jq -r '.ok // false' 2>/dev/null || true)" = true ] \
+        || die "/mp/health Caddy kaudu ei anna ok:true (docker logs politsei): ${mp:0:200}"
+    info "/mp/health: $mp"
+fi
 # linuxserver/wireguard tõstab wg0 alles oma init-ahela lõpus, seega oota kuni 60 s.
 ok=0
 for _ in $(seq 1 30); do
@@ -647,7 +716,16 @@ info "WireGuard wg0 töötab konteineris (kätlus tekib pärast relee plokki)"
 # ================================================================ 13. esimene ehitus
 samm "Esimene ehitus (politsei-uuenda.sh)"
 flock -u 9
-if [ -s "$JUUR/www/version.txt" ]; then
+if [ -s "$JUUR/www/version.txt" ] && [ ! -s "$JUUR/mp/mp.mjs" ] && [ -f "$JUUR/repo/vite.mp.config.ts" ]; then
+    # Sait on ehitatud, aga mänguserverit pole (vanema skriptiga ehitus): origin/main tipp ehitatakse
+    # uuesti (ka siis, kui see on juba paigas), uus uuendusskript kopeerib mp.mjs ja loob politsei-mp.
+    info "sait on ehitatud ($(cut -c1-7 "$JUUR/www/version.txt")), aga mänguserveri faili pole: politsei-uuenda.sh --joud"
+    if /usr/local/sbin/politsei-uuenda.sh --joud; then
+        info "ehitus valmis"
+    else
+        hoiata "ehitus ebaõnnestus, sait jääb eelmise versiooni peale. Vaata logi ülal, siis: sudo politsei-uuenda.sh --joud"
+    fi
+elif [ -s "$JUUR/www/version.txt" ]; then
     info "sait on juba ehitatud ($(cut -c1-7 "$JUUR/www/version.txt")), uuendused tulevad automaatselt"
 elif /usr/local/sbin/politsei-uuenda.sh --joud; then
     info "ehitus valmis"

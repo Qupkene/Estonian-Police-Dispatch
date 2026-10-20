@@ -66,9 +66,13 @@ export interface Room {
   day: string | null;
   created: number;
   started: number | null;
+  /** 'server': the game server runs the shared shift (docs/MULTIPLAYER.md section 9); '' lockstep or a race. */
+  engine: RoomEngine;
   players: RoomPlayer[];
   results: RoomResult[];
 }
+
+export type RoomEngine = 'server' | '';
 
 const REGIONS: RegionId[] = ['pohja', 'ida', 'louna', 'laane'];
 const MODES: RoomMode[] = ['race', 'sector', 'role'];
@@ -153,6 +157,7 @@ export function parseRoom(v: unknown): Room | null {
     day: typeof v.day === 'string' ? v.day : null,
     created: num(v.created),
     started: typeof v.started === 'number' ? v.started : null,
+    engine: v.engine === 'server' ? 'server' : '',
     players,
     results,
   };
@@ -296,6 +301,8 @@ export function roomErrorKey(e: unknown): string {
     'not_running',
     'log_full',
     'invalid_command',
+    'mp_unavailable',
+    'replaced',
     'network',
     'timeout',
   ];

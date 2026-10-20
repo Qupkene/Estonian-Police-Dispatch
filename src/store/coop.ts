@@ -1,9 +1,14 @@
 /**
- * The co-op session of this tab (docs/MULTIPLAYER.md section 4): one room's shared shift. It polls the room's command
- * log about once a second, plays the shift turn by turn from it (src/sim/coop.ts) instead of real time x speed, sends
- * this player's commands in small batches, reports the state digest every ten turns, uploads the host's snapshot
- * every sixty, and resyncs from the latest snapshot when the server says this client drifted. A reload, a closed
- * tab or a lost connection rejoins the same way: the latest snapshot plus the log since.
+ * The co-op session of this tab: one room's shared shift, in one of two ways.
+ *
+ * - On the game server (docs/MULTIPLAYER.md section 9, `ServerSession`): the server runs the shift. The tab holds a
+ *   copy, sends commands up a WebSocket and applies the server's patches as they come, about twenty a second; a
+ *   command shows its effect a tenth of a second after the click. Used when the room says `engine: 'server'`.
+ * - In lockstep (section 4, `CoopSession`, the fallback when the game server is not there): the tab polls the room's
+ *   command log about once a second, plays the shift turn by turn from it (src/sim/coop.ts) instead of real time x
+ *   speed, sends this player's commands in small batches, reports the state digest every ten turns, uploads the
+ *   host's snapshot every sixty, and resyncs from the latest snapshot when the server says this client drifted. A
+ *   reload, a closed tab or a lost connection rejoins the same way: the latest snapshot plus the log since.
  *
  * Single-player shifts never touch this module: the game loop calls it only while the running shift has `sim.coop`.
  */
@@ -25,12 +30,15 @@ import {
   type LogCmd,
   type TurnPlan,
 } from '@/sim/coop';
-import { markRoom, roomDesks, roomShiftOptions, type RoomShift } from '@/sim/room';
+import { markRoom, roomDesks, roomShiftOptions, teamName, type RoomShift } from '@/sim/room';
 import { callDesk, incidentDesk, msgDesk, seatDesk, unitDesk } from '@/sim/desks';
 import type { ActiveCall, Incident, RadioMsg, SimState, Unit } from '@/sim/types';
 import { fetchLog, fetchSnapshot, postCommands, putSnapshot, type LogReply } from '@/net/coop';
-import { pollDelay } from '@/net/rooms';
-import { toApiError } from '@/net/api';
+import { pollDelay, pollRoom, type RoomEngine } from '@/net/rooms';
+import { ApiError, toApiError } from '@/net/api';
+import { fetchTicket, socketUrl } from '@/net/mp';
+import { applyPatch, type PatchOp } from '@/sim/patch';
+import type { GameEvent } from '@/sim/types';
 import { loopHooks, useGame } from './game';
 
 /** Turns the playback stays behind the server's clock (the log of the last turn or two may still be arriving). */
@@ -93,7 +101,16 @@ export function onOwnResult(fn: ResultListener): () => void {
 
 const now = () => Date.now();
 
-class CoopSession {
+/** What the game loop and the UI need from either kind of session. */
+interface Session {
+  readonly code: string;
+  issue(cmd: CoopCommand): void;
+  frame(sim: SimState): boolean;
+  stop(): void;
+  debug(): unknown;
+}
+
+class CoopSession implements Session {
   readonly code: string;
   private readonly shift: RoomShift;
   private log: LogCmd[] = [];
@@ -453,20 +470,332 @@ function setUi(p: Partial<CoopUi>): void {
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
-/** The shift's name for the dispatcher on duty: the same on every client. */
-export function teamName(code: string): string {
-  return `Meeskond ${code.slice(0, 3)} ${code.slice(3)}`;
+// ── On the game server ───────────────────────────────────────────────────────
+
+/** Reconnect waits after a lost connection (ms), the last one repeating. */
+const RECONNECT_MS = [300, 1000, 2000, 4000, 8000];
+/** The first state has to arrive within this long, or the start fails. */
+const FIRST_STATE_MS = 15_000;
+/** The room is polled this often meanwhile: the API counts the player as here and says when the room is over. */
+const PRESENCE_MS = 10_000;
+/** A digest of the copy every this many patches (about once a second; the status line and tests compare them). */
+const HASH_SEQ = 20;
+/** Events a tab keeps for its next frame at most (a hidden tab draws no frames). */
+const MAX_PENDING_EVENTS = 60;
+/** Close codes of the game server (server/mp/main.ts): the session ends for good. */
+const FINAL_CLOSE: Record<number, string> = {
+  4001: 'replaced',
+  4410: 'room_replaced',
+};
+
+type ServerMsg =
+  | { t: 'hello'; v: number; seat: number; state: SimState }
+  | { t: 'p'; v: number; ops: PatchOp[]; ev?: GameEvent[] }
+  | { t: 'full'; v: number; state: SimState; ev?: GameEvent[] }
+  | { t: 'ack'; key: number; id: number; r: CmdResult };
+
+/** Replace the contents of the running shift's object in place (the map and the panels keep their reference). */
+function replaceInPlace(sim: SimState, next: SimState): void {
+  const target = sim as unknown as Record<string, unknown>;
+  for (const k of Object.keys(target)) delete target[k];
+  Object.assign(target, next);
+  if (!Array.isArray(sim.events)) sim.events = [];
+}
+
+/**
+ * The tab's side of a shift the game server runs. The tab never steps the simulation: it applies the server's
+ * patches to its copy and draws it. Commands go up the socket at once and come back as an acknowledgement with the
+ * result, right after the patch that shows their effect.
+ */
+class ServerSession implements Session {
+  readonly code: string;
+  private ws: WebSocket | null = null;
+  private stopped = false;
+  private dirty = false;
+  private seq = -1;
+  private seat = -1;
+  /** The current connection has had its hello: commands may go up it. */
+  private live = false;
+  private attempt = 0;
+  private keySeq = 0;
+  private outbox: { key: number; cmd: CoopCommand }[] = [];
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private presenceTimer: ReturnType<typeof setTimeout> | null = null;
+  private roomTag = '';
+  private first: { resolve: (s: SimState) => void; reject: (e: unknown) => void } | null = null;
+  /** Round trips of the latest commands (ms, click to acknowledgement), for the status line and tests. */
+  private trips: number[] = [];
+  private sentAt = new Map<number, number>();
+  /** Digests of the copy at every HASH_SEQ-th patch: every client of the room gets the same numbered patches. */
+  private history: { turn: number; hash: string }[] = [];
+
+  constructor(code: string) {
+    this.code = code;
+  }
+
+  /** Connect and wait for the first state. */
+  start(): Promise<SimState> {
+    const p = new Promise<SimState>((resolve, reject) => {
+      this.first = { resolve, reject };
+    });
+    const timeout = setTimeout(() => {
+      if (!this.first) return;
+      this.first.reject(new ApiError(0, 'mp_unavailable', 'The game server did not answer'));
+      this.first = null;
+      this.stop();
+    }, FIRST_STATE_MS);
+    void p.finally(() => clearTimeout(timeout)).catch(() => {});
+    void this.connect();
+    this.presence();
+    return p;
+  }
+
+  stop(): void {
+    this.stopped = true;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    if (this.presenceTimer) clearTimeout(this.presenceTimer);
+    this.reconnectTimer = null;
+    this.presenceTimer = null;
+    const ws = this.ws;
+    this.ws = null;
+    if (ws && ws.readyState <= WebSocket.OPEN) ws.close(1000, 'leave');
+  }
+
+  private async connect(): Promise<void> {
+    if (this.stopped) return;
+    let ticket: { ticket: string; url: string };
+    try {
+      ticket = await fetchTicket(this.code);
+    } catch (e) {
+      if (this.stopped) return;
+      const err = toApiError(e);
+      if (err.status === 404 || err.status === 401 || err.status === 409) return this.end('gone', err.code);
+      return this.retry(err.code);
+    }
+    if (this.stopped) return;
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(socketUrl(ticket.url));
+    } catch {
+      return this.retry('network');
+    }
+    this.ws = ws;
+    this.live = false;
+    ws.onopen = () => ws.send(JSON.stringify({ t: 'auth', ticket: ticket.ticket }));
+    ws.onmessage = (e) => {
+      if (this.ws !== ws) return;
+      let msg: ServerMsg;
+      try {
+        msg = JSON.parse(String(e.data)) as ServerMsg;
+      } catch {
+        return;
+      }
+      this.handle(msg);
+    };
+    ws.onclose = (e) => {
+      if (this.ws !== ws || this.stopped) return;
+      this.ws = null;
+      this.live = false;
+      const final = FINAL_CLOSE[e.code];
+      if (final) return this.end('gone', final);
+      this.retry('network');
+    };
+  }
+
+  private retry(code: string): void {
+    if (this.stopped) return;
+    if (useCoop.getState().status !== 'connecting' || this.attempt >= 2)
+      setUi({ status: 'offline', error: code });
+    const wait = RECONNECT_MS[Math.min(this.attempt, RECONNECT_MS.length - 1)];
+    this.attempt++;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      void this.connect();
+    }, wait);
+  }
+
+  private end(status: CoopStatus, error: string | null): void {
+    setUi({ status, error });
+    if (this.first) {
+      this.first.reject(new ApiError(409, error ?? 'gone', 'The shared shift is not available'));
+      this.first = null;
+    }
+    this.stop();
+  }
+
+  /** The API keeps the player counted as here (the room's idle rule) and says when the room is gone. */
+  private presence(): void {
+    if (this.stopped) return;
+    this.presenceTimer = setTimeout(async () => {
+      try {
+        const r = await pollRoom(this.code, this.roomTag);
+        this.roomTag = r.v;
+      } catch (e) {
+        const err = toApiError(e);
+        if (err.status === 404 || err.status === 401) return this.end('gone', err.code);
+      }
+      this.presence();
+    }, PRESENCE_MS);
+  }
+
+  private current(): SimState | null {
+    const sim = useGame.getState().sim;
+    return sim?.coop?.code === this.code ? sim : null;
+  }
+
+  private handle(msg: ServerMsg): void {
+    switch (msg.t) {
+      case 'hello': {
+        const state = msg.state;
+        if (!state || !state.coop || state.coop.code !== this.code) return;
+        state.events = [];
+        this.seq = msg.v;
+        this.seat = msg.seat;
+        this.attempt = 0;
+        setUi({ seat: msg.seat, status: state.ended ? 'ended' : 'live', error: null });
+        this.mirrorHost(state);
+        if (this.first) {
+          this.first.resolve(state);
+          this.first = null;
+        } else {
+          const sim = this.current();
+          if (sim) replaceInPlace(sim, state);
+        }
+        this.dirty = true;
+        this.live = true;
+        // Commands sent up a connection that broke before their answer: whether they counted shows in the state
+        // just received, so their pending marks go. The ones never sent go now.
+        const unsent = new Set(this.outbox.map((o) => o.key));
+        for (const key of this.sentAt.keys()) if (!unsent.has(key)) this.sentAt.delete(key);
+        useCoop.setState((u) => ({ pending: u.pending.filter((x) => unsent.has(x.key)) }));
+        this.flushOutbox();
+        return;
+      }
+      case 'p': {
+        const sim = this.current();
+        if (!sim || msg.v <= this.seq) return;
+        this.seq = msg.v;
+        if (Array.isArray(msg.ops) && msg.ops.length)
+          applyPatch(sim as unknown as Record<string, unknown>, msg.ops);
+        this.events(sim, msg.ev);
+        this.dirty = true;
+        if (msg.v % HASH_SEQ === 0) {
+          this.history.push({ turn: msg.v, hash: simDigest(sim) });
+          if (this.history.length > 30) this.history.shift();
+        }
+        return;
+      }
+      case 'full': {
+        const sim = this.current();
+        if (!sim || !msg.state?.coop) return;
+        this.seq = msg.v;
+        msg.state.events = sim.events;
+        replaceInPlace(sim, msg.state);
+        this.events(sim, msg.ev);
+        this.dirty = true;
+        return;
+      }
+      case 'ack': {
+        const sent = this.sentAt.get(msg.key);
+        if (sent !== undefined) {
+          this.sentAt.delete(msg.key);
+          this.trips.push(now() - sent);
+          if (this.trips.length > 20) this.trips.shift();
+        }
+        const p = useCoop.getState().pending.find((x) => x.key === msg.key);
+        useCoop.setState((u) => ({ pending: u.pending.filter((x) => x.key !== msg.key) }));
+        if (p && msg.r) {
+          const cmd: LogCmd = { id: msg.id, t: 0, s: this.seat, k: p.k, a: p.a };
+          for (const l of ownResults) l(cmd, msg.r);
+        }
+        return;
+      }
+    }
+  }
+
+  private events(sim: SimState, ev: GameEvent[] | undefined): void {
+    if (!Array.isArray(ev) || !ev.length) return;
+    if (!Array.isArray(sim.events)) sim.events = [];
+    sim.events.push(...ev);
+    if (sim.events.length > MAX_PENDING_EVENTS) sim.events.splice(0, sim.events.length - MAX_PENDING_EVENTS);
+  }
+
+  private mirrorHost(sim: SimState): void {
+    const host = sim.coop?.host ?? 0;
+    const u = useCoop.getState();
+    if (u.host !== host || u.isHost !== (host === this.seat)) setUi({ host, isHost: host === this.seat });
+  }
+
+  issue(cmd: CoopCommand): void {
+    if (this.stopped) return;
+    const key = ++this.keySeq;
+    useCoop.setState((u) => ({ pending: [...u.pending, { key, k: cmd.k, a: cmd.a, sentAt: now() }] }));
+    this.outbox.push({ key, cmd });
+    this.flushOutbox();
+  }
+
+  private flushOutbox(): void {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN || !this.live) return;
+    for (const { key, cmd } of this.outbox.splice(0)) {
+      this.sentAt.set(key, now());
+      ws.send(JSON.stringify({ t: 'cmd', key, k: cmd.k, a: cmd.a }));
+    }
+  }
+
+  /** Called every animation frame: nothing to step, only whether a patch changed the copy since the last frame. */
+  frame(sim: SimState): boolean {
+    const c = sim.coop;
+    if (!c) return false;
+    this.mirrorHost(sim);
+    const u = useCoop.getState();
+    if (sim.ended && u.status === 'live') setUi({ status: 'ended' });
+    const g = useGame.getState();
+    if (g.speedIndex !== c.speed)
+      useGame.setState({ speedIndex: c.speed, lastSpeedIndex: c.speed || g.lastSpeedIndex });
+    const moved = this.dirty;
+    this.dirty = false;
+    return moved;
+  }
+
+  debug() {
+    return { engine: 'server', seq: this.seq, trips: this.trips.slice(), hashes: this.history.slice() };
+  }
 }
 
 // ── The tab's session ────────────────────────────────────────────────────────
 
-let session: CoopSession | null = null;
+let session: Session | null = null;
 
-/** Into a co-op room's shift: the latest snapshot plus the log (also a rejoin after a reload). */
-export async function startCoop(code: string, shift: RoomShift): Promise<void> {
+/**
+ * Into a co-op room's shift (also a rejoin after a reload): on the game server when the room says so, else the
+ * latest snapshot plus the log.
+ */
+export async function startCoop(code: string, shift: RoomShift, engine: RoomEngine = ''): Promise<void> {
   stopCoop();
+  if (engine === 'server') {
+    const s = new ServerSession(code);
+    session = s;
+    resetUi(code);
+    const sim = await s.start();
+    if (session !== s) return;
+    useGame.getState().resumeShift(sim);
+    useGame.setState({ speedIndex: sim.coop?.speed ?? 1 });
+    return;
+  }
   const s = new CoopSession(code, shift);
   session = s;
+  resetUi(code);
+  const sim = await s.load();
+  if (session !== s) return;
+  useGame.getState().resumeShift(sim);
+  // A co-op shift is never paused locally: the host's speed applies.
+  useGame.setState({ speedIndex: sim.coop?.speed ?? 1 });
+  s.start();
+}
+
+function resetUi(code: string): void {
   useCoop.setState({
     code,
     seat: -1,
@@ -479,12 +808,6 @@ export async function startCoop(code: string, shift: RoomShift): Promise<void> {
     resyncs: 0,
     error: null,
   });
-  const sim = await s.load();
-  if (session !== s) return;
-  useGame.getState().resumeShift(sim);
-  // A co-op shift is never paused locally: the host's speed applies.
-  useGame.setState({ speedIndex: sim.coop?.speed ?? 1 });
-  s.start();
 }
 
 export function stopCoop(): void {

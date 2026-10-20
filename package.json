@@ -1,19 +1,21 @@
 {
   "name": "estonian-police-dispatch",
   "private": true,
-  "version": "2.20.0",
+  "version": "2.21.0",
   "description": "EPD: Eesti politsei juhtimiskeskuse simulaator / Estonian Police Dispatch simulator",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit -p tsconfig.json && vite build",
+    "build": "tsc --noEmit -p tsconfig.json && vite build && vite build -c vite.mp.config.ts",
+    "build:mp": "vite build -c vite.mp.config.ts",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
     "format": "prettier --write .",
-    "dev:api": "php -S 127.0.0.1:8787 server/dev-router.php"
+    "dev:api": "php -S 127.0.0.1:8787 server/dev-router.php",
+    "dev:mp": "vite build -c vite.mp.config.ts && node dist-mp/mp.mjs"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
@@ -36,12 +38,14 @@
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^6.1.2",
     "jsdom": "^29.1.1",
     "pbf": "^5.1.2",
     "prettier": "^3.9.10",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "ws": "^8.22.0"
   }
 }

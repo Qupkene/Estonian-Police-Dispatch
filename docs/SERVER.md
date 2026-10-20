@@ -12,7 +12,8 @@ deploy scripts. Keep it in sync when something changes.
 ```
 server/
   api/index.php        single router for every /api/* request
-  lib/*.php            db, http helpers, auth, saves, scores, daily challenge, rooms, deploy hook
+  lib/*.php            db, http helpers, auth, saves, scores, daily challenge, rooms, game server tickets, deploy hook
+  mp/*.ts              game server (Node, co-op rooms' shared shifts), built into dist-mp/mp.mjs
   dev-router.php       router for `php -S` during local development
 deploy/
   mainserver/          installer, update script, systemd units, container Caddyfile, compose
@@ -29,6 +30,8 @@ src/net/               frontend API client and account store
 | /opt/stack/politsei/data | /data | rw | `epd.sqlite`, `sessions/`, `deploy-secret`, `control/` (update tickets), `varu/` (SQLite snapshots taken before every update), `tts/` (speech clip cache, section 4.1) |
 | /opt/stack/politsei/tiles | /srv/tiles | ro | `estonia.pmtiles` (Protomaps basemap extract of Estonia), `roads-v1.bin` and `buildings-v1.bin` plus `.gz` copies (map data derived from it, section 2.1) |
 | /opt/stack/politsei/conf | /etc/epd | ro | `Caddyfile` (copied from `deploy/mainserver/Caddyfile`, validated before reload) |
+| /opt/stack/politsei/mp | /app/mp (politsei-mp) | ro | game server bundle `mp.mjs` (from `dist-mp/`; the previous one in `mp.prev/`) |
+| /opt/stack/politsei/data/mp | /data/mp (both containers) | rw | `secret` (shared by PHP and the game server, written by PHP), `rooms/*.json.gz` (running rooms, saved every 30 s and on shutdown) |
 
 Containers (`/opt/stack/politsei/compose.yml`):
 
@@ -37,9 +40,14 @@ Containers (`/opt/stack/politsei/compose.yml`):
   `10.99.0.1` at `80.47.227.213:51820`.
 - `politsei`: `dunglas/frankenphp:1-php8.4`, `network_mode: service:relee-politsei`, runs the
   Caddyfile from `deploy/mainserver/Caddyfile`, listens on :80 inside that network namespace.
+- `politsei-mp`: `node:22`, the game server (docs/MULTIPLAYER.md section 9), same network namespace, listens on
+  `127.0.0.1:8790` (Caddy proxies `/mp/*` to it). It mounts only `data/mp`, never the player database.
+  `politsei-uuenda.sh` copies a changed bundle and restarts it (`docker restart -t 20`): it saves the running rooms
+  on SIGTERM and continues them, the players reconnect by themselves.
 
 Environment for `politsei`: `EPD_DATA=/data`, `EPD_TRUSTED_PROXY=10.99.0.1`,
-`EPD_TTS_UPSTREAM=http://10.99.0.1/text-to-speech/v2` (speech, section 4.1), plus `XDG_DATA_HOME` and
+`EPD_TTS_UPSTREAM=http://10.99.0.1/text-to-speech/v2` (speech, section 4.1), `EPD_MP=1` and
+`EPD_MP_URL=http://127.0.0.1:8790` (the game server; without them co-op rooms play in lockstep), plus `XDG_DATA_HOME` and
 `XDG_CONFIG_HOME` under `/caddy/` so Caddy's own state never lands next to `epd.sqlite` in `/data`.
 
 Street map file: `estonia.pmtiles` must use the Protomaps **v4** tile schema (the style comes from
@@ -88,6 +96,8 @@ Relay VPS: Caddy site `politsei.eu` (and `www.politsei.eu` redirecting to it) �
 ## 3. HTTP routes (inside the container)
 
 - `/api/*` → PHP, `/app/server/api/index.php` (the router reads the path itself).
+- `/mp/*` → the game server at `127.0.0.1:8790`: `GET /mp/health`, WebSocket `/mp/ws`. Not compressed,
+  `no-store`; 502 while it is down (the client retries).
 - `/tiles/*` → static files from `/srv/tiles` with HTTP range support (PMTiles reads byte ranges).
   No `encode` on this route: range replies must be `206` with `Content-Length`, `Accept-Ranges: bytes`
   and a stable `ETag`/`Last-Modified`. `*.bin` (map data, section 2.1) is served as
@@ -392,6 +402,15 @@ design and protocol in docs/MULTIPLAYER.md section 4):
 - Account deletion in a running co-op room: the seat is sequenced `left`, the host is asked for a fresh snapshot,
   then the account's commands (`room_commands.user_id`) and uploaded snapshots go with its seats and results.
 - `result` takes an optional `xp` (0 to 100 000): every co-op player sends the team's result with their own XP.
+- On the game server (docs/MULTIPLAYER.md section 9, `server/lib/mp.php`): when `EPD_MP=1` and
+  `EPD_MP_URL/mp/health` answers `ok` and `secret: true` within a second, `start` marks a co-op room
+  `engine = 'server'` (schema step 7, `rooms.engine`, default `''`; the room JSON has `engine`). The setup command is
+  still logged, but the log, digests and snapshots are not used, and the seats are not sequenced by PHP.
+  `POST /api/rooms/{code}/ticket` gives a member an entry ticket: `{ ticket, url: '/mp/ws', exp }`. The ticket is
+  `base64url(json).base64url(hmac-sha256(first part, secret))` with `{ v: 1, code, user, seat, name, exp (now + 60 s),
+  room: { code, mode, seed, day, options, started, setup: [hostSeat, rows] } }`; the secret is
+  `EPD_DATA/mp/secret` (64 hex digits, mode 0600, created on first use). 409 `not_server_room` for a race room or a
+  lockstep room, 409 `not_running`, 409 `left_room`, 404 for strangers. A ticket counts as being here (`seen`).
 - Tables (schema step 5, additive): `room_commands` (index `(room_id, id)`), `room_snapshots`; columns `rooms.turn_ms`,
   `input_delay`, `host_seat`, `cmd_count`, `ref_hashes`, `snap_req`; `room_players.role`, `away`, `hash_turn`,
   `hash`, `resync`, `cmd_tokens`, `cmd_at`; `room_results.xp`. Every new column has a default. Schema step 6

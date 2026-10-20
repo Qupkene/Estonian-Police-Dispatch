@@ -88,6 +88,11 @@ export function roomDesks(shift: Pick<RoomShift, 'mode' | 'options'>): string[] 
   return shift.options.desks && shift.options.desks.length >= 2 ? [...shift.options.desks] : [];
 }
 
+/** The shift's name for the dispatcher on duty: the same on every client (and on the game server). */
+export function teamName(code: string): string {
+  return `Meeskond ${code.slice(0, 3)} ${code.slice(3)}`;
+}
+
 /** sim.flags key of a room run: the room's code. */
 export const ROOM_FLAG = 'room';
 

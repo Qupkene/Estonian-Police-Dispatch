@@ -743,6 +743,21 @@ export function stepPiece(s: SimState, plan: TurnPlan, piece: number): void {
   if (piece >= TURN_PIECES - 1) s.coop!.turn = plan.turn;
 }
 
+/**
+ * A server-run shift (docs/MULTIPLAYER.md section 9): one piece of real time. The server applies a player's command
+ * the moment it arrives (applyCommand) and steps a twentieth of a turn here, its game length taken from the state as
+ * it is now, so a command, a new speed or an answered call counts from the next piece. `piece` is
+ * 0..TURN_PIECES-1: lend requests age at the first piece of a turn, as in beginTurn, and the last piece closes it.
+ */
+export function livePiece(s: SimState, piece: number): void {
+  const c = s.coop;
+  if (!c) return;
+  if (piece === 0 && c.sec && !s.ended) tickLends(s, c, c.turn + 1);
+  const h = turnGameMs(s) / TURN_PIECES;
+  if (h > 0) step(s, h);
+  if (piece >= TURN_PIECES - 1) c.turn += 1;
+}
+
 /** A whole turn at once (catching up, tests). */
 export function runTurn(s: SimState, cmds: LogCmd[]): TurnPlan {
   const plan = beginTurn(s, cmds);

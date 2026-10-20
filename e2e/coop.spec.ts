@@ -3,10 +3,11 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 /**
  * Ühisvahetus (role co-op, docs/MULTIPLAYER.md) against the real PHP API: two accounts in two browser contexts make a
  * Rollid room, pick their desks (the host dispatches, the guest takes the calls) and play one shared shift over the
- * room's command log. The call-taker answers 112 through the call card, the dispatcher acknowledges and sends crews
- * from the queue; each desk sees only its own controls; text messages go between the seats. Both clients keep the
- * same state digest; a forced divergence on the guest resyncs from the host's snapshot; the guest leaves and rejoins
- * mid-shift; the host ends the shift for both and the two reports match, with per-seat counters.
+ * game server (docs/MULTIPLAYER.md section 9; Playwright starts it). The call-taker answers 112 through the call card,
+ * the dispatcher acknowledges and sends crews from the queue; each desk sees only its own controls; text messages go
+ * between the seats. Both clients keep the same state digest; a click is answered within a fraction of a second; the
+ * guest leaves and rejoins mid-shift; the host ends the shift for both and the two reports match, with per-seat
+ * counters. Without the game server the same test plays the lockstep fallback, and checks its resync instead.
  * MP_SHOTS=<dir> saves screenshots (lobby with modes and roles, call-taker and dispatcher views, the report).
  */
 
@@ -35,7 +36,7 @@ type EpdWindow = Window & {
     };
     coop: {
       state: { getState: () => { status: string; seat: number; isHost: boolean; resyncs: number } };
-      debug: () => null | { hashes: Hash[]; lastId: number };
+      debug: () => null | { hashes: Hash[]; lastId?: number; engine?: string; trips?: number[] };
     };
   };
 };
@@ -318,19 +319,32 @@ test.describe.serial('role co-op', () => {
     if (!shotDispatch) await shot(host.page, 'dispatcher-view');
     if (!shotCall) await shot(guest.page, 'calltaker-view');
     const synced = await expectInSync(host.page, guest.page);
+    let resynced = synced;
+    const dbg = await Promise.all(
+      [host.page, guest.page].map((p) =>
+        p.evaluate(() => (window as unknown as EpdWindow).__epd.coop.debug()),
+      ),
+    );
+    if (dbg[0]?.engine === 'server') {
+      // The game server answers a click within a fraction of a second (the lockstep log took two to three).
+      const trips = dbg.flatMap((d) => d?.trips ?? []).sort((x, y) => x - y);
+      test.info().annotations.push({ type: 'round trips (ms)', description: trips.join(' ') });
+      expect(trips.length, 'commands sent').toBeGreaterThan(3);
+      expect(trips[Math.floor(trips.length / 2)], `round trips ${trips.join(' ')}`).toBeLessThan(500);
+    } else {
+      // A forced divergence: the guest's state drifts, the server notices it at the next digest, the guest resyncs.
+      await guest.page.evaluate(() => {
+        const s = (window as unknown as EpdWindow).__epd.game.getState().sim!;
+        s.trust += 7;
+      });
+      await expect
+        .poll(async () => (await coopState(guest.page)).resyncs, { timeout: 60_000 })
+        .toBeGreaterThan(0);
+      await expect(guest.page.getByTestId('coop-status')).toHaveText('Ühendatud', { timeout: 45_000 });
+      resynced = await expectInSync(host.page, guest.page, synced);
+    }
 
-    // A forced divergence: the guest's state drifts, the server notices it at the next digest, the guest resyncs.
-    await guest.page.evaluate(() => {
-      const s = (window as unknown as EpdWindow).__epd.game.getState().sim!;
-      s.trust += 7;
-    });
-    await expect
-      .poll(async () => (await coopState(guest.page)).resyncs, { timeout: 60_000 })
-      .toBeGreaterThan(0);
-    await expect(guest.page.getByTestId('coop-status')).toHaveText('Ühendatud', { timeout: 45_000 });
-    const resynced = await expectInSync(host.page, guest.page, synced);
-
-    // Leaving mid-shift and coming back: the latest snapshot plus the log since.
+    // Leaving mid-shift and coming back: the whole state again (lockstep: the latest snapshot plus the log since).
     await guest.page.locator('.gm-top__menu').click();
     await guest.page.getByRole('button', { name: 'Välju (saad naasta)' }).click();
     await expect.poll(() => screen(guest.page)).toBe('menu');
