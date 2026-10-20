@@ -156,6 +156,11 @@
   min-height: 32px;
   font-weight: 600;
 }
+@media (max-width: 899px) {
+  .vk-login__acct .vk-linkbtn {
+    min-height: 44px;
+  }
+}
 .vk-login__sys {
   margin: auto 0 0;
   border-top: 1px solid var(--vk-line-2);

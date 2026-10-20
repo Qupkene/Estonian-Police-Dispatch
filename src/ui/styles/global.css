@@ -119,3 +119,12 @@ a {
     transform: none;
   }
 }
+
+/* Phones: iOS zooms the whole page into a focused field whose text is smaller than 16 px. */
+@media (max-width: 899px) {
+  input:not([type='checkbox'], [type='radio'], [type='range']),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}

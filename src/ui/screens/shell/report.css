@@ -321,20 +321,23 @@
   .vk-rep__strip.vk-strip {
     --vk-strip-n: 2 !important;
   }
-  .vk-rep__strip .vk-strip__cell:nth-child(4n + 1) {
-    border-left: 1px solid var(--vk-line-2);
-  }
-  .vk-rep__strip .vk-strip__cell:nth-child(2n + 1) {
-    border-left: 0;
-  }
-  .vk-rep__strip .vk-strip__cell:nth-child(n + 3) {
-    border-top: 1px solid var(--vk-line-2);
+  /* The grade takes the first row; the rest go two by two with a line between the columns, all from the top
+     (centred cells of different heights looked out of line), and an odd last one takes the whole row. */
+  .vk-rep__strip .vk-strip__cell {
+    align-content: start;
   }
   .vk-rep__strip .vk-rep__cell--grade {
     grid-column: 1 / -1;
   }
-  .vk-rep__strip .vk-rep__cell--grade + .vk-strip__cell {
+  .vk-rep__strip .vk-strip__cell:nth-child(n + 2) {
+    border-top: 1px solid var(--vk-line-2);
     border-left: 0;
+  }
+  .vk-rep__strip .vk-strip__cell:nth-child(2n + 3) {
+    border-left: 1px solid var(--vk-line-2);
+  }
+  .vk-rep__strip .vk-strip__cell:nth-child(2n):last-child {
+    grid-column: 1 / -1;
   }
   .vk-rep__barHead,
   .vk-rep__barCell {

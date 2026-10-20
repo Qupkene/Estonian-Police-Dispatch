@@ -20,8 +20,8 @@ const esc = (s) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 const STYLE = `
-:root{color-scheme:dark;--bg:#0b1016;--panel:#121a23;--line:#243140;--text:#e6ecf2;--muted:#9fb0c1;--accent:#4ea3ff;--accent-ink:#06121f;--amber:#f2b441}
-@media (prefers-color-scheme:light){:root{color-scheme:light;--bg:#f3f5f8;--panel:#ffffff;--line:#d5dde6;--text:#14202c;--muted:#4c5d6e;--accent:#0b62c4;--accent-ink:#ffffff;--amber:#a86a00}}
+:root{color-scheme:dark;--bg:#0b1016;--panel:#121a23;--line:#243140;--text:#e6ecf2;--muted:#9fb0c1;--accent:#4ea3ff;--accent-ink:#06121f;--amber:#f2b441;--shade:rgba(0,0,0,.5)}
+@media (prefers-color-scheme:light){:root{color-scheme:light;--bg:#f3f5f8;--panel:#ffffff;--line:#d5dde6;--text:#14202c;--muted:#4c5d6e;--accent:#0b62c4;--accent-ink:#ffffff;--amber:#a86a00;--shade:rgba(20,32,44,.14)}}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -34,6 +34,8 @@ a{color:var(--accent)}
 .nav{display:flex;flex-wrap:wrap;gap:4px 16px;margin-left:auto;font-size:15px}
 .nav a{color:var(--muted);text-decoration:none;padding:10px 0}
 .nav a[aria-current]{color:var(--text);font-weight:600}
+.nav a:hover{color:var(--text)}
+.menu{display:none}
 .main{padding-top:32px;padding-bottom:48px}
 .kicker{margin:0;color:var(--muted);font-size:13px;font-weight:600;letter-spacing:.18em;text-transform:uppercase}
 h1{margin:8px 0 12px;font-size:clamp(28px,6vw,42px);line-height:1.15}
@@ -56,9 +58,24 @@ li{margin:4px 0}
 .faq dd{margin:4px 0 0}
 @media (max-width:600px){
 body{font-size:16px}
-.top__in{gap:0;padding-top:8px}
-.nav{order:3;width:100%;margin:0 -16px;padding:0 16px;flex-wrap:nowrap;gap:20px;overflow-x:auto;border-top:1px solid var(--line);scrollbar-width:none}
-.nav a{white-space:nowrap;padding:12px 0}
+html{scroll-padding-top:76px}
+.top{position:sticky;top:0;z-index:10}
+.top__in{flex-wrap:nowrap;gap:12px}
+.brand{min-width:0;min-height:44px}
+.brand small{white-space:nowrap}
+.nav{display:none}
+.menu{display:block;margin-left:auto;flex-shrink:0}
+.menu summary{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px 0 12px;border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:15px;font-weight:600;list-style:none;cursor:pointer;-webkit-user-select:none;user-select:none}
+.menu summary::-webkit-details-marker{display:none}
+.menu summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.menu[open] summary{background:var(--bg)}
+.menu .i-close,.menu[open] .i-open{display:none}
+.menu[open] .i-close{display:block}
+.menu__nav{position:absolute;left:0;right:0;top:100%;display:grid;gap:4px;padding:8px 16px 16px;background:var(--panel);border-block:1px solid var(--line);box-shadow:0 16px 32px var(--shade)}
+.menu__nav a{display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:0 14px;border-radius:8px;color:var(--text);text-decoration:none;font-size:17px;font-weight:500}
+.menu__nav a:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.menu__nav a[aria-current]{background:var(--bg);box-shadow:inset 3px 0 0 var(--accent);color:var(--accent);font-weight:700}
+.menu__nav a[aria-current]::after{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
 .main{padding-top:20px}
 h1{font-size:28px}
 h2{font-size:21px;margin-top:32px}
@@ -75,9 +92,13 @@ figcaption{text-align:center}
 
 const shield = `<svg width="36" height="36" viewBox="0 0 64 64" aria-hidden="true"><clipPath id="s"><path d="M12 8H52V33C52 44 43.6 51.6 32 56C20.4 51.6 12 44 12 33Z"/></clipPath><path d="M8 4H56V33C56 46.6 45.6 55.2 32 60C18.4 55.2 8 46.6 8 33Z" fill="#0072CE"/><g clip-path="url(#s)"><rect y="24" width="64" height="16" fill="#000"/><rect y="40" width="64" height="24" fill="#fff"/></g></svg>`;
 
+/** The phone menu's icon: three lines while closed, a cross while open (the style swaps them, no script). */
+const burger = `<svg class="i-open" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="i-close" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+
 function frame(p) {
   const lang = p.lang;
   const url = `${SITE}${p.slug}/`;
+  const pages = lang === 'en' ? 'Pages' : 'Lehed';
   const navLinks = NAV.map(
     (n) =>
       `<a href="/${n.slug}/"${n.slug === p.slug ? ' aria-current="page"' : ''}${n.slug === 'en' && lang !== 'en' ? ' hreflang="en" lang="en"' : ''}>${n[lang]}</a>`,
@@ -170,7 +191,11 @@ ${ld}
     <header class="top">
       <div class="top__in">
         <a class="brand" href="/">${shield}<span>EPD<small>${lang === 'en' ? 'Estonian Police Dispatch' : 'Eesti Politsei Dispetšer'}</small></span></a>
-        <nav class="nav" aria-label="${lang === 'en' ? 'Pages' : 'Lehed'}">${navLinks}</nav>
+        <nav class="nav" aria-label="${pages}">${navLinks}</nav>
+        <details class="menu">
+          <summary>${burger}<span>${lang === 'en' ? 'Menu' : 'Menüü'}</span></summary>
+          <nav class="menu__nav" aria-label="${pages}">${navLinks}</nav>
+        </details>
       </div>
     </header>
     <main class="main">

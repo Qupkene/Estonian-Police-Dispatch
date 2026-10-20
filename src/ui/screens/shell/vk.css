@@ -242,6 +242,11 @@
   cursor: default;
   transform: none;
 }
+@media (max-width: 899px) {
+  .vk-btn {
+    min-height: 44px;
+  }
+}
 .vk-linkbtn {
   padding: 0;
   border: 0;
@@ -469,6 +474,13 @@
   color: var(--vk-text-0);
   font-weight: 600;
 }
+@media (max-width: 899px) {
+  .vk-lang button {
+    min-width: 44px;
+    height: 38px;
+    font-size: 12px;
+  }
+}
 
 /* ── Account ──────────────────────────────────────────────────────────────── */
 
@@ -670,7 +682,7 @@ button.vk-acct__who:hover .vk-acct__name {
   .vk-foot__contact {
     display: inline-block;
     margin-top: 2px;
-    padding: 6px 0;
+    padding: 12px 0;
   }
   .vk-foot__links {
     flex-wrap: wrap;
@@ -1530,6 +1542,16 @@ button.vk-acct__who:hover .vk-acct__name {
 .vk-page > * {
   flex-shrink: 0;
 }
+/* The iPhone notch and home bar (index.html asks for viewport-fit=cover): every screen keeps its content clear of
+   them. On a computer the insets are 0. */
+.vk-page,
+.vk-menu,
+.vk-boot,
+.vk-career,
+.sh-login {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
 .vk-page__actions {
   display: flex;
   flex: none;
@@ -1611,6 +1633,12 @@ button.vk-acct__who:hover .vk-acct__name {
   .vk-page button,
   .vk-page .vk-seg button {
     min-height: 44px;
+  }
+}
+/* No keyboard in sight (a phone or a tablet): the Esc hint on the back button only takes room. */
+@media (hover: none) and (pointer: coarse) {
+  .vk-back .vk-kbd {
+    display: none;
   }
 }
 

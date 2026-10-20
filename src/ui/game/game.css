@@ -4102,3 +4102,332 @@ td.gm-table__task .muted {
   display: flex;
   gap: 6px;
 }
+
+/* ───────────────────────────── Phones: fingers, safe areas, type ───────────────────────────── */
+/* The phone layout above (one pane at a time, the tab bar at the bottom), finished for touch: every control is at
+   least 44 px, the two smallest text sizes go up a step, the iPhone notch and home bar stay clear
+   (index.html: viewport-fit=cover) and a burst of toasts never covers the pane. All inside this query: the
+   desktop layout is unchanged. */
+@media (max-width: 899px) {
+  .gm {
+    --topbar-h: 56px;
+    --gm-nav-h: 60px;
+    --fs-xs: 12px;
+    --fs-sm: 13px;
+    grid-template-rows: calc(var(--topbar-h) + env(safe-area-inset-top, 0px)) minmax(0, 1fr) calc(var(--gm-nav-h) + env(safe-area-inset-bottom, 0px));
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Top bar: 44 px speed and menu buttons; the PAUSED badge readable. */
+  .gm-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .gm-top__speed {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .gm-speed {
+    height: 44px;
+    min-width: 44px;
+  }
+  .gm-top__menu {
+    height: 44px;
+    min-width: 44px;
+    justify-content: center;
+  }
+  .gm-top__paused {
+    font-size: 10.5px;
+    padding: 1px 5px;
+  }
+
+  /* Bottom tab bar: 12 px labels, clear of the home bar. */
+  .gm-mnav {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .gm-mnav__btn {
+    min-height: var(--gm-nav-h);
+    gap: 3px;
+    font-size: 12px;
+  }
+  .gm-mnav__btn:focus-visible {
+    outline: 2px solid var(--accent-2);
+    outline-offset: -4px;
+  }
+  .gm-mnav__n {
+    top: 5px;
+    min-width: 18px;
+    height: 18px;
+    font-size: 11px;
+  }
+
+  /* Toasts: only the newest, above the tab bar (the others are in the radio log and the queue). Three of them
+     covered a third of the pane and the buttons under it. */
+  .gm-toasts {
+    bottom: calc(var(--gm-nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
+    left: calc(8px + env(safe-area-inset-left, 0px));
+    right: calc(8px + env(safe-area-inset-right, 0px));
+  }
+  .gm-toast:not(:last-child) {
+    display: none;
+  }
+  .gm-toast {
+    align-items: center;
+  }
+  .gm-toast__x {
+    width: 40px;
+    height: 40px;
+    margin: -8px -6px -8px 0;
+    display: grid;
+    place-items: center;
+  }
+  .gm:has(.tl-call) .gm-toasts {
+    top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px) + 8px);
+    right: calc(62px + env(safe-area-inset-right, 0px));
+  }
+  /* The open call card fills the screen: its decisions come first, the toasts wait in the queue and the log. */
+  .gm:has(.tl-call:not(.is-ringing):not(.is-collapsed)) .gm-toasts {
+    display: none;
+  }
+
+  /* Pane headers and filters. */
+  .gm .ui-panel__head {
+    min-height: 48px;
+  }
+  .gm-seg {
+    flex: 1 1 auto;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .gm-seg::-webkit-scrollbar {
+    display: none;
+  }
+  .gm-seg__btn {
+    flex: 1 0 auto;
+    justify-content: center;
+    height: 40px;
+    padding: 0 10px;
+  }
+  /* The radio and units panes: the tab bar already names them, the filters take the whole head. */
+  .gm-dock .ui-panel__title,
+  .gm-dock .ui-panel__icon {
+    display: none;
+  }
+  .gm-dock .ui-panel__actions {
+    flex: 1;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+  .gm-seg__n {
+    min-width: 18px;
+    height: 18px;
+    font-size: 11px;
+  }
+  .gm-linkbtn,
+  .gm-menubtn.gm-linkbtn {
+    min-height: 44px;
+    font-size: var(--fs-sm);
+  }
+  .gm-menubtn {
+    min-height: 44px;
+  }
+
+  /* Event queue: the cards' own buttons. */
+  .gm-card__actions .ui-btn {
+    min-height: 44px;
+  }
+  .gm-closed__toggle,
+  .gm-closed__row {
+    min-height: 44px;
+  }
+
+  /* Incident pane. */
+  .gm-prio-btn {
+    height: 40px;
+    min-width: 48px;
+    font-size: var(--fs-sm);
+  }
+  .gm-rec {
+    grid-template-columns: 22px auto minmax(0, 1fr) auto auto;
+    row-gap: 2px;
+    min-height: 56px;
+    padding: 8px 10px;
+  }
+  .gm-check {
+    grid-row: 1 / span 2;
+    width: 20px;
+    height: 20px;
+  }
+  .gm-rec__cs {
+    grid-column: 2 / 4;
+    grid-row: 1;
+    font-size: var(--fs-md);
+  }
+  .gm-rec__eta {
+    grid-column: 4;
+    grid-row: 1;
+  }
+  .gm-rec > .gm-fit {
+    grid-column: 5;
+    grid-row: 1 / span 2;
+  }
+  .gm-rec__type {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: var(--fs-xs);
+  }
+  .gm-rec__km {
+    grid-column: 3 / 5;
+    grid-row: 2;
+    text-align: left;
+  }
+  .gm-rec__info {
+    grid-row: 3;
+    white-space: normal;
+  }
+  .gm-fit {
+    font-size: 11px !important;
+  }
+  .gm-rec.gm-lend {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+  .gm-rec.gm-lend > * {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  /* Assigned unit: callsign, type and status on the first line, the ETA and "recall" under them. */
+  .gm-asg {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    row-gap: 2px;
+  }
+  .gm-asg__cs {
+    min-height: 40px;
+  }
+  .gm-asg__type {
+    font-size: var(--fs-xs);
+  }
+  .gm-asg > :nth-child(3) {
+    justify-self: end;
+  }
+  .gm-asg__eta {
+    grid-column: 1 / 3;
+    text-align: left;
+  }
+  .gm-asg > .ui-btn {
+    grid-column: 3;
+  }
+  .gm-pursuit__actions .ui-btn {
+    flex: 1 1 auto;
+  }
+
+  /* Radio: time and route on one line, the message under it at full width. */
+  .gm-rl {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0 8px;
+    padding: 6px 12px;
+  }
+  .gm-rl__t {
+    font-size: var(--fs-xs);
+  }
+  .gm-rl__text,
+  .gm-rl__replies {
+    grid-column: 1 / -1;
+  }
+  .gm-rl__from {
+    min-height: 32px;
+    margin: -8px 0;
+  }
+  .gm-rl__inc {
+    padding: 4px 8px;
+    margin: -4px 8px -4px 0;
+    font-size: 11px;
+  }
+  .gm-replies--compact .ui-btn {
+    flex: 1 1 auto;
+    padding: 0 12px;
+    font-size: var(--fs-sm);
+  }
+  .gm-radio__jump {
+    min-height: 40px;
+    padding: 0 14px;
+  }
+
+  /* Units table: the status number, callsign, type icon, task and ETA; fatigue is on the unit's own pane. */
+  .gm-table th {
+    height: 40px;
+    font-size: 11px;
+  }
+  .gm-table td {
+    height: 48px;
+  }
+  .gm-table__st {
+    width: 40px;
+  }
+  .gm-table__cs {
+    width: 36%;
+  }
+  .gm-table__ty {
+    width: 30px;
+    padding-inline: 4px !important;
+    text-overflow: clip !important;
+  }
+  .gm-table__eta {
+    width: 58px;
+  }
+  .gm-board__type {
+    min-height: 40px;
+  }
+  .gm-board__inc {
+    min-height: 40px;
+  }
+
+  /* Co-op room panel: in the pane under the top bar (it sat on the clock and the speed buttons), left of the
+     map tools, on the map tab only unless a neighbour's lend request waits for an answer. */
+  .gm-coop {
+    grid-area: main;
+    width: min(300px, calc(100% - 68px));
+    max-height: calc(100% - 16px);
+  }
+  .gm:not(.gm--m-map) .gm-coop:not(:has(.gm-coop__lend.is-open)) {
+    display: none;
+  }
+  .gm-coop__quick button {
+    min-height: 40px;
+    padding: 0 12px;
+  }
+  .gm-coop__form input {
+    min-height: 44px;
+  }
+  .gm-coop__form button {
+    width: 44px;
+  }
+
+  /* End of shift: two by two, the labels whole (four in a row ran out of the card). */
+  .gm-end__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .gm-end__stats span {
+    font-size: 11px;
+    text-align: center;
+  }
+}
+@media (max-width: 560px) {
+  .gm-table__fat {
+    display: none;
+  }
+}
+@media (max-width: 380px) {
+  /* 360 px: the emblem gives its room to the 44 px speed buttons. */
+  .gm-top__brand {
+    display: none !important;
+  }
+  .gm-top > .gm-top__clock {
+    border-left: 0;
+  }
+}
+/* A phone or a tablet without a keyboard: the pause menu leaves out the key list. */
+@media (hover: none) and (pointer: coarse) {
+  .gm-pause__grid > section:has(.gm-keys) {
+    display: none;
+  }
+}

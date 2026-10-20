@@ -1026,3 +1026,51 @@
   transition-duration: 0.001ms !important;
   scroll-behavior: auto !important;
 }
+
+/* ── Phones and touch screens ─────────────────────────────────────────────── */
+/* Below 900 px (the phone layouts of the menus and the dispatch view) every control is at least 44 px tall, the
+   size of a fingertip; the desktop sizes above are untouched. */
+@media (max-width: 899px) {
+  .ui-btn,
+  .ui-select select,
+  .ui-field__input {
+    min-height: 44px;
+  }
+  .ui-iconbtn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .ui-tab {
+    min-height: 44px;
+  }
+  .ui-seg__opt {
+    min-height: 40px;
+  }
+  .ui-slider input[type='range'] {
+    height: 32px;
+  }
+  .ui-toggle {
+    min-height: 44px;
+  }
+  .ui-modal {
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+      max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+  .ui-modal__card {
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+  .ui-modal__body {
+    padding: 16px;
+    overscroll-behavior: contain;
+  }
+  .ui-modal__foot {
+    padding: 12px 16px;
+  }
+}
+/* No keyboard in sight (a phone or a tablet): the key hints next to the buttons only take room. */
+@media (hover: none) and (pointer: coarse) {
+  .ui-kbd,
+  .ui-tab__kbd {
+    display: none;
+  }
+}
