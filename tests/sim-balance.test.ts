@@ -20,7 +20,7 @@ import { helpSector } from '@/sim/colleagues';
 import { pendingRadio, queue, recommendUnits } from '@/sim/selectors';
 import { correctReply } from '@/sim/registry';
 import { Rng } from '@/sim/rng';
-import { CAREER_LOAD_FLOOR, careerLoadFactor, skippedZones, spawnRatePerHour } from '@/sim/spawner';
+import { CAREER_LOAD_EXP, CAREER_LOAD_FLOOR, careerLoadFactor, skippedZones, spawnRatePerHour } from '@/sim/spawner';
 import { inArea, starterSectors } from '@/sim/sectors';
 import { rosterSpecsFor } from '@/sim/units';
 import { REGION_IDS, REGIONS } from '@/data/regions';
@@ -214,7 +214,7 @@ describe.skipIf(!ready)('career load', () => {
     expect(careerLoadFactor(free)).toBe(1);
     const f = careerLoadFactor(cs);
     // pohja day: 4 response crews (patrol; a new career's force for one sector) of 13 in the regular roster.
-    expect(f).toBeCloseTo(Math.sqrt(4 / 13), 3);
+    expect(f).toBeCloseTo(Math.pow(4 / 13, CAREER_LOAD_EXP), 3);
     cs.weather = free.weather;
     const t = start + 3 * 3_600_000;
     expect(spawnRatePerHour(cs, t)).toBeCloseTo(spawnRatePerHour(free, t) * f, 6);
@@ -265,9 +265,10 @@ describe.skipIf(!ready)('career load', () => {
 
 describe.skipIf(!ready)('sector shifts (docs/SECTORS.md)', () => {
   // A new career at its starter sector: about 10 staff and 5 cars (four patrol crews and an investigator).
-  // On an ordinary Wednesday at normal difficulty a desk gets about 10-16 calls in 8 hours, fewer by day,
-  // more by night, in every prefecture: the volume is the prefecture's x the softened population share, at
-  // least AREA_MIN_VOLUME an hour, then the career load against the area's regular roster.
+  // On an ordinary Wednesday at normal difficulty a desk gets about 25-35 calls in 8 hours (2.23.0: about three
+  // an hour, never more than MAX_LULL apart), a few more by night, in every prefecture: the volume is the
+  // prefecture's x the softened population share, at least AREA_MIN_VOLUME an hour, then the career load against
+  // the area's regular roster.
   it('gives a starter sector a desk of calls, day and night', () => {
     const rows: { id: string; day: number; night: number; expired: number; incidents: number; score: number }[] = [];
     for (const regionId of REGION_IDS) {
@@ -279,8 +280,12 @@ describe.skipIf(!ready)('sector shifts (docs/SECTORS.md)', () => {
           const runs = [1, 2, 3, 4, 5].map((k) => runShift(regionId, { hours: 8, startHour, day: 14, seed: k * 7919, career, sectors: [sec.id] }));
           for (const { s } of runs) {
             expect(s.sectors).toEqual([sec.id]);
-            // Calls for help from the neighbouring desks lie just across the border (src/sim/colleagues.ts).
-            for (const id of s.incidentOrder) if (!helpSector(s.incidents[id])) expect(inArea(s, REGIONS[regionId], s.incidents[id].location), id).toBe(true);
+            // Calls for help from the neighbouring desks lie just across the border (src/sim/colleagues.ts), and an
+            // officer in trouble (sys:*) is wherever the crew is, a neighbour's call included.
+            for (const id of s.incidentOrder) {
+              const inc = s.incidents[id];
+              if (!helpSector(inc) && !inc.templateId.startsWith('sys:')) expect(inArea(s, REGIONS[regionId], inc.location), id).toBe(true);
+            }
           }
           return {
             n: runs.reduce((a, r) => a + r.s.stats.incidents, 0) / runs.length,
@@ -298,20 +303,20 @@ describe.skipIf(!ready)('sector shifts (docs/SECTORS.md)', () => {
       for (const r of rows) console.log(`[sector ${r.id}] day=${r.day.toFixed(1)} night=${r.night.toFixed(1)} expired=${r.expired}/${r.incidents} score=${r.score.toFixed(1)}`);
     for (const r of rows) {
       // Five shifts each: a sector's own mean still swings by a few calls.
-      expect(r.day, r.id).toBeGreaterThanOrEqual(6);
-      expect(r.day, r.id).toBeLessThanOrEqual(16);
-      expect(r.night, r.id).toBeGreaterThanOrEqual(8);
-      expect(r.night, r.id).toBeLessThanOrEqual(24); // Lasnamäe, a hard sector, is the busiest
-      expect((r.day + r.night) / 2, r.id).toBeGreaterThanOrEqual(9);
-      expect((r.day + r.night) / 2, r.id).toBeLessThanOrEqual(18);
+      expect(r.day, r.id).toBeGreaterThanOrEqual(20);
+      expect(r.day, r.id).toBeLessThanOrEqual(36);
+      expect(r.night, r.id).toBeGreaterThanOrEqual(22);
+      expect(r.night, r.id).toBeLessThanOrEqual(42);
+      expect((r.day + r.night) / 2, r.id).toBeGreaterThanOrEqual(22);
+      expect((r.day + r.night) / 2, r.id).toBeLessThanOrEqual(38);
       // One sector's force keeps up with one sector's calls.
       expect(r.expired / r.incidents, r.id).toBeLessThan(0.12);
       expect(r.score, r.id).toBeGreaterThanOrEqual(70);
     }
     const avg = (k: 'day' | 'night') => rows.reduce((a, r) => a + r[k], 0) / rows.length;
-    expect(avg('day')).toBeGreaterThanOrEqual(9);
-    expect(avg('night')).toBeLessThanOrEqual(18);
-    expect((avg('day') + avg('night')) / 2).toBeGreaterThanOrEqual(10);
-    expect((avg('day') + avg('night')) / 2).toBeLessThanOrEqual(16);
+    expect(avg('day')).toBeGreaterThanOrEqual(22);
+    expect(avg('night')).toBeLessThanOrEqual(38);
+    expect((avg('day') + avg('night')) / 2).toBeGreaterThanOrEqual(24);
+    expect((avg('day') + avg('night')) / 2).toBeLessThanOrEqual(34);
   }, 240_000);
 });

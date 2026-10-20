@@ -72,13 +72,13 @@ With sectors:
   with `inArea` and picked again up to 8 times, and a template with no place there (a farm call in the city
   centre) gives way to another, at most 3 per arrival; then the arrival is dropped (well under 1 % of them).
 - The call volume (`areaCallFactor`) is the prefecture's × the area's population share ^ 0.6
-  (`AREA_SOFTEN`), but at least `AREA_MIN_VOLUME` = 2 calls an hour before the hour curve, difficulty and
-  weather (one desk's worth: every starter sector but Lasnamäe sits on it), at most the prefecture's. A career
-  shift then applies the load factor: √(its response crews ÷ the regular response roster of the area's
-  stations, a station shared by two sectors counted by their population share). A starter sector with a new
-  career's force (10 officers, 5 cars) on an ordinary weekday at normal difficulty gets about 10 calls on an
-  8 h day shift and 15 on a night shift (tests/sim-balance.test.ts, five shifts per sector: 9-13 by day,
-  11-20 by night, Lasnamäe the busiest); Friday and Saturday nights are busier, as everywhere.
+  (`AREA_SOFTEN`), but at least `AREA_MIN_VOLUME` = 2.5 calls an hour (2 before 2.23.0) before the hour curve,
+  difficulty and weather (one desk's worth), at most the prefecture's. A career
+  shift then applies the load factor: (its response crews ÷ the regular response roster of the area's
+  stations, a station shared by two sectors counted by their population share) ^ 0.75. A starter sector with a
+  new career's force (10 officers, 5 cars) on an ordinary weekday at normal difficulty gets about 27 calls on an
+  8 h day shift and 33 on a night shift (tests/sim-balance.test.ts, five shifts per sector: 26-28 by day, 27-35
+  by night; about 10 and 15 before 2.23.0); Friday and Saturday nights are busier, as everywhere.
 - The crews come from the area's stations (`rosterFromCareer`): each post the career has opened there
   (`openPosts`) gets one crew, border and boat crews go to the area's border points and harbours, the rest
   to the sectors' main stations in proportion to the sectors' population, under callsigns of the station's

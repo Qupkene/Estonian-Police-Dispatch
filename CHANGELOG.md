@@ -2,6 +2,20 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.23.0 (2026-10-20)
+
+- **Rohkem väljakutseid:** päeva väljakutses tuleb kolme tunni peale nüüd 10 kuni 15 kutset (enne 1 kuni 12), sektori vahetusel umbes neli tunnis ja uues karjääris umbes kolm tunnis. Mäng jääb võidetavaks: testides jõuab hea dispetšer igal pool järele.
+- **Ühtlasem tempo:** pikki tühje vaheaegu enam ei ole. Kõige pikem vaikus kahe kutse vahel on 20 mänguminutit (karjääris veidi rohkem). Kutsed ei tule enam ka ühe hooga hunnikus.
+- **Mitmikmäng:** sektorite koostöös toob iga laud oma kutsed, nii et kahe lauaga on kutseid kaks korda rohkem. Rollide koostöös lisab iga mängija 60 % kutseid juurde (ekipaaže on sama palju).
+- Sama perekonna lugu ei tule ühes vahetuses kaks korda.
+
+<details>
+<summary>English</summary>
+
+More calls and steadier pacing: the daily challenge now brings 10 to 15 calls in three hours (1 to 12 before), a sector shift about four an hour and a new career about three, still winnable in the balance tests. The longest silence between calls is 20 game minutes (a bit more in a career), and arrivals bunch up less (Erlang-2 gaps). Co-op: every sector desk brings its own calls (two desks, twice the calls); in role co-op each player beyond the first adds 60 %. A family's story is never told twice in a shift. Also fixed: account deletion used the real clock instead of the rooms' clock, which made two server tests depend on the time of day.
+
+</details>
+
 ## 2.22.0 (2026-10-20)
 
 - **Mängu tutvustavad lehed:** uued lehed politsei.eu/politseimang, /juhend, /mitmikmang ja ingliskeelne /en. Neil on kirjas, mis mäng see on, kuidas mängida, kuidas sõpradega koos mängida ja vastused levinud küsimustele.

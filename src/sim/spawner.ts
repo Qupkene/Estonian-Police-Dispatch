@@ -41,8 +41,9 @@ import type {
 
 const T = (et: string, en: string): Text => ({ et, en });
 
-// Tuned for fun over realism: a normal shift leaves time to read the calls, the registry and the newspaper.
-export const DIFFICULTY_FACTOR: Record<Difficulty, number> = { cadet: 0.4, normal: 0.65, veteran: 0.9, realistic: 1.25 };
+// Tuned for fun over realism: a normal shift keeps the desk busy but leaves time to read the calls and the registry.
+// 2.23.0 raised it (players saw six calls in a three-hour daily challenge).
+export const DIFFICULTY_FACTOR: Record<Difficulty, number> = { cadet: 0.55, normal: 0.9, veteran: 1.2, realistic: 1.6 };
 
 /** Event-number prefixes per prefecture ("PÕ-261017-0042"). */
 export const NUMBER_PREFIX: Record<RegionId, string> = { pohja: 'PÕ', ida: 'ID', louna: 'LÕ', laane: 'LÄ' };
@@ -68,6 +69,7 @@ export function spawnRatePerHour(s: SimState, t: number): number {
     DIFFICULTY_FACTOR[s.difficulty] *
     weatherCallFactor(s.weather);
   if (areaOf(s).length) r *= areaCallFactor(s);
+  if (s.coop) r *= coopCallFactor(s);
   if (s.mode === 'career') r *= careerLoadFactor(s);
   if (s.mode === 'tutorial') r *= 0.5;
   return Math.max(0.05, r);
@@ -83,21 +85,50 @@ export const AREA_SOFTEN = 0.6;
  * ...but at least this many events an hour (before the hour curve, difficulty and weather): one desk's worth,
  * so a small rural sector, or a city sector of the busy Põhja, still has a shift's worth of calls.
  */
-export const AREA_MIN_VOLUME = 2;
+export const AREA_MIN_VOLUME = 2.5;
 
 /** Call-volume multiplier of the shift's area (night cover included); 1 for a whole-prefecture shift. */
 export function areaCallFactor(s: SimState): number {
   const area = areaOf(s);
   if (!area.length) return 1;
-  const region = regionOf(s);
+  // Sector co-op: every desk is a desk of its own, with a single desk's calls (coopCallFactor adds them up).
+  if (s.coop?.sec) return 1;
+  return areaFactor(regionOf(s), area);
+}
+
+/** The call-volume multiplier of an area of sectors: the softened population share, at least one desk's worth. */
+export function areaFactor(region: RegionDef | undefined, area: string[]): number {
+  if (!region || !area.length) return 1;
   const share = areaShare(region, area);
-  const floor = AREA_MIN_VOLUME / Math.max(AREA_MIN_VOLUME, region?.callVolume ?? 3);
+  const floor = AREA_MIN_VOLUME / Math.max(AREA_MIN_VOLUME, region.callVolume ?? 3);
   return Math.min(1, Math.max(floor, Math.pow(share, AREA_SOFTEN)));
+}
+
+/** Role co-op: each player beyond the first adds this share of the area's calls (the crews stay the same). */
+export const COOP_ROLE_EXTRA = 0.6;
+
+/**
+ * Co-op rooms (docs/MULTIPLAYER.md): more players, more calls. A sector room gets every desk's own volume added
+ * up, so two desks have twice the calls of one; a role room shares one area and one force, so each player beyond
+ * the first adds COOP_ROLE_EXTRA of it. Seats that left do not count. 1 outside co-op.
+ */
+export function coopCallFactor(s: SimState): number {
+  const c = s.coop;
+  if (!c) return 1;
+  if (c.sec) {
+    const region = regionOf(s);
+    return c.sec.desks.reduce((a, d) => a + areaFactor(region, [d]), 0) || 1;
+  }
+  const here = c.seats.filter((x) => x.present).length;
+  return 1 + COOP_ROLE_EXTRA * Math.max(0, Math.min(4, here) - 1);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Career load (DESIGN §4.12)
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** Exponent of the career load (force on duty / regular force): 0.5 was too easy at the 2.23.0 volumes, 1 too thin. */
+export const CAREER_LOAD_EXP = 0.75;
 
 /** Lowest career load factor, so a shift with a single crew left still gets calls. */
 export const CAREER_LOAD_FLOOR = 0.1;
@@ -129,8 +160,8 @@ export function initCareerLoad(s: SimState): void {
     regularCount = regular.reduce((a, sp) => a + stationShare(region, area, sp.stationId), 0);
   }
   const mine = s.unitOrder.map((id) => s.units[id]).filter((u) => !!u && !u.onCall && RESPONSE_TYPES.has(u.type));
-  // Square root: a small force gets fewer calls, but not so few that the shift turns dull.
-  const factor = regularCount > 0 ? Math.sqrt(mine.length / regularCount) : 1;
+  // Between linear and square root: a small force gets fewer calls, but not so few that the shift turns dull.
+  const factor = regularCount > 0 ? Math.pow(mine.length / regularCount, CAREER_LOAD_EXP) : 1;
   s.flags.loadFactor = Math.round(Math.max(CAREER_LOAD_FLOOR, Math.min(1, factor)) * 1000) / 1000;
   const covered = new Set(mine.map((u) => u.zone || 'mainland'));
   const staffed = new Set(regular.map((sp) => sp.zone ?? stationById(region, sp.stationId)?.zone ?? 'mainland'));
@@ -331,8 +362,13 @@ export function repetitionFactor(
   recent = recentTemplateIds(s),
   streak = categoryStreak(s),
   told = toldCounts(s),
+  seen = seenScenarios(s),
 ): number {
-  let f = 1 / (1 + TOLD_TEMPLATE_DECAY * (told.get(tpl.id) ?? 0));
+  const times = told.get(tpl.id) ?? 0;
+  // A family's story is told once a shift: a domestic template comes again only with a scenario not yet told.
+  if (times && tpl.category === 'domestic' && !(tpl.scenarios ?? []).some((sc) => !seen.has(`${tpl.id}/${sc.id}`)))
+    return 0;
+  let f = 1 / (1 + TOLD_TEMPLATE_DECAY * times);
   if (recent.includes(tpl.id)) f *= RECENT_TEMPLATE_FACTOR;
   if (streak && tpl.category === streak) f *= CATEGORY_STREAK_FACTOR;
   return f;
@@ -349,7 +385,9 @@ export function pickScenario(s: SimState, r: Rng, tpl: IncidentTemplate): Incide
   const list = tpl.scenarios ?? [];
   if (!list.length) return undefined;
   const seen = seenScenarios(s);
-  return r.weighted(list, (sc) => Math.max(0, sc.weight ?? 1) * (seen.has(`${tpl.id}/${sc.id}`) ? SEEN_SCENARIO_FACTOR : 1));
+  // A domestic story is never told twice in a shift (repetitionFactor keeps such a template out when every one is told).
+  const again = tpl.category === 'domestic' ? 0 : SEEN_SCENARIO_FACTOR;
+  return r.weighted(list, (sc) => Math.max(0, sc.weight ?? 1) * (seen.has(`${tpl.id}/${sc.id}`) ? again : 1));
 }
 
 /** Weighted template pick with the easter-egg budget (about 4 % of events, never more than 7 %). */
@@ -358,9 +396,10 @@ export function pickTemplate(s: SimState, r: Rng, templates: IncidentTemplate[],
   const recent = recentTemplateIds(s);
   const streak = categoryStreak(s);
   const told = toldCounts(s);
+  const seen = seenScenarios(s);
   const ws = templates.map((tpl) => {
     const w = templateWeight(s, tpl, ctx);
-    return w > 0 ? w * repetitionFactor(s, tpl, recent, streak, told) : 0;
+    return w > 0 ? w * repetitionFactor(s, tpl, recent, streak, told, seen) : 0;
   });
   let normal = 0;
   let easter = 0;
@@ -983,10 +1022,21 @@ function arrive(s: SimState, t: number, skip: Set<string>): void {
   }
 }
 
-/** Draw the time of the arrival after one at t. */
+/** The longest quiet spell between two arrivals, in game time: the desk is never left with nothing for long. */
+export const MAX_LULL = 20 * MIN;
+/** A career's quiet spell: longer, and longer still in proportion to a small force (its load factor). */
+export const CAREER_LULL = 25 * MIN;
+
+/**
+ * Draw the time of the arrival after one at t. The gap is the mean of two exponential draws (Erlang-2, the same
+ * mean as a Poisson process but fewer long silences and fewer pile-ups), at least a fifth of the mean and at
+ * most MAX_LULL (a career: CAREER_LULL, longer in proportion to a small force).
+ */
 function nextArrival(s: SimState, t: number): void {
   const rate = spawnRatePerHour(s, t) / HOUR;
-  s.nextSpawnAt = t + Math.max(10_000, withRng(s, (r) => r.exp(rate)));
+  const gap = withRng(s, (r) => (r.exp(rate) + r.exp(rate)) / 2);
+  const lull = s.mode === 'career' ? CAREER_LULL / Math.max(0.33, careerLoadFactor(s)) : MAX_LULL;
+  s.nextSpawnAt = t + Math.min(lull, Math.max(10_000, 0.2 / rate, gap));
 }
 
 /** updateWeather's interval (weather.ts): the weather changes when this long has passed since `wx:last`. */

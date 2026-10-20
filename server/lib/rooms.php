@@ -437,7 +437,8 @@ function epd_room_leave_others(PDO $db, int $userId, int $keepRoomId, int $now):
  */
 function epd_rooms_forget_user(PDO $db, int $userId): void
 {
-    $now = epd_now_ms();
+    // The rooms' clock (the real time; under the test server X-EPD-Test-Now), like every other room route.
+    $now = epd_room_now_ms();
     $stmt = $db->prepare('SELECT r.* FROM rooms r JOIN room_players p ON p.room_id = r.id WHERE p.user_id = ?');
     $stmt->execute([$userId]);
     foreach ($stmt->fetchAll() as $room) {
