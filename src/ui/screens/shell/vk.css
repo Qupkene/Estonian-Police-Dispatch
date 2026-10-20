@@ -625,6 +625,18 @@ button.vk-acct__who:hover .vk-acct__name {
 .vk-foot__contact {
   flex: none;
 }
+.vk-foot__links {
+  display: flex;
+  flex: none;
+  gap: 12px;
+}
+.vk-foot__links a {
+  color: inherit;
+}
+.vk-foot__links a:hover,
+.vk-foot__links a:focus-visible {
+  color: var(--vk-text-1);
+}
 .vk-foot__keys {
   display: flex;
   align-items: center;
@@ -659,6 +671,13 @@ button.vk-acct__who:hover .vk-acct__name {
     display: inline-block;
     margin-top: 2px;
     padding: 6px 0;
+  }
+  .vk-foot__links {
+    flex-wrap: wrap;
+    gap: 0 16px;
+  }
+  .vk-foot__links a {
+    padding: 12px 0;
   }
   .vk-foot__line {
     margin: 4px 0 0;

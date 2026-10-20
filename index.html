@@ -3,10 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EPD · Eesti Politsei Dispetšer: politseimäng brauseris</title>
-    <meta name="description" content="Ole politsei dispetšer päris Eesti kaardil: võta vastu 112-kõned, saada patrullid välja ja otsi andmebaasist. Tasuta simulaator, mitteametlik fännimäng." />
+    <title>Politsei mäng: EPD, Eesti politsei dispetšeri simulaator</title>
+    <meta name="description" content="Tasuta politseimäng eesti keeles: ole dispetšer päris Eesti kaardil, võta vastu 112-kõned ja saada patrullid välja, ka sõpradega. Mitteametlik fännimäng." />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="https://politsei.eu/" />
+    <link rel="alternate" hreflang="et" href="https://politsei.eu/" />
+    <link rel="alternate" hreflang="en" href="https://politsei.eu/en/" />
     <meta name="theme-color" content="#06090d" />
     <meta name="author" content="Qupkene" />
     <meta name="application-name" content="EPD" />
@@ -23,8 +25,8 @@
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://politsei.eu/" />
     <meta property="og:site_name" content="EPD · Eesti Politsei Dispetšer" />
-    <meta property="og:title" content="EPD · Eesti Politsei Dispetšer: politseimäng brauseris" />
-    <meta property="og:description" content="Ole politsei dispetšer päris Eesti kaardil: võta vastu 112-kõned, saada patrullid välja ja otsi andmebaasist. Tasuta simulaator, mitteametlik fännimäng." />
+    <meta property="og:title" content="Politsei mäng: EPD, Eesti politsei dispetšeri simulaator" />
+    <meta property="og:description" content="Tasuta politseimäng eesti keeles: ole dispetšer päris Eesti kaardil, võta vastu 112-kõned ja saada patrullid välja, ka sõpradega. Mitteametlik fännimäng." />
     <meta property="og:locale" content="et_EE" />
     <meta property="og:locale:alternate" content="en_GB" />
     <meta property="og:image" content="https://politsei.eu/og-image.png" />
@@ -33,8 +35,8 @@
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:alt" content="EPD ikoon (sinimustvalge kilp) ja pealkiri Eesti Politsei Dispetšer, kõrval mängu juhtimiskeskuse vaade: sündmuste nimekiri, kaart, raadio ja üksuste tabel." />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="EPD · Eesti Politsei Dispetšer: politseimäng brauseris" />
-    <meta name="twitter:description" content="Ole politsei dispetšer päris Eesti kaardil: võta vastu 112-kõned, saada patrullid välja ja otsi andmebaasist. Tasuta simulaator, mitteametlik fännimäng." />
+    <meta name="twitter:title" content="Politsei mäng: EPD, Eesti politsei dispetšeri simulaator" />
+    <meta name="twitter:description" content="Tasuta politseimäng eesti keeles: ole dispetšer päris Eesti kaardil, võta vastu 112-kõned ja saada patrullid välja, ka sõpradega. Mitteametlik fännimäng." />
     <meta name="twitter:image" content="https://politsei.eu/og-image.png" />
     <meta name="twitter:image:alt" content="EPD ikoon (sinimustvalge kilp) ja pealkiri Eesti Politsei Dispetšer, kõrval mängu juhtimiskeskuse vaade: sündmuste nimekiri, kaart, raadio ja üksuste tabel." />
 
@@ -48,7 +50,7 @@
             "@id": "https://politsei.eu/#website",
             "url": "https://politsei.eu/",
             "name": "EPD · Eesti Politsei Dispetšer",
-            "alternateName": ["EPD", "Eesti Politsei Dispetšer", "Estonian Police Dispatch"],
+            "alternateName": ["EPD", "Eesti Politsei Dispetšer", "Estonian Police Dispatch", "Politseimäng", "Politsei mäng"],
             "inLanguage": ["et", "en"],
             "publisher": { "@type": "Person", "@id": "https://politsei.eu/#qupkene", "name": "Qupkene", "url": "https://github.com/Qupkene" }
           },
@@ -56,7 +58,8 @@
             "@type": ["VideoGame", "WebApplication"],
             "@id": "https://politsei.eu/#game",
             "name": "EPD · Eesti Politsei Dispetšer",
-            "alternateName": "Estonian Police Dispatch",
+            "alternateName": ["Estonian Police Dispatch", "Politseimäng", "Politsei mäng", "Politsei dispetšeri simulaator"],
+            "keywords": "politsei mäng, politseimäng, politsei mängud, politsei simulaator, 112 mäng, häirekeskuse mäng, dispetšeri mäng, Eesti mäng, police dispatch game",
             "url": "https://politsei.eu/",
             "image": "https://politsei.eu/og-image.png",
             "screenshot": ["https://politsei.eu/screenshots/game.webp", "https://politsei.eu/screenshots/call.webp", "https://politsei.eu/screenshots/menu.webp"],
@@ -65,7 +68,9 @@
             "inLanguage": ["et", "en"],
             "genre": "Simulation",
             "gamePlatform": "Web browser",
-            "playMode": "https://schema.org/SinglePlayer",
+            "playMode": ["https://schema.org/SinglePlayer", "https://schema.org/MultiPlayer", "https://schema.org/CoOp"],
+            "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 4 },
+            "subjectOf": [{ "@id": "https://politsei.eu/politseimang/#page" }, { "@id": "https://politsei.eu/juhend/#page" }, { "@id": "https://politsei.eu/mitmikmang/#page" }, { "@id": "https://politsei.eu/en/#page" }],
             "applicationCategory": "GameApplication",
             "operatingSystem": "Any (web browser)",
             "browserRequirements": "Requires JavaScript and a modern web browser.",
@@ -95,6 +100,8 @@
       @media (prefers-reduced-motion:reduce){.epd-splash__load::before{animation:none;background-position:50% 0}}
       .epd-splash p.epd-splash__note{margin-top:24px;color:#9aa7b4;font-size:12px}
       .epd-splash__note span{white-space:nowrap}
+      .epd-splash__links{margin-top:20px;font-size:14px}
+      .epd-splash__links a{color:#9fd0ff}
       .epd-noscript{position:fixed;left:16px;right:16px;bottom:16px;z-index:1;max-width:560px;margin:0 auto;padding:12px 16px;border:1px solid #3a4e66;border-radius:12px;background:#111a24;color:#eaf1f8;font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;text-align:center}
     </style>
     <!-- Without JavaScript: no loader, and room at the bottom so the fixed note never covers the disclaimer. -->
@@ -110,6 +117,7 @@
           <h1><span>EPD</span> Eesti Politsei Dispetšer</h1>
           <p class="epd-splash__lead">Võta vastu 112-kõned, saada patrullid välja ja kontrolli inimesi andmebaasist. Päris Eesti kaart, tasuta ja otse brauseris.</p>
           <p class="epd-splash__load" role="status">Laadimine…</p>
+          <nav class="epd-splash__links" aria-label="Lehed"><a href="/politseimang/">Politseimängust</a> · <a href="/juhend/">Juhend</a> · <a href="/mitmikmang/">Mitmikmäng</a> · <a href="/en/" hreflang="en" lang="en">English</a></nav>
           <p class="epd-splash__note">Mitteametlik ja tasuta fännimäng. Ei ole <span>Politsei- ja Piirivalveameti</span> toode ega ametiga seotud. Hädaolukorras helista 112.</p>
         </div>
       </div>
