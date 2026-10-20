@@ -7,7 +7,7 @@ Kõik olulised muudatused on kirjas siin. Each version has a short English summa
 - **Politsei- ja Piirivalveameti logo ameti loal:** PPA logo on igal ekraanil ülemisel ribal esimesena, laadimisel, sisselogimisel, mängu ülemisel ribal ning päevakäsu ja aruande päises nagu päris dokumendil.
 - **E-identiteedi logod omanike loal:** ID-kaart, Mobiil-ID ja Smart-ID sisselogimisel ning DigiDoci „Allkirjastatud digitaalselt“ tempel päevakäsul ja aruandel.
 - **Klassikaline sisselogimine** on jälle täisekraanil sinisena nagu 2024. aastal, PPA logoga. Tavalise sisselogimise aken on paremal ja kaart vasakul.
-- Uus brauseri- ja äpiikoon (Eesti lipuga kilp). Jalusesse lisati, et mäng on tasuta ega ole PPA toode, ning kontakt info@politsei.eu. Load on kirjas tiitrites.
+- Uus brauseri- ja äpiikoon (Eesti lipuga kilp). Jalusesse lisati, et mäng on tasuta ega ole PPA toode, ning kontakt info@politsei.eu, mis on ka tiitrites küsimuste ja soovide jaoks.
 
 <details>
 <summary>English</summary>

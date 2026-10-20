@@ -49,35 +49,8 @@
   font-size: 11.5px !important;
   white-space: nowrap;
 }
-.vk-cred__disclaimer {
-  color: var(--vk-text-0);
-  font-weight: 600;
-}
-/* A mark and its note: PPA's logo with the permission, the EPD emblem with what it is. */
-.vk-cred__mark {
-  display: grid;
-  gap: 10px;
-  padding: 12px 14px 14px;
-  border-top: 1px solid var(--vk-line-2);
-}
-.vk-cred__mark > p {
-  margin: 0;
-  text-wrap: pretty;
-}
-.vk-cred__logos {
-  border-top: 1px solid var(--vk-line-2);
-}
-.vk-cred__logo {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--vk-text-0);
-}
 .vk-cred__contact {
   margin: 0;
-  padding: 12px 14px 14px;
-  border-top: 1px solid var(--vk-line-2);
-  background: var(--vk-panel-2);
 }
 
 .vk-legcard {

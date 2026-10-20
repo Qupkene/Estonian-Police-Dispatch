@@ -587,7 +587,6 @@ export default {
   'shell.cred.src.inter': { et: 'Vahetuse töölaua kiri.', en: 'Typeface of the shift desk.' },
   'shell.cred.src.archivo': { et: 'Menüüde pealkirjad ja sildid.', en: 'Headings and labels of the menus.' },
   'shell.cred.src.instrument': { et: 'Menüüde ja lehtede tekst.', en: 'Text of the menus and pages.' },
-  'shell.cred.legal': { et: 'Õiguslik märkus', en: 'Legal note' },
   'shell.cred.col.name': { et: 'Allikas', en: 'Source' },
   'shell.cred.col.use': { et: 'Kasutus', en: 'Used for' },
   'shell.cred.col.licence': { et: 'Litsents', en: 'Licence' },
@@ -597,25 +596,10 @@ export default {
     et: 'Liides, olekuhaldus ja ehitus.',
     en: 'Interface, state management and build.',
   },
-  'shell.cred.research': {
-    et: 'Realismi aluseks on avalikud allikad (ERR, politsei.ee, Riigi Teataja). Kõik isikud, nimed, numbrid ja juhtumid mängus on väljamõeldud.',
-    en: 'Realism is based on public sources (ERR, politsei.ee, Riigi Teataja). All people, names, numbers and incidents in the game are fictional.',
-  },
-  'shell.cred.ppa': {
-    et: 'Politsei- ja Piirivalveameti logo on kasutatud ameti loal (19.10.2026). Kõik logod on omanike enda failid nende veebilehtedelt, muutmata kujul, ja neid kasutatakse omanike loal mitteärilises mängus koos märkusega, et see on mitteametlik fännimäng.',
-    en: "The logo of the Police and Border Guard Board is used with the agency's permission (19.10.2026). Every logo is its owner's own file from their website, unaltered, used with the owner's permission in a non-commercial game together with the note that it is an unofficial fan game.",
-  },
-  'shell.cred.logos': { et: 'Logod', en: 'Logos' },
-  'shell.cred.col.owner': { et: 'Omanik', en: 'Owner' },
-  'shell.cred.logoUse': { et: 'kasutatud omaniku loal', en: "used with the owner's permission" },
-  'shell.cred.emblem': {
-    et: 'Brauseri vahekaardi ja avaekraani ikoon (sinimustvalge kilp) on mängu jaoks loodud originaal, mitte PPA ega Eesti riigi sümbol. Riigivappi mäng ei kasuta: väike riigivapp on ainult PPA logo sees, nagu see on.',
-    en: 'The browser tab and home screen icon (a blue, black and white shield) is an original made for the game, not a PPA or Estonian state symbol. The game does not use the state coat of arms: the small coat of arms appears only inside the PPA logo, as it is.',
-  },
-  'shell.cred.contact': { et: 'Kontakt ja õiguste küsimused:', en: 'Contact and rights questions:' },
-  'shell.cred.affil': {
-    et: 'EPD ei ole seotud Politsei- ja Piirivalveameti, Kaitsepolitseiameti (KAPO), Riigi Infosüsteemi Ameti (RIA) ega SK ID Solutionsiga ega ole nende ametlik toode. Mäng on tasuta ega teeni tulu.',
-    en: 'EPD is not affiliated with, or an official product of, the Police and Border Guard Board, the Internal Security Service (KAPO), the Information System Authority (RIA) or SK ID Solutions. The game is free and earns no money.',
+  'shell.cred.contactTitle': { et: 'Kontakt', en: 'Contact' },
+  'shell.cred.contact': {
+    et: 'Küsimused, ettepanekud ja soovid:',
+    en: 'Questions, suggestions and requests:',
   },
 
   // ── Legacy ──
