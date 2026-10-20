@@ -287,7 +287,7 @@
 }
 .tl-dot--danger {
   color: #fff;
-  background: var(--danger);
+  background: var(--danger-fill);
 }
 .tl-dot--warn {
   color: var(--warn-ink);
@@ -891,11 +891,9 @@
   flex-direction: column;
   max-height: calc(100% - 32px);
   background: var(--glass);
-  backdrop-filter: blur(14px) saturate(1.2);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
   border: 1px solid var(--line-3);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-2), 0 0 0 1px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-2);
   animation: tl-call-in var(--dur-3) var(--ease);
   overflow: hidden;
   /* Its width is set above, never by its content: safe as a size container for the header rules. */
@@ -914,7 +912,7 @@
 .tl-call.is-ringing {
   width: min(640px, calc(100% - 24px));
   border-color: var(--ok);
-  box-shadow: var(--shadow-2), 0 0 0 1px var(--ok), 0 0 32px color-mix(in srgb, var(--ok) 35%, transparent);
+  box-shadow: var(--shadow-2), 0 0 0 1px var(--ok);
 }
 .tl-call.is-ringing:focus-visible {
   outline: 2px solid var(--accent-2);
@@ -2173,4 +2171,20 @@
 }
 :root[data-theme='light'] .tl-wave i {
   background: var(--accent);
+}
+
+/* ── Valvekaart labels ──────────────────────────────────────────────────── */
+/* The uppercase section heads in Archivo, as on the menu and the CAD panels (game.css). */
+.tl-sec__title,
+.tl-results__head,
+.tl-pendq__head,
+.tl-waiting__head,
+.tl-call__eyebrow,
+.tl-call__label,
+.tl-bubble__who {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+.tl-sec__title {
+  font-stretch: 110%;
 }

@@ -22,7 +22,8 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow: hidden;
-  font-feature-settings: 'cv11', 'ss01', 'tnum';
+  /* Tabular figures for the CAD's counters (Instrument Sans has no Inter stylistic sets to switch on). */
+  font-feature-settings: 'tnum';
 }
 
 button,
@@ -43,7 +44,7 @@ a {
 
 ::selection {
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
 }
 
 :focus-visible {

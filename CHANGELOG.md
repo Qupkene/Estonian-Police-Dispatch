@@ -2,6 +2,18 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.15.0 (2026-10-20)
+
+- **Mänguekraan Valvekaardi värvides:** vahetuse ajal on samad pinnad, jooned, tekstid, sinine aktsent ja fondid nagu menüüdes, tumedas ja heledas teemas. Paigutus ja tihedus on täpselt samad. Helendused, üleminekud ja hägustused on eemaldatud, nii et ekraan on rahulikum ja kiirem. Prioriteetide ja üksuste olekute värvid jäävad samade tähendustega, mõne punase ja oranži märgi kontrast on parem.
+- **Sisselogimise aken** on paremal poolel keskel, mitte ääres. PPA logoga päis on alati nähtav ja e-ID valikud on ühtlase rea kujul.
+
+<details>
+<summary>English</summary>
+
+The in-game screen now uses the Valvekaart colours, fonts and flat surfaces of the menus (dark and light) with the exact same layout and density; glows, gradients and blurs are gone; status and priority colours keep their meaning with better contrast on a few red and amber badges. The login panel sits in the middle of the right half with an always-visible PPA header and an even e-ID tab row.
+
+</details>
+
 ## 2.14.0 (2026-10-20)
 
 - **Politsei- ja Piirivalveameti logo ameti loal:** PPA logo on igal ekraanil ülemisel ribal esimesena, laadimisel, sisselogimisel, mängu ülemisel ribal ning päevakäsu ja aruande päises nagu päris dokumendil.

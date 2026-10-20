@@ -46,8 +46,9 @@ export const isStreetSource = (id: string | undefined) => id === STREET_SOURCE;
 /** Dark CAD flavour: navy land, near-black water, blue-grey roads, cool label colours. */
 export const STREET_FLAVOR: Flavor = {
   ...DARK,
-  background: '#050c16',
-  earth: '#101b28',
+  // Ground and water as the tactical base (PALETTE in style.ts, Valvekaart's tones); the rest stays.
+  background: '#07111b',
+  earth: '#141b24',
   park_a: '#0f2027',
   park_b: '#0f2228',
   hospital: '#16202e',
@@ -63,7 +64,7 @@ export const STREET_FLAVOR: Flavor = {
   beach: '#172433',
   aerodrome: '#131e2c',
   runway: '#1e2c3d',
-  water: '#050c16',
+  water: '#07111b',
   zoo: '#121f2a',
   military: '#161d2a',
 

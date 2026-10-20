@@ -1,6 +1,6 @@
-/* Sign-in (LoginScreen.tsx) on the Valvekaart frame (vk.css): the empty duty map, the sign-in panel over it at
-   the right (the map is moved left, LOGIN_VIEW); on a narrow screen the map is a strip on top and the panel
-   follows. The Klassika tab is a screen of its own (.sh-classic, at the end). No justify-content on .sh-login:
+/* Sign-in (LoginScreen.tsx) on the Valvekaart frame (vk.css): the empty duty map, the sign-in panel over it in
+   the right half, a little left of its centre (the map is moved left, LOGIN_VIEW); on a narrow screen the map
+   is a strip on top and the panel follows. The Klassika tab is a screen of its own (.sh-classic, at the end). No justify-content on .sh-login:
    a panel taller than a phone screen would be pushed above the scroll origin. Prefix: vk-login (the e2e tests
    and tests/visual-ui.test.ts still use .sh-login and .sh-legacy). */
 
@@ -23,7 +23,10 @@
   align-items: flex-start;
   justify-content: flex-end;
   min-height: 0;
-  padding: 12px;
+  /* The panel's right edge: at 1440 px the panel is centred a little left of the right half's middle; from
+     there the gap grows with the screen (1920: about the middle of the right half) and shrinks towards the
+     edge on narrower screens, where Estonia needs the room (1280: 80 px, 1100: 12 px). */
+  padding: 24px clamp(12px, min(25vw - 200px, 50vw - 560px), 320px) 24px 12px;
 }
 .vk-login__map {
   position: absolute;
@@ -34,24 +37,35 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  width: 440px;
+  width: 448px;
   max-width: 100%;
+  /* Centred in the height while there is room; a taller panel starts at the top and the page scrolls. */
+  margin: auto 0;
+  border-top: 2px solid var(--vk-acc);
   transition: opacity 1s ease;
 }
 /* 2024: the login box faded out for a second before the game opened. */
 .sh-login.is-leaving .vk-login__panel {
   opacity: 0;
 }
-/* The identity only where the screen is tall enough: below that the panel would scroll at 1280 × 720. */
-@media (max-height: 799px) {
-  .vk-login__ident {
-    display: none;
+/* The system owner's header: PPA's logo, a hairline, the EPD name. */
+.vk-login__ident {
+  gap: 10px 16px;
+  padding: 16px 18px 15px;
+}
+@media (min-width: 481px) {
+  .vk-login__ident .vk-ident__name {
+    padding-left: 16px;
   }
+}
+.vk-login__head {
+  padding: 0 18px;
+  border-top: 1px solid var(--vk-line-2);
 }
 .vk-login__top {
   display: grid;
   gap: 12px;
-  padding: 14px 14px 12px;
+  padding: 16px 18px 14px;
 }
 .vk-login__shuffle {
   position: absolute;
@@ -60,40 +74,73 @@
 .vk-login__top .ui-field__input {
   padding-right: 40px;
 }
+/* The sign-in methods: four equal cells on a band, hairlines between them; the chosen one opens onto the form
+   (the panel's own ground) with the blue bar under it. */
 .vk-login__tabs {
-  padding: 0 6px;
+  gap: 0;
+  padding: 0;
   border-top: 1px solid var(--vk-line-2);
+  border-bottom: 1px solid var(--vk-line-2);
   background: var(--vk-panel-2);
 }
 .vk-login__tabs .ui-tab {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   justify-content: center;
-  padding: 10px 4px;
+  min-height: 44px;
+  padding: 0 6px;
+  border-radius: 0;
+  color: var(--vk-text-2);
+}
+.vk-login__tabs .ui-tab + .ui-tab {
+  border-left: 1px solid var(--vk-line-2);
+}
+.vk-login__tabs .ui-tab:hover:not(:disabled) {
+  background: var(--vk-raise);
+  color: var(--vk-text-0);
+}
+.vk-login__tabs .ui-tab.is-active {
+  background: var(--vk-panel);
+  color: var(--vk-text-0);
+}
+.vk-login__tabs .ui-tab::after {
+  left: 0;
+  right: 0;
+}
+.vk-login__tabs .ui-tab__label {
+  min-width: 0;
 }
 .vk-login__tabLabel {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
+  min-width: 0;
+}
+.vk-login__tabLabel .ui-icon {
+  flex: none;
+  color: var(--vk-text-3);
+}
+.ui-tab.is-active .vk-login__tabLabel .ui-icon {
+  color: var(--vk-acc);
 }
 .vk-login__flow {
   display: flex;
   flex-direction: column;
-  min-height: 252px;
-  padding: 14px;
-  border-top: 1px solid var(--vk-line-2);
+  min-height: 244px;
+  padding: 18px;
 }
 .vk-login__alt {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 8px 14px;
+  padding: 10px 18px;
   border-top: 1px solid var(--vk-line-2);
   color: var(--vk-text-3);
 }
 .vk-login__sim {
   margin: 0;
-  padding: 0 14px 12px;
+  padding: 0 18px 12px;
   font-size: 12px;
   color: var(--vk-text-3);
   text-align: center;
@@ -101,7 +148,7 @@
 }
 .vk-login__acct {
   margin: -4px 0 0;
-  padding: 0 14px 12px;
+  padding: 0 18px 12px;
   font-size: 12.5px;
   text-align: center;
 }
@@ -120,7 +167,7 @@
   justify-content: space-between;
   gap: 12px;
   min-height: 34px;
-  padding: 0 14px;
+  padding: 0 18px;
   font-size: 12px;
 }
 .vk-login__sys dt {
@@ -645,6 +692,43 @@
   text-align: center;
 }
 
+/* Short screens (1280 × 720): a slimmer header, no hint under the name, a lower form, so the whole panel fits
+   without scrolling. */
+@media (max-height: 799px) {
+  .vk-login__main {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  .vk-login__ident {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .vk-login__top .ui-field__hint {
+    display: none;
+  }
+  .vk-login__top {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  .vk-login__flow {
+    min-height: 224px;
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+  .vk-id {
+    gap: 10px;
+  }
+  .sh-id__step {
+    gap: 10px;
+  }
+  .sh-pin__box {
+    height: 36px;
+  }
+  .sh-pad__key {
+    height: 34px;
+  }
+}
+
 /* ── Narrow screens: the map as a strip on top, the panel under it ───────── */
 
 .vk-login__strip {
@@ -657,6 +741,7 @@
 .sh-login.is-stacked .vk-login__main {
   flex-direction: column;
   align-items: stretch;
+  padding: 12px;
 }
 .sh-login.is-stacked .vk-login__panel {
   width: 100%;
@@ -671,9 +756,22 @@
   .vk-login__strip {
     height: 180px;
   }
+  /* Four cells on a phone: the logo over the name, so every name fits whole. */
   .vk-login__tabs .ui-tab {
-    min-height: 44px;
-    font-size: 12.5px;
+    min-height: 54px;
+    padding: 6px 2px;
+    font-size: 12px;
+  }
+  .vk-login__tabLabel {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .vk-login__ident,
+  .vk-login__head,
+  .vk-login__top,
+  .vk-login__flow {
+    padding-left: 14px;
+    padding-right: 14px;
   }
   .sh-mid--wait {
     flex-direction: column;
