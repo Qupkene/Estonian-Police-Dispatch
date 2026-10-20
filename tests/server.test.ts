@@ -1477,7 +1477,8 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       const gz = gzipSync(Buffer.from('{"olev":1}'));
       expect((await raw(olev, 'PUT', `/api/rooms/${code}/snapshot?turn=171&cmd=${lastId}`, 172_100, gz)).status).toBe(200);
       sql(`UPDATE rooms SET host_id = (SELECT id FROM users WHERE name = 'Mati') WHERE code = '${code}'`);
-      expect((await olev.del('/api/me', { password: 'salajane-123' })).status).toBe(200);
+      // On the room's test clock: the deletion sequences Olev's `left` at its time, whatever the real time is.
+      expect((await olev.del('/api/me', { password: 'salajane-123' }, at(172_200))).status).toBe(200);
       for (const table of ['room_commands', 'room_snapshots', 'room_players'])
         expect(JSON.parse(sql(`SELECT COUNT(*) FROM ${table} WHERE user_id = ${olevId}`)), table).toEqual([[0]]);
       const r = await log(mati, 173_000, `after=${lastId}`);

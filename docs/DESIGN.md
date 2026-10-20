@@ -125,10 +125,15 @@ documented signature below (stubs exist). Report needed changes instead of editi
 ### 4.2 Spawning
 Poisson process: rate/h = `region.callVolume × hourCurve[h] × weekdayFactor × holidayFactor ×
 difficultyFactor × weatherFactor`. Default hour curve peaks 22-02 (1.6×), lowest 04-07 (0.45×).
-Difficulty factor (tuned for fun over realism): cadet 0.4, normal 0.65, veteran 0.9, realistic 1.25.
+Difficulty factor (tuned for fun over realism; raised in 2.23.0): cadet 0.55, normal 0.9, veteran 1.2, realistic 1.6.
+The gap to the next arrival is the mean of two exponential draws (Erlang-2: the Poisson mean with fewer long
+silences and fewer pile-ups), at least a fifth of the mean and at most `MAX_LULL` (20 game minutes; a career
+`CAREER_LULL` 25 minutes ÷ its load factor). Co-op rooms multiply by `coopCallFactor`: a sector room adds up every
+desk's own volume, a role room adds `COOP_ROLE_EXTRA` (0.6) for each player present beyond the first. A domestic
+story is told once a shift (its template comes again only with a scenario not yet told).
 Career shifts also multiply by the career `loadFactor` (§4.12). Callers wait `CALLER_PATIENCE`
 (1.4) times the template's expiry. A sector shift (docs/SECTORS.md) spawns only inside its area and also
-multiplies by `areaCallFactor` (the area's population share ^ 0.6, at least 2 calls an hour before the
+multiplies by `areaCallFactor` (the area's population share ^ 0.6, at least 2.5 calls an hour before the
 other factors); a `fixedSchedule` shift (daily challenge) draws arrivals, incidents and weather from
 `SimState.spawnRng`, each at its own time, so every player gets the same calls.
 Template choice weight = `template.weight × hourProfile(template.hours)[h] × weekendBoost ×
@@ -287,9 +292,10 @@ Persistent profile (localStorage): name, badge number, home region, career day, 
 * The career is told in five chapters with a recurring cast (docs/STORY.md): milestones, objectives met by
   normal play, small questions with modest consequences. It only reads the paid shift's report.
 * Call load follows the force on duty (computed once in `createShift`, kept in `SimState.flags`):
-  the spawn rate is multiplied by `loadFactor` = the square root of (response units on duty ÷
+  the spawn rate is multiplied by `loadFactor` = (response units on duty ÷
   response units of the regular normal-difficulty roster for that shift: patrol, rapid, aux,
-  traffic, K9, border, community), clamped to 0.1..1; the difficulty factor still applies on top. Zones the regular
+  traffic, K9, border, community) ^ `CAREER_LOAD_EXP` (0.75; the square root before 2.23.0), clamped to 0.1..1;
+  the difficulty factor still applies on top. Zones the regular
   roster staffs but the career force does not (`skipZones`, e.g. Saaremaa and Hiiumaa before an
   island crew exists) get no calls; the briefing bulletins say so.
 
