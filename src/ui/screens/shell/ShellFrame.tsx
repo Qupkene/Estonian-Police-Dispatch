@@ -229,6 +229,14 @@ export function ShellFooter({ children }: { children?: ReactNode }) {
       <a className="vk-foot__contact" href={`mailto:${CONTACT}`}>
         {CONTACT}
       </a>
+      {/* The pages about the game (public/<slug>/, docs/SEO.md): plain links, also for search engines. */}
+      <nav className="vk-foot__links" aria-label={t('shell.frame.pages')}>
+        <a href="/politseimang/">{t('shell.frame.about')}</a>
+        <a href="/juhend/">{t('shell.frame.guide')}</a>
+        <a href="/en/" hrefLang="en" lang="en">
+          English
+        </a>
+      </nav>
       {children}
       <p className="vk-foot__line">
         EPD {VERSION} · politsei.eu · {t('shell.frame.mapCreditShort')}

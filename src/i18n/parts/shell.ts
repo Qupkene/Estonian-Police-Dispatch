@@ -277,6 +277,9 @@ export default {
     et: 'kaart: Maa- ja Ruumiamet, Natural Earth',
     en: 'map: Maa- ja Ruumiamet, Natural Earth',
   },
+  'shell.frame.pages': { et: 'Mängust', en: 'About the game' },
+  'shell.frame.about': { et: 'Mängust', en: 'About' },
+  'shell.frame.guide': { et: 'Juhend', en: 'Guide' },
   'shell.frame.disclaimer': {
     et: 'Mitteametlik ja tasuta fännimäng. Ei ole Politsei- ja Piirivalveameti toode ega ametiga seotud. Hädaolukorras helista 112.',
     en: 'Unofficial free fan game. Not a product of, or affiliated with, the Police and Border Guard Board. In an emergency call 112.',

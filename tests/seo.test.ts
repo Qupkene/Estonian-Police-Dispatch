@@ -5,6 +5,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { PAGES as LANDING, renderAll } from '../scripts/build-landing.mjs';
 
 const SITE = 'https://politsei.eu/';
 // Plain paths: under the jsdom environment Vite rewrites `new URL(..., import.meta.url)` to a web URL.
@@ -299,7 +300,7 @@ describe('robots.txt and sitemap.xml', () => {
     expect(lines).toContain(`Sitemap: ${SITE}sitemap.xml`);
   });
 
-  it('sitemap.xml lists the game and the two legacy pages with valid dates', () => {
+  it('sitemap.xml lists the game, the landing pages and the two legacy pages with valid dates', () => {
     const xml = read('public/sitemap.xml');
     expect(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>')).toBe(true);
     const parsed = new DOMParser().parseFromString(xml, 'application/xml');
@@ -310,13 +311,23 @@ describe('robots.txt and sitemap.xml', () => {
       lastmod: u.getElementsByTagName('lastmod')[0]?.textContent ?? '',
     }));
     expect(entries.map((e) => e.loc).sort()).toEqual(
-      [SITE, `${SITE}legacy/politseimang-2024.html`, `${SITE}legacy/politseimang-2025.html`].sort(),
+      [
+        SITE,
+        ...LANDING.map((p) => `${SITE}${p.slug}/`),
+        `${SITE}legacy/politseimang-2024.html`,
+        `${SITE}legacy/politseimang-2025.html`,
+      ].sort(),
     );
     for (const e of entries) {
       expect(e.lastmod, e.loc).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(Number.isNaN(Date.parse(e.lastmod))).toBe(false);
       const path = new URL(e.loc).pathname;
-      expect(existsSync(path === '/' ? root('index.html') : publicFile(path)), e.loc).toBe(true);
+      expect(
+        existsSync(
+          path === '/' ? root('index.html') : publicFile(path.endsWith('/') ? `${path}index.html` : path),
+        ),
+        e.loc,
+      ).toBe(true);
     }
   });
 });
@@ -344,7 +355,7 @@ describe('Caddyfile', () => {
       expect(b).toContain('file_server');
       expect(b).not.toContain('try_files');
     }
-    expect(caddy.indexOf('handle @seo {')).toBeLessThan(caddy.indexOf('try_files {path} /index.html'));
+    expect(caddy.indexOf('handle @seo {')).toBeLessThan(caddy.indexOf('try_files {path} {path}index.html /index.html'));
   });
 });
 
@@ -361,7 +372,71 @@ describe('owner rules', () => {
       'deploy/mainserver/Caddyfile',
       'docs/SEO.md',
       'tests/seo.test.ts',
+      'scripts/build-landing.mjs',
     ];
     for (const f of files) expect(banned.test(read(f)), f).toBe(false);
   });
+});
+
+describe('landing pages (scripts/build-landing.mjs)', () => {
+  it('are generated from the script (run `node scripts/build-landing.mjs` after a change)', () => {
+    for (const { path: file, html } of renderAll()) expect(read(file), file).toBe(html);
+  });
+
+  for (const page of LANDING) {
+    describe(`/${page.slug}/`, () => {
+      const html = read(`public/${page.slug}/index.html`);
+      const d = new DOMParser().parseFromString(html, 'text/html');
+      const m = (k: string) =>
+        d.head.querySelector(`meta[property="${k}"]`)?.getAttribute('content') ??
+        d.head.querySelector(`meta[name="${k}"]`)?.getAttribute('content') ??
+        null;
+
+      it('has its own title, description, canonical URL and one heading', () => {
+        expect(d.documentElement.getAttribute('lang')).toBe(page.lang);
+        expect(d.title.length).toBeGreaterThanOrEqual(30);
+        expect(d.title.length).toBeLessThanOrEqual(60);
+        expect(m('description')!.length).toBeGreaterThanOrEqual(120);
+        expect(m('description')!.length).toBeLessThanOrEqual(160);
+        expect(d.head.querySelector('link[rel="canonical"]')!.getAttribute('href')).toBe(
+          `${SITE}${page.slug}/`,
+        );
+        expect(m('og:url')).toBe(`${SITE}${page.slug}/`);
+        expect(m('robots')).toMatch(/^index, follow/);
+        expect(d.querySelectorAll('h1')).toHaveLength(1);
+        expect(d.body.textContent!.length).toBeGreaterThan(1200);
+        // The disclaimer is on every page, and the way into the game.
+        expect(d.querySelector('footer')!.textContent).toMatch(/fännimäng|fan game/);
+        expect([...d.querySelectorAll('a.btn--primary')].map((a) => a.getAttribute('href'))).toContain('/');
+      });
+
+      it('has valid structured data and links that resolve', () => {
+        const ld = JSON.parse(d.querySelector('script[type="application/ld+json"]')!.textContent!);
+        const types = ld['@graph'].map((n: { '@type': string }) => n['@type']);
+        expect(types).toEqual(expect.arrayContaining(['WebPage', 'BreadcrumbList']));
+        for (const a of d.querySelectorAll('a[href^="/"]')) {
+          const href = a.getAttribute('href')!;
+          const file =
+            href === '/' ? root('index.html') : publicFile(href.endsWith('/') ? `${href}index.html` : href);
+          expect(existsSync(file), href).toBe(true);
+        }
+        for (const img of d.querySelectorAll('img')) {
+          expect(img.getAttribute('alt')!.length).toBeGreaterThan(10);
+          expect(existsSync(publicFile(img.getAttribute('src')!)), img.getAttribute('src')!).toBe(true);
+        }
+        // hreflang pairs point both ways.
+        for (const alt of d.head.querySelectorAll('link[rel="alternate"][hreflang]')) {
+          const target = alt.getAttribute('href')!;
+          const other = read(`public${new URL(target).pathname}index.html`);
+          expect(other, target).toContain(`href="${SITE}${page.slug}/"`);
+        }
+      });
+
+      it('never uses the dash characters the owner does not want', () => {
+        expect(html).not.toMatch(
+          new RegExp(`[${String.fromCharCode(0x2014)}${String.fromCharCode(0x2013)}]`),
+        );
+      });
+    });
+  }
 });

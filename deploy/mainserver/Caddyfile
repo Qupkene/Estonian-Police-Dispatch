@@ -138,14 +138,20 @@
 		file_server
 	}
 
-	# Kõik muu: index.html, sw.js, manifest.webmanifest, glyphs, legacy, 404.html.
+	# Kõik muu: index.html, sw.js, manifest.webmanifest, glyphs, legacy, 404.html, tutvustavad lehed.
 	# Iga serveeritav HTML ja service worker: Cache-Control no-cache (reegel 83).
 	handle {
 		root * /app/www
 		header Cache-Control "no-cache"
 		@manifest path *.webmanifest
 		header @manifest Content-Type "application/manifest+json"
-		try_files {path} /index.html
+		# Mängu tutvustavad lehed (docs/SEO.md) on kaustad: /juhend -> /juhend/, /juhend/ -> juhend/index.html.
+		@kaust {
+			not path */
+			file {path}/index.html
+		}
+		redir @kaust {path}/ 301
+		try_files {path} {path}index.html /index.html
 		file_server
 	}
 

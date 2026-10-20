@@ -10,9 +10,18 @@ Mis on tehtud:
 - Caddyfile: `/api/*` vastustel on `X-Robots-Tag: noindex`; robots, sitemap ja pildid tulevad päris failidena koos vahemäluajaga, puuduv fail annab 404, mitte `index.html`-i.
 - Kontroll: `npx vitest run tests/seo.test.ts`.
 
+Tutvustavad lehed (2.22.0):
+
+- `public/politseimang/`, `public/juhend/`, `public/mitmikmang/` ja `public/en/` (`index.html` igas). Need on tavaline HTML ilma JavaScriptita, et otsingumootor loeks sisu kohe. Lehed teeb `node scripts/build-landing.mjs` (sisu ja ühine raam on skriptis, `tests/seo.test.ts` kontrollib, et failid on skriptiga samad). Pärast teksti muutmist käivita skript uuesti.
+- Märksõnad, mille järgi lehed on kirjutatud: politsei mäng, politseimäng, politsei mängud, politsei simulaator, 112 mäng, häirekeskuse mäng, dispetšeri mäng, politsei mäng sõpradega, tasuta mäng brauseris; inglise keeles police dispatch game, police dispatcher simulator.
+- Igal lehel on oma pealkiri, kirjeldus, canonical, Open Graph, JSON-LD (WebPage, BreadcrumbList, `politseimang` ja `en` lehel ka FAQPage) ning `politseimang` ja `en` vahel hreflang. Avalehe JSON-LD viitab lehtedele (`subjectOf`).
+- Caddy: kaust ilma kaldkriipsuta suunatakse 301-ga kaldkriipsuga aadressile ja `kaust/` annab `kaust/index.html`-i. Tundmatu tee annab endiselt mängu (`index.html`).
+- Mängu menüü jaluses ja laadimislehel on lingid lehtedele, nii leiab Google need ka ilma saidikaardita.
+
 Omaniku valikulised sammud:
 
-1. Google Search Console: lisa omand tüübiga "Domeen" (`politsei.eu`), kopeeri sealt TXT kirje ja lisa see registripidaja DNS-i. Pärast kinnitamist ava "Saidikaardid" ja saada `https://politsei.eu/sitemap.xml`.
+1. Google Search Console: lisa omand tüübiga "Domeen" (`politsei.eu`), kopeeri sealt TXT kirje ja lisa see registripidaja DNS-i. Pärast kinnitamist ava "Saidikaardid" ja saada `https://politsei.eu/sitemap.xml`. Seejärel "URL-i kontroll" avalehe ja nelja tutvustava lehe jaoks ning "Taotle indekseerimist".
 2. Bing Webmaster Tools: vali "Import from Google Search Console", sait tuleb üle koos sitemapiga.
 3. Eelvaate kontroll: Facebook Sharing Debugger (`developers.facebook.com/tools/debug`, "Scrape Again" loeb lehe uuesti), opengraph.xyz näitab kõiki platvorme korraga. X/Twitteril validaatorit pole, postita link testkontolt või saada see endale otsesõnumina.
 4. Discord, Slack ja WhatsApp hoiavad vana eelvaadet kaua vahemälus. Kui pilt muutub, anna sellele uus nimi või lisa `og:image` aadressile `?v=2`.
+5. Tagasilingid tõstavad kohta otsingus kõige rohkem: link politsei.eu-le GitHubi README-s, YouTube'i video kirjelduses, Redditi r/Eesti postituses, Facebooki gruppides ja mängusaitidel (näiteks itch.io lehel). Lingi tekstiks sobib "politsei mäng" või "politseimäng".

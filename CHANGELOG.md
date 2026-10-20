@@ -2,6 +2,19 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.22.0 (2026-10-20)
+
+- **Mängu tutvustavad lehed:** uued lehed politsei.eu/politseimang, /juhend, /mitmikmang ja ingliskeelne /en. Neil on kirjas, mis mäng see on, kuidas mängida, kuidas sõpradega koos mängida ja vastused levinud küsimustele.
+- **Otsingumootorid:** avalehe pealkiri ja kirjeldus on nüüd otsingusõnade „politsei mäng“ ja „politseimäng“ järgi. Juurde tulid struktureeritud andmed (mitmikmäng, KKK, leivapururada), keelevariandid ja uued lehed saidikaardis.
+- Mängu menüü jaluses on lingid lehtedele „Mängust“, „Juhend“ ja „English“.
+
+<details>
+<summary>English</summary>
+
+New pages about the game: /politseimang, /juhend (how to play), /mitmikmang (multiplayer) and /en (English), with real content and FAQs. The home page title and description target "politsei mäng" and "politseimäng"; structured data adds multiplayer, FAQ and breadcrumbs, with hreflang alternates and the new pages in the sitemap. The menu footer links to the About, Guide and English pages.
+
+</details>
+
 ## 2.21.1 (2026-10-20)
 
 - Eesti lipu kilp on nüüd sakiikoon ka 404 lehel ning 2024. ja 2025. aasta algversioonides, mitte ainult mängus.
