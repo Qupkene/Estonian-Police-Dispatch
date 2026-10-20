@@ -97,6 +97,11 @@ export async function setRoomRole(code: string, role: CoopRole): Promise<unknown
   return request<unknown>('POST', path(code, '/role'), { role });
 }
 
+/** Sector co-op: this player's desk (one of the room's sectors) in the lobby. */
+export async function setRoomDesk(code: string, desk: string): Promise<unknown> {
+  return request<unknown>('POST', path(code, '/desk'), { desk });
+}
+
 // ── Snapshots ────────────────────────────────────────────────────────────────
 
 async function pipe(data: Uint8Array, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {

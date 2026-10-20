@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ActiveCall, Agency, CallerMood, CallQuestionId, Incident, Priority, SimState } from '@/sim/types';
 import { answerCall, askCall, endCall, toggleInterpreter } from '@/sim/commands';
-import { coopIssue, useCan, useCoop } from '@/store/coop';
+import { coopIssue, deskCan, useCan, useCoop, useMyDesk } from '@/store/coop';
 import { rolesOf } from '@/sim/coop';
 import { useSettings } from '@/store/settings';
 import { useT, useTx } from '@/i18n';
@@ -46,8 +46,11 @@ export function CallTaker() {
   const sim = useSim();
   const canTake = useCan('calls');
   const seat = useCoop((s) => s.seat);
+  const desk = useMyDesk();
   if (!sim) return null;
   let active = sim.calls.filter((c) => !c.endedAt);
+  // Sector co-op: each desk has its own 112 line; this desk sees its own calls only (src/sim/desks.ts).
+  if (desk !== null) active = active.filter((c) => deskCan(sim, { call: c }));
   if (sim.coop) {
     // Co-op: the call-taker's desk. Two call-takers split the calls: whoever answers first keeps it.
     if (!canTake) return <CoopCallStrip sim={sim} />;

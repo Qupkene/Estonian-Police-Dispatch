@@ -998,7 +998,7 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       expect((await hanna.get('/api/rooms')).json).toEqual({ room: null });
     });
 
-    it('validates the options and keeps the sector mode closed', async () => {
+    it('validates the options, a sector room’s desks included', async () => {
       const cases: [Record<string, unknown>, string][] = [
         [{ regionId: 'tartu' }, 'regionId'],
         [{ sector: 'pohja-kesklinn' }, 'sector'],
@@ -1014,10 +1014,11 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
         expect(r.status, field).toBe(400);
         expect(r.json, field).toMatchObject({ error: 'invalid_room', field });
       }
-      for (const mode of ['sector']) {
-        const r = await hanna.post('/api/rooms', { ...OPTS, mode });
-        expect(r.status).toBe(400);
-        expect(r.json).toMatchObject({ error: 'mode_unavailable', field: 'mode' });
+      // A sector room needs two to four distinct sectors of its prefecture.
+      for (const desks of [undefined, [], ['louna-tartu'], ['louna-tartu', 'louna-tartu'], ['louna-tartu', 'pohja-kesklinn'], ['louna-tartu', 'louna-a', 'louna-b', 'louna-c', 'louna-d'], 'louna-tartu']) {
+        const r = await hanna.post('/api/rooms', { ...OPTS, mode: 'sector', desks });
+        expect(r.status, JSON.stringify(desks)).toBe(400);
+        expect(r.json).toMatchObject({ error: 'invalid_room', field: 'desks' });
       }
       expect(JSON.parse(sql('SELECT COUNT(*) FROM rooms'))).toEqual([[0]]);
     });
@@ -1523,6 +1524,98 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       const race = (await a.post('/api/rooms', { ...OPTS, mode: 'race' }, at(300_000))).json.room;
       expect((await a.get(`/api/rooms/${race.code}/log`, at(300_100))).json.error).toBe('not_coop');
       expect((await a.post(`/api/rooms/${race.code}/role`, { role: 'calls' }, at(300_100))).json.error).toBe('not_coop');
+    });
+  });
+
+  describe('co-op lockstep (sector rooms)', () => {
+    const OPTS = {
+      mode: 'sector',
+      regionId: 'pohja',
+      sector: '',
+      desks: ['pohja-kesklinn', 'pohja-lasnamae', 'pohja-idaharju'],
+      difficulty: 'normal',
+      hours: 2,
+      slot: 'evening',
+    };
+    const T0 = Date.UTC(2026, 9, 21, 17, 0, 0);
+    const at = (ms: number) => ({ headers: { 'X-EPD-Test-Now': String(T0 + ms) } });
+    let pille: Client;
+    let rasmus: Client;
+    let code = '';
+
+    it('opens sector rooms with their desks and a desk per player, picked in the lobby', async () => {
+      pille = client();
+      rasmus = client();
+      expect((await register(pille, 'Pille')).status).toBe(200);
+      expect((await register(rasmus, 'Rasmus')).status).toBe(200);
+      const created = await pille.post('/api/rooms', OPTS, at(0));
+      expect(created.status).toBe(200);
+      const room = created.json.room;
+      code = room.code;
+      expect(room.mode).toBe('sector');
+      // The first desk is the room's sector too.
+      expect(room.options).toMatchObject({ regionId: 'pohja', sector: 'pohja-kesklinn', desks: OPTS.desks });
+      expect(room.players[0].desk).toBe('pohja-kesklinn');
+      const joined = await rasmus.post('/api/rooms/join', { code }, at(100));
+      // Seats spread over the desks in order.
+      expect(joined.json.room.players.map((p: Json) => p.desk)).toEqual(['pohja-kesklinn', 'pohja-lasnamae']);
+      const picked = await rasmus.post(`/api/rooms/${code}/desk`, { desk: 'pohja-idaharju' }, at(200));
+      expect(picked.status).toBe(200);
+      expect(picked.json.room.players.map((p: Json) => p.desk)).toEqual(['pohja-kesklinn', 'pohja-idaharju']);
+      for (const desk of ['pohja-laaneharju', 'louna-tartu', 'Kesklinn', 7]) {
+        const bad = await rasmus.post(`/api/rooms/${code}/desk`, { desk }, at(250));
+        expect(bad.status, String(desk)).toBe(400);
+        expect(bad.json).toMatchObject({ error: 'invalid_room', field: 'desk' });
+      }
+      // The host drops the picked desk: the player falls back to their seat's default.
+      const fewer = await pille.put(`/api/rooms/${code}`, { body: { ...OPTS, desks: ['pohja-kesklinn', 'pohja-lasnamae'] }, ...at(300) });
+      expect(fewer.status, JSON.stringify(fewer.json)).toBe(200);
+      expect(fewer.json.room.options.desks).toEqual(['pohja-kesklinn', 'pohja-lasnamae']);
+      expect(fewer.json.room.players.map((p: Json) => p.desk)).toEqual(['pohja-kesklinn', 'pohja-lasnamae']);
+      const badOpts = await pille.put(`/api/rooms/${code}`, { body: { ...OPTS, desks: ['pohja-kesklinn'] }, ...at(350) });
+      expect(badOpts.json).toMatchObject({ error: 'invalid_room', field: 'desks' });
+      expect((await pille.put(`/api/rooms/${code}`, { body: OPTS, ...at(400) })).status).toBe(200);
+      expect((await rasmus.post(`/api/rooms/${code}/desk`, { desk: 'pohja-idaharju' }, at(450))).status).toBe(200);
+      await rasmus.post(`/api/rooms/${code}/ready`, { ready: true }, at(500));
+      expect((await pille.post(`/api/rooms/${code}/start`, undefined, at(1000))).json.room.state).toBe('running');
+      expect((await rasmus.post(`/api/rooms/${code}/desk`, { desk: 'pohja-lasnamae' }, at(1100))).json.error).toBe('room_started');
+    });
+
+    it('starts the log with every seat’s desk', async () => {
+      const r = await pille.get(`/api/rooms/${code}/log?after=0`, at(1500));
+      expect(r.json.cmds).toEqual([
+        { id: expect.any(Number), t: 0, s: -1, k: 'setup', a: [0, [[0, 'pohja-kesklinn', 'Pille'], [1, 'pohja-idaharju', 'Rasmus']]] },
+      ]);
+    });
+
+    it('takes lend requests and their answers into the log, well-formed only', async () => {
+      const ok = await rasmus.post(
+        `/api/rooms/${code}/cmd`,
+        { cmds: [{ k: 'lend', a: ['i3', 'u12'] }, { k: 'lendans', a: [4, 1] }] },
+        at(4200),
+      );
+      expect(ok.status).toBe(200);
+      expect(ok.json.ids).toHaveLength(2);
+      for (const a of [['i3'], ['i3', 'u1', 'u2'], [4, 'u1'], ['i3', 'bad id']])
+        expect((await rasmus.post(`/api/rooms/${code}/cmd`, { cmds: [{ k: 'lend', a }] }, at(4300))).json.error, JSON.stringify(a)).toBe('invalid_command');
+      for (const a of [[0, 1], [4, 2], ['4', 1], [4], [2_000_000, 0]])
+        expect((await rasmus.post(`/api/rooms/${code}/cmd`, { cmds: [{ k: 'lendans', a }] }, at(4400))).json.error, JSON.stringify(a)).toBe('invalid_command');
+      const r = await pille.get(`/api/rooms/${code}/log?after=0`, at(5000));
+      expect(r.json.cmds.slice(1).map((c: Json) => [c.k, c.s, c.a])).toEqual([
+        ['lend', 1, ['i3', 'u12']],
+        ['lendans', 1, [4, 1]],
+      ]);
+    });
+
+    it('keeps desks out of the other modes', async () => {
+      const race = (await pille.post('/api/rooms', { ...OPTS, mode: 'race' }, at(10_000))).json.room;
+      expect(race.options.desks).toBeUndefined();
+      expect(race.players[0].desk).toBeUndefined();
+      expect(JSON.parse(sql(`SELECT desks FROM rooms WHERE code = '${race.code}'`))).toEqual([['']]);
+      expect((await pille.post(`/api/rooms/${race.code}/desk`, { desk: 'pohja-kesklinn' }, at(10_100))).json.error).toBe('not_coop');
+      const role = (await pille.post('/api/rooms', { ...OPTS, mode: 'role' }, at(10_200))).json.room;
+      expect(role.options.desks).toBeUndefined();
+      expect((await pille.post(`/api/rooms/${role.code}/desk`, { desk: 'pohja-kesklinn' }, at(10_300))).json.error).toBe('not_sector');
     });
   });
 

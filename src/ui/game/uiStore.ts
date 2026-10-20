@@ -67,6 +67,10 @@ interface GameUi {
   queueFilter: QueueFilter;
   queueCursor: string | null;
   showClosed: boolean;
+  /** Sector co-op: the neighbouring desks' events open in the queue. */
+  showNeighbours: boolean;
+  /** Sector co-op: the neighbouring desks' crews on the unit board. */
+  showNeighbourUnits: boolean;
   radioFilter: RadioFilter;
   dockOpen: boolean;
   drawerOpen: boolean;
@@ -92,6 +96,8 @@ export const useGameUi = create<GameUi>()((set, get) => ({
   queueFilter: 'all',
   queueCursor: null,
   showClosed: false,
+  showNeighbours: true,
+  showNeighbourUnits: false,
   radioFilter: 'all',
   dockOpen: true,
   drawerOpen: false,

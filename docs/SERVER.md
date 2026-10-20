@@ -122,15 +122,16 @@ Errors: `{ "error": "<code>", "message": "<Estonian text>" }` with a fitting sta
 | POST | /api/daily | `{ day, regionId, sector, score, grade, incidents, arrests, started? }` | `{ ok: true, counted, rank, players }` (logged-in users only; the first run of the day counts) |
 | GET | /api/daily?day=YYYY-MM-DD | | `{ day, players, scores: [{ name, score, grade, incidents, at, rank }], me: { ...row, rank } \| null }` top 50 of the day |
 | GET | /api/rooms | | `{ room \| null }` the caller's open room (lobby or running) |
-| POST | /api/rooms | `{ mode, regionId, sector, difficulty, hours, slot }` | `{ room }` new room, the caller is host |
+| POST | /api/rooms | `{ mode, regionId, sector, desks?, difficulty, hours, slot }` | `{ room }` new room, the caller is host (`desks` for mode `sector`) |
 | POST | /api/rooms/join | `{ code }` | `{ room }`; 404 unknown code, 409 `room_full` / `room_started`, 429 too many wrong codes |
 | GET | /api/rooms/{code}?v= | | `{ v, room }`, or `{ v, unchanged: true }` while `v` still matches (members only, else 404) |
-| PUT | /api/rooms/{code} | `{ regionId, sector, difficulty, hours, slot }` | `{ room }` (host, lobby) |
+| PUT | /api/rooms/{code} | `{ regionId, sector, desks?, difficulty, hours, slot }` | `{ room }` (host, lobby) |
 | POST | /api/rooms/{code}/ready | `{ ready }` | `{ room }` |
 | POST | /api/rooms/{code}/start | | `{ room }` (host; at least 2 players, all ready) |
 | POST | /api/rooms/{code}/leave | | `{ ok: true }` |
 | POST | /api/rooms/{code}/result | `{ score, grade, incidents, arrests, xp? }` | `{ ok: true, counted, rank, room }` (the first result counts) |
 | POST | /api/rooms/{code}/role | `{ role }` | `{ room }` (co-op lobby: `calls`, `dispatch` or `radio`) |
+| POST | /api/rooms/{code}/desk | `{ desk }` | `{ room }` (sector room's lobby: one of the room's desks) |
 | POST | /api/rooms/{code}/cmd | `{ cmds: [{ k, a }] }` | `{ ok: true, turn, ids }` (running co-op room; at most 20 commands, 4 kB) |
 | GET | /api/rooms/{code}/log?after=&h=&ack= | | `{ state, turn, now, started, turnMs, delay, seat, host, isHost, resync, snapReq, snap, more, cmds: [{ id, t, s, k, a }] }` |
 | PUT | /api/rooms/{code}/snapshot?turn=&cmd= | gzip bytes | `{ ok: true, turn, cmd, size }` (host; at most 2 MB) |
@@ -312,9 +313,11 @@ docs/MULTIPLAYER.md):
 - Codes: 6 characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`; routes take them in any case (`/api/rooms/k7m2qx`),
   `join` also accepts spaces and dashes. Unknown, closed or malformed codes count against the IP: 30 in 10
   minutes, then 429 `rate_limited` (`rate_events`, bucket `room_miss`).
-- `POST /api/rooms`: `mode` `race` (default) or `role` (role co-op; `sector` answers 400 `mode_unavailable`),
+- `POST /api/rooms`: `mode` `race` (default), `role` (role co-op) or `sector` (sector co-op),
   `regionId`, `sector` (`''` for the whole prefecture, else `<regionId>-<name>`), `difficulty`, `hours` (2, 3, 4
-  or 6, an integer), `slot` (`morning | afternoon | evening | night`); invalid fields give 400 `invalid_room` with
+  or 6, an integer), `slot` (`morning | afternoon | evening | night`); a `sector` room also needs `desks`: a list
+  of 2 to 4 distinct sector ids of the prefecture (`<regionId>-<name>`; that they neighbour each other is the
+  client's check), and its `sector` becomes the first desk. Invalid fields give 400 `invalid_room` with
   `field`. 20 new rooms per IP and hour (`room_create`), else 429. The server draws the seed and the code.
 - A player is in one open room (`lobby` or `running`) at a time: creating or joining another leaves the others.
   Joining a room one is already in (also after leaving a running one) is coming back, not a second seat. A full
@@ -322,7 +325,9 @@ docs/MULTIPLAYER.md):
 - The room (`room`): `{ code, mode, state, v, host, me, max, options: { regionId, sector, difficulty, hours, slot },
   seed, day, created, started, players: [{ id, name, seat, host, ready, online, left, done, role }], results: [{
   id, name, score, grade, incidents, arrests, xp, at, rank }] }`. `role` is the co-op desk the player picked, or
-  the seat's default (`dispatch`, `calls`, `radio`, `dispatch` for seats 0 to 3). `seed` and `day` (the start day in Tallinn) are `null`
+  the seat's default (`dispatch`, `calls`, `radio`, `dispatch` for seats 0 to 3). A `sector` room adds
+  `options.desks` and each player's `desk`: the one they picked if the room still has it, else
+  `desks[seat % desks.length]`. `seed` and `day` (the start day in Tallinn) are `null`
   until the start. `host` and `me` are account ids. `rank` is 1 + the number of strictly higher scores.
 - `v` = `<revision>.<online seat mask>`. The revision grows on every change; `online` = polled within 20 s. A
   poll writes the caller's `seen` at most every 5 s. With `?v=` equal to the current tag the answer is
@@ -348,10 +353,12 @@ docs/MULTIPLAYER.md):
 Co-op rooms, Ühisvahetus (`server/lib/coop.php`, client `src/net/coop.ts`, `src/store/coop.ts`, `src/sim/coop.ts`;
 design and protocol in docs/MULTIPLAYER.md section 4):
 
-- Mode `role`. `POST /api/rooms/{code}/role` `{ role }` (`calls | dispatch | radio`, else 400 `invalid_room`
-  `field: role`) in the lobby only (409 `room_started`); a race room answers 409 `not_coop` on every co-op route.
+- Modes `role` and `sector`. `POST /api/rooms/{code}/role` `{ role }` (`calls | dispatch | radio`, else 400
+  `invalid_room` `field: role`) in the lobby only (409 `room_started`); a race room answers 409 `not_coop` on every
+  co-op route. `POST /api/rooms/{code}/desk` `{ desk }`: one of a sector room's desks (else 400 `invalid_room`
+  `field: desk`), lobby only (409 `room_started`), 409 `not_sector` in a role room.
 - `start` writes the log's first command at turn 0: `{ k: 'setup', s: -1, a: [hostSeat, [[seat, role, name],
-  ...]] }`.
+  ...]] }`; in a sector room the rows are `[seat, desk, name]`.
 - The clock: turn = `floor((now - started) / turn_ms)`, `turn_ms` 1000. A command posted at turn T is stamped
   `T + input_delay` (2). Ids grow; within a turn commands apply in id order. Seat -1 is the server's own commands
   (`setup`, `left`, `back`, `host`); players cannot post those kinds.
@@ -360,7 +367,8 @@ design and protocol in docs/MULTIPLAYER.md section 4):
   `prio [id, 1..4]`, `send [id, [id x 1..12]]`, `recall [id]`, `close [id, word, word?]`, `agency [id, word]`,
   `pursuit [id, word]`, `reply [id, word]`, `break [id, 0|1]`, `check [id, ref, ref]`, `answer [id]`, `ask [id,
   word]`, `interp [id]`, `endcall [id, word, 0..4, word or '']`, `q [word, text <= 64]`, `ping [text <= 140]`,
-  `speed [0..4]`, `end []`. Ids match `[A-Za-z0-9_-]{1,40}`, words `[a-z_]{1,24}`, refs are a person id or a
+  `speed [0..4]`, `end []`, and for sector rooms `lend [id, id]` (an incident and a crew) and `lendans [1..1000000,
+  0|1]` (a lend request's id and the answer). Ids match `[A-Za-z0-9_-]{1,40}`, words `[a-z_]{1,24}`, refs are a person id or a
   plate (letters, digits, space, `_.-`, at most 40), texts have no control characters. `speed` and `end` are the
   host's (403 `not_host`). The meaning and the role permissions are checked by every client's sim, identically.
   Batches per player: a bucket of 4, refilled at 2 a second (429 `rate_limited`, `Retry-After: 1`). At most
@@ -386,7 +394,8 @@ design and protocol in docs/MULTIPLAYER.md section 4):
 - `result` takes an optional `xp` (0 to 100 000): every co-op player sends the team's result with their own XP.
 - Tables (schema step 5, additive): `room_commands` (index `(room_id, id)`), `room_snapshots`; columns `rooms.turn_ms`,
   `input_delay`, `host_seat`, `cmd_count`, `ref_hashes`, `snap_req`; `room_players.role`, `away`, `hash_turn`,
-  `hash`, `resync`, `cmd_tokens`, `cmd_at`; `room_results.xp`. Every new column has a default.
+  `hash`, `resync`, `cmd_tokens`, `cmd_at`; `room_results.xp`. Every new column has a default. Schema step 6
+  (additive): `rooms.desks` (a sector room's desks, comma separated, `''` otherwise) and `room_players.desk`.
 
 Speech (`POST /api/tts`, `server/lib/tts.php`):
 

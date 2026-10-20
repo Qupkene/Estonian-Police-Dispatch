@@ -6,7 +6,8 @@ import { coopIssue, useCoop, type CoopStatus } from '@/store/coop';
 import { rolesOf, type CoopRole } from '@/sim/coop';
 import { displayRoomCode } from '@/sim/room';
 import { hhmm } from '@/sim/time';
-import { useT } from '@/i18n';
+import { useT, useTx } from '@/i18n';
+import { deskName, LendRequests } from './DeskParts';
 import { Icon, IconButton } from '@/ui/components';
 
 const STATUS_TONE: Record<CoopStatus, 'ok' | 'warn' | 'danger' | 'info'> = {
@@ -25,6 +26,7 @@ const QUICK = ['coop.quick.mine', 'coop.quick.help', 'coop.quick.check'];
 
 export function CoopPanel() {
   const t = useT();
+  const tx = useTx();
   useGame((g) => g.tick);
   const sim = useGame((g) => g.sim);
   const seat = useCoop((s) => s.seat);
@@ -90,6 +92,8 @@ export function CoopPanel() {
       </header>
       {open && (
         <>
+          {/* First, so an open request is never pushed below the fold or under the 112 card. */}
+          {sim && <LendRequests sim={sim} />}
           <ul className="gm-coop__seats" data-testid="coop-seats">
             {c.seats.map((x) => {
               const roles = rolesOf(c, x.seat);
@@ -106,18 +110,26 @@ export function CoopPanel() {
                     {x.seat === seat && <span className="gm-coop__you"> ({t('rooms.badge.you')})</span>}
                     {x.seat === c.host && <span className="gm-coop__host">{t('rooms.badge.host')}</span>}
                   </span>
-                  <span className="gm-coop__roles">
-                    {x.present
-                      ? roles.length
-                        ? roles.map((r: CoopRole) => t(`coop.role.${r}.short`)).join(' + ')
-                        : t(`coop.role.${x.role}.short`)
-                      : t('coop.seat.away')}
+                  <span className="gm-coop__roles" data-testid="coop-seat-desk">
+                    {c.mode === 'sector'
+                      ? x.present
+                        ? tx(deskName(x.desk ?? ''))
+                        : t('coop.seat.away')
+                      : x.present
+                        ? roles.length
+                          ? roles.map((r: CoopRole) => t(`coop.role.${r}.short`)).join(' + ')
+                          : t(`coop.role.${x.role}.short`)
+                        : t('coop.seat.away')}
                   </span>
-                  {st && (
+                  {st && c.mode === 'sector' ? (
+                    <span className="gm-coop__counts mono" title={t('desk.seat.countsTitle')}>
+                      {st.calls}/{st.sent}/{st.lent ?? 0}
+                    </span>
+                  ) : st ? (
                     <span className="gm-coop__counts mono" title={t('coop.seat.countsTitle')}>
                       {st.calls}/{st.sent}/{st.radio}
                     </span>
-                  )}
+                  ) : null}
                 </li>
               );
             })}

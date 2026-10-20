@@ -20,17 +20,19 @@ export const ROOM_HOURS = [2, 3, 4, 6] as const;
 export const ROOM_SLOTS: RoomSlot[] = ['morning', 'afternoon', 'evening', 'night'];
 export const ROOM_DIFFICULTIES: Difficulty[] = ['cadet', 'normal', 'veteran', 'realistic'];
 export const ROOM_MAX_PLAYERS = 4;
-/** Modes a room can be created with today: the competition and role co-op (sector co-op comes later). */
-export const OPEN_ROOM_MODES: RoomMode[] = ['race', 'role'];
+/** Modes a room can be created with: the competition, role co-op and sector co-op. */
+export const OPEN_ROOM_MODES: RoomMode[] = ['race', 'role', 'sector'];
 /** Modes that share one shift over the room's command log (src/sim/coop.ts). */
-export const COOP_ROOM_MODES: RoomMode[] = ['role'];
+export const COOP_ROOM_MODES: RoomMode[] = ['role', 'sector'];
 export const isCoopMode = (mode: RoomMode): boolean => COOP_ROOM_MODES.includes(mode);
 
 /** What the host chooses in the lobby. */
 export interface RoomOptions {
   regionId: RegionId;
-  /** A sector of the prefecture, or '' for the whole prefecture. */
+  /** A sector of the prefecture, or '' for the whole prefecture. Sector co-op: the first desk. */
   sector: string;
+  /** Sector co-op: the desks, two to four neighbouring sectors (src/sim/desks.ts validDesks). Empty otherwise. */
+  desks?: string[];
   difficulty: Difficulty;
   hours: number;
   slot: RoomSlot;
@@ -47,6 +49,8 @@ export const DEFAULT_ROOM_OPTIONS: RoomOptions = {
 /** The started room's shift: the options plus what the server decided at the start. */
 export interface RoomShift {
   code: string;
+  /** The room's mode (a sector room covers its desks). Missing: read from the options. */
+  mode?: RoomMode;
   seed: number;
   /** 'YYYY-MM-DD', the room's start day in Tallinn. */
   day: string;
@@ -72,9 +76,16 @@ export function roomShiftOptions(shift: RoomShift, playerName: string): NewShift
     start: roomStart(shift),
     hours: o.hours,
     playerName,
-    ...(o.sector ? { sectors: [o.sector] } : {}),
+    // A sector room covers every desk; the others one sector or the whole prefecture.
+    ...(roomDesks(shift).length ? { sectors: roomDesks(shift) } : o.sector ? { sectors: [o.sector] } : {}),
     fixedSchedule: true,
   };
+}
+
+/** The desks of a sector room's shift ([] for the other modes). */
+export function roomDesks(shift: Pick<RoomShift, 'mode' | 'options'>): string[] {
+  if (shift.mode && shift.mode !== 'sector') return [];
+  return shift.options.desks && shift.options.desks.length >= 2 ? [...shift.options.desks] : [];
 }
 
 /** sim.flags key of a room run: the room's code. */

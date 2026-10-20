@@ -6,7 +6,7 @@
  */
 import * as C from '@/sim/commands';
 import { emitPlayerResolved, useGame } from '@/store/game';
-import { coopIssue, onOwnResult } from '@/store/coop';
+import { coopIssue, deskCan, onOwnResult } from '@/store/coop';
 import { openUnitAsks, resolvedSince } from '@/audio/radioSpeech';
 import type { Agency, CallQuestionId, Priority, SimState, Text } from '@/sim/types';
 import { activeBackup, bestFor, selQueue, selRecs, type QuerySubject } from './data';
@@ -46,6 +46,8 @@ onOwnResult((cmd, r) => {
     if (r.ok && r.reason) ui.pushToast({ kind: 'ok', title: 'coop.toast.sentNote', text: r.reason, incidentId: id });
   } else if (r.denied) {
     ui.pushToast({ kind: 'error', title: 'coop.toast.denied', text: r.reason });
+  } else if ((cmd.k === 'lend' || cmd.k === 'lendans') && !r.ok && r.reason) {
+    ui.pushToast({ kind: 'error', title: 'game.inc.dispatchFailed', text: r.reason });
   }
   useGame.getState().bump();
 });
@@ -61,10 +63,11 @@ export function acknowledgeNext(): string | undefined {
   const s = g.sim;
   if (!s) return undefined;
   const sel = g.selection.incidentId ? s.incidents[g.selection.incidentId] : undefined;
-  let target = sel && sel.state === 'incoming' ? sel : undefined;
+  // Sector co-op: only this desk's events (src/sim/desks.ts).
+  let target = sel && sel.state === 'incoming' && deskCan(s, { incident: sel }) ? sel : undefined;
   if (!target) {
     const incoming = selQueue(s)
-      .filter((i) => i.state === 'incoming')
+      .filter((i) => i.state === 'incoming' && deskCan(s, { incident: i }))
       .sort((a, b) => a.createdAt - b.createdAt);
     target = incoming[0];
   }
@@ -161,6 +164,18 @@ export function setUnitBreak(unitId: string, onBreak: boolean) {
 export function pursuitAction(incidentId: string, a: 'terminate' | 'heli' | 'spikes') {
   if (coopIssue('pursuit', [incidentId, a])) return;
   run((s) => C.pursuitAction(s, incidentId, a));
+}
+
+// ── Sector co-op: lending a crew across a border (src/sim/desks.ts) ─────────
+
+/** Ask a neighbour for their crew on one of this desk's incidents, or offer this desk's crew to a neighbour's. */
+export function requestLend(incidentId: string, unitId: string) {
+  coopIssue('lend', [incidentId, unitId]);
+}
+
+/** Answer a lend request that reached this desk. */
+export function answerLend(requestId: number, yes: boolean) {
+  coopIssue('lendans', [requestId, yes ? 1 : 0]);
 }
 
 // ── 112 calls (the call-taker's card) ────────────────────────────────────────

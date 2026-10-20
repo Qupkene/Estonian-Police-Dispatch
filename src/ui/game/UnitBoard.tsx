@@ -8,6 +8,8 @@ import { selectIncident, selectUnit } from './actions';
 import { selRecs, selRegion, soft } from './data';
 import { countdown, sortUnits, unitEtaMin, type UnitSortKey } from './format';
 import { StatusCode, StatusDot, UnitTypeIcon, useSim } from './bits';
+import { deskCan, useMyDesk } from '@/store/coop';
+import { useGameUi } from './uiStore';
 
 type StatusFilter = 'all' | 'free' | 'committed';
 
@@ -28,6 +30,9 @@ export function UnitBoard() {
   const [sort, setSort] = useState<{ key: UnitSortKey; dir: 1 | -1 }>({ key: 'status', dir: 1 });
   const [status, setStatus] = useState<StatusFilter>('all');
   const [type, setType] = useState<UnitType | 'all'>('all');
+  // Sector co-op: this desk's crews (and the shared on-call ones); the neighbours' on request, dimmed.
+  const desk = useMyDesk();
+  const showNeighbours = useGameUi((s) => s.showNeighbourUnits);
 
   const types = useMemo(() => {
     if (!sim) return [] as UnitType[];
@@ -36,7 +41,9 @@ export function UnitBoard() {
   }, [sim]);
 
   if (!sim) return null;
-  const all = sim.unitOrder.map((id) => sim.units[id]).filter((u): u is Unit => !!u && u.status !== 'offduty');
+  const all = sim.unitOrder
+    .map((id) => sim.units[id])
+    .filter((u): u is Unit => !!u && u.status !== 'offduty' && (desk === null || showNeighbours || deskCan(sim, { unit: u })));
   const free = all.filter((u) => u.status === 'available').length;
   const filtered = all.filter(
     (u) =>
@@ -59,6 +66,17 @@ export function UnitBoard() {
           </button>
         ))}
       </div>
+      {desk !== null && (
+        <button
+          type="button"
+          className={`gm-seg__btn gm-board__neigh${showNeighbours ? ' is-active' : ''}`}
+          aria-pressed={showNeighbours}
+          title={t('desk.board.neighboursTitle')}
+          onClick={() => useGameUi.getState().set({ showNeighbourUnits: !showNeighbours })}
+        >
+          {t('desk.board.neighbours')}
+        </button>
+      )}
       <select className="gm-board__type" value={type} onChange={(e) => setType(e.target.value as UnitType | 'all')} aria-label={t('game.board.type')}>
         <option value="all">{t('game.board.allTypes')}</option>
         {types.map((ty) => (
@@ -97,7 +115,14 @@ export function UnitBoard() {
             </tr>
           )}
           {rows.map((u) => (
-            <BoardRow key={u.id} sim={sim} u={u} selected={u.id === selectedUnit} recommended={recIds.has(u.id)} />
+            <BoardRow
+              key={u.id}
+              sim={sim}
+              u={u}
+              selected={u.id === selectedUnit}
+              recommended={recIds.has(u.id)}
+              dim={desk !== null && !deskCan(sim, { unit: u })}
+            />
           ))}
         </tbody>
       </table>
@@ -105,7 +130,7 @@ export function UnitBoard() {
   );
 }
 
-function BoardRow({ sim, u, selected, recommended }: { sim: SimState; u: Unit; selected: boolean; recommended: boolean }) {
+function BoardRow({ sim, u, selected, recommended, dim }: { sim: SimState; u: Unit; selected: boolean; recommended: boolean; dim?: boolean }) {
   const t = useT();
   const tx = useTx();
   const inc = u.incidentId ? sim.incidents[u.incidentId] : undefined;
@@ -145,7 +170,7 @@ function BoardRow({ sim, u, selected, recommended }: { sim: SimState; u: Unit; s
   }
   return (
     <tr
-      className={`gm-row gm-row--${u.status}${selected ? ' is-selected' : ''}${recommended ? ' is-rec' : ''}`}
+      className={`gm-row gm-row--${u.status}${selected ? ' is-selected' : ''}${recommended ? ' is-rec' : ''}${dim ? ' is-dim' : ''}`}
       onClick={() => selectUnit(u.id)}
       onDoubleClick={() => selectUnit(u.id, { focus: true })}
     >

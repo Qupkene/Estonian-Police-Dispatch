@@ -18,8 +18,8 @@ declare(strict_types=1);
 /** Roles of role co-op, and the default role of each seat (src/sim/coop.ts DEFAULT_ROLES). */
 const EPD_COOP_ROLES = ['calls', 'dispatch', 'radio'];
 const EPD_COOP_DEFAULT_ROLES = ['dispatch', 'calls', 'radio', 'dispatch'];
-/** Room modes that run a shared shift over the log. */
-const EPD_COOP_MODES = ['role'];
+/** Room modes that run a shared shift over the log: role co-op and sector co-op. */
+const EPD_COOP_MODES = ['role', 'sector'];
 /** Seat of the commands the server itself sequences. */
 const EPD_COOP_SERVER_SEAT = -1;
 /** At most this many commands per batch, and this many bytes per batch body. */
@@ -49,8 +49,8 @@ const EPD_COOP_HOST_KINDS = ['speed', 'end'];
  * the permissions; the server only lets well-formed, small commands into the log.
  *
  * id: a game id (i12, u3, c4, r40); ids: up to 12 of them; word: a lower-case keyword; word?: the same or '';
- * ref: a person id or a plate, or ''; prio: 1..4; prio0: 0..4; bit: 0 or 1; speed: 0..4; text64 and text140:
- * plain text of at most that many characters.
+ * ref: a person id or a plate, or ''; prio: 1..4; prio0: 0..4; bit: 0 or 1; speed: 0..4; num: a positive whole
+ * number (a lend request's id); text64 and text140: plain text of at most that many characters.
  */
 const EPD_COOP_KINDS = [
     'ack' => ['id'],
@@ -71,6 +71,9 @@ const EPD_COOP_KINDS = [
     'ping' => ['text140'],
     'speed' => ['speed'],
     'end' => [],
+    // Sector co-op: lend a crew across a border [incident, unit], and the other desk's answer [request, yes].
+    'lend' => ['id', 'id'],
+    'lendans' => ['num', 'bit'],
 ];
 
 function epd_coop_is_coop(array $room): bool
@@ -92,6 +95,20 @@ function epd_coop_role_of(array $player): string
     return in_array($role, EPD_COOP_ROLES, true) ? $role : EPD_COOP_DEFAULT_ROLES[((int) $player['seat']) % 4];
 }
 
+/**
+ * A player's desk in a sector room: the one they picked if the room still has it, else their seat's default (the
+ * seats spread over the desks in order, src/sim/desks.ts defaultDesk). '' in the other modes.
+ */
+function epd_coop_desk_of(array $room, array $player): string
+{
+    $desks = epd_room_desks($room);
+    if ((string) $room['mode'] !== 'sector' || $desks === []) {
+        return '';
+    }
+    $desk = (string) ($player['desk'] ?? '');
+    return in_array($desk, $desks, true) ? $desk : $desks[((int) $player['seat']) % count($desks)];
+}
+
 /** Append one command to the log; returns its id. */
 function epd_coop_append(PDO $db, int $roomId, int $seat, ?int $userId, int $turn, string $kind, string $args, int $now): int
 {
@@ -110,7 +127,8 @@ function epd_coop_system(PDO $db, array $room, string $kind, array $args, int $n
 }
 
 /**
- * The host starts a co-op room: the first command (turn 0) tells every client who sits where with which role.
+ * The host starts a co-op room: the first command (turn 0) tells every client who sits where with which role (role
+ * co-op) or at which desk (sector co-op: `[seat, desk, name]`).
  *
  * @param list<array<string, mixed>> $players players still in the room
  */
@@ -119,7 +137,7 @@ function epd_coop_setup(PDO $db, array $room, array $players, int $hostId, int $
     $rows = [];
     $hostSeat = 0;
     foreach ($players as $p) {
-        $rows[] = [(int) $p['seat'], epd_coop_role_of($p), (string) $p['name']];
+        $rows[] = [(int) $p['seat'], (string) $room['mode'] === 'sector' ? epd_coop_desk_of($room, $p) : epd_coop_role_of($p), (string) $p['name']];
         if ((int) $p['user_id'] === $hostId) {
             $hostSeat = (int) $p['seat'];
         }
@@ -263,6 +281,7 @@ function epd_coop_arg_ok(string $shape, mixed $v): bool
         'prio0' => is_int($v) && $v >= 0 && $v <= 4,
         'bit' => $v === 0 || $v === 1,
         'speed' => is_int($v) && $v >= 0 && $v <= 4,
+        'num' => is_int($v) && $v >= 1 && $v <= 1_000_000,
         'text64' => epd_coop_plain_text($v, 64) && trim($v) !== '',
         'text140' => epd_coop_plain_text($v, 140) && trim($v) !== '',
         default => false,
@@ -619,6 +638,37 @@ function epd_route_coop_role(string $code): ApiReply
         }
         if ((string) $member['role'] !== $role) {
             $db->prepare('UPDATE room_players SET role = ?, seen = ? WHERE room_id = ? AND user_id = ?')->execute([$role, $now, $room['id'], $userId]);
+            epd_room_bump($db, (int) $room['id'], $now);
+        }
+        return (string) $room['code'];
+    });
+    return epd_room_reply($db, $clean, $userId, $now);
+}
+
+/** POST /api/rooms/{code}/desk `{ desk }`: a player picks their desk in a sector room's lobby (one of the room's desks). */
+function epd_route_coop_desk(string $code): ApiReply
+{
+    $user = epd_require_user();
+    $userId = (int) $user['id'];
+    $desk = epd_json_body()['desk'] ?? null;
+    if (!is_string($desk) || preg_match('/^[a-z]+-[a-z0-9][a-z0-9-]{0,40}$/', $desk) !== 1) {
+        epd_room_invalid('desk');
+    }
+    $db = epd_db();
+    $now = epd_room_now_ms();
+    $clean = epd_room_tx($db, static function (PDO $db) use ($code, $userId, $desk, $now): string {
+        [$room, $member] = epd_coop_room_for_member($db, $code, $userId, $now);
+        if ((string) $room['mode'] !== 'sector') {
+            epd_fail(409, 'not_sector', 'Selles ruumis ei ole sektorite töölaudu.');
+        }
+        if ($room['state'] !== 'lobby') {
+            epd_fail(409, 'room_started', 'Selle ruumi vahetus on juba alanud.');
+        }
+        if (!in_array($desk, epd_room_desks($room), true)) {
+            epd_room_invalid('desk');
+        }
+        if ((string) $member['desk'] !== $desk) {
+            $db->prepare('UPDATE room_players SET desk = ?, seen = ? WHERE room_id = ? AND user_id = ?')->execute([$desk, $now, $room['id'], $userId]);
             epd_room_bump($db, (int) $room['id'], $now);
         }
         return (string) $room['code'];

@@ -5,7 +5,9 @@ import { hhmm } from '@/sim/time';
 import type { Officer, SimState, Unit } from '@/sim/types';
 import { STATUS_CODE } from '@/sim/types';
 import { dispatch, recallUnit, selectIncident, setUnitBreak } from './actions';
-import { useCan } from '@/store/coop';
+import { deskCan, useCan, useDeskCan, useMyDesk } from '@/store/coop';
+import { DeskNote } from './DeskParts';
+import { requestLend } from './actions';
 import { selRegion } from './data';
 import { countdown, unitEtaMin } from './format';
 import { Section, UnitTypeIcon, useMsg, useSim } from './bits';
@@ -84,10 +86,22 @@ function UnitDetail({ sim, u, selIncId }: { sim: SimState; u: Unit; selIncId?: s
   const err = selIncId ? useGameUi.getState().dispatchError[selIncId] : undefined;
   const onBreak = u.status === 'break';
   const canBreak = u.status === 'available' || onBreak;
-  // Co-op: crews are sent and recalled by the dispatcher, breaks given by the radio desk (src/sim/coop.ts).
-  const canDispatch = useCan('dispatch');
-  const canRadio = useCan('radio');
+  // Co-op: crews are sent and recalled by the dispatcher, breaks given by the radio desk (src/sim/coop.ts). Sector
+  // co-op: only the crew's own desk (src/sim/desks.ts); a crew lent to this desk's event can be recalled from it.
+  const ownDesk = useDeskCan({ unit: u });
+  const sectorRoom = useMyDesk() !== null;
+  const lentHere = sectorRoom && !!inc && deskCan(sim, { incident: inc });
+  const canDispatch = useCan('dispatch') && ownDesk;
+  const canRadio = useCan('radio') && ownDesk;
   const alreadyThere = selInc ? selInc.assigned.includes(u.id) : false;
+  // Across a border: ask for a neighbour's free crew on this desk's event, or offer this desk's crew to a neighbour's.
+  const selOwn = !!selInc && deskCan(sim, { incident: selInc });
+  const lend =
+    sectorRoom && selInc && selInc.state !== 'closed' && u.status === 'available' && !u.incidentId && !u.onCall && ownDesk !== selOwn
+      ? ownDesk
+        ? 'offer'
+        : 'ask'
+      : null;
 
   let task: string;
   if (u.move) task = t(`game.move.${u.move.purpose}`);
@@ -152,17 +166,24 @@ function UnitDetail({ sim, u, selIncId }: { sim: SimState; u: Unit; selIncId?: s
         )}
       </Section>
 
+      <DeskNote sim={sim} unit={u} />
       <div className="gm-unit__actions">
-        <Button
-          variant="primary"
-          icon="send"
-          disabled={!canDispatch || !selInc || alreadyThere || u.status === 'offduty'}
-          title={selInc ? undefined : t('game.unit.sendHint')}
-          onClick={() => selInc && dispatch(selInc.id, [u.id])}
-        >
-          {selInc ? t('game.unit.sendTo', { n: `${selInc.code} · ${selInc.number.split('-').pop()}` }) : t('game.inc.send')}
-        </Button>
-        {u.incidentId && canDispatch && (
+        {lend && selInc ? (
+          <Button variant="primary" icon="send" onClick={() => requestLend(selInc.id, u.id)} data-testid="unit-lend">
+            {t(lend === 'ask' ? 'desk.lend.ask' : 'desk.lend.offer')}: {selInc.code} · {selInc.number.split('-').pop()}
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            icon="send"
+            disabled={!canDispatch || !selInc || alreadyThere || u.status === 'offduty' || (sectorRoom && !selOwn)}
+            title={selInc ? undefined : t('game.unit.sendHint')}
+            onClick={() => selInc && dispatch(selInc.id, [u.id])}
+          >
+            {selInc ? t('game.unit.sendTo', { n: `${selInc.code} · ${selInc.number.split('-').pop()}` }) : t('game.inc.send')}
+          </Button>
+        )}
+        {u.incidentId && (canDispatch || lentHere) && (
           <Button size="sm" icon="x" onClick={() => recallUnit(u.id)}>
             {t('game.inc.recall')}
           </Button>

@@ -4,7 +4,8 @@ import { useLang, useT, useTx } from '@/i18n';
 import { Button, Empty, Icon, Kbd, PriorityChip, Tabs } from '@/ui/components';
 import type { Agency, Incident, SimState } from '@/sim/types';
 import { acknowledge, closeIncident, selectIncident, sendBackup } from './actions';
-import { useCan, usePending } from '@/store/coop';
+import { deskCan, useCan, useMyDesk, usePending } from '@/store/coop';
+import { deskName, NeighbourRows } from './DeskParts';
 import { activeBackup, recentClosed, selAgeMin, selPendingRadio, selQueue, selSlaMin } from './data';
 import { ageText, countdown, helpSectorId, matchesQueueFilter, slaTone, type QueueFilter } from './format';
 import { HelpTag, SourceTag, StatusDot, useSim } from './bits';
@@ -13,9 +14,9 @@ import { useGameUi } from './uiStore';
 
 export const AGENCIES: Agency[] = ['kiirabi', 'paaste', 'sotsiaal', 'kov', 'keskkonnaamet', 'transpordiamet', 'merepaaste', 'tolliamet', 'veterinaar', 'kapo'];
 
-/** The queue as currently filtered (shared with the hotkey hook for ↑/↓ navigation). */
+/** The queue as currently filtered (shared with the hotkey hook for ↑/↓ navigation). Sector co-op: this desk's. */
 export function visibleQueue(s: SimState, f: QueueFilter): Incident[] {
-  return selQueue(s).filter((i) => matchesQueueFilter(i, f));
+  return selQueue(s).filter((i) => matchesQueueFilter(i, f) && deskCan(s, { incident: i }));
 }
 
 export function useRejectItems(incidentId: string): MenuItem[] {
@@ -46,6 +47,7 @@ export function RejectMenu({ incidentId, className }: { incidentId: string; clas
 export function EventQueue() {
   const sim = useSim();
   const t = useT();
+  const tx = useTx();
   const filter = useGameUi((s) => s.queueFilter);
   const cursor = useGameUi((s) => s.queueCursor);
   const showClosed = useGameUi((s) => s.showClosed);
@@ -53,13 +55,17 @@ export function EventQueue() {
   const setUi = useGameUi((s) => s.set);
   const selectedId = useGame((s) => s.selection.incidentId);
   const listRef = useRef<HTMLDivElement>(null);
+  const desk = useMyDesk();
 
   useEffect(() => {
     if (focusN) listRef.current?.focus();
   }, [focusN]);
 
   if (!sim) return null;
-  const all = selQueue(sim);
+  // Sector co-op: this desk's own queue; the neighbours' events in their own section below (src/sim/desks.ts).
+  const queueAll = selQueue(sim);
+  const all = desk === null ? queueAll : queueAll.filter((i) => deskCan(sim, { incident: i }));
+  const neighbours = desk === null ? [] : queueAll.filter((i) => !deskCan(sim, { incident: i }));
   const list = all.filter((i) => matchesQueueFilter(i, filter));
   const counts: Record<QueueFilter, number> = {
     all: all.length,
@@ -82,6 +88,12 @@ export function EventQueue() {
           <Icon name="close" size={14} />
         </button>
       </header>
+      {desk !== null && (
+        <div className={`gm-queue__desk${desk ? '' : ' is-away'}`} data-testid="my-desk">
+          <Icon name="users" size={12} />
+          <span>{desk ? t('desk.queue.mine', { desk: tx(deskName(desk)) }) : t('desk.queue.away')}</span>
+        </div>
+      )}
       <Tabs<QueueFilter>
         className="gm-queue__tabs"
         value={filter}
@@ -116,6 +128,7 @@ export function EventQueue() {
             pendingCount={pending.filter((m) => m.incidentId === inc.id).length}
           />
         ))}
+        <NeighbourRows sim={sim} list={neighbours} />
         {closedCount > 0 && (
           <div className="gm-closed">
             <button type="button" className="gm-closed__toggle" onClick={() => setUi({ showClosed: !showClosed })}>
@@ -190,6 +203,7 @@ function QueueCard({ sim, inc, selected, cursor, pendingCount }: { sim: SimState
       ref={ref}
       className={cls}
       role="option"
+      data-incident={inc.id}
       aria-selected={selected}
       tabIndex={-1}
       onClick={() => {

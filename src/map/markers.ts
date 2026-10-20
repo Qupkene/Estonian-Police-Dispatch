@@ -32,6 +32,8 @@ export interface MarkerContext {
   selectedIncidentId?: string;
   highlight: Set<string>;
   offsets: Map<string, [number, number]>;
+  /** Sector co-op: a neighbouring desk's unit or incident, drawn dimmed. */
+  dimmed?: (kind: 'unit' | 'incident', id: string) => boolean;
 }
 
 export interface MarkerHandlers {
@@ -140,12 +142,13 @@ export class UnitMarkers {
       const sel = id === c.selectedUnitId;
       const hl = c.highlight.has(id);
       const atSelected = !!c.selectedIncidentId && u.incidentId === c.selectedIncidentId;
+      const dim = !!c.dimmed?.('unit', id) && !sel;
 
       if (rec.type !== u.type) {
         rec.type = u.type;
         rec.glyph.innerHTML = UNIT_GLYPHS[u.type] ?? UNIT_GLYPHS.patrol;
       }
-      const key = `${u.status}|${siren}|${moving}|${sel}|${hl}|${atSelected}|${u.callsign}|${c.lang}`;
+      const key = `${u.status}|${siren}|${moving}|${sel}|${hl}|${atSelected}|${u.callsign}|${c.lang}|${dim}`;
       if (key !== rec.key) {
         rec.key = key;
         rec.inner.className =
@@ -154,7 +157,8 @@ export class UnitMarkers {
           (siren ? ' is-siren' : '') +
           (sel ? ' is-sel' : '') +
           (hl ? ' is-hl' : '') +
-          (atSelected ? ' is-assigned' : '');
+          (atSelected ? ' is-assigned' : '') +
+          (dim ? ' is-dim' : '');
         rec.label.textContent = u.callsign;
         const status = t(`map.status.${u.status}`, c.lang);
         rec.root.setAttribute('aria-label', `${u.callsign} · ${status}`);
@@ -300,14 +304,16 @@ export class IncidentMarkers {
       const sel = id === c.selectedIncidentId;
       const backup = !closed && needsBackup(inc);
       const pursuit = !!inc.pursuit && !inc.pursuit.ended && !closed;
-      const key = `${inc.priority}|${inc.state}|${sel}|${backup}|${pursuit}|${inc.code}|${c.lang}|${inc.escalated ?? false}`;
+      const dim = !!c.dimmed?.('incident', id) && !sel;
+      const key = `${inc.priority}|${inc.state}|${sel}|${backup}|${pursuit}|${inc.code}|${c.lang}|${inc.escalated ?? false}|${dim}`;
       if (key !== rec.key && rec.removeAt === undefined) {
         rec.key = key;
         rec.inner.className =
           `epdm-inc epdm-p${inc.priority} epdm-is-${inc.state}` +
           (sel ? ' is-sel' : '') +
           (backup ? ' is-backup' : '') +
-          (pursuit ? ' is-pursuit' : '');
+          (pursuit ? ' is-pursuit' : '') +
+          (dim ? ' is-dim' : '');
         rec.code.textContent = inc.code;
         const title = inc.title?.[c.lang] || inc.title?.et || inc.code;
         const state = t(`map.incState.${inc.state}`, c.lang);

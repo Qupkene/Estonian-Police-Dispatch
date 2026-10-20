@@ -9,7 +9,7 @@ import { sectorById } from '@/sim/sectors';
 import type { Incident, RadioMsg, SimState, SpeakerLang, Text, UnitStatus, UnitType, Weather } from '@/sim/types';
 import { STATUS_CODE } from '@/sim/types';
 import { checkRecord, replyRadio } from './actions';
-import { useCan, useCoopNames } from '@/store/coop';
+import { useCan, useCoopNames, useDeskCan } from '@/store/coop';
 import type { CoopRole } from '@/sim/coop';
 import { answeredReply, querySubject } from './data';
 import { countdown, helpSectorId } from './format';
@@ -164,8 +164,9 @@ export function useMsg(): (v: Text | string | undefined) => string {
 export function RadioReplies({ msg, sim, compact }: { msg: RadioMsg; sim: SimState; compact?: boolean }) {
   const t = useT();
   const tx = useTx();
-  // Co-op: the radio desk answers (src/sim/coop.ts); the other desks see the countdown only.
-  const canReply = useCan('radio');
+  // Co-op: the radio desk answers (src/sim/coop.ts); the other desks see the countdown only. Sector co-op: the desk
+  // of the message's crew or incident (src/sim/desks.ts).
+  const canReply = useCan('radio') && useDeskCan({ msg });
   if (!msg.replies?.length) return null;
   if (msg.answered) {
     const r = answeredReply(msg);

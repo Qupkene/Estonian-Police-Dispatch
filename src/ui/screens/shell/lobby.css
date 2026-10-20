@@ -436,3 +436,82 @@
     display: none;
   }
 }
+
+/* Sector co-op: the host's desk choice (the prefecture's map and a toggle per sector) and the desks summary. */
+.vk-mp__field--desks {
+  align-items: start;
+}
+.vk-mp__desks {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.vk-mp__deskMap {
+  min-width: 0;
+}
+.vk-mp__deskMap--summary {
+  max-width: 260px;
+}
+.vk-mp__deskList {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: start;
+  gap: 6px;
+}
+.vk-mp__deskList .vk-mp__hint {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+}
+.vk-mp__desk {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border: 1px solid var(--vk-line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vk-text-1);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.vk-mp__desk:hover:not(:disabled) {
+  border-color: var(--vk-text-3);
+  background: var(--vk-panel-2);
+}
+.vk-mp__desk.is-on {
+  border-color: var(--vk-acc);
+  background: color-mix(in oklch, var(--vk-acc) 10%, transparent);
+  color: var(--vk-text-0);
+}
+.vk-mp__desk:disabled {
+  cursor: default;
+  color: var(--vk-text-3);
+}
+.vk-mp__desk.is-on:disabled {
+  color: var(--vk-text-1);
+}
+.vk-mp__check {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border: 1px solid var(--vk-text-3);
+  border-radius: 2px;
+}
+.vk-mp__desk.is-on .vk-mp__check {
+  border-color: var(--vk-acc);
+  background: var(--vk-acc);
+  box-shadow: inset 0 0 0 2px var(--vk-panel);
+}
+.vk-mp__kvMap {
+  grid-column: 1 / -1;
+}
+@media (max-width: 560px) {
+  .vk-mp__desks {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .vk-mp__deskMap {
+    max-width: 240px;
+  }
+}

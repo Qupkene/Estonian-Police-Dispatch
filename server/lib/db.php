@@ -237,6 +237,12 @@ function epd_migrations(): array
             'ALTER TABLE room_players ADD COLUMN cmd_at INTEGER NOT NULL DEFAULT 0',
             'ALTER TABLE room_results ADD COLUMN xp INTEGER NOT NULL DEFAULT 0',
         ],
+        // Sektorite koostöö (coop.php, docs/MULTIPLAYER.md section 8): a sector room's desks (sector ids, comma
+        // separated) and the desk each player picked in the lobby.
+        6 => [
+            "ALTER TABLE rooms ADD COLUMN desks TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE room_players ADD COLUMN desk TEXT NOT NULL DEFAULT ''",
+        ],
     ];
 }
 

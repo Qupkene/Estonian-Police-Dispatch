@@ -142,8 +142,8 @@ test.describe.serial('role co-op', () => {
     // The host makes a Rollid room: the whole Põhja prefecture, 6 hours (the clock runs 60x in the test).
     await openRooms(host.page);
     const modes = host.page.getByRole('radiogroup', { name: 'Režiim' });
-    await expect(modes.getByRole('radio')).toHaveText([/Võistlus/, /Rollid/, /Sektorid.*Tulekul/]);
-    await expect(modes.getByRole('radio', { name: /Sektorid/ })).toBeDisabled();
+    await expect(modes.getByRole('radio')).toHaveText([/Võistlus/, /Rollid/, /Sektorid/]);
+    await expect(modes.getByRole('radio', { name: /Sektorid/ })).toBeEnabled();
     await modes.getByRole('radio', { name: /Rollid/ }).click();
     await host.page.getByLabel('Ala').selectOption('');
     await host.page.getByRole('radio', { name: '6 h' }).click();
@@ -184,6 +184,11 @@ test.describe.serial('role co-op', () => {
     await expect.poll(() => screen(guest.page), { timeout: 30_000 }).toBe('game');
     for (const p of [host.page, guest.page])
       await expect(p.getByTestId('coop-status')).toHaveText('Ühendatud', { timeout: 30_000 });
+    // "Ühendatud" can show a moment before the first turn (the setup) is played.
+    for (const p of [host.page, guest.page])
+      await expect
+        .poll(async () => (await coopSim(p))?.turn ?? -1, { timeout: 15_000 })
+        .toBeGreaterThanOrEqual(0);
     const a = await coopSim(host.page);
     const b = await coopSim(guest.page);
     expect({ ...a, turn: 0 }).toEqual({ ...b, turn: 0 });

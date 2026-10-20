@@ -2,6 +2,19 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.20.0 (2026-10-20)
+
+- **Mitmikmäng, sektorid:** ruumi looja valib prefektuuri ja 2 kuni 4 naabersektorit ning iga mängija võtab oma laua. Igal laual on oma 112 liin, oma väljakutsed ja oma ekipaažid. Naabrite sündmused ja üksused on kaardil tuhmilt näha.
+- **Ekipaaži laenamine:** küsi naabrilt vaba ekipaaži või paku oma, naaber annab või keeldub. Naabri väljakutsel aitamine läheb sinu arvele ja üle piiri läinud jälituse saab naabrile üle anda.
+- Tühja lauda või lahkunud mängija lauda hoiab AI kolleeg. Aruandes on laudade tabel, mis on kõigil sama, ja koostöö kogemuspunktid lähevad iga mängija karjääri üks kord.
+
+<details>
+<summary>English</summary>
+
+Multiplayer sector co-op: the host picks a prefecture and 2 to 4 neighbouring sectors, each player runs one desk with its own 112 line, calls and crews, neighbours shown dimmed. Lend or borrow free crews across a border, help a neighbour's call, hand over pursuits. An AI colleague runs empty or abandoned desks. The report shows a per-desk table identical for everyone; co-op XP once per career.
+
+</details>
+
 ## 2.19.0 (2026-10-20)
 
 - **Mitmikmäng, rollid:** kaks kuni neli mängijat töötavad ühes ja samas vahetuses. Üks on 112 kõnede vastuvõtja, teine saadab üksusi; kolmas võtab raadio ja registrid, neljas on teine dispetšer. Kõik näevad sama kaarti, aga igaühel on oma laua nupud. Mängu sees on meeskonna paneel ja lühisõnumid.
