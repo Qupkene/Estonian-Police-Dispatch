@@ -275,6 +275,7 @@ export default {
   'game.pursuit.heli': { et: 'Helikopter', en: 'Helicopter' },
   'game.pursuit.spikes': { et: 'Naelamatt', en: 'Spike strip' },
   'game.pursuit.heliOn': { et: 'Kopter õhus', en: 'Heli overhead' },
+  'game.pursuit.heliComing': { et: 'Kopter teel', en: 'Heli on its way' },
   'game.pursuit.spikesOn': { et: 'Naelamatt paigas', en: 'Spikes deployed' },
   'game.pursuit.spikesLocked': { et: 'Vaja on täiendust „Naelamatid“', en: 'Requires the "Spike strips" upgrade' },
   'game.pursuit.caught': { et: 'Peatatud', en: 'Stopped' },

@@ -536,6 +536,12 @@ function endPursuit(s: SimState, inc: Incident, how: NonNullable<PursuitState['e
   return true;
 }
 
+/** Is a helicopter overhead, alerted or on its way to this pursuit? (The button waits while it is.) */
+export function heliRequested(s: SimState, inc: Incident): boolean {
+  const p = inc.pursuit;
+  return !!p && (!!p.heli || fnum(s, key(inc, 'heliEta')) !== undefined || inc.assigned.some((id) => s.units[id]?.type === 'heli'));
+}
+
 export function pursuitCommand(s: SimState, inc: Incident, a: 'terminate' | 'heli' | 'spikes'): void {
   const p = inc.pursuit;
   if (!p || p.ended) return;
@@ -553,8 +559,12 @@ export function pursuitCommand(s: SimState, inc: Incident, a: 'terminate' | 'hel
   }
 
   if (a === 'heli') {
-    if (p.heli || fnum(s, key(inc, 'heliEta')) !== undefined || inc.assigned.some((id) => s.units[id]?.type === 'heli')) {
-      pushRadio(s, { from: 'JK', text: { et: 'Helikopter on juba teel.', en: 'The helicopter is already on its way.' }, level: 'routine', kind: 'system', incidentId: inc.id });
+    if (heliRequested(s, inc)) {
+      // Said once a pursuit: asking again (a second player, a double click) does not fill the radio.
+      if (!s.flags[key(inc, 'heliTold')]) {
+        s.flags[key(inc, 'heliTold')] = true;
+        pushRadio(s, { from: 'JK', text: { et: 'Helikopter on juba teel.', en: 'The helicopter is already on its way.' }, level: 'routine', kind: 'system', incidentId: inc.id });
+      }
       return;
     }
     // Only a helicopter that can actually take the job: free (or on a break that gets cut short),

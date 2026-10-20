@@ -1026,7 +1026,7 @@ export const TEMPLATES_PROPERTY: IncidentTemplate[] = [
     weight: 0.3,
     hours: 'day',
     months: [1, 2, 3, 4, 5, 9, 10, 11, 12],
-    places: ['summerhouse', 'village', 'lake'],
+    places: ['summerhouse', 'village'],
     units: { need: [u('patrol')], ideal: [u('criminal')] },
     onScene: [45, 120],
     persons: [

@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { Person, RadioMsg, SimState, Vehicle } from '@/sim/types';
 import { markChecked } from '@/sim/commands';
-import { coopIssue, deskCan, myRoles } from '@/store/coop';
+import { coopIssue } from '@/store/coop';
 import { hhmm } from '@/sim/time';
 import { useGame } from '@/store/game';
 import { useLang, useT, useTx } from '@/i18n';
@@ -99,9 +99,8 @@ export function RegistryPanel() {
     const ids = uncheckedLinks(s, ref);
     if (!ids.length) return;
     if (s.coop) {
-      // Co-op: the radio desk's checks go through the room (cosmetic for the others, so skipped).
-      if (myRoles(s)?.includes('radio'))
-        for (const id of ids) if (s.incidents[id] && deskCan(s, { incident: s.incidents[id] })) coopIssue('check', [id, ref.personId ?? '', ref.plate ?? '']);
+      // Co-op: every player's checks go through the room (registry work is anybody's, openToAll).
+      for (const id of ids) if (s.incidents[id]) coopIssue('check', [id, ref.personId ?? '', ref.plate ?? '']);
       return;
     }
     run((st) => ids.forEach((id) => markChecked(st, id, ref)));
