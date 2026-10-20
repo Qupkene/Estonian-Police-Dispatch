@@ -415,3 +415,37 @@ export const SECTORS: SectorDef[] = [
     colleague: { firstName: 'Kaire', lastName: 'Aavik', gender: 'F' },
   },
 ];
+
+/**
+ * The AI colleagues at the neighbouring desks on a sector shift (src/sim/colleagues.ts, docs/SECTORS.md).
+ * Rates are per game hour of a Poisson process on the shift's own colleague stream; none of it runs in the
+ * daily challenge, the tutorial, the director or on a shift that covers the whole prefecture.
+ */
+export const COLLEAGUES = {
+  /** Help requests (a call just across the border, tag help:<sectorId>) per game hour. */
+  helpPerHour: 0.18,
+  /** No help request in the first minutes of the shift, nor in its last ones. */
+  helpQuietStartMin: 30,
+  helpQuietEndMin: 30,
+  /** At most this many help requests a shift, and one open at a time. */
+  helpMax: 3,
+  /**
+   * A call for help lies in the colleague's sector but at most this far (km, straight line) from the player's
+   * nearest crew or station; when no address is that close the colleague does not ask.
+   */
+  helpMaxKm: 13,
+  /** The colleague takes the call back after this long when nobody is sent (game minutes). */
+  helpTimeoutMin: 14,
+  /** Template priorities a colleague asks help with (no P1: that goes to everyone on the radio). */
+  helpPriorities: [2, 3] as number[],
+  /** A pursuit that leaves the area: how long the colleague's hand-over offer waits for an answer (min). */
+  handoverOfferMin: 2,
+  /** Short lines on the radio from the neighbouring desks per game hour, at least `chatterGapMin` apart. */
+  chatterPerHour: 0.3,
+  chatterGapMin: 40,
+  chatterMax: 4,
+  /** Chance that a career night shift covers a small neighbouring sector too (öine katmine). */
+  nightCoverChance: 0.35,
+  /** Only a neighbour with at most this share of the prefecture's residents is covered at night. */
+  nightCoverMaxShare: 0.2,
+};

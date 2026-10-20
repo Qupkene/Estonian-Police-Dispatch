@@ -158,7 +158,7 @@ export function onStreet(street: string): Text {
   return { et: `${genitiveName(street)} piirkonnas`, en: `in the ${street} area` };
 }
 
-function nearestStreetName(s: SimState, p: LngLat, inc: Incident): string {
+export function nearestStreetName(s: SimState, p: LngLat, inc: Incident): string {
   const region = (() => {
     try {
       return regionOf(s);
@@ -502,8 +502,8 @@ function endPursuit(s: SimState, inc: Incident, how: NonNullable<PursuitState['e
       break;
   }
   addTimeline(s, inc, 'radio', {
-    et: `Jälitus lõppes: ${{ caught: 'kinni peetud', crashed: 'avarii', escaped: 'põgenes', terminated: 'lõpetati JK korraldusel' }[how]}.`,
-    en: `Pursuit ended: ${{ caught: 'caught', crashed: 'crashed', escaped: 'escaped', terminated: 'terminated by dispatch' }[how]}.`,
+    et: `Jälitus lõppes: ${{ caught: 'kinni peetud', crashed: 'avarii', escaped: 'põgenes', terminated: 'lõpetati JK korraldusel', handedOver: 'anti üle naabersektorile' }[how]}.`,
+    en: `Pursuit ended: ${{ caught: 'caught', crashed: 'crashed', escaped: 'escaped', terminated: 'terminated by dispatch', handedOver: 'handed over to the neighbouring sector' }[how]}.`,
   });
   emit(s, { type: 'pursuit_end', incidentId: inc.id, text: { et: 'Jälitus lõppes', en: 'Pursuit ended' } });
   // Close the pursuit beat and steer the outcome; then mark the end as handled so engine-core's

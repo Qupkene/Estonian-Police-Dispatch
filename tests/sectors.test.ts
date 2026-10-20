@@ -12,6 +12,7 @@ import { TEMPLATES } from '@/data/incidents';
 import { pickLocation } from '@/gen/address';
 import { newCareer, rosterFromCareer } from '@/sim/career';
 import { acknowledge, answerCall, dispatchUnits, endCall } from '@/sim/commands';
+import { helpSector } from '@/sim/colleagues';
 import { createShift, step } from '@/sim/engine';
 import { Rng } from '@/sim/rng';
 import { queue, recommendUnits } from '@/sim/selectors';
@@ -363,7 +364,12 @@ describe.skipIf(!ready)('calls only inside the area', () => {
       while (s.now < s.endTime) step(s, 5 * MIN);
       const incs = s.incidentOrder.map((id) => s.incidents[id]);
       expect(incs.length, sector).toBeGreaterThan(10);
-      for (const inc of incs) expect(inArea(s, REGIONS[regionId], inc.location), `${sector}: ${inc.location.address}`).toBe(true);
+      for (const inc of incs) {
+        // A neighbouring colleague's call for help lies just across the border, in their sector (src/sim/colleagues.ts).
+        const help = helpSector(inc);
+        if (help) expect(sectorOf(REGIONS[regionId], inc.location), `${sector}: ${inc.location.address}`).toBe(help);
+        else expect(inArea(s, REGIONS[regionId], inc.location), `${sector}: ${inc.location.address}`).toBe(true);
+      }
       // The spawner kept going (no template it could not place stalled it).
       expect(s.nextSpawnAt).toBeGreaterThan(s.endTime - 2 * 60 * MIN);
     }

@@ -612,6 +612,64 @@ export const RADIO: Record<string, Text[]> = {
     T('{callsign}: ümbruses kedagi pole.', '{callsign}: nobody around.'),
     T('{short}: tühi, vaba.', '{short}: empty, clear.'),
   ],
+  // ── Neighbouring desks (AI colleagues, src/sim/colleagues.ts) ─────────────
+  // {name}: the colleague ("Maarja Mägi"); the message comes from their desk ("JK VILJANDIMAA").
+  colleagueHelp: [
+    T('Siin {name}, vaba ekipaaži pole. {title}, {address}. Saate kellegi saata?', 'This is {name}, no crew free here. {title}, {address}. Can you send someone?'),
+    T('{name} naaberlauast. {title}, {address}, kohe teie piiri taga. Aitate?', '{name} at the next desk. {title}, {address}, just over your border. Can you help?'),
+    T('JK, {name}. Kõik minu ekipaažid on väljas. {title}, {address}. Aitate?', 'Control, {name}. All my crews are out. {title}, {address}. Can you help?'),
+    T('{name}: mul on auk sees. {title}, {address}. Kas teil on keegi lähedal?', '{name}: I have a gap. {title}, {address}. Anyone of yours nearby?'),
+    T('Siin {name}, vajan abi. {title}, {address}. Minu lähim ekipaaž on kaugel.', 'This is {name}, I need a hand. {title}, {address}. My nearest crew is far off.'),
+    T('{name} kõnetab. {title}, {address}. Teie ekipaaž jõuab sinna kiiremini.', '{name} here. {title}, {address}. Your crew gets there faster.'),
+  ],
+  colleagueHelpBack: [
+    T('Siin {name}. {address}: võtan tagasi, minu ekipaaž vabanes.', 'This is {name}. {address}: taking it back, a crew of mine is free.'),
+    T('{name}: selge, lahendame ise. {address} läheb minu ekipaažile.', '{name}: copy, we will handle it. {address} goes to my crew.'),
+    T('{name}: sain oma ekipaaži vabaks, {address} jääb mulle.', '{name}: got a crew of mine free, {address} stays with me.'),
+    T('{name}: {address} on minu oma, ekipaaž juba teel.', '{name}: {address} is mine again, a crew is on the way.'),
+  ],
+  colleagueHelpThanks: [
+    T('{name}: aitäh, et appi tulite.', '{name}: thanks for helping out.'),
+    T('Siin {name}. Tänan abi eest, jään võlgu.', 'This is {name}. Thanks for the help, I owe you one.'),
+    T('{name}: aitäh, kolleeg. Teie ekipaaž on kohal.', '{name}: thanks, colleague. Your crew is there.'),
+    T('{name}: tänan, see päästis mu vahetuse.', '{name}: thanks, that saved my shift.'),
+  ],
+  colleagueHandover: [
+    T('Siin {name}. Jälitus liigub minu sektorisse, {road}. Võtan üle?', 'This is {name}. The pursuit is entering my sector, {road}. Shall I take over?'),
+    T('{name}: näen teie jälitust {road}, minu ekipaaž on lähedal. Anname üle?', '{name}: I see your pursuit {road}, my crew is close. Hand it over?'),
+    T('JK, {name}. Jälitatav ületas sektori piiri, {road}. Võtan jälituse üle?', 'Control, {name}. The suspect crossed the sector border, {road}. Shall I take the pursuit?'),
+  ],
+  colleagueHandoverTaken: [
+    T('{name}: selge, võtan jälituse üle. Teie ekipaažid võivad tagasi tõmbuda.', '{name}: copy, taking over the pursuit. Your crews can pull back.'),
+    T('{name}: jälitus minu käes, ekipaaž juba sõidab.', '{name}: the pursuit is mine, my crew is on it.'),
+    T('Siin {name}. Vastu võetud, jätkame meie.', 'This is {name}. Taken over, we carry on.'),
+  ],
+  colleagueHandoverKept: [
+    T('{name}: selge, jätkate ise. Minu ekipaažid hoiavad silmad lahti.', '{name}: copy, you keep it. My crews will keep an eye out.'),
+    T('{name}: sain aru, jälitus jääb teile. Andke teada, kui vaja.', '{name}: understood, the pursuit stays yours. Shout if you need us.'),
+    T('Siin {name}. Selge, hoian oma ekipaaži valmis.', 'This is {name}. Copy, keeping a crew of mine ready.'),
+  ],
+  jkHandover: [
+    T('Kõik ekipaažid: jälitus antud üle naaberlauale, lõpetage jälitus.', 'All units: the pursuit is handed over to the next desk, break it off.'),
+    T('Juhtimiskeskus kõigile: jälitus läks naabersektorile, tulge tagasi.', 'Control to all: the pursuit went to the next sector, come back.'),
+    T('Kõigile: naaberlaud võttis jälituse üle. Meie ekipaažid tagasi.', 'All units: the next desk took over the pursuit. Our crews pull back.'),
+  ],
+  colleagueOwn: [
+    T('{name} kõigile: meie ekipaaž sõidab eritunnustega {town} suunas, teadmiseks.', '{name} to all: one of our crews is heading for {town} with blue lights, for info.'),
+    T('{name}: meie ekipaaž on {town} juures sündmusel, kohe teie piiri taga.', '{name}: one of our crews is on a job near {town}, just over your border.'),
+    T('{name} kõigile: peame {town} juures kontrolli, ärge ehmuge vilkurite peale.', '{name} to all: we are running a checkpoint near {town}, mind the blue lights.'),
+  ],
+  colleagueBusy: [
+    T('{name} kõigile: meil on {town} juures suurem sündmus, ekipaažid hõivatud.', '{name} to all: a bigger incident near {town}, our crews are busy.'),
+    T('{name}: kõik minu ekipaažid on väljas. Kui keegi vabaneb, andke teada.', '{name}: all my crews are out. If one of yours frees up, let me know.'),
+    T('Siin {name}. Meil on täna kiire, {town} juures kolm sündmust korraga.', 'This is {name}. Busy here today, three jobs at once near {town}.'),
+  ],
+  colleagueTraffic: [
+    T('{name}: kas teil on infot liikluse kohta {town} suunal? Saime teate ummikust.', '{name}: any traffic info towards {town}? We had a report of a jam.'),
+    T('{name}: teadmiseks, {town} juures on teetööd, sõit on aeglane.', '{name}: for info, roadworks near {town}, slow going.'),
+    T('{name}: kas teie ekipaažid nägid {town} suunal joobes juhti? Saime teate.', '{name}: did your crews see a drunk driver towards {town}? We had a report.'),
+    T('{name}: teadmiseks, {town} suunal on avarii, liiklus seisab.', '{name}: for info, a crash towards {town}, traffic at a standstill.'),
+  ],
 };
 
 /**

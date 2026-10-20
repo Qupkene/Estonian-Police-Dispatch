@@ -281,6 +281,7 @@ export default {
   'game.pursuit.escaped': { et: 'Põgenes', en: 'Escaped' },
   'game.pursuit.crashed': { et: 'Avarii', en: 'Crashed' },
   'game.pursuit.terminated': { et: 'Jälitus lõpetatud', en: 'Pursuit terminated' },
+  'game.pursuit.handedOver': { et: 'Antud üle naaberlauale', en: 'Handed over to the next desk' },
   'game.search.title': { et: 'Piirkonna läbiotsimine', en: 'Area search' },
   'game.search.radius': { et: 'raadius {r}', en: 'radius {r}' },
   'game.search.found': { et: 'Leitud!', en: 'Found!' },
