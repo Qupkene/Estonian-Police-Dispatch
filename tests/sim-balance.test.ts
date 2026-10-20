@@ -16,6 +16,7 @@ import {
   requestAgency,
 } from '@/sim/commands';
 import { newCareer, rosterFromCareer } from '@/sim/career';
+import { helpSector } from '@/sim/colleagues';
 import { pendingRadio, queue, recommendUnits } from '@/sim/selectors';
 import { correctReply } from '@/sim/registry';
 import { Rng } from '@/sim/rng';
@@ -278,7 +279,8 @@ describe.skipIf(!ready)('sector shifts (docs/SECTORS.md)', () => {
           const runs = [1, 2, 3, 4, 5].map((k) => runShift(regionId, { hours: 8, startHour, day: 14, seed: k * 7919, career, sectors: [sec.id] }));
           for (const { s } of runs) {
             expect(s.sectors).toEqual([sec.id]);
-            for (const id of s.incidentOrder) expect(inArea(s, REGIONS[regionId], s.incidents[id].location), id).toBe(true);
+            // Calls for help from the neighbouring desks lie just across the border (src/sim/colleagues.ts).
+            for (const id of s.incidentOrder) if (!helpSector(s.incidents[id])) expect(inArea(s, REGIONS[regionId], s.incidents[id].location), id).toBe(true);
           }
           return {
             n: runs.reduce((a, r) => a + r.s.stats.incidents, 0) / runs.length,

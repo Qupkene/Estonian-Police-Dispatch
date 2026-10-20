@@ -378,7 +378,8 @@ function updateIncident(s: SimState, inc: Incident, dtMs: number): void {
         if (u?.move && u.status === 'enroute') earliest = Math.min(earliest, u.move.arriveAt);
       }
       // A caller who knows the police are on the way keeps waiting; expiry punishes not sending anyone.
-      if (earliest === Infinity) {
+      // A colleague's call for help nobody went to goes back to their desk instead (src/sim/colleagues.ts).
+      if (earliest === Infinity && !(s.colleagues && inc.tags.some((t) => t.startsWith('help:')))) {
         expireIncident(s, inc);
         return;
       }
@@ -1159,6 +1160,22 @@ export function expireIncident(s: SimState, inc: Incident, reason: 'expired' | '
     breakdown: { ...ZERO_BREAKDOWN },
   };
   finalizeClose(s, inc, 'expired', true);
+}
+
+/**
+ * The neighbouring desk takes the event (docs/SECTORS.md, src/sim/colleagues.ts): a colleague's call for help
+ * nobody was sent to (`help`), or a pursuit the player handed over (`handover`). Neutral: no outcome, so no
+ * score, no Staatus and no penalty; the units on it are released without a recall call. A call for help never
+ * was the player's, so it leaves the shift's incident counts too.
+ */
+export function closeByColleague(s: SimState, inc: Incident, how: 'help' | 'handover', text: Text): void {
+  addTimeline(s, inc, 'radio', text);
+  finalizeClose(s, inc, 'colleague', false);
+  if (how === 'help') {
+    s.stats.incidents = Math.max(0, s.stats.incidents - 1);
+    s.stats.byPriority[inc.truePriority] = Math.max(0, s.stats.byPriority[inc.truePriority] - 1);
+    s.stats.closed = Math.max(0, s.stats.closed - 1);
+  }
 }
 
 /** Close an incident without on-scene work (referral, phone advice, duplicate, prank). */

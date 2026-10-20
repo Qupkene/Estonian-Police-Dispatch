@@ -405,6 +405,11 @@ function genericStreet(rng: Rng, town: string): string {
   return rng.pick(pool);
 }
 
+/** A plausible street address in a small town that has no streets of its own in the data ("Kooli tn 12"). */
+export function townStreetAddress(rng: Rng, town: string): string {
+  return `${genericStreet(rng, town)} ${rng.int(1, 60)}`;
+}
+
 /** Russian-speaking share by Tallinn district (approximate, for home placement). */
 const DISTRICT_RU: Record<string, number> = {
   Lasnamäe: 0.62,

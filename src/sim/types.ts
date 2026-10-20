@@ -788,7 +788,8 @@ export interface PursuitState {
   pressure: number;
   heli: boolean;
   spikes: boolean;
-  ended?: 'caught' | 'escaped' | 'crashed' | 'terminated';
+  /** 'handedOver': the player gave the pursuit to the neighbouring desk it ran into (docs/SECTORS.md). */
+  ended?: 'caught' | 'escaped' | 'crashed' | 'terminated' | 'handedOver';
   trail: LngLat[];
 }
 
@@ -1154,6 +1155,27 @@ export interface SimState {
   coverSectors?: string[];
   /** Spawner and incident-generation stream of a fixed-schedule shift (NewShiftOptions.fixedSchedule). */
   spawnRng?: number;
+  /**
+   * The AI colleagues at the neighbouring desks (src/sim/colleagues.ts): set by createShift on a sector shift
+   * outside the daily challenge, the tutorial and the director. A save without it (every older save) has no
+   * colleague events and plays exactly as before.
+   */
+  colleagues?: ColleagueState;
+}
+
+/** JSON-safe state of the neighbouring desks' AI colleagues on a sector shift (SimState.colleagues). */
+export interface ColleagueState {
+  /** Their own random stream, so their events never move the spawner's or the player's draws. */
+  rng: number;
+  /** Game time of the next help request (Infinity is not JSON: a time after the shift end means none). */
+  nextHelpAt: number;
+  /** Game time of the next radio line from a neighbouring desk. */
+  nextChatterAt: number;
+  /** Help requests raised and radio lines said this shift. */
+  helps: number;
+  chatter: number;
+  /** Pursuits the hand-over was offered for: incident id → the offer's radio message and the desk's sector. */
+  handover: Record<string, { msg: string; desk: string }>;
 }
 
 export interface CareerProfile {

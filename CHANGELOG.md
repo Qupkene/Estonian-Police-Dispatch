@@ -2,6 +2,21 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.17.0 (2026-10-20)
+
+- **AI kolleegid töötavad päriselt:** karjääri sektorivahetuses palub naaberlaua kolleeg aeg-ajalt abi väljakutsega otse piiri tagant, sinu meeskondade lähedal. Kui saadad üksuse, kasvab Staatus; kui ei saada, võtab kolleeg selle tagasi ilma karistuseta.
+- **Jälituse üleandmine:** kui jälitus läheb sinu alast välja, pakub naaberlaud selle üle võtta. Anna üle või jätka ise.
+- **Öine katmine:** mõnel ööl on naabri kolleeg vaba ja sina katad ka tema väikest sektorit. Päevakäsk ütleb selle ette.
+- **Naaberlaudade raadio:** aeg-ajalt kostab raadiost naaberlaudade lühikesi jutte.
+- Päeva väljakutset ja vanu salvestusi see ei muuda.
+
+<details>
+<summary>English</summary>
+
+AI colleagues now act in sector career shifts: neighbouring desks ask for help with calls just across the border near your crews (Staatus bonus when helped, no penalty otherwise), offer to take over pursuits leaving your area, hand you a small sector to cover on some nights, and chat briefly on the radio. Daily challenge and old saves are unchanged.
+
+</details>
+
 ## 2.16.0 (2026-10-20)
 
 - **Mitmikmäng, võistlus:** peamenüüs on uus rida „Mitmikmäng“. Loo ruum ja jaga 6-tähelist koodi, kuni neli sõpra liituvad. Ruumi looja valib prefektuuri, ala, raskuse, pikkuse ja kellaaja ning alustab, kui kõik on valmis. Kõik mängivad täpselt sama vahetust ja aruandes on ruumi tulemuste tabel, mis uueneb ise. Mängimiseks on vaja kontot.

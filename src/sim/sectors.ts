@@ -510,6 +510,19 @@ export function borderPoints(region: RegionDef, from: string[], to: string, n = 
     .map((x) => x.p);
 }
 
+/**
+ * Points of sector `to` (towns, street middles, places) with their distance to the nearest of `refs` (the
+ * player's crews and stations), nearest first: where a colleague's call for help is worth answering.
+ */
+export function spotsNear(region: RegionDef, to: string, refs: LngLat[], n = 8): { p: LngLat; km: number }[] {
+  const theirs = geoOf(region).spots.get(to) ?? [];
+  if (!refs.length || !theirs.length) return [];
+  return theirs
+    .map((p) => ({ p, km: Math.min(...refs.map((q) => haversineKm(p, q))) }))
+    .sort((a, b) => a.km - b.km)
+    .slice(0, Math.max(1, n));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // The area as a region of its own (address generator)
 // ─────────────────────────────────────────────────────────────────────────────

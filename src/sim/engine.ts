@@ -7,6 +7,7 @@ import { generatePerson } from '@/gen/person';
 import { generateVehicle } from '@/gen/vehicle';
 import { dayInfo } from './calendar';
 import { updateCalls } from './calls';
+import { initColleagues, updateColleagues } from './colleagues';
 import { emit, regionOf } from './internal';
 import { isHidden, openIncidentIds, updateIncidents } from './incidents';
 import { jkPhrase } from './radio';
@@ -147,6 +148,8 @@ export function createShift(opts: NewShiftOptions): SimState {
   buildUnits(s, rUnits, opts);
   // Career: call volume follows the force on duty (no rng use, so the other streams stay put).
   if (opts.mode === 'career') initCareerLoad(s);
+  // Sector shift: the neighbouring desks' AI colleagues and a career night's cover (their own stream).
+  initColleagues(s, opts);
   populateRegistry(s, rReg, region);
   addLegends(s);
   addBulletins(s, rMisc, region);
@@ -359,14 +362,18 @@ function addCoverageBulletin(s: SimState, region: RegionDef): void {
 function addAreaBulletin(s: SimState): void {
   const mine = (s.sectors ?? []).map(sectorById).filter((x) => !!x);
   if (!mine.length) return;
-  const next = neighbourSectors(s.sectors ?? []).filter((x) => x.regionId === s.regionId);
+  // Night cover (öine katmine): the colleague of that sector is off tonight, its calls come to the player.
+  const cover = (s.coverSectors ?? []).map(sectorById).filter((x) => !!x);
+  const next = neighbourSectors([...(s.sectors ?? []), ...cover.map((x) => x.id)]).filter((x) => x.regionId === s.regionId);
   const desk = (lang: 'et' | 'en') => next.map((x) => `${x.name[lang]} (${x.colleague.firstName} ${x.colleague.lastName})`).join(', ');
+  const night = (lang: 'et' | 'en') =>
+    cover.map((x) => (lang === 'et' ? `${x.name.et} (${x.colleague.firstName} ${x.colleague.lastName} on täna öösel vaba)` : `${x.name.en} (${x.colleague.firstName} ${x.colleague.lastName} is off tonight)`)).join(', ');
   pushBulletin(s, {
     kind: 'order',
     title: T('Vastutusala', 'Area of responsibility'),
     text: {
-      et: `Sel vahetusel vastutate: ${mine.map((x) => x.name.et).join(', ')}.${next.length ? ` Naaberlaudades: ${desk('et')}. Ülejäänud prefektuuri väljakutsed lähevad neile.` : ''}`,
-      en: `This shift you cover: ${mine.map((x) => x.name.en).join(', ')}.${next.length ? ` At the neighbouring desks: ${desk('en')}. Calls from the rest of the prefecture go to them.` : ''}`,
+      et: `Sel vahetusel vastutate: ${mine.map((x) => x.name.et).join(', ')}.${cover.length ? ` Öine katmine: ${night('et')}. Sealsed väljakutsed tulevad teile, oma ekipaaži seal ei ole.` : ''}${next.length ? ` Naaberlaudades: ${desk('et')}. Ülejäänud prefektuuri väljakutsed lähevad neile.` : ''}`,
+      en: `This shift you cover: ${mine.map((x) => x.name.en).join(', ')}.${cover.length ? ` Night cover: ${night('en')}. Its calls come to you; no crew of yours is based there.` : ''}${next.length ? ` At the neighbouring desks: ${desk('en')}. Calls from the rest of the prefecture go to them.` : ''}`,
     },
   });
 }
@@ -522,6 +529,11 @@ function substep(s: SimState, h: number): void {
   updateSpawner(s);
   updateUnits(s, h);
   updateIncidents(s, h);
+  try {
+    updateColleagues(s);
+  } catch (err) {
+    console.warn('[EPD] updateColleagues failed', err);
+  }
   try {
     updateCalls(s);
   } catch (err) {

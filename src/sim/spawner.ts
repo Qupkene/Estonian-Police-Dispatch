@@ -2,7 +2,7 @@
  * Spawning (engine-core, DESIGN §4.2): Poisson process, template choice, incident generation
  * (location, persons, vehicles, texts, SLA, beats…).
  */
-import { pickLocation } from '@/gen/address';
+import { pickLocation, townStreetAddress } from '@/gen/address';
 import { surnameForGender } from '@/gen/names';
 import { generatePerson } from '@/gen/person';
 import { generateVehicle } from '@/gen/vehicle';
@@ -14,7 +14,7 @@ import { incidentVars } from './incidents';
 import { Rng, withRng } from './rng';
 import { withScenario } from './scenario';
 import { defaultSla, slaFor } from './scoring';
-import { areaOf, areaShare, areaView, borderPoints, inArea, sectorOf, sectorStationIds, stationShare } from './sectors';
+import { areaOf, areaShare, areaView, borderPoints, inArea, sectorOf, sectorStationIds, spotsNear, stationShare } from './sectors';
 import { fillText } from './text';
 import { HOUR, isoDate, MIN, seasonOf, wall } from './time';
 import { RESPONSE_TYPES, rosterSpecsFor, stationById, zoneAt } from './units';
@@ -455,24 +455,55 @@ function areaLocation(r: Rng, s: SimState, region: RegionDef, tpl: IncidentTempl
   return undefined;
 }
 
+const COORD_WORD = 'Kaardipunkt';
+
 function coordText(c: LngLat): string {
-  return `Kaardipunkt ${c[1].toFixed(5)}, ${c[0].toFixed(5)}`;
+  return `${COORD_WORD} ${c[1].toFixed(5)}, ${c[0].toFixed(5)}`;
 }
 
 /**
  * A location in sector `to` close to the shift's area, as a full address: where an AI colleague's call for
  * help "just across the border" happens (docs/SECTORS.md). One of the `n` nearest addressable points of `to`
- * (towns, streets, places); undefined on a whole-prefecture shift or when `to` has none.
+ * (towns, streets, places); undefined on a whole-prefecture shift or when `to` has none. With `kind`, the
+ * address is read as that kind of place (locationFromCoord), for a call template that needs one; with `from`,
+ * the border is that of these sectors (default: the whole area, night cover included).
  */
-export function borderLocation(s: SimState, r: Rng, to: string, n = 6): IncidentLocation | undefined {
+export function borderLocation(s: SimState, r: Rng, to: string, n = 6, kind?: PlaceKind, from: string[] = areaOf(s)): IncidentLocation | undefined {
   const region = regionOf(s);
-  const from = areaOf(s);
   if (!region || !from.length || from.includes(to)) return undefined;
   const spots = borderPoints(region, from, to, n * 2)
-    .map((p) => locationFromCoord(s, p))
+    .map((p) => locationFromCoord(s, p, kind))
     .filter((loc) => sectorOf(region, loc) === to)
     .slice(0, n);
-  return spots.length ? r.pick(spots) : undefined;
+  return pickAddress(r, spots);
+}
+
+/**
+ * A location in sector `to` within `maxKm` (straight line) of the nearest of `refs` (the player's crews and
+ * stations), as a full address: a colleague's call for help the player's crews can actually reach. One of the
+ * `n` nearest addressable points of `to` that fit; undefined when none is that close.
+ */
+export function nearLocation(s: SimState, r: Rng, to: string, refs: LngLat[], maxKm: number, kind?: PlaceKind, n = 6): IncidentLocation | undefined {
+  const region = regionOf(s);
+  if (!region || !refs.length) return undefined;
+  const near = (c: LngLat) => Math.min(...refs.map((q) => haversineKm(c, q)));
+  const spots = spotsNear(region, to, refs, n * 2)
+    .filter((x) => x.km <= maxKm)
+    .map((x) => locationFromCoord(s, x.p, kind))
+    .filter((loc) => sectorOf(region, loc) === to && near(loc.coord) <= maxKm)
+    .slice(0, n);
+  return pickAddress(r, spots);
+}
+
+/**
+ * One of the locations, a real address (a street, a place) when there is one; a small town without streets in
+ * the data gets one of its ordinary streets, never a bare map point.
+ */
+function pickAddress(r: Rng, spots: IncidentLocation[]): IncidentLocation | undefined {
+  const named = spots.filter((loc) => !loc.address.includes(COORD_WORD));
+  const loc = named.length ? r.pick(named) : spots.length ? r.pick(spots) : undefined;
+  if (loc && loc.city && loc.address.includes(COORD_WORD)) return { ...loc, address: townStreetAddress(r, loc.city) };
+  return loc;
 }
 
 /** Location for a map click (director): nearest street address / place / town, else coordinates. */

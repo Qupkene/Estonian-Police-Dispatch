@@ -88,14 +88,47 @@ With sectors:
   when that leaves fewer than 3 response units (`MIN_AREA_RESPONSE`), the nearest crews are lent to the first
   sector's main station under its callsigns.
 - The map fits the area and dims the rest; neighbouring sectors are labelled with their AI colleague.
-- **Night cover** (öine katmine): on some career night shifts a small neighbouring sector is added for the
-  night (`SimState.coverSectors`), with no crew based there. The briefing says so.
-- **AI colleagues**: a colleague sometimes asks for help with a call just across the border (incident tag
-  `help:<sectorId>`, timeout, closed as `colleague` when nobody is sent, no penalty, a reputation bonus when
-  helped). A pursuit leaving the area asks whether to hand it over to the neighbouring desk. Colleagues also
-  talk on the radio now and then. Helpers for this: `mainStation`, `borderPoints` (src/sim/sectors.ts) and
-  `borderLocation(s, rng, to)` (src/sim/spawner.ts: a full address in sector `to`, among its points nearest
-  the area).
+- **Night cover** (öine katmine): on some career night shifts (start 18:00-05:59) a small neighbouring sector is
+  added for the night (`SimState.coverSectors`): its colleague is off, its calls spawn for the player (the
+  spawner's area, `areaOf`, includes it, and the call volume grows with its population), no crew is based
+  there. `nightCoverFor` (src/sim/colleagues.ts) decides it from the seed and the start, so the briefing shows
+  exactly what `createShift` picks: with `COLLEAGUES.nightCoverChance` (35 %) one neighbour of the prefecture
+  with at most `nightCoverMaxShare` (20 %) of its residents whose main station is in a movement zone of the
+  area's main stations (no ferry). The briefing and the map show it, the shift's "Vastutusala" order names it
+  and its colleague ("on täna öösel vaba"). Never by day, in free play or in the daily challenge.
+- **AI colleagues** (src/sim/colleagues.ts, numbers in `COLLEAGUES`, src/data/sectors.ts). The colleague of
+  each sector is named in its `SectorDef.colleague`; on the radio their desk is `JK <SHORT>` ("JK VILJANDIMAA").
+  They act only when `SimState.colleagues` is set: `createShift` sets it on a sector shift in career or free
+  play outside the daily challenge (not in the tutorial or the director, not on a whole-prefecture shift). A
+  save without it, every older save, has no colleague events and plays exactly as before. All their draws
+  (timers, picks, phrases, the help call's generation) run on `SimState.colleagues.rng`, a stream of its own
+  seeded from the seed and the area, so a resumed save goes on identically.
+  - **Help requests**: a Poisson process (`helpPerHour` 0.18, none in the first and last 30 minutes, at most
+    `helpMax` 3 a shift and one open at a time). A desk next to the player's own sectors (not tonight's cover,
+    which has no crews to lend) whose crews are all out asks for help with an ordinary P2/P3 patrol job
+    (`helpTemplates`: no story event, no specialist, at most two crews) at a real street address in the
+    colleague's sector, but within `helpMaxKm` (13 km, straight line) of the player's nearest crew or station
+    (`helpRefs`; `nearLocation(s, rng, to, refs, maxKm, kind)` in src/sim/spawner.ts over `spotsNear` in
+    src/sim/sectors.ts), reachable by road. Each desk and each place kind the call fits is tried; when no address
+    is that close the colleague does not ask. So the city desks (Tallinn, Tartu, Pärnu) get them, a few km away
+    (median about 3 km, a 6 minute drive); a desk whose crews sit far from every neighbour (Viljandimaa,
+    Lääne-Virumaa and Narva from their main stations, the islands) gets none until a crew is near the border. The
+    event is in the queue at once, already taken in (state `queued`, so no acknowledgement to miss), tagged
+    `help:<sectorId>`, with the colleague's request on the radio and in the timeline, and a timeout of
+    `helpTimeoutMin` 14 minutes. A crew of the player's that gets there counts in `ReportExtras.helpGiven`
+    (`helpGivenCount`: closed by units, or reached and still open), the colleague thanks on the radio, and the
+    career gets its Staatus bonus (below). When nobody goes (nobody is on the way at the timeout, or nobody was
+    sent by the end of the shift), the colleague takes it back: closed as `colleague`, no outcome, no trust or
+    score change, out of the shift's incident counts and the report. It never keeps the player in overtime.
+  - **Pursuit hand-over**: when a pursuit's suspect is in a sector of the prefecture outside the area, that
+    desk offers once to take it over (a radio prompt with "Anna üle naaberlauale" / "Jätkame ise", shown in
+    the incident panel too, open `handoverOfferMin` 2 minutes). Handing over closes the event for the player
+    as the neighbour's (`closedBy` `colleague`, pursuit ended `handedOver`, units released, neutral in the
+    score, the Staatus and the report); keeping it, or not answering, changes nothing.
+  - **Radio**: short lines from the desks next door now and then (`chatterPerHour` 0.3, at least
+    `chatterGapMin` 40 minutes apart, at most `chatterMax` 4 a shift): their own crews, a busy evening, a
+    question about the traffic near a town across the border. Flavour only, no reply buttons. Phrases
+    `colleague*` and `jkHandover` in src/data/radioPhrases.ts.
 - `fixedSchedule` (daily challenge): the spawner and incident generation draw from `SimState.spawnRng`, so
   every player gets the same calls at the same times and places whatever they do. `createShift` seeds it
   from the seed; the template, place, story, people and cars of each call and the weather (it moves the rate
@@ -168,10 +201,11 @@ older tab and synced keeps it. Other unknown ids are dropped (with the backup ab
 
 | Part | Where |
 |---|---|
-| Types | src/sim/types.ts (SectorDef, NewShiftOptions.sectors/openPosts/fixedSchedule, SimState.sectors/coverSectors/spawnRng, CareerProfile.sectors/openPosts/offer/sectorsChangedDay) |
+| Types | src/sim/types.ts (SectorDef, NewShiftOptions.sectors/openPosts/fixedSchedule, SimState.sectors/coverSectors/spawnRng/colleagues, ColleagueState, CareerProfile.sectors/openPosts/offer/sectorsChangedDay) |
 | Data | src/data/sectors.ts |
 | Geometry, membership | src/sim/sectors.ts |
-| Spawner, roster, colleagues | src/sim/spawner.ts (areaCallFactor, fixed schedule, borderLocation), src/sim/career.ts (rosterFromCareer), src/sim/units.ts (areaRosterSpecs, stationCallsign), src/sim/engine.ts |
-| Tests | tests/sectors.test.ts, tests/sim-balance.test.ts (sector shifts), tests/career-sectors.test.ts |
+| Spawner, roster | src/sim/spawner.ts (areaCallFactor, fixed schedule, borderLocation), src/sim/career.ts (rosterFromCareer), src/sim/units.ts (areaRosterSpecs, stationCallsign), src/sim/engine.ts |
+| AI colleagues, night cover | src/sim/colleagues.ts (initColleagues, updateColleagues, nightCoverFor, answerColleague, helpGivenCount), src/sim/incidents.ts (closeByColleague), COLLEAGUES in src/data/sectors.ts |
+| Tests | tests/sectors.test.ts, tests/sim-balance.test.ts (sector shifts), tests/career-sectors.test.ts, tests/colleagues.test.ts |
 | Career rules | src/sim/careerSectors.ts, src/sim/career.ts (newCareer, applyShiftReport), src/store/career.ts, src/store/migrate.ts |
 | UI | src/ui/screens/career/*, src/ui/screens/BriefingScreen.tsx, src/map/*, src/ui/game/* |

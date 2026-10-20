@@ -2,6 +2,7 @@
  * Player commands (engine-core public API, DESIGN §5). All mutate the SimState in place.
  */
 import { callAnswer, callAsk, callEnd, callInterpreter } from './calls';
+import { answerColleague } from './colleagues';
 import { haversineKm } from './geo';
 import { addTimeline, pushRadio, regionOf, templateById, tplOf } from './internal';
 import {
@@ -250,6 +251,8 @@ export function replyRadio(s: SimState, msgId: string, replyId: string): void {
   const msg = findRadio(s, msgId);
   if (!msg || msg.answered || !msg.replies?.length) return;
   if (msg.expiresAt !== undefined && msg.expiresAt < s.now) return;
+  // A neighbouring desk's offer to take over a pursuit (src/sim/colleagues.ts).
+  if (answerColleague(s, msg, replyId)) return;
   handleRadioReply(s, msg, replyId);
 }
 

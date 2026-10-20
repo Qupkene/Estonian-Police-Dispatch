@@ -16,6 +16,7 @@ import { PpaLogo } from '@/ui/components';
 import { sfx } from '@/audio/sfx';
 import { REGIONS } from '@/data/regions';
 import { rankOf, rosterFromCareer } from '@/sim/career';
+import { nightCoverFor } from '@/sim/colleagues';
 import { areaStations, neighbourSectors, sectorById } from '@/sim/sectors';
 import { dayInfo, weekdayFactor } from '@/sim/calendar';
 import { shiftKindOf } from '@/sim/engine';
@@ -149,9 +150,17 @@ export function BriefingScreen() {
   }, [start, hours, shift, difficulty]);
 
   const shiftKind = shiftKindOf(start);
+  // Tonight's night cover is decided from the seed and the start, exactly as createShift will (nightCoverFor).
   const area: ShiftArea | null = useMemo(
-    () => (career && profile ? safe(() => careerShiftArea(profile, regionId)) : null),
-    [career, profile, regionId],
+    () =>
+      career && profile
+        ? safe(() => {
+            const own = careerShiftArea(profile, regionId);
+            const cover = own.sectors.length ? nightCoverFor({ regionId, sectors: own.sectors, seed, start }) : [];
+            return cover.length ? careerShiftArea(profile, regionId, cover) : own;
+          })
+        : null,
+    [career, profile, regionId, seed, start],
   );
   const areaOn = !!area && area.sectors.length > 0;
   const areaName = (ids: string[]) =>

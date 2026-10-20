@@ -7,6 +7,7 @@
 import { ageOf } from '@/gen/describe';
 import { FUEL_PER_KM, OVERTIME_PER_HOUR } from '@/data/economy';
 import { dayInfo } from './calendar';
+import { helpGivenCount, helpSector } from './colleagues';
 import { tplOf } from './internal';
 import { PLACE_KIND_LABEL } from './radio';
 import { ddmmyyyy, HOUR, MIN, wall } from './time';
@@ -75,6 +76,8 @@ export interface ReportExtras {
   p1Count: number;
   p1Avg: number | null;
   hours: number;
+  /** Calls of the AI colleagues at the neighbouring desks the player's crews reached (src/sim/colleagues.ts); missing: none. */
+  helpGiven?: number;
 }
 export type ShiftReportX = ShiftReport & { extras?: ReportExtras };
 
@@ -86,7 +89,10 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 const round1 = (x: number) => Math.round(x * 10) / 10;
 
 function incidentsOf(s: SimState): Incident[] {
-  return s.incidentOrder.map((id) => s.incidents[id]).filter((i): i is Incident => !!i && i.source !== 'director' && i.closedBy !== 'director');
+  // Events the neighbouring desk took (a call for help nobody went to, a pursuit handed over) were not the player's.
+  return s.incidentOrder
+    .map((id) => s.incidents[id])
+    .filter((i): i is Incident => !!i && i.source !== 'director' && i.closedBy !== 'director' && i.closedBy !== 'colleague');
 }
 
 function isVisible(s: SimState, inc: Incident): boolean {
@@ -476,6 +482,8 @@ export function buildReport(s: SimState): ShiftReport {
   // Open urgent incidents that already blew their SLA count as poor (handed over unresolved).
   for (const inc of incs) {
     if (inc.state === 'closed' || !isVisible(s, inc) || inc.truePriority > 2) continue;
+    // A colleague's call for help nobody reached goes back to their desk, it is not the player's to answer for.
+    if (helpSector(inc) !== undefined && inc.firstArrivalAt === undefined) continue;
     if (inc.firstArrivalAt === undefined && (end - inc.createdAt) / MIN > inc.slaMin) {
       wsum += PRIORITY_WEIGHT[inc.truePriority];
       sum += PRIORITY_WEIGHT[inc.truePriority] * 20;
@@ -567,6 +575,7 @@ export function buildReport(s: SimState): ShiftReport {
   const startHour = wall(s.startTime).hour;
   const night = startHour >= 17 || startHour < 4;
   const p1 = s.stats.responseTimes[1] ?? [];
+  const helpGiven = helpGivenCount(s);
   const extras: ReportExtras = {
     maxReplyStreak: replyStreak(s, incs),
     legendQueried: !!s.flags['legendQueried'] || s.queries.some((q) => q.resultIds.some((id) => id.startsWith('legend-'))),
@@ -580,6 +589,7 @@ export function buildReport(s: SimState): ShiftReport {
     p1Count: p1.length,
     p1Avg: p1.length ? round1(p1.reduce((a, b) => a + b, 0) / p1.length) : null,
     hours: round1(hours),
+    ...(helpGiven ? { helpGiven } : {}),
     ...(early.factor < 1 ? { earlyEnd: { served: Math.round(early.served * 100) / 100, factor: Math.round(early.factor * 1000) / 1000, rawScore: Math.round(rawScore) } } : {}),
   };
 
