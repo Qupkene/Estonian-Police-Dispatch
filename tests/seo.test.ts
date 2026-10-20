@@ -435,6 +435,20 @@ describe('landing pages (scripts/build-landing.mjs)', () => {
         }
       });
 
+      it('has a phone menu that works without script: the same links as the bar, the current page marked', () => {
+        const bar = [...d.querySelectorAll('header nav.nav a')].map((a) => a.getAttribute('href'));
+        const menu = d.querySelector('header details.menu')!;
+        expect(menu.querySelector('summary')!.textContent).toMatch(/^(Menüü|Menu)$/);
+        expect([...menu.querySelectorAll('nav a')].map((a) => a.getAttribute('href'))).toEqual(bar);
+        expect(menu.querySelector('a[aria-current="page"]')!.getAttribute('href')).toBe(`/${page.slug}/`);
+        // The pages carry no script of their own (CSP script-src 'self', and they must work without one).
+        expect(d.querySelectorAll('script:not([type="application/ld+json"])')).toHaveLength(0);
+        // On a phone the bar gives way to the menu.
+        expect(html).toMatch(
+          /@media \(max-width:600px\)\{[^@]*\.nav\{display:none\}[^@]*\.menu\{display:block/,
+        );
+      });
+
       it('never uses the dash characters the owner does not want', () => {
         expect(html).not.toMatch(
           new RegExp(`[${String.fromCharCode(0x2014)}${String.fromCharCode(0x2013)}]`),

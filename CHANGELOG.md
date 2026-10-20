@@ -2,6 +2,21 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.24.0 (2026-10-20)
+
+- **Telefonivaade üle käidud:** kõik nupud on telefonis vähemalt 44 px, tekstiväljad ei suumi iPhone'is enam sisse ja mäng arvestab ekraani sälgu ning kodunupu ribaga.
+- **Tutvustavad lehed:** telefonis on uus menüüriba: üks rida logo ja „Menüü“ nupuga, mis avab suured lingid. Enne läks „English“ ekraanist välja.
+- **Dispetšerivaade telefonis:** suuremad kiiruse ja kaardi nupud, korraga ainult üks teade (ja 112 kõne ajal mitte ühtegi), soovitatud ekipaažid kahel real ilma lõigatud kutsungiteta, raadio vastused terves laiuses, ekipaažide tabel ilma „…“.
+- **112 kaart** püsib ülemise ja alumise riba vahel, küsimused kerivad ja otsuse nupud (prioriteet, loo sündmus, suuna edasi, valekõne) jäävad alati nähtavale.
+- **Koostöö paneel** ei kata enam kella ega kiiruse nuppe. Vahetuse lõpu numbrid, aruande tabel ja ajalehe tekst mahuvad kitsale ekraanile.
+
+<details>
+<summary>English</summary>
+
+A phone pass over the whole game. Controls are at least 44 px on phones, inputs are 16 px so iOS does not zoom, and the app respects the notch and home indicator (viewport-fit=cover, safe-area insets). The landing pages get a single-row phone header with a script-free "Menu" disclosure. In the dispatch view: bigger top-bar and map buttons, only the newest toast (none over an open 112 call), two-line recommended units, full-width radio replies, an untruncated units table, a 112 card docked between the bars with a fixed decision row, a co-op panel that no longer covers the clock, and end-of-shift, report and newspaper layouts that fit narrow screens. Desktop is unchanged.
+
+</details>
+
 ## 2.23.1 (2026-10-20)
 
 - **Mitmikmäng:** ekipaaži registripäringule saab nüüd vastata iga mängija, ka sõbra eest, ja registris kontrollitud isik või auto läheb kõigile kirja. Muud raadiovastused jäävad laua juurde.

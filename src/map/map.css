@@ -952,6 +952,31 @@
     linear-gradient(120deg, #6b7b4f, #3f5733 60%, #8a8a78);
 }
 
+/* Phones (the dispatch view's phone layout below 900 px): fingertip-sized tools and layer rows. */
+@media (max-width: 899px) {
+  .epdm-tools {
+    top: 8px;
+    right: 8px;
+    gap: 6px;
+  }
+  .epdm-tool {
+    width: 44px;
+    height: 44px;
+  }
+  .epdm-tool--text {
+    font-size: 12px;
+  }
+  .epdm-layers {
+    width: min(260px, calc(100vw - 80px));
+  }
+  .epdm-layers__item {
+    min-height: 48px;
+  }
+  .epdm-layers__text small {
+    font-size: 12px;
+  }
+}
+
 /* ── Offline badge ───────────────────────────────────────────────────────────── */
 .epdm-offline {
   position: absolute;

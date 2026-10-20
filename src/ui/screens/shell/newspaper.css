@@ -200,6 +200,10 @@
   .sh-paper__ears {
     display: none;
   }
+  /* One narrow column: justified lines opened wide gaps between the words. */
+  .sh-paper__story p {
+    text-align: start;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .sh-paper {

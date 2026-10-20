@@ -2188,3 +2188,143 @@
 .tl-sec__title {
   font-stretch: 110%;
 }
+
+/* ── Phones ─────────────────────────────────────────────────────────────── */
+/* The dispatch view's phone layout (game.css): 44 px controls in the registry and on the 112 card, and the card
+   docked in the pane between the top bar and the tab bar, its questions scrolling under a decision row that
+   never leaves the screen. The minimise button folds it to one line over the map. */
+@media (max-width: 899px) {
+  .tl-linkbtn {
+    min-height: 40px;
+    padding: 0 8px;
+  }
+  .tl-chipbtn {
+    height: 40px;
+    padding: 0 12px;
+    white-space: nowrap;
+  }
+  .tl-reg__bar {
+    flex-wrap: wrap;
+  }
+  .tl-reg__bar .ui-seg {
+    flex-wrap: nowrap;
+  }
+  .tl-reg__inputbox {
+    height: 44px;
+  }
+  /* 16 px: iOS zooms the page into any smaller field when it is focused. */
+  .tl-reg__inputbox input,
+  .tl-call__refer select,
+  .tl-select {
+    font-size: 16px;
+  }
+  .tl-row {
+    min-height: 48px;
+  }
+  .tl-pendq li {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 0;
+  }
+  .tl-pendq li > .tl-linkbtn,
+  .tl-pendq__unk {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+  .tl-waiting {
+    margin: var(--sp-2) var(--sp-2) 0;
+  }
+  .tl-waiting__head {
+    flex-wrap: wrap;
+  }
+  .tl-waiting__from,
+  .tl-waiting__time {
+    white-space: nowrap;
+  }
+  .tl-waiting__replies .ui-btn {
+    flex: 1 1 auto;
+  }
+
+  .tl-call {
+    grid-area: main;
+    bottom: 8px;
+    width: calc(100% - 16px);
+    max-height: calc(100% - 16px);
+  }
+  .tl-call.is-ringing {
+    width: calc(100% - 16px);
+  }
+  .tl-call__ring {
+    padding: var(--sp-3);
+  }
+  .tl-call__ringtimer {
+    min-width: 0;
+  }
+  .tl-call__answer {
+    width: 100%;
+  }
+  .tl-call__head {
+    column-gap: 6px;
+    padding: 4px 4px 4px var(--sp-3);
+  }
+  .tl-call__timer .ui-icon {
+    display: none;
+  }
+  .tl-call__head > .ui-iconbtn:last-child {
+    margin-left: auto;
+  }
+  /* The interpreter switch gets a line of its own under the call's state and the minimise button. */
+  .tl-call__interp {
+    order: 1;
+    flex: 1 1 100%;
+  }
+  .tl-call__grid {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .tl-call__chat {
+    min-height: 120px;
+    max-height: 200px;
+  }
+  .tl-call__side {
+    max-height: none;
+    overflow: visible;
+  }
+  .tl-q {
+    min-height: 44px;
+    font-size: var(--fs-sm);
+  }
+  /* One column as wide as the card: a long event name made the grid wider and pushed the buttons out. */
+  .tl-call__decide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tl-call__type {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .tl-prio-btn {
+    min-width: 52px;
+    min-height: 44px;
+  }
+  .tl-call__guide {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+  .tl-call__actions > .ui-btn--primary,
+  .tl-call__refer {
+    flex: 1 1 100%;
+  }
+  /* Width 0 and grow: the select's widest option no longer sets the row's minimum width. */
+  .tl-call__refer {
+    min-width: 0;
+  }
+  .tl-call__refer select {
+    flex: 1 1 0;
+    width: 0;
+    min-width: 0;
+    height: 44px;
+  }
+  .tl-call__actions > .ui-btn:not(.ui-btn--primary) {
+    flex: 1 1 auto;
+  }
+}

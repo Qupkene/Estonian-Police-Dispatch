@@ -43,6 +43,15 @@ function media(src: string, cond: string): string {
   throw new Error('unbalanced');
 }
 
+/** Bodies of every @media block whose condition contains `cond`, one after the other. */
+function mediaAll(src: string, cond: string): string {
+  let out = '';
+  for (let at = src.indexOf(`@media ${cond}`); at >= 0; at = src.indexOf(`@media ${cond}`, at + 1)) {
+    out += `${media(src.slice(at), cond)}\n`;
+  }
+  return out;
+}
+
 function lum(hex: string): number {
   const v = hex.replace('#', '').match(/../g)!.map((x) => parseInt(x, 16) / 255);
   const f = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
@@ -205,6 +214,46 @@ describe('phone layouts (visual-8, visual-10)', () => {
     expect(phone).toMatch(/\.gm-board__filters\s*\{[^}]*flex-wrap:\s*wrap/);
     // The PAUSED badge stacks under the clock instead of pushing the speed buttons off screen.
     expect(phone).toMatch(/\.gm-top__clock \.gm-top__time\s*\{[^}]*flex-direction:\s*column/);
+  });
+});
+
+describe('the phone pass: fingers, safe areas, toasts and the 112 card', () => {
+  const PHONE = '(max-width: 899px)';
+  const VK = css('src/ui/screens/shell/vk.css');
+  const GLOBAL = css('src/ui/styles/global.css');
+
+  it('asks for the whole screen and keeps the tab bar and the screens clear of the notch and the home bar', () => {
+    expect(css('index.html')).toMatch(/<meta name="viewport" content="[^"]*viewport-fit=cover/);
+    const game = mediaAll(GAME, PHONE);
+    expect(game).toMatch(/\.gm-mnav\s*\{[^}]*padding-bottom:\s*env\(safe-area-inset-bottom/);
+    expect(game).toMatch(/\.gm-top\s*\{[^}]*padding-top:\s*env\(safe-area-inset-top/);
+    expect(VK).toMatch(/\.sh-login\s*\{\s*padding:\s*env\(safe-area-inset-top\)/);
+  });
+
+  it('gives the controls a 44 px target on a phone and leaves the desktop sizes alone', () => {
+    const game = mediaAll(GAME, PHONE);
+    for (const sel of ['.gm-speed', '.gm-top__menu']) {
+      expect(game, sel).toMatch(new RegExp(`\\${sel}\\s*\\{[^}]*height:\\s*44px`));
+    }
+    expect(mediaAll(MAP, PHONE)).toMatch(/\.epdm-tool\s*\{[^}]*width:\s*44px;\s*height:\s*44px/);
+    expect(mediaAll(COMPONENTS, PHONE)).toMatch(/\.ui-btn,[^{]*\{\s*min-height:\s*44px/);
+    expect(rule(COMPONENTS, '.ui-btn--sm').height).toBe('26px');
+    expect(rule(GAME, '.gm-speed').height).toBe('28px');
+    // iOS zooms into a focused field under 16 px.
+    expect(mediaAll(GLOBAL, PHONE)).toMatch(/font-size:\s*max\(16px, 1em\)/);
+  });
+
+  it('shows only the newest toast on a phone, and none over the open call card', () => {
+    const game = mediaAll(GAME, PHONE);
+    expect(game).toMatch(/\.gm-toast:not\(:last-child\)\s*\{\s*display:\s*none/);
+    expect(game).toMatch(/\.gm:has\(\.tl-call:not\(\.is-ringing\):not\(\.is-collapsed\)\) \.gm-toasts\s*\{\s*display:\s*none/);
+  });
+
+  it('docks the 112 card and the co-op panel in the pane between the top bar and the tab bar', () => {
+    expect(mediaAll(TOOLS, PHONE)).toMatch(/\.tl-call\s*\{\s*grid-area:\s*main/);
+    expect(mediaAll(GAME, PHONE)).toMatch(/\.gm-coop\s*\{\s*grid-area:\s*main/);
+    // Its questions scroll; the decision row stays on screen.
+    expect(mediaAll(TOOLS, PHONE)).toMatch(/\.tl-call__grid\s*\{[^}]*overflow-y:\s*auto/);
   });
 });
 
