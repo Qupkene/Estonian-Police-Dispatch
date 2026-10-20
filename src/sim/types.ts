@@ -1180,6 +1180,13 @@ export interface ColleagueState {
   chatter: number;
   /** Pursuits the hand-over was offered for: incident id → the offer's radio message and the desk's sector. */
   handover: Record<string, { msg: string; desk: string }>;
+  /**
+   * Sector co-op (src/sim/desks.ts): the desks the players hold now. The colleagues work around these instead of the
+   * shift's area, so a desk nobody holds is a colleague's desk too. Missing on every other shift.
+   */
+  area?: string[];
+  /** Sector co-op: the units of the players' desks (help is asked near these). Missing: every unit. */
+  crews?: string[];
 }
 
 export interface CareerProfile {

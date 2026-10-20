@@ -11,6 +11,7 @@ import { BulletinsPanel } from '@/ui/tools/BulletinsPanel';
 import { DirectorPanel } from '@/ui/tools/DirectorPanel';
 import { CallTaker } from '@/ui/tools/CallTaker';
 import { useDirector } from '@/ui/tools/directorStore';
+import { deskCan, useMyDesk } from '@/store/coop';
 import { stopScene } from '@/ui/tools/lib/sceneRunner';
 import type { LngLat } from '@/sim/types';
 import { selectIncident, selectUnit } from './actions';
@@ -152,6 +153,20 @@ function MapHost({ cinematic }: { cinematic?: boolean }) {
   }, [sim, selInc, picks, tick]); // tick: recompute as units move
   const highlight = useMemo(() => (idsKey ? idsKey.split(',') : NO_IDS), [idsKey]);
 
+  // Sector co-op: the neighbouring desks' units and incidents are drawn dimmed (src/sim/desks.ts).
+  const desk = useMyDesk();
+  const dimmed = useMemo(
+    () =>
+      desk === null
+        ? undefined
+        : (kind: 'unit' | 'incident', id: string) => {
+            const s = useGame.getState().sim;
+            if (!s) return false;
+            if (kind === 'unit') return !!s.units[id] && !deskCan(s, { unit: s.units[id] });
+            return !!s.incidents[id] && !deskCan(s, { incident: s.incidents[id] });
+          },
+    [desk],
+  );
   const onSelectIncident = useCallback((id: string) => selectIncident(id), []);
   const onSelectUnit = useCallback((id: string) => selectUnit(id), []);
   const onMapClick = useCallback((coord: LngLat) => {
@@ -174,6 +189,7 @@ function MapHost({ cinematic }: { cinematic?: boolean }) {
       onMapClick={placing ? onMapClick : undefined}
       placing={!!placing}
       cinematic={cinematic}
+      dimmed={dimmed}
     />
   );
 }

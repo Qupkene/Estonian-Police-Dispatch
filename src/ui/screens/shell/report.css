@@ -363,3 +363,15 @@
 .vk-rep__coop thead th {
   letter-spacing: 0.06em;
 }
+
+/* Sector co-op: the desks' table under the players'. */
+.vk-rep__coopSub {
+  margin: 0;
+  padding: 12px 14px 4px;
+  border-top: 1px solid var(--vk-line-2);
+  font: 600 11px/1.3 var(--vk-font-display);
+  font-stretch: 112%;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vk-text-1);
+}

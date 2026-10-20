@@ -31,6 +31,8 @@ export interface RoomPlayer {
   done: boolean;
   /** Role co-op: the role picked in the lobby (or the seat's default). */
   role?: CoopRole;
+  /** Sector co-op: the desk (sector id) picked in the lobby, or the seat's default. */
+  desk?: string;
 }
 
 export interface RoomResult {
@@ -83,6 +85,9 @@ export function parseOptions(v: unknown): RoomOptions {
   return {
     regionId: oneOf(o.regionId, REGIONS, 'pohja'),
     sector: str(o.sector),
+    ...(Array.isArray(o.desks) && o.desks.length
+      ? { desks: o.desks.filter((d): d is string => typeof d === 'string').slice(0, 4) }
+      : {}),
     difficulty: oneOf<Difficulty>(o.difficulty, ROOM_DIFFICULTIES, 'normal'),
     hours: (ROOM_HOURS as readonly number[]).includes(hours) ? hours : 3,
     slot: oneOf<RoomSlot>(o.slot, ROOM_SLOTS, 'evening'),
@@ -101,6 +106,7 @@ function parsePlayer(v: unknown): RoomPlayer | null {
     left: v.left === true,
     done: v.done === true,
     ...(isCoopRole(v.role) ? { role: v.role } : {}),
+    ...(typeof v.desk === 'string' && v.desk ? { desk: v.desk } : {}),
   };
 }
 
@@ -155,7 +161,7 @@ export function parseRoom(v: unknown): Room | null {
 /** The shift of a started room, or null while it waits in the lobby. */
 export function roomShiftOf(room: Room): RoomShift | null {
   if (room.state === 'lobby' || room.seed === null || room.day === null) return null;
-  return { code: room.code, seed: room.seed, day: room.day, options: room.options };
+  return { code: room.code, mode: room.mode, seed: room.seed, day: room.day, options: room.options };
 }
 
 export const isHost = (room: Room): boolean => room.host !== null && room.host === room.me;

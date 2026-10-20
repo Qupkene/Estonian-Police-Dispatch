@@ -100,7 +100,9 @@ With sectors:
   each sector is named in its `SectorDef.colleague`; on the radio their desk is `JK <SHORT>` ("JK VILJANDIMAA").
   They act only when `SimState.colleagues` is set: `createShift` sets it on a sector shift in career or free
   play outside the daily challenge (not in the tutorial or the director, not on a whole-prefecture shift). A
-  save without it, every older save, has no colleague events and plays exactly as before. All their draws
+  save without it, every older save, has no colleague events and plays exactly as before. A sector co-op room
+  (docs/MULTIPLAYER.md section 8) sets it too, with `ColleagueState.area` = the desks the players hold, so the
+  colleagues also run the room's desks nobody holds. All their draws
   (timers, picks, phrases, the help call's generation) run on `SimState.colleagues.rng`, a stream of its own
   seeded from the seed and the area, so a resumed save goes on identically.
   - **Help requests**: a Poisson process (`helpPerHour` 0.18, none in the first and last 30 minutes, at most

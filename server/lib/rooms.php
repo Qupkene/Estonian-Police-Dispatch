@@ -23,9 +23,12 @@ const EPD_ROOM_MAX_PLAYERS = 4;
 /** Code alphabet: capitals and digits without the look-alikes I, O, 0 and 1 (32 symbols, 32^6 codes). */
 const EPD_ROOM_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const EPD_ROOM_CODE_PATTERN = '/^[A-HJ-NP-Z2-9]{6}$/';
-/** `race` (same-seed competition) and `role` (role co-op over the command log, coop.php) are open; `sector` comes later. */
+/** `race` (same-seed competition), `role` and `sector` (co-op over the command log, coop.php). */
 const EPD_ROOM_MODES = ['race', 'sector', 'role'];
-const EPD_ROOM_OPEN_MODES = ['race', 'role'];
+const EPD_ROOM_OPEN_MODES = ['race', 'role', 'sector'];
+/** A sector room has two to four desks (neighbouring sectors of the prefecture; the client checks the neighbours). */
+const EPD_ROOM_DESKS_MIN = 2;
+const EPD_ROOM_DESKS_MAX = 4;
 const EPD_ROOM_HOURS = [2, 3, 4, 6];
 const EPD_ROOM_SLOTS = ['morning', 'afternoon', 'evening', 'night'];
 /** A player counts as online when their last poll is this recent (ms). */
@@ -77,12 +80,13 @@ function epd_room_invalid(string $field): never
 }
 
 /**
- * Validated shift options of a room from a body.
+ * Validated shift options of a room from a body. A sector room (`$mode` 'sector') needs `desks`: two to four distinct
+ * sectors of the prefecture; its `sector` becomes the first desk. Other modes store no desks.
  *
  * @param array<string, mixed> $body
- * @return array{region_id: string, sector: string, difficulty: string, hours: int, slot: string}
+ * @return array{region_id: string, sector: string, difficulty: string, hours: int, slot: string, desks: string}
  */
-function epd_room_options(array $body): array
+function epd_room_options(array $body, string $mode = 'race'): array
 {
     $region = $body['regionId'] ?? null;
     if (!is_string($region) || !in_array($region, EPD_REGIONS, true)) {
@@ -105,7 +109,36 @@ function epd_room_options(array $body): array
     if (!is_string($slot) || !in_array($slot, EPD_ROOM_SLOTS, true)) {
         epd_room_invalid('slot');
     }
-    return ['region_id' => $region, 'sector' => $sector, 'difficulty' => $difficulty, 'hours' => $hours, 'slot' => $slot];
+    $desks = '';
+    if ($mode === 'sector') {
+        $list = $body['desks'] ?? null;
+        if (!is_array($list) || !array_is_list($list) || count($list) < EPD_ROOM_DESKS_MIN || count($list) > EPD_ROOM_DESKS_MAX) {
+            epd_room_invalid('desks');
+        }
+        foreach ($list as $d) {
+            if (!is_string($d) || preg_match('/^' . $region . '-[a-z0-9][a-z0-9-]{0,40}$/', $d) !== 1) {
+                epd_room_invalid('desks');
+            }
+        }
+        if (count(array_unique($list)) !== count($list)) {
+            epd_room_invalid('desks');
+        }
+        $desks = implode(',', $list);
+        $sector = $list[0];
+    }
+    return ['region_id' => $region, 'sector' => $sector, 'difficulty' => $difficulty, 'hours' => $hours, 'slot' => $slot, 'desks' => $desks];
+}
+
+/**
+ * A sector room's desks as a list ([] for the other modes).
+ *
+ * @param array<string, mixed> $room
+ * @return list<string>
+ */
+function epd_room_desks(array $room): array
+{
+    $raw = (string) ($room['desks'] ?? '');
+    return $raw === '' ? [] : explode(',', $raw);
 }
 
 /** @return array<string, mixed>|null */
@@ -134,7 +167,7 @@ function epd_room_by_id(PDO $db, int $id): ?array
 function epd_room_players(PDO $db, int $roomId): array
 {
     $stmt = $db->prepare(
-        'SELECT p.user_id, p.seat, p.ready, p.joined, p.seen, p.left_at, p.role, u.name
+        'SELECT p.user_id, p.seat, p.ready, p.joined, p.seen, p.left_at, p.role, p.desk, u.name
          FROM room_players p JOIN users u ON u.id = p.user_id
          WHERE p.room_id = ? ORDER BY p.seat'
     );
@@ -285,6 +318,10 @@ function epd_room_public(PDO $db, array $room, int $userId, int $now): array
             // Role co-op: the role chosen in the lobby, or the seat's default (coop.php).
             'role' => epd_coop_role_of($p),
         ];
+        if ((string) $room['mode'] === 'sector') {
+            // Sector co-op: the desk chosen in the lobby, or the seat's default.
+            $list[count($list) - 1]['desk'] = epd_coop_desk_of($room, $p);
+        }
     }
     $running = $room['state'] !== 'lobby';
     return [
@@ -301,7 +338,7 @@ function epd_room_public(PDO $db, array $room, int $userId, int $now): array
             'difficulty' => (string) $room['difficulty'],
             'hours' => (int) $room['hours'],
             'slot' => (string) $room['slot'],
-        ],
+        ] + ((string) $room['mode'] === 'sector' ? ['desks' => epd_room_desks($room)] : []),
         // The seed and the day only once the shift is on: nobody can play it before the others.
         'seed' => $running ? (int) $room['seed'] : null,
         'day' => $running ? (string) $room['day'] : null,
@@ -482,7 +519,7 @@ function epd_route_room_create(): ApiReply
     if (!in_array($mode, EPD_ROOM_OPEN_MODES, true)) {
         epd_fail(400, 'mode_unavailable', 'See mitmikmängu režiim ei ole veel avatud.', [], ['field' => 'mode']);
     }
-    $opts = epd_room_options($body);
+    $opts = epd_room_options($body, $mode);
     $db = epd_db();
     $ip = epd_client_ip();
     if (epd_rate_events($db, 'room_create', $ip, EPD_ROOM_CREATE_WINDOW) >= EPD_ROOM_CREATE_LIMIT) {
@@ -493,14 +530,14 @@ function epd_route_room_create(): ApiReply
         epd_rate_event($db, 'room_create', $ip);
         epd_rooms_sweep($db, $now);
         $insert = $db->prepare(
-            'INSERT INTO rooms (code, mode, host_id, region_id, sector, difficulty, hours, slot, seed, day, state, rev, created, updated)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'lobby\', 1, ?, ?)'
+            'INSERT INTO rooms (code, mode, host_id, region_id, sector, desks, difficulty, hours, slot, seed, day, state, rev, created, updated)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'lobby\', 1, ?, ?)'
         );
         for ($try = 0; ; $try++) {
             $code = epd_room_new_code();
             try {
                 $insert->execute([
-                    $code, $mode, $userId, $opts['region_id'], $opts['sector'], $opts['difficulty'], $opts['hours'],
+                    $code, $mode, $userId, $opts['region_id'], $opts['sector'], $opts['desks'], $opts['difficulty'], $opts['hours'],
                     $opts['slot'], random_int(1, 2147483646), epd_daily_date($now), $now, $now,
                 ]);
                 break;
@@ -628,11 +665,12 @@ function epd_route_room_update(string $code): ApiReply
 {
     $user = epd_require_user();
     $userId = (int) $user['id'];
-    $opts = epd_room_options(epd_json_body());
+    $body = epd_json_body();
     $db = epd_db();
     $now = epd_room_now_ms();
-    $clean = epd_room_tx($db, static function (PDO $db) use ($code, $userId, $opts, $now): string {
+    $clean = epd_room_tx($db, static function (PDO $db) use ($code, $userId, $body, $now): string {
         [$room] = epd_room_for_member($db, $code, $userId, $now);
+        $opts = epd_room_options($body, (string) $room['mode']);
         if ((int) ($room['host_id'] ?? 0) !== $userId) {
             epd_fail(403, 'not_host', 'Seda saab muuta ainult ruumi looja.');
         }

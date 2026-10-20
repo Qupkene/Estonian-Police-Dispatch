@@ -21,6 +21,7 @@
  */
 import { closeIncident } from '@/sim/commands';
 import { ageOf, describePerson, describeVehicle, withArticleEn } from '@/gen/describe';
+import { deskLineBusy } from './desks';
 import { addTimeline, emit, publishIncident, regionOf, tplOf } from './internal';
 import { placeText, spokenPlace, spokenPlaceLabel } from './radio';
 import {
@@ -1595,7 +1596,8 @@ function cap1(x: string): string {
 export function maybeCreateCall(s: SimState, inc: Incident, tpl: IncidentTemplate): ActiveCall | null {
   if (s.mode === 'director' || s.ended) return null;
   if (inc.source !== 'hk' && inc.source !== 'call') return null;
-  if (s.calls.some((c) => c.endedAt === undefined)) return null;
+  // One 112 line; a sector co-op room has one per desk (src/sim/desks.ts).
+  if (s.coop?.sec ? deskLineBusy(s, inc) : s.calls.some((c) => c.endedAt === undefined)) return null;
   const chance = tpl.interactiveChance ?? INTERACTIVE_CHANCE[inc.truePriority] ?? 0.1;
   return withRng(s, (rng) => {
     if (!rng.chance(chance)) return null;

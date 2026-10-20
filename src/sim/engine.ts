@@ -8,6 +8,7 @@ import { generateVehicle } from '@/gen/vehicle';
 import { dayInfo } from './calendar';
 import { updateCalls } from './calls';
 import { initColleagues, updateColleagues } from './colleagues';
+import { updateDesks } from './desks';
 import { emit, regionOf } from './internal';
 import { isHidden, openIncidentIds, updateIncidents } from './incidents';
 import { jkPhrase } from './radio';
@@ -533,6 +534,14 @@ function substep(s: SimState, h: number): void {
     updateColleagues(s);
   } catch (err) {
     console.warn('[EPD] updateColleagues failed', err);
+  }
+  // Sector co-op only (src/sim/desks.ts): each desk's incidents, the colleagues of desks nobody holds, help, hand-overs.
+  if (s.coop?.sec) {
+    try {
+      updateDesks(s);
+    } catch (err) {
+      console.warn('[EPD] updateDesks failed', err);
+    }
   }
   try {
     updateCalls(s);

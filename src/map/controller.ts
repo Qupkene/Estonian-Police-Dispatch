@@ -717,6 +717,7 @@ export class MapController {
       selectedIncidentId: p.selectedIncidentId,
       highlight: this.highlight,
       offsets: this.offsets,
+      dimmed: p.dimmed,
     };
     this.incidents.sync(ctx, realNow);
     this.units.sync(ctx);

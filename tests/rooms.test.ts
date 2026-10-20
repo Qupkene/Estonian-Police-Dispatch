@@ -192,7 +192,13 @@ describe('room answers', () => {
         results: [{ id: 2, name: 'Ivo', score: 81, grade: 'A', incidents: 9, arrests: 1, at: 5, rank: 0 }],
       }),
     )!;
-    expect(roomShiftOf(room)).toEqual({ code: 'K7M2QX', seed: 99, day: '2026-10-20', options: room.options });
+    expect(roomShiftOf(room)).toEqual({
+      code: 'K7M2QX',
+      mode: 'race',
+      seed: 99,
+      day: '2026-10-20',
+      options: room.options,
+    });
     expect(room.results[0].rank).toBe(1);
     expect(myResult(room)).toBeUndefined();
     expect(stillPlaying(room).map((p) => p.name)).toEqual(['Hanna']);

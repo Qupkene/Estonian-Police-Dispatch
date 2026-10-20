@@ -10,8 +10,8 @@ and co-op XP counts in every player's career.
 | (c) same-seed competition | Võistlus | Everyone plays the identical shift on their own; the results are compared. |
 
 Phase 1 built the shared room foundation and mode (c) end to end. Phases 2 and 3 built the shared, synchronised
-simulation (section 4 chooses how) and mode (b) on top of it; section 7 describes what was built. Mode (a) is the
-next phase (section 6).
+simulation (section 4 chooses how) and mode (b) on top of it; section 7 describes what was built. Phase 4 built
+mode (a) on the same lockstep core; section 8 describes it. Careers and polish are next (section 6).
 
 Code: `server/lib/rooms.php` (routes in `server/api/index.php`, schema step 4 in `server/lib/db.php`),
 `src/net/rooms.ts`, `src/sim/room.ts`, `src/ui/screens/LobbyScreen.tsx`, `src/ui/screens/shell/RoomBoard.tsx`,
@@ -216,7 +216,7 @@ queries, `markChecked`). One area, one queue; each player sees the screen of the
 **(a) Sector co-op.** The host picks the prefecture; each seat takes one desk of neighbouring sectors
 (`neighbourSectors`); the shift covers their union. A player's queue shows their sector's incidents, their
 crews come from their sector's stations, and a crew can be lent to a neighbour's incident (a `lend` command
-the neighbour accepts, or automatic for P1). Empty desks are AI colleagues.
+the neighbour accepts or declines). Empty desks are AI colleagues. As built: section 8.
 
 Engine changes for both: the store loop steps whole turns from the log instead of `dtReal × speed`; the call
 slow-down moves into the sim; a seat and a role or desk on every command; the permission matrix; per-seat
@@ -234,8 +234,8 @@ counters in the stats.
    resync after a forced divergence; reconnect mid-shift.
 3. **Role co-op (b) (done, section 7).** Roles in the lobby, the permission matrix, the call-taker and dispatcher layouts of the
    game screen, per-seat counters, the co-op report.
-4. **Sector co-op (a).** Desk choice in the lobby, multi-sector shifts with per-desk queues and crews, lending,
-   AI colleagues for empty desks.
+4. **Sector co-op (a) (done, section 8).** Desk choice in the lobby, multi-sector shifts with per-desk queues and
+   crews, lending, AI colleagues for empty desks.
 5. **Careers and polish.** Co-op XP into careers (section 4.6), achievements, a rematch with the same options,
    an invite link (`?ruum=K7M2QX`), spectators.
 
@@ -336,4 +336,114 @@ role picker (`src/ui/screens/LobbyScreen.tsx`) and the team table on the report.
   hold the state) and the host is asked for a fresh snapshot at once, so a rejoin needs only the commands after it.
   Within the first minute of a shift, before the first snapshot, a rejoin replays from the seed without them.
 - Results are reported by each client, as in Võistlus; a modified client could still send another score.
+
+## 8. Phase 4 as built: sector co-op (mode a)
+
+Code: `src/sim/desks.ts` (desks, ownership, lending, help, hand-over, the AI colleagues of empty desks, the per-desk
+report), the desk check in `applyCommand` (`src/sim/coop.ts`), one line per desk in `calls.maybeCreateCall`, the
+desks' substep in `engine.substep`, the colleagues' `area` and `crews` (`src/sim/colleagues.ts`,
+`ColleagueState`), the room's desks (`src/sim/room.ts` `roomDesks`), the lobby's desk choice
+(`src/ui/screens/shell/LobbyDesks.tsx`), the game screen's desk parts (`src/ui/game/DeskParts.tsx` and the desk
+filters in the queue, the incident and unit panels, the unit board, the call card, the radio replies and the map)
+and the desks' table on the report. Server: `server/lib/coop.php` (`POST /api/rooms/{code}/desk`, the kinds `lend`
+and `lendans`, the setup rows), `server/lib/rooms.php` (`desks` in the options), schema step 6 in
+`server/lib/db.php`. Tests: `tests/coop-sectors.test.ts`, `tests/server.test.ts` ("co-op lockstep (sector rooms)"),
+`e2e/coop-sectors.spec.ts`.
+
+### 8.1 The room and the shift
+
+- The host picks the prefecture and two to four sectors that neighbour each other (one connected group,
+  `validDesks`) on the prefecture's map, the career's sector map (`SectorMap`), or in the list next to it. The room
+  stores them in `rooms.desks`; its `sector` is the first desk. Each player picks a desk (`room_players.desk`);
+  without a pick the seats spread over the desks in order (`desks[seat % n]`, `defaultDesk`). Two players may share
+  a desk and split its work as two players in one role do. The server only checks the shape of the list; the
+  neighbours are the client's check.
+- The shift is an ordinary room shift over the union of the desks (`roomShiftOptions` with `sectors: desks`,
+  `fixedSchedule`): calls spawn in all of them, the crews come from all their stations. `initCoop(sim, code,
+  'sector', desks)` adds `CoopState.sec` (`DeskState`): the desks, every crew's desk, every incident's desk, the
+  lend requests and the counters. The setup command's rows are `[seat, desk, name]` (`CoopSeat.desk`).
+- Ownership: a crew belongs to the desk whose sector lists its station (a station two desks list, Ida-Harju's for
+  Lasnamäe and Ida-Harju, is shared out in turn), else to the desk of its station's point; the prefecture's
+  on-call assets (K-komando, helicopter, `onCall`) are shared by every desk. An incident belongs to the desk of its
+  location (`sectorOf`, the nearest desk when it lies outside them), fixed once in the substep it appears
+  (`incDesk`, part of the digest); a hand-over moves it. A 112 call is its incident's desk's.
+- Each desk has its own 112 line (`deskLineBusy`): a call rings when that desk has no open call, so two desks can
+  talk to callers at once. The 112 slow-down (`effectiveSpeed`) still applies to the shared clock while any call is
+  open.
+
+### 8.2 Permissions by desk
+
+The role matrix's counterpart, checked inside the sim when a command is applied (`deskAllows` in `applyCommand`),
+so every client refuses a forbidden command identically and counts it in the seat's `denied`. In sector co-op every
+present seat holds every role (`roleHolders`), and the desk check narrows it:
+
+| Command | Allowed for |
+| --- | --- |
+| `answer`, `ask`, `interp`, `endcall` | the call's desk |
+| `ack`, `prio`, `close`, `agency`, `pursuit`, `check` | the incident's desk |
+| `send` | the incident's desk, every crew its own or a shared on-call one |
+| `recall` | the crew's desk, or the desk of the incident it works (a lent crew) |
+| `break` | the crew's desk (anyone for an on-call asset) |
+| `reply` | the desk of the message's crew, else of its incident; anyone for a general message |
+| `lend` | the incident's desk (asking for a neighbour's crew) or the crew's desk (offering it) |
+| `lendans` | the desk the request went to |
+| `q`, `ping` | anyone; `speed`, `end` the host |
+
+A seat that is away has no desk and can only `q` and `ping`.
+
+### 8.3 Lending, help, hand-over
+
+- Lending is a command pair. `lend [incident, crew]` by the incident's desk is an ask (the crew's desk answers), by
+  the crew's desk an offer (the incident's desk answers). The crew must be free (`available`, no incident, not an
+  on-call asset); one open request per incident and crew. `lendans [request, 1|0]` by the desk it went to accepts
+  (the crew is dispatched to the incident, `dispatchUnits`, at the same turn on every client) or declines. A request
+  nobody answers lapses after `LEND_TURNS` (40 turns, about 40 s); one whose crew or incident is gone lapses at the
+  next turn. The incident's timeline records each step. Counters: the lender's seat `lent`, the borrower's
+  `borrowed`. The game shows the neighbours' free crews under one's own incident ("Küsi"), one's own free crews
+  under a neighbour's ("Paku"), the same through the unit panel, the requests in the co-op panel with "Anna" or
+  "Võta vastu" and "Keeldu", and a toast at the desk a request reaches.
+- Help: a crew that reaches (on scene) a neighbour's incident, or a colleague's call for help, counts once per
+  incident in the `helped` of the seat that sent it, like `ReportExtras.helpGiven` in single player. It adds to the
+  seat's XP share (`seatWork`: lent x 2, helped x 3, hand-over x 1, take-over x 2).
+- Pursuit hand-over: when a pursuit's suspect is in another desk's sector that a player holds, that desk offers to
+  take it over with the colleague hand-over prompt (`colleagueHandover`, "Anna üle naaberlauale" / "Jätkame ise",
+  open `handoverOfferMin` 2 minutes, once per pursuit, `DeskState.handover`). Only the incident's desk answers.
+  Handing over moves the incident to the neighbour's queue; the crews stay on it and now help the neighbour.
+  Counters `handover` and `takeover`. A pursuit into a desk nobody holds, or out of the room's sectors, gets the
+  single-player colleague's offer, which closes the event as the colleague's when accepted.
+
+### 8.4 A desk nobody holds
+
+The choice: **its AI colleague runs it** (the alternative, the desk falling to a neighbour, was rejected: a player
+would suddenly run two queues and two lines, and the lockstep would have to move incidents between players). A desk
+nobody picked and a player who leaves (`left`, or offline for 60 s) are the same case:
+
+- The colleague takes the desk's open incidents that have no crew back (closed as `colleague`, out of the shift's
+  counts like a colleague's call for help taken back, counted per desk in `DeskState.taken`); no 112 call rings for
+  that desk. Incidents of the desk that already have crews run on until the crews are done.
+- The existing AI colleague logic (`src/sim/colleagues.ts`) runs with `ColleagueState.area` = the desks players hold
+  and `crews` = their crews, so the colleague of an empty desk (and the colleagues of the sectors around the room)
+  ask the players' desks for help now and then, near their crews; a call for help goes to the held desk next to the
+  colleague's sector nearest the call. The colleagues never use a player's crew. Asked for one of their own free
+  crews, they lend it at once; a player's offer to them is declined.
+- `back` gives the desk to its player again; what the colleague took stays closed.
+
+### 8.5 Report and XP
+
+The report's `coop` gains `mode: 'sector'`, each seat's `desk` and `desks`: one row per desk, the same on every
+client (`deskRows`): who sat there (or the AI colleague), the desk's incidents and how many closed, crews lent,
+help, hand-overs and what the colleague took back. The players' table shows calls, incidents created, crews sent,
+crews lent and help. XP as for role co-op (section 7.4), once per career keyed `room:<code>`.
+
+### 8.6 Limits
+
+- The neighbours of the chosen desks are checked in the client only; a modified client could store a list of
+  sectors that do not touch, which still plays (ownership does not need them to touch).
+- A desk whose player leaves keeps its incidents that have crews; nobody can work them until the crews finish or
+  the player comes back.
+- On-call assets are shared and can be sent by any desk; the first desk to send one wins (the log orders it).
+- Lending covers free crews only: a crew on its way to its own desk's job is not offered, it has to be recalled
+  first.
+- The Playwright run covers two players at two desks in Chromium; three and four desks and a player leaving are
+  covered by the unit tests.
 

@@ -44,7 +44,9 @@ import {
 } from '@/sim/room';
 import { hhmm, HOUR } from '@/sim/time';
 import { COOP_ROLES, DEFAULT_ROLES, type CoopRole } from '@/sim/coop';
-import { setRoomRole } from '@/net/coop';
+import { setRoomDesk, setRoomRole } from '@/net/coop';
+import { defaultDesks } from '@/sim/desks';
+import { sectorById } from '@/sim/sectors';
 import { startCoop } from '@/store/coop';
 import type { Difficulty, RegionId } from '@/sim/types';
 import { Button, Modal, Segmented, Select, Spinner } from '@/ui/components';
@@ -53,15 +55,21 @@ import { regionSummary } from './shell/helpers';
 import { lobbyFocus } from './shell/lobbyNav';
 import { boardCount, RoomBoard } from './shell/RoomBoard';
 import { VkLayer } from './shell/VkLayer';
+import { DeskOptions, DeskPicker, DeskSummary, deskOfPlayer, desksOf, withDesks } from './shell/LobbyDesks';
 import './shell/lobby.css';
 
 const REGIONS: RegionId[] = ['pohja', 'ida', 'louna', 'laane'];
 const MODES: RoomMode[] = ['race', 'role', 'sector'];
 
-/** Options for a prefecture: its first starter sector, as a new career would get. */
+/** Options for a prefecture: its first starter sector, as a new career would get, and its default desks. */
 function optionsFor(regionId: RegionId, prev: RoomOptions): RoomOptions {
   const first = starterSectors(regionId)[0] ?? sectorsOf(regionId)[0];
-  return { ...prev, regionId, sector: first?.id ?? '' };
+  return { ...prev, regionId, sector: first?.id ?? '', desks: defaultDesks(regionId) };
+}
+
+/** What a room of this mode is created with: a sector room carries its desks (the first is its sector). */
+function optionsForMode(mode: RoomMode, o: RoomOptions): RoomOptions {
+  return mode === 'sector' ? withDesks(o, desksOf(o)) : o;
 }
 
 export function LobbyScreen() {
@@ -185,7 +193,10 @@ function NoRoom({
 }) {
   const t = useT();
   const [mode, setMode] = useState<RoomMode>('race');
-  const [opts, setOpts] = useState<RoomOptions>(DEFAULT_ROOM_OPTIONS);
+  const [opts, setOpts] = useState<RoomOptions>(() => ({
+    ...DEFAULT_ROOM_OPTIONS,
+    desks: defaultDesks(DEFAULT_ROOM_OPTIONS.regionId),
+  }));
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState<'create' | 'join' | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -195,7 +206,7 @@ function NoRoom({
     setBusy('create');
     setError(null);
     try {
-      onRoom(await createRoom(mode, opts));
+      onRoom(await createRoom(mode, optionsForMode(mode, opts)));
       sfx.play('click');
     } catch (e) {
       sfx.play('error');
@@ -234,7 +245,7 @@ function NoRoom({
           <span className="vk-meta">{t('rooms.create.meta')}</span>
         </div>
         <ModePicker value={mode} onChange={setMode} />
-        <OptionsForm value={opts} onChange={setOpts} />
+        <OptionsForm value={opts} onChange={setOpts} mode={mode} />
         <p className="vk-mp__hint">{t('rooms.opt.hint')}</p>
         {error && (
           <p className="vk-msg is-bad vk-mp__err" role="alert">
@@ -359,15 +370,17 @@ function ModePicker({ value, onChange }: { value: RoomMode; onChange: (m: RoomMo
   );
 }
 
-/** The shift's options: prefecture, area, difficulty, length and time of day. */
+/** The shift's options: prefecture, area (a sector room: its desks), difficulty, length and time of day. */
 function OptionsForm({
   value,
   onChange,
   disabled,
+  mode,
 }: {
   value: RoomOptions;
   onChange: (o: RoomOptions) => void;
   disabled?: boolean;
+  mode: RoomMode;
 }) {
   const t = useT();
   const tx = useTx();
@@ -390,7 +403,12 @@ function OptionsForm({
           options={REGIONS.map((r) => ({ value: r, label: t(`account.lb.region.${r}`), disabled }))}
         />,
       )}
-      {row(
+      {mode === 'sector' ? (
+        <div className="vk-mp__field vk-mp__field--desks">
+          <span className="vk-label">{t('desk.opt.desks')}</span>
+          <DeskOptions value={value} onChange={onChange} disabled={disabled} />
+        </div>
+      ) : row(
         t('rooms.opt.sector'),
         <Select<string>
           label={<span className="vk-sr">{t('rooms.opt.sector')}</span>}
@@ -442,17 +460,27 @@ function OptionsForm({
 }
 
 /** The options as read-only lines (players other than the host, and a started room). */
-function OptionsSummary({ o }: { o: RoomOptions }) {
+function OptionsSummary({ o, room }: { o: RoomOptions; room?: Room }) {
   const t = useT();
   const lang = useLang();
   const tx = useTx();
   const sector = sectorsOf(o.regionId).find((x) => x.id === o.sector);
+  const desks = room?.mode === 'sector' ? desksOf(o) : null;
   return (
     <dl className="vk-kv vk-mp__kv">
+      {desks && room && (
+        <div className="vk-mp__kvMap">
+          <DeskSummary room={room} />
+        </div>
+      )}
       <div>
-        <dt>{t('rooms.opt.sector')}</dt>
-        <dd>
-          {sector ? tx(sector.name) : t('rooms.opt.whole')}{' '}
+        <dt>{t(desks ? 'desk.opt.desks' : 'rooms.opt.sector')}</dt>
+        <dd data-testid="room-area">
+          {desks
+            ? desks.map((id) => tx(sectorById(id)?.name ?? { et: id, en: id })).join(', ')
+            : sector
+              ? tx(sector.name)
+              : t('rooms.opt.whole')}{' '}
           <span className="vk-dim">· {regionSummary(o.regionId).name[lang]}</span>
         </dd>
       </div>
@@ -651,12 +679,13 @@ function RoomView({
               <OptionsForm
                 value={room.options}
                 disabled={busy}
-                onChange={(o) => void act(() => updateRoomOptions(room.code, o))}
+                mode={room.mode}
+                onChange={(o) => void act(() => updateRoomOptions(room.code, optionsForMode(room.mode, o)))}
               />
               <p className="vk-mp__hint">{t('rooms.hostEdits')}</p>
             </>
           ) : (
-            <OptionsSummary o={room.options} />
+            <OptionsSummary o={room.options} room={room} />
           )}
         </section>
         {room.state !== 'lobby' && (
@@ -681,7 +710,11 @@ function RoomView({
                   {t(room.state === 'finished' ? 'rooms.run.sentDone' : 'rooms.run.sent')}
                 </p>
               ) : (
-                <p>{t(coop ? 'coop.run.text' : 'rooms.run.text', { time: room.started ? hhmm(room.started) : '-' })}</p>
+                <p>
+                  {t(room.mode === 'sector' ? 'desk.run.text' : coop ? 'coop.run.text' : 'rooms.run.text', {
+                    time: room.started ? hhmm(room.started) : '-',
+                  })}
+                </p>
               )}
             </div>
             {room.state === 'running' && !mine && me && !me.left && (
@@ -707,7 +740,12 @@ function RoomView({
               </span>
             </div>
             <Seats room={room} />
-            {coop && <RolePicker room={room} busy={busy} onPick={(role) => void act(async () => void (await setRoomRole(room.code, role)))} />}
+            {room.mode === 'role' && (
+              <RolePicker room={room} busy={busy} onPick={(role) => void act(async () => void (await setRoomRole(room.code, role)))} />
+            )}
+            {room.mode === 'sector' && (
+              <DeskPicker room={room} busy={busy} onPick={(desk) => void act(async () => void (await setRoomDesk(room.code, desk)))} />
+            )}
             <div className="vk-mp__status">
               {host ? (
                 <p className={`vk-msg${block ? '' : ' is-ok'}`} data-testid="room-block">
@@ -771,7 +809,7 @@ function RoomView({
                   <span className="vk-mp__step vk-mono" aria-hidden="true">
                     {n}
                   </span>
-                  <span>{t(`${coop ? 'coop' : 'rooms'}.rules.${n}`)}</span>
+                  <span>{t(`${room.mode === 'sector' ? 'desk' : coop ? 'coop' : 'rooms'}.rules.${n}`)}</span>
                 </li>
               ))}
             </ol>
@@ -845,6 +883,7 @@ function RoomView({
 /** The four seats: who sits there, host and ready marks, and whether they are still connected. */
 function Seats({ room }: { room: Room }) {
   const t = useT();
+  const tx = useTx();
   const seats = Array.from(
     { length: room.max },
     (_, i) => room.players.find((p) => p.seat === i && !p.left) ?? null,
@@ -864,9 +903,14 @@ function Seats({ room }: { room: Room }) {
                 {p.host && <span className="vk-mp__tag">{t('rooms.badge.host')}</span>}
                 {p.id === room.me && <span className="vk-dim">({t('rooms.badge.you')})</span>}
               </span>
-              {isCoopMode(room.mode) && (
+              {room.mode === 'role' && (
                 <span className="vk-mp__role" data-testid="seat-role">
                   {t(`coop.role.${p.role ?? DEFAULT_ROLES[i % 4]}`)}
+                </span>
+              )}
+              {room.mode === 'sector' && (
+                <span className="vk-mp__role" data-testid="seat-desk">
+                  {tx(sectorById(deskOfPlayer(room, p))?.name ?? { et: '?', en: '?' })}
                 </span>
               )}
               <span className={`vk-mp__ready${p.ready ? ' is-ready' : ''}`}>

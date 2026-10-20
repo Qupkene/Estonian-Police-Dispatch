@@ -24,6 +24,7 @@ import type {
   UnitNeed,
 } from '@/sim/types';
 import { parseQueryRef, sortQueue, typeFits } from './format';
+import { deskCan } from '@/store/coop';
 
 const warned = new Set<string>();
 
@@ -126,6 +127,21 @@ export interface LiveStats {
 }
 
 export function selLiveStats(s: SimState): LiveStats {
+  const live = selLiveStatsAll(s);
+  if (!s.coop?.sec) return live;
+  // Sector co-op: the top bar counts this desk's open events and crews (and the shared on-call ones).
+  const units = s.unitOrder.map((id) => s.units[id]).filter((u) => !!u && deskCan(s, { unit: u }));
+  const q = selQueue(s).filter((i) => deskCan(s, { incident: i }));
+  return {
+    ...live,
+    open: q.length,
+    p1: q.filter((i) => i.priority === 1).length,
+    unitsFree: units.filter((u) => u.status === 'available').length,
+    unitsTotal: units.filter((u) => u.status !== 'offduty').length,
+  };
+}
+
+function selLiveStatsAll(s: SimState): LiveStats {
   return safe('liveStats', () => S.liveStats(s), () => {
     const q = selQueue(s);
     const all = Object.values(s.stats?.responseTimes ?? {}).flat();
@@ -192,7 +208,8 @@ export function selRecs(s: SimState, incidentId: string): Recommendation[] {
   if (!inc) return [];
   return safe(
     'recommendUnits',
-    () => S.recommendUnits(s, incidentId).filter((r) => !inc.assigned.includes(r.unit.id)),
+    // Sector co-op: only this desk's crews (and the shared on-call ones); the neighbours' come by request.
+    () => S.recommendUnits(s, incidentId).filter((r) => !inc.assigned.includes(r.unit.id) && deskCan(s, { unit: r.unit })),
     () => fallbackRecs(s, inc),
   );
 }

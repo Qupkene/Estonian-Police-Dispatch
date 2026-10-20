@@ -29,6 +29,8 @@ export interface MapViewProps {
   placing?: boolean;
   /** Hide labels/overlays for cinematic shots. */
   cinematic?: boolean;
+  /** Sector co-op: units and incidents of the neighbouring desks, drawn dimmed. Read every frame. */
+  dimmed?: (kind: 'unit' | 'incident', id: string) => boolean;
 }
 
 export function MapView(p: MapViewProps) {

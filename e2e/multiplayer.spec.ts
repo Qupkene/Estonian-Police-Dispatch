@@ -169,7 +169,7 @@ test.describe.serial('multiplayer rooms', () => {
     await shot(host.page, 'rooms-create-1440');
     await host.page.getByRole('radio', { name: 'Lõuna', exact: true }).click();
     await host.page.getByRole('radio', { name: '2 h' }).click();
-    await expect(host.page.getByRole('radio', { name: /Sektorid/ })).toBeDisabled();
+    await expect(host.page.getByRole('radio', { name: /Sektorid/ })).toBeEnabled();
     await host.page.getByRole('button', { name: 'Loo ruum' }).click();
     const codeText = (await host.page.getByTestId('room-code').textContent()) ?? '';
     const code = codeText.replace(/\s/g, '');

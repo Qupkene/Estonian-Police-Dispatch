@@ -99,12 +99,32 @@ export function initColleagues(s: SimState, o: Pick<NewShiftOptions, 'mode' | 'f
     const cover = nightCoverFor({ regionId: s.regionId, sectors, seed: o.seed, start: o.start });
     if (cover.length) s.coverSectors = cover;
   }
-  const r = new Rng(hashString(`epd-desk:${o.seed >>> 0}:${s.regionId}:${sectors.join(',')}`) || 1);
+  s.colleagues = newColleagueState(s, o.seed, sectors);
+}
+
+/**
+ * A fresh colleagues' state: their own stream seeded from the seed, the prefecture and the sectors, and the first
+ * help and radio times. initColleagues uses it; so does a sector co-op shift (src/sim/desks.ts), whose AI colleagues
+ * also run the desks nobody holds.
+ */
+export function newColleagueState(s: Pick<SimState, 'regionId' | 'startTime'>, seed: number, sectors: readonly string[]): ColleagueState {
+  const r = new Rng(hashString(`epd-desk:${seed >>> 0}:${s.regionId}:${sectors.join(',')}`) || 1);
   const st: ColleagueState = { rng: 0, nextHelpAt: 0, nextChatterAt: 0, helps: 0, chatter: 0, handover: {} };
   st.nextHelpAt = s.startTime + COLLEAGUES.helpQuietStartMin * MIN + r.exp(COLLEAGUES.helpPerHour / 60) * MIN;
   st.nextChatterAt = s.startTime + (COLLEAGUES.chatterGapMin / 2) * MIN + r.exp(COLLEAGUES.chatterPerHour / 60) * MIN;
   st.rng = r.state || 1;
-  s.colleagues = st;
+  return st;
+}
+
+/** The sectors the colleagues work around: the players' desks in sector co-op (ColleagueState.area), else the shift's area. */
+function deskArea(s: SimState): string[] {
+  return s.colleagues?.area ?? areaOf(s);
+}
+
+/** Is this unit one of the player's crews (sector co-op: a crew of a desk a player holds)? */
+function playerCrew(s: SimState, id: string): boolean {
+  const own = s.colleagues?.crews;
+  return !own || own.includes(id);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -125,7 +145,7 @@ function withDesk<T>(s: SimState, st: ColleagueState, fn: () => T): T {
 
 /** The neighbouring desks with a colleague on duty: next to the area, of the prefecture, not tonight's cover. */
 function desks(s: SimState): SectorDef[] {
-  return neighbourSectors(areaOf(s)).filter((x) => x.regionId === s.regionId);
+  return neighbourSectors(deskArea(s)).filter((x) => x.regionId === s.regionId);
 }
 
 function say(s: SimState, sector: SectorDef, key: string, vars: Record<string, string | Text>, o: Partial<RadioMsg> = {}): RadioMsg {
@@ -144,7 +164,7 @@ function say(s: SimState, sector: SectorDef, key: string, vars: Record<string, s
 /** Engine substep (after the incidents): the colleagues' timers, help calls that lapse, hand-over offers. */
 export function updateColleagues(s: SimState): void {
   const st = s.colleagues;
-  if (!st || s.ended || !areaOf(s).length) return;
+  if (!st || s.ended || !deskArea(s).length) return;
   withDesk(s, st, () => {
     followHelpCalls(s);
     offerHandovers(s, st);
@@ -197,12 +217,13 @@ export function maybeAskHelp(s: SimState, st: ColleagueState): Incident | undefi
   if (s.now < s.startTime + COLLEAGUES.helpQuietStartMin * MIN || s.now > s.endTime - COLLEAGUES.helpQuietEndMin * MIN) return undefined;
   if (openHelpCalls(s).length) return undefined;
   // Next to the player's own sectors, where the crews are based (a night's cover has none to lend).
-  const own = s.sectors ?? [];
+  const own = st.area ?? s.sectors ?? [];
   const list = desks(s).filter((x) => x.neighbours.some((id) => own.includes(id)));
   if (!list.length) return undefined;
   const refs = helpRefs(s);
   const zones = new Set(
     s.unitOrder
+      .filter((id) => playerCrew(s, id))
       .map((id) => s.units[id])
       .filter((u) => !!u && !u.onCall)
       .map((u) => u.zone || 'mainland'),
@@ -249,7 +270,7 @@ export function helpRefs(s: SimState): LngLat[] {
   const out: LngLat[] = [];
   for (const id of s.unitOrder) {
     const u = s.units[id];
-    if (!u || u.onCall) continue;
+    if (!u || u.onCall || !playerCrew(s, id)) continue;
     out.push(unitPosAt(u, s.now).pos);
     const st = unitStation(s, u);
     if (st) out.push(st.coord);
@@ -297,7 +318,7 @@ export function helpGivenCount(s: SimState): number {
 /** A pursuit whose suspect left the area: the desk it ran into offers to take it over, once per pursuit. */
 function offerHandovers(s: SimState, st: ColleagueState): void {
   const region = regionOf(s);
-  const area = areaOf(s);
+  const area = deskArea(s);
   for (const [incId, offer] of Object.entries(st.handover)) {
     const inc = s.incidents[incId];
     const msg = s.radio.find((m) => m.id === offer.msg);

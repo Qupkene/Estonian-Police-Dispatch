@@ -25,8 +25,9 @@ import {
   type LogCmd,
   type TurnPlan,
 } from '@/sim/coop';
-import { markRoom, roomShiftOptions, type RoomShift } from '@/sim/room';
-import type { SimState } from '@/sim/types';
+import { markRoom, roomDesks, roomShiftOptions, type RoomShift } from '@/sim/room';
+import { callDesk, incidentDesk, msgDesk, seatDesk, unitDesk } from '@/sim/desks';
+import type { ActiveCall, Incident, RadioMsg, SimState, Unit } from '@/sim/types';
 import { fetchLog, fetchSnapshot, postCommands, putSnapshot, type LogReply } from '@/net/coop';
 import { pollDelay } from '@/net/rooms';
 import { toApiError } from '@/net/api';
@@ -136,7 +137,8 @@ class CoopSession {
   private freshSim(): SimState {
     const sim = createShift(roomShiftOptions(this.shift, teamName(this.code)));
     markRoom(sim, this.code);
-    initCoop(sim, this.code);
+    const desks = roomDesks(this.shift);
+    initCoop(sim, this.code, desks.length ? 'sector' : 'role', desks);
     return sim;
   }
 
@@ -520,17 +522,67 @@ export function usePending(k: string, id: string): boolean {
   return useCoop((s) => s.pending.some((p) => p.k === k && p.a[0] === id));
 }
 
-/** Names of the players covering a role now ('' when nobody), or null in single player (hook). */
+/** Names of the players covering a role now ('' when nobody), or null in single player and sector co-op (hook). */
 export function useCoopNames(role: CoopRole): string | null {
   useGame((g) => g.tick);
   const sim = useGame((g) => g.sim);
   const c = sim?.coop;
-  if (!c) return null;
+  if (!c || c.mode === 'sector') return null;
   const seats = rolesHolders(c, role);
   return c.seats
     .filter((x) => seats.includes(x.seat))
     .map((x) => x.name)
     .join(', ');
+}
+
+// ── Sector co-op: whose desk ─────────────────────────────────────────────────
+
+/** Sector co-op: this player's desk ('' while away), or null on any other shift. */
+export function myDesk(sim: SimState | null | undefined): string | null {
+  if (!sim?.coop?.sec) return null;
+  return seatDesk(sim.coop, useCoop.getState().seat);
+}
+
+/** Sector co-op: this player's desk (hook), or null on any other shift. */
+export function useMyDesk(): string | null {
+  const seat = useCoop((s) => s.seat);
+  useGame((g) => g.tick);
+  const sim = useGame((g) => g.sim);
+  if (!sim?.coop?.sec) return null;
+  return seatDesk(sim.coop, seat);
+}
+
+/** Something a desk may own: an incident, a crew, a radio message or a 112 call. */
+export interface DeskTarget {
+  incident?: Pick<Incident, 'id' | 'tags' | 'location'>;
+  unit?: Unit;
+  msg?: RadioMsg;
+  call?: ActiveCall;
+}
+
+/** The desk a target belongs to ('' for anybody's: a shared on-call crew, a general radio message). Never writes. */
+export function deskOfTarget(sim: SimState, t: DeskTarget): string {
+  if (t.incident) return incidentDesk(sim, t.incident);
+  if (t.unit) return unitDesk(sim, t.unit);
+  if (t.msg) return msgDesk(sim, t.msg);
+  if (t.call) return callDesk(sim, t.call);
+  return '';
+}
+
+/** May this player work the target? Always true outside sector co-op (the role checks still apply). */
+export function deskCan(sim: SimState | null | undefined, t: DeskTarget): boolean {
+  const mine = myDesk(sim);
+  if (mine === null || !sim) return true;
+  const d = deskOfTarget(sim, t);
+  return d === '' || (mine !== '' && d === mine);
+}
+
+/** deskCan as a hook (re-renders with the shift). */
+export function useDeskCan(t: DeskTarget): boolean {
+  useCoop((s) => s.seat);
+  useGame((g) => g.tick);
+  const sim = useGame((g) => g.sim);
+  return deskCan(sim, t);
 }
 
 /** Is the running shift a co-op one (hook)? */

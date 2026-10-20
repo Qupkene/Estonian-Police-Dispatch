@@ -25,6 +25,24 @@ import {
   setUnitBreak,
   toggleInterpreter,
 } from './commands';
+import {
+  answerDeskHandover,
+  answerLend,
+  callDesk,
+  defaultDesk,
+  deskDigest,
+  deskRows,
+  incidentDesk,
+  initDesks,
+  msgDesk,
+  requestLend,
+  seatDesk,
+  syncDeskSeats,
+  tickLends,
+  unitDesk,
+  type DeskRow,
+  type DeskState,
+} from './desks';
 import { emit } from './internal';
 import { searchPersons, searchVehicles } from './registry';
 import { hashString } from './rng';
@@ -80,6 +98,8 @@ export interface CoopSeat {
   seat: number;
   name: string;
   role: CoopRole;
+  /** Sector co-op: the desk (sector id) the seat runs. Missing in role co-op. */
+  desk?: string;
   /** False after `left` until `back`. */
   present: boolean;
 }
@@ -108,6 +128,15 @@ export interface SeatStats {
   commands: number;
   /** Commands refused (not this seat's role, or nothing left to do). */
   denied: number;
+  /** Sector co-op: crews this seat lent to a neighbour's incident. */
+  lent: number;
+  /** Sector co-op: neighbours' crews this seat's incidents got. */
+  borrowed: number;
+  /** Sector co-op: neighbours' incidents and colleagues' calls for help this seat's crews reached. */
+  helped: number;
+  /** Sector co-op: pursuits handed over to a neighbour's desk, and taken over from one. */
+  handover: number;
+  takeover: number;
 }
 
 export interface CoopPing {
@@ -119,9 +148,12 @@ export interface CoopPing {
   text: string;
 }
 
+export type CoopMode = 'role' | 'sector';
+
 export interface CoopState {
   code: string;
-  mode: 'role';
+  /** 'role': one area, the roles split. 'sector': each seat runs one sector's desk (src/sim/desks.ts). */
+  mode: CoopMode;
   /** The last completed turn (-1 before the first). */
   turn: number;
   /** Speed index into TURN_SPEEDS (0 = paused). */
@@ -134,6 +166,8 @@ export interface CoopState {
   lastCmd: number;
   /** Call id: the seat that answered it. */
   callSeat: Record<string, number>;
+  /** Sector co-op: the desks, who owns what, lend requests (src/sim/desks.ts). Missing in role co-op. */
+  sec?: DeskState;
 }
 
 /** One command of the server's log. */
@@ -166,14 +200,27 @@ export function emptySeatStats(): SeatStats {
     pings: 0,
     commands: 0,
     denied: 0,
+    lent: 0,
+    borrowed: 0,
+    helped: 0,
+    handover: 0,
+    takeover: 0,
   };
 }
 
-/** Turn a fresh room shift into a co-op one (before turn 0, before any command). */
-export function initCoop(s: SimState, code: string): CoopState {
+/**
+ * Turn a fresh room shift into a co-op one (before turn 0, before any command). A sector room passes its desks: the
+ * crews get their desks and the AI colleagues their stream (src/sim/desks.ts).
+ */
+export function initCoop(
+  s: SimState,
+  code: string,
+  mode: CoopMode = 'role',
+  desks: readonly string[] = [],
+): CoopState {
   const c: CoopState = {
     code,
-    mode: 'role',
+    mode: mode === 'sector' && desks.length ? 'sector' : 'role',
     turn: -1,
     speed: 1,
     host: 0,
@@ -184,6 +231,7 @@ export function initCoop(s: SimState, code: string): CoopState {
     callSeat: {},
   };
   s.coop = c;
+  if (c.mode === 'sector') c.sec = initDesks(s, desks);
   return c;
 }
 
@@ -193,9 +241,13 @@ function seatOf(c: CoopState, seat: number): CoopSeat | undefined {
   return c.seats.find((x) => x.seat === seat);
 }
 
-/** Present seats that hold a role, after the fallback when nobody present holds it. */
+/**
+ * Present seats that hold a role, after the fallback when nobody present holds it. In sector co-op every present seat
+ * does all of its own desk's work (the desk check in applyCommand narrows it to the desk's incidents and crews).
+ */
 export function roleHolders(c: CoopState, role: CoopRole): number[] {
   const present = c.seats.filter((x) => x.present);
+  if (c.mode === 'sector') return present.map((x) => x.seat);
   for (const r of [role, ...FALLBACK[role]]) {
     const holders = present.filter((x) => x.role === r).map((x) => x.seat);
     if (holders.length) return holders;
@@ -232,6 +284,8 @@ export const COMMAND_ROLE: Record<string, Need> = {
   reply: 'radio',
   break: 'radio',
   check: 'radio',
+  lend: 'dispatch',
+  lendans: 'dispatch',
   q: 'any',
   ping: 'any',
   speed: 'host',
@@ -294,6 +348,14 @@ const DENIED: CmdResult = {
   denied: true,
   reason: T('See ei ole sinu rolli ülesanne.', 'That is not your role’s task.'),
 };
+const DESK_DENIED: CmdResult = {
+  ok: false,
+  denied: true,
+  reason: T(
+    'See on naaberlaua oma. Ekipaaži saab laenata palvega.',
+    'That belongs to a neighbouring desk. A crew can be lent on request.',
+  ),
+};
 const NOOP: CmdResult = { ok: false };
 
 /** The answering seat of a call, if it is still present (a call-taker who left frees their calls). */
@@ -320,6 +382,10 @@ export function applyCommand(s: SimState, cmd: LogCmd): CmdResult {
   if (need === 'host' && seat !== c.host) return countDenied(c, seat);
   if (need !== 'any' && need !== 'host' && need !== 'system' && !canAct(c, seat, need))
     return countDenied(c, seat);
+  if (c.mode === 'sector' && seat !== SERVER_SEAT && !deskAllows(s, c, cmd)) {
+    statsOf(c, seat).denied++;
+    return DESK_DENIED;
+  }
   let r: CmdResult;
   try {
     r = run(s, c, cmd);
@@ -334,6 +400,66 @@ export function applyCommand(s: SimState, cmd: LogCmd): CmdResult {
 function countDenied(c: CoopState, seat: number): CmdResult {
   if (seat !== SERVER_SEAT) statsOf(c, seat).denied++;
   return DENIED;
+}
+
+/**
+ * Sector co-op's permission check (the role matrix's counterpart): a seat works its own desk's calls, incidents and
+ * crews. Sending needs the incident and every crew to be the desk's (or a shared on-call asset); a neighbour's crew
+ * comes only through `lend`. Recalling is open to the crew's desk and to the desk of the incident it works. A radio
+ * message goes to its crew's or its incident's desk. Unknown targets pass here and are refused by the command itself.
+ */
+function deskAllows(s: SimState, c: CoopState, cmd: LogCmd): boolean {
+  const a = Array.isArray(cmd.a) ? cmd.a : [];
+  const mine = seatDesk(c, cmd.s);
+  if (!mine) return COMMAND_ROLE[cmd.k] === 'any' || COMMAND_ROLE[cmd.k] === 'host';
+  const own = (d: string) => d === mine;
+  const incOk = (id: unknown) => {
+    const inc = s.incidents[str(id)];
+    return !inc || own(incidentDesk(s, inc, true));
+  };
+  switch (cmd.k) {
+    case 'answer':
+    case 'ask':
+    case 'interp':
+    case 'endcall': {
+      const call = s.calls.find((x) => x.id === str(a[0]));
+      return !call || own(callDesk(s, call));
+    }
+    case 'ack':
+    case 'prio':
+    case 'close':
+    case 'agency':
+    case 'pursuit':
+    case 'check':
+      return incOk(a[0]);
+    case 'send': {
+      if (!incOk(a[0])) return false;
+      const ids = Array.isArray(a[1]) ? a[1] : [];
+      return ids.every((id) => {
+        const u = s.units[str(id)];
+        if (!u) return true;
+        const d = unitDesk(s, u);
+        return d === '' || own(d);
+      });
+    }
+    case 'recall':
+    case 'break': {
+      const u = s.units[str(a[0])];
+      if (!u) return true;
+      const d = unitDesk(s, u);
+      if (d === '' || own(d)) return true;
+      const inc = u.incidentId ? s.incidents[u.incidentId] : undefined;
+      return cmd.k === 'recall' && !!inc && own(incidentDesk(s, inc, true));
+    }
+    case 'reply': {
+      const msg = s.radio.find((m) => m.id === str(a[0]));
+      if (!msg) return true;
+      const d = msgDesk(s, msg);
+      return d === '' || own(d);
+    }
+    default:
+      return true;
+  }
 }
 
 function run(s: SimState, c: CoopState, cmd: LogCmd): CmdResult {
@@ -351,16 +477,29 @@ function run(s: SimState, c: CoopState, cmd: LogCmd): CmdResult {
         if (!Array.isArray(row) || typeof row[0] !== 'number') continue;
         const n = row[0];
         if (n < 0 || n > 3 || c.seats.some((x) => x.seat === n)) continue;
-        c.seats.push({
-          seat: n,
-          role: isCoopRole(row[1]) ? row[1] : 'dispatch',
-          name: str(row[2], 40) || `#${n + 1}`,
-          present: true,
-        });
+        if (c.sec) {
+          // Sector co-op: [seat, desk, name]; a desk the room does not have becomes the seat's default.
+          const desk =
+            typeof row[1] === 'string' && c.sec.desks.includes(row[1]) ? row[1] : defaultDesk(c.sec.desks, n);
+          c.seats.push({
+            seat: n,
+            role: 'dispatch',
+            desk,
+            name: str(row[2], 40) || `#${n + 1}`,
+            present: true,
+          });
+        } else
+          c.seats.push({
+            seat: n,
+            role: isCoopRole(row[1]) ? row[1] : 'dispatch',
+            name: str(row[2], 40) || `#${n + 1}`,
+            present: true,
+          });
         statsOf(c, n);
       }
       c.seats.sort((x, y) => x.seat - y.seat);
       c.host = host;
+      syncDeskSeats(s);
       return { ok: true };
     }
     case 'left':
@@ -368,6 +507,7 @@ function run(s: SimState, c: CoopState, cmd: LogCmd): CmdResult {
       const x = typeof a[0] === 'number' ? seatOf(c, a[0]) : undefined;
       if (!x) return NOOP;
       x.present = cmd.k === 'back';
+      syncDeskSeats(s);
       return { ok: true };
     }
     case 'host': {
@@ -474,9 +614,12 @@ function run(s: SimState, c: CoopState, cmd: LogCmd): CmdResult {
       const inc = s.incidents[id];
       if (!inc || !units.length) return NOOP;
       const before = inc.assigned.length;
+      const had = new Set(inc.assigned);
       const r = dispatchUnits(s, id, units);
       const after = s.incidents[id]?.assigned.length ?? before;
       if (r.ok) st().sent += Math.max(0, after - before);
+      if (r.ok && c.sec)
+        for (const u of s.incidents[id]?.assigned ?? []) if (!had.has(u)) c.sec.crew[u] = seat;
       return r;
     }
     case 'recall': {
@@ -510,6 +653,9 @@ function run(s: SimState, c: CoopState, cmd: LogCmd): CmdResult {
       const msgId = str(a[0]);
       const msg = s.radio.find((m) => m.id === msgId);
       if (!msg || msg.answered) return NOOP;
+      // Sector co-op: a neighbouring player's offer to take over a pursuit.
+      const handed = c.sec ? answerDeskHandover(s, c, msg, str(a[1]), seat) : null;
+      if (handed) return handed;
       replyRadio(s, msgId, str(a[1]));
       if (msg.answered) st().radio++;
       return { ok: !!msg.answered };
@@ -526,6 +672,15 @@ function run(s: SimState, c: CoopState, cmd: LogCmd): CmdResult {
       const plate = str(a[2]);
       markChecked(s, id, { personId: personId || undefined, plate: plate || undefined });
       return { ok: true };
+    }
+    // ── Sektorid: lending a crew across a border ──
+    case 'lend': {
+      if (!c.sec) return NOOP;
+      return requestLend(s, c, seat, str(a[0]), str(a[1]));
+    }
+    case 'lendans': {
+      if (!c.sec || typeof a[0] !== 'number') return NOOP;
+      return answerLend(s, c, seat, a[0], a[1] === 1 || a[1] === true);
     }
     default:
       return NOOP;
@@ -577,6 +732,7 @@ export function beginTurn(s: SimState, cmds: LogCmd[]): TurnPlan {
     if (cmd.t !== turn || cmd.id <= c.lastCmd) continue;
     results.set(cmd.id, applyCommand(s, cmd));
   }
+  if (c.sec && !s.ended) tickLends(s, c, turn);
   return { turn, gameMs: turnGameMs(s), results };
 }
 
@@ -620,10 +776,13 @@ export function simDigest(s: SimState): string {
   parts.push(
     `${s.rng}|${s.spawnRng ?? '-'}|${s.now}|${s.ended ? 1 : 0}|${q.incident}.${q.radio}.${q.person}.${q.call}.${q.bulletin}|${sec(s.nextSpawnAt)}|${Math.round(s.trust * 10)}`,
   );
+  const desks = s.coop?.sec;
   for (const id of s.incidentOrder) {
     const inc = s.incidents[id];
     if (!inc) continue;
-    parts.push(`${id}:${inc.state}:${inc.priority}:${inc.assigned.join(',')}:${sec(inc.closedAt)}`);
+    parts.push(
+      `${id}:${inc.state}:${inc.priority}:${inc.assigned.join(',')}:${sec(inc.closedAt)}${desks ? `:${desks.incDesk[id] ?? ''}` : ''}`,
+    );
   }
   for (const id of s.unitOrder) {
     const u = s.units[id];
@@ -655,14 +814,16 @@ export function simDigest(s: SimState): string {
   const c = s.coop;
   if (c) {
     parts.push(
-      `${c.turn}|${c.speed}|${c.host}|${c.lastCmd}|${c.seats.map((x) => `${x.seat}${x.role}${x.present ? 1 : 0}`).join(',')}|${c.pings.length}`,
+      `${c.turn}|${c.speed}|${c.host}|${c.lastCmd}|${c.seats.map((x) => `${x.seat}${x.role}${x.desk ?? ''}${x.present ? 1 : 0}`).join(',')}|${c.pings.length}`,
     );
     for (const k of Object.keys(c.stats).sort()) {
       const v = c.stats[k];
       parts.push(
-        `${k}:${v.calls}.${v.created}.${v.callsClosed}.${v.acks}.${v.sent}.${v.radio}.${v.closed}.${v.queries}.${v.pings}.${v.commands}.${v.denied}`,
+        `${k}:${v.calls}.${v.created}.${v.callsClosed}.${v.acks}.${v.sent}.${v.radio}.${v.closed}.${v.queries}.${v.pings}.${v.commands}.${v.denied}` +
+          (c.sec ? `.${v.lent}.${v.borrowed}.${v.helped}.${v.handover}.${v.takeover}` : ''),
       );
     }
+    if (c.sec) parts.push(deskDigest(c.sec));
   }
   const all = parts.join('\n');
   return (
@@ -676,8 +837,12 @@ export function simDigest(s: SimState): string {
 /** The co-op part of a report: who sat where and what each seat did. */
 export interface CoopReport {
   code: string;
-  seats: { seat: number; name: string; role: CoopRole; present: boolean; stats: SeatStats }[];
+  /** Missing in reports from before sector co-op: role co-op. */
+  mode?: CoopMode;
+  seats: { seat: number; name: string; role: CoopRole; desk?: string; present: boolean; stats: SeatStats }[];
   host: number;
+  /** Sector co-op: one row per desk (src/sim/desks.ts deskRows). */
+  desks?: DeskRow[];
 }
 
 export function coopReport(s: SimState): CoopReport | undefined {
@@ -686,10 +851,12 @@ export function coopReport(s: SimState): CoopReport | undefined {
   return {
     code: c.code,
     host: c.host,
+    ...(c.sec ? { mode: 'sector' as const, desks: deskRows(s) } : {}),
     seats: c.seats.map((x) => ({
       seat: x.seat,
       name: x.name,
       role: x.role,
+      ...(x.desk ? { desk: x.desk } : {}),
       present: x.present,
       stats: { ...emptySeatStats(), ...c.stats[String(x.seat)] },
     })),
@@ -706,7 +873,11 @@ export function seatWork(v: SeatStats): number {
     v.sent * 2 +
     v.radio * 2 +
     v.closed * 2 +
-    Math.min(20, v.queries)
+    Math.min(20, v.queries) +
+    (v.lent ?? 0) * 2 +
+    (v.helped ?? 0) * 3 +
+    (v.handover ?? 0) +
+    (v.takeover ?? 0) * 2
   );
 }
 

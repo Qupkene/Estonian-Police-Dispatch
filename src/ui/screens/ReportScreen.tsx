@@ -9,14 +9,15 @@ import { submitScoreOnce, unrankedReason } from '@/net/scores';
 import { rememberGuestDaily, submitDailyOnce, type DailyResult, type DailyRun } from '@/net/daily';
 import { roomErrorKey, submitRoomResultOnce, type Room } from '@/net/rooms';
 import { ApiError } from '@/net/api';
-import { useLang, useT } from '@/i18n';
+import { useLang, useT, useTx } from '@/i18n';
 import { sfx } from '@/audio/sfx';
 import { ddmmyyyy, hhmm, wall } from '@/sim/time';
 import type { LedgerEntry, Officer, Priority, ShiftReport } from '@/sim/types';
 import type { ReportExtras } from '@/sim/report';
 import { dailyChallenge, dailyDateOf, dailyStartedOf, todayInTallinn } from '@/sim/daily';
 import { displayRoomCode, roomCodeOf } from '@/sim/room';
-import { coopPaidKey, coopXp, type CoopReport } from '@/sim/coop';
+import { coopPaidKey, coopXp, type CoopReport, type SeatStats } from '@/sim/coop';
+import { sectorById } from '@/sim/sectors';
 import { useCoop } from '@/store/coop';
 import { Button, PpaLogo, PriorityChip, Spinner } from '@/ui/components';
 import { Newspaper } from './shell/Newspaper';
@@ -909,7 +910,13 @@ function CoopTeam({
   paid?: 'paid' | 'already' | 'none';
 }) {
   const t = useT();
-  const cols = ['calls', 'created', 'acks', 'sent', 'radio'] as const;
+  const tx = useTx();
+  const sector = coop.mode === 'sector';
+  const cols: (keyof SeatStats)[] = sector
+    ? ['calls', 'created', 'sent', 'lent', 'helped']
+    : ['calls', 'created', 'acks', 'sent', 'radio'];
+  const colKey = (c: keyof SeatStats) =>
+    c === 'lent' || c === 'helped' ? `desk.rep.col.${c}` : `coop.rep.col.${c}`;
   return (
     <section className="vk-panel" aria-labelledby="vk-rep-coop" data-testid="coop-report">
       <div className="vk-panel__head">
@@ -927,7 +934,7 @@ function CoopTeam({
               <th scope="col">{t('coop.rep.col.role')}</th>
               {cols.map((c) => (
                 <th key={c} scope="col" className="is-num">
-                  {t(`coop.rep.col.${c}`)}
+                  {t(colKey(c))}
                 </th>
               ))}
             </tr>
@@ -939,10 +946,14 @@ function CoopTeam({
                   {x.name}
                   {x.seat === me && <span className="vk-dim"> ({t('rooms.badge.you')})</span>}
                 </th>
-                <td>{t(`coop.role.${x.role}`)}</td>
+                <td>
+                  {x.desk
+                    ? tx(sectorById(x.desk)?.name ?? { et: x.desk, en: x.desk })
+                    : t(`coop.role.${x.role}`)}
+                </td>
                 {cols.map((c) => (
                   <td key={c} className="is-num vk-mono">
-                    {x.stats[c]}
+                    {x.stats[c] ?? 0}
                   </td>
                 ))}
               </tr>
@@ -950,6 +961,7 @@ function CoopTeam({
           </tbody>
         </table>
       </div>
+      {coop.desks && <DeskTable coop={coop} me={me} />}
       <div className="vk-panel__foot">
         <span data-testid="coop-xp">
           {t('coop.rep.xp', { xp, team, own: xp - team })}{' '}
@@ -963,5 +975,55 @@ function CoopTeam({
         </span>
       </div>
     </section>
+  );
+}
+
+/** Sector co-op: one row per desk, who ran it (a player, or its AI colleague) and what it did. The same everywhere. */
+function DeskTable({ coop, me }: { coop: CoopReport; me: number }) {
+  const t = useT();
+  const tx = useTx();
+  // Calls and crews sent are in the players' table above; here what crossed the borders.
+  const cols = ['incidents', 'closed', 'lent', 'helped', 'handover', 'taken'] as const;
+  const mine = coop.seats.find((x) => x.seat === me)?.desk;
+  return (
+    <div className="vk-rep__coopWrap" data-testid="desk-report">
+      <p className="vk-rep__coopSub" aria-hidden="true">
+        {t('desk.rep.title')} <span className="vk-dim">· {t('desk.rep.meta')}</span>
+      </p>
+      <table className="vk-table vk-rep__coop">
+        <caption>{t('desk.rep.title')}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{t('desk.rep.col.desk')}</th>
+            <th scope="col">{t('desk.rep.col.who')}</th>
+            {cols.map((c) => (
+              <th key={c} scope="col" className="is-num">
+                {t(`desk.rep.col.${c}`)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {(coop.desks ?? []).map((d) => {
+            const names = coop.seats.filter((x) => d.seats.includes(x.seat)).map((x) => x.name);
+            return (
+              <tr
+                key={d.desk}
+                className={d.desk === mine ? 'is-me' : undefined}
+                data-testid="desk-report-row"
+              >
+                <th scope="row">{tx(sectorById(d.desk)?.name ?? { et: d.desk, en: d.desk })}</th>
+                <td>{names.length ? names.join(', ') : t('desk.colleague', { name: d.colleague })}</td>
+                {cols.map((c) => (
+                  <td key={c} className="is-num vk-mono">
+                    {d[c]}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }

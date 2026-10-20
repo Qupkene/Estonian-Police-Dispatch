@@ -1171,3 +1171,13 @@
     transform: scale(1.4);
   }
 }
+
+/* Sector co-op: a neighbouring desk's units and incidents (src/sim/desks.ts). */
+.epdm-unit.is-dim,
+.epdm-inc.is-dim {
+  opacity: 0.42;
+  filter: saturate(0.35);
+}
+.epdm-inc.is-dim .epdm-inc__pulse {
+  display: none;
+}
