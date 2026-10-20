@@ -256,8 +256,12 @@ test.describe.serial('sector co-op', () => {
               await shot(host.page, 'desk-host-kesklinn');
               await shot(guest.page, 'desk-guest-lasnamae');
             }
-            await ask.click({ timeout: 2000 });
-            asked = true;
+            // The panel keeps updating at 4x (the crews' distances and the list order move): a click that misses
+            // is tried again on the next round; the test still needs the lend to be accepted.
+            asked = await ask
+              .click({ timeout: 5000 })
+              .then(() => true)
+              .catch(() => false);
           }
         }
       } else {
