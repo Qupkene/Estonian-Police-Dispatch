@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createShift, drainEvents, finalizeShift, step } from '@/sim/engine';
 import { REGION_IDS } from '@/data/regions';
+import { CALL_SPEED, coopReport, effectiveSpeed, TURN_SPEEDS } from '@/sim/coop';
 import type { GameEvent, GameMode, LngLat, NewShiftOptions, RadioMsg, ShiftReport, SimState } from '@/sim/types';
 import { careerShiftPaid, useCareer } from './career';
 import {
@@ -45,12 +46,12 @@ export interface Selection {
   plate?: string;
 }
 
-/** Game seconds per real second for each speed step (index 0 = paused). */
-export const SPEEDS = [0, 15, 30, 60, 120] as const;
+/** Game seconds per real second for each speed step (index 0 = paused); the co-op turns use the same. */
+export const SPEEDS = TURN_SPEEDS;
 /** Director mode real-time speed. */
 export const REALTIME = 1;
 /** Game seconds per real second while a 112 call is ringing or active. */
-export const CALL_SPEED = 2;
+export { CALL_SPEED };
 
 interface GameStore {
   screen: Screen;
@@ -138,6 +139,10 @@ export const useGame = create<GameStore>()((set, get) => ({
     sim.ended = true;
     const report = finalizeShift(sim);
     report.shiftKey = shiftKeyOf(sim);
+    if (sim.coop) {
+      report.coop = coopReport(sim);
+      loopHooks.coopStop?.();
+    }
     if (sim.flags) sim.flags[REPORTED_FLAG] = true;
     clearAutosave();
     set({ report, screen: 'report' });
@@ -145,6 +150,7 @@ export const useGame = create<GameStore>()((set, get) => ({
   },
   quitShift: () => {
     stopLoop();
+    if (get().sim?.coop) loopHooks.coopStop?.();
     set({ sim: null, screen: 'menu', mapFocus: null });
   },
   select: (sel, tab) => set({ selection: sel, ...(tab ? { rightTab: tab } : {}) }),
@@ -152,9 +158,14 @@ export const useGame = create<GameStore>()((set, get) => ({
   openRegistry: (kind, q) =>
     set({ registryQuery: { kind, q, n: (get().registryQuery?.n ?? 0) + 1 }, rightTab: 'registry' }),
   focusMap: (coord, zoom) => set({ mapFocus: { coord, zoom, n: (get().mapFocus?.n ?? 0) + 1 } }),
-  setSpeed: (i) => set({ speedIndex: Math.max(0, Math.min(SPEEDS.length - 1, i)), lastSpeedIndex: i > 0 ? i : get().lastSpeedIndex, realtime: false }),
+  setSpeed: (i) => {
+    // Co-op: the shared speed is the host's command (no-op for the others).
+    if (get().sim?.coop) return loopHooks.coopSpeed?.(Math.max(0, Math.min(SPEEDS.length - 1, i)));
+    set({ speedIndex: Math.max(0, Math.min(SPEEDS.length - 1, i)), lastSpeedIndex: i > 0 ? i : get().lastSpeedIndex, realtime: false });
+  },
   togglePause: () => {
-    const { speedIndex, lastSpeedIndex } = get();
+    const { speedIndex, lastSpeedIndex, sim } = get();
+    if (sim?.coop) return loopHooks.coopSpeed?.(speedIndex === 0 ? lastSpeedIndex || 1 : 0);
     set(speedIndex === 0 ? { speedIndex: lastSpeedIndex || 1 } : { speedIndex: 0, lastSpeedIndex: speedIndex });
   },
   setRealtime: (realtime) => set({ realtime, speedIndex: realtime ? 1 : get().speedIndex }),
@@ -193,6 +204,20 @@ export function emitPlayerResolved(msgs: RadioMsg[]): void {
 
 // ── Main loop ────────────────────────────────────────────────────────────────
 
+/**
+ * A co-op room shift (src/store/coop.ts) plugs in here: while the running shift has `sim.coop`, the loop asks the
+ * session to play whole turns from the room's log instead of stepping real time x speed, and the speed buttons
+ * become host commands. Single-player shifts never reach these hooks.
+ */
+export const loopHooks: {
+  /** Play the turns that are due; returns whether game time moved. */
+  coop?: (sim: SimState) => boolean;
+  /** The host changes the shared speed (index into SPEEDS). */
+  coopSpeed?: (i: number) => void;
+  /** The shift is over or left: stop the session. */
+  coopStop?: () => void;
+} = {};
+
 let raf = 0;
 let last = 0;
 let sinceBump = 0;
@@ -205,16 +230,26 @@ function frame(ts: number) {
   if (!sim) return;
   const dtReal = last ? Math.min(250, ts - last) : 16;
   last = ts;
-  let speed = g.realtime ? (g.speedIndex === 0 ? 0 : 1) : SPEEDS[g.speedIndex];
-  // While a 112 call rings or is in progress the dispatcher is on the phone: the world slows to
-  // near real time so the call can actually be answered and the conversation read.
-  if (speed > CALL_SPEED && Array.isArray(sim.calls) && sim.calls.some((c) => !c.endedAt)) speed = CALL_SPEED;
-  const running = speed > 0 && !sim.ended;
-  if (running) {
+  let running: boolean;
+  if (sim.coop) {
+    // Co-op: whole turns from the room's log (src/sim/coop.ts), the same on every client.
     try {
-      step(sim, dtReal * speed);
+      running = !!loopHooks.coop?.(sim);
     } catch (err) {
-      console.error('[EPD] step failed', err);
+      console.error('[EPD] co-op turn failed', err);
+      running = false;
+    }
+  } else {
+    // While a 112 call rings or is in progress the dispatcher is on the phone: the world slows to
+    // near real time so the call can actually be answered and the conversation read.
+    const speed = effectiveSpeed(sim, g.realtime ? (g.speedIndex === 0 ? 0 : 1) : SPEEDS[g.speedIndex]);
+    running = speed > 0 && !sim.ended;
+    if (running) {
+      try {
+        step(sim, dtReal * speed);
+      } catch (err) {
+        console.error('[EPD] step failed', err);
+      }
     }
   }
   const events = Array.isArray(sim.events) ? drainEvents(sim) : [];
@@ -286,8 +321,8 @@ export interface AutosaveOptions {
 let lastSavedShift: string | null = null;
 
 export function autosave(sim: SimState, opts: AutosaveOptions = {}) {
-  // A shift that already has its report is settled: saving it would bring it back.
-  if (sim.flags?.[REPORTED_FLAG]) return;
+  // A shift that already has its report is settled: saving it would bring it back. A co-op shift lives in its room.
+  if (sim.flags?.[REPORTED_FLAG] || sim.coop) return;
   let raw: string;
   try {
     raw = JSON.stringify(sim);
@@ -443,7 +478,8 @@ let lastLeaveSave: { sim: SimState; now: number; at: number } | null = null;
 export function saveNow(opts: AutosaveOptions = {}): boolean {
   const g = useGame.getState();
   const sim = g.sim;
-  if (!sim || crashed || g.screen !== 'game' || sim.mode === 'director') return false;
+  // A co-op shift lives in the room's log, not in the autosave (the lobby leads back into it).
+  if (!sim || crashed || g.screen !== 'game' || sim.mode === 'director' || sim.coop) return false;
   if (opts.unload) {
     // visibilitychange, pagehide and beforeunload often fire together on close: one save is enough.
     const at = Date.now();

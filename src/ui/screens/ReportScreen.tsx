@@ -16,6 +16,8 @@ import type { LedgerEntry, Officer, Priority, ShiftReport } from '@/sim/types';
 import type { ReportExtras } from '@/sim/report';
 import { dailyChallenge, dailyDateOf, dailyStartedOf, todayInTallinn } from '@/sim/daily';
 import { displayRoomCode, roomCodeOf } from '@/sim/room';
+import { coopPaidKey, coopXp, type CoopReport } from '@/sim/coop';
+import { useCoop } from '@/store/coop';
 import { Button, PpaLogo, PriorityChip, Spinner } from '@/ui/components';
 import { Newspaper } from './shell/Newspaper';
 import { DailyBoardModal } from './shell/Daily';
@@ -39,6 +41,8 @@ import './shell/lobby.css';
 /** Reports already applied to the career profile (applyReport must run exactly once per report). */
 const applied = new WeakSet<ShiftReport>();
 const careerResult = new WeakMap<ShiftReport, { ledger: LedgerEntry[]; error?: string }>();
+/** Co-op reports whose XP went to the career (once per room, keyed room:<code>), and how. */
+const coopPaid = new WeakMap<ShiftReport, 'paid' | 'already' | 'none'>();
 
 const PRIOS: Priority[] = [1, 2, 3, 4];
 
@@ -94,7 +98,20 @@ export function ReportScreen() {
     () => (!dailyRun && report && sim && report.shiftKey === shiftKeyOf(sim) ? roomCodeOf(sim) : null),
     [dailyRun, report, sim],
   );
-  const roomSend = useRoomSubmit(report, roomCode);
+  // Co-op: the same report for everyone; each player's XP is the team's plus a share for their own seat's work.
+  const mySeat = useCoop((s) => s.seat);
+  const coopMine = report?.coop?.seats.find((x) => x.seat === mySeat);
+  const myXp = report?.coop ? coopXp(report, coopMine?.stats) : undefined;
+  const roomSend = useRoomSubmit(report, roomCode, myXp);
+  useEffect(() => {
+    if (!report?.coop || !roomCode || myXp === undefined || coopPaid.has(report)) return;
+    try {
+      coopPaid.set(report, useCareer.getState().applyCoopXp(coopPaidKey(roomCode), report, myXp));
+    } catch (e) {
+      console.warn('[EPD] co-op XP not applied', e);
+    }
+    rerender((n) => n + 1);
+  }, [report, roomCode, myXp]);
 
   const toMenu = () => quitShift();
   const toCareer = () => {
@@ -200,7 +217,7 @@ export function ReportScreen() {
       sub: t('shell.rep.s.missedN', { n: st.callsMissed }),
       tone: st.callsMissed > 0 ? 'warn' : undefined,
     },
-    { key: 'xp', label: t('shell.rep.xp'), value: `+${report.xp}`, sub: report.playerName },
+    { key: 'xp', label: t('shell.rep.xp'), value: `+${myXp ?? report.xp}`, sub: report.playerName },
     ...(career
       ? [
           {
@@ -307,6 +324,16 @@ export function ReportScreen() {
               )}
             </div>
           </section>
+
+          {report.coop && (
+            <CoopTeam
+              coop={report.coop}
+              me={mySeat}
+              xp={myXp ?? report.xp}
+              team={report.xp}
+              paid={coopPaid.get(report)}
+            />
+          )}
 
           {roomCode && <RoomReportBoard code={roomCode} send={roomSend} />}
 
@@ -754,7 +781,7 @@ type RoomSend =
   | { status: 'error'; key: string; retry: boolean };
 
 /** Sends a room run's result once (accounts only) and keeps the answer for the result line and the board. */
-function useRoomSubmit(report: ShiftReport | null, code: string | null) {
+function useRoomSubmit(report: ShiftReport | null, code: string | null, xp?: number) {
   const user = useAccount((s) => s.user);
   const gameUser = useGame((s) => s.user);
   const loggedIn = !!user && gameUser?.method === 'account';
@@ -768,7 +795,7 @@ function useRoomSubmit(report: ShiftReport | null, code: string | null) {
     }
     let alive = true;
     setState({ status: 'sending' });
-    submitRoomResultOnce(report, code)
+    submitRoomResultOnce(report, code, xp)
       .then((r) => alive && setState({ status: 'done', ...r }))
       .catch((e: unknown) => {
         if (!alive) return;
@@ -862,6 +889,78 @@ function RoomReportBoard({ code, send }: { code: string; send: ReturnType<typeof
         >
           {t('rooms.rep.toRoom')}
         </button>
+      </div>
+    </section>
+  );
+}
+
+/** Co-op: what each desk did in the shared shift, and this player's XP. The same table on every player's report. */
+function CoopTeam({
+  coop,
+  me,
+  xp,
+  team,
+  paid,
+}: {
+  coop: CoopReport;
+  me: number;
+  xp: number;
+  team: number;
+  paid?: 'paid' | 'already' | 'none';
+}) {
+  const t = useT();
+  const cols = ['calls', 'created', 'acks', 'sent', 'radio'] as const;
+  return (
+    <section className="vk-panel" aria-labelledby="vk-rep-coop" data-testid="coop-report">
+      <div className="vk-panel__head">
+        <h2 className="vk-h" id="vk-rep-coop">
+          {t('coop.rep.title')}
+        </h2>
+        <span className="vk-meta">{t('coop.rep.meta')}</span>
+      </div>
+      <div className="vk-rep__coopWrap">
+        <table className="vk-table vk-rep__coop">
+          <caption>{t('coop.rep.title')}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{t('coop.rep.col.player')}</th>
+              <th scope="col">{t('coop.rep.col.role')}</th>
+              {cols.map((c) => (
+                <th key={c} scope="col" className="is-num">
+                  {t(`coop.rep.col.${c}`)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {coop.seats.map((x) => (
+              <tr key={x.seat} className={x.seat === me ? 'is-me' : undefined} data-testid="coop-report-row">
+                <th scope="row">
+                  {x.name}
+                  {x.seat === me && <span className="vk-dim"> ({t('rooms.badge.you')})</span>}
+                </th>
+                <td>{t(`coop.role.${x.role}`)}</td>
+                {cols.map((c) => (
+                  <td key={c} className="is-num vk-mono">
+                    {x.stats[c]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="vk-panel__foot">
+        <span data-testid="coop-xp">
+          {t('coop.rep.xp', { xp, team, own: xp - team })}{' '}
+          {paid === 'paid'
+            ? t('coop.rep.career')
+            : paid === 'already'
+              ? t('coop.rep.careerPaid')
+              : paid === 'none'
+                ? t('coop.rep.noCareer')
+                : ''}
+        </span>
       </div>
     </section>
   );

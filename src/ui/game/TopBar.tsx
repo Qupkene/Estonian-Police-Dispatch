@@ -1,4 +1,5 @@
 import { useGame, SPEEDS } from '@/store/game';
+import { useCoop } from '@/store/coop';
 import { useCareer } from '@/store/career';
 import { useLang, useT, useTx } from '@/i18n';
 import { Icon, IconButton, Kbd, PpaLogo } from '@/ui/components';
@@ -22,7 +23,11 @@ export function TopBar() {
   const profile = useCareer((s) => s.profile);
   const drawerOpen = useGameUi((s) => s.drawerOpen);
   const setUi = useGameUi((s) => s.set);
+  const coopHost = useCoop((s) => s.isHost);
   if (!sim) return null;
+  // Co-op: pause and speed are the host's; the others see the shared speed.
+  const speedLocked = !!sim.coop && !coopHost;
+  const lockTitle = speedLocked ? t('coop.speed.host') : undefined;
 
   const g = useGame.getState();
   const director = sim.mode === 'director';
@@ -127,7 +132,8 @@ export function TopBar() {
           type="button"
           className={`gm-speed${paused ? ' is-active is-pause' : ''}`}
           onClick={() => g.togglePause()}
-          title={`${t('game.speed.pause')} (Space)`}
+          disabled={speedLocked}
+          title={lockTitle ?? `${t('game.speed.pause')} (Space)`}
           aria-pressed={paused}
         >
           <Icon name={paused ? 'play' : 'pause'} size={14} />
@@ -141,7 +147,8 @@ export function TopBar() {
               type="button"
               className={`gm-speed mono${active ? ' is-active' : ''}`}
               onClick={() => g.setSpeed(i)}
-              title={`${SPEED_LABELS[i]} (${i})`}
+              disabled={speedLocked}
+              title={lockTitle ?? `${SPEED_LABELS[i]} (${i})`}
               aria-pressed={active}
             >
               {SPEED_LABELS[i]}

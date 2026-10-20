@@ -404,3 +404,35 @@
 .vk-rep__toRoom {
   margin-left: auto;
 }
+
+/* Role co-op: the seat's desk and the role picker. */
+.vk-mp__role {
+  flex: none;
+  margin-left: auto;
+  padding: 2px 7px;
+  border: 1px solid var(--vk-line-2);
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--vk-text-2);
+  white-space: nowrap;
+}
+.vk-mp__role + .vk-mp__ready {
+  margin-left: 0;
+}
+.vk-mp__roles {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--vk-line-2);
+}
+.vk-mp__roles .vk-mp__modes {
+  margin: 0;
+}
+.vk-mp__roles .vk-mp__hint {
+  margin: 0;
+}
+@media (max-width: 560px) {
+  .vk-mp__role {
+    display: none;
+  }
+}

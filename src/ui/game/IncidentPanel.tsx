@@ -7,7 +7,8 @@ import type { Incident, Priority, SimState } from '@/sim/types';
 import { acknowledge, sendBackup, setPriority } from './actions';
 import { activeBackup, selPendingRadio, selTemplate } from './data';
 import { countdown, helpSectorId } from './format';
-import { HelpTag, RadioReplies, Section, SourceTag, useSim } from './bits';
+import { HelpTag, RadioReplies, RoleNote, Section, SourceTag, useSim } from './bits';
+import { useCan } from '@/store/coop';
 import { RejectMenu } from './EventQueue';
 import {
   AgencyBlock,
@@ -55,6 +56,8 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
   const pending = selPendingRadio(sim).filter((m) => m.incidentId === inc.id);
   const expiresIn = !inc.firstArrivalAt && inc.expiresAt && !closed ? (inc.expiresAt - sim.now) / MIN : null;
   const loc = inc.location;
+  // Co-op: only the dispatcher's desk acknowledges, sets priorities and sends crews (src/sim/coop.ts).
+  const canDispatch = useCan('dispatch');
 
   return (
     <div className={`gm-inc gm-inc--p${inc.priority}${closed ? ' is-closed' : ''}`}>
@@ -79,7 +82,7 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
             <button
               key={p}
               type="button"
-              disabled={closed}
+              disabled={closed || !canDispatch}
               className={`gm-prio-btn gm-prio-btn--${p}${inc.priority === p ? ' is-active' : ''}`}
               onClick={() => inc.priority !== p && setPriority(inc.id, p)}
               title={t('game.inc.setPriority', { p })}
@@ -106,7 +109,8 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
             {t('game.inc.showOnMap')}
           </Button>
         </div>
-        {incoming && (
+        {incoming && !canDispatch && <RoleNote role="dispatch" />}
+        {incoming && canDispatch && (
           <div className="gm-inc__ack">
             <Button variant="primary" icon="check" title={t('game.queue.acceptTitle')} onClick={() => acknowledge(inc.id)}>
               {t('game.queue.accept')}
@@ -137,7 +141,7 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
             {backup.msg && <p className="gm-backup__text">„{tx(backup.msg.text)}“</p>}
             <div className="gm-backup__foot">
               <span>{t('game.inc.backupNeed', { n: backup.need.count, type: t(`game.utype.${backup.need.type}`) })}</span>
-              {backup.enroute.length ? (
+              {!canDispatch ? null : backup.enroute.length ? (
                 <span className="gm-backup__foot-actions">
                   <span className="gm-helpenroute mono">
                     <Icon name="siren" size={11} />
@@ -173,7 +177,7 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
           </Section>
         )}
 
-        <PursuitBlock sim={sim} inc={inc} />
+        <PursuitBlock sim={sim} inc={inc} readOnly={!canDispatch} />
         <SearchBlock inc={inc} />
 
         <Section title={t('game.inc.summary')} icon="book">
@@ -189,9 +193,10 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
         </Section>
 
         {!closed && <NeedsBlock sim={sim} inc={inc} />}
-        {!closed && <RecommendBlock sim={sim} inc={inc} />}
-        {(inc.assigned.length > 0 || !closed) && <AssignedBlock sim={sim} inc={inc} />}
-        <AgencyBlock sim={sim} inc={inc} />
+        {!closed && canDispatch && <RecommendBlock sim={sim} inc={inc} />}
+        {!closed && !canDispatch && <RoleNote role="dispatch" />}
+        {(inc.assigned.length > 0 || !closed) && <AssignedBlock sim={sim} inc={inc} readOnly={!canDispatch} />}
+        <AgencyBlock sim={sim} inc={inc} readOnly={!canDispatch} />
         <PersonsBlock sim={sim} inc={inc} tpl={tpl} />
         <TimelineBlock inc={inc} />
       </div>

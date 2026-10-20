@@ -129,7 +129,12 @@ Errors: `{ "error": "<code>", "message": "<Estonian text>" }` with a fitting sta
 | POST | /api/rooms/{code}/ready | `{ ready }` | `{ room }` |
 | POST | /api/rooms/{code}/start | | `{ room }` (host; at least 2 players, all ready) |
 | POST | /api/rooms/{code}/leave | | `{ ok: true }` |
-| POST | /api/rooms/{code}/result | `{ score, grade, incidents, arrests }` | `{ ok: true, counted, rank, room }` (the first result counts) |
+| POST | /api/rooms/{code}/result | `{ score, grade, incidents, arrests, xp? }` | `{ ok: true, counted, rank, room }` (the first result counts) |
+| POST | /api/rooms/{code}/role | `{ role }` | `{ room }` (co-op lobby: `calls`, `dispatch` or `radio`) |
+| POST | /api/rooms/{code}/cmd | `{ cmds: [{ k, a }] }` | `{ ok: true, turn, ids }` (running co-op room; at most 20 commands, 4 kB) |
+| GET | /api/rooms/{code}/log?after=&h=&ack= | | `{ state, turn, now, started, turnMs, delay, seat, host, isHost, resync, snapReq, snap, more, cmds: [{ id, t, s, k, a }] }` |
+| PUT | /api/rooms/{code}/snapshot?turn=&cmd= | gzip bytes | `{ ok: true, turn, cmd, size }` (host; at most 2 MB) |
+| GET | /api/rooms/{code}/snapshot | | `application/gzip`, headers `X-EPD-Turn`, `X-EPD-Cmd`; 404 `no_snapshot` |
 | POST | /api/deploy-hook | GitHub webhook | 202 `{ queued: sha }` or 200 `{ ignored: reason }` |
 | POST | /api/tts | `{ text, voice, speed? }` | `audio/wav` (Estonian radio speech, TartuNLP Neurokõne, cached); 400 invalid, 429 too many, 503 `tts_unavailable` |
 
@@ -307,7 +312,7 @@ docs/MULTIPLAYER.md):
 - Codes: 6 characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`; routes take them in any case (`/api/rooms/k7m2qx`),
   `join` also accepts spaces and dashes. Unknown, closed or malformed codes count against the IP: 30 in 10
   minutes, then 429 `rate_limited` (`rate_events`, bucket `room_miss`).
-- `POST /api/rooms`: `mode` `race` (default; `sector` and `role` answer 400 `mode_unavailable` until phase 2),
+- `POST /api/rooms`: `mode` `race` (default) or `role` (role co-op; `sector` answers 400 `mode_unavailable`),
   `regionId`, `sector` (`''` for the whole prefecture, else `<regionId>-<name>`), `difficulty`, `hours` (2, 3, 4
   or 6, an integer), `slot` (`morning | afternoon | evening | night`); invalid fields give 400 `invalid_room` with
   `field`. 20 new rooms per IP and hour (`room_create`), else 429. The server draws the seed and the code.
@@ -315,8 +320,9 @@ docs/MULTIPLAYER.md):
   Joining a room one is already in (also after leaving a running one) is coming back, not a second seat. A full
   room (4) answers 409 `room_full`, a started one 409 `room_started` to anyone not already in it.
 - The room (`room`): `{ code, mode, state, v, host, me, max, options: { regionId, sector, difficulty, hours, slot },
-  seed, day, created, started, players: [{ id, name, seat, host, ready, online, left, done }], results: [{ id,
-  name, score, grade, incidents, arrests, at, rank }] }`. `seed` and `day` (the start day in Tallinn) are `null`
+  seed, day, created, started, players: [{ id, name, seat, host, ready, online, left, done, role }], results: [{
+  id, name, score, grade, incidents, arrests, xp, at, rank }] }`. `role` is the co-op desk the player picked, or
+  the seat's default (`dispatch`, `calls`, `radio`, `dispatch` for seats 0 to 3). `seed` and `day` (the start day in Tallinn) are `null`
   until the start. `host` and `me` are account ids. `rank` is 1 + the number of strictly higher scores.
 - `v` = `<revision>.<online seat mask>`. The revision grows on every change; `online` = polled within 20 s. A
   poll writes the caller's `seen` at most every 5 s. With `?v=` equal to the current tag the answer is
@@ -338,6 +344,49 @@ docs/MULTIPLAYER.md):
   results and passes on the host role (`epd_rooms_forget_user`, in the deletion's transaction).
 - The clock of the room rules is the daily challenge's: `X-EPD-Test-Now` works under `EPD_TEST_CLOCK=1` with
   PHP's built-in server only.
+
+Co-op rooms, Ühisvahetus (`server/lib/coop.php`, client `src/net/coop.ts`, `src/store/coop.ts`, `src/sim/coop.ts`;
+design and protocol in docs/MULTIPLAYER.md section 4):
+
+- Mode `role`. `POST /api/rooms/{code}/role` `{ role }` (`calls | dispatch | radio`, else 400 `invalid_room`
+  `field: role`) in the lobby only (409 `room_started`); a race room answers 409 `not_coop` on every co-op route.
+- `start` writes the log's first command at turn 0: `{ k: 'setup', s: -1, a: [hostSeat, [[seat, role, name],
+  ...]] }`.
+- The clock: turn = `floor((now - started) / turn_ms)`, `turn_ms` 1000. A command posted at turn T is stamped
+  `T + input_delay` (2). Ids grow; within a turn commands apply in id order. Seat -1 is the server's own commands
+  (`setup`, `left`, `back`, `host`); players cannot post those kinds.
+- `POST /cmd`: running room (409 `not_running`), still in it (409 `left_room`). Body at most 4 kB (413), 1 to 20
+  commands (400 `invalid_command` with `field`, 400 `too_many_commands`). Kinds and argument shapes: `ack [id]`,
+  `prio [id, 1..4]`, `send [id, [id x 1..12]]`, `recall [id]`, `close [id, word, word?]`, `agency [id, word]`,
+  `pursuit [id, word]`, `reply [id, word]`, `break [id, 0|1]`, `check [id, ref, ref]`, `answer [id]`, `ask [id,
+  word]`, `interp [id]`, `endcall [id, word, 0..4, word or '']`, `q [word, text <= 64]`, `ping [text <= 140]`,
+  `speed [0..4]`, `end []`. Ids match `[A-Za-z0-9_-]{1,40}`, words `[a-z_]{1,24}`, refs are a person id or a
+  plate (letters, digits, space, `_.-`, at most 40), texts have no control characters. `speed` and `end` are the
+  host's (403 `not_host`). The meaning and the role permissions are checked by every client's sim, identically.
+  Batches per player: a bucket of 4, refilled at 2 a second (429 `rate_limited`, `Retry-After: 1`). At most
+  20 000 commands per room (409 `log_full`).
+- `GET /log`: `after` the last id the client holds (max 500 commands per answer, `more: true` when there are
+  others). `h=<turn>:<16 hex>` reports the client's state digest; `ack=1` says it has just resynced. The host's
+  digests are kept (the last 8, `rooms.ref_hashes`); a client's digest that differs from the host's of the same
+  turn sets its `resync` (true in its answers until `ack=1`) and asks the host for a snapshot (`snapReq: true` in
+  the host's answers). `snap` is the latest snapshot's turn. A poll is a read unless something changed: `seen`
+  every 5 s, a digest every 10 turns, seats leaving or returning.
+- Seats: a player still in the room who has not polled the log (or the room) for 60 s, or who left, is sequenced
+  `left [seat]` (`room_players.away`); polling again or joining back sequences `back [seat]`. The host's role
+  passes to the earliest-joined player still connected, announced as `host [seat]` (and `rooms.host_id` changes);
+  the new host is asked for a snapshot at once.
+- Snapshots: `PUT ?turn=&cmd=` from the host only (403 `not_host`): the shift state at the end of `turn` (at most
+  the server's turn + 1), holding every command up to id `cmd` (at most the log's last id), gzip (starts with
+  `1f 8b`, else 400 `not_gzip`), at most 2 MB (413), one row per room (`room_snapshots`, upserted), at most one
+  per 10 s unless asked for (429). `GET` returns the bytes as stored.
+- A running co-op room nobody polled for 15 minutes is `finished`. When a room finishes or closes its commands
+  and snapshot are deleted (`epd_coop_forget_room`), and so with rooms older than 30 days.
+- Account deletion in a running co-op room: the seat is sequenced `left`, the host is asked for a fresh snapshot,
+  then the account's commands (`room_commands.user_id`) and uploaded snapshots go with its seats and results.
+- `result` takes an optional `xp` (0 to 100 000): every co-op player sends the team's result with their own XP.
+- Tables (schema step 5, additive): `room_commands` (index `(room_id, id)`), `room_snapshots`; columns `rooms.turn_ms`,
+  `input_delay`, `host_seat`, `cmd_count`, `ref_hashes`, `snap_req`; `room_players.role`, `away`, `hash_turn`,
+  `hash`, `resync`, `cmd_tokens`, `cmd_at`; `room_results.xp`. Every new column has a default.
 
 Speech (`POST /api/tts`, `server/lib/tts.php`):
 

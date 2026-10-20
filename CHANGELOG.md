@@ -2,6 +2,19 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.19.0 (2026-10-20)
+
+- **Mitmikmäng, rollid:** kaks kuni neli mängijat töötavad ühes ja samas vahetuses. Üks on 112 kõnede vastuvõtja, teine saadab üksusi; kolmas võtab raadio ja registrid, neljas on teine dispetšer. Kõik näevad sama kaarti, aga igaühel on oma laua nupud. Mängu sees on meeskonna paneel ja lühisõnumid.
+- Aruandes on tabel „Meeskonna töö“ ja kõigil on sama tulemus. Koostöö kogemuspunktid lähevad iga mängija karjääri üks kord.
+- Ruumi looja juhib kiirust ja pausi. Kui keegi lahkub või ühendus katkeb, võtab tema laua üle teine mängija ja tagasi tulles jätkab ta sealt, kus vahetus parasjagu on.
+
+<details>
+<summary>English</summary>
+
+Multiplayer role co-op: two to four players share one shift as call-taker, dispatcher, radio and registry, and a second dispatcher; same map, each desk with its own controls, an in-game team panel with short messages. The report adds a team table identical for everyone, and co-op XP goes into each player's career once. The host controls speed and pause; a player who drops is covered by another desk and rejoins mid-shift.
+
+</details>
+
 ## 2.18.0 (2026-10-20)
 
 - **Karjäär peatükkides:** viis peatükki (Esimene laud, Naabrid, Vahetuse vanem, Prefektuur, Keskuse juht), mis algavad päris karjääri verstapostidest. Igal peatükil on sissejuhatus, lõpp, neli eesmärki (kolmest piisab) ja väike tasu.

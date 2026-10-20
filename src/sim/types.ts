@@ -1117,6 +1117,8 @@ export interface ShiftReport {
   newspaper: { masthead: string; date: string; headline: Text; sub: Text; stories: { title: Text; body: Text }[] };
   /** `${seed}:${startTime}` of the shift (set by the game store), so one shift is paid out only once. */
   shiftKey?: string;
+  /** A co-op room shift: the seats, their roles and what each did (src/sim/coop.ts). */
+  coop?: import('./coop').CoopReport;
 }
 
 export interface SimState {
@@ -1155,6 +1157,8 @@ export interface SimState {
   coverSectors?: string[];
   /** Spawner and incident-generation stream of a fixed-schedule shift (NewShiftOptions.fixedSchedule). */
   spawnRng?: number;
+  /** A co-op room shift (src/sim/coop.ts): seats, roles, the turn and the log position. Missing everywhere else. */
+  coop?: import('./coop').CoopState;
   /**
    * The AI colleagues at the neighbouring desks (src/sim/colleagues.ts): set by createShift on a sector shift
    * outside the daily challenge, the tutorial and the director. A save without it (every older save) has no

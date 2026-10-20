@@ -6,6 +6,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createHash, createHmac } from 'node:crypto';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import {
   copyFileSync,
   existsSync,
@@ -997,7 +998,7 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       expect((await hanna.get('/api/rooms')).json).toEqual({ room: null });
     });
 
-    it('validates the options and opens only the race mode', async () => {
+    it('validates the options and keeps the sector mode closed', async () => {
       const cases: [Record<string, unknown>, string][] = [
         [{ regionId: 'tartu' }, 'regionId'],
         [{ sector: 'pohja-kesklinn' }, 'sector'],
@@ -1013,7 +1014,7 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
         expect(r.status, field).toBe(400);
         expect(r.json, field).toMatchObject({ error: 'invalid_room', field });
       }
-      for (const mode of ['sector', 'role']) {
+      for (const mode of ['sector']) {
         const r = await hanna.post('/api/rooms', { ...OPTS, mode });
         expect(r.status).toBe(400);
         expect(r.json).toMatchObject({ error: 'mode_unavailable', field: 'mode' });
@@ -1048,6 +1049,7 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
           online: true,
           left: false,
           done: false,
+          role: 'dispatch',
         },
       ]);
       expect((await hanna.get('/api/rooms')).json.room.code).toBe(code);
@@ -1230,6 +1232,300 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
     });
   });
 
+  describe('co-op lockstep (role rooms)', () => {
+    const OPTS = { mode: 'role', regionId: 'pohja', sector: '', difficulty: 'normal', hours: 2, slot: 'evening' };
+    const T0 = Date.UTC(2026, 9, 20, 17, 0, 0);
+    const at = (ms: number) => ({ headers: { 'X-EPD-Test-Now': String(T0 + ms) } });
+    const HASH_A = 'a'.repeat(16);
+    const HASH_B = 'b'.repeat(16);
+    let lea: Client;
+    let mati: Client;
+    let nora: Client;
+    let olev: Client;
+    let code = '';
+    let ids: Record<string, number> = {};
+    let lastId = 0;
+
+    const cmd = (c: Client, ms: number, cmds: unknown, opts: RequestOptions = {}) =>
+      c.post(`/api/rooms/${code}/cmd`, { cmds }, { ...at(ms), ...opts });
+    const log = (c: Client, ms: number, q = '') => c.get(`/api/rooms/${code}/log${q ? `?${q}` : ''}`, at(ms));
+    /** A raw (binary) request with the client's session, for the snapshot routes. */
+    const raw = async (c: Client, method: string, path: string, ms: number, body?: Buffer) => {
+      const headers: Record<string, string> = { 'X-EPD': '1', 'X-EPD-Test-Now': String(T0 + ms) };
+      headers['Cookie'] = [...c.cookies].map(([k, v]) => `${k}=${v}`).join('; ');
+      if (body) headers['Content-Type'] = 'application/gzip';
+      const res = await fetch(base + path, { method, headers, body: body ? new Uint8Array(body) : undefined });
+      return { status: res.status, headers: res.headers, bytes: Buffer.from(await res.arrayBuffer()) };
+    };
+    const kinds = (r: Json) => r.json.cmds.map((c: Json) => [c.k, c.s, c.a]);
+
+    it('opens role rooms with a role per seat, picked in the lobby', async () => {
+      lea = client();
+      mati = client();
+      nora = client();
+      olev = client();
+      for (const [c, name] of [
+        [lea, 'Lea'],
+        [mati, 'Mati'],
+        [nora, 'Nora'],
+        [olev, 'Olev'],
+      ] as const)
+        expect((await register(c, name)).status).toBe(200);
+      const created = await lea.post('/api/rooms', OPTS, at(0));
+      expect(created.status).toBe(200);
+      code = created.json.room.code;
+      expect(created.json.room.mode).toBe('role');
+      expect(created.json.room.players[0].role).toBe('dispatch');
+      await mati.post('/api/rooms/join', { code }, at(100));
+      const joined = await nora.post('/api/rooms/join', { code }, at(200));
+      expect(joined.json.room.players.map((p: Json) => p.role)).toEqual(['dispatch', 'calls', 'radio']);
+      await olev.post('/api/rooms/join', { code }, at(250));
+      const picked = await nora.post(`/api/rooms/${code}/role`, { role: 'dispatch' }, at(300));
+      expect(picked.status).toBe(200);
+      expect(picked.json.room.players.map((p: Json) => p.role)).toEqual(['dispatch', 'calls', 'dispatch', 'dispatch']);
+      await olev.post(`/api/rooms/${code}/role`, { role: 'radio' }, at(310));
+      const bad = await nora.post(`/api/rooms/${code}/role`, { role: 'boss' }, at(320));
+      expect(bad.json).toMatchObject({ error: 'invalid_room', field: 'role' });
+      // Nothing runs before the start.
+      expect((await cmd(mati, 400, [{ k: 'answer', a: ['c1'] }])).json.error).toBe('not_running');
+      const early = await log(mati, 400);
+      expect(early.json).toMatchObject({ state: 'lobby', cmds: [] });
+      for (const c of [mati, nora, olev]) await c.post(`/api/rooms/${code}/ready`, { ready: true }, at(500));
+      const started = await lea.post(`/api/rooms/${code}/start`, undefined, at(1000));
+      expect(started.json.room.state).toBe('running');
+      // The role picker closes with the lobby; race rooms have no log.
+      expect((await nora.post(`/api/rooms/${code}/role`, { role: 'calls' }, at(1100))).json.error).toBe('room_started');
+    });
+
+    it('starts the log with the setup command at turn 0', async () => {
+      const r = await log(lea, 1500, 'after=0');
+      expect(r.status).toBe(200);
+      expect(r.json).toMatchObject({ state: 'running', turn: 0, turnMs: 1000, delay: 2, seat: 0, host: 0, isHost: true, resync: false, snap: null, more: false });
+      expect(r.json.now).toBe(T0 + 1500);
+      expect(r.json.started).toBe(T0 + 1000);
+      expect(r.json.cmds).toEqual([
+        {
+          id: expect.any(Number),
+          t: 0,
+          s: -1,
+          k: 'setup',
+          a: [0, [[0, 'dispatch', 'Lea'], [1, 'calls', 'Mati'], [2, 'dispatch', 'Nora'], [3, 'radio', 'Olev']]],
+        },
+      ]);
+      ids.setup = r.json.cmds[0].id;
+      const other = await log(mati, 1600, 'after=0');
+      expect(other.json).toMatchObject({ seat: 1, host: 0, isHost: false });
+    });
+
+    it('stamps commands two turns ahead, in id order, and relays them', async () => {
+      const r = await cmd(mati, 4200, [
+        { k: 'answer', a: ['c1'] },
+        { k: 'ask', a: ['c1', 'where'] },
+      ]);
+      expect(r.status).toBe(200);
+      // Started at +1000: at +4200 the server is at turn 3, the commands take effect at turn 5.
+      expect(r.json.turn).toBe(5);
+      expect(r.json.ids).toHaveLength(2);
+      expect(r.json.ids[1]).toBeGreaterThan(r.json.ids[0]);
+      const sent = await cmd(lea, 4300, [{ k: 'send', a: ['i3', ['u1', 'u2']] }, { k: 'speed', a: [3] }]);
+      expect(sent.json.turn).toBe(5);
+      const read = await log(nora, 4400, `after=${ids.setup}`);
+      expect(read.json.turn).toBe(3);
+      expect(read.json.cmds.map((c: Json) => [c.t, c.s, c.k, c.a])).toEqual([
+        [5, 1, 'answer', ['c1']],
+        [5, 1, 'ask', ['c1', 'where']],
+        [5, 0, 'send', ['i3', ['u1', 'u2']]],
+        [5, 0, 'speed', [3]],
+      ]);
+      lastId = read.json.cmds[3].id;
+      expect((await log(nora, 4500, `after=${lastId}`)).json.cmds).toEqual([]);
+    });
+
+    it('lets only well-formed, small batches of known commands into the log', async () => {
+      const cases: [unknown, string][] = [
+        [[{ k: 'nuke', a: [] }], 'cmds[0].k'],
+        [[{ k: 'ack', a: ['i 3'] }], 'cmds[0].a[0]'],
+        [[{ k: 'ack', a: ['i3', 'extra'] }], 'cmds[0].a'],
+        [[{ k: 'send', a: ['i3', 'u1'] }], 'cmds[0].a[1]'],
+        [[{ k: 'prio', a: ['i3', 7] }], 'cmds[0].a[1]'],
+        [[{ k: 'ping', a: ['rida\nkaks'] }], 'cmds[0].a[0]'],
+        [[{ k: 'q', a: ['person', 'x'.repeat(65)] }], 'cmds[0].a[1]'],
+        [[{ k: 'setup', a: [] }], 'cmds[0].k'],
+        [[], 'cmds'],
+        ['ack', 'cmds'],
+      ];
+      for (const [cmds, field] of cases) {
+        const r = await cmd(nora, 5000, cmds);
+        expect(r.status, field).toBe(400);
+        expect(r.json, field).toMatchObject({ error: 'invalid_command', field });
+      }
+      const many = await cmd(nora, 5000, Array.from({ length: 21 }, () => ({ k: 'ack', a: ['i1'] })));
+      expect(many.json.error).toBe('too_many_commands');
+      const big = await nora.req('POST', `/api/rooms/${code}/cmd`, { raw: JSON.stringify({ cmds: [{ k: 'ping', a: ['x'] }], pad: 'y'.repeat(5000) }), ...at(5000) });
+      expect(big.status).toBe(413);
+      // Pause, speed and the end of the shift belong to the host; the end and a refer with no agency are fine.
+      expect((await cmd(nora, 5000, [{ k: 'speed', a: [0] }])).json.error).toBe('not_host');
+      expect((await cmd(mati, 5000, [{ k: 'endcall', a: ['c1', 'advice', 0, ''] }, { k: 'close', a: ['i2', 'phone'] }])).status).toBe(200);
+      expect((await cmd(nora, 5000, [{ k: 'ack', a: ['i1'] }], { csrf: false })).status).toBe(403);
+      expect((await client().post(`/api/rooms/${code}/cmd`, { cmds: [{ k: 'ack', a: ['i1'] }] })).status).toBe(401);
+      const stranger = client();
+      await register(stranger, 'Peeter');
+      expect((await stranger.post(`/api/rooms/${code}/cmd`, { cmds: [{ k: 'ack', a: ['i1'] }] }, at(5000))).status).toBe(404);
+      expect((await stranger.get(`/api/rooms/${code}/log`, at(5000))).status).toBe(404);
+    });
+
+    it('limits command batches per player', async () => {
+      const t = 30_000;
+      const codes: number[] = [];
+      for (let i = 0; i < 5; i++) codes.push((await cmd(olev, t, [{ k: 'ping', a: [`Proov ${i}`] }])).status);
+      expect(codes).toEqual([200, 200, 200, 200, 429]);
+      // Two batches a second come back.
+      expect((await cmd(olev, t + 600, [{ k: 'ping', a: ['Uuesti'] }])).status).toBe(200);
+    });
+
+    it('compares digests with the host’s and flags a player who drifted', async () => {
+      expect((await log(lea, 11_100, `h=10:${HASH_A}`)).json.resync).toBe(false);
+      expect((await log(mati, 11_200, `h=10:${HASH_A}`)).json.resync).toBe(false);
+      const drift = await log(nora, 11_300, `h=10:${HASH_B}`);
+      expect(drift.json.resync).toBe(true);
+      // The host is asked for a snapshot; the flag stays until the player says it resynced.
+      expect((await log(lea, 11_400)).json.snapReq).toBe(true);
+      expect((await log(nora, 11_500)).json.resync).toBe(true);
+      expect((await log(nora, 11_600, 'ack=1')).json.resync).toBe(false);
+      // The other way round: the player reports first, the host's digest arrives later.
+      await log(mati, 21_100, `h=20:${HASH_B}`);
+      await log(lea, 21_200, `h=20:${HASH_A}`);
+      expect((await log(mati, 21_300)).json.resync).toBe(true);
+      await log(mati, 21_400, 'ack=1');
+      expect((await log(lea, 21_500, 'h=x:1')).json.error).toBe('invalid_hash');
+    });
+
+    it('keeps the host’s latest snapshot, gzipped and capped', async () => {
+      const state = Buffer.from(JSON.stringify({ seed: 1, now: 2, coop: { turn: 20 } }));
+      const gz = gzipSync(state);
+      const path = (q: string) => `/api/rooms/${code}/snapshot?${q}`;
+      expect((await raw(mati, 'PUT', path(`turn=20&cmd=${lastId}`), 22_000, gz)).status).toBe(403);
+      expect((await raw(lea, 'PUT', path(`turn=20&cmd=${lastId}`), 22_000, state)).status).toBe(400);
+      expect((await raw(lea, 'PUT', path(`turn=900&cmd=${lastId}`), 22_000, gz)).status).toBe(400);
+      expect((await raw(lea, 'PUT', path(`turn=20&cmd=99999999`), 22_000, gz)).status).toBe(400);
+      expect((await raw(lea, 'PUT', path('turn=20'), 22_000, gz)).status).toBe(400);
+      const huge = Buffer.concat([Buffer.from([0x1f, 0x8b]), Buffer.alloc(2 * 1024 * 1024)]);
+      expect((await raw(lea, 'PUT', path(`turn=20&cmd=${lastId}`), 22_000, huge)).status).toBe(413);
+      expect(await raw(nora, 'GET', `/api/rooms/${code}/snapshot`, 22_000)).toMatchObject({ status: 404 });
+      const put = await raw(lea, 'PUT', path(`turn=20&cmd=${lastId}`), 22_000, gz);
+      expect(put.status).toBe(200);
+      const got = await raw(nora, 'GET', `/api/rooms/${code}/snapshot`, 22_100);
+      expect(got.status).toBe(200);
+      expect(got.headers.get('content-type')).toBe('application/gzip');
+      expect(got.headers.get('x-epd-turn')).toBe('20');
+      expect(got.headers.get('x-epd-cmd')).toBe(String(lastId));
+      expect(gunzipSync(got.bytes).toString()).toBe(state.toString());
+      const after = await log(lea, 22_200);
+      expect(after.json).toMatchObject({ snap: 20, snapReq: false });
+      // One a 10 s unless somebody asked for one.
+      expect((await raw(lea, 'PUT', path(`turn=21&cmd=${lastId}`), 23_000, gz)).status).toBe(429);
+      expect((await raw(lea, 'PUT', path(`turn=33&cmd=${lastId}`), 33_000, gz)).status).toBe(200);
+    });
+
+    it('hands a silent seat’s role to the others and gives it back when it polls again', async () => {
+      // Mati, Nora and Olev have not polled for over a minute: their seats leave the shift.
+      const r = await log(lea, 95_000, `after=${lastId}`);
+      const left = kinds(r).filter((k: Json) => k[0] === 'left');
+      expect(left).toEqual([
+        ['left', -1, [1]],
+        ['left', -1, [2]],
+        ['left', -1, [3]],
+      ]);
+      expect(r.json.cmds.every((c: Json) => c.t === 94 + 2 || c.k !== 'left')).toBe(true);
+      lastId = r.json.cmds[r.json.cmds.length - 1].id;
+      // Polling stays a read while nothing changes.
+      expect((await log(lea, 95_500, `after=${lastId}`)).json.cmds).toEqual([]);
+      const back = await log(mati, 96_000, `after=${lastId}`);
+      expect(kinds(back)).toEqual([['back', -1, [1]]]);
+      lastId = back.json.cmds[0].id;
+    });
+
+    it('moves the host’s role when the host goes silent', async () => {
+      await log(nora, 150_000);
+      const r = await log(mati, 170_000, `after=${lastId}`);
+      expect(kinds(r)).toEqual([
+        ['back', -1, [2]],
+        ['left', -1, [0]],
+        ['host', -1, [1]],
+      ]);
+      expect(r.json).toMatchObject({ host: 1, isHost: true, snapReq: true });
+      lastId = r.json.cmds[r.json.cmds.length - 1].id;
+      const room = (await mati.get(`/api/rooms/${code}`, at(170_100))).json.room;
+      expect(room.players.find((p: Json) => p.host).name).toBe('Mati');
+      // Lea comes back as a player; Mati keeps the host's role.
+      const back = await log(lea, 171_000, `after=${lastId}`);
+      expect(kinds(back)).toEqual([['back', -1, [0]]]);
+      expect(back.json).toMatchObject({ host: 1, isHost: false });
+      lastId = back.json.cmds[0].id;
+      expect((await cmd(lea, 171_100, [{ k: 'speed', a: [1] }])).json.error).toBe('not_host');
+    });
+
+    it('takes a deleted account’s seat, commands and snapshot out of the room', async () => {
+      await log(olev, 172_000);
+      // Olev hosts for a moment and uploads a snapshot, then deletes his account.
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM room_commands c JOIN users u ON u.id = c.user_id WHERE u.name = 'Olev'`))[0][0]).toBeGreaterThan(0);
+      const olevId = JSON.parse(sql(`SELECT id FROM users WHERE name = 'Olev'`))[0][0];
+      sql(`UPDATE rooms SET host_id = ${olevId} WHERE code = '${code}'`);
+      const gz = gzipSync(Buffer.from('{"olev":1}'));
+      expect((await raw(olev, 'PUT', `/api/rooms/${code}/snapshot?turn=171&cmd=${lastId}`, 172_100, gz)).status).toBe(200);
+      sql(`UPDATE rooms SET host_id = (SELECT id FROM users WHERE name = 'Mati') WHERE code = '${code}'`);
+      expect((await olev.del('/api/me', { password: 'salajane-123' })).status).toBe(200);
+      for (const table of ['room_commands', 'room_snapshots', 'room_players'])
+        expect(JSON.parse(sql(`SELECT COUNT(*) FROM ${table} WHERE user_id = ${olevId}`)), table).toEqual([[0]]);
+      const r = await log(mati, 173_000, `after=${lastId}`);
+      expect(kinds(r)).toEqual([
+        ['back', -1, [3]],
+        ['left', -1, [3]],
+      ]);
+      expect(r.json).toMatchObject({ snapReq: true, snap: null });
+      lastId = r.json.cmds[r.json.cmds.length - 1].id;
+    });
+
+    it('sequences a player leaving with the button and drops the log when the room finishes', async () => {
+      expect((await nora.post(`/api/rooms/${code}/leave`, undefined, at(174_000))).status).toBe(200);
+      const r = await log(lea, 174_100, `after=${lastId}`);
+      expect(kinds(r)).toEqual([['left', -1, [2]]]);
+      const RESULT = { score: 71, grade: 'B', incidents: 9, arrests: 1 };
+      expect((await lea.post(`/api/rooms/${code}/result`, { ...RESULT, xp: 310 }, at(175_000))).status).toBe(200);
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM room_commands c JOIN rooms r ON r.id = c.room_id WHERE r.code = '${code}'`))[0][0]).toBeGreaterThan(0);
+      const done = await mati.post(`/api/rooms/${code}/result`, { ...RESULT, xp: 290 }, at(175_100));
+      expect(done.json.room.state).toBe('finished');
+      expect(done.json.room.results.map((x: Json) => [x.name, x.xp])).toEqual([
+        ['Lea', 310],
+        ['Mati', 290],
+      ]);
+      for (const table of ['room_commands', 'room_snapshots'])
+        expect(JSON.parse(sql(`SELECT COUNT(*) FROM ${table} t JOIN rooms r ON r.id = t.room_id WHERE r.code = '${code}'`)), table).toEqual([[0]]);
+      expect((await cmd(lea, 175_200, [{ k: 'ping', a: ['x'] }])).json.error).toBe('not_running');
+      expect((await log(lea, 175_300)).json).toMatchObject({ state: 'finished', cmds: [] });
+    });
+
+    it('finishes a shared shift nobody polls for 15 minutes', async () => {
+      const a = client();
+      const b = client();
+      await register(a, 'Rein');
+      await register(b, 'Sirje');
+      const r = (await a.post('/api/rooms', OPTS, at(200_000))).json.room;
+      await b.post('/api/rooms/join', { code: r.code }, at(200_100));
+      await b.post(`/api/rooms/${r.code}/ready`, { ready: true }, at(200_200));
+      await a.post(`/api/rooms/${r.code}/start`, undefined, at(200_300));
+      await a.post(`/api/rooms/${r.code}/cmd`, { cmds: [{ k: 'ping', a: ['Tere'] }] }, at(201_000));
+      expect(JSON.parse(sql(`SELECT state FROM rooms WHERE code = '${r.code}'`))).toEqual([['running']]);
+      const late = await b.get(`/api/rooms/${r.code}`, at(200_300 + 16 * 60_000 + 1000));
+      expect(late.json.room.state).toBe('finished');
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM room_commands c JOIN rooms r ON r.id = c.room_id WHERE r.code = '${r.code}'`))).toEqual([[0]]);
+      // A race room has no log.
+      const race = (await a.post('/api/rooms', { ...OPTS, mode: 'race' }, at(300_000))).json.room;
+      expect((await a.get(`/api/rooms/${race.code}/log`, at(300_100))).json.error).toBe('not_coop');
+      expect((await a.post(`/api/rooms/${race.code}/role`, { role: 'calls' }, at(300_100))).json.error).toBe('not_coop');
+    });
+  });
+
   describe('rate limiting', () => {
     it('blocks the 11th failed login for the same IP and name', async () => {
       expect((await register(client(), 'Ratty', 'right-password')).status).toBe(200);
@@ -1315,6 +1611,8 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
         'daily_scores WHERE user_id',
         'room_players WHERE user_id',
         'room_results WHERE user_id',
+        'room_commands WHERE user_id',
+        'room_snapshots WHERE user_id',
         'rooms WHERE host_id',
       ];
       for (const table of tables) {
@@ -1986,7 +2284,7 @@ describe.skipIf(!HAS_PHP)('schema migrations', () => {
     const steps = JSON.parse(
       phpRun('require $argv[1]; echo json_encode(epd_migrations());', DB_PHP),
     ) as Record<string, string[]>;
-    const additive = /^(CREATE TABLE|CREATE (UNIQUE )?INDEX|ALTER TABLE \S+ ADD (COLUMN )?|INSERT INTO)\s/i;
+    const additive = /^(CREATE TABLE|CREATE (UNIQUE )?INDEX|ALTER TABLE \S+ ADD( COLUMN)?|INSERT INTO)\s/i;
     for (const [version, statements] of Object.entries(steps)) {
       expect(statements.length, `step ${version}`).toBeGreaterThan(0);
       for (const sql of statements) {

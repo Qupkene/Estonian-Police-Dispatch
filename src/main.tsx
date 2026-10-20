@@ -14,6 +14,8 @@ import { useSettings } from './store/settings';
 import { step } from './sim/engine';
 import * as cmd from './sim/commands';
 import * as sel from './sim/selectors';
+import { simDigest } from './sim/coop';
+import { coopDebug, useCoop } from './store/coop';
 
 // Console handle for power users, filmmakers and end-to-end tests (single-player game, nothing secret).
 // Set synchronously from the entry chunk (MapLibre and the in-shift screen load later, see app/App.tsx).
@@ -22,6 +24,8 @@ import * as sel from './sim/selectors';
   career: useCareer,
   settings: useSettings,
   engine: { step, cmd, sel },
+  // Co-op room shifts: the session's state, the log position and the state digest (tests compare clients).
+  coop: { state: useCoop, debug: coopDebug, digest: simDigest },
 };
 
 createRoot(document.getElementById('root')!).render(

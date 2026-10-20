@@ -55,6 +55,14 @@ export function bindUser(id: number | null): void {
   boundUser = id;
 }
 
+/** Headers every API request of this tab carries (for the binary requests that cannot use request()). */
+export function apiHeaders(method: HttpMethod): Record<string, string> {
+  const h: Record<string, string> = {};
+  if (method !== 'GET') h['X-EPD'] = '1';
+  if (boundUser !== null) h['X-EPD-User'] = String(boundUser);
+  return h;
+}
+
 export const apiHooks: {
   /** Called when the server says the session cookie now belongs to another account. */
   onUserMismatch?: () => void;

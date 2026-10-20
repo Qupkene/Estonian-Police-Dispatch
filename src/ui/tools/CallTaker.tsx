@@ -3,6 +3,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ActiveCall, Agency, CallerMood, CallQuestionId, Incident, Priority, SimState } from '@/sim/types';
 import { answerCall, askCall, endCall, toggleInterpreter } from '@/sim/commands';
+import { coopIssue, useCan, useCoop } from '@/store/coop';
+import { rolesOf } from '@/sim/coop';
 import { useSettings } from '@/store/settings';
 import { useT, useTx } from '@/i18n';
 import { Badge, Button, Icon, IconButton, Meter, PriorityChip, Toggle, type IconName } from '@/ui/components';
@@ -11,6 +13,11 @@ import { run, useSim } from './lib/engine';
 import './tools.css';
 
 const RING_LIMIT_MS = 45_000;
+
+/** A call command: through the room in a co-op shift (everybody applies it a moment later), else at once. */
+function act(k: string, a: unknown[], fn: (s: SimState) => void): void {
+  if (!coopIssue(k, a)) run(fn);
+}
 
 const MOOD_ICON: Record<CallerMood, IconName> = {
   panic: 'alert',
@@ -37,11 +44,46 @@ const MOOD_TONE: Record<CallerMood, 'danger' | 'warn' | 'info' | 'neutral' | 'ac
 
 export function CallTaker() {
   const sim = useSim();
+  const canTake = useCan('calls');
+  const seat = useCoop((s) => s.seat);
   if (!sim) return null;
-  const active = sim.calls.filter((c) => !c.endedAt);
+  let active = sim.calls.filter((c) => !c.endedAt);
+  if (sim.coop) {
+    // Co-op: the call-taker's desk. Two call-takers split the calls: whoever answers first keeps it.
+    if (!canTake) return <CoopCallStrip sim={sim} />;
+    const owner = sim.coop.callSeat;
+    active = active.filter((c) => owner[c.id] === undefined || owner[c.id] === seat || !sim.coop!.seats.find((x) => x.seat === owner[c.id])?.present);
+  }
   const call = active[0];
   if (!call) return null;
   return <CallCard key={call.id} sim={sim} call={call} waiting={active.length - 1} />;
+}
+
+/** What the other desks see of 112: a call rings or is in progress, and who takes it. */
+function CoopCallStrip({ sim }: { sim: SimState }) {
+  const t = useT();
+  const active = sim.calls.filter((c) => !c.endedAt);
+  if (!active.length || !sim.coop) return null;
+  const call = active[0];
+  const takers = sim.coop.seats.filter((x) => x.present && rolesOf(sim.coop!, x.seat).includes('calls'));
+  const owner = sim.coop.seats.find((x) => x.seat === sim.coop!.callSeat[call.id]);
+  const who = (owner ?? takers[0])?.name ?? '';
+  const ringing = !call.answeredAt;
+  return (
+    <div className={`tl-callstrip${ringing ? ' is-ringing' : ''}`} role="status" data-testid="coop-call-strip">
+      <Icon name="phone" size={14} />
+      <span>
+        {ringing ? t('coop.call.ringing', { name: who }) : t('coop.call.talking', { name: who, t: mmss(sim.now - (call.answeredAt ?? sim.now)) })}
+      </span>
+      {active.length > 1 && <Badge tone="warn">{t('tools.call.more', { n: active.length - 1 })}</Badge>}
+    </div>
+  );
+}
+
+/** Is one of this player's co-op commands about this call still on its way? */
+function usePendingCall(callId: string): (k: string, extra?: unknown) => boolean {
+  const pending = useCoop((s) => s.pending);
+  return (k, extra) => pending.some((p) => p.k === k && p.a[0] === callId && (extra === undefined || p.a[1] === extra));
 }
 
 function CallCard({ sim, call, waiting }: { sim: SimState; call: ActiveCall; waiting: number }) {
@@ -55,6 +97,8 @@ function CallCard({ sim, call, waiting }: { sim: SimState; call: ActiveCall; wai
   const [agency, setAgency] = useState<Agency>('kiirabi');
 
   const ringing = !call.answeredAt;
+  const pend = usePendingCall(call.id);
+  const deciding = pend('endcall');
 
   // Put keyboard focus on "Vasta" so Enter answers, but never steal focus from a text field.
   useEffect(() => {
@@ -74,7 +118,7 @@ function CallCard({ sim, call, waiting }: { sim: SimState; call: ActiveCall; wai
         aria-label={t('tools.call.ringing')}
         tabIndex={-1}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && e.target === e.currentTarget) run((s) => answerCall(s, call.id));
+          if (e.key === 'Enter' && e.target === e.currentTarget) act('answer', [call.id], (s) => answerCall(s, call.id));
         }}
       >
         <div className="tl-call__ring">
@@ -96,8 +140,16 @@ function CallCard({ sim, call, waiting }: { sim: SimState; call: ActiveCall; wai
             <span className="mono">{t('tools.call.ringFor', { t: mmss(elapsed) })}</span>
             <Meter value={elapsed / RING_LIMIT_MS} tone={elapsed > RING_LIMIT_MS * 0.66 ? 'danger' : 'warn'} size="sm" label={t('tools.call.hkTakesOver')} />
           </div>
-          <Button className="tl-call__answer" variant="success" size="lg" icon="phone" kbd="Enter" onClick={() => run((s) => answerCall(s, call.id))}>
-            {t('tools.call.answer')}
+          <Button
+            className="tl-call__answer"
+            variant="success"
+            size="lg"
+            icon="phone"
+            kbd="Enter"
+            disabled={pend('answer')}
+            onClick={() => act('answer', [call.id], (s) => answerCall(s, call.id))}
+          >
+            {pend('answer') ? t('coop.call.connecting') : t('tools.call.answer')}
           </Button>
         </div>
       </div>
@@ -127,7 +179,7 @@ function CallCard({ sim, call, waiting }: { sim: SimState; call: ActiveCall; wai
         </span>
         {foreign && (
           <span className="tl-call__interp" title={t('tools.call.interpreterHint')}>
-            <Toggle checked={!!call.interpreter} onChange={() => run((s) => toggleInterpreter(s, call.id))} label={`${t('tools.call.interpreter')} · ${call.lang.toUpperCase()}`} />
+            <Toggle checked={!!call.interpreter} onChange={() => act('interp', [call.id], (s) => toggleInterpreter(s, call.id))} label={`${t('tools.call.interpreter')} · ${call.lang.toUpperCase()}`} />
           </span>
         )}
         {waiting > 0 && <Badge tone="warn">{t('tools.call.more', { n: waiting })}</Badge>}
@@ -152,7 +204,13 @@ function CallCard({ sim, call, waiting }: { sim: SimState; call: ActiveCall; wai
               <div className="tl-call__label">{t('tools.call.questions')}</div>
               <div className="tl-call__qs">
                 {QUESTION_ORDER.map((q) => (
-                  <button key={q} type="button" className={`tl-q${asked.has(q) ? ' is-asked' : ''}`} disabled={asked.has(q)} onClick={() => run((s) => askCall(s, call.id, q))}>
+                  <button
+                    key={q}
+                    type="button"
+                    className={`tl-q${asked.has(q) ? ' is-asked' : ''}${pend('ask', q) ? ' is-pending' : ''}`}
+                    disabled={asked.has(q) || pend('ask', q)}
+                    onClick={() => act('ask', [call.id, q], (s) => askCall(s, call.id, q))}
+                  >
                     {asked.has(q) && <Icon name="check" size={12} />}
                     {t(`tools.call.q.${q}`)}
                   </button>
@@ -200,7 +258,7 @@ function CallCard({ sim, call, waiting }: { sim: SimState; call: ActiveCall; wai
               <span className="tl-call__guide">{prio ? t(`tools.call.prio.${prio}`) : t('tools.call.pickPriority')}</span>
             </div>
             <div className="tl-call__actions">
-              <Button variant="primary" icon="check" disabled={!prio} onClick={() => prio && run((s) => endCall(s, call.id, { action: 'create', priority: prio }))}>
+              <Button variant="primary" icon="check" disabled={!prio || deciding} onClick={() => prio && act('endcall', [call.id, 'create', prio, ''], (s) => endCall(s, call.id, { action: 'create', priority: prio }))}>
                 {t('tools.call.create')}
               </Button>
               <span className="tl-call__refer">
@@ -211,14 +269,14 @@ function CallCard({ sim, call, waiting }: { sim: SimState; call: ActiveCall; wai
                     </option>
                   ))}
                 </select>
-                <Button icon="send" onClick={() => run((s) => endCall(s, call.id, { action: 'refer', agency }))}>
+                <Button icon="send" onClick={() => act('endcall', [call.id, 'refer', 0, agency], (s) => endCall(s, call.id, { action: 'refer', agency }))}>
                   {t('tools.call.refer')}
                 </Button>
               </span>
-              <Button icon="phone" onClick={() => run((s) => endCall(s, call.id, { action: 'advice' }))}>
+              <Button icon="phone" onClick={() => act('endcall', [call.id, 'advice', 0, ''], (s) => endCall(s, call.id, { action: 'advice' }))}>
                 {t('tools.call.advice')}
               </Button>
-              <Button variant="ghost" icon="phone-off" className="tl-call__prank" onClick={() => run((s) => endCall(s, call.id, { action: 'prank' }))}>
+              <Button variant="ghost" icon="phone-off" className="tl-call__prank" onClick={() => act('endcall', [call.id, 'prank', 0, ''], (s) => endCall(s, call.id, { action: 'prank' }))}>
                 {t('tools.call.prank')}
               </Button>
             </div>

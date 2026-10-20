@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useGame } from '@/store/game';
+import { myRoles } from '@/store/coop';
 import { useDirector } from '@/ui/tools/directorStore';
 import { acknowledgeNext, dispatchPicked, selectIncident } from './actions';
 import { isTypingTarget } from './format';
@@ -63,10 +64,13 @@ export function useHotkeys() {
           return;
         case 'a':
         case 'A':
+          // Co-op: A and D are the dispatcher's keys.
+          if (myRoles(s)?.includes('dispatch') === false) return;
           acknowledgeNext();
           return handled();
         case 'd':
         case 'D': {
+          if (myRoles(s)?.includes('dispatch') === false) return;
           const id = g.selection.incidentId;
           if (id) dispatchPicked(id);
           return handled();

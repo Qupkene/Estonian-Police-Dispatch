@@ -48,7 +48,13 @@ const active = (until: string | undefined, now: number) => !until || until >= to
 // Search
 // ─────────────────────────────────────────────────────────────────────────────
 
-function logQuery(s: SimState, kind: 'person' | 'vehicle', query: string, resultIds: string[]): void {
+/** `log: false` searches without writing the query log (a co-op client logs through a room command instead). */
+export interface SearchOptions {
+  log?: boolean;
+}
+
+function logQuery(s: SimState, kind: 'person' | 'vehicle', query: string, resultIds: string[], opts?: SearchOptions): void {
+  if (opts?.log === false) return;
   s.queries.push({ t: s.now, kind, query, resultIds });
   if (s.queries.length > 500) s.queries.splice(0, s.queries.length - 500);
   s.stats.queries++;
@@ -57,7 +63,7 @@ function logQuery(s: SimState, kind: 'person' | 'vehicle', query: string, result
 }
 
 /** Search persons by isikukood (exact, 11 digits) or name (case/diacritic-insensitive substring), ≤ 30, relevance-sorted. */
-export function searchPersons(s: SimState, q: string): Person[] {
+export function searchPersons(s: SimState, q: string, opts?: SearchOptions): Person[] {
   const raw = q.trim();
   if (!raw) return [];
   const digits = raw.replace(/\s/g, '');
@@ -73,7 +79,7 @@ export function searchPersons(s: SimState, q: string): Person[] {
   } else {
     const tokens = foldName(raw).split(' ').filter(Boolean);
     if (tokens.length === 0) {
-      logQuery(s, 'person', raw, []);
+      logQuery(s, 'person', raw, [], opts);
       return [];
     }
     const scored: { p: Person; score: number }[] = [];
@@ -111,12 +117,13 @@ export function searchPersons(s: SimState, q: string): Person[] {
     'person',
     raw,
     out.map((p) => p.id),
+    opts,
   );
   return out;
 }
 
 /** Search vehicles by plate (normalised exact or prefix) or VIN (exact, or suffix of ≥ 6 chars). */
-export function searchVehicles(s: SimState, q: string): Vehicle[] {
+export function searchVehicles(s: SimState, q: string, opts?: SearchOptions): Vehicle[] {
   const raw = q.trim();
   if (!raw) return [];
   const key = plateKey(raw);
@@ -138,6 +145,7 @@ export function searchVehicles(s: SimState, q: string): Vehicle[] {
     'vehicle',
     raw,
     out.map((v) => v.plate),
+    opts,
   );
   return out;
 }

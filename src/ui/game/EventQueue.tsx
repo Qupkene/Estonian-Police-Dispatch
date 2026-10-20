@@ -4,6 +4,7 @@ import { useLang, useT, useTx } from '@/i18n';
 import { Button, Empty, Icon, Kbd, PriorityChip, Tabs } from '@/ui/components';
 import type { Agency, Incident, SimState } from '@/sim/types';
 import { acknowledge, closeIncident, selectIncident, sendBackup } from './actions';
+import { useCan, usePending } from '@/store/coop';
 import { activeBackup, recentClosed, selAgeMin, selPendingRadio, selQueue, selSlaMin } from './data';
 import { ageText, countdown, helpSectorId, matchesQueueFilter, slaTone, type QueueFilter } from './format';
 import { HelpTag, SourceTag, StatusDot, useSim } from './bits';
@@ -165,6 +166,8 @@ function QueueCard({ sim, inc, selected, cursor, pendingCount }: { sim: SimState
   const backup = activeBackup(sim, inc);
   const units = inc.assigned.map((id) => sim.units[id]).filter(Boolean);
   const incoming = inc.state === 'incoming';
+  const canDispatch = useCan('dispatch');
+  const acking = usePending('ack', inc.id);
   const pursuit = inc.pursuit && !inc.pursuit.ended;
   const work = inc.onSceneMin > 0 ? Math.min(1, inc.workDone / inc.onSceneMin) : 0;
   const place = inc.location.placeName;
@@ -253,9 +256,9 @@ function QueueCard({ sim, inc, selected, cursor, pendingCount }: { sim: SimState
           {units.length > 4 && <span className="gm-unitchip mono">+{units.length - 4}</span>}
         </span>
       </div>
-      {incoming && (
+      {incoming && canDispatch && (
         <div className="gm-card__actions" onClick={(e) => e.stopPropagation()}>
-          <Button size="sm" variant="primary" icon="check" title={t('game.queue.acceptTitle')} onClick={(e) => {
+          <Button size="sm" variant="primary" icon="check" disabled={acking} title={t('game.queue.acceptTitle')} onClick={(e) => {
             e.stopPropagation();
             acknowledge(inc.id);
             selectIncident(inc.id);
@@ -276,11 +279,11 @@ function QueueCard({ sim, inc, selected, cursor, pendingCount }: { sim: SimState
               <Icon name="siren" size={11} />
               {t('game.queue.helpEnrouteShort', { t: backup.enroute[0].etaMin !== null ? countdown(backup.enroute[0].etaMin) : '' })}
             </span>
-          ) : (
+          ) : canDispatch ? (
             <Button size="sm" variant="danger" onClick={() => sendBackup(inc.id)}>
               {t('game.queue.sendHelp')}
             </Button>
-          )}
+          ) : null}
         </div>
       )}
     </div>

@@ -10,6 +10,7 @@ import { getRegion, pendingRadio, recommendUnits } from '@/sim/selectors';
 import { describePerson } from '@/gen/describe';
 import type { IncidentTemplate, Person, RadioMsg, RegionDef, SimState, Text, Vehicle } from '@/sim/types';
 import { useGame } from '@/store/game';
+import { coopIssue } from '@/store/coop';
 import {
   ageAt,
   fallbackPersonFlags,
@@ -92,8 +93,13 @@ function logQuery(s: SimState, kind: 'person' | 'vehicle', query: string, result
   s.stats.queries = (s.stats.queries ?? 0) + 1;
 }
 
-/** Person search via the registry; logs a QueryLog itself if the engine did not. */
+/** Person search via the registry; logs a QueryLog itself if the engine did not. Co-op logs it through the room. */
 export function searchP(s: SimState, q: string): Person[] {
+  if (s.coop) {
+    const res = safe(() => searchPersons(s, q, { log: false }), null as Person[] | null) ?? localSearchPersons(s.persons, q);
+    if (q.trim()) coopIssue('q', ['person', q.trim().slice(0, 64)]);
+    return res;
+  }
   const len = s.queries.length;
   const last = s.queries[len - 1];
   const res = safe(() => searchPersons(s, q), null as Person[] | null) ?? localSearchPersons(s.persons, q);
@@ -102,6 +108,11 @@ export function searchP(s: SimState, q: string): Person[] {
 }
 
 export function searchV(s: SimState, q: string): Vehicle[] {
+  if (s.coop) {
+    const res = safe(() => searchVehicles(s, q, { log: false }), null as Vehicle[] | null) ?? localSearchVehicles(s.vehicles, q);
+    if (q.trim()) coopIssue('q', ['vehicle', q.trim().slice(0, 64)]);
+    return res;
+  }
   const len = s.queries.length;
   const last = s.queries[len - 1];
   const res = safe(() => searchVehicles(s, q), null as Vehicle[] | null) ?? localSearchVehicles(s.vehicles, q);

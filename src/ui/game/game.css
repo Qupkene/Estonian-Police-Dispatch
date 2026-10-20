@@ -3725,3 +3725,265 @@ td.gm-table__task .muted {
 .gm-table th {
   font-weight: 600;
 }
+
+/* ── Ühisvahetus (co-op): seats, connection and messages over the map ─────── */
+.gm-coop {
+  grid-area: map;
+  position: absolute;
+  z-index: 30;
+  top: 12px;
+  left: 12px;
+  width: 300px;
+  max-height: calc(100% - 24px);
+  display: flex;
+  flex-direction: column;
+  background: var(--glass);
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+  font-size: var(--fs-sm);
+  color: var(--text-1);
+  overflow: hidden;
+}
+.gm-coop__head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 8px 7px 10px;
+  border-bottom: 1px solid var(--line-2);
+}
+.gm-coop.is-closed .gm-coop__head {
+  border-bottom: 0;
+}
+.gm-coop__head strong {
+  color: var(--text-0);
+  white-space: nowrap;
+}
+.gm-coop__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.gm-coop__status i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--info);
+}
+.gm-coop__status--ok i {
+  background: var(--ok);
+}
+.gm-coop__status--warn i {
+  background: var(--warn);
+  animation: gm-coop-blink 1.2s ease-in-out infinite;
+}
+.gm-coop__status--danger i {
+  background: var(--danger);
+}
+@keyframes gm-coop-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+.gm-coop__unread {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg-0);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-align: center;
+}
+.gm-coop__seats {
+  list-style: none;
+  margin: 0;
+  padding: 6px 8px;
+  display: grid;
+  gap: 3px;
+}
+.gm-coop__seat {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 4px;
+  border-radius: var(--r-sm);
+}
+.gm-coop__seat.is-me {
+  background: var(--bg-3);
+}
+.gm-coop__seat.is-away {
+  opacity: 0.55;
+}
+.gm-coop__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.gm-coop__dot.is-on {
+  background: var(--ok);
+}
+.gm-coop__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-0);
+}
+.gm-coop__you {
+  color: var(--text-3);
+}
+.gm-coop__host {
+  margin-left: 5px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--bg-4);
+  color: var(--gold-ink, var(--text-1));
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.gm-coop__roles {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.gm-coop__counts {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.gm-coop__pings {
+  list-style: none;
+  margin: 0;
+  padding: 6px 10px;
+  max-height: 132px;
+  overflow-y: auto;
+  border-top: 1px solid var(--line-2);
+  display: grid;
+  gap: 3px;
+  line-height: 1.35;
+}
+.gm-coop__pings li.is-me b {
+  color: var(--accent);
+}
+.gm-coop__pings .mono {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.gm-coop__empty {
+  color: var(--text-3);
+}
+.gm-coop__quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 8px 6px;
+}
+.gm-coop__quick button {
+  border: 1px solid var(--line-3);
+  background: var(--bg-3);
+  color: var(--text-1);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.gm-coop__quick button:hover {
+  border-color: var(--accent);
+}
+.gm-coop__form {
+  display: flex;
+  gap: 5px;
+  padding: 0 8px 8px;
+}
+.gm-coop__form input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line-3);
+  background: var(--bg-2);
+  color: var(--text-0);
+  border-radius: var(--r-sm);
+  padding: 5px 8px;
+  font: inherit;
+}
+.gm-coop__form button {
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--accent);
+  color: var(--bg-0);
+  width: 32px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.gm-coop__form button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.gm-coop__pending {
+  margin: 0;
+  padding: 0 10px 8px;
+  font-size: var(--fs-xs);
+  color: var(--warn-ink);
+}
+.gm-rolenote {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0;
+  padding: 7px 10px;
+  border: 1px dashed var(--line-3);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.gm-rolenote--inline {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: var(--fs-xs);
+}
+.tl-callstrip {
+  grid-area: map;
+  position: absolute;
+  z-index: 35;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-3);
+  background: var(--glass);
+  box-shadow: var(--shadow-2);
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.tl-callstrip.is-ringing {
+  border-color: var(--warn);
+}
+.tl-callstrip.is-ringing > svg {
+  color: var(--warn-ink);
+}
+.tl-q.is-pending {
+  opacity: 0.6;
+}
+@media (max-width: 899px) {
+  .gm-coop {
+    top: 8px;
+    left: 8px;
+    width: min(300px, calc(100% - 16px));
+  }
+  .gm-coop:not(.is-closed) .gm-coop__pings {
+    max-height: 80px;
+  }
+}
