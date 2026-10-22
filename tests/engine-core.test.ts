@@ -338,13 +338,147 @@ describe('engine-core with fixtures', () => {
     expect(ib.effects.success).toBeCloseTo(-0.2);
     expect(a.stats.repliesCorrect).toBe(1);
     expect(b.stats.repliesWrong).toBe(1);
-    expect(b.trust).toBeLessThan(a.trust);
+    // The crew acts on the answer: nobody knows yet that it was wrong (src/sim/fallout.ts).
+    expect(b.trust).toBe(a.trust);
+    expect(b.fallout?.map((f) => f.kind)).toEqual(['missed_wanted']);
+    expect(a.fallout ?? []).toEqual([]);
     expect(E.selectors.pendingRadio(a).length).toBe(0);
     stepUntil(E, a, () => ia.state === 'closed', 90);
     stepUntil(E, b, () => ib.state === 'closed', 90);
     expect(ia.outcome!.success).toBeGreaterThan(ib.outcome!.success);
-    expect(ia.outcome!.breakdown.decisions).toBeGreaterThan(ib.outcome!.breakdown.decisions);
     expect(ia.outcome!.arrests).toBeGreaterThanOrEqual(1);
+    // The warrant was missed (the incident's own outcome may still end in an arrest); the shift review counts the
+    // wrong answer at the latest.
+    expect(ia.effects.arrests).toBe(1);
+    expect(ib.effects.arrests).toBe(0);
+    E.engine.finalizeShift(a);
+    E.engine.finalizeShift(b);
+    expect(ia.outcome!.breakdown.decisions).toBeGreaterThan(ib.outcome!.breakdown.decisions);
+  });
+
+  /** A t_query shift with the crew's query on the air (the suspect is wanted). */
+  function queryOnAir(over: Partial<NewShiftOptions> = {}) {
+    const s = quiet(E, over);
+    const inc = spawn(E, s, 't_query');
+    dispatchBest(E, s, inc);
+    expect(stepUntil(E, s, () => E.selectors.pendingRadio(s).some((m) => m.kind === 'query'), 60)).toBe(true);
+    const msg = E.selectors.pendingRadio(s).find((m) => m.kind === 'query')!;
+    return { s, inc, msg };
+  }
+
+  it('a wrong answer goes unnoticed on the air and comes out later (fallout)', () => {
+    const { s, inc, msg } = queryOnAir();
+    const radioBefore = s.radio.length;
+    const trust0 = s.trust;
+    E.commands.replyRadio(s, msg.id, 'clean');
+    // The crew acts on it: JK's answer and the crew's "copy, clean", no "the data does not match".
+    const said = s.radio.slice(radioBefore).map((m) => m.text.et).join(' | ');
+    expect(said).not.toMatch(/ei klapi|vale info|andmed erinevad/);
+    expect(s.trust).toBe(trust0);
+    const f = s.fallout![0];
+    expect(f).toMatchObject({ kind: 'missed_wanted', said: 'clean', truth: 'wanted', stage: 'hidden' });
+    // Make it come out in a minute, with no crew re-check.
+    f.catchAt = undefined;
+    f.revealAt = s.now + MIN;
+    E.engine.drainEvents(s);
+    E.engine.step(s, 2 * MIN);
+    expect(f.stage).toBe('revealed');
+    expect(f.penalty).toBeGreaterThan(0);
+    expect(s.trust).toBeLessThan(trust0);
+    const told = s.radio.find((m) => m.from === 'VALVEKORRAPIDAJA');
+    expect(told?.incidentId).toBe(inc.id);
+    expect(told?.text.et).toContain('tagaotsitav');
+    expect(E.engine.drainEvents(s).map((e) => e.type)).toContain('complaint');
+    expect(inc.beats.find((b) => b.radioId === msg.id)?.revealed).toBe(true);
+  });
+
+  it('a complaint follows an unfounded detention and body cameras halve its cost', () => {
+    const run = (bodycam: boolean) => {
+      const { s, msg } = queryOnAir();
+      if (bodycam) s.flags['upg:bodycam'] = true;
+      E.commands.replyRadio(s, msg.id, 'clean');
+      const f = s.fallout![0];
+      // The same machinery as an unfounded detention: force the timings.
+      f.kind = 'unfounded_detention';
+      f.catchAt = undefined;
+      f.revealAt = s.now + MIN;
+      f.complaintAt = s.now + 3 * MIN;
+      E.engine.step(s, 5 * MIN);
+      return { s, f };
+    };
+    const plain = run(false);
+    expect(plain.f.complained).toBe(true);
+    expect(plain.s.stats.complaints).toBe(1);
+    expect(plain.s.radio.some((m) => m.from === 'ARESTIMAJA')).toBe(true);
+    expect(plain.s.radio.some((m) => m.from === 'SISEKONTROLL')).toBe(true);
+    const cam = run(true);
+    expect(cam.f.trust).toBeLessThan(plain.f.trust);
+  });
+
+  it('JK can correct a wrong answer in time ("Parandus!") and it costs only a little', () => {
+    const { s, inc, msg } = queryOnAir();
+    const ok = JSON.parse(JSON.stringify(s)) as SimState;
+    E.commands.replyRadio(ok, msg.id, 'wanted');
+    E.commands.replyRadio(s, msg.id, 'clean');
+    expect(E.commands.canCorrectQuery(s, s.radio.find((m) => m.id === msg.id)!)).toBe(true);
+    E.engine.step(s, MIN);
+    E.commands.replyRadio(s, msg.id, 'wanted');
+    expect(s.fallout ?? []).toEqual([]);
+    expect(s.stats).toMatchObject({ repliesCorrect: 1, repliesWrong: 0, repliesCorrected: 1 });
+    expect(inc.effects.success).toBeCloseTo(0.15);
+    expect(inc.effects.arrests).toBe(1);
+    expect(s.radio.some((m) => m.from === 'JK' && m.text.et.startsWith('Parandus!'))).toBe(true);
+    // Correcting the same answer again changes nothing.
+    const n = s.radio.length;
+    E.commands.replyRadio(s, msg.id, 'wanted');
+    expect(s.radio.length).toBe(n);
+    const io = ok.incidents[inc.id];
+    stepUntil(E, s, () => inc.state === 'closed', 90);
+    stepUntil(E, ok, () => io.state === 'closed', 90);
+    E.engine.finalizeShift(s);
+    E.engine.finalizeShift(ok);
+    expect(inc.outcome!.breakdown.decisions).toBe(io.outcome!.breakdown.decisions - 2);
+  });
+
+  it('a correction is refused after the window and once it is out', () => {
+    const { s, inc, msg } = queryOnAir();
+    E.commands.replyRadio(s, msg.id, 'clean');
+    const m = s.radio.find((x) => x.id === msg.id)!;
+    const b = inc.beats.find((x) => x.radioId === msg.id)!;
+    b.answeredAt = s.now - 11 * MIN;
+    expect(E.commands.canCorrectQuery(s, m)).toBe(false);
+    E.commands.replyRadio(s, msg.id, 'wanted');
+    expect(b.answer).toBe('clean');
+    b.answeredAt = s.now;
+    s.fallout![0].stage = 'revealed';
+    expect(E.commands.canCorrectQuery(s, m)).toBe(false);
+  });
+
+  it('in the tutorial the crew re-checks a wrong answer at once', () => {
+    const { s, msg } = queryOnAir({ mode: 'tutorial' });
+    E.commands.replyRadio(s, msg.id, 'clean');
+    E.engine.step(s, 5_000);
+    expect(s.fallout![0].stage).toBe('caught');
+    expect(s.radio.some((m) => /kontrollisime tahvlist/.test(m.text.et))).toBe(true);
+  });
+
+  it('the end of the shift settles what was still to come out', () => {
+    const { s, inc, msg } = queryOnAir();
+    E.commands.replyRadio(s, msg.id, 'clean');
+    const f = s.fallout![0];
+    f.catchAt = undefined;
+    f.revealAt = s.now + 600 * MIN;
+    stepUntil(E, s, () => inc.state === 'closed', 90);
+    const before = inc.outcome!.breakdown.decisions;
+    E.engine.finalizeShift(s);
+    expect(f.stage).toBe('revealed');
+    expect(f.late).toBe(true);
+    expect(inc.outcome!.breakdown.decisions).toBe(before - 7);
+    // Idempotent.
+    const p = f.penalty;
+    E.engine.finalizeShift(s);
+    expect(f.penalty).toBe(p);
+    expect(inc.outcome!.breakdown.decisions).toBe(before - 7);
   });
 
   it('vehicle query uses the vehicle reply set and knows a stolen car', () => {

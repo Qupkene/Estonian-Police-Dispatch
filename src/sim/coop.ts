@@ -14,6 +14,7 @@ import {
   acknowledge as cAck,
   answerCall,
   askCall,
+  correctQuery,
   dispatchUnits,
   endCall,
   markChecked,
@@ -665,7 +666,9 @@ function run(s: SimState, c: CoopState, cmd: LogCmd): CmdResult {
     case 'reply': {
       const msgId = str(a[0]);
       const msg = s.radio.find((m) => m.id === msgId);
-      if (!msg || msg.answered) return NOOP;
+      if (!msg) return NOOP;
+      // A correction of a registry answer (src/sim/fallout.ts).
+      if (msg.answered) return correctQuery(s, msg, str(a[1])) ? (st().radio++, { ok: true }) : NOOP;
       // Sector co-op: a neighbouring player's offer to take over a pursuit.
       const handed = c.sec ? answerDeskHandover(s, c, msg, str(a[1]), seat) : null;
       if (handed) return handed;

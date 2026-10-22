@@ -9,6 +9,7 @@ import { dayInfo } from './calendar';
 import { updateCalls } from './calls';
 import { initColleagues, updateColleagues } from './colleagues';
 import { updateDesks } from './desks';
+import { settleFallout, updateFallout } from './fallout';
 import { emit, regionOf } from './internal';
 import { isHidden, openIncidentIds, updateIncidents } from './incidents';
 import { jkPhrase } from './radio';
@@ -530,6 +531,7 @@ function substep(s: SimState, h: number): void {
   updateSpawner(s);
   updateUnits(s, h);
   updateIncidents(s, h);
+  updateFallout(s);
   try {
     updateColleagues(s);
   } catch (err) {
@@ -579,6 +581,7 @@ export function drainEvents(s: SimState): GameEvent[] {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function finalizeShift(s: SimState): ShiftReport {
+  settleFallout(s);
   updateShiftScore(s);
   try {
     return buildReport(s);

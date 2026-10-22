@@ -6,7 +6,7 @@ import type { QueueFilter } from './format';
 export type RadioFilter = 'all' | 'reply' | 'emergency' | 'selected';
 export type MobileTab = 'map' | 'queue' | 'panel' | 'radio' | 'units';
 
-export type ToastKind = 'p1' | 'escalated' | 'backup' | 'emergency' | 'missed' | 'pursuit' | 'pursuitEnd' | 'shift' | 'achievement' | 'error' | 'ok';
+export type ToastKind = 'p1' | 'escalated' | 'backup' | 'emergency' | 'missed' | 'pursuit' | 'pursuitEnd' | 'shift' | 'achievement' | 'error' | 'ok' | 'complaint';
 
 export interface Toast {
   id: number;
@@ -25,6 +25,7 @@ export const TOAST_TTL: Partial<Record<ToastKind, number>> = {
   emergency: 14_000,
   backup: 12_000,
   p1: 10_000,
+  complaint: 10_000,
   error: 6_000,
   achievement: 6_000,
   pursuitEnd: 5_000,
@@ -42,6 +43,7 @@ const TOAST_RANK: Record<ToastKind, number> = {
   p1: 2,
   error: 2,
   escalated: 1,
+  complaint: 1,
   missed: 1,
   pursuit: 1,
   shift: 1,

@@ -19,6 +19,7 @@ const ICON: Record<ToastKind, IconName> = {
   achievement: 'trophy',
   error: 'x',
   ok: 'check',
+  complaint: 'warning',
 };
 
 /** Translate engine events into toasts. Mounted once by GameScreen. */
@@ -70,6 +71,8 @@ function toToast(s: SimState, ev: GameEvent): Omit<Toast, 'id' | 'createdAt'> | 
       return { ...base, kind: 'shift', title: 'game.toast.shiftEnd', text: ev.text };
     case 'achievement':
       return { ...base, kind: 'achievement', title: 'game.toast.achievement', text: ev.text };
+    case 'complaint':
+      return { ...base, kind: 'complaint', title: 'game.toast.complaint', text: ev.text, vars: { sub: inc?.code ?? '' } };
     default:
       return null;
   }

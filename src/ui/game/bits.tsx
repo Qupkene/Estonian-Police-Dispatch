@@ -1,9 +1,10 @@
 // Small presentational pieces shared by the CAD screen components.
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useGame } from '@/store/game';
 import { useT, useTx } from '@/i18n';
 import { Badge, Button, Icon, type IconName } from '@/ui/components';
 import type { Recommendation } from '@/sim/selectors';
+import { canCorrectQuery } from '@/sim/commands';
 import { MIN } from '@/sim/time';
 import { sectorById } from '@/sim/sectors';
 import type { Incident, RadioMsg, SimState, SpeakerLang, Text, UnitStatus, UnitType, Weather } from '@/sim/types';
@@ -169,12 +170,53 @@ export function RadioReplies({ msg, sim, compact }: { msg: RadioMsg; sim: SimSta
   const radioDesk = useCan('radio');
   const ownDesk = useDeskCan({ msg });
   const canReply = msg.kind === 'query' || (radioDesk && ownDesk);
+  const [fixing, setFixing] = useState(false);
   if (!msg.replies?.length) return null;
   if (msg.answered) {
     const r = answeredReply(msg);
     // Not one of the replies: the engine closed it ('timeout', or 'closed' with its event).
     if (!r) return <div className="gm-replies gm-replies--done">{t('game.radio.expired')}</div>;
-    return <div className="gm-replies gm-replies--done">{t('game.radio.answered', { r: tx(r.label) })}</div>;
+    // A registry answer may still be corrected for a while (src/sim/fallout.ts). Offered for every answer, right or
+    // wrong, so the button never tells which one it was.
+    const fix = msg.kind === 'query' && canCorrectQuery(sim, msg);
+    const fsub = fix ? querySubject(sim, msg) : null;
+    return (
+      <div className={`gm-replies gm-replies--done${compact ? ' gm-replies--compact' : ''}`}>
+        <span>{t('game.radio.answered', { r: tx(r.label) })}</span>
+        {fix && !fixing && (
+          <Button size="sm" variant="ghost" icon="refresh" onClick={() => setFixing(true)} title={t('game.radio.correctHint')}>
+            {t('game.radio.correct')}
+          </Button>
+        )}
+        {fix && fixing && (
+          <>
+            {fsub && (
+              <Button size="sm" variant="ghost" icon="search" onClick={() => checkRecord(fsub)} title={fsub.q}>
+                {t('game.radio.openRegistry')}
+              </Button>
+            )}
+            {msg.replies
+              .filter((x) => x.id !== r.id)
+              .map((x) => (
+                <Button
+                  key={x.id}
+                  size="sm"
+                  className="gm-reply"
+                  onClick={() => {
+                    setFixing(false);
+                    replyRadio(msg.id, x.id);
+                  }}
+                >
+                  {tx(x.label)}
+                </Button>
+              ))}
+            <Button size="sm" variant="ghost" onClick={() => setFixing(false)}>
+              {t('game.radio.correctCancel')}
+            </Button>
+          </>
+        )}
+      </div>
+    );
   }
   const left = msg.expiresAt !== undefined ? (msg.expiresAt - sim.now) / MIN : null;
   if (left !== null && left <= 0) return <div className="gm-replies gm-replies--done">{t('game.radio.expired')}</div>;

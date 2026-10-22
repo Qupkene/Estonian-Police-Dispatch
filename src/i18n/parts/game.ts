@@ -402,6 +402,12 @@ export default {
   'game.radio.openRegistry': { et: 'Andmebaas', en: 'Database' },
   'game.radio.answered': { et: 'Vastatud: {r}', en: 'Answered: {r}' },
   'game.radio.expired': { et: 'vastamata', en: 'unanswered' },
+  'game.radio.correct': { et: 'Paranda', en: 'Correct' },
+  'game.radio.correctHint': {
+    et: 'Kui vastus oli vale, paranda see kohe: patrull tegutseb selle järgi, mida sa ütlesid.',
+    en: 'If the answer was wrong, correct it now: the crew acts on what you told them.',
+  },
+  'game.radio.correctCancel': { et: 'Jäta', en: 'Keep' },
   'game.radio.all_units': { et: 'kõik', en: 'all' },
 
   // ── Dock ──────────────────────────────────────────────────────────────────
@@ -414,6 +420,7 @@ export default {
   'game.toast.backup': { et: 'Toetust vajab!', en: 'Backup requested!' },
   'game.toast.emergency': { et: 'AMETNIK VAJAB ABI', en: 'OFFICER NEEDS ASSISTANCE' },
   'game.toast.missed': { et: 'Vastamata 112 kõne', en: 'Missed 112 call' },
+  'game.toast.complaint': { et: 'Päringu viga tuli välja', en: 'A registry error came out' },
   'game.toast.pursuitStart': { et: 'Jälitus algas', en: 'Pursuit started' },
   'game.toast.pursuitEnd': { et: 'Jälitus lõppes', en: 'Pursuit ended' },
   'game.toast.shiftEnd': { et: 'Vahetus on läbi', en: 'Shift is over' },

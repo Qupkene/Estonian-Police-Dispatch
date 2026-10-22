@@ -673,6 +673,8 @@ export default {
   'shell.rep.s.replies': { et: 'Õiged päringuvastused', en: 'Correct query replies' },
   'shell.rep.s.queriesN': { et: 'päringuid {n}', en: '{n} queries' },
   'shell.rep.s.pursuits': { et: 'Jälitused (tabatud)', en: 'Pursuits (caught)' },
+  'shell.rep.s.complaints': { et: 'Kaebused', en: 'Complaints' },
+  'shell.rep.s.correctedN': { et: '{n} parandatud vastust', en: '{n} answers corrected' },
   'shell.rep.s.expired': { et: 'Aegunud väljakutsed', en: 'Expired calls' },
   'shell.rep.s.injured': { et: 'Vigastatud ametnikke', en: 'Officers injured' },
   'shell.rep.s.civilN': { et: 'tsiviilisikuid {n}', en: '{n} civilians' },
@@ -686,6 +688,24 @@ export default {
     en: 'The tick in the middle of the bar is the urban target; the bar ends at twice the target.',
   },
   'shell.rep.highlights': { et: 'Olulisemad hetked', en: 'Highlights' },
+  'shell.rep.fallout': { et: 'Päringute järelkontroll', en: 'Registry follow-up' },
+  'shell.rep.fo.caught': { et: 'patrull parandas ise', en: 'the crew caught it' },
+  'shell.rep.fo.revealed': { et: 'tuli välja', en: 'came out' },
+  'shell.rep.fo.complaint': { et: 'kaebus', en: 'complaint' },
+  'shell.rep.fo.unseen': { et: 'vahetuse ülevaatus', en: 'shift review' },
+  'shell.rep.fo.late': { et: 'pärast vahetust', en: 'after the shift' },
+  'shell.rep.fo.said': {
+    et: 'Sina ütlesid: {said}. Registris: {truth}.',
+    en: 'You said: {said}. The registry: {truth}.',
+  },
+  'shell.rep.fo.cost': {
+    et: 'Usaldus −{trust}, hinne −{points} punkti',
+    en: 'Trust −{trust}, score −{points} points',
+  },
+  'shell.rep.fo.none': {
+    et: 'Kõik raadiopäringud said õige vastuse.',
+    en: 'Every registry check got the right answer.',
+  },
   'shell.rep.noHighlights': {
     et: 'Vaikne vahetus: midagi erilist ei juhtunud.',
     en: 'A quiet shift: nothing special happened.',

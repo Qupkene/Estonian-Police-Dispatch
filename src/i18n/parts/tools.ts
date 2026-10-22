@@ -293,6 +293,12 @@ export default {
   'tools.stats.correct': { et: 'Õiged vastused', en: 'Correct replies' },
   'tools.stats.wrong': { et: 'Valed vastused', en: 'Wrong replies' },
   'tools.stats.missed': { et: 'Vastamata', en: 'Unanswered' },
+  'tools.stats.answered': { et: 'Vastatud', en: 'Answered' },
+  'tools.stats.complaints': { et: 'Kaebused', en: 'Complaints' },
+  'tools.stats.unknownYet': {
+    et: 'Kas vastused olid õiged, selgub hiljem: patrull tegutseb selle järgi, mida sa ütlesid.',
+    en: 'Whether the answers were right comes out later: the crew acts on what you told them.',
+  },
   'tools.stats.accuracy': { et: 'Täpsus {p}%', en: 'Accuracy {p}%' },
   'tools.stats.areas': { et: 'Aktiivseimad piirkonnad', en: 'Busiest areas' },
   'tools.stats.empty': { et: 'Vahetus on alles alanud. Graafikud täituvad sündmuste lisandudes.', en: 'The shift has just started. Charts fill in as events arrive.' },

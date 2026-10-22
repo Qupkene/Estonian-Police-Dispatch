@@ -499,6 +499,12 @@ export const RADIO: Record<string, Text[]> = {
     T('{callsign}: kontrollige uuesti, andmed erinevad.', '{callsign}: check again, the data differs.'),
     T('{short}: JK, ei klapi tahvliga.', '{short}: control, does not match our terminal.'),
   ],
+  queryCorrected: [
+    T('{callsign}, parandus vastu võetud, toimime selle järgi.', '{callsign}, correction received, acting on it.'),
+    T('{short}, selge, parandus. Muudame tegevust.', '{short}, copy, correction. Changing course.'),
+    T('{callsign}, sain aru, parandus kinnitatud.', '{callsign}, roger, correction confirmed.'),
+    T('{short}, selge, arvestame parandusega.', '{short}, copy, taking the correction into account.'),
+  ],
   queryTimeout: [
     T('{callsign}: vastust pole, kontrollime ise.', '{callsign}: no answer, checking ourselves.'),
     T('{short}: JK ei vasta, teeme ise päringu.', '{short}: control not answering, running it ourselves.'),

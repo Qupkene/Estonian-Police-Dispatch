@@ -7,9 +7,11 @@
 import { ageOf } from '@/gen/describe';
 import { FUEL_PER_KM, OVERTIME_PER_HOUR } from '@/data/economy';
 import { dayInfo } from './calendar';
+import { falloutLines } from './fallout';
 import { helpGivenCount, helpSector } from './colleagues';
 import { tplOf } from './internal';
 import { PLACE_KIND_LABEL } from './radio';
+import { falloutPoints } from './scoring';
 import { ddmmyyyy, HOUR, MIN, wall } from './time';
 import type { Incident, Person, Priority, RegionId, ShiftReport, SimState, Text, Unit } from './types';
 
@@ -489,7 +491,7 @@ export function buildReport(s: SimState): ShiftReport {
       sum += PRIORITY_WEIGHT[inc.truePriority] * 20;
     }
   }
-  const penalties = s.stats.expired * 1 + s.stats.callsMissed * 0.5 + s.stats.referralsWrong * 0.5;
+  const penalties = s.stats.expired * 1 + s.stats.callsMissed * 0.5 + s.stats.referralsWrong * 0.5 + falloutPoints(s);
   const base = wsum > 0 ? sum / wsum : incs.length === 0 ? 72 : 50;
   const rawScore = clamp(base - penalties, 0, 100);
   const early = earlyEndFactor(s);
@@ -510,6 +512,11 @@ export function buildReport(s: SimState): ShiftReport {
     } else points += closureCorrect(inc) ? 2 : -7;
   }
   points -= s.stats.callsMissed * 2;
+  // A complaint or a wanted person let go weighs on the prefecture's standing (src/sim/fallout.ts).
+  for (const f of s.fallout ?? []) {
+    if (f.complained) points -= 4;
+    else if (f.stage === 'revealed' && f.kind.startsWith('missed_') && f.kind !== 'missed_violation') points -= 3;
+  }
   const reputationDelta = clamp(Math.round(points / 12), -10, 10);
 
   // ── Money ─────────────────────────────────────────────────────────────────
@@ -613,6 +620,7 @@ export function buildReport(s: SimState): ShiftReport {
     highlights,
     newspaper: buildNewspaper(s, incs, closed, { score, night, dayTags: extras.dayTags, end }),
     extras,
+    ...(s.fallout?.length ? { fallout: falloutLines(s) } : {}),
   };
   return report;
 }
@@ -750,6 +758,25 @@ function buildNewspaper(
   const storyIncs = ranked.filter((i) => i !== lead && i.closedBy !== 'duplicate').slice(0, 4);
   if (lead) storyIncs.unshift(lead);
   const stories = storyIncs.slice(0, 4).map((i) => pressStory(s, i));
+  // A wrong registry answer that came out makes the paper (src/sim/fallout.ts).
+  const fo = s.fallout ?? [];
+  if (fo.some((f) => f.kind === 'unfounded_detention' && f.complained)) {
+    stories.splice(1, 0, {
+      title: T('Süütu inimene peeti kinni: politsei vabandab', 'Innocent person detained: police apologise'),
+      body: T(
+        `${region} prefektuuri patrull pidas kinni inimese, kelle kohta juhtimiskeskus andis raadios ekslikult tagaotsitava märke. Arestimajas viga selgus ja inimene vabastati. Ta esitas kaebuse, sisekontroll uurib juhtumit.`,
+        `A ${regionEn} Prefecture patrol detained a person whom the command centre wrongly described on the radio as wanted. The error came out at the custody suite and the person was released. They filed a complaint; internal review is looking into it.`,
+      ),
+    });
+  } else if (fo.some((f) => f.kind === 'missed_wanted' && f.stage === 'revealed')) {
+    stories.splice(1, 0, {
+      title: T('Tagaotsitav lasti pärast kontrolli minema', 'Wanted person let go after a check'),
+      body: T(
+        'Patrull kontrollis tagaotsitavat, kuid juhtimiskeskus vastas päringule, et märkeid ei ole. Isik peeti hiljem kinni mujal. Sisekontroll selgitab, kuidas viga juhtus.',
+        'A patrol checked a wanted person, but the command centre answered that there was nothing on file. The person was caught later elsewhere. Internal review is finding out how the error happened.',
+      ),
+    });
+  }
   if (stories.length < 3) {
     stories.push({
       title: T('Politsei argipäevik', 'Police diary'),

@@ -2,6 +2,21 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.25.0 (2026-10-22)
+
+- **Valed registrivastused saavad tagajärjed:** patrull ei näe registrit ja tegutseb selle järgi, mida sa raadios ütlesid. Kui ütled süütu kohta „tagaotsitav“, pannakse ta raudu. Kui ütled tagaotsitava kohta „puhas“, lastakse ta minema. Kohe keegi viga ei märka.
+- **Tõde tuleb välja hiljem, nagu päriselt:** arestimaja kontrollib kinnipeetu andmeid, inimene vaidlustab trahvi, tagaotsitav peetakse kinni mujal, kannatanu helistab uuesti. Seejärel tuleb sageli sisekontrolli kaebus, mis võtab avalikku usaldust ja vahetuse hinnet (kehakaamerad vähendavad kaebuse mõju poole võrra).
+- **Paranda õigel ajal:** kui märkad viga, saad vastust raadios kümne mänguminuti jooksul parandada („Parandus!“). See maksab vähe. Nupp on igal vastusel, nii et see ei reeda, kas vastus oli vale.
+- Tahvelarvutitega (MDT) patrull kontrollib raske otsuse vahel ise üle ja peatub õigel ajal. Õppemängus teeb patrull seda alati.
+- Statistikapaneel näitab vahetuse ajal ainult vastatud päringuid, mitte õigeid ja valesid. Vahetuse aruandes on uus osa „Päringute järelkontroll“, ja ajaleht kirjutab süütult kinni peetud inimesest.
+
+<details>
+<summary>English</summary>
+
+Wrong registry answers now have consequences. The crew cannot see the registry and acts on what control told them: an innocent person called wanted is cuffed, a wanted one called clean is let go, and nobody notices on the air. The truth comes out later through the channel it would in real life (the custody suite at intake, a contested fine, the wanted person caught elsewhere, the victim calling again, a follow-up audit), often followed by a complaint to internal review that costs public trust and shift score (body cams halve it). Control can correct an answer on the radio within ten game minutes ("Parandus!") at a small cost; the button is offered on every answer, so it gives nothing away. Crews with terminals (MDT) sometimes re-check a heavy call and stop in time; in the tutorial they always do. The live statistics show answered checks only; the report gets a "Registry follow-up" section and the newspaper covers an innocent person's detention.
+
+</details>
+
 ## 2.24.0 (2026-10-20)
 
 - **Telefonivaade üle käidud:** kõik nupud on telefonis vähemalt 44 px, tekstiväljad ei suumi iPhone'is enam sisse ja mäng arvestab ekraani sälgu ning kodunupu ribaga.

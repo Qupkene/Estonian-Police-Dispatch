@@ -185,7 +185,10 @@ export function decisionScore(s: SimState, inc: Incident, tpl: IncidentTemplate 
     switch (spec.kind) {
       case 'query':
         any = true;
-        if (b.correct === false) score -= 7;
+        // A wrong answer counts once it is known (src/sim/fallout.ts): the crew caught it, it came out, or the shift
+        // review at the end. A corrected one costs a little.
+        if (b.correct === false) score -= b.caught ? 3 : b.revealed ? 7 : 0;
+        else if (b.corrected) score -= 2;
         else if (b.status === 'failed') score -= 4;
         break;
       case 'choice': {
@@ -301,8 +304,15 @@ export function shiftScore(s: SimState): number {
   }
   if (w === 0) return 0;
   const base = sum / w;
-  const pen = s.stats.expired * 1 + s.stats.callsMissed * 0.5 + s.stats.referralsWrong * 0.5;
+  const pen = s.stats.expired * 1 + s.stats.callsMissed * 0.5 + s.stats.referralsWrong * 0.5 + falloutPoints(s);
   return Math.round(clamp(base - pen, 0, 100));
+}
+
+/** Shift score points lost to what came of wrong registry answers (src/sim/fallout.ts). */
+export function falloutPoints(s: Pick<SimState, 'fallout'>): number {
+  let p = 0;
+  for (const f of s.fallout ?? []) p += f.penalty;
+  return p;
 }
 
 export function updateShiftScore(s: SimState): void {
