@@ -56,6 +56,8 @@ import { lobbyFocus } from './shell/lobbyNav';
 import { boardCount, RoomBoard } from './shell/RoomBoard';
 import { VkLayer } from './shell/VkLayer';
 import { DeskOptions, DeskPicker, DeskSummary, deskOfPlayer, desksOf, withDesks } from './shell/LobbyDesks';
+import { CustomEditor } from './custom/CustomEditor';
+import { adaptSetup, budgetOf, costOf, defaultSetup, type CustomSetup } from '@/sim/custom';
 import './shell/lobby.css';
 
 const REGIONS: RegionId[] = ['pohja', 'ida', 'louna', 'laane'];
@@ -64,7 +66,15 @@ const MODES: RoomMode[] = ['race', 'role', 'sector'];
 /** Options for a prefecture: its first starter sector, as a new career would get, and its default desks. */
 function optionsFor(regionId: RegionId, prev: RoomOptions): RoomOptions {
   const first = starterSectors(regionId)[0] ?? sectorsOf(regionId)[0];
-  return { ...prev, regionId, sector: first?.id ?? '', desks: defaultDesks(regionId) };
+  // A custom force belongs to its prefecture's stations and officers: another prefecture starts from the standard.
+  const { custom: _custom, ...rest } = prev;
+  void _custom;
+  return { ...rest, regionId, sector: first?.id ?? '', desks: defaultDesks(regionId) };
+}
+
+/** The area a room's shift covers (a sector room: its desks; otherwise its sector or the whole prefecture). */
+function roomArea(o: RoomOptions, mode: RoomMode): string[] {
+  return mode === 'sector' ? desksOf(o) : o.sector ? [o.sector] : [];
 }
 
 /** What a room of this mode is created with: a sector room carries its desks (the first is its sector). */
@@ -385,6 +395,15 @@ function OptionsForm({
   const t = useT();
   const tx = useTx();
   const sectors = sectorsOf(value.regionId);
+  // A custom force follows the area: crews of a sector that is no longer in it move to one that is.
+  const emit = (o: RoomOptions) =>
+    onChange(o.custom ? { ...o, custom: adaptSetup(o.regionId, roomArea(o, mode), o.custom) } : o);
+  const [editing, setEditing] = useState<CustomSetup | null>(null);
+  const area = roomArea(value, mode);
+  const draftOk =
+    !!editing &&
+    editing.crews.length > 0 &&
+    !(editing.budget !== false && costOf(value.regionId, editing) > budgetOf(value.regionId, area));
   const row = (label: string, control: ReactNode) => (
     <div className="vk-mp__field">
       <span className="vk-label">{label}</span>
@@ -406,7 +425,7 @@ function OptionsForm({
       {mode === 'sector' ? (
         <div className="vk-mp__field vk-mp__field--desks">
           <span className="vk-label">{t('desk.opt.desks')}</span>
-          <DeskOptions value={value} onChange={onChange} disabled={disabled} />
+          <DeskOptions value={value} onChange={emit} disabled={disabled} />
         </div>
       ) : row(
         t('rooms.opt.sector'),
@@ -414,7 +433,7 @@ function OptionsForm({
           label={<span className="vk-sr">{t('rooms.opt.sector')}</span>}
           value={value.sector}
           disabled={disabled}
-          onChange={(sector) => onChange({ ...value, sector })}
+          onChange={(sector) => emit({ ...value, sector })}
           options={[
             ...sectors.map((x) => ({ value: x.id, label: tx(x.name) })),
             { value: '', label: t('rooms.opt.whole') },
@@ -454,6 +473,58 @@ function OptionsForm({
           onChange={(slot) => onChange({ ...value, slot })}
           options={ROOM_SLOTS.map((s) => ({ value: s, label: t(`daily.slot.${s}`), disabled }))}
         />,
+      )}
+      {row(
+        t('custom.room.force'),
+        <div className="vk-mp__force">
+          <Segmented<'standard' | 'custom'>
+            size="sm"
+            label={t('custom.room.force')}
+            value={value.custom ? 'custom' : 'standard'}
+            onChange={(v) => {
+              if (v === 'standard') {
+                const { custom: _c, ...rest } = value;
+                void _c;
+                onChange(rest);
+              } else setEditing(defaultSetup(value.regionId, area));
+            }}
+            options={[
+              { value: 'standard', label: t('custom.room.standard'), disabled },
+              { value: 'custom', label: t('custom.room.custom'), disabled },
+            ]}
+          />
+          {value.custom && (
+            <button type="button" className="vk-linkbtn" disabled={disabled} onClick={() => setEditing(value.custom!)}>
+              {t('custom.room.edit', { n: value.custom.crews.length })}
+            </button>
+          )}
+        </div>,
+      )}
+      {editing && (
+        <VkLayer>
+          <Modal
+            open
+            onClose={() => setEditing(null)}
+            title={t('custom.title')}
+            width={1180}
+            footer={
+              <Button
+                variant="primary"
+                disabled={!draftOk}
+                onClick={() => {
+                  onChange({ ...value, custom: editing });
+                  setEditing(null);
+                }}
+              >
+                {t('custom.room.done')}
+              </Button>
+            }
+          >
+            <div className="vk-mp__customEdit">
+              <CustomEditor regionId={value.regionId} sectors={area} value={editing} onChange={setEditing} />
+            </div>
+          </Modal>
+        </VkLayer>
       )}
     </div>
   );
@@ -496,6 +567,12 @@ function OptionsSummary({ o, room }: { o: RoomOptions; room?: Room }) {
         <dt>{t('rooms.opt.slot')}</dt>
         <dd>{t(`daily.slot.${o.slot}`)}</dd>
       </div>
+      {o.custom && (
+        <div>
+          <dt>{t('custom.room.force')}</dt>
+          <dd data-testid="room-custom">{t('custom.room.summary', { n: o.custom.crews.length })}</dd>
+        </div>
+      )}
     </dl>
   );
 }

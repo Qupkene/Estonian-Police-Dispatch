@@ -21,13 +21,17 @@ const RANKED: GameMode[] = ['free', 'career'];
  * incident scores a flat 72 in the sim, so posting it would let anyone rank by starting and
  * ending a shift at once.
  */
-export function unrankedReason(report: Pick<ShiftReport, 'mode'> & { stats?: { incidents?: number } }): 'mode' | 'empty' | null {
+export function unrankedReason(
+  report: Pick<ShiftReport, 'mode' | 'custom'> & { stats?: { incidents?: number } },
+): 'mode' | 'custom' | 'empty' | null {
   if (!RANKED.includes(report.mode)) return 'mode';
+  // A drafted force is a different game: never compared with the prefecture's own (src/sim/custom.ts).
+  if (report.custom) return 'custom';
   if (!report.stats?.incidents) return 'empty';
   return null;
 }
 
-export function isRanked(report: Pick<ShiftReport, 'mode'> & { stats?: { incidents?: number } }): boolean {
+export function isRanked(report: Pick<ShiftReport, 'mode' | 'custom'> & { stats?: { incidents?: number } }): boolean {
   return unrankedReason(report) === null;
 }
 

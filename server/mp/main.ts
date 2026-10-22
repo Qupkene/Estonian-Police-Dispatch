@@ -125,7 +125,12 @@ const http = createServer((req, res) => {
   res.end('{"error":"not_found"}');
 });
 
-const wss = new WebSocketServer({ noServer: true, maxPayload: 4096, perMessageDeflate: { threshold: 1024 } });
+// 16 KiB: the first message carries the ticket, which carries a room's custom force (src/sim/custom.ts, up to 40 crews).
+const wss = new WebSocketServer({
+  noServer: true,
+  maxPayload: 16384,
+  perMessageDeflate: { threshold: 1024 },
+});
 
 http.on('upgrade', (req, socket, head) => {
   if ((req.url ?? '').split('?')[0] !== '/mp/ws') {

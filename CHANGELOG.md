@@ -2,6 +2,23 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.26.0 (2026-10-22)
+
+- **Kohandatud mäng:** uus valik peamenüüs. Pane vahetuseks ise kokku oma meeskond nagu fantaasiajalgpallis:
+  - vali prefektuur ja alad, mida teenindad (üks sektor, mitu või kogu prefektuur);
+  - lisa nii palju ekipaaže, kui tahad: patrullid, kiirreageerijad, koerad, liiklus, kriminaalpolitsei, piirivalve, kaatrid, K-komando ja kopter;
+  - vali neile igast prefektuurist 60 politseiniku seast oma inimesed. Igaühel on oskus, staaž, eriala ja hind. Väljaspool eriala töötab politseinik nõrgemalt.
+- **Eelarve:** soovi korral on eelarve sama, mis ala tavalise koosseisu hind. Head politseinikud ja kopter on kallid, nii et kõike parimat korraga ei saa. Eelarve saab ka välja lülitada.
+- **Mitmikmängus** saab ruumi looja valida „Koosseis: Kohandatud“ ja panna sama moodi kokku kogu ruumi meeskonna. See käib võistluse, rollide ja sektorite kohta. Kõik mängijad saavad sama koosseisu.
+- Kohandatud mängu tulemusi edetabelisse ei kanta.
+
+<details>
+<summary>English</summary>
+
+Custom game: a new menu entry to draft your own force like a fantasy league. Pick the prefecture and the areas you cover, add as many crews of any kind as you like (patrols, rapid response, K9, traffic, CID, border, boats, K-Commando, the helicopter) and staff them from the prefecture's pool of 60 officers, each with skill, years, a specialty and a price; outside their specialty an officer works below their skill. An optional budget equals what the area's standard roster costs. In multiplayer the host can switch the room's force to "Custom" and draft it the same way for every mode; every player gets the same force. Custom games are never ranked. The server validates and stores the force (schema step 8, `rooms.custom`) and the game server's frame limit is now 16 KiB so the largest force fits its ticket.
+
+</details>
+
 ## 2.25.0 (2026-10-22)
 
 - **Valed registrivastused saavad tagajärjed:** patrull ei näe registrit ja tegutseb selle järgi, mida sa raadios ütlesid. Kui ütled süütu kohta „tagaotsitav“, pannakse ta raudu. Kui ütled tagaotsitava kohta „puhas“, lastakse ta minema. Kohe keegi viga ei märka.

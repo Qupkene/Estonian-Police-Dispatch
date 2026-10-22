@@ -1,0 +1,93 @@
+import type { Dict } from '../index';
+
+/** Custom game (kohandatud mäng, src/sim/custom.ts): the draft screen, the briefing and the lobby. */
+export default {
+  'shell.menu.custom': { et: 'Kohandatud mäng', en: 'Custom game' },
+  'shell.menu.row.custom': {
+    et: 'vali ise ala, ekipaažid ja politseinikud',
+    en: 'pick the area, the crews and the officers yourself',
+  },
+  'shell.brief.title.custom': { et: 'Kohandatud mäng', en: 'Custom game' },
+
+  'custom.title': { et: 'Kohandatud mäng', en: 'Custom game' },
+  'custom.subtitle': {
+    et: 'Pane vahetuseks ise kokku oma meeskond: ala, ekipaažid ja politseinikud.',
+    en: 'Put your own force together for the shift: the area, the crews and the officers.',
+  },
+  'custom.next': { et: 'Edasi briifingule', en: 'On to the briefing' },
+  'custom.area': { et: 'Piirkond ja ala', en: 'Prefecture and area' },
+  'custom.whole': { et: 'Kogu prefektuur', en: 'The whole prefecture' },
+  'custom.areaHint': {
+    et: 'Väljakutsed tulevad ainult valitud aladelt. Mida väiksem ala, seda vähem kutseid ja väiksem eelarve.',
+    en: 'Calls come only from the areas you pick. A smaller area means fewer calls and a smaller budget.',
+  },
+  'custom.crews': { et: 'Ekipaažid', en: 'Crews' },
+  'custom.crewsN': { et: '{n} ekipaaži', en: '{n} crews' },
+  'custom.preset.standard': { et: 'Tavaline koosseis', en: 'Standard roster' },
+  'custom.preset.clear': { et: 'Tühjenda', en: 'Clear' },
+  'custom.add': { et: 'Lisa ekipaaž', en: 'Add crew' },
+  'custom.addType': { et: 'Ekipaaži tüüp', en: 'Crew type' },
+  'custom.typeCost': { et: '{type} (sõiduk {n} p)', en: '{type} (vehicle {n} pts)' },
+  'custom.station': { et: 'Baas', en: 'Base' },
+  'custom.remove': { et: 'Eemalda ekipaaž', en: 'Remove crew' },
+  'custom.auto': { et: 'meeskond automaatselt ({n})', en: 'crew assigned automatically ({n})' },
+  'custom.slots': { et: '{n}/{max} valitud', en: '{n}/{max} picked' },
+  'custom.dropOfficer': { et: 'Eemalda {name}', en: 'Remove {name}' },
+  'custom.offFit': { et: 'väljaspool eriala −{p} %', en: 'outside their specialty −{p} %' },
+  'custom.empty': {
+    et: 'Ühtegi ekipaaži pole. Lisa ekipaaže või vali „Tavaline koosseis“.',
+    en: 'No crews yet. Add some or pick "Standard roster".',
+  },
+  'custom.usual': {
+    et: 'Tavaliselt on sellel alal {n} ekipaaži, neist {r} vastavad väljakutsetele. Sul on {mine} ja {mineR}.',
+    en: 'This area usually has {n} crews, {r} of them answering calls. You have {mine} and {mineR}.',
+  },
+  'custom.budget': { et: 'Eelarve', en: 'Budget' },
+  'custom.budgetOn': { et: 'Eelarvega', en: 'With a budget' },
+  'custom.budgetOff': { et: 'Piiranguta', en: 'No limit' },
+  'custom.budgetUsed': { et: '{used} / {max} punkti', en: '{used} / {max} points' },
+  'custom.budgetHint': {
+    et: 'Eelarve on sama, mis ala tavalise koosseisu hind. Head politseinikud ja kopter on kallid.',
+    en: 'The budget is what the area’s standard roster costs. Good officers and the helicopter are expensive.',
+  },
+  'custom.overBudget': {
+    et: 'Eelarve on ületatud: eemalda keegi või lülita eelarve välja.',
+    en: 'Over budget: drop someone or switch the budget off.',
+  },
+  'custom.pool': { et: 'Politseinikud', en: 'Officers' },
+  'custom.poolHint': {
+    et: 'Vali vasakult ekipaaž ja lisa sellele politseinikke. Igaüks saab olla ainult ühes ekipaažis.',
+    en: 'Pick a crew on the left and add officers to it. Each officer can be in one crew only.',
+  },
+  'custom.filter': { et: 'Eriala', en: 'Specialty' },
+  'custom.filterAll': { et: 'Kõik erialad', en: 'All specialties' },
+  'custom.sort': { et: 'Järjesta', en: 'Sort by' },
+  'custom.sort.skill': { et: 'oskus', en: 'skill' },
+  'custom.sort.cost': { et: 'hind', en: 'cost' },
+  'custom.sort.years': { et: 'staaž', en: 'years' },
+  'custom.col.name': { et: 'Nimi', en: 'Name' },
+  'custom.col.spec': { et: 'Eriala', en: 'Specialty' },
+  'custom.col.years': { et: 'Staaž', en: 'Years' },
+  'custom.col.skill': { et: 'Oskus', en: 'Skill' },
+  'custom.col.cost': { et: 'Hind', en: 'Cost' },
+  'custom.pick': { et: 'Lisa', en: 'Add' },
+  'custom.taken': { et: 'ekipaažis', en: 'in a crew' },
+  'custom.yearsN': { et: '{n} a', en: '{n} y' },
+  'custom.noCrew': { et: 'vali enne ekipaaž', en: 'pick a crew first' },
+  'custom.full': { et: 'ekipaaž on täis', en: 'the crew is full' },
+  'custom.tooDear': { et: 'eelarvest üle', en: 'over budget' },
+  'custom.unranked': {
+    et: 'Kohandatud mängu tulemusi edetabelisse ei kanta.',
+    en: 'Custom game results do not go on the leaderboard.',
+  },
+  'custom.brief.roster': { et: 'Sinu koosseis', en: 'Your force' },
+  'custom.brief.edit': { et: 'Muuda koosseisu', en: 'Edit the force' },
+
+  // Lobby
+  'custom.room.force': { et: 'Koosseis', en: 'Force' },
+  'custom.room.standard': { et: 'Tavaline', en: 'Standard' },
+  'custom.room.custom': { et: 'Kohandatud', en: 'Custom' },
+  'custom.room.edit': { et: 'Muuda koosseisu ({n} ekipaaži)', en: 'Edit the force ({n} crews)' },
+  'custom.room.summary': { et: 'Kohandatud: {n} ekipaaži', en: 'Custom: {n} crews' },
+  'custom.room.done': { et: 'Valmis', en: 'Done' },
+} satisfies Dict;

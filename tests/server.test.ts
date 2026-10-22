@@ -1010,6 +1010,17 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
         [{ hours: '3' }, 'hours'],
         [{ slot: 'noon' }, 'slot'],
         [{ mode: 'battle' }, 'mode'],
+        // A custom force (src/sim/custom.ts): known types, the prefecture's stations, distinct pool officers.
+        [{ custom: 'patrol' }, 'custom'],
+        [{ custom: { crews: 'x' } }, 'custom'],
+        [{ custom: { crews: [['tank', 'louna-tartu']] } }, 'custom'],
+        [{ custom: { crews: [['patrol', 'pohja-hq']] } }, 'custom'],
+        [{ custom: { crews: [['patrol']] } }, 'custom'],
+        [{ custom: { crews: [['patrol', 'louna-tartu', 1], ['rapid', 'louna-tartu', 1]] } }, 'custom'],
+        [{ custom: { crews: [['patrol', 'louna-tartu', 60]] } }, 'custom'],
+        [{ custom: { crews: [['patrol', 'louna-tartu', '1']] } }, 'custom'],
+        [{ custom: { crews: [['patrol', 'louna-tartu', 1, 2, 3, 4, 5, 6, 7]] } }, 'custom'],
+        [{ custom: { crews: Array.from({ length: 41 }, () => ['patrol', 'louna-tartu']) } }, 'custom'],
       ];
       for (const [patch, field] of cases) {
         const r = await hanna.post('/api/rooms', { ...OPTS, ...patch });
@@ -1114,10 +1125,13 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
         field: 'ready',
       });
       // A change of options clears the others' ready marks.
+      const custom = { crews: [['patrol', 'louna-tartu', 3, 4], ['rapid', 'louna-tartu']], budget: true, extra: 1 };
       const changed = await hanna.req('PUT', `/api/rooms/${code}`, {
-        body: { ...OPTS, hours: 2, slot: 'night' },
+        body: { ...OPTS, hours: 2, slot: 'night', custom },
       });
       expect(changed.json.room.options).toMatchObject({ hours: 2, slot: 'night', sector: 'louna-tartu' });
+      // The custom force is stored in its clean shape and every player gets it.
+      expect(changed.json.room.options.custom).toEqual({ crews: custom.crews, budget: true });
       expect(changed.json.room.players.map((p: Json) => p.ready)).toEqual([true, false, false, false]);
       const early = await hanna.post(`/api/rooms/${code}/start`);
       expect(early.status).toBe(409);

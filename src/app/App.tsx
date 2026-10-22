@@ -13,6 +13,7 @@ import { CreditsScreen } from '@/ui/screens/CreditsScreen';
 import { LegacyScreen } from '@/ui/screens/LegacyScreen';
 import { CareerScreen } from '@/ui/screens/CareerScreen';
 import { LobbyScreen } from '@/ui/screens/LobbyScreen';
+import { CustomScreen } from '@/ui/screens/custom/CustomScreen';
 import { AudioBridge } from '@/audio/AudioBridge';
 import { AppBoundary, isChunkError, QuietBoundary } from './AppBoundary';
 import './app.css';
@@ -73,6 +74,7 @@ const SCREENS = {
   legacy: LegacyScreen,
   career: CareerScreen,
   lobby: LobbyScreen,
+  custom: CustomScreen,
 } as const;
 
 export function App() {

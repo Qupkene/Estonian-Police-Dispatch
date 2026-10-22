@@ -248,6 +248,11 @@ function epd_migrations(): array
         7 => [
             "ALTER TABLE rooms ADD COLUMN engine TEXT NOT NULL DEFAULT ''",
         ],
+        // Kohandatud mäng (rooms.php epd_room_custom, src/sim/custom.ts): the host's drafted force as compact JSON,
+        // '' for the prefecture's own roster.
+        8 => [
+            "ALTER TABLE rooms ADD COLUMN custom TEXT NOT NULL DEFAULT ''",
+        ],
     ];
 }
 

@@ -15,12 +15,14 @@ import {
   type RoomShift,
 } from '@/sim/room';
 import { SLOT_HOURS } from '@/sim/daily';
+import { stationsFor, type CustomSetup } from '@/sim/custom';
 import { createShift, step } from '@/sim/engine';
 import { HOUR, MIN, wall } from '@/sim/time';
 import {
   isHost,
   joinRoom,
   myResult,
+  parseOptions,
   parseRoom,
   pollDelay,
   pollRoom,
@@ -131,6 +133,29 @@ describe("a room's shift", () => {
       s.incidentOrder.map((id) => [s.incidents[id].templateId, s.incidents[id].createdAt]);
     expect(calls(one).length).toBeGreaterThan(0);
     expect(calls(two)).toEqual(calls(one));
+  });
+
+  it('carries a custom force to every player', () => {
+    const hq = stationsFor('louna', ['louna-tartu'], 'patrol')[0].id;
+    const custom: CustomSetup = {
+      crews: [
+        ['patrol', hq, 0, 1],
+        ['patrol', hq],
+        ['rapid', hq],
+      ],
+    };
+    const shift = { ...SHIFT, options: parseOptions({ ...SHIFT.options, custom }) };
+    expect(shift.options.custom).toEqual(custom);
+    const a = roomShiftOptions(shift, 'Hanna');
+    expect(a.custom).toEqual(custom);
+    const one = createShift(a);
+    const two = createShift(roomShiftOptions(shift, 'Ivo'));
+    expect(one.flags.custom).toBe(true);
+    expect(one.unitOrder).toHaveLength(3);
+    expect(JSON.stringify(two.units)).toBe(JSON.stringify(one.units));
+    // Junk and an empty force are no force at all.
+    expect(parseOptions({ ...SHIFT.options, custom: { crews: [['tank', hq]] } }).custom).toBeUndefined();
+    expect(parseOptions({ ...SHIFT.options, custom: 'x' }).custom).toBeUndefined();
   });
 
   it('defaults to a shift that can be built', () => {

@@ -45,7 +45,7 @@ import './shell/vk.css';
 import './shell/menu.css';
 
 interface Row {
-  id: 'career' | 'daily' | 'quick' | 'multi' | 'director' | 'settings' | 'legacy' | 'credits';
+  id: 'career' | 'daily' | 'quick' | 'custom' | 'multi' | 'director' | 'settings' | 'legacy' | 'credits';
   system?: boolean;
   title: string;
   desc: string;
@@ -133,7 +133,8 @@ export function MenuScreen() {
 
   const go = (s: Screen) => () => setScreen(s);
   const brief = (mode: GameMode) => () => {
-    setBriefing({ mode });
+    // A custom game's force and area stay out of every other shift.
+    setBriefing({ mode, custom: undefined, sectors: undefined });
     setScreen('briefing');
   };
   const where = profile ? areaName(profile, lang) : null;
@@ -165,6 +166,7 @@ export function MenuScreen() {
       },
     },
     { id: 'quick', title: t('shell.menu.quick'), desc: t('shell.menu.row.quick'), run: brief('free') },
+    { id: 'custom', title: t('shell.menu.custom'), desc: t('shell.menu.row.custom'), run: go('custom') },
     {
       id: 'multi',
       title: t('rooms.title'),

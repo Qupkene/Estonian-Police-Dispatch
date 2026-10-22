@@ -152,6 +152,10 @@ export default {
     et: 'Selle režiimi tulemusi edetabelisse ei kanta.',
     en: 'Results from this mode do not go on the leaderboard.',
   },
+  'account.rep.custom': {
+    et: 'Kohandatud mängu tulemusi edetabelisse ei kanta: koosseisu valisid ise.',
+    en: 'Custom game results do not go on the leaderboard: you picked the force yourself.',
+  },
   'account.rep.empty': {
     et: 'Vahetuses ei olnud ühtegi sündmust, seega see edetabelisse ei lähe.',
     en: 'There were no incidents in this shift, so it does not go on the leaderboard.',

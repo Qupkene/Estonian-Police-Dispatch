@@ -242,6 +242,12 @@ Search circle on the map. Each assigned unit adds progress per minute (K9 ×2.5,
 
 ### 4.8 Units
 Roster: `region.roster` (UnitSpec) or career `RosterUnit[]`. Each unit spawns at its station.
+A custom game (2.26.0, `src/sim/custom.ts`) drafts the roster: crews of any unit type the area can field at its
+stations (heli and K-komando on call at their base), staffed with officers of the prefecture's draft pool (60 per
+prefecture, drawn from their own stream so every machine has the same) or automatically. An officer outside their
+specialty works at 95 % (80 % in a specialist crew: K9, CID, K-komando, air, marine, traffic). An optional budget
+equals what the area's standard roster costs (vehicle points per type, officer points from skill). The shift is
+`flags.custom` and never ranked.
 `available` units patrol: pick a random waypoint within 3-6 km of their station every 15-40 min
 and drive at 35 km/h without siren (lively map). ETA: straight-line distance × road factor
 (urban 1.35, rural 1.25) ÷ speed (siren: urban 58 km/h, rural 95 km/h; no siren 40/75; heli

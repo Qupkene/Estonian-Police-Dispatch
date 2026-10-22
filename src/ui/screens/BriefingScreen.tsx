@@ -18,6 +18,7 @@ import { REGIONS } from '@/data/regions';
 import { rankOf, rosterFromCareer } from '@/sim/career';
 import { storyOrder } from '@/sim/story';
 import { nightCoverFor } from '@/sim/colleagues';
+import { expandCustom } from '@/sim/custom';
 import { areaStations, neighbourSectors, sectorById } from '@/sim/sectors';
 import { dayInfo, weekdayFactor } from '@/sim/calendar';
 import { shiftKindOf } from '@/sim/engine';
@@ -80,6 +81,9 @@ export function BriefingScreen() {
   const profile = useCareer((s) => s.profile);
   const mode: GameMode = briefing.mode ?? 'free';
   const career = mode === 'career';
+  // Custom game (src/sim/custom.ts): the force and the area were drafted on the custom screen; the prefecture is theirs.
+  const custom = !career && briefing.custom && briefing.regionId ? briefing.custom : null;
+  const customArea = custom ? (briefing.sectors ?? []) : [];
 
   const nowHour = wall(Date.now()).hour;
   // Career: the prefecture picked in HQ when it is unlocked, else the home region.
@@ -104,8 +108,9 @@ export function BriefingScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const region = regionSummary(regionId);
-  const allowed: RegionId[] | undefined =
-    career && profile
+  const allowed: RegionId[] | undefined = custom
+    ? [briefing.regionId!]
+    : career && profile
       ? profile.unlockedRegions?.length
         ? profile.unlockedRegions
         : [profile.regionId]
@@ -171,8 +176,13 @@ export function BriefingScreen() {
       .map((x) => x[lang])
       .join(', ');
   const roster: RosterUnit[] | null = useMemo(
-    () => (career && profile ? safe(() => rosterFromCareer(profile, shiftKind, regionId)) : null),
-    [career, profile, shiftKind, regionId],
+    () =>
+      career && profile
+        ? safe(() => rosterFromCareer(profile, shiftKind, regionId))
+        : custom
+          ? safe(() => expandCustom(regionId, custom, shiftKind))
+          : null,
+    [career, profile, shiftKind, regionId, custom],
   );
   // Units actually on duty for this shift and difficulty (not the whole roster file).
   const unitsOnDuty = useMemo(
@@ -206,6 +216,7 @@ export function BriefingScreen() {
             ...(areaOn ? { sectors: area!.sectors, openPosts: area!.posts } : {}),
           }
         : {}),
+      ...(custom ? { custom, ...(customArea.length ? { sectors: customArea } : {}) } : {}),
     };
     setBriefing({
       mode,
@@ -277,14 +288,14 @@ export function BriefingScreen() {
     (areaOn && safe(() => areaStations(REGIONS[regionId], area!.sectors, area!.posts).length)) ||
     region.stations ||
     '-';
-  const units = career && roster ? roster.length : unitsOnDuty || '-';
+  const units = (career || custom) && roster ? roster.length : unitsOnDuty || '-';
 
   return (
     <ShellPage
-      title={t(`shell.brief.title.${mode === 'tutorial' ? 'free' : mode}`)}
+      title={t(custom ? 'shell.brief.title.custom' : `shell.brief.title.${mode === 'tutorial' ? 'free' : mode}`)}
       subtitle={summary}
       meta={t('shell.brief.orderNo', { n: `${wall(start).year % 100}-${orderNo}` })}
-      onBack={() => setScreen(career ? 'career' : 'menu')}
+      onBack={() => setScreen(career ? 'career' : custom ? 'custom' : 'menu')}
       backTo={career ? 'career' : 'menu'}
       actions={startButton}
       keys={startKey}
@@ -479,6 +490,9 @@ export function BriefingScreen() {
                     hours,
                   })}
                 </li>
+                {custom && customArea.length > 0 && (
+                  <li className="sh-order__area">{t('career.brief.orderArea', { area: areaName(customArea) })}</li>
+                )}
                 {areaOn && (
                   <li className="sh-order__area">
                     {t('career.brief.orderArea', { area: areaName(area!.sectors) })}
@@ -522,12 +536,17 @@ export function BriefingScreen() {
             </footer>
           </article>
 
-          {career && (
+          {(career || custom) && (
             <section className="vk-panel vk-brief__roster" aria-labelledby="vk-brief-roster">
               <div className="vk-panel__head">
                 <h2 className="vk-h" id="vk-brief-roster">
-                  {t('shell.brief.career.roster')}
+                  {t(custom ? 'custom.brief.roster' : 'shell.brief.career.roster')}
                 </h2>
+                {custom && (
+                  <button type="button" className="vk-linkbtn" onClick={() => setScreen('custom')}>
+                    {t('custom.brief.edit')}
+                  </button>
+                )}
                 {roster && roster.length > 0 && (
                   <span className="vk-panel__meta">
                     {roster.length === 1

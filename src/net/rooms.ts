@@ -15,6 +15,7 @@ import {
 import { ApiError, request, toApiError } from './api';
 import { isCoopRole, type CoopRole } from '@/sim/coop';
 import { isObj } from './sync';
+import { parseCustom, type CustomSetup } from '@/sim/custom';
 
 export type RoomStateName = 'lobby' | 'running' | 'finished' | 'closed';
 
@@ -95,7 +96,14 @@ export function parseOptions(v: unknown): RoomOptions {
     difficulty: oneOf<Difficulty>(o.difficulty, ROOM_DIFFICULTIES, 'normal'),
     hours: (ROOM_HOURS as readonly number[]).includes(hours) ? hours : 3,
     slot: oneOf<RoomSlot>(o.slot, ROOM_SLOTS, 'evening'),
+    ...customOf(o.custom, oneOf(o.regionId, REGIONS, 'pohja')),
   };
+}
+
+/** A room's custom force (src/sim/custom.ts), cleaned; nothing when it has none or no crews. */
+function customOf(v: unknown, regionId: RegionId): { custom?: CustomSetup } {
+  const c = parseCustom(v, regionId);
+  return c && c.crews.length ? { custom: c } : {};
 }
 
 function parsePlayer(v: unknown): RoomPlayer | null {
