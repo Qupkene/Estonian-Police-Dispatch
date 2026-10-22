@@ -605,6 +605,9 @@ button.vk-acct__who:hover .vk-acct__name {
 .vk-acct__item.is-danger {
   color: var(--vk-bad);
 }
+a.vk-acct__item {
+  text-decoration: none;
+}
 
 /* ── Footer ───────────────────────────────────────────────────────────────── */
 

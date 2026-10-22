@@ -297,6 +297,7 @@ describe('robots.txt and sitemap.xml', () => {
     expect(lines).toContain('User-agent: *');
     expect(lines).toContain('Allow: /');
     expect(lines).toContain('Disallow: /api/');
+    expect(lines).toContain('Disallow: /admin/');
     expect(lines).not.toContain('Disallow: /');
     expect(lines).toContain(`Sitemap: ${SITE}sitemap.xml`);
   });
@@ -357,6 +358,19 @@ describe('Caddyfile', () => {
       expect(b).not.toContain('try_files');
     }
     expect(caddy.indexOf('handle @seo {')).toBeLessThan(
+      caddy.indexOf('try_files {path} {path}index.html /index.html'),
+    );
+  });
+
+  it("serves the admin panel as its own page: noindex, never cached, never the game's index", () => {
+    const admin = block('handle /admin/* {');
+    expect(admin).toContain('root * /app/www');
+    expect(admin).toContain('header X-Robots-Tag "noindex, nofollow"');
+    expect(admin).toContain('header Cache-Control "no-store"');
+    expect(admin).toContain('file_server');
+    expect(admin).not.toContain('/index.html');
+    expect(caddy).toMatch(/redir \/admin \/admin\/ 308/);
+    expect(caddy.indexOf('handle /admin/* {')).toBeLessThan(
       caddy.indexOf('try_files {path} {path}index.html /index.html'),
     );
   });

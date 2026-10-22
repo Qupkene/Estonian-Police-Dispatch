@@ -1774,6 +1774,299 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
     });
   });
 
+  describe('admin panel', () => {
+    let juhan: Client;
+    let juhanId = 0;
+    let kadriId = 0;
+    let toomasId = 0;
+    const patch = (c: Client, path: string, body: unknown) => c.req('PATCH', path, { body });
+    const lastLog = (): Json => JSON.parse(sql('SELECT admin_name, action, target, detail, ip FROM admin_log ORDER BY id DESC LIMIT 1'))[0];
+
+    it('needs an admin account and its password again', async () => {
+      expect((await client().get('/api/admin/me')).status).toBe(401);
+      juhan = client();
+      juhanId = (await register(juhan, 'Juhan', 'admini-parool')).json.user.id;
+      const notYet = await juhan.get('/api/admin/stats');
+      expect(notYet.status).toBe(403);
+      expect(notYet.json.error).toBe('not_admin');
+      expect((await juhan.get('/api/me')).json.user.admin).toBeUndefined();
+
+      sql(`UPDATE users SET role = 'admin' WHERE id = ${juhanId}`);
+      expect((await juhan.get('/api/me')).json.user).toMatchObject({ name: 'Juhan', admin: true });
+      expect((await juhan.get('/api/admin/me')).json).toMatchObject({ user: { id: juhanId, admin: true }, unlocked: false });
+      const locked = await juhan.get('/api/admin/stats');
+      expect(locked.status).toBe(403);
+      expect(locked.json.error).toBe('admin_locked');
+
+      expect((await juhan.post('/api/admin/unlock', { password: 'admini-parool' }, { csrf: false })).status).toBe(403);
+      const wrong = await juhan.post('/api/admin/unlock', { password: 'vale-parool' });
+      expect(wrong.status).toBe(403);
+      expect(wrong.json.error).toBe('wrong_password');
+      expect(lastLog()).toEqual(['Juhan', 'unlock_failed', '', '', expect.stringMatching(/^203\.0\.113\./)]);
+
+      const before = juhan.session;
+      const open = await juhan.post('/api/admin/unlock', { password: 'admini-parool' });
+      expect(open.status).toBe(200);
+      expect(open.json.until).toBeGreaterThan(Date.now() + 3600_000);
+      expect(juhan.session).not.toBe(before);
+      expect((await juhan.get('/api/admin/me')).json.unlocked).toBe(true);
+      expect((await juhan.get('/api/admin/stats')).status).toBe(200);
+      expect(lastLog()[1]).toBe('unlock');
+
+      // Another browser of the same admin is still locked, and locking closes this one.
+      const other = client();
+      expect((await login(other, 'Juhan', 'admini-parool')).json.user.admin).toBe(true);
+      expect((await other.get('/api/admin/stats')).json.error).toBe('admin_locked');
+      expect((await juhan.post('/api/admin/lock')).status).toBe(200);
+      expect((await juhan.get('/api/admin/stats')).json.error).toBe('admin_locked');
+      expect((await juhan.get('/api/me')).json.user.name).toBe('Juhan');
+      expect((await juhan.post('/api/admin/unlock', { password: 'admini-parool' })).status).toBe(200);
+    });
+
+    it('shows the statistics', async () => {
+      const r = await juhan.get('/api/admin/stats');
+      expect(r.json.users.total).toBe(Number(JSON.parse(sql('SELECT COUNT(*) FROM users'))[0][0]));
+      expect(r.json.users.admins).toBe(1);
+      expect(r.json.users.new1d).toBeGreaterThan(0);
+      expect(r.json.scores.total).toBe(Number(JSON.parse(sql('SELECT COUNT(*) FROM scores'))[0][0]));
+      expect(r.json.db).toEqual({ bytes: expect.any(Number), schema: expect.any(Number) });
+      expect(r.json.db.schema).toBeGreaterThanOrEqual(10);
+      expect(Object.values(r.json.series.signups).length).toBeGreaterThan(0);
+      expect(Array.isArray(r.json.top)).toBe(true);
+    });
+
+    it('creates accounts, with a generated password shown once', async () => {
+      const made = await juhan.post('/api/admin/users', { name: 'Kadri' });
+      expect(made.status).toBe(200);
+      expect(made.json.user).toMatchObject({ name: 'Kadri', admin: false, disabled: false, lastLogin: null });
+      expect(made.json.password).toMatch(/^[a-zA-Z2-9]{14}$/);
+      kadriId = made.json.user.id;
+      expect((await login(client(), 'Kadri', made.json.password)).status).toBe(200);
+      expect(lastLog()).toEqual(['Juhan', 'user_create', `user:${kadriId}`, '{"name":"Kadri","admin":false}', expect.any(String)]);
+
+      const own = await juhan.post('/api/admin/users', { name: 'Toomas', password: 'toomase-parool' });
+      expect(own.json.password).toBeUndefined();
+      toomasId = own.json.user.id;
+      expect((await juhan.post('/api/admin/users', { name: 'kadri' })).json.error).toBe('name_taken');
+      expect((await juhan.post('/api/admin/users', { name: 'x' })).json.error).toBe('invalid_name');
+      expect((await juhan.post('/api/admin/users', { name: 'Lühike', password: 'abc' })).status).toBe(400);
+      // Only an admin writes here.
+      const kadri = client();
+      await login(kadri, 'Kadri', made.json.password);
+      expect((await kadri.post('/api/admin/users', { name: 'Hiilija' })).json.error).toBe('not_admin');
+    });
+
+    it('lists and searches accounts with their totals', async () => {
+      const r = await juhan.get('/api/admin/users?q=KAD');
+      expect(r.json.total).toBe(1);
+      expect(r.json.users[0]).toMatchObject({ id: kadriId, name: 'Kadri', shifts: 0, best: null, daily: 0, saveBytes: 0 });
+      const all = await juhan.get('/api/admin/users?sort=name&dir=asc&limit=2');
+      expect(all.json.users.length).toBe(2);
+      expect(all.json.total).toBeGreaterThanOrEqual(3);
+      expect((await juhan.get('/api/admin/users?limit=0')).status).toBe(400);
+      // A search for "_" or "%" means those characters, not any.
+      expect((await juhan.get('/api/admin/users?q=%25')).json.total).toBe(0);
+    });
+
+    it('renames, blocks and unblocks an account', async () => {
+      const toomas = client();
+      expect((await login(toomas, 'Toomas', 'toomase-parool')).status).toBe(200);
+      const renamed = await patch(juhan, `/api/admin/users/${toomasId}`, { name: 'Toomas.T' });
+      expect(renamed.json.user.name).toBe('Toomas.T');
+      expect((await login(client(), 'Toomas', 'toomase-parool')).status).toBe(401);
+      expect((await toomas.get('/api/me')).json.user.name).toBe('Toomas.T');
+      expect((await patch(juhan, `/api/admin/users/${toomasId}`, { name: 'Kadri' })).json.error).toBe('name_taken');
+
+      expect((await patch(juhan, `/api/admin/users/${toomasId}`, { disabled: true })).json.user.disabled).toBe(true);
+      expect((await toomas.get('/api/me')).json.user).toBeNull();
+      const blocked = await login(client(), 'Toomas.T', 'toomase-parool');
+      expect(blocked.status).toBe(403);
+      expect(blocked.json.error).toBe('account_disabled');
+      // A wrong password does not learn that the account is blocked.
+      expect((await login(client(), 'Toomas.T', 'vale-parool-1')).status).toBe(401);
+      await patch(juhan, `/api/admin/users/${toomasId}`, { disabled: false });
+      expect((await login(toomas, 'Toomas.T', 'toomase-parool')).status).toBe(200);
+      expect((await patch(juhan, `/api/admin/users/${toomasId}`, { disabled: 'jah' })).status).toBe(400);
+      expect((await patch(juhan, '/api/admin/users/999999', { disabled: true })).status).toBe(404);
+    });
+
+    it('makes admins and never locks the admins out', async () => {
+      expect((await patch(juhan, `/api/admin/users/${kadriId}`, { admin: true })).json.user.admin).toBe(true);
+      expect((await juhan.get('/api/admin/stats')).json.users.admins).toBe(2);
+      expect((await patch(juhan, `/api/admin/users/${kadriId}`, { admin: false })).json.user.admin).toBe(false);
+      for (const body of [{ admin: false }, { disabled: true }]) {
+        const r = await patch(juhan, `/api/admin/users/${juhanId}`, body);
+        expect(r.status).toBe(409);
+        expect(r.json.error).toBe('self');
+      }
+      expect((await juhan.del(`/api/admin/users/${juhanId}`)).json.error).toBe('self');
+      expect(JSON.parse(sql(`SELECT role, disabled FROM users WHERE id = ${juhanId}`))).toEqual([['admin', 0]]);
+    });
+
+    it('resets a password and ends every session of the account', async () => {
+      const [a, b] = [client(), client()];
+      await login(a, 'Toomas.T', 'toomase-parool');
+      await login(b, 'Toomas.T', 'toomase-parool');
+      const r = await juhan.post(`/api/admin/users/${toomasId}/password`, {});
+      expect(r.json.password).toMatch(/^[a-zA-Z2-9]{14}$/);
+      expect((await a.get('/api/me')).json.user).toBeNull();
+      expect((await b.get('/api/me')).json.user).toBeNull();
+      expect((await login(client(), 'Toomas.T', 'toomase-parool')).status).toBe(401);
+      expect((await login(a, 'Toomas.T', r.json.password)).status).toBe(200);
+      expect(lastLog()[1]).toBe('user_password');
+      expect(lastLog()[3]).not.toContain(r.json.password);
+
+      expect((await juhan.post(`/api/admin/users/${toomasId}/password`, { password: 'uus-parool-77' })).json.password).toBeUndefined();
+      expect((await a.get('/api/me')).json.user).toBeNull();
+      expect((await login(a, 'Toomas.T', 'uus-parool-77')).status).toBe(200);
+      expect((await juhan.post(`/api/admin/users/${toomasId}/logout`)).status).toBe(200);
+      expect((await a.get('/api/me')).json.user).toBeNull();
+    });
+
+    it('changes its own password without logging itself out', async () => {
+      expect((await juhan.post(`/api/admin/users/${juhanId}/password`, { password: 'uus-admini-parool' })).status).toBe(200);
+      expect((await juhan.get('/api/admin/stats')).status).toBe(200);
+      expect((await login(client(), 'Juhan', 'uus-admini-parool')).status).toBe(200);
+    });
+
+    it('lifts the login limit of an account', async () => {
+      const attacker = client();
+      for (let i = 0; i < 10; i++) await login(attacker, 'Toomas.T', `vale-${i}-parool`);
+      expect((await login(attacker, 'Toomas.T', 'uus-parool-77')).status).toBe(429);
+      expect((await juhan.get(`/api/admin/users/${toomasId}`)).json.loginAttempts).toBe(10);
+      expect((await juhan.post(`/api/admin/users/${toomasId}/unlimit`)).status).toBe(200);
+      expect((await login(attacker, 'Toomas.T', 'uus-parool-77')).status).toBe(200);
+    });
+
+    it('reads, replaces and deletes cloud saves', async () => {
+      const toomas = client();
+      await login(toomas, 'Toomas.T', 'uus-parool-77');
+      expect((await toomas.put('/api/save/career', { body: { money: 5 } })).status).toBe(200);
+      const read = await juhan.get(`/api/admin/users/${toomasId}/saves/career`);
+      expect(read.json).toEqual({ money: 5 });
+      const version = Number(read.headers.get('x-epd-updated'));
+      expect(version).toBeGreaterThan(0);
+
+      const put = await juhan.put(`/api/admin/users/${toomasId}/saves/career`, { raw: '{"money":999}' });
+      expect(put.json.updated).toBeGreaterThan(version);
+      expect((await toomas.get('/api/save')).json.career).toEqual({ money: 999 });
+      expect(lastLog()).toEqual(['Juhan', 'save_put', `user:${toomasId}`, '{"slot":"career","bytes":13}', expect.any(String)]);
+      expect((await juhan.put(`/api/admin/users/${toomasId}/saves/career`, { raw: '[1]' })).json.error).toBe('not_object');
+      expect((await juhan.put(`/api/admin/users/${toomasId}/saves/career`, { raw: '{"a":' })).json.error).toBe('bad_json');
+      expect((await juhan.get(`/api/admin/users/${toomasId}/saves/nope`)).json.error).toBe('bad_slot');
+      expect((await juhan.get(`/api/admin/users/${toomasId}/saves/autosave`)).status).toBe(404);
+
+      expect((await juhan.del(`/api/admin/users/${toomasId}/saves/career`)).status).toBe(200);
+      expect((await toomas.get('/api/save')).json.career).toBeNull();
+      const detail = await juhan.get(`/api/admin/users/${toomasId}`);
+      expect(detail.json.saves).toEqual([{ slot: 'career', updated: expect.any(Number), bytes: 4, deleted: true }]);
+    });
+
+    it('adds, edits and deletes leaderboard results', async () => {
+      const add = await juhan.post('/api/admin/scores', { userId: toomasId, ...SHIFT, regionId: 'ida', score: 91 });
+      expect(add.status).toBe(200);
+      const id = add.json.score.id;
+      expect(add.json.score).toMatchObject({ userId: toomasId, name: 'Toomas.T', regionId: 'ida', score: 91, grade: 'A' });
+      const board = async () => (await client().get('/api/scores?region=ida')).json.scores.map((s: Json) => [s.name, s.score]);
+      expect(await board()).toContainEqual(['Toomas.T', 91]);
+
+      expect((await patch(juhan, `/api/admin/scores/${id}`, { score: 12, grade: 'D' })).json.score).toMatchObject({ score: 12, grade: 'D' });
+      expect(await board()).toContainEqual(['Toomas.T', 12]);
+      expect(lastLog()[2]).toBe(`user:${toomasId}`);
+      expect(JSON.parse(lastLog()[3])).toEqual({ score: id, was: { score: 91, grade: 'A' }, now: { score: 12, grade: 'D' } });
+      expect((await patch(juhan, `/api/admin/scores/${id}`, { score: 101 })).status).toBe(400);
+      expect((await juhan.post('/api/admin/scores', { userId: toomasId, regionId: 'ida' })).status).toBe(400);
+      expect((await juhan.post('/api/admin/scores', { ...SHIFT, userId: 999999 })).status).toBe(404);
+
+      const list = await juhan.get(`/api/admin/scores?user=${toomasId}`);
+      expect(list.json.total).toBe(1);
+      expect((await juhan.get('/api/admin/scores?q=toomas&region=ida')).json.scores[0].id).toBe(id);
+      expect((await juhan.del(`/api/admin/scores/${id}`)).status).toBe(200);
+      expect(await board()).not.toContainEqual(['Toomas.T', 12]);
+      expect((await juhan.del(`/api/admin/scores/${id}`)).status).toBe(404);
+    });
+
+    it('adds, edits and deletes daily challenge results', async () => {
+      const row = { userId: toomasId, day: '2024-01-15', regionId: 'pohja', score: 70, grade: 'B', incidents: 9 };
+      const add = await juhan.post('/api/admin/daily', row);
+      expect(add.status).toBe(200);
+      const id = add.json.daily.id;
+      expect((await juhan.post('/api/admin/daily', row)).json.error).toBe('daily_exists');
+      expect((await juhan.post('/api/admin/daily', { ...row, day: '2024-02-30' })).status).toBe(400);
+      expect((await patch(juhan, `/api/admin/daily/${id}`, { score: 88, sector: 'pohja-kesklinn' })).json.daily).toMatchObject({ score: 88, sector: 'pohja-kesklinn' });
+      const day = await juhan.get('/api/admin/daily?day=2024-01-15');
+      expect(day.json.daily.map((d: Json) => [d.name, d.score])).toEqual([['Toomas.T', 88]]);
+      expect((await juhan.del(`/api/admin/daily/${id}`)).status).toBe(200);
+      expect((await juhan.get('/api/admin/daily?day=2024-01-15')).json.total).toBe(0);
+    });
+
+    it('looks into, closes and deletes rooms', async () => {
+      const host = client();
+      await login(host, 'Toomas.T', 'uus-parool-77');
+      const room = (await host.post('/api/rooms', { mode: 'race', regionId: 'louna', sector: 'louna-tartu', difficulty: 'normal', hours: 3, slot: 'evening' })).json.room;
+      const list = await juhan.get('/api/admin/rooms?state=lobby');
+      expect(list.json.rooms.map((r: Json) => r.code)).toContain(room.code);
+      const detail = await juhan.get(`/api/admin/rooms/${room.code}`);
+      expect(detail.json.room).toMatchObject({ code: room.code, state: 'lobby', host: 'Toomas.T', players: 1 });
+      expect(detail.json.players).toEqual([expect.objectContaining({ id: toomasId, name: 'Toomas.T', seat: 0 })]);
+      expect((await juhan.post(`/api/admin/rooms/${room.code}/close`)).json.room.state).toBe('closed');
+      expect((await host.get(`/api/rooms/${room.code}`)).json.room.state).toBe('closed');
+      expect((await juhan.del(`/api/admin/rooms/${room.code}/results/${toomasId}`)).status).toBe(404);
+      expect((await juhan.del(`/api/admin/rooms/${room.code}`)).status).toBe(200);
+      expect((await juhan.get(`/api/admin/rooms/${room.code}`)).status).toBe(404);
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM room_players p LEFT JOIN rooms r ON r.id = p.room_id WHERE r.id IS NULL`))).toEqual([[0]]);
+    });
+
+    it('shows the account with its history and the log', async () => {
+      const r = await juhan.get(`/api/admin/users/${toomasId}`);
+      expect(r.json.user.name).toBe('Toomas.T');
+      expect(r.json.log.map((l: Json) => l.action)).toEqual(
+        expect.arrayContaining(['user_create', 'user_update', 'user_password', 'save_put', 'score_create', 'score_delete', 'daily_update']),
+      );
+      const log = await juhan.get('/api/admin/log?action=user_create&limit=5');
+      expect(log.json.log[0]).toMatchObject({ admin: 'Juhan', adminId: juhanId, action: 'user_create', detail: { name: 'Toomas', admin: false } });
+      expect(log.json.total).toBe(2);
+    });
+
+    it('makes a checked database backup, at most one a minute', async () => {
+      const r = await juhan.post('/api/admin/backups');
+      expect(r.status).toBe(200);
+      expect(r.json.backup.name).toMatch(/^epd-\d{8}T\d{6}Z-admin\.sqlite$/);
+      const file = join(dataDir, 'varu', r.json.backup.name);
+      expect(statSync(file).size).toBe(r.json.backup.bytes);
+      expect(statSync(file).mode & 0o777).toBe(0o600);
+      expect(readdirSync(join(dataDir, 'varu')).filter((f) => f.endsWith('.tmp'))).toEqual([]);
+      expect((await juhan.post('/api/admin/backups')).status).toBe(429);
+      expect((await juhan.get('/api/admin/backups')).json.backups[0]).toEqual(r.json.backup);
+    });
+
+    it('deletes an account with everything in it', async () => {
+      const r = await juhan.del(`/api/admin/users/${toomasId}`);
+      expect(r.status).toBe(200);
+      expect((await login(client(), 'Toomas.T', 'uus-parool-77')).status).toBe(401);
+      expect((await juhan.get(`/api/admin/users/${toomasId}`)).status).toBe(404);
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM saves WHERE user_id = ${toomasId}`))).toEqual([[0]]);
+      // Its admin log stays.
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM admin_log WHERE target = 'user:${toomasId}'`))[0][0]).toBeGreaterThan(5);
+    });
+
+    it('makes the first admin on the server command line', () => {
+      const run = (...args: string[]) =>
+        spawnSync('php', [join(SERVER_DIR, 'bin', 'admin.php'), ...args], { encoding: 'utf8', env: { ...process.env, EPD_DATA: dataDir }, input: 'kadri\n' });
+      expect(run('nimekiri').stdout).toContain('Juhan');
+      const made = run();
+      expect(made.status).toBe(0);
+      expect(made.stdout).toContain('Kadri on nüüd admin.');
+      expect(JSON.parse(sql(`SELECT role FROM users WHERE id = ${kadriId}`))).toEqual([['admin']]);
+      expect(run('eemalda', 'Kadri').stdout).toContain('ei ole enam admin');
+      const missing = run('lisa', 'Keegi-Teine');
+      expect(missing.status).toBe(1);
+      expect(missing.stderr).toContain('Kontot "Keegi-Teine" ei ole');
+      expect(run('parool', 'Kadri').stdout).toMatch(/uus parool \(näidatakse ainult nüüd\): [a-zA-Z2-9]{14}\n/);
+      expect(lastLog()).toEqual(['server', 'user_password', `user:${kadriId}`, '{"name":"Kadri","generated":true}', 'cli']);
+    });
+  });
+
   describe('deploy hook', () => {
     const ticket = () => join(dataDir, 'control', 'uuenda.json');
     const hook = (event: string, body: string, signature: string | null = sign(body)) => {

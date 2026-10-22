@@ -67,6 +67,7 @@ export default {
   'account.chip.menu': { et: 'Konto valikud', en: 'Account options' },
   'account.chip.since': { et: 'Konto loodud {date}', en: 'Account created {date}' },
   'account.chip.relogin': { et: 'Logi uuesti sisse', en: 'Sign in again' },
+  'account.chip.admin': { et: 'Admini paneel', en: 'Admin panel' },
   'account.logout.title': { et: 'Logi välja', en: 'Sign out' },
   'account.logout.text': {
     et: 'Konto {name} karjäär ja salvestused jäävad pilve alles. Järgmisel sisselogimisel jätkad sealt, kus pooleli jäi.',
