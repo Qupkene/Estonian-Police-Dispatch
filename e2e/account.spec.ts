@@ -80,6 +80,9 @@ async function cloudSaved(page: Page) {
 }
 
 async function startQuickShift(page: Page) {
+  // Kiirmäng sits in the menu's Üksikmäng group (2.27.0): open it unless it is open already.
+  if (!(await page.getByRole('button', { name: /Kiirmäng/ }).first().isVisible()))
+    await page.getByRole('button', { name: /Üksikmäng/ }).first().click();
   await page.getByRole('button', { name: /Kiirmäng/ }).first().click();
   await expect.poll(() => screen(page)).toBe('briefing');
   await page.getByRole('button', { name: /Alusta vahetust/ }).first().click();

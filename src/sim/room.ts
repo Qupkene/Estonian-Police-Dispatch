@@ -7,7 +7,7 @@
  * A room run is an ordinary free shift whose `flags.room` holds the room code; the report posts it to
  * /api/rooms/{code}/result instead of /api/score. Pure functions: no store, no network.
  */
-import type { CustomSetup } from './custom';
+import { fillDesks, type CustomSetup } from './custom';
 import { parseDate, SLOT_HOURS, type DailySlot } from './daily';
 import { Rng } from './rng';
 import { tallinnTime } from './time';
@@ -68,9 +68,22 @@ export function roomStart(shift: Pick<RoomShift, 'seed' | 'day' | 'options'>): n
   return tallinnTime(p.y, p.m, p.d, hour, 0);
 }
 
-/** Shift options of a started room for a player: the same for every player of the room. */
-export function roomShiftOptions(shift: RoomShift, playerName: string): NewShiftOptions {
+/**
+ * Shift options of a started room for a player: the same for every player of the room. With custom forces on
+ * (src/sim/custom.ts): a race player commands `own`, the force they drafted (none: the standard roster); a sector
+ * room the players' drafts the server joined at the start, every desk without one on its usual crews; a role room
+ * the host's.
+ */
+export function roomShiftOptions(shift: RoomShift, playerName: string, own?: CustomSetup): NewShiftOptions {
   const o = shift.options;
+  const desks = roomDesks(shift);
+  const force = !o.custom
+    ? undefined
+    : desks.length
+      ? fillDesks(o.regionId, desks, o.custom)
+      : (shift.mode ?? 'race') === 'race'
+        ? own
+        : o.custom;
   return {
     seed: shift.seed,
     regionId: o.regionId,
@@ -81,7 +94,7 @@ export function roomShiftOptions(shift: RoomShift, playerName: string): NewShift
     playerName,
     // A sector room covers every desk; the others one sector or the whole prefecture.
     ...(roomDesks(shift).length ? { sectors: roomDesks(shift) } : o.sector ? { sectors: [o.sector] } : {}),
-    ...(o.custom?.crews.length ? { custom: o.custom } : {}),
+    ...(force?.crews.length ? { custom: force } : {}),
     fixedSchedule: true,
   };
 }

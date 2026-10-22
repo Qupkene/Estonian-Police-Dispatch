@@ -1591,10 +1591,32 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       expect(fewer.json.room.players.map((p: Json) => p.desk)).toEqual(['pohja-kesklinn', 'pohja-lasnamae']);
       const badOpts = await pille.put(`/api/rooms/${code}`, { body: { ...OPTS, desks: ['pohja-kesklinn'] }, ...at(350) });
       expect(badOpts.json).toMatchObject({ error: 'invalid_room', field: 'desks' });
-      expect((await pille.put(`/api/rooms/${code}`, { body: OPTS, ...at(400) })).status).toBe(200);
+      // Without custom forces on nobody drafts.
+      const early = await rasmus.post(`/api/rooms/${code}/custom`, { custom: { crews: [['patrol', 'pohja-hq']] } }, at(380));
+      expect(early.json.error).toBe('not_custom');
+      // Kohandatud mäng (2.27.0): custom forces on, every player drafts their own desk's crews.
+      const on = await pille.put(`/api/rooms/${code}`, { body: { ...OPTS, custom: { crews: [], budget: true } }, ...at(400) });
+      expect(on.status).toBe(200);
+      expect(on.json.room.options.custom).toEqual({ crews: [], budget: true });
       expect((await rasmus.post(`/api/rooms/${code}/desk`, { desk: 'pohja-idaharju' }, at(450))).status).toBe(200);
+      const mine = await pille.post(`/api/rooms/${code}/custom`, { custom: { crews: [['patrol', 'pohja-hq', 1, 2], ['rapid', 'pohja-hq']] } }, at(460));
+      expect(mine.status).toBe(200);
+      expect(mine.json.room.players[0].custom).toEqual({ crews: [['patrol', 'pohja-hq', 1, 2], ['rapid', 'pohja-hq']] });
+      // An officer belongs to one player of the room.
+      const taken = await rasmus.post(`/api/rooms/${code}/custom`, { custom: { crews: [['patrol', 'pohja-idaharju', 2]] } }, at(470));
+      expect(taken.status).toBe(409);
+      expect(taken.json).toMatchObject({ error: 'officer_taken', officer: 2 });
+      expect((await rasmus.post(`/api/rooms/${code}/custom`, { custom: { crews: 'x' } }, at(475))).json).toMatchObject({ error: 'invalid_room', field: 'custom' });
+      expect((await rasmus.post(`/api/rooms/${code}/custom`, { custom: { crews: [['patrol', 'pohja-idaharju', 3]] } }, at(480))).status).toBe(200);
       await rasmus.post(`/api/rooms/${code}/ready`, { ready: true }, at(500));
-      expect((await pille.post(`/api/rooms/${code}/start`, undefined, at(1000))).json.room.state).toBe('running');
+      const started = await pille.post(`/api/rooms/${code}/start`, undefined, at(1000));
+      expect(started.json.room.state).toBe('running');
+      // The shared shift's force: both drafts, in seat order.
+      expect(started.json.room.options.custom).toEqual({
+        crews: [['patrol', 'pohja-hq', 1, 2], ['rapid', 'pohja-hq'], ['patrol', 'pohja-idaharju', 3]],
+        budget: true,
+      });
+      expect((await rasmus.post(`/api/rooms/${code}/custom`, { custom: { crews: [] } }, at(1050))).json.error).toBe('room_started');
       expect((await rasmus.post(`/api/rooms/${code}/desk`, { desk: 'pohja-lasnamae' }, at(1100))).json.error).toBe('room_started');
     });
 

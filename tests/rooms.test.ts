@@ -16,6 +16,8 @@ import {
 } from '@/sim/room';
 import { SLOT_HOURS } from '@/sim/daily';
 import { stationsFor, type CustomSetup } from '@/sim/custom';
+import { initCoop } from '@/sim/coop';
+import { sectorById } from '@/sim/sectors';
 import { createShift, step } from '@/sim/engine';
 import { HOUR, MIN, wall } from '@/sim/time';
 import {
@@ -144,7 +146,8 @@ describe("a room's shift", () => {
         ['rapid', hq],
       ],
     };
-    const shift = { ...SHIFT, options: parseOptions({ ...SHIFT.options, custom }) };
+    // A role room: the host's force for everybody (a race player commands their own draft, below).
+    const shift = { ...SHIFT, mode: 'role' as const, options: parseOptions({ ...SHIFT.options, custom }) };
     expect(shift.options.custom).toEqual(custom);
     const a = roomShiftOptions(shift, 'Hanna');
     expect(a.custom).toEqual(custom);
@@ -153,9 +156,51 @@ describe("a room's shift", () => {
     expect(one.flags.custom).toBe(true);
     expect(one.unitOrder).toHaveLength(3);
     expect(JSON.stringify(two.units)).toBe(JSON.stringify(one.units));
-    // Junk and an empty force are no force at all.
-    expect(parseOptions({ ...SHIFT.options, custom: { crews: [['tank', hq]] } }).custom).toBeUndefined();
+    // Junk is no force at all; no crews is custom forces on (every player drafts their own).
+    expect(parseOptions({ ...SHIFT.options, custom: { crews: [['tank', hq]] } }).custom).toEqual({
+      crews: [],
+    });
     expect(parseOptions({ ...SHIFT.options, custom: 'x' }).custom).toBeUndefined();
+  });
+
+  it('gives a race player their own draft, a sector room every desk crews, a role room the host’s force', () => {
+    const hq = stationsFor('louna', ['louna-tartu'], 'patrol')[0].id;
+    const own: CustomSetup = {
+      crews: [
+        ['patrol', hq, 4],
+        ['rapid', hq],
+      ],
+    };
+    const on = { ...SHIFT, mode: 'race' as const, options: { ...SHIFT.options, custom: { crews: [] } } };
+    expect(roomShiftOptions(on, 'Hanna', own).custom).toEqual(own);
+    // No draft: the standard roster.
+    expect(roomShiftOptions(on, 'Ivo').custom).toBeUndefined();
+    // Role: the host's force for everybody, whatever a player has.
+    const role = { ...on, mode: 'role' as const, options: { ...on.options, custom: own } };
+    expect(roomShiftOptions(role, 'Ivo', { crews: [['k9', hq]] }).custom).toEqual(own);
+    // Sector: the joined drafts, and a desk nobody drafted for gets its usual crews.
+    const desks = ['louna-tartu', 'louna-tartumaa'];
+    // One crew at Tartu's station (Tartumaa shares it; a shared station's crews go to its desks in turn).
+    const one: CustomSetup = { crews: [['patrol', hq, 4]] };
+    const sector = {
+      ...SHIFT,
+      mode: 'sector' as const,
+      options: { ...SHIFT.options, sector: desks[0], desks, custom: one },
+    };
+    const force = roomShiftOptions(sector, 'x').custom!;
+    expect(force.crews.slice(0, 1)).toEqual(one.crews);
+    const second = new Set(sectorById('louna-tartumaa')!.stationIds);
+    expect(force.crews.slice(1).length).toBeGreaterThan(0);
+    expect(force.crews.slice(1).every(([, st]) => second.has(st))).toBe(true);
+    // Every desk has crews in the shared shift.
+    const s = createShift(roomShiftOptions(sector, 'x'));
+    initCoop(s, 'AAAAAA', 'sector', desks);
+    const per = new Map<string, number>();
+    for (const id of s.unitOrder) {
+      const d = s.coop!.sec!.unitDesk[id];
+      if (d) per.set(d, (per.get(d) ?? 0) + 1);
+    }
+    expect(desks.every((d) => (per.get(d) ?? 0) > 0)).toBe(true);
   });
 
   it('defaults to a shift that can be built', () => {

@@ -44,9 +44,25 @@ import { fmtMoney, fmtNum } from './career/helpers';
 import './shell/vk.css';
 import './shell/menu.css';
 
+/** The menu group left open this session (Üksikmäng after a shift, so its rows are a click away). */
+let lastOpen: Row['id'] | null = null;
+
 interface Row {
-  id: 'career' | 'daily' | 'quick' | 'custom' | 'multi' | 'director' | 'settings' | 'legacy' | 'credits';
+  id:
+    | 'career'
+    | 'daily'
+    | 'solo'
+    | 'quick'
+    | 'custom'
+    | 'multi'
+    | 'director'
+    | 'settings'
+    | 'more'
+    | 'legacy'
+    | 'credits';
   system?: boolean;
+  /** A group: the row opens its rows below it (Üksikmäng, Muu). */
+  sub?: Row[];
   title: string;
   desc: string;
   mono?: boolean;
@@ -139,6 +155,18 @@ export function MenuScreen() {
   };
   const where = profile ? areaName(profile, lang) : null;
 
+  // A group row (Üksikmäng, Muu) opens its rows below it; the open one is kept for the session.
+  const [open, setOpen] = useState<Row['id'] | null>(lastOpen);
+  const toggle = (id: Row['id']) => {
+    const next = open === id ? null : id;
+    lastOpen = next;
+    setOpen(next);
+    if (next)
+      requestAnimationFrame(() =>
+        rootRef.current?.querySelector<HTMLButtonElement>(`[data-sub-of="${next}"] .vk-row`)?.focus(),
+      );
+  };
+
   const rows: Row[] = [
     {
       id: 'career',
@@ -165,8 +193,22 @@ export function MenuScreen() {
         dailyPlayRef.current?.scrollIntoView({ block: 'nearest' });
       },
     },
-    { id: 'quick', title: t('shell.menu.quick'), desc: t('shell.menu.row.quick'), run: brief('free') },
-    { id: 'custom', title: t('shell.menu.custom'), desc: t('shell.menu.row.custom'), run: go('custom') },
+    {
+      id: 'solo',
+      title: t('shell.menu.solo'),
+      desc: t('shell.menu.row.solo'),
+      run: () => toggle('solo'),
+      sub: [
+        { id: 'quick', title: t('shell.menu.quick'), desc: t('shell.menu.row.quick'), run: brief('free') },
+        { id: 'custom', title: t('shell.menu.custom'), desc: t('shell.menu.row.custom'), run: go('custom') },
+        {
+          id: 'director',
+          title: t('shell.menu.director'),
+          desc: t('shell.menu.row.director'),
+          run: brief('director'),
+        },
+      ],
+    },
     {
       id: 'multi',
       title: t('rooms.title'),
@@ -180,12 +222,6 @@ export function MenuScreen() {
       run: () => openLobby(),
     },
     {
-      id: 'director',
-      title: t('shell.menu.director'),
-      desc: t('shell.menu.row.director'),
-      run: brief('director'),
-    },
-    {
       id: 'settings',
       system: true,
       title: t('shell.menu.settings'),
@@ -193,19 +229,28 @@ export function MenuScreen() {
       run: go('settings'),
     },
     {
-      id: 'legacy',
+      id: 'more',
       system: true,
-      title: t('shell.menu.legacy'),
-      desc: '2024, 2025',
-      mono: true,
-      run: go('legacy'),
-    },
-    {
-      id: 'credits',
-      system: true,
-      title: t('shell.menu.credits'),
-      desc: t('shell.menu.row.credits'),
-      run: go('credits'),
+      title: t('shell.menu.more'),
+      desc: t('shell.menu.row.more'),
+      run: () => toggle('more'),
+      sub: [
+        {
+          id: 'legacy',
+          system: true,
+          title: t('shell.menu.legacy'),
+          desc: '2024, 2025',
+          mono: true,
+          run: go('legacy'),
+        },
+        {
+          id: 'credits',
+          system: true,
+          title: t('shell.menu.credits'),
+          desc: t('shell.menu.row.credits'),
+          run: go('credits'),
+        },
+      ],
     },
   ];
 
@@ -291,7 +336,7 @@ export function MenuScreen() {
 
   useWholeRows([leftRef, rightRef], !stacked);
 
-  const service = <ServicePanel rows={rows} stacked={stacked} focusFirst={!saved} />;
+  const service = <ServicePanel rows={rows} open={open} stacked={stacked} focusFirst={!saved} />;
   const career = (
     <CareerPanel
       profile={profile}
@@ -408,21 +453,32 @@ function useWholeRows(cols: RefObject<HTMLElement | null>[], active: boolean) {
 
 // ── Teenistus ────────────────────────────────────────────────────────────────
 
-function ServicePanel({ rows, stacked, focusFirst }: { rows: Row[]; stacked: boolean; focusFirst: boolean }) {
+function ServicePanel({
+  rows,
+  open,
+  stacked,
+  focusFirst,
+}: {
+  rows: Row[];
+  open: Row['id'] | null;
+  stacked: boolean;
+  focusFirst: boolean;
+}) {
   const t = useT();
-  const item = (r: Row, i: number) => (
+  const item = (r: Row, i: number, sub = false) => (
     <li key={r.id}>
       <button
         type="button"
-        className={`vk-row${r.system ? ' is-system' : ''}`}
+        className={`vk-row${r.system ? ' is-system' : ''}${sub ? ' vk-row--sub' : ''}${r.sub ? ' vk-row--group' : ''}`}
         onClick={r.run}
-        aria-keyshortcuts={String(i + 1)}
+        aria-keyshortcuts={sub ? undefined : String(i + 1)}
+        aria-expanded={r.sub ? open === r.id : undefined}
         data-sfx-hover
         data-sfx="click"
-        autoFocus={focusFirst && i === 0}
+        autoFocus={focusFirst && i === 0 && !sub}
       >
         <span className="vk-row__key" aria-hidden="true">
-          {i + 1}
+          {sub ? '' : i + 1}
         </span>
         <span className="vk-row__text">
           <span className="vk-row__title">{r.title}</span>
@@ -436,7 +492,16 @@ function ServicePanel({ rows, stacked, focusFirst }: { rows: Row[]; stacked: boo
               <circle cx="7" cy="7" r="2" />
             </svg>
           )}
-          {stacked ? (
+          {r.sub ? (
+            <svg
+              className={`vk-row__chev vk-row__fold${open === r.id ? ' is-open' : ''}`}
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+            >
+              <path d="M3.5 6 8 10.5 12.5 6" />
+            </svg>
+          ) : stacked ? (
             <svg className="vk-row__chev" width="16" height="16" viewBox="0 0 16 16">
               <path d="M6 3.5 10.5 8 6 12.5" />
             </svg>
@@ -445,6 +510,11 @@ function ServicePanel({ rows, stacked, focusFirst }: { rows: Row[]; stacked: boo
           )}
         </span>
       </button>
+      {r.sub && open === r.id && (
+        <ul className="vk-svc__list vk-svc__sub" data-sub-of={r.id} aria-label={r.title}>
+          {r.sub.map((x, k) => item(x, k, true))}
+        </ul>
+      )}
     </li>
   );
   return (

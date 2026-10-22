@@ -9,7 +9,7 @@
  */
 import { REGIONS } from '@/data/regions';
 import { Rng, hashString } from './rng';
-import { normalizeArea, sectorStationIds } from './sectors';
+import { normalizeArea, sectorById, sectorStationIds } from './sectors';
 import { areaRosterSpecs, generateOfficer, rosterSpecsFor, stationById, stationCallsign } from './units';
 import type { Difficulty, Officer, RegionDef, RegionId, RosterUnit, Station, UnitType } from './types';
 
@@ -33,7 +33,10 @@ export interface DraftOfficer extends Officer {
 }
 
 export const POOL_SIZE = 60;
+/** Crews one player drafts. */
 export const MAX_CREWS = 40;
+/** Crews of a shared shift (a sector room joins its players' drafts, server/lib/rooms.php EPD_ROOM_CUSTOM_JOINED). */
+export const MAX_JOINED_CREWS = 100;
 
 /** Unit types a custom game offers, in the editor's order. */
 export const CUSTOM_TYPES: UnitType[] = [
@@ -246,7 +249,7 @@ export function parseCustom(v: unknown, regionId: RegionId): CustomSetup | null 
   const taken = new Set<number>();
   const crews: CustomCrew[] = [];
   for (const c of raw) {
-    if (crews.length >= MAX_CREWS) break;
+    if (crews.length >= MAX_JOINED_CREWS) break;
     if (!Array.isArray(c) || c.length < 2) continue;
     const [type, station, ...rest] = c as unknown[];
     if (typeof type !== 'string' || !CUSTOM_TYPES.includes(type as UnitType)) continue;
@@ -347,3 +350,37 @@ export function responseCount(setup: CustomSetup): number {
   return setup.crews.filter(([t]) => RESPONSE.has(t)).length;
 }
 const RESPONSE = new Set<UnitType>(['patrol', 'rapid', 'aux', 'traffic', 'k9', 'border', 'community']);
+
+/**
+ * A shared shift over several desks (a sector room): a desk without a crew of its own (nobody drafted for it) gets its
+ * usual crews, so a desk an AI colleague runs, or a player who drafted nothing, is never left empty. A crew counts for
+ * a desk the way src/sim/desks.ts assigns it: by its station, a station two desks share going to them in turn; the
+ * crews added for a desk go to a station only it has when there is one.
+ */
+export function fillDesks(regionId: RegionId, desks: readonly string[], setup: CustomSetup): CustomSetup {
+  const crews = [...setup.crews];
+  const listing = (st: string) => desks.filter((d) => sectorById(d)?.stationIds.includes(st));
+  const covered = new Set<string>();
+  const turn = new Map<string, number>();
+  for (const [type, st] of crews) {
+    if (type === 'heli' || type === 'special') continue;
+    const l = listing(st);
+    if (!l.length) continue;
+    const n = turn.get(st) ?? 0;
+    turn.set(st, n + 1);
+    covered.add(l[n % l.length]);
+  }
+  for (const d of desks) {
+    if (covered.has(d)) continue;
+    const own = sectorById(d)?.stationIds ?? [];
+    const only = own.filter((st) => listing(st).length === 1);
+    for (const [type, st, ...rest] of defaultSetup(regionId, [d]).crews) {
+      if (type === 'heli' || type === 'special' || !own.includes(st)) continue;
+      const home = only.includes(st)
+        ? st
+        : (stationsFor(regionId, [d], type).find((x) => only.includes(x.id))?.id ?? st);
+      crews.push([type, home, ...rest]);
+    }
+  }
+  return { ...setup, crews };
+}

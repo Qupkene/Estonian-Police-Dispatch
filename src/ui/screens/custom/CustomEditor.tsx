@@ -32,6 +32,7 @@ export function CustomEditor({
   value,
   onChange,
   disabled,
+  taken: others,
 }: {
   regionId: RegionId;
   /** The area (empty: the whole prefecture). */
@@ -39,6 +40,8 @@ export function CustomEditor({
   value: CustomSetup;
   onChange: (v: CustomSetup) => void;
   disabled?: boolean;
+  /** A room: officers other players drafted (pool index → their name). */
+  taken?: Map<number, string>;
 }) {
   const t = useT();
   const tx = useTx();
@@ -79,7 +82,7 @@ export function CustomEditor({
     return p.length ? used + o.cost : used - CREW_SIZE[type].auto * AUTO_OFFICER_COST + o.cost;
   };
   const pick = (o: DraftOfficer) => {
-    if (disabled || !cur || taken.has(o.index)) return;
+    if (disabled || !cur || taken.has(o.index) || others?.has(o.index)) return;
     const [type, st, ...p] = cur;
     if (p.length >= CREW_SIZE[type].max) return;
     setCrew(curIdx, [type, st, ...p, o.index]);
@@ -332,19 +335,22 @@ export function CustomEditor({
           </thead>
           <tbody>
             {list.map((o) => {
-              const inCrew = taken.get(o.index);
+              const theirs = others?.get(o.index);
+              const inCrew = taken.get(o.index) ?? (theirs !== undefined ? -1 : undefined);
               const full = !!cur && cur.length - 2 >= CREW_SIZE[cur[0]].max;
               const dear = budgetOn && costAfterPick(o) > budget;
               const why =
-                inCrew !== undefined
-                  ? t('custom.taken')
-                  : !cur
-                    ? t('custom.noCrew')
-                    : full
-                      ? t('custom.full')
-                      : dear
-                        ? t('custom.tooDear')
-                        : '';
+                theirs !== undefined
+                  ? t('custom.takenBy', { name: theirs })
+                  : inCrew !== undefined
+                    ? t('custom.taken')
+                    : !cur
+                      ? t('custom.noCrew')
+                      : full
+                        ? t('custom.full')
+                        : dear
+                          ? t('custom.tooDear')
+                          : '';
               const fit = cur ? fitFactor(o.specialty, cur[0]) : 1;
               return (
                 <tr key={o.index} className={inCrew !== undefined ? 'is-taken' : undefined}>

@@ -361,6 +361,12 @@ docs/MULTIPLAYER.md):
   Stored as compact JSON in `rooms.custom` (schema step 8, default `''` for the standard roster) and returned in
   `options.custom` and in the game server's ticket. The clients and the game server clean it the same way when they
   build the shift. The WebSocket frame limit of the game server is 16 KiB so the ticket of the largest force fits.
+  An empty `crews` list in a race or sector room means custom forces on: `POST /api/rooms/{code}/custom
+  { custom }` stores a member's own draft in `room_players.custom` (schema step 9) while the room is in the lobby
+  (409 `not_custom` in a role room or with custom forces off, 409 `officer_taken` with `officer` when another
+  player of the room drafted one of the officers). The room JSON shows each player's `custom`. A sector room's start
+  joins the drafts in seat order into `rooms.custom` (at most 100 crews). A change of prefecture, or custom forces
+  off, clears the drafts.
 - Room results never go to `/api/score`, `/api/daily` or their boards. Deleting an account removes its seats and
   results and passes on the host role (`epd_rooms_forget_user`, in the deletion's transaction).
 - The clock of the room rules is the daily challenge's: `X-EPD-Test-Now` works under `EPD_TEST_CLOCK=1` with

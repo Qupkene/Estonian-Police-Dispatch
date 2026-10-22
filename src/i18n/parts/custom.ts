@@ -72,6 +72,7 @@ export default {
   'custom.col.cost': { et: 'Hind', en: 'Cost' },
   'custom.pick': { et: 'Lisa', en: 'Add' },
   'custom.taken': { et: 'ekipaažis', en: 'in a crew' },
+  'custom.takenBy': { et: 'mängijal {name}', en: 'with {name}' },
   'custom.yearsN': { et: '{n} a', en: '{n} y' },
   'custom.noCrew': { et: 'vali enne ekipaaž', en: 'pick a crew first' },
   'custom.full': { et: 'ekipaaž on täis', en: 'the crew is full' },
@@ -90,4 +91,24 @@ export default {
   'custom.room.edit': { et: 'Muuda koosseisu ({n} ekipaaži)', en: 'Edit the force ({n} crews)' },
   'custom.room.summary': { et: 'Kohandatud: {n} ekipaaži', en: 'Custom: {n} crews' },
   'custom.room.done': { et: 'Valmis', en: 'Done' },
+  'custom.room.each': {
+    et: 'Iga mängija valib oma ekipaažid ja politseinikud. Iga politseinik saab olla ainult ühe mängija koosseisus.',
+    en: 'Every player drafts their own crews and officers. Each officer can be in one player’s force only.',
+  },
+  'custom.room.eachSector': {
+    et: 'Iga mängija valib oma laua ekipaažid. Laud, mille jaoks keegi ei vali, saab tavalised ekipaažid.',
+    en: 'Every player drafts the crews of their desk. A desk nobody drafts for gets its usual crews.',
+  },
+  'custom.room.mine': { et: 'Sinu koosseis', en: 'Your force' },
+  'custom.room.mineN': { et: '{n} ekipaaži valitud', en: '{n} crews drafted' },
+  'custom.room.mineNone': {
+    et: 'Veel valimata: kui sa ei vali, saad tavalise koosseisu.',
+    en: 'Not drafted yet: if you do not draft, you get the standard roster.',
+  },
+  'custom.room.mineNoneDesk': {
+    et: 'Veel valimata: kui sa ei vali, saab su laud tavalised ekipaažid.',
+    en: 'Not drafted yet: if you do not draft, your desk gets its usual crews.',
+  },
+  'custom.room.draft': { et: 'Vali oma ekipaažid', en: 'Draft your crews' },
+  'custom.room.seatN': { et: '{n} ekip.', en: '{n} crews' },
 } satisfies Dict;

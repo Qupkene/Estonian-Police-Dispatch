@@ -222,6 +222,14 @@ export default {
     et: 'Kood on 6 märki: tähed ja numbrid.',
     en: 'A code has 6 characters: letters and digits.',
   },
+  'rooms.err.officer_taken': {
+    et: 'Mõni valitud politseinik on juba teise mängija koosseisus. Vali keegi teine.',
+    en: 'One of the officers you picked is already in another player’s force. Pick someone else.',
+  },
+  'rooms.err.not_custom': {
+    et: 'Selles ruumis oma koosseisu ei valita.',
+    en: 'Players do not draft their own force in this room.',
+  },
   'rooms.err.room_not_found': { et: 'Sellise koodiga ruumi ei ole.', en: 'There is no room with that code.' },
   'rooms.err.room_full': { et: 'Ruum on täis (4 mängijat).', en: 'The room is full (4 players).' },
   'rooms.err.room_started': {

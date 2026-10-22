@@ -309,3 +309,24 @@
 .vk-mp__customEdit .vk-panel {
   box-shadow: none;
 }
+.vk-mp__hint--inline {
+  padding: 0;
+}
+/* A race or sector room: the player's own draft under the seats */
+.vk-mp__draft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--vk-line-2);
+}
+.vk-mp__draft .vk-label {
+  flex: 0 0 100%;
+}
+.vk-mp__draftLine {
+  flex: 1 1 200px;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--vk-text-2);
+}

@@ -72,6 +72,10 @@ test('capture README screenshots', async ({ page }) => {
   await shot(page, 'menu');
 
   await page
+    .getByRole('button', { name: /Üksikmäng/ })
+    .first()
+    .click();
+  await page
     .getByRole('button', { name: /Kiirmäng/ })
     .first()
     .click();
