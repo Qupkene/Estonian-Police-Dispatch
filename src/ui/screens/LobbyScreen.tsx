@@ -17,6 +17,7 @@ import {
   roomErrorKey,
   RoomPoller,
   roomShiftOf,
+  setRoomCustom,
   setRoomReady,
   startBlock,
   startRoom,
@@ -57,6 +58,7 @@ import { boardCount, RoomBoard } from './shell/RoomBoard';
 import { VkLayer } from './shell/VkLayer';
 import { DeskOptions, DeskPicker, DeskSummary, deskOfPlayer, desksOf, withDesks } from './shell/LobbyDesks';
 import { CustomEditor } from './custom/CustomEditor';
+import { RoomDraft } from './custom/RoomDraft';
 import { adaptSetup, budgetOf, costOf, defaultSetup, type CustomSetup } from '@/sim/custom';
 import './shell/lobby.css';
 
@@ -486,19 +488,26 @@ function OptionsForm({
                 const { custom: _c, ...rest } = value;
                 void _c;
                 onChange(rest);
-              } else setEditing(defaultSetup(value.regionId, area));
+              } else if (mode === 'role') setEditing(defaultSetup(value.regionId, area));
+              // A race or sector room: custom forces on, every player drafts their own (RoomDraft).
+              else onChange({ ...value, custom: { crews: [], budget: true } });
             }}
             options={[
               { value: 'standard', label: t('custom.room.standard'), disabled },
               { value: 'custom', label: t('custom.room.custom'), disabled },
             ]}
           />
-          {value.custom && (
+          {value.custom && mode === 'role' && (
             <button type="button" className="vk-linkbtn" disabled={disabled} onClick={() => setEditing(value.custom!)}>
               {t('custom.room.edit', { n: value.custom.crews.length })}
             </button>
           )}
         </div>,
+      )}
+      {value.custom && mode !== 'role' && (
+        <p className="vk-mp__hint vk-mp__hint--inline">
+          {t(mode === 'sector' ? 'custom.room.eachSector' : 'custom.room.each')}
+        </p>
       )}
       {editing && (
         <VkLayer>
@@ -570,7 +579,11 @@ function OptionsSummary({ o, room }: { o: RoomOptions; room?: Room }) {
       {o.custom && (
         <div>
           <dt>{t('custom.room.force')}</dt>
-          <dd data-testid="room-custom">{t('custom.room.summary', { n: o.custom.crews.length })}</dd>
+          <dd data-testid="room-custom">
+            {room && room.mode !== 'role'
+              ? t(room.mode === 'sector' ? 'custom.room.eachSector' : 'custom.room.each')
+              : t('custom.room.summary', { n: o.custom.crews.length })}
+          </dd>
         </div>
       )}
     </dl>
@@ -652,7 +665,8 @@ function RoomView({
       return;
     }
     try {
-      useGame.getState().startShift(roomShiftOptions(shift, gameUser?.name ?? 'Dispetšer'));
+      // Kohandatud mäng: a race player commands the force they drafted.
+      useGame.getState().startShift(roomShiftOptions(shift, gameUser?.name ?? 'Dispetšer', me?.custom));
       const sim = useGame.getState().sim;
       if (sim) markRoom(sim, room.code);
       sfx.play('dispatch');
@@ -821,8 +835,19 @@ function RoomView({
               <RolePicker room={room} busy={busy} onPick={(role) => void act(async () => void (await setRoomRole(room.code, role)))} />
             )}
             {room.mode === 'sector' && (
-              <DeskPicker room={room} busy={busy} onPick={(desk) => void act(async () => void (await setRoomDesk(room.code, desk)))} />
+              <DeskPicker
+                room={room}
+                busy={busy}
+                onPick={(desk) =>
+                  void act(async () => {
+                    await setRoomDesk(room.code, desk);
+                    // A draft is of its desk's stations: it moves along to the new desk.
+                    if (me?.custom) return setRoomCustom(room.code, adaptSetup(room.options.regionId, [desk], me.custom));
+                  })
+                }
+              />
             )}
+            <RoomDraft room={room} busy={busy} onSave={(c) => void act(() => setRoomCustom(room.code, c))} />
             <div className="vk-mp__status">
               {host ? (
                 <p className={`vk-msg${block ? '' : ' is-ok'}`} data-testid="room-block">
@@ -988,6 +1013,11 @@ function Seats({ room }: { room: Room }) {
               {room.mode === 'sector' && (
                 <span className="vk-mp__role" data-testid="seat-desk">
                   {tx(sectorById(deskOfPlayer(room, p))?.name ?? { et: '?', en: '?' })}
+                </span>
+              )}
+              {room.options.custom && room.mode !== 'role' && (
+                <span className="vk-mp__role vk-mono" data-testid="seat-force">
+                  {p.custom ? t('custom.room.seatN', { n: p.custom.crews.length }) : '-'}
                 </span>
               )}
               <span className={`vk-mp__ready${p.ready ? ' is-ready' : ''}`}>

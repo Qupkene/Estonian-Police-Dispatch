@@ -37,6 +37,9 @@ test('boots, logs in the 2024 way and plays a quick shift to the report', async 
   await bootAndLegacyLogin(page);
   await expect(page.getByText('Mitteametlik ja tasuta fännimäng', { exact: false }).first()).toBeVisible();
 
+  // Kiirmäng sits in the menu's Üksikmäng group (2.27.0): open it unless it is open already.
+  if (!(await page.getByRole('button', { name: /Kiirmäng/ }).first().isVisible()))
+    await page.getByRole('button', { name: /Üksikmäng/ }).first().click();
   await page.getByRole('button', { name: /Kiirmäng/ }).first().click();
   await expect.poll(() => screen(page)).toBe('briefing');
   await page.getByRole('button', { name: /Alusta vahetust/ }).first().click();

@@ -253,6 +253,11 @@ function epd_migrations(): array
         8 => [
             "ALTER TABLE rooms ADD COLUMN custom TEXT NOT NULL DEFAULT ''",
         ],
+        // Kohandatud mäng, each player's own draft (rooms.php epd_route_room_custom): a race player's force, a sector
+        // player's desk; '' for none. A sector room's drafts are joined into rooms.custom at the start.
+        9 => [
+            "ALTER TABLE room_players ADD COLUMN custom TEXT NOT NULL DEFAULT ''",
+        ],
     ];
 }
 

@@ -193,6 +193,40 @@
   color: var(--vk-text-3);
 }
 
+/* Groups (Üksikmäng, Muu): the rows open below their group, indented, without a number. */
+.vk-row__fold {
+  transition: transform 0.15s ease;
+}
+.vk-row__fold.is-open {
+  transform: rotate(180deg);
+}
+.vk-row--group[aria-expanded='true'] {
+  background: var(--vk-panel-2);
+}
+.vk-svc__sub {
+  border-top: 1px solid var(--vk-line-2);
+  background: var(--vk-panel-2);
+}
+.vk-row--sub {
+  min-height: 44px;
+  padding-left: 28px;
+}
+.vk-row--sub .vk-row__key {
+  width: 10px;
+  height: 22px;
+  border: 0;
+  border-left: 2px solid var(--vk-line);
+  border-radius: 0;
+  background: none;
+}
+.vk-row--sub:focus .vk-row__key {
+  border-color: var(--vk-acc);
+  background: none;
+}
+.vk-row--sub .vk-row__title {
+  font-size: 14px;
+}
+
 /* ── Päeva väljakutse ─────────────────────────────────────────────────────── */
 
 .vk-day__body {

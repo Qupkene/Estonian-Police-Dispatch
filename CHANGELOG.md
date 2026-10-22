@@ -2,6 +2,22 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.27.0 (2026-10-22)
+
+- **Mitmikmängu kohandatud koosseis parandatud:** enne valis ainult ruumi looja ekipaažid ja kõik juurde lisatud ekipaažid läksid esimese laua baasi, nii et teised said vaevu ühe üksuse. Nüüd:
+  - võistlusel ja sektorite koostöös valib **iga mängija oma ekipaažid** („Vali oma ekipaažid“). Sektorites valid oma laua ekipaaže ja vahetad lauda, siis kolib su valik kaasa;
+  - **iga politseinik saab olla ainult ühe mängija koosseisus**, nagu fantaasialiigas. Teiste valitud politseinikud on nimekirjas märgitud;
+  - laud, mille jaoks keegi ei valinud, saab automaatselt tavalised ekipaažid, nii et ükski laud ei jää tühjaks;
+  - rollidega mängus valib ühise koosseisu endiselt ruumi looja.
+- **Peamenüü on lihtsam:** 9 rea asemel 6. „Üksikmäng“ avab kiirmängu, kohandatud mängu ja režissööri režiimi, „Muu“ avab algsed versioonid ja tiitrid.
+
+<details>
+<summary>English</summary>
+
+Multiplayer custom forces fixed: only the host could draft, and every crew added in the editor landed at the first desk's station, so the other desks got next to nothing. Now in race and sector rooms every player drafts their own force (a sector player for their desk; a desk change moves the draft along), each officer belongs to one player of the room, and a desk nobody drafted for gets its usual crews. In role rooms the host still drafts the shared force. Server: `POST /api/rooms/{code}/custom`, `room_players.custom` (schema step 9), a sector room's drafts joined at the start. The main menu is down from nine rows to six: "Single player" opens quick play, custom game and director mode; "More" opens the original versions and the credits.
+
+</details>
+
 ## 2.26.0 (2026-10-22)
 
 - **Kohandatud mäng:** uus valik peamenüüs. Pane vahetuseks ise kokku oma meeskond nagu fantaasiajalgpallis:

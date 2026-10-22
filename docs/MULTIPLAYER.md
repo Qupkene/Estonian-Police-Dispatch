@@ -532,8 +532,16 @@ host keeps it on.
 - `roomShiftOptions` passes it to `createShift` as `NewShiftOptions.custom`; `expandCustom` builds the roster the same
   way for every player, the lockstep host and the game server (`parseCustom` cleans it first, so a stale station or a
   pool index of another version is dropped the same way everywhere).
-- Every mode takes it: in a race every player commands the same drafted force; in co-op the crews go to the desks and
-  roles as any roster's do. Changing the prefecture drops the custom force; changing the area moves crews of a station
-  that is no longer in it to one that is (`adaptSetup`).
+- Who drafts (2.27.0): in a role room the host drafts the one shared force. In a race or a sector room the host only
+  switches custom forces on (`custom: { crews: [] }`) and every player drafts their own with
+  `POST /api/rooms/{code}/custom` (`room_players.custom`): a race player commands their own force (none drafted: the
+  standard roster), a sector player drafts the crews of their desk (the editor offers only its stations; a desk change
+  moves the draft along). An officer belongs to one player of the room (409 `officer_taken`). At the start the server
+  joins a sector room's drafts in seat order into `rooms.custom` (at most 100 crews), and `roomShiftOptions` gives
+  every desk without a crew its usual crews (`fillDesks`, counting a shared station's crews the way `assignUnits`
+  hands them out), so no desk is left empty. Before 2.27.0 the host drafted for everybody and the crews added in the
+  editor all landed at the first desk's station, leaving the other desks with next to nothing.
+- Changing the prefecture drops the custom force and every draft; changing the area moves crews of a station that is no
+  longer in it to one that is (`adaptSetup`).
 - A custom game is never ranked (`flags.custom`, `ShiftReport.custom`, `unrankedReason` 'custom'); room results stay
   in the room as always.

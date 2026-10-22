@@ -33,6 +33,8 @@ const EPD_ROOM_HOURS = [2, 3, 4, 6];
 /** A custom force (src/sim/custom.ts): unit types, at most this many crews, officers per crew and the pool size. */
 const EPD_ROOM_CUSTOM_TYPES = ['patrol', 'rapid', 'traffic', 'k9', 'criminal', 'community', 'aux', 'transport', 'border', 'boat', 'special', 'heli'];
 const EPD_ROOM_CUSTOM_CREWS = 40;
+/** A sector room's drafts joined at the start (each player's at most EPD_ROOM_CUSTOM_CREWS). */
+const EPD_ROOM_CUSTOM_JOINED = 100;
 const EPD_ROOM_CUSTOM_OFFICERS = 6;
 const EPD_ROOM_CUSTOM_POOL = 60;
 const EPD_ROOM_SLOTS = ['morning', 'afternoon', 'evening', 'night'];
@@ -138,9 +140,11 @@ function epd_room_options(array $body, string $mode = 'race'): array
 /**
  * A room's custom force as stored ('' for none): `{crews: [[type, station, officer...]...], budget?: true}`. The shape
  * is checked here (known types, a station id of the prefecture, distinct pool indices, the size caps); the clients
- * and the game server clean it the same way when they build the shift (src/sim/custom.ts parseCustom).
+ * and the game server clean it the same way when they build the shift (src/sim/custom.ts parseCustom). The room's own
+ * value may have no crews: custom forces are on and every player drafts their own (race and sector rooms); a
+ * player's draft without crews is ''.
  */
-function epd_room_custom(mixed $v, string $region): string
+function epd_room_custom(mixed $v, string $region, bool $keepEmpty = true): string
 {
     if ($v === null) {
         return '';
@@ -171,7 +175,7 @@ function epd_room_custom(mixed $v, string $region): string
         }
         $crews[] = $row;
     }
-    if (!$crews) {
+    if (!$crews && !$keepEmpty) {
         return '';
     }
     $out = ['crews' => $crews];
@@ -235,7 +239,7 @@ function epd_room_by_id(PDO $db, int $id): ?array
 function epd_room_players(PDO $db, int $roomId): array
 {
     $stmt = $db->prepare(
-        'SELECT p.user_id, p.seat, p.ready, p.joined, p.seen, p.left_at, p.role, p.desk, u.name
+        'SELECT p.user_id, p.seat, p.ready, p.joined, p.seen, p.left_at, p.role, p.desk, p.custom, u.name
          FROM room_players p JOIN users u ON u.id = p.user_id
          WHERE p.room_id = ? ORDER BY p.seat'
     );
@@ -389,6 +393,11 @@ function epd_room_public(PDO $db, array $room, int $userId, int $now): array
         if ((string) $room['mode'] === 'sector') {
             // Sector co-op: the desk chosen in the lobby, or the seat's default.
             $list[count($list) - 1]['desk'] = epd_coop_desk_of($room, $p);
+        }
+        // Kohandatud mäng: the force the player drafted.
+        $draft = epd_room_custom_out(['custom' => (string) ($p['custom'] ?? '')]);
+        if ($draft) {
+            $list[count($list) - 1]['custom'] = $draft['custom'];
         }
     }
     $running = $room['state'] !== 'lobby';
@@ -749,7 +758,83 @@ function epd_route_room_update(string $code): ApiReply
             epd_fail(409, 'room_started', 'Selle ruumi vahetus on juba alanud.');
         }
         $db->prepare('UPDATE room_players SET ready = 0 WHERE room_id = ? AND user_id <> ?')->execute([$room['id'], $userId]);
+        if ($opts['region_id'] !== (string) $room['region_id'] || $opts['custom'] === '') {
+            // A draft is of its prefecture's stations and officers, and only while custom forces are on.
+            $db->prepare("UPDATE room_players SET custom = '' WHERE room_id = ?")->execute([$room['id']]);
+        }
         epd_room_bump($db, (int) $room['id'], $now, $opts);
+        return (string) $room['code'];
+    });
+    return epd_room_reply($db, $clean, $userId, $now);
+}
+
+/**
+ * A sector room's force at the start: the players' drafts one after the other (at most EPD_ROOM_CUSTOM_JOINED crews).
+ *
+ * @param array<string, mixed> $room
+ * @param list<array<string, mixed>> $players
+ */
+function epd_room_custom_joined(array $room, array $players): string
+{
+    $own = json_decode((string) $room['custom'], true);
+    $crews = [];
+    foreach ($players as $p) {
+        $draft = json_decode((string) ($p['custom'] ?? ''), true);
+        foreach (is_array($draft) ? ($draft['crews'] ?? []) : [] as $c) {
+            if (count($crews) < EPD_ROOM_CUSTOM_JOINED) {
+                $crews[] = $c;
+            }
+        }
+    }
+    $out = ['crews' => $crews];
+    if (is_array($own) && ($own['budget'] ?? false) === true) {
+        $out['budget'] = true;
+    }
+    return json_encode($out, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+}
+
+/**
+ * POST /api/rooms/{code}/custom `{ custom }`: a player drafts their own force in a race or sector room with custom
+ * forces on. An officer belongs to one player of the room (409 `officer_taken`).
+ */
+function epd_route_room_custom(string $code): ApiReply
+{
+    $user = epd_require_user();
+    $userId = (int) $user['id'];
+    $body = epd_json_body();
+    $db = epd_db();
+    $now = epd_room_now_ms();
+    $clean = epd_room_tx($db, static function (PDO $db) use ($code, $userId, $body, $now): string {
+        [$room] = epd_room_for_member($db, $code, $userId, $now);
+        if ($room['state'] !== 'lobby') {
+            epd_fail(409, 'room_started', 'Selle ruumi vahetus on juba alanud.');
+        }
+        if ((string) $room['custom'] === '' || (string) $room['mode'] === 'role') {
+            epd_fail(409, 'not_custom', 'Selles ruumis oma koosseisu ei valita.');
+        }
+        $draft = epd_room_custom($body['custom'] ?? null, (string) $room['region_id'], false);
+        $mine = $draft === '' ? [] : json_decode($draft, true);
+        $picked = [];
+        foreach ($mine['crews'] ?? [] as $c) {
+            foreach (array_slice($c, 2) as $i) {
+                $picked[$i] = true;
+            }
+        }
+        foreach (epd_room_players($db, (int) $room['id']) as $p) {
+            if ((int) $p['user_id'] === $userId || $p['left_at'] !== null || (string) $p['custom'] === '') {
+                continue;
+            }
+            $theirs = json_decode((string) $p['custom'], true);
+            foreach (is_array($theirs) ? ($theirs['crews'] ?? []) : [] as $c) {
+                foreach (array_slice($c, 2) as $i) {
+                    if (isset($picked[$i])) {
+                        epd_fail(409, 'officer_taken', 'Mõni valitud politseinik on juba teise mängija koosseisus.', [], ['officer' => $i]);
+                    }
+                }
+            }
+        }
+        $db->prepare('UPDATE room_players SET custom = ?, seen = ? WHERE room_id = ? AND user_id = ?')->execute([$draft, $now, $room['id'], $userId]);
+        epd_room_bump($db, (int) $room['id'], $now);
         return (string) $room['code'];
     });
     return epd_room_reply($db, $clean, $userId, $now);
@@ -810,6 +895,10 @@ function epd_route_room_start(string $code): ApiReply
             }
         }
         $start = ['state' => 'running', 'started' => $now, 'day' => epd_daily_date($now)];
+        if ((string) $room['mode'] === 'sector' && (string) $room['custom'] !== '') {
+            // The shared shift's force: every desk player's draft, in seat order (src/sim/room.ts fills the rest).
+            $start['custom'] = epd_room_custom_joined($room, $players);
+        }
         if ($serverEngine && epd_coop_is_coop($room)) {
             // The game server runs this shift (mp.php); the setup row below still records who started where.
             $start['engine'] = 'server';

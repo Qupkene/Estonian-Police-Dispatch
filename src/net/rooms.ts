@@ -34,6 +34,8 @@ export interface RoomPlayer {
   role?: CoopRole;
   /** Sector co-op: the desk (sector id) picked in the lobby, or the seat's default. */
   desk?: string;
+  /** Kohandatud mäng (race and sector rooms): the force the player drafted for themselves or their desk. */
+  custom?: CustomSetup;
 }
 
 export interface RoomResult {
@@ -100,10 +102,13 @@ export function parseOptions(v: unknown): RoomOptions {
   };
 }
 
-/** A room's custom force (src/sim/custom.ts), cleaned; nothing when it has none or no crews. */
-function customOf(v: unknown, regionId: RegionId): { custom?: CustomSetup } {
+/**
+ * A room's custom force (src/sim/custom.ts), cleaned; nothing when it has none. In a race or sector room it may have
+ * no crews: custom forces are on and every player drafts their own (RoomPlayer.custom).
+ */
+function customOf(v: unknown, regionId: RegionId, keepEmpty = true): { custom?: CustomSetup } {
   const c = parseCustom(v, regionId);
-  return c && c.crews.length ? { custom: c } : {};
+  return c && (keepEmpty || c.crews.length) ? { custom: c } : {};
 }
 
 function parsePlayer(v: unknown): RoomPlayer | null {
@@ -143,9 +148,13 @@ export function parseRoom(v: unknown): Room | null {
   if (!isObj(v)) return null;
   const code = normalizeRoomCode(v.code);
   if (!code) return null;
+  const options = parseOptions(v.options);
   const players = Array.isArray(v.players)
     ? v.players
-        .map(parsePlayer)
+        .map((x) => {
+          const p = parsePlayer(x);
+          return p && isObj(x) ? { ...p, ...customOf(x.custom, options.regionId, false) } : p;
+        })
         .filter((p): p is RoomPlayer => !!p)
         .sort((a, b) => a.seat - b.seat)
     : [];
@@ -160,7 +169,7 @@ export function parseRoom(v: unknown): Room | null {
     host: typeof v.host === 'number' ? v.host : null,
     me: num(v.me),
     max: num(v.max, 4) || 4,
-    options: parseOptions(v.options),
+    options,
     seed: typeof v.seed === 'number' && v.seed > 0 ? v.seed : null,
     day: typeof v.day === 'string' ? v.day : null,
     created: num(v.created),
@@ -241,6 +250,11 @@ export async function updateRoomOptions(code: string, options: RoomOptions): Pro
   return roomOf(await request<unknown>('PUT', path(code), options));
 }
 
+/** Kohandatud mäng: the player's own draft (race and sector rooms); 409 `officer_taken` when another has one. */
+export async function setRoomCustom(code: string, custom: CustomSetup): Promise<Room> {
+  return roomOf(await request<unknown>('POST', path(code, '/custom'), { custom }));
+}
+
 export async function setRoomReady(code: string, ready: boolean): Promise<Room> {
   return roomOf(await request<unknown>('POST', path(code, '/ready'), { ready }));
 }
@@ -311,6 +325,8 @@ export function roomErrorKey(e: unknown): string {
     'invalid_command',
     'mp_unavailable',
     'replaced',
+    'officer_taken',
+    'not_custom',
     'network',
     'timeout',
   ];

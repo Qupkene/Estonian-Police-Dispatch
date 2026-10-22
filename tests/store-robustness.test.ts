@@ -359,7 +359,7 @@ describe('main menu and the saved shift', () => {
     localStorage.setItem(KEY, JSON.stringify({ ...sim(), regionId: 'saared' }));
     g().quitShift();
     const items = await renderMenu();
-    expect(items.some((t) => t.includes('Kiirmäng'))).toBe(true);
+    expect(items.some((t) => t.includes('Üksikmäng'))).toBe(true);
     expect(items.some((t) => t.includes('Jätka vahetust'))).toBe(false);
   });
 });

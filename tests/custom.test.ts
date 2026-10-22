@@ -6,6 +6,7 @@ import {
   defaultSetup,
   draftPool,
   expandCustom,
+  fillDesks,
   fitFactor,
   parseCustom,
   POOL_SIZE,
@@ -14,6 +15,7 @@ import {
   type CustomSetup,
 } from '@/sim/custom';
 import { createShift } from '@/sim/engine';
+import { initCoop } from '@/sim/coop';
 import { sectorsOf } from '@/sim/sectors';
 import type { NewShiftOptions } from '@/sim/types';
 
@@ -140,5 +142,36 @@ describe('custom game (src/sim/custom.ts)', () => {
       ['patrol', hq, 1, 2, 3],
       ['rapid', hq],
     ]);
+  });
+});
+
+describe('a sector room with custom forces (2.27.0)', () => {
+  it('never leaves a desk without crews (the bug: every drafted crew went to the first desk)', () => {
+    const desks = ['pohja-kesklinn', 'pohja-lasnamae'];
+    const hq = stationsFor('pohja', ['pohja-kesklinn'], 'patrol')[0].id;
+    const setup: CustomSetup = {
+      crews: [
+        ['patrol', hq],
+        ['patrol', hq],
+        ['patrol', hq],
+        ['rapid', hq],
+      ],
+    };
+    const filled = fillDesks('pohja', desks, setup);
+    expect(filled.crews.slice(0, 4)).toEqual(setup.crews);
+    const s = createShift(opts({ sectors: desks, custom: filled }));
+    initCoop(s, 'AAAAAA', 'sector', desks);
+    const per = new Map<string, number>();
+    for (const id of s.unitOrder) {
+      const d = s.coop!.sec!.unitDesk[id];
+      if (d) per.set(d, (per.get(d) ?? 0) + 1);
+    }
+    expect(per.get('pohja-kesklinn')).toBe(4);
+    expect(per.get('pohja-lasnamae') ?? 0).toBeGreaterThan(0);
+    // A desk that has crews keeps exactly the drafted ones.
+    const both: CustomSetup = {
+      crews: [...setup.crews, ['patrol', stationsFor('pohja', ['pohja-lasnamae'], 'patrol')[0].id]],
+    };
+    expect(fillDesks('pohja', desks, both)).toEqual(both);
   });
 });

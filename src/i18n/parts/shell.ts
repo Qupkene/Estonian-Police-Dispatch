@@ -162,6 +162,13 @@ export default {
     en: 'A single shift your way: prefecture, date, weather and difficulty.',
   },
   'shell.menu.director': { et: 'Režissööri režiim', en: 'Director mode' },
+  'shell.menu.solo': { et: 'Üksikmäng', en: 'Single player' },
+  'shell.menu.row.solo': {
+    et: 'kiirmäng, kohandatud mäng, režissöör',
+    en: 'quick play, custom game, director',
+  },
+  'shell.menu.more': { et: 'Muu', en: 'More' },
+  'shell.menu.row.more': { et: 'algsed versioonid, tiitrid', en: 'original versions, credits' },
   'shell.menu.directorDesc': {
     et: 'Filmi oma politseifilmi: tekita sündmusi, kirjuta raadiosõnumeid, peida HUD.',
     en: 'Shoot your own police film: spawn events, write radio lines, hide the HUD.',
