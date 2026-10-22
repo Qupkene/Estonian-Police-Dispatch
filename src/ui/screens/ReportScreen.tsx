@@ -242,6 +242,12 @@ export function ReportScreen() {
       value: `${st.referralsCorrect}/${referrals}`,
       note: t('shell.rep.s.falseN', { n: st.falseAlarms }),
     },
+    {
+      label: t('shell.rep.s.complaints'),
+      value: st.complaints ?? 0,
+      note: t('shell.rep.s.correctedN', { n: st.repliesCorrected ?? 0 }),
+      tone: (st.complaints ?? 0) > 0 ? 'bad' : undefined,
+    },
     { label: t('shell.rep.s.pursuits'), value: `${st.pursuitsCaught}/${st.pursuits}` },
     { label: t('shell.rep.s.expired'), value: st.expired, tone: st.expired > 0 ? 'warn' : undefined },
     {
@@ -452,6 +458,55 @@ export function ReportScreen() {
               <p className="vk-panel__body vk-dim">{t('shell.rep.noInjuries')}</p>
             )}
           </section>
+
+          {/* ── What came of the wrong registry answers (src/sim/fallout.ts) ── */}
+          {(!!report.fallout?.length || (replies > 0 && st.repliesWrong === 0)) && (
+            <section className="vk-panel" aria-labelledby="vk-rep-fallout">
+              <div className="vk-panel__head">
+                <h2 className="vk-h" id="vk-rep-fallout">
+                  {t('shell.rep.fallout')}
+                </h2>
+                {!!report.fallout?.length && <span className="vk-count">{report.fallout.length}</span>}
+              </div>
+              {report.fallout?.length ? (
+                <ul className="vk-rep__log">
+                  {report.fallout.map((f, i) => (
+                    <li
+                      key={`${f.incidentId}-${i}`}
+                      className={f.outcome === 'caught' ? 'is-good' : 'is-bad'}
+                    >
+                      <span className="vk-rep__mark" aria-hidden="true" />
+                      <div>
+                        <strong>
+                          {hhmm(f.t)} {f.code} · {f.who} · {t(`shell.rep.fo.${f.outcome}`)}
+                          {f.late ? ` (${t('shell.rep.fo.late')})` : ''}
+                        </strong>
+                        <span>
+                          {t('shell.rep.fo.said', {
+                            said: f.said[lang] || f.said.et,
+                            truth: f.truth[lang] || f.truth.et,
+                          })}
+                        </span>
+                        <span>
+                          <MonoNumbers text={f.text[lang] || f.text.et} />
+                        </span>
+                        {(f.trust > 0 || f.penalty > 0) && (
+                          <span className="vk-dim">
+                            {t('shell.rep.fo.cost', {
+                              trust: formatDecimal(f.trust, lang, Number.isInteger(f.trust) ? 0 : 1),
+                              points: formatDecimal(f.penalty, lang, Number.isInteger(f.penalty) ? 0 : 1),
+                            })}
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="vk-panel__body vk-dim">{t('shell.rep.fo.none')}</p>
+              )}
+            </section>
+          )}
 
           {/* ── Career: the ledger as a statement, the inbox ── */}
           {career && (

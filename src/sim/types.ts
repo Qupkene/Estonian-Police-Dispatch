@@ -768,6 +768,14 @@ export interface BeatState {
   radioId?: string; // radio message awaiting a reply
   answer?: string; // chosen reply id
   correct?: boolean;
+  /** Registry query: when JK answered (a correction is possible for a while, src/sim/fallout.ts). */
+  answeredAt?: number;
+  /** Registry query: a wrong answer came to light (the decision score counts it from then on). */
+  revealed?: boolean;
+  /** Registry query: the crew noticed the wrong answer themselves on scene. */
+  caught?: boolean;
+  /** Registry query: JK corrected a wrong answer on the radio in time. */
+  corrected?: boolean;
 }
 
 export interface AgencyRequest {
@@ -964,6 +972,10 @@ export interface ShiftStats {
   queries: number;
   repliesCorrect: number;
   repliesWrong: number;
+  /** Wrong answers JK corrected in time (missing in older saves). */
+  repliesCorrected?: number;
+  /** Complaints and claims that followed a wrong answer (missing in older saves). */
+  complaints?: number;
   beatsMissed: number;
   pursuits: number;
   pursuitsCaught: number;
@@ -990,7 +1002,8 @@ export interface GameEvent {
     | 'pursuit_end'
     | 'bulletin'
     | 'shift_end'
-    | 'achievement';
+    | 'achievement'
+    | 'complaint';
   incidentId?: string;
   unitId?: string;
   text?: Text;
@@ -1119,6 +1132,25 @@ export interface ShiftReport {
   shiftKey?: string;
   /** A co-op room shift: the seats, their roles and what each did (src/sim/coop.ts). */
   coop?: import('./coop').CoopReport;
+  /** What followed the wrong registry answers (src/sim/fallout.ts). Missing in older reports. */
+  fallout?: FalloutLine[];
+}
+
+/** One wrong registry answer in the shift report. */
+export interface FalloutLine {
+  incidentId: string;
+  code: string;
+  t: number;
+  kind: FalloutKind;
+  /** The person or the plate. */
+  who: string;
+  said: Text;
+  truth: Text;
+  outcome: 'caught' | 'revealed' | 'complaint' | 'unseen';
+  late: boolean;
+  text: Text;
+  trust: number;
+  penalty: number;
 }
 
 export interface SimState {
@@ -1165,6 +1197,59 @@ export interface SimState {
    * colleague events and plays exactly as before.
    */
   colleagues?: ColleagueState;
+  /**
+   * What followed the wrong answers to registry queries (src/sim/fallout.ts): the crew acted on them and the
+   * truth comes out later. Missing in every older save (nothing pending).
+   */
+  fallout?: Fallout[];
+}
+
+/** Kinds of consequence a wrong registry answer has (src/sim/fallout.ts). */
+export type FalloutKind =
+  | 'unfounded_detention'
+  | 'false_restraining'
+  | 'needless_identification'
+  | 'false_missing'
+  | 'false_alert'
+  | 'unfounded_fine'
+  | 'missed_wanted'
+  | 'missed_stolen'
+  | 'missed_missing'
+  | 'missed_restraining'
+  | 'missed_weapon'
+  | 'false_identity'
+  | 'missed_violation'
+  | 'minor';
+
+/** A wrong registry answer the crew acted on, and what comes of it (src/sim/fallout.ts). */
+export interface Fallout {
+  id: string;
+  incidentId: string;
+  /** Index of the query beat. */
+  beat: number;
+  unitId?: string;
+  personId?: string;
+  plate?: string;
+  /** Reply id JK gave, and the one the registry holds. */
+  said: string;
+  truth: string;
+  kind: FalloutKind;
+  /** Game time of the answer. */
+  at: number;
+  stage: 'hidden' | 'caught' | 'revealed';
+  /** When the crew re-checks it themselves (rolled at the answer; missing: they do not). */
+  catchAt?: number;
+  /** When it comes to light (missing: it never does during the shift). */
+  revealAt?: number;
+  /** When the complaint or claim arrives (missing: none is made). */
+  complaintAt?: number;
+  complained?: boolean;
+  /** It came to light only after the shift (settled for the report). */
+  late?: boolean;
+  /** Public trust lost through it so far. */
+  trust: number;
+  /** Shift score points it costs so far. */
+  penalty: number;
 }
 
 /** JSON-safe state of the neighbouring desks' AI colleagues on a sector shift (SimState.colleagues). */

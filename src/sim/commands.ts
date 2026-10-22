@@ -8,6 +8,7 @@ import { addTimeline, pushRadio, regionOf, templateById, tplOf } from './interna
 import {
   checkBackup,
   closeWithoutUnits,
+  correctQuery,
   findRadio,
   handleRadioReply,
   isHidden,
@@ -16,6 +17,8 @@ import {
   upgradeToSiren,
 } from './incidents';
 import { pursuitCommand } from './pursuit';
+
+export { canCorrectQuery, correctQuery } from './incidents';
 import { agencyName, jkSay, phrase, radioVars, spokenCallsign, unitPhrase } from './radio';
 import { addTrust } from './scoring';
 import { locationFromCoord, spawnIncident } from './spawner';
@@ -249,7 +252,12 @@ export function requestAgency(s: SimState, incidentId: string, agency: Agency): 
 
 export function replyRadio(s: SimState, msgId: string, replyId: string): void {
   const msg = findRadio(s, msgId);
-  if (!msg || msg.answered || !msg.replies?.length) return;
+  if (!msg || !msg.replies?.length) return;
+  // An answered registry query: JK corrects its answer while it still can (src/sim/fallout.ts).
+  if (msg.answered) {
+    correctQuery(s, msg, replyId);
+    return;
+  }
   if (msg.expiresAt !== undefined && msg.expiresAt < s.now) return;
   // A neighbouring desk's offer to take over a pursuit (src/sim/colleagues.ts).
   if (answerColleague(s, msg, replyId)) return;

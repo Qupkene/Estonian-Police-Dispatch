@@ -258,6 +258,9 @@ describe('co-op commands', () => {
     // The call-taker (seat 1) answers the query for the radio desk...
     expect(applyCommand(s, { id: 40, t: 0, s: 1, k: 'reply', a: ['r9001', 'clean'] })).toMatchObject({ ok: true });
     expect(s.radio.find((m) => m.id === 'r9001')!.answered).toBe('clean');
+    // A second reply is a correction: refused for a message with no query behind it, and never thrown.
+    expect(applyCommand(s, { id: 43, t: 0, s: 0, k: 'reply', a: ['r9001', 'wanted'] }).ok).toBe(false);
+    expect(s.radio.find((m) => m.id === 'r9001')!.answered).toBe('clean');
     // ...but a backup request stays the radio desk's.
     expect(applyCommand(s, { id: 41, t: 0, s: 1, k: 'reply', a: ['r9002', 'clean'] })).toMatchObject({ denied: true });
     // Marking a record as checked is anybody's too.

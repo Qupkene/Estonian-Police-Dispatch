@@ -142,6 +142,8 @@ function Dashboard({ sim: s, lang }: { sim: SimState; lang: 'et' | 'en' }) {
   const answered = correct + wrong;
   const accuracy = answered ? Math.round((correct / answered) * 100) : null;
   const qTotal = Math.max(st?.queries ?? 0, s.queries.length);
+  const complaints = st?.complaints ?? 0;
+  const live = !s.ended;
 
   // areas
   const areaCount = new Map<string, number>();
@@ -225,41 +227,72 @@ function Dashboard({ sim: s, lang }: { sim: SimState; lang: 'et' | 'en' }) {
         )}
       </Card>
 
-      <Card title={t('tools.stats.registry')} aside={accuracy === null ? undefined : t('tools.stats.accuracy', { p: accuracy })}>
+      <Card title={t('tools.stats.registry')} aside={accuracy === null || live ? undefined : t('tools.stats.accuracy', { p: accuracy })}>
+        {/* During the shift nobody knows yet which answers were wrong (src/sim/fallout.ts): answered, not right/wrong. */}
         <div className="tl-reg-stats">
           <div className="tl-reg-stats__tile">
             <span>{t('tools.stats.queries')}</span>
             <b>{qTotal}</b>
           </div>
-          <div className="tl-reg-stats__tile">
-            <span>{t('tools.stats.correct')}</span>
-            <b>{correct}</b>
-          </div>
-          <div className="tl-reg-stats__tile">
-            <span>{t('tools.stats.wrong')}</span>
-            <b>{wrong}</b>
-          </div>
+          {live ? (
+            <>
+              <div className="tl-reg-stats__tile">
+                <span>{t('tools.stats.answered')}</span>
+                <b>{answered}</b>
+              </div>
+              <div className="tl-reg-stats__tile">
+                <span>{t('tools.stats.complaints')}</span>
+                <b>{complaints}</b>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="tl-reg-stats__tile">
+                <span>{t('tools.stats.correct')}</span>
+                <b>{correct}</b>
+              </div>
+              <div className="tl-reg-stats__tile">
+                <span>{t('tools.stats.wrong')}</span>
+                <b>{wrong}</b>
+              </div>
+            </>
+          )}
           <div className="tl-reg-stats__tile">
             <span>{t('tools.stats.missed')}</span>
             <b>{missed}</b>
           </div>
         </div>
-        {answered + missed > 0 && (
-          <>
-            <div className="tl-split" role="img" aria-label={t('tools.stats.registry')}>
-              {correct > 0 && <span style={{ flexGrow: correct, background: 'var(--ok)' }} title={`${t('tools.stats.correct')}: ${correct}`} />}
-              {wrong > 0 && <span style={{ flexGrow: wrong, background: 'var(--danger)' }} title={`${t('tools.stats.wrong')}: ${wrong}`} />}
-              {missed > 0 && <span style={{ flexGrow: missed, background: 'var(--text-3)' }} title={`${t('tools.stats.missed')}: ${missed}`} />}
-            </div>
-            <Legend
-              items={[
-                { color: 'var(--ok)', label: t('tools.stats.correct'), value: String(correct) },
-                { color: 'var(--danger)', label: t('tools.stats.wrong'), value: String(wrong) },
-                { color: 'var(--text-3)', label: t('tools.stats.missed'), value: String(missed) },
-              ]}
-            />
-          </>
-        )}
+        {answered + missed > 0 &&
+          (live ? (
+            <>
+              <div className="tl-split" role="img" aria-label={t('tools.stats.registry')}>
+                {answered > 0 && <span style={{ flexGrow: answered, background: 'var(--tl-cat-1)' }} title={`${t('tools.stats.answered')}: ${answered}`} />}
+                {missed > 0 && <span style={{ flexGrow: missed, background: 'var(--text-3)' }} title={`${t('tools.stats.missed')}: ${missed}`} />}
+              </div>
+              <Legend
+                items={[
+                  { color: 'var(--tl-cat-1)', label: t('tools.stats.answered'), value: String(answered) },
+                  { color: 'var(--text-3)', label: t('tools.stats.missed'), value: String(missed) },
+                ]}
+              />
+              <p className="tl-muted-line">{t('tools.stats.unknownYet')}</p>
+            </>
+          ) : (
+            <>
+              <div className="tl-split" role="img" aria-label={t('tools.stats.registry')}>
+                {correct > 0 && <span style={{ flexGrow: correct, background: 'var(--ok)' }} title={`${t('tools.stats.correct')}: ${correct}`} />}
+                {wrong > 0 && <span style={{ flexGrow: wrong, background: 'var(--danger)' }} title={`${t('tools.stats.wrong')}: ${wrong}`} />}
+                {missed > 0 && <span style={{ flexGrow: missed, background: 'var(--text-3)' }} title={`${t('tools.stats.missed')}: ${missed}`} />}
+              </div>
+              <Legend
+                items={[
+                  { color: 'var(--ok)', label: t('tools.stats.correct'), value: String(correct) },
+                  { color: 'var(--danger)', label: t('tools.stats.wrong'), value: String(wrong) },
+                  { color: 'var(--text-3)', label: t('tools.stats.missed'), value: String(missed) },
+                ]}
+              />
+            </>
+          ))}
       </Card>
 
       <Card title={t('tools.stats.areas')}>

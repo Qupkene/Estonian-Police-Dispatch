@@ -20,6 +20,7 @@ import {
   unitSay,
   VEHICLE_REPLIES,
 } from './radio';
+import { CORRECT_WINDOW_MS, dropFallout, falloutOf, recordFallout } from './fallout';
 import { correctReply } from './registry';
 import { Rng, hashString, withRng } from './rng';
 import {
@@ -838,37 +839,9 @@ export function handleRadioReply(s: SimState, msg: RadioMsg, replyId: string): b
     case 'query': {
       if (!PERSON_REPLIES.concat(VEHICLE_REPLIES).some((r) => r.id === replyId)) return false;
       msg.answered = replyId;
-      const subj = querySubjectOf(s, inc, spec);
-      const truth = subj ? expectedReply(s, subj, queryCtx(inc, spec)) : 'notfound';
-      const correct = replyId === truth;
-      b.answer = replyId;
-      b.correct = correct;
       b.status = 'done';
-      const said = JK_QUERY_REPLY[subj?.plate ? 'vehicle' : 'person'][replyId];
-      if (u) {
-        const tx = said ? fillText(T('{callsign}, {x}', '{callsign}, {x}'), { ...radioVars(s, u, inc), x: said }) : fillText(T('{callsign}, {x}.', '{callsign}, {x}.'), { ...radioVars(s, u, inc), x: lower(label ?? T(replyId, replyId)) });
-        jkSay(s, tx, { unit: u, inc, kind: 'reply' });
-      }
-      if (u) unitPhrase(s, u, `reply_${replyId}`, inc);
-      if (label) addTimeline(s, inc, 'radio', fillText(T('JK vastus päringule: {x}', 'Control answered the check: {x}'), { x: label }));
-      if (correct) {
-        inc.effects.success += 0.15;
-        s.stats.repliesCorrect++;
-        if (truth === 'wanted' || truth === 'stolen') inc.effects.arrests += 1;
-      } else {
-        inc.effects.success -= 0.2;
-        s.stats.repliesWrong++;
-        const serious = ['wanted', 'missing', 'stolen', 'restraining', 'ownerwanted'];
-        if (serious.includes(truth) && !serious.includes(replyId)) {
-          addTrust(s, -5);
-          addTimeline(s, inc, 'note', T('Tagaotsitav/keeluga isik jäi tuvastamata', 'A wanted/restricted subject was missed'));
-        } else if ((replyId === 'wanted' || replyId === 'stolen') && truth === 'clean') {
-          addTrust(s, -3, true);
-          addTimeline(s, inc, 'note', T('Alusetu kinnipidamine', 'Unfounded detention'));
-        }
-        if (u) unitPhrase(s, u, 'queryMismatch', inc, {}, { level: 'priority' });
-        if (truth === 'wanted' || truth === 'stolen') inc.effects.arrests += 1;
-      }
+      b.answeredAt = s.now;
+      answerQuery(s, inc, spec, b, u, replyId, label, false);
       return true;
     }
     case 'choice': {
@@ -894,6 +867,103 @@ export function handleRadioReply(s: SimState, msg: RadioMsg, replyId: string): b
       msg.answered = replyId;
       return false;
   }
+}
+
+/**
+ * JK's answer to a registry query reaches the crew, who act on it: they cannot see the registry. A wrong answer is
+ * not noticed on the spot; what comes of it is in src/sim/fallout.ts. `correction`: JK corrects its earlier answer.
+ */
+function answerQuery(
+  s: SimState,
+  inc: Incident,
+  spec: QueryBeat,
+  b: BeatState,
+  u: Unit | undefined,
+  replyId: string,
+  label: Text | undefined,
+  correction: boolean,
+): void {
+  const subj = querySubjectOf(s, inc, spec);
+  const truth = subj ? expectedReply(s, subj, queryCtx(inc, spec)) : 'notfound';
+  const correct = replyId === truth;
+  const was = b.correct;
+  b.answer = replyId;
+  b.correct = correct;
+  const said = JK_QUERY_REPLY[subj?.plate ? 'vehicle' : 'person'][replyId];
+  if (u) {
+    const lead = correction ? T('Parandus! {callsign}, {x}', 'Correction! {callsign}, {x}') : T('{callsign}, {x}', '{callsign}, {x}');
+    const tx = said
+      ? fillText(lead, { ...radioVars(s, u, inc), x: said })
+      : fillText(correction ? T('Parandus! {callsign}, {x}.', 'Correction! {callsign}, {x}.') : T('{callsign}, {x}.', '{callsign}, {x}.'), {
+          ...radioVars(s, u, inc),
+          x: lower(label ?? T(replyId, replyId)),
+        });
+    jkSay(s, tx, { unit: u, inc, kind: 'reply' });
+    unitPhrase(s, u, correction ? 'queryCorrected' : `reply_${replyId}`, inc);
+  }
+  if (label)
+    addTimeline(
+      s,
+      inc,
+      'radio',
+      fillText(correction ? T('JK parandas päringu vastust: {x}', 'Control corrected the check: {x}') : T('JK vastus päringule: {x}', 'Control answered the check: {x}'), { x: label }),
+    );
+  const held = (id: string | undefined) => id === 'wanted' || id === 'stolen';
+  if (correction) {
+    // Undo what the first answer counted, then count this one.
+    if (was === true) s.stats.repliesCorrect--;
+    else if (was === false) s.stats.repliesWrong--;
+    if (was === true && held(truth)) inc.effects.arrests -= 1;
+    if (was === true) inc.effects.success -= 0.15;
+    else if (was === false) inc.effects.success += 0.2;
+    if (was === false && correct) {
+      b.corrected = true;
+      s.stats.repliesCorrected = (s.stats.repliesCorrected ?? 0) + 1;
+    } else b.corrected = undefined;
+  }
+  if (correct) {
+    inc.effects.success += 0.15;
+    s.stats.repliesCorrect++;
+    if (held(truth)) inc.effects.arrests += 1;
+    dropFallout(s, inc.id, b.index);
+    return;
+  }
+  inc.effects.success -= 0.2;
+  s.stats.repliesWrong++;
+  // The crew went in without knowing about the weapon.
+  if (truth === 'weapon' && !correction) inc.effects.risk += 0.06;
+  if (!subj) return;
+  // Tutorial: the crew always re-checks at once, so a new player learns what went wrong.
+  const checks = s.mode === 'tutorial' ? 1 : s.flags['upg:mdt'] === true ? 0.35 : 0.1;
+  const f = recordFallout(s, inc, b.index, subj, replyId, truth, u?.id, checks);
+  if (f && s.mode === 'tutorial' && f.catchAt !== undefined) f.catchAt = s.now;
+}
+
+/** Can JK still correct its answer to this query message? */
+export function canCorrectQuery(s: SimState, msg: RadioMsg): boolean {
+  if (msg.kind !== 'query' || !msg.answered || !msg.incidentId) return false;
+  const inc = s.incidents[msg.incidentId];
+  if (!inc || inc.state === 'closed') return false;
+  const b = inc.beats.find((x) => x.radioId === msg.id);
+  if (!b || b.status !== 'done' || b.answer === undefined || b.answeredAt === undefined) return false;
+  if (s.now - b.answeredAt > CORRECT_WINDOW_MS) return false;
+  const f = falloutOf(s, inc.id, b.index);
+  return !f || f.stage === 'hidden';
+}
+
+/** JK corrects its answer to a registry query on the radio ("Parandus!"). Returns true when it went out. */
+export function correctQuery(s: SimState, msg: RadioMsg, replyId: string): boolean {
+  if (!canCorrectQuery(s, msg)) return false;
+  const inc = s.incidents[msg.incidentId!];
+  const b = inc.beats.find((x) => x.radioId === msg.id)!;
+  const spec = tplOf(inc)?.beats?.[b.index];
+  if (!spec || spec.kind !== 'query' || replyId === b.answer) return false;
+  const label = msg.replies?.find((r) => r.id === replyId)?.label;
+  if (!label) return false;
+  msg.answered = replyId;
+  const u = (msg.unitId ? s.units[msg.unitId] : undefined) ?? speakerOf(s, inc);
+  answerQuery(s, inc, spec, b, u, replyId, label, true);
+  return true;
 }
 
 function lower(t: Text): Text {

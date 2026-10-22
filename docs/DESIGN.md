@@ -186,9 +186,20 @@ Each `BeatSpec` in a template becomes a `BeatState`. When it fires:
   `noinspection`, `suspended`, `ownerwanted`, `notfound`. The engine knows the truth from the
   generated record (most severe flag wins: wanted > restraining > stolen > nolicense…). The
   player looks it up in the Andmebaas (the radio message links straight to the record) and
-  answers. Correct → `success +0.15`; wrong → `success −0.2`, possibly `trust −5` (e.g. released
-  a wanted person). No answer within 6 game-min → officers check themselves slowly (`time +8`,
-  `success −0.05`) unless the MDT upgrade is owned.
+  answers. Correct → `success +0.15`; wrong → `success −0.2`. No answer within 6 game-min →
+  officers check themselves slowly (`time +8`, `success −0.05`) unless the MDT upgrade is owned.
+  The crew cannot see the registry and acts on the answer (2.25.0, `src/sim/fallout.ts`): an
+  innocent person called wanted is cuffed, a wanted one called clean is let go, and nobody says so
+  on the air. The truth comes out later through the channel it would in real life (the custody
+  suite at intake, a contested fine, the wanted person caught elsewhere, the victim calling again,
+  a follow-up audit), followed by a complaint to internal review for the accusations. Each costs
+  trust and shift score points (body cams halve a complaint's trust cost) and counts the wrong
+  answer in the incident's decision score (−7) from then on. A crew with terminals (MDT) sometimes
+  re-checks a heavy call and stops in time (−3, no complaint); in the tutorial it always does. JK
+  may correct its answer on the radio for 10 game-min while the incident is open ("Parandus!",
+  −2). At the end of the shift what was still to come out is settled into the report, and the
+  shift review counts every remaining wrong answer. The live statistics show answered checks
+  only, never right or wrong.
 * `choice`: radio message with option replies; `defaultOption` applied on timeout.
 * `backup` (legacy "Toetust vajab"): the incident card turns red, alarm sound, countdown
   (`timeoutMin`). Dispatching a unit matching `need` before timeout → `successEffects`; else

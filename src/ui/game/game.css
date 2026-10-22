@@ -1625,6 +1625,10 @@
   font-size: var(--fs-xs);
   color: var(--text-3);
   font-style: italic;
+  align-items: center;
+}
+.gm-replies--done .ui-btn {
+  font-style: normal;
 }
 
 /* Needs */
@@ -3135,12 +3139,14 @@ td.gm-table__task .muted {
 }
 .gm-toast--escalated,
 .gm-toast--missed,
-.gm-toast--pursuit {
+.gm-toast--pursuit,
+.gm-toast--complaint {
   border-left-color: var(--warn);
 }
 .gm-toast--escalated .gm-toast__icon,
 .gm-toast--missed .gm-toast__icon,
-.gm-toast--pursuit .gm-toast__icon {
+.gm-toast--pursuit .gm-toast__icon,
+.gm-toast--complaint .gm-toast__icon {
   background: color-mix(in srgb, var(--warn) 16%, transparent);
   color: var(--warn-ink);
 }
