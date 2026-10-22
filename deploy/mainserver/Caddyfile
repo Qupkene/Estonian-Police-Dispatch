@@ -12,6 +12,7 @@
 #   /mp/*     mänguserver politsei-mp 127.0.0.1:8790 (/mp/health ja WebSocket /mp/ws), maas olles 502
 #   /tiles/*  /srv/tiles failid, Range päringud (PMTiles)
 #   robots.txt, sitemap.xml, og-image.png, /icons/*, /screenshots/*: /app/www failid, puuduv annab 404
+#   /admin/*  admini paneel, /app/www/admin (oma leht, mitte mängu index.html), puuduv fail annab 404
 #   muu       /app/www, tundmatu tee annab /index.html
 
 {
@@ -126,6 +127,20 @@
 	handle @seo {
 		root * /app/www
 		header Cache-Control "public, max-age=3600"
+		file_server
+	}
+
+	# Admini paneel (docs/SERVER.md, Admin): oma leht /admin/index.html ja selle failid /admin/assets/.
+	# Andmed tulevad ainult /api/admin/* kaudu (admini konto ja parool). Otsingumootoritele keelatud,
+	# vahemällu ei jää midagi. /admin -> /admin/, tundmatu tee annab 404, mitte mängu.
+	redir /admin /admin/ 308
+	handle /admin/* {
+		root * /app/www
+		header Cache-Control "no-store"
+		header X-Robots-Tag "noindex, nofollow"
+		@assets path /admin/assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		# Kaust annab oma index.html, puuduv fail 404 (sirvimine on välja lülitatud).
 		file_server
 	}
 

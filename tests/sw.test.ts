@@ -171,6 +171,16 @@ describe('service worker: navigation fallbacks', () => {
     expect(await (await h.navigate('/')).text()).toBe('<p>uus</p>');
   });
 
+  it('leaves the admin panel, the API and the map file to the network', async () => {
+    for (const path of ['/admin', '/admin/', '/admin/assets/index-XYZ.js', '/api/me', '/tiles/estonia.pmtiles']) {
+      await expect(h.navigate(path), path).rejects.toThrow('not intercepted');
+      await expect(h.get(path), path).rejects.toThrow('not intercepted');
+    }
+    // A game page whose name only starts the same way is still the game's.
+    h.server.set(`${ORIGIN}/administraator`, () => net('leht'));
+    expect(await (await h.navigate('/administraator')).text()).toBe('leht');
+  });
+
   it('keeps the cached favicon when the server answers 5xx', async () => {
     h.server.set(`${ORIGIN}/favicon.svg`, () => net('down', 502));
     expect(await (await h.get('/favicon.svg')).text()).toBe('file favicon.svg');

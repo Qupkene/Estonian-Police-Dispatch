@@ -67,12 +67,15 @@ function epd_has_session_cookie(): bool
     return is_string($_COOKIE[EPD_SESSION_NAME] ?? null) && $_COOKIE[EPD_SESSION_NAME] !== '';
 }
 
-/** Log $userId in: new session id (no fixation), then release the session lock. */
-function epd_session_login(int $userId): void
+/**
+ * Log $userId in: new session id (no fixation), then release the session lock. `$gen` is the account's session
+ * generation (users.sess_gen): a session of an older generation is over (a password reset, "log out everywhere").
+ */
+function epd_session_login(int $userId, int $gen = 0): void
 {
     epd_session_open();
     session_regenerate_id(true);
-    $_SESSION = ['uid' => $userId, 'seen' => time()];
+    $_SESSION = ['uid' => $userId, 'seen' => time()] + ($gen > 0 ? ['gen' => $gen] : []);
     session_write_close();
 }
 
@@ -107,7 +110,9 @@ function epd_current_user(): ?array
         return null;
     }
     $user = epd_find_user_by_id(epd_db(), $uid);
-    if ($user === null) {
+    // A deleted or blocked account, or a session from before a password reset or "log out everywhere" (admin.php).
+    $gen = $_SESSION['gen'] ?? 0;
+    if ($user === null || (int) ($user['disabled'] ?? 0) === 1 || !is_int($gen) || $gen !== (int) ($user['sess_gen'] ?? 0)) {
         epd_session_destroy();
         return null;
     }
@@ -325,7 +330,11 @@ function epd_rate_event(PDO $db, string $bucket, string $ip): void
 function epd_route_me(): ApiReply
 {
     $user = epd_current_user();
-    return epd_reply(['user' => $user === null ? null : epd_public_user($user)]);
+    if ($user === null) {
+        return epd_reply(['user' => null]);
+    }
+    // An admin's game shows the way to the admin panel (/admin/); nobody else sees the key.
+    return epd_reply(['user' => epd_public_user($user) + (($user['role'] ?? '') === 'admin' ? ['admin' => true] : [])]);
 }
 
 function epd_route_register(): ApiReply
@@ -381,9 +390,13 @@ function epd_route_login(): ApiReply
     }
 
     epd_rate_clear($db, $ip, $nameKey);
+    // A blocked account (admin.php) learns so only with the right password.
+    if ((int) ($user['disabled'] ?? 0) === 1) {
+        epd_fail(403, 'account_disabled', 'See konto on blokeeritud.');
+    }
     $db->prepare('UPDATE users SET last_login = ? WHERE id = ?')->execute([epd_now_ms(), $user['id']]);
-    epd_session_login((int) $user['id']);
-    return epd_reply(['user' => epd_public_user($user)]);
+    epd_session_login((int) $user['id'], (int) ($user['sess_gen'] ?? 0));
+    return epd_reply(['user' => epd_public_user($user) + (($user['role'] ?? '') === 'admin' ? ['admin' => true] : [])]);
 }
 
 function epd_route_logout(): ApiReply

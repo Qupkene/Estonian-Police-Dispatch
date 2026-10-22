@@ -98,6 +98,11 @@ export function AccountChip() {
             <span className="vk-acct__state">{status}</span>
             {lost && <span className="vk-acct__lost">{t('account.lost')}</span>}
           </div>
+          {user?.admin && (
+            <a role="menuitem" className="vk-acct__item" href="/admin/">
+              {t('account.chip.admin')}
+            </a>
+          )}
           <button type="button" role="menuitem" className="vk-acct__item" onClick={signOut}>
             {lost ? t('account.chip.relogin') : t('account.logout')}
           </button>

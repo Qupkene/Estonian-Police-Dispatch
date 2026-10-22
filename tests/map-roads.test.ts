@@ -776,6 +776,6 @@ describe('owner rules for the road layer files', () => {
     expect(tiles).toMatch(/header @kaardiandmed Content-Type "application\/octet-stream"/);
     expect(tiles).toMatch(/precompressed gzip/);
     const sw = readFileSync(join(ROOT, 'public/sw.js'), 'utf8');
-    expect(sw).toMatch(/BYPASS_PREFIXES = \[`\$\{BASE\}api\/`, `\$\{BASE\}tiles\/`\]/);
+    expect(sw).toMatch(/BYPASS_PREFIXES = \[`\$\{BASE\}api\/`, `\$\{BASE\}tiles\/`[,\]]/);
   });
 });

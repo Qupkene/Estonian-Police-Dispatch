@@ -403,6 +403,42 @@ kohe pärast uuendust. Uuendus teatab muutunud `compose.yml`-ist; paigaldaja võ
 millal sobib. Eemaldamine: `deploy/relee/eemalda-tts.sh` releel samamoodi (heredoc ja
 `sudo bash`).
 
+## Admini paneel
+
+Aadress `https://politsei.eu/admin/`. Seal saab kontosid luua, ümber nimetada, blokeerida ja kustutada,
+paroole vahetada, kõikjalt välja logida, edetabeli ja päeva väljakutse tulemusi lisada, muuta ja
+kustutada, pilvesalvestusi vaadata ja muuta, ruume sulgeda, logi lugeda ja varukoopiat teha. Kõik on
+kirjas failis `docs/SERVER.md`, punkt 4.2.
+
+Esimene admin tehakse serveris, veebist seda õigust anda ei saa. Konto peab enne olemas olema
+(registreeri mängus). Pärast seda saab admin paneelis ka teisi adminiks teha.
+
+MainServer PuTTY aken. Plokk 1 üksinda (küsib sudo parooli):
+
+```
+sudo -v
+```
+
+Plokk 2 üksinda. Näitab praegused adminid ja küsib kasutajanime: kirjuta oma mängu kasutajanimi ja
+vajuta Enter.
+
+```
+sudo docker exec -it politsei php /app/server/bin/admin.php
+```
+
+Ootus: `... on nüüd admin.` Siis ava `https://politsei.eu/admin/` ja logi sisse sama konto ja
+parooliga. Paneel on avatud kaks tundi, siis küsib parooli uuesti.
+
+Kui oma parool on ununenud, teeb see plokk (üksinda, küsib kasutajanime) uue parooli ja näitab selle
+üks kord:
+
+```
+read -r -p 'Kasutajanimi: ' NIMI && sudo docker exec politsei php /app/server/bin/admin.php parool "$NIMI"
+```
+
+Teised käsud: `... admin.php nimekiri` (adminid) ja `... admin.php eemalda` koos kasutajanimega
+(võtab admini õigused ära).
+
 ## Logid
 
 MainServer PuTTY aken. Plokk 1 üksinda (küsib sudo parooli):

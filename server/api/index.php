@@ -16,6 +16,7 @@ require_once dirname(__DIR__) . '/lib/daily.php';
 require_once dirname(__DIR__) . '/lib/rooms.php';
 require_once dirname(__DIR__) . '/lib/hook.php';
 require_once dirname(__DIR__) . '/lib/tts.php';
+require_once dirname(__DIR__) . '/lib/admin.php';
 
 /**
  * Method, path pattern and handler. Capture groups become handler arguments.
@@ -55,6 +56,38 @@ function epd_routes(): array
         ['GET', '#^/api/rooms/([A-Za-z0-9]{6})/log$#', epd_route_coop_log(...)],
         ['PUT', '#^/api/rooms/([A-Za-z0-9]{6})/snapshot$#', epd_route_coop_snapshot_put(...)],
         ['GET', '#^/api/rooms/([A-Za-z0-9]{6})/snapshot$#', epd_route_coop_snapshot_get(...)],
+        // Admin panel (server/lib/admin.php): admins only, unlocked with the password again.
+        ['GET', '#^/api/admin/me$#', epd_route_admin_me(...)],
+        ['POST', '#^/api/admin/unlock$#', epd_route_admin_unlock(...)],
+        ['POST', '#^/api/admin/lock$#', epd_route_admin_lock(...)],
+        ['GET', '#^/api/admin/stats$#', epd_route_admin_stats(...)],
+        ['GET', '#^/api/admin/users$#', epd_route_admin_users(...)],
+        ['POST', '#^/api/admin/users$#', epd_route_admin_user_create(...)],
+        ['GET', '#^/api/admin/users/([0-9]{1,12})$#', epd_route_admin_user_get(...)],
+        ['PATCH', '#^/api/admin/users/([0-9]{1,12})$#', epd_route_admin_user_patch(...)],
+        ['DELETE', '#^/api/admin/users/([0-9]{1,12})$#', epd_route_admin_user_delete(...)],
+        ['POST', '#^/api/admin/users/([0-9]{1,12})/password$#', epd_route_admin_user_password(...)],
+        ['POST', '#^/api/admin/users/([0-9]{1,12})/logout$#', epd_route_admin_user_logout(...)],
+        ['POST', '#^/api/admin/users/([0-9]{1,12})/unlimit$#', epd_route_admin_user_unlimit(...)],
+        ['GET', '#^/api/admin/users/([0-9]{1,12})/saves/([A-Za-z0-9_-]{1,32})$#', epd_route_admin_save_get(...)],
+        ['PUT', '#^/api/admin/users/([0-9]{1,12})/saves/([A-Za-z0-9_-]{1,32})$#', epd_route_admin_save_put(...)],
+        ['DELETE', '#^/api/admin/users/([0-9]{1,12})/saves/([A-Za-z0-9_-]{1,32})$#', epd_route_admin_save_delete(...)],
+        ['GET', '#^/api/admin/scores$#', epd_route_admin_scores(...)],
+        ['POST', '#^/api/admin/scores$#', epd_route_admin_score_create(...)],
+        ['PATCH', '#^/api/admin/scores/([0-9]{1,12})$#', epd_route_admin_score_patch(...)],
+        ['DELETE', '#^/api/admin/scores/([0-9]{1,12})$#', epd_route_admin_score_delete(...)],
+        ['GET', '#^/api/admin/daily$#', epd_route_admin_daily(...)],
+        ['POST', '#^/api/admin/daily$#', epd_route_admin_daily_create(...)],
+        ['PATCH', '#^/api/admin/daily/([0-9]{1,12})$#', epd_route_admin_daily_patch(...)],
+        ['DELETE', '#^/api/admin/daily/([0-9]{1,12})$#', epd_route_admin_daily_delete(...)],
+        ['GET', '#^/api/admin/rooms$#', epd_route_admin_rooms(...)],
+        ['GET', '#^/api/admin/rooms/([A-Za-z0-9]{6})$#', epd_route_admin_room_get(...)],
+        ['DELETE', '#^/api/admin/rooms/([A-Za-z0-9]{6})$#', epd_route_admin_room_delete(...)],
+        ['POST', '#^/api/admin/rooms/([A-Za-z0-9]{6})/close$#', epd_route_admin_room_close(...)],
+        ['DELETE', '#^/api/admin/rooms/([A-Za-z0-9]{6})/results/([0-9]{1,12})$#', epd_route_admin_room_result_delete(...)],
+        ['GET', '#^/api/admin/log$#', epd_route_admin_log(...)],
+        ['GET', '#^/api/admin/backups$#', epd_route_admin_backups(...)],
+        ['POST', '#^/api/admin/backups$#', epd_route_admin_backup_create(...)],
         ['POST', '#^/api/deploy-hook$#', epd_route_deploy_hook(...)],
         ['POST', '#^/api/tts$#', epd_route_tts(...)],
     ];

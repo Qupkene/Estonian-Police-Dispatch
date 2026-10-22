@@ -2,6 +2,25 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.28.0 (2026-10-22)
+
+- **Admini paneel aadressil politsei.eu/admin:** omanik saab hallata kõike ühest kohast, ka telefonis.
+  - **Kontod:** otsi, sorteeri, loo uus konto (parooli võib server ise teha), nimeta ümber, blokeeri ja luba, tee adminiks, kustuta.
+  - **Paroolid:** määra uus parool või lase serveril teha tugev parool, mida näidatakse üks kord. Konto kõik seansid lõpevad. Saab ka lihtsalt kõikjalt välja logida ja sisselogimise piirangu tühistada.
+  - **Tulemused:** edetabeli ja päeva väljakutse tulemusi saab lisada, muuta ja kustutada, nii kõigi kaupa kui ühe mängija lehel.
+  - **Salvestused:** mängija pilvesalvestust saab vaadata, muuta, alla laadida, failist üles laadida ja kustutada. Muudatus jõuab mängija seadmetesse järgmisel sünkroonimisel.
+  - **Ruumid:** mitmikmängu ruumide mängijad ja tulemused, ruumi sulgemine ja kustutamine.
+  - **Ülevaade, logi ja varukoopiad:** kontode ja tulemuste arv, viimase 30 päeva graafik, parimad mängijad. Iga admini muudatus jääb logisse (kes, millal, mida, IP). Andmebaasist saab teha kontrollitud varukoopia.
+- **Turvalisus:** paneel avaneb ainult admini kontoga ja küsib parooli uuesti (kaheks tunniks). Esimene admin tehakse serveris käsuga, veebist seda õigust anda ei saa. Admin ei saa ennast kogemata välja lukustada.
+- Blokeeritud konto ei saa sisse logida. Admini mängumenüüs (konto nupu all) on link „Admini paneel“.
+
+<details>
+<summary>English</summary>
+
+An admin panel at politsei.eu/admin/ (its own page and bundle, `src/admin/`, built by `vite.admin.config.ts`): accounts (search, sort, create with a given or generated password, rename, block, make admin, delete), password resets and "log out everywhere" (a session generation, `users.sess_gen`, ends every older session), lifting the login limit, leaderboard and daily results (add, edit, delete), cloud saves (read, edit, download, upload, delete, as a new version the devices pick up), rooms (players, results, close, delete), statistics with a 30-day chart, an audit log of every admin write and a checked database backup. Access needs an account with the admin role (schema step 10: `users.role`, `users.disabled`, `users.sess_gen`, table `admin_log`) and the password again, good for two hours per session. The first admin is made on the server (`server/bin/admin.php`); admins cannot delete, block or demote themselves. A blocked account's login answers 403 `account_disabled`. The service worker leaves /admin/ alone, robots.txt and the Caddyfile keep it out of search engines.
+
+</details>
+
 ## 2.27.0 (2026-10-22)
 
 - **Mitmikmängu kohandatud koosseis parandatud:** enne valis ainult ruumi looja ekipaažid ja kõik juurde lisatud ekipaažid läksid esimese laua baasi, nii et teised said vaevu ühe üksuse. Nüüd:

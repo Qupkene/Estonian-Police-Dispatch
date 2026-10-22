@@ -7,10 +7,12 @@
  *                            network fails or the server answers 5xx (the relay's "server unavailable" page)
  *   /assets/*, /glyphs/*      cache-first (Vite asset names are content-hashed)
  *   other same-origin GETs   network-first with a cached fallback (favicon, manifest, legacy pages)
- *   everything else          not intercepted (non-GET, other hosts, range requests, /api/*, /tiles/*)
+ *   everything else          not intercepted (non-GET, other hosts, range requests, /api/*, /tiles/*,
+ *                            /admin and /admin/*)
  *
  * /api/* carries per-user data and must never land in a cache. /tiles/estonia.pmtiles is read with
- * HTTP range requests straight from the server.
+ * HTTP range requests straight from the server. The admin panel (/admin/) is its own page: never the
+ * game's cached index in its place, and nothing of it in the game's caches.
  *
  * VERSION and PRECACHE are stamped by the build (vite.config.ts, plugin "epd-sw-manifest"): VERSION is
  * the package version plus a hash of the build, PRECACHE lists every chunk, stylesheet, the MapLibre
@@ -37,7 +39,10 @@ const BASE = SCOPE_URL.pathname; // '/' on politsei.eu, '/<repo>/' on a project 
 const INDEX_URL = SCOPE_URL.href;
 const STATIC_PREFIXES = [`${BASE}assets/`, `${BASE}glyphs/`];
 const SHELL_EXTRAS = ['favicon.svg', 'manifest.webmanifest'].map((p) => new URL(p, SCOPE_URL).href);
-const BYPASS_PREFIXES = [`${BASE}api/`, `${BASE}tiles/`];
+const BYPASS_PREFIXES = [`${BASE}api/`, `${BASE}tiles/`, `${BASE}admin/`];
+const isBypassed = (url) =>
+  url.origin === self.location.origin &&
+  (url.pathname === `${BASE}admin` || BYPASS_PREFIXES.some((p) => url.pathname.startsWith(p)));
 
 const isStatic = (url) =>
   url.origin === self.location.origin && STATIC_PREFIXES.some((p) => url.pathname.startsWith(p));
@@ -146,7 +151,7 @@ self.addEventListener('fetch', (event) => {
   if (request.headers.has('range')) return;
 
   const url = new URL(request.url);
-  if (url.origin === self.location.origin && BYPASS_PREFIXES.some((p) => url.pathname.startsWith(p))) return;
+  if (isBypassed(url)) return;
 
   if (request.mode === 'navigate') {
     if (url.origin === self.location.origin) event.respondWith(handleNavigation(event, url));

@@ -258,6 +258,25 @@ function epd_migrations(): array
         9 => [
             "ALTER TABLE room_players ADD COLUMN custom TEXT NOT NULL DEFAULT ''",
         ],
+        // Admin (admin.php, docs/SERVER.md "Admin"): a user's role ('admin' or ''), a blocked account, and a session
+        // generation (a password reset or "log out everywhere" bumps it, which ends every older session); the log of
+        // what the admins did (no foreign keys: it outlives the accounts it names).
+        10 => [
+            "ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT ''",
+            'ALTER TABLE users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0',
+            'ALTER TABLE users ADD COLUMN sess_gen INTEGER NOT NULL DEFAULT 0',
+            "CREATE TABLE admin_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                at INTEGER NOT NULL,
+                admin_id INTEGER,
+                admin_name TEXT NOT NULL DEFAULT '',
+                action TEXT NOT NULL,
+                target TEXT NOT NULL DEFAULT '',
+                detail TEXT NOT NULL DEFAULT '',
+                ip TEXT NOT NULL DEFAULT ''
+            )",
+            'CREATE INDEX admin_log_at ON admin_log (at)',
+        ],
     ];
 }
 

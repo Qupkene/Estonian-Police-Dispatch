@@ -136,6 +136,20 @@ describe('account deletion dialog', () => {
   });
 });
 
+describe('account menu', () => {
+  it("shows an admin the way to the admin panel, and nobody else", () => {
+    useAccount.setState({ user: { id: 7, name: 'Mari', created: 1 } });
+    const { unmount } = render(createElement(AccountChip));
+    fireEvent.click(document.querySelector('.sh-acct__btn') as HTMLElement);
+    expect(screen.queryByRole('menuitem', { name: 'Admini paneel' })).toBeNull();
+    unmount();
+    useAccount.setState({ user: { id: 1, name: 'Juhan', created: 1, admin: true } });
+    render(createElement(AccountChip));
+    fireEvent.click(document.querySelector('.sh-acct__btn') as HTMLElement);
+    expect(screen.getByRole('menuitem', { name: 'Admini paneel' }).getAttribute('href')).toBe('/admin/');
+  });
+});
+
 describe('signing out', () => {
   const realLogout = useAccount.getState().logout;
   afterEach(() => useAccount.setState({ logout: realLogout, cloud: 'off' }));

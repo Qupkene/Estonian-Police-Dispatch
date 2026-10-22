@@ -2,8 +2,9 @@
 # Mitteametlik ja tasuta fännimäng, ei ole PPA toode. Unofficial free fan game, not a PPA product or affiliated with PPA.
 User-agent: *
 Allow: /
-# API vastused on kasutajapõhised, kaardifail on suur binaarfail (Range päringud).
+# API vastused on kasutajapõhised, kaardifail on suur binaarfail (Range päringud), admini paneel pole avalik.
 Disallow: /api/
 Disallow: /tiles/
+Disallow: /admin/
 
 Sitemap: https://politsei.eu/sitemap.xml

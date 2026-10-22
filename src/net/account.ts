@@ -68,6 +68,8 @@ export interface AccountUser {
   name: string;
   /** Unix ms (or whatever the server sent). */
   created: number;
+  /** An admin's account: the menu shows the way to the admin panel (/admin/). */
+  admin?: boolean;
 }
 
 export type Backend = 'unknown' | 'online' | 'offline';
