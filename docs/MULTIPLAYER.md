@@ -518,3 +518,22 @@ clients, but they are now built from the server's exact final state.
 - The shift moves on the client in 20 steps a second (the same as lockstep's pieces); a lost or slow connection
   shows as a pause, not as a different state.
 
+
+## 10. A custom force (2.26.0)
+
+The host may replace the prefecture's roster with a force they drafted (`src/sim/custom.ts`, the same draft as the
+single-player "Kohandatud mäng"): in the lobby's options "Koosseis: Tavaline / Kohandatud" opens the editor with the
+room's area (a sector room: its desks). The crews are unit types at stations of the area, staffed with officers from
+the prefecture's draft pool (the same 60 officers on every machine) or automatically, within the area's budget if the
+host keeps it on.
+
+- The options carry it compactly: `custom: { crews: [[type, station, poolIndex...]...], budget? }` (validated by
+  `epd_room_custom`, stored in `rooms.custom`, docs/SERVER.md).
+- `roomShiftOptions` passes it to `createShift` as `NewShiftOptions.custom`; `expandCustom` builds the roster the same
+  way for every player, the lockstep host and the game server (`parseCustom` cleans it first, so a stale station or a
+  pool index of another version is dropped the same way everywhere).
+- Every mode takes it: in a race every player commands the same drafted force; in co-op the crews go to the desks and
+  roles as any roster's do. Changing the prefecture drops the custom force; changing the area moves crews of a station
+  that is no longer in it to one that is (`adaptSetup`).
+- A custom game is never ranked (`flags.custom`, `ShiftReport.custom`, `unrankedReason` 'custom'); room results stay
+  in the room as always.

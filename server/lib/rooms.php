@@ -30,6 +30,11 @@ const EPD_ROOM_OPEN_MODES = ['race', 'role', 'sector'];
 const EPD_ROOM_DESKS_MIN = 2;
 const EPD_ROOM_DESKS_MAX = 4;
 const EPD_ROOM_HOURS = [2, 3, 4, 6];
+/** A custom force (src/sim/custom.ts): unit types, at most this many crews, officers per crew and the pool size. */
+const EPD_ROOM_CUSTOM_TYPES = ['patrol', 'rapid', 'traffic', 'k9', 'criminal', 'community', 'aux', 'transport', 'border', 'boat', 'special', 'heli'];
+const EPD_ROOM_CUSTOM_CREWS = 40;
+const EPD_ROOM_CUSTOM_OFFICERS = 6;
+const EPD_ROOM_CUSTOM_POOL = 60;
 const EPD_ROOM_SLOTS = ['morning', 'afternoon', 'evening', 'night'];
 /** A player counts as online when their last poll is this recent (ms). */
 const EPD_ROOM_ONLINE_MS = 20 * 1000;
@@ -126,7 +131,70 @@ function epd_room_options(array $body, string $mode = 'race'): array
         $desks = implode(',', $list);
         $sector = $list[0];
     }
-    return ['region_id' => $region, 'sector' => $sector, 'difficulty' => $difficulty, 'hours' => $hours, 'slot' => $slot, 'desks' => $desks];
+    $custom = epd_room_custom($body['custom'] ?? null, $region);
+    return ['region_id' => $region, 'sector' => $sector, 'difficulty' => $difficulty, 'hours' => $hours, 'slot' => $slot, 'desks' => $desks, 'custom' => $custom];
+}
+
+/**
+ * A room's custom force as stored ('' for none): `{crews: [[type, station, officer...]...], budget?: true}`. The shape
+ * is checked here (known types, a station id of the prefecture, distinct pool indices, the size caps); the clients
+ * and the game server clean it the same way when they build the shift (src/sim/custom.ts parseCustom).
+ */
+function epd_room_custom(mixed $v, string $region): string
+{
+    if ($v === null) {
+        return '';
+    }
+    if (!is_array($v) || !isset($v['crews']) || !is_array($v['crews']) || !array_is_list($v['crews']) || count($v['crews']) > EPD_ROOM_CUSTOM_CREWS) {
+        epd_room_invalid('custom');
+    }
+    $crews = [];
+    $taken = [];
+    foreach ($v['crews'] as $c) {
+        if (!is_array($c) || !array_is_list($c) || count($c) < 2 || count($c) > 2 + EPD_ROOM_CUSTOM_OFFICERS) {
+            epd_room_invalid('custom');
+        }
+        [$type, $station] = $c;
+        if (!is_string($type) || !in_array($type, EPD_ROOM_CUSTOM_TYPES, true)) {
+            epd_room_invalid('custom');
+        }
+        if (!is_string($station) || preg_match('/^' . $region . '-[a-z0-9][a-z0-9-]{0,40}$/', $station) !== 1) {
+            epd_room_invalid('custom');
+        }
+        $row = [$type, $station];
+        foreach (array_slice($c, 2) as $i) {
+            if (!is_int($i) || $i < 0 || $i >= EPD_ROOM_CUSTOM_POOL || isset($taken[$i])) {
+                epd_room_invalid('custom');
+            }
+            $taken[$i] = true;
+            $row[] = $i;
+        }
+        $crews[] = $row;
+    }
+    if (!$crews) {
+        return '';
+    }
+    $out = ['crews' => $crews];
+    if (($v['budget'] ?? false) === true) {
+        $out['budget'] = true;
+    }
+    return json_encode($out, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+}
+
+/**
+ * The stored custom force as the API's JSON shape: ['custom' => [...]] or [] when the room has none.
+ *
+ * @param array<string, mixed> $room
+ * @return array<string, mixed>
+ */
+function epd_room_custom_out(array $room): array
+{
+    $raw = (string) ($room['custom'] ?? '');
+    if ($raw === '') {
+        return [];
+    }
+    $v = json_decode($raw, true);
+    return is_array($v) ? ['custom' => $v] : [];
 }
 
 /**
@@ -338,7 +406,7 @@ function epd_room_public(PDO $db, array $room, int $userId, int $now): array
             'difficulty' => (string) $room['difficulty'],
             'hours' => (int) $room['hours'],
             'slot' => (string) $room['slot'],
-        ] + ((string) $room['mode'] === 'sector' ? ['desks' => epd_room_desks($room)] : []),
+        ] + ((string) $room['mode'] === 'sector' ? ['desks' => epd_room_desks($room)] : []) + epd_room_custom_out($room),
         // The seed and the day only once the shift is on: nobody can play it before the others.
         'seed' => $running ? (int) $room['seed'] : null,
         'day' => $running ? (string) $room['day'] : null,
@@ -533,14 +601,14 @@ function epd_route_room_create(): ApiReply
         epd_rate_event($db, 'room_create', $ip);
         epd_rooms_sweep($db, $now);
         $insert = $db->prepare(
-            'INSERT INTO rooms (code, mode, host_id, region_id, sector, desks, difficulty, hours, slot, seed, day, state, rev, created, updated)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'lobby\', 1, ?, ?)'
+            'INSERT INTO rooms (code, mode, host_id, region_id, sector, desks, custom, difficulty, hours, slot, seed, day, state, rev, created, updated)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'lobby\', 1, ?, ?)'
         );
         for ($try = 0; ; $try++) {
             $code = epd_room_new_code();
             try {
                 $insert->execute([
-                    $code, $mode, $userId, $opts['region_id'], $opts['sector'], $opts['desks'], $opts['difficulty'], $opts['hours'],
+                    $code, $mode, $userId, $opts['region_id'], $opts['sector'], $opts['desks'], $opts['custom'], $opts['difficulty'], $opts['hours'],
                     $opts['slot'], random_int(1, 2147483646), epd_daily_date($now), $now, $now,
                 ]);
                 break;

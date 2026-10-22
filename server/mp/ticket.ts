@@ -85,7 +85,7 @@ function parseRoom(v: unknown): TicketRoom | null {
 
 /** The ticket if its signature holds and it has not expired, else null. */
 export function verifyTicket(token: unknown, secret: string | null, now = Date.now()): Ticket | null {
-  if (!secret || typeof token !== 'string' || token.length > 8192) return null;
+  if (!secret || typeof token !== 'string' || token.length > 16000) return null;
   const dot = token.indexOf('.');
   if (dot <= 0) return null;
   const body = token.slice(0, dot);

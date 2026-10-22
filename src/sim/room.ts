@@ -7,6 +7,7 @@
  * A room run is an ordinary free shift whose `flags.room` holds the room code; the report posts it to
  * /api/rooms/{code}/result instead of /api/score. Pure functions: no store, no network.
  */
+import type { CustomSetup } from './custom';
 import { parseDate, SLOT_HOURS, type DailySlot } from './daily';
 import { Rng } from './rng';
 import { tallinnTime } from './time';
@@ -36,6 +37,8 @@ export interface RoomOptions {
   difficulty: Difficulty;
   hours: number;
   slot: RoomSlot;
+  /** A custom force (src/sim/custom.ts) the host drafted. Missing: the prefecture's own roster. */
+  custom?: CustomSetup;
 }
 
 export const DEFAULT_ROOM_OPTIONS: RoomOptions = {
@@ -78,6 +81,7 @@ export function roomShiftOptions(shift: RoomShift, playerName: string): NewShift
     playerName,
     // A sector room covers every desk; the others one sector or the whole prefecture.
     ...(roomDesks(shift).length ? { sectors: roomDesks(shift) } : o.sector ? { sectors: [o.sector] } : {}),
+    ...(o.custom?.crews.length ? { custom: o.custom } : {}),
     fixedSchedule: true,
   };
 }

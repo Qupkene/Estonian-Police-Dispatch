@@ -355,6 +355,12 @@ docs/MULTIPLAYER.md):
 - Time rules, applied on every read and write: a lobby nobody polled for 30 minutes becomes `closed`, a running
   room is `finished` 12 hours after its start. Rooms older than 30 days are deleted with their rows (swept on
   `POST /api/rooms`). Tables `rooms`, `room_players`, `room_results` (schema step 4).
+- Custom force (2.26.0, `src/sim/custom.ts`): the options may carry `custom: { crews: [[type, station, officer...]...],
+  budget?: true }`, at most 40 crews of the known unit types, a station id of the room's prefecture, at most 6 distinct
+  officer indices 0..59 (the prefecture's draft pool) per crew, each officer once (400 `invalid_room`, field `custom`).
+  Stored as compact JSON in `rooms.custom` (schema step 8, default `''` for the standard roster) and returned in
+  `options.custom` and in the game server's ticket. The clients and the game server clean it the same way when they
+  build the shift. The WebSocket frame limit of the game server is 16 KiB so the ticket of the largest force fits.
 - Room results never go to `/api/score`, `/api/daily` or their boards. Deleting an account removes its seats and
   results and passes on the host role (`epd_rooms_forget_user`, in the deletion's transaction).
 - The clock of the room rules is the daily challenge's: `X-EPD-Test-Now` works under `EPD_TEST_CLOCK=1` with

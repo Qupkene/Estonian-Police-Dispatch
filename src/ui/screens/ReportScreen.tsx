@@ -121,7 +121,16 @@ export function ReportScreen() {
   };
   const newShift = () => {
     quitShift();
-    setBriefing({ mode: report?.mode === 'tutorial' ? 'free' : (report?.mode ?? 'free') });
+    // A custom game goes back to its draft (the force is still in the briefing).
+    if (report?.custom) {
+      setScreen('custom');
+      return;
+    }
+    setBriefing({
+      mode: report?.mode === 'tutorial' ? 'free' : (report?.mode ?? 'free'),
+      custom: undefined,
+      sectors: undefined,
+    });
     setScreen(report?.mode === 'career' ? 'career' : 'briefing');
   };
 
@@ -650,7 +659,13 @@ function RankLine({ report }: { report: ShiftReport }) {
     <>
       {!ranked ? (
         <p className="vk-rep__line is-hint">
-          {t(unranked === 'empty' ? 'account.rep.empty' : 'account.rep.notRanked')}
+          {t(
+            unranked === 'empty'
+              ? 'account.rep.empty'
+              : unranked === 'custom'
+                ? 'account.rep.custom'
+                : 'account.rep.notRanked',
+          )}
         </p>
       ) : state.status === 'done' ? (
         <p className="vk-rep__line is-rank" data-testid="leaderboard-rank">

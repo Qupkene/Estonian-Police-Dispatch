@@ -114,7 +114,7 @@ function epd_mp_ticket_room(array $room, array $players, int $hostId): array
             'difficulty' => (string) $room['difficulty'],
             'hours' => (int) $room['hours'],
             'slot' => (string) $room['slot'],
-        ] + ((string) $room['mode'] === 'sector' ? ['desks' => epd_room_desks($room)] : []),
+        ] + ((string) $room['mode'] === 'sector' ? ['desks' => epd_room_desks($room)] : []) + epd_room_custom_out($room),
         'started' => (int) $room['started'],
         'setup' => [$hostSeat, $rows],
     ];

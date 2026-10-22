@@ -7,6 +7,7 @@ import { generatePerson } from '@/gen/person';
 import { generateVehicle } from '@/gen/vehicle';
 import { dayInfo } from './calendar';
 import { updateCalls } from './calls';
+import { expandCustom } from './custom';
 import { initColleagues, updateColleagues } from './colleagues';
 import { updateDesks } from './desks';
 import { settleFallout, updateFallout } from './fallout';
@@ -147,6 +148,11 @@ export function createShift(opts: NewShiftOptions): SimState {
 
   if (opts.reputation !== undefined) s.trust = Math.round(Math.max(15, Math.min(90, 50 + (opts.reputation - 25) / 2)));
 
+  // Custom game: the drafted force is the roster (src/sim/custom.ts).
+  if (opts.custom) {
+    s.flags.custom = true;
+    opts = { ...opts, roster: expandCustom(opts.regionId, opts.custom, s.flags.shiftKind as 'day' | 'night') };
+  }
   buildUnits(s, rUnits, opts);
   // Career: call volume follows the force on duty (no rng use, so the other streams stay put).
   if (opts.mode === 'career') initCareerLoad(s);
@@ -603,6 +609,7 @@ function minimalReport(s: SimState): ShiftReport {
   }
   const score = Math.round(s.stats.score * earlyEndFactor(s).factor);
   return {
+    ...(s.flags.custom ? { custom: true } : {}),
     regionId: s.regionId,
     mode: s.mode,
     difficulty: s.difficulty,

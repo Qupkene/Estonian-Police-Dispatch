@@ -1,0 +1,311 @@
+/* Custom game (CustomEditor.tsx, CustomScreen.tsx) on the Valvekaart frame (vk.css): the crews and the draft pool side
+   by side on a wide screen, one above the other on a narrow one. */
+.vk-cu {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 16px;
+  align-items: start;
+}
+.vk-cu__presets {
+  display: flex;
+  gap: 14px;
+  margin-left: auto;
+  font-size: 12.5px;
+}
+.vk-cu__hint {
+  margin: 0;
+  padding: 0 14px 10px;
+  font-size: 12px;
+  color: var(--vk-text-3);
+  text-wrap: pretty;
+}
+.vk-cu__bad {
+  color: var(--vk-bad);
+  font-weight: 600;
+}
+
+/* Budget */
+.vk-cu__budget {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-bottom: 1px solid var(--vk-line-2);
+}
+.vk-cu__budgetHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+}
+.vk-cu__budgetN {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--vk-text-0);
+}
+.vk-cu__budgetN.is-bad {
+  color: var(--vk-bad);
+}
+.vk-cu__bar {
+  height: 6px;
+  margin: 0 14px;
+  border-radius: 3px;
+  background: var(--vk-raise);
+  overflow: hidden;
+}
+.vk-cu__bar span {
+  display: block;
+  height: 100%;
+  background: var(--vk-acc);
+}
+.vk-cu__bar span.is-bad {
+  background: var(--vk-bad);
+}
+
+/* Adding a crew */
+.vk-cu__add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--vk-line-2);
+}
+.vk-cu__add > :first-child {
+  flex: 1 1 180px;
+}
+
+/* The crews */
+.vk-cu__list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 14px 14px;
+  list-style: none;
+}
+.vk-cu__crew {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--vk-line);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.vk-cu__crew:hover {
+  border-color: var(--vk-text-3);
+}
+.vk-cu__crew.is-on {
+  border-color: var(--vk-acc);
+  background: var(--vk-panel-2);
+}
+.vk-cu__crewHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.vk-cu__crewHead > :nth-child(2) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.vk-cu__select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 130px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--vk-text-0);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.vk-cu__station {
+  font-size: 12.5px;
+  color: var(--vk-text-2);
+}
+.vk-cu__x {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--vk-text-3);
+  cursor: pointer;
+}
+.vk-cu__x:hover:not(:disabled) {
+  border-color: var(--vk-line);
+  color: var(--vk-bad);
+}
+.vk-cu__officers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+.vk-cu__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--vk-line);
+  border-radius: 12px;
+  background: var(--vk-raise);
+  color: var(--vk-text-0);
+}
+.vk-cu__chip.is-off {
+  border-color: var(--vk-amb);
+}
+.vk-cu__chip .vk-mono {
+  color: var(--vk-text-2);
+}
+.vk-cu__chip button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--vk-text-3);
+  cursor: pointer;
+}
+.vk-cu__chip button:hover:not(:disabled) {
+  color: var(--vk-bad);
+}
+.vk-cu__slots {
+  margin-left: auto;
+  color: var(--vk-text-3);
+}
+
+/* The draft pool */
+.vk-cu__pool .vk-cu__hint {
+  padding-top: 10px;
+}
+.vk-cu__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px 10px;
+}
+.vk-cu__filters > :first-child {
+  flex: 1 1 180px;
+}
+.vk-cu__table tbody th {
+  height: auto;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: normal;
+  color: var(--vk-text-0);
+}
+.vk-cu__name {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+.vk-cu__rank {
+  display: block;
+  font-size: 11px;
+  color: var(--vk-text-3);
+}
+.vk-cu__table tr.is-taken {
+  opacity: 0.5;
+}
+.vk-cu__off {
+  color: var(--vk-amb);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.vk-cu__skill {
+  display: inline-block;
+  width: 42px;
+  height: 5px;
+  margin-right: 6px;
+  vertical-align: middle;
+  border-radius: 3px;
+  background: var(--vk-raise);
+  overflow: hidden;
+}
+.vk-cu__skill span {
+  display: block;
+  height: 100%;
+  background: var(--vk-ok);
+}
+.vk-cu__act {
+  text-align: right;
+  white-space: nowrap;
+}
+.vk-cu__act .vk-btn {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+.vk-cu__why {
+  font-size: 11.5px;
+}
+
+/* The custom game screen: the area above the editor */
+.vk-cu-page__area {
+  margin-bottom: 16px;
+}
+.vk-cu-page__areaBody {
+  display: grid;
+  gap: 12px;
+  padding: 12px 14px 4px;
+}
+.vk-cu-page__sectors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vk-cu-page__err {
+  margin: 0 0 12px;
+}
+
+@media (max-width: 899px) {
+  .vk-cu {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .vk-cu__select {
+    min-width: 0;
+  }
+  .vk-cu__x,
+  .vk-cu__act .vk-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .vk-cu__chip button {
+    width: 28px;
+    height: 28px;
+  }
+  /* The pool on a phone: the years column goes (it is in the sort), the rest fits 360 px. */
+  .vk-cu__table th:nth-child(3),
+  .vk-cu__table td:nth-child(3) {
+    display: none;
+  }
+}
+
+/* The lobby: the force choice and the editor in its dialog */
+.vk-mp__force {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.vk-mp__customEdit {
+  min-width: 0;
+}
+.vk-mp__customEdit .vk-panel {
+  box-shadow: none;
+}

@@ -1016,6 +1016,8 @@ export interface RosterUnit {
   stationId: string;
   vehicle: string;
   crew: Officer[];
+  /** With no crew: how many officers the sim staffs it with (default 2). */
+  crewN?: number;
   onCall?: boolean;
   zone?: string;
 }
@@ -1050,6 +1052,11 @@ export interface NewShiftOptions {
    * incident generation draw from their own stream, `SimState.spawnRng`.
    */
   fixedSchedule?: boolean;
+  /**
+   * Custom game (src/sim/custom.ts): the force the player drafted. It becomes the roster (`roster` is ignored) and
+   * the shift is marked `flags.custom` (never ranked).
+   */
+  custom?: import('./custom').CustomSetup;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1134,6 +1141,8 @@ export interface ShiftReport {
   coop?: import('./coop').CoopReport;
   /** What followed the wrong registry answers (src/sim/fallout.ts). Missing in older reports. */
   fallout?: FalloutLine[];
+  /** A custom game (src/sim/custom.ts): the player drafted the force, so it is never ranked. */
+  custom?: boolean;
 }
 
 /** One wrong registry answer in the shift report. */

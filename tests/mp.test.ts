@@ -312,6 +312,22 @@ describe('tickets and command shapes', () => {
     expect(verifyTicket(tk, null)).toBeNull();
   });
 
+  it('carries the largest custom force a room may have (src/sim/custom.ts)', () => {
+    const crews = Array.from({ length: 40 }, (_, i) => [
+      'community',
+      'louna-tartu-politseijaoskond',
+      ...(i < 10 ? [i * 6, i * 6 + 1, i * 6 + 2, i * 6 + 3, i * 6 + 4, i * 6 + 5] : []),
+    ]);
+    const big = {
+      ...payload,
+      room: { ...ROOM, options: { ...(ROOM.options as object), custom: { crews, budget: true } } },
+    };
+    const tk = signTicket(big, secret);
+    // The first WebSocket message ({t:'auth', ticket}) stays under the game server's 16 KiB frame limit.
+    expect(JSON.stringify({ t: 'auth', ticket: tk }).length).toBeLessThan(16384);
+    expect(verifyTicket(tk, secret)?.room.options).toMatchObject({ custom: { crews } });
+  });
+
   it('lets in the command shapes the PHP log takes, and nothing else', () => {
     expect(validCommand('send', ['i3', ['u1', 'u2']])).toEqual({ k: 'send', a: ['i3', ['u1', 'u2']] });
     expect(validCommand('close', ['i3', 'solved'])).not.toBeNull();

@@ -621,6 +621,7 @@ export function buildReport(s: SimState): ShiftReport {
     newspaper: buildNewspaper(s, incs, closed, { score, night, dayTags: extras.dayTags, end }),
     extras,
     ...(s.fallout?.length ? { fallout: falloutLines(s) } : {}),
+    ...(s.flags.custom ? { custom: true } : {}),
   };
   return report;
 }
