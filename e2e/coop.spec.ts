@@ -8,8 +8,9 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
  * between the seats. Both clients keep the same state digest; a click is answered within a fraction of a second; the
  * guest leaves and rejoins mid-shift; the host ends the shift for both and the two reports match, with per-seat
  * counters. Then both go back to the room, which opens for a second round with their desks; the host starts a new
- * shared shift, ends it at once (no incidents, no results) and ends the round in the room, so both are in the lobby
- * of the third. Without the game server the same test plays the lockstep fallback, and checks its resync instead.
+ * shared shift and ends it at once; the host goes back to the room while the guest sends nothing, the host ends the
+ * round there, and the guest's late report is turned away (round over) and leads into the lobby of the third round
+ * too. Without the game server the same test plays the lockstep fallback, and checks its resync instead.
  * MP_SHOTS=<dir> saves screenshots (lobby with modes and roles, call-taker and dispatcher views, the report).
  */
 
@@ -420,30 +421,40 @@ test.describe.serial('role co-op', () => {
     const c = await coopSim(host.page);
     expect(await coopSim(guest.page)).toMatchObject({ seed: c!.seed, start: c!.start });
     expect(c!.seed).not.toBe(a!.seed);
-    // The host ends it straight away: a shift without incidents goes on no board, so the round would wait for
-    // results that never come; the host ends the round in the room and both are in the lobby of the third.
+    // The host ends it straight away and goes back to the room; the guest stays on the end of the shift and sends
+    // nothing, so the round waits for the guest's result (whether the short shift had an incident or not, which
+    // depends on the round's seed). The host ends the round in the room and both are in the lobby of the third.
     await host.page.locator('.gm-top__menu').click();
     await host.page.getByRole('button', { name: 'Lõpeta vahetus kõigile' }).click();
     await host.page.getByRole('button', { name: 'Jah, lõpeta vahetus' }).click();
-    for (const p of [host.page, guest.page]) {
-      await p.getByRole('button', { name: 'Vaata vahetuse aruannet' }).click({ timeout: 20_000 });
-      await expect.poll(() => screen(p), { timeout: 20_000 }).toBe('report');
-      await expect(p.getByTestId('room-rank')).toContainText('Sündmusteta', { timeout: 15_000 });
-    }
-    for (const p of [guest.page, host.page]) {
-      await back(p);
-      await expect.poll(() => screen(p)).toBe('lobby');
-      await expect(p.getByTestId('room')).toHaveAttribute('data-state', 'running');
-    }
-    // Not back on the shift by itself: it is over for everybody.
-    await expect(guest.page.getByRole('button', { name: 'Liitu vahetusega' })).toBeVisible();
+    await host.page.getByRole('button', { name: 'Vaata vahetuse aruannet' }).click({ timeout: 20_000 });
+    await expect.poll(() => screen(host.page), { timeout: 20_000 }).toBe('report');
+    await expect(host.page.getByTestId('room-rank')).toBeVisible({ timeout: 15_000 });
+    await expect(guest.page.getByRole('button', { name: 'Vaata vahetuse aruannet' })).toBeVisible({
+      timeout: 20_000,
+    });
+    await back(host.page);
+    await expect.poll(() => screen(host.page)).toBe('lobby');
+    await expect(host.page.getByTestId('room')).toHaveAttribute('data-state', 'running');
     await host.page.getByRole('button', { name: 'Lõpeta voor' }).click();
     await host.page.getByRole('button', { name: 'Jah, lõpeta voor' }).click();
-    for (const p of [host.page, guest.page]) {
-      await expect(p.getByTestId('room')).toHaveAttribute('data-state', 'lobby', { timeout: 15_000 });
-      await expect(p.getByTestId('room-meta')).toContainText('3. voor');
-      expect(await screen(p)).toBe('lobby');
-    }
+    await expect(host.page.getByTestId('room')).toHaveAttribute('data-state', 'lobby', { timeout: 15_000 });
+    await expect(host.page.getByTestId('room-meta')).toContainText('3. voor');
+    // Not back on a shift by itself: the round is over for everybody.
+    expect(await screen(host.page)).toBe('lobby');
+    // The guest's report comes too late for the board: the round is over (or the shift had no incidents).
+    await guest.page.getByRole('button', { name: 'Vaata vahetuse aruannet' }).click();
+    await expect.poll(() => screen(guest.page), { timeout: 20_000 }).toBe('report');
+    await expect(guest.page.getByTestId('room-rank')).toContainText(/voor oli juba läbi|Sündmusteta/, {
+      timeout: 15_000,
+    });
+    await expect(guest.page.getByTestId('room-report-state')).toContainText('järgmiseks vooruks avatud', {
+      timeout: 15_000,
+    });
+    await back(guest.page);
+    await expect.poll(() => screen(guest.page)).toBe('lobby');
+    await expect(guest.page.getByTestId('room')).toHaveAttribute('data-state', 'lobby', { timeout: 15_000 });
+    await expect(guest.page.getByTestId('room-meta')).toContainText('3. voor');
 
     expect(host.errors, host.errors.join('\n')).toEqual([]);
     expect(guest.errors, guest.errors.join('\n')).toEqual([]);

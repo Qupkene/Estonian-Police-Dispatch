@@ -248,6 +248,10 @@ export default {
     et: 'Ruum on järgmiseks vooruks avatud. Uue vooru alustab {name}.',
     en: 'The room is open for the next round. {name} starts it.',
   },
+  'rooms.rep.openMine': {
+    et: 'Ruum on järgmiseks vooruks avatud. Uue vooru alustad sina.',
+    en: 'The room is open for the next round. You start it.',
+  },
   'rooms.rep.next': {
     et: 'Ruumis käib juba järgmine voor.',
     en: 'The next round is already on in the room.',

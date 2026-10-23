@@ -126,6 +126,8 @@ export function ReportScreen() {
   const [leftRoom, setLeftRoom] = useState(false);
   const roomLeft =
     leftRoom || (roomSend.state.status === 'error' && roomSend.state.key === 'rooms.err.left_room');
+  // The room was closed or is gone (the panel's poll says so): the way on is a new room there too.
+  const [roomShut, setRoomShut] = useState(false);
 
   const toMenu = () => quitShift();
   /** A room run goes back to its room (the lobby of the next round), never to a quick shift. */
@@ -133,7 +135,7 @@ export function ReportScreen() {
     quitShift();
     openLobby(code);
   };
-  const toRoom = () => toLobby(roomLeft ? null : roomCode);
+  const toRoom = () => toLobby(roomLeft || roomShut ? null : roomCode);
   const toCareer = () => {
     quitShift();
     setScreen('career');
@@ -261,7 +263,9 @@ export function ReportScreen() {
 
   // The page's main action: a new shift, or for a room run back to the room (a new room once the player left it).
   const go = roomCode ? toRoom : newShift;
-  const goText = roomCode ? t(roomLeft ? 'rooms.new' : 'rooms.rep.toRoom') : t('shell.rep.newShift');
+  const goText = roomCode
+    ? t(roomLeft || roomShut ? 'rooms.new' : 'rooms.rep.toRoom')
+    : t('shell.rep.newShift');
 
   const rows: { label: string; value: ReactNode; note?: ReactNode; tone?: 'warn' | 'bad' }[] = [
     {
@@ -380,6 +384,7 @@ export function ReportScreen() {
               seed={roomSeed}
               send={roomSend}
               left={roomLeft}
+              onShut={setRoomShut}
               onLeft={() => setLeftRoom(true)}
               onBack={toLobby}
             />
@@ -967,6 +972,7 @@ function RoomReportBoard({
   send,
   left,
   onLeft,
+  onShut,
   onBack,
 }: {
   code: string;
@@ -974,6 +980,8 @@ function RoomReportBoard({
   send: ReturnType<typeof useRoomSubmit>;
   left: boolean;
   onLeft: () => void;
+  /** The room was closed or is gone: the page's main action is a new room too. */
+  onShut: (shut: boolean) => void;
   /** Into the room's lobby (the next round), or with null to the multiplayer screen (a new room). */
   onBack: (code: string | null) => void;
 }) {
@@ -984,21 +992,26 @@ function RoomReportBoard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const round = room ? roundOfShift(room, seed) : null;
-  const hostName = room?.players.find((p) => p.host)?.name ?? '';
-  const status = !room
-    ? null
-    : left
-      ? t(send.state.status === 'done' ? 'rooms.rep.left' : 'rooms.run.left')
-      : gone
-        ? t('rooms.gone')
+  const roomHost = room?.players.find((p) => p.host);
+  // A player who left before the result went in has no room in hand (nothing is polled): the panel says so.
+  const status = left
+    ? t(send.state.status === 'done' ? 'rooms.rep.left' : 'rooms.run.left')
+    : gone
+      ? t('rooms.gone')
+      : !room
+        ? null
         : room.state === 'closed'
           ? t('rooms.rep.closed')
           : room.state === 'lobby'
-            ? t('rooms.rep.open', { name: hostName })
+            ? roomHost && roomHost.id === room.me
+              ? t('rooms.rep.openMine')
+              : t('rooms.rep.open', { name: roomHost?.name ?? '' })
             : round?.current
               ? t(room.state === 'running' ? 'rooms.rep.wait' : 'rooms.rep.over')
               : t(room.state === 'running' ? 'rooms.rep.next' : 'rooms.rep.over');
   const open = !left && !gone && room?.state !== 'closed';
+  const shut = gone || room?.state === 'closed';
+  useEffect(() => onShut(shut), [shut]);
   const leave = async () => {
     setBusy(true);
     setError(null);
@@ -1028,9 +1041,11 @@ function RoomReportBoard({
         )}
       </div>
       {!room ? (
-        <p className="vk-mp__state" role="status">
-          <Spinner size={14} /> {t('rooms.rep.sending')}
-        </p>
+        left || gone ? null : (
+          <p className="vk-mp__state" role="status">
+            <Spinner size={14} /> {t('rooms.rep.sending')}
+          </p>
+        )
       ) : round?.current ? (
         <RoomBoard room={room} />
       ) : round ? (
