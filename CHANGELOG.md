@@ -2,6 +2,17 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.28.2 (2026-10-23)
+
+- **Mängu versioon on nüüd vahetuse ajal näha:** väikselt kaardi all vasakus nurgas. Menüü ülaribalt võeti see ära, menüü jaluses on versioon nagu varem.
+
+<details>
+<summary>English</summary>
+
+The version now shows during a shift, small in the lower left corner of the map (on a phone just above the map's attribution row; the offline-map badge moves up a line). It left the menu's top bar again: the menus keep it in their footer.
+
+</details>
+
 ## 2.28.1 (2026-10-23)
 
 - **Admini paneel töötab ka Brave'is:** Brave'i reklaamiblokeerija peitis sisselogimise välja ja nupud, sest paneeli kujunduse nimed algasid „ad-“ (nagu reklaamidel). Nimed on nüüd teised ja test hoiab, et ükski mängu või paneeli nimi ei satu reklaamiblokeerijate nimekirja.

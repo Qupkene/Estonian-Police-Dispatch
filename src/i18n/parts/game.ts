@@ -412,6 +412,7 @@ export default {
 
   // ── Dock ──────────────────────────────────────────────────────────────────
   'game.dock.collapse': { et: 'Peida alumine paneel', en: 'Collapse bottom panel' },
+  'game.version': { et: 'Mängu versioon', en: 'Game version' },
   'game.dock.expand': { et: 'Näita alumist paneeli', en: 'Expand bottom panel' },
 
   // ── Toasts ────────────────────────────────────────────────────────────────

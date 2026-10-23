@@ -68,6 +68,32 @@
   position: absolute;
   inset: 0;
 }
+/* The version in the map's lower left corner: small and quiet, never in the way of a click. The offline-map
+   badge (map.css) moves up a line so the two never overlap. */
+.gm-ver {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  z-index: 3;
+  font: 400 10px/1 var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+  opacity: 0.75;
+  pointer-events: none;
+  user-select: none;
+}
+.gm-map .epdm-offline {
+  bottom: 26px;
+}
+@media (max-width: 520px) {
+  /* On a phone the map's attribution row runs along the bottom: the version sits just above it. */
+  .gm-ver {
+    bottom: 42px;
+  }
+  .gm-map .epdm-offline {
+    bottom: 58px;
+  }
+}
 .gm-side {
   grid-area: side;
   display: flex;

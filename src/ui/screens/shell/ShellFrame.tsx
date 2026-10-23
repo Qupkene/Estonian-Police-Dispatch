@@ -1,5 +1,5 @@
-// Valvekaart frame of the out-of-game screens: the top bar (PPA's logo and the EPD wordmark, date and clock, the
-// version, language, account) and the footer (version, map credits, disclaimer, the screen's keys). Styles in vk.css.
+// Valvekaart frame of the out-of-game screens: the top bar (PPA's logo and the EPD wordmark, date and clock,
+// language, account) and the footer (version, map credits, disclaimer, the screen's keys). Styles in vk.css.
 // There is no live weather source, so the bar shows none.
 import { useEffect, useState, type ReactNode } from 'react';
 import { useT } from '@/i18n';
@@ -103,12 +103,7 @@ export function ShellTopBar({
         <time className="vk-top__clock">{hhmm(now)}</time>
       </div>
       {children}
-      {/* The free stretch of the bar: the game's version, small and quiet (also in the footer). */}
-      <div className="vk-top__spacer">
-        <span className="vk-top__ver" title={t('shell.frame.version')}>
-          v{VERSION}
-        </span>
-      </div>
+      <div className="vk-top__spacer" />
       <div className="vk-top__cell vk-top__lang">
         <LangSwitch />
       </div>

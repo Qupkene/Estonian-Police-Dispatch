@@ -27,6 +27,7 @@ import { PauseMenu, ShiftEndModal } from './Modals';
 import { CoopPanel } from './CoopPanel';
 import { useHotkeys } from './useHotkeys';
 import { useGameUi, type MobileTab } from './uiStore';
+import { VERSION } from '@/ui/screens/shell/helpers';
 import './game.css';
 
 const MemoMap = memo(MapView);
@@ -90,6 +91,10 @@ export function GameScreen() {
       <main className="gm-map">
         <MapHost />
         <PlacingHint />
+        {/* The game's version, small in the map's lower left corner (the menus show it in their footer). */}
+        <span className="gm-ver" title={t('game.version')}>
+          v{VERSION}
+        </span>
       </main>
       <aside className="gm-side">
         <SidePanel />

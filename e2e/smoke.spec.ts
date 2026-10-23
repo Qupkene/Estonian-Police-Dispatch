@@ -45,8 +45,9 @@ test('boots, logs in the 2024 way and plays a quick shift to the report', async 
   await page.getByRole('button', { name: /Alusta vahetust/ }).first().click();
   await expect.poll(() => screen(page), { timeout: 20_000 }).toBe('game');
 
-  // Map canvas and CAD chrome are up.
+  // Map canvas and CAD chrome are up, the version small in the map's corner.
   await expect(page.locator('.maplibregl-canvas, .map-fallback, [class*="nowebgl"]').first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('.gm-ver')).toHaveText(/^v\d+\.\d+\.\d+$/);
 
   // Speed up until the first event card arrives (an interactive 112 call may come first: answer it).
   await page.evaluate(() => (window as unknown as EpdWindow).__epd.game.getState().setSpeed(4));
