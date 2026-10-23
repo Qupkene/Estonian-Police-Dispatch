@@ -33,11 +33,10 @@ describe('co-op session between rounds', () => {
   ]) {
     it(`ends the shift when the log answers 409 ${code}`, async () => {
       const log: string[] = [];
-      // The session's frame loop (node has no frames).
-      vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) =>
-        setTimeout(() => cb(Date.now()), 16),
-      );
-      vi.stubGlobal('cancelAnimationFrame', (id: number) => clearTimeout(id));
+      // The game's frame loop (src/store/game.ts) starts with the shift; node has no frames. It never runs here: what
+      // is tested is the session's own polling, and a frame left pending would outlive the stubs at the end.
+      vi.stubGlobal('requestAnimationFrame', () => 0);
+      vi.stubGlobal('cancelAnimationFrame', () => {});
       vi.stubGlobal(
         'fetch',
         vi.fn(async (url: string) => {
