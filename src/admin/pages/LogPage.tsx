@@ -13,17 +13,17 @@ export function LogPage() {
   const loaded = useLoad(() => api<{ total: number; log: LogEntry[] }>('GET', path), path);
   return (
     <section>
-      <div className="ad-head">
+      <div className="pn-head">
         <h1>Logi</h1>
-        <button type="button" className="ad-btn ad-btn--small" onClick={loaded.reload}>
+        <button type="button" className="pn-btn pn-btn--small" onClick={loaded.reload}>
           Värskenda
         </button>
       </div>
-      <p className="ad-hint">
+      <p className="pn-hint">
         Iga admini muudatus jääb siia: kes, millal, mida ja millise IP-aadressiga. Logi ei saa paneelist muuta
         ega kustutada.
       </p>
-      <div className="ad-filters">
+      <div className="pn-filters">
         <Select
           label="Tegevus"
           value={action}
@@ -59,7 +59,7 @@ function Detail({ detail }: { detail: unknown }) {
   if (detail === null || detail === undefined) return null;
   if (typeof detail !== 'object') return <span className="mono">{String(detail)}</span>;
   return (
-    <span className="ad-kv">
+    <span className="pn-kv">
       {Object.entries(detail as Record<string, unknown>).map(([k, v]) => (
         <span key={k}>
           <i>{k}</i> {typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v)}
@@ -71,8 +71,8 @@ function Detail({ detail }: { detail: unknown }) {
 
 export function LogTable({ rows }: { rows: LogEntry[] }) {
   return (
-    <div className="ad-scroll">
-      <table className="ad-table">
+    <div className="pn-scroll">
+      <table className="pn-table">
         <thead>
           <tr>
             <th>Aeg</th>
@@ -98,7 +98,7 @@ export function LogTable({ rows }: { rows: LogEntry[] }) {
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={6} className="ad-empty">
+              <td colSpan={6} className="pn-empty">
                 Logi on tühi.
               </td>
             </tr>

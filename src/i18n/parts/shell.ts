@@ -276,6 +276,7 @@ export default {
   // ── Frame (top bar and footer of the out-of-game screens) ──
   'shell.frame.signIn': { et: 'Logi kontoga sisse', en: 'Sign in to an account' },
   'shell.frame.local': { et: 'Salvestus selles brauseris', en: 'Saved in this browser' },
+  'shell.frame.version': { et: 'Mängu versioon', en: 'Game version' },
   'shell.frame.mapCredit': {
     et: 'Kaart: Maa- ja Ruumiamet, Natural Earth',
     en: 'Map: Maa- ja Ruumiamet, Natural Earth',

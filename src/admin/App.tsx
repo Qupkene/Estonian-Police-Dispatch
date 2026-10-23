@@ -79,15 +79,15 @@ export function App() {
 
   if (gate.kind === 'loading')
     return (
-      <div className="ad-gate">
-        <p className="ad-empty">Laadin…</p>
+      <div className="pn-gate">
+        <p className="pn-empty">Laadin…</p>
       </div>
     );
   if (gate.kind === 'down')
     return (
       <GateFrame title="Server ei vasta">
-        <p className="ad-gate__text">{gate.text}</p>
-        <button type="button" className="ad-btn ad-btn--primary" onClick={() => void check()}>
+        <p className="pn-gate__text">{gate.text}</p>
+        <button type="button" className="pn-btn pn-btn--primary" onClick={() => void check()}>
           Proovi uuesti
         </button>
       </GateFrame>
@@ -96,16 +96,16 @@ export function App() {
   if (gate.kind === 'notAdmin')
     return (
       <GateFrame title="Ligipääs puudub">
-        <p className="ad-gate__text">
+        <p className="pn-gate__text">
           Konto <b>{gate.name}</b> ei ole admin. Admini õigused antakse serveris (docs/SERVER.md, Admin).
         </p>
-        <div className="ad-actions">
-          <a className="ad-btn" href="/">
+        <div className="pn-actions">
+          <a className="pn-btn" href="/">
             Mängu
           </a>
           <button
             type="button"
-            className="ad-btn ad-btn--primary"
+            className="pn-btn pn-btn--primary"
             onClick={async () => {
               await api('POST', '/logout').catch(() => {});
               void check();
@@ -124,12 +124,12 @@ export function App() {
     void check();
   };
   return (
-    <div className="ad-app">
-      <header className="ad-top">
-        <a className="ad-brand" href="#/">
-          <span className="ad-brand__mark">EPD</span> admin
+    <div className="pn-app">
+      <header className="pn-top">
+        <a className="pn-brand" href="#/">
+          <span className="pn-brand__mark">EPD</span> admin
         </a>
-        <nav className="ad-nav" aria-label="Admini paneel">
+        <nav className="pn-nav" aria-label="Admini paneel">
           {NAV.map((n) => (
             <a
               key={n.path}
@@ -141,22 +141,22 @@ export function App() {
             </a>
           ))}
         </nav>
-        <div className="ad-top__me">
+        <div className="pn-top__me">
           <span
-            className="ad-top__who"
+            className="pn-top__who"
             title={`Lukustub ${new Date(gate.until).toLocaleTimeString('et-EE', { hour: '2-digit', minute: '2-digit' })}`}
           >
             {gate.user.name}
           </span>
-          <a className="ad-btn ad-btn--small" href="/">
+          <a className="pn-btn pn-btn--small" href="/">
             Mängu
           </a>
-          <button type="button" className="ad-btn ad-btn--small" onClick={lock}>
+          <button type="button" className="pn-btn pn-btn--small" onClick={lock}>
             Lukusta
           </button>
         </div>
       </header>
-      <main className="ad-main">
+      <main className="pn-main">
         {section === '' && <Dashboard />}
         {section === 'kontod' && !id && <Users />}
         {section === 'kontod' && id && <UserPage key={id} id={Number(id)} me={gate.user} />}
@@ -165,7 +165,7 @@ export function App() {
         {section === 'ruumid' && <Rooms code={id} />}
         {section === 'logi' && <LogPage />}
         {section === 'varu' && <Backups />}
-        {!NAV.some((n) => n.path === section) && <p className="ad-empty">Sellist lehte ei ole.</p>}
+        {!NAV.some((n) => n.path === section) && <p className="pn-empty">Sellist lehte ei ole.</p>}
       </main>
     </div>
   );
@@ -173,10 +173,10 @@ export function App() {
 
 function GateFrame({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="ad-gate">
-      <div className="ad-gate__box">
-        <div className="ad-brand ad-brand--big">
-          <span className="ad-brand__mark">EPD</span> admin
+    <div className="pn-gate">
+      <div className="pn-gate__box">
+        <div className="pn-brand pn-brand--big">
+          <span className="pn-brand__mark">EPD</span> admin
         </div>
         <h1>{title}</h1>
         {children}
@@ -206,11 +206,11 @@ function LoginForm({ onDone }: { onDone: () => Promise<void> }) {
   };
   return (
     <GateFrame title="Logi sisse">
-      <form className="ad-form" onSubmit={submit}>
-        <label className="ad-field">
+      <form className="pn-form" onSubmit={submit}>
+        <label className="pn-field">
           <span>Kasutajanimi</span>
           <input
-            className="ad-input"
+            className="pn-input"
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoComplete="username"
@@ -218,10 +218,10 @@ function LoginForm({ onDone }: { onDone: () => Promise<void> }) {
             required
           />
         </label>
-        <label className="ad-field">
+        <label className="pn-field">
           <span>Parool</span>
           <input
-            className="ad-input"
+            className="pn-input"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -229,8 +229,8 @@ function LoginForm({ onDone }: { onDone: () => Promise<void> }) {
             required
           />
         </label>
-        {error && <p className="ad-error">{error}</p>}
-        <button type="submit" className="ad-btn ad-btn--primary" disabled={busy}>
+        {error && <p className="pn-error">{error}</p>}
+        <button type="submit" className="pn-btn pn-btn--primary" disabled={busy}>
           Logi sisse
         </button>
       </form>
@@ -256,16 +256,16 @@ function UnlockForm({ user, onDone }: { user: AdminUser; onDone: () => Promise<v
   };
   return (
     <GateFrame title="Kinnita parool">
-      <p className="ad-gate__text">
+      <p className="pn-gate__text">
         Sisse logitud: <b>{user.name}</b>. Admini paneel avaneb kaheks tunniks, kui sisestad oma parooli
         uuesti.
       </p>
-      <form className="ad-form" onSubmit={submit}>
+      <form className="pn-form" onSubmit={submit}>
         <input type="text" name="username" value={user.name} autoComplete="username" readOnly hidden />
-        <label className="ad-field">
+        <label className="pn-field">
           <span>Parool</span>
           <input
-            className="ad-input"
+            className="pn-input"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -274,8 +274,8 @@ function UnlockForm({ user, onDone }: { user: AdminUser; onDone: () => Promise<v
             required
           />
         </label>
-        {error && <p className="ad-error">{error}</p>}
-        <button type="submit" className="ad-btn ad-btn--primary" disabled={busy}>
+        {error && <p className="pn-error">{error}</p>}
+        <button type="submit" className="pn-btn pn-btn--primary" disabled={busy}>
           Ava paneel
         </button>
       </form>

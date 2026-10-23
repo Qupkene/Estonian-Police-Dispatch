@@ -23,9 +23,9 @@ export function NoticeProvider({ children }: { children: ReactNode }) {
   return (
     <NoticeContext.Provider value={push}>
       {children}
-      <div className="ad-notices" role="status" aria-live="polite">
+      <div className="pn-notices" role="status" aria-live="polite">
         {list.map((x) => (
-          <div key={x.id} className={`ad-notice ad-notice--${x.kind}`}>
+          <div key={x.id} className={`pn-notice pn-notice--${x.kind}`}>
             {x.text}
           </div>
         ))}
@@ -101,14 +101,14 @@ export function useLoad<T>(fn: () => Promise<T>, key: string): Loaded<T> {
 export function LoadState({ loaded, children }: { loaded: Loaded<unknown>; children: ReactNode }) {
   if (loaded.error && !loaded.data)
     return (
-      <div className="ad-empty ad-empty--bad">
+      <div className="pn-empty pn-empty--bad">
         {loaded.error}{' '}
-        <button type="button" className="ad-link" onClick={loaded.reload}>
+        <button type="button" className="pn-link" onClick={loaded.reload}>
           Proovi uuesti
         </button>
       </div>
     );
-  if (!loaded.data) return <div className="ad-empty">Laadin…</div>;
+  if (!loaded.data) return <div className="pn-empty">Laadin…</div>;
   return <>{children}</>;
 }
 
@@ -133,7 +133,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      className={`ad-modal${wide ? ' ad-modal--wide' : ''}`}
+      className={`pn-modal${wide ? ' pn-modal--wide' : ''}`}
       onCancel={(e) => {
         e.preventDefault();
         onClose();
@@ -143,14 +143,14 @@ export function Modal({
       }}
       aria-label={title}
     >
-      <div className="ad-modal__box">
-        <header className="ad-modal__head">
+      <div className="pn-modal__box">
+        <header className="pn-modal__head">
           <h2>{title}</h2>
-          <button type="button" className="ad-icon" onClick={onClose} aria-label="Sulge">
+          <button type="button" className="pn-icon" onClick={onClose} aria-label="Sulge">
             ×
           </button>
         </header>
-        <div className="ad-modal__body">{children}</div>
+        <div className="pn-modal__body">{children}</div>
       </div>
     </dialog>
   );
@@ -183,23 +183,23 @@ export function Confirm({
     !typeToConfirm || typed.trim().toLocaleLowerCase('et') === typeToConfirm.toLocaleLowerCase('et');
   return (
     <Modal title={title} onClose={onClose}>
-      <div className="ad-confirm">
+      <div className="pn-confirm">
         <div>{text}</div>
         {typeToConfirm && (
-          <label className="ad-field">
+          <label className="pn-field">
             <span>
               Kinnituseks kirjuta <b>{typeToConfirm}</b>
             </span>
             <input value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus autoComplete="off" />
           </label>
         )}
-        <div className="ad-actions">
-          <button type="button" className="ad-btn" onClick={onClose}>
+        <div className="pn-actions">
+          <button type="button" className="pn-btn" onClick={onClose}>
             Loobu
           </button>
           <button
             type="button"
-            className={`ad-btn ${danger ? 'ad-btn--danger' : 'ad-btn--primary'}`}
+            className={`pn-btn ${danger ? 'pn-btn--danger' : 'pn-btn--primary'}`}
             disabled={!ready || busy}
             onClick={async () => {
               setBusy(true);
@@ -220,15 +220,15 @@ export function Confirm({
 export function SecretBox({ name, password }: { name: string; password: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div className="ad-secret">
+    <div className="pn-secret">
       <p>
         Konto <b>{name}</b> uus parool. Seda näidatakse ainult nüüd: anna see mängijale turvaliselt edasi.
       </p>
-      <div className="ad-secret__row">
-        <code className="ad-secret__value">{password}</code>
+      <div className="pn-secret__row">
+        <code className="pn-secret__value">{password}</code>
         <button
           type="button"
-          className="ad-btn"
+          className="pn-btn"
           onClick={async () => {
             try {
               await navigator.clipboard.writeText(password);
@@ -258,14 +258,14 @@ export function Pager({
   offset: number;
   onOffset: (o: number) => void;
 }) {
-  if (total <= limit && offset === 0) return <div className="ad-pager">{total} rida</div>;
+  if (total <= limit && offset === 0) return <div className="pn-pager">{total} rida</div>;
   const page = Math.floor(offset / limit) + 1;
   const pages = Math.max(1, Math.ceil(total / limit));
   return (
-    <div className="ad-pager">
+    <div className="pn-pager">
       <button
         type="button"
-        className="ad-btn ad-btn--small"
+        className="pn-btn pn-btn--small"
         disabled={offset === 0}
         onClick={() => onOffset(Math.max(0, offset - limit))}
       >
@@ -276,7 +276,7 @@ export function Pager({
       </span>
       <button
         type="button"
-        className="ad-btn ad-btn--small"
+        className="pn-btn pn-btn--small"
         disabled={offset + limit >= total}
         onClick={() => onOffset(offset + limit)}
       >
@@ -293,7 +293,7 @@ export function Badge({
   kind: 'acc' | 'bad' | 'ok' | 'amb' | 'dim';
   children: ReactNode;
 }) {
-  return <span className={`ad-badge ad-badge--${kind}`}>{children}</span>;
+  return <span className={`pn-badge pn-badge--${kind}`}>{children}</span>;
 }
 
 /** A search box that reports after the typing stops. */
@@ -316,7 +316,7 @@ export function SearchInput({
   return (
     <input
       type="search"
-      className="ad-input"
+      className="pn-input"
       value={text}
       placeholder={placeholder}
       aria-label={placeholder}
@@ -339,7 +339,7 @@ export function Select({
   all?: string;
 }) {
   return (
-    <select className="ad-input" value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}>
+    <select className="pn-input" value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}>
       {all !== undefined && <option value="">{all}</option>}
       {Object.entries(options).map(([k, v]) => (
         <option key={k} value={k}>

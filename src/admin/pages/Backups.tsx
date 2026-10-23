@@ -8,11 +8,11 @@ export function Backups() {
   const run = useAction();
   return (
     <section>
-      <div className="ad-head">
+      <div className="pn-head">
         <h1>Varukoopiad</h1>
         <button
           type="button"
-          className="ad-btn ad-btn--primary"
+          className="pn-btn pn-btn--primary"
           onClick={async () => {
             if (await run(() => api('POST', '/admin/backups'), 'Varukoopia tehtud ja kontrollitud.'))
               loaded.reload();
@@ -21,15 +21,15 @@ export function Backups() {
           Tee varukoopia kohe
         </button>
       </div>
-      <p className="ad-hint">
+      <p className="pn-hint">
         Andmebaasi koopiad serveri kaustas data/varu. Uuendus teeb koopia enne iga vahetust ise ja hoiab
         uuemad alles. Siit tehtud koopia kontrollitakse kohe (integrity_check). Taastamine käib serveris:
         docs/DEPLOY.md, punkt Taastamine varukoopiast.
       </p>
       <LoadState loaded={loaded}>
         {loaded.data && (
-          <div className="ad-scroll">
-            <table className="ad-table">
+          <div className="pn-scroll">
+            <table className="pn-table">
               <thead>
                 <tr>
                   <th>Fail</th>
@@ -47,7 +47,7 @@ export function Backups() {
                 ))}
                 {loaded.data.backups.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="ad-empty">
+                    <td colSpan={3} className="pn-empty">
                       Varukoopiaid pole veel.
                     </td>
                   </tr>

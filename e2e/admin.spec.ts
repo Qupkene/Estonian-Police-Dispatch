@@ -42,14 +42,14 @@ test('admin panel: log in, make an account, edit its results, block, reset and d
   await page.getByLabel('Parool').fill(PASS);
   await page.getByRole('button', { name: 'Logi sisse' }).click();
   await expect(page.getByRole('heading', { name: 'Ülevaade' })).toBeVisible();
-  await expect(page.locator('.ad-card').first()).toContainText('Kontod');
+  await expect(page.locator('.pn-card').first()).toContainText('Kontod');
 
   // A new account: the server makes the password and shows it once.
   await page.getByRole('navigation').getByRole('link', { name: 'Kontod' }).click();
   await page.getByRole('button', { name: 'Uus konto' }).click();
   await page.getByLabel('Kasutajanimi').fill(PLAYER);
   await page.getByRole('button', { name: 'Loo konto' }).click();
-  const secret = page.locator('.ad-secret__value');
+  const secret = page.locator('.pn-secret__value');
   await expect(secret).toHaveText(/^[a-zA-Z2-9]{14}$/);
   const password = (await secret.textContent())!;
   const login = await request.post('/api/login', {
@@ -64,20 +64,20 @@ test('admin panel: log in, make an account, edit its results, block, reset and d
   await page.getByRole('button', { name: 'Lisa tulemus' }).click();
   await page.getByLabel('Skoor (0 kuni 100)').fill('93');
   await page.getByRole('dialog').getByRole('button', { name: 'Lisa' }).click();
-  await expect(page.locator('.ad-panel--tab tbody tr').first()).toContainText('93');
+  await expect(page.locator('.pn-panel--tab tbody tr').first()).toContainText('93');
   const board = await request.get('/api/scores?region=pohja');
   expect(((await board.json()) as { scores: { name: string; score: number }[] }).scores).toContainEqual(
     expect.objectContaining({ name: PLAYER, score: 93 }),
   );
-  await page.locator('.ad-panel--tab').getByRole('button', { name: 'Muuda' }).click();
+  await page.locator('.pn-panel--tab').getByRole('button', { name: 'Muuda' }).click();
   await page.getByLabel('Skoor (0 kuni 100)').fill('41');
   await page.getByRole('dialog').getByRole('button', { name: 'Salvesta' }).click();
-  await expect(page.locator('.ad-panel--tab tbody tr').first()).toContainText('41');
+  await expect(page.locator('.pn-panel--tab tbody tr').first()).toContainText('41');
 
   // Block: the badge shows and the login is refused.
   await page.getByRole('button', { name: /Blokeeri konto/ }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Blokeeri' }).click();
-  await expect(page.locator('h1 .ad-badge--bad')).toHaveText('blokeeritud');
+  await expect(page.locator('h1 .pn-badge--bad')).toHaveText('blokeeritud');
   const blocked = await request.post('/api/login', {
     data: { name: PLAYER, password },
     headers: { 'X-EPD': '1' },
@@ -85,19 +85,19 @@ test('admin panel: log in, make an account, edit its results, block, reset and d
   expect(blocked.status()).toBe(403);
   expect(((await blocked.json()) as { error: string }).error).toBe('account_disabled');
   await page.getByRole('button', { name: /Luba konto/ }).click();
-  await expect(page.locator('h1 .ad-badge--bad')).toHaveCount(0);
+  await expect(page.locator('h1 .pn-badge--bad')).toHaveCount(0);
 
   // A new password, generated.
   await page.getByRole('button', { name: /Uus parool/ }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Tee uus parool' }).click();
-  await expect(page.locator('.ad-secret__value')).toHaveText(/^[a-zA-Z2-9]{14}$/);
-  await expect(page.locator('.ad-secret__value')).not.toHaveText(password);
+  await expect(page.locator('.pn-secret__value')).toHaveText(/^[a-zA-Z2-9]{14}$/);
+  await expect(page.locator('.pn-secret__value')).not.toHaveText(password);
   await page.getByRole('button', { name: 'Valmis' }).click();
 
   // The log lists what was done.
   await page.getByRole('tab', { name: /Logi/ }).click();
-  await expect(page.locator('.ad-panel--tab')).toContainText('Vahetas parooli');
-  await expect(page.locator('.ad-panel--tab')).toContainText('Lisas tulemuse');
+  await expect(page.locator('.pn-panel--tab')).toContainText('Vahetas parooli');
+  await expect(page.locator('.pn-panel--tab')).toContainText('Lisas tulemuse');
 
   // Delete: only after the name is typed.
   await page.getByRole('button', { name: /Kustuta konto/ }).click();
@@ -128,6 +128,6 @@ test('admin panel: a player who is not an admin sees no data', async ({ page }) 
   ).toBe(200);
   await page.goto('/admin/');
   await expect(page.getByRole('heading', { name: 'Ligipääs puudub' })).toBeVisible();
-  await expect(page.locator('.ad-table')).toHaveCount(0);
+  await expect(page.locator('.pn-table')).toHaveCount(0);
   expect((await page.request.get('/api/admin/users')).status()).toBe(403);
 });

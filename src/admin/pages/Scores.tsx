@@ -24,13 +24,13 @@ export function Scores() {
     };
   return (
     <section>
-      <div className="ad-head">
+      <div className="pn-head">
         <h1>Edetabel</h1>
-        <button type="button" className="ad-btn ad-btn--primary" onClick={() => setAdding(true)}>
+        <button type="button" className="pn-btn pn-btn--primary" onClick={() => setAdding(true)}>
           Lisa tulemus
         </button>
       </div>
-      <div className="ad-filters">
+      <div className="pn-filters">
         <SearchInput value={q} placeholder="Mängija nimi" onChange={reset(setQ)} />
         <Select
           label="Piirkond"

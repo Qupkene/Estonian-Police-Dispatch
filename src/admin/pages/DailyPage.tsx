@@ -17,16 +17,16 @@ export function DailyPage() {
   const loaded = useLoad(() => api<{ total: number; daily: Daily[] }>('GET', path), path);
   return (
     <section>
-      <div className="ad-head">
+      <div className="pn-head">
         <h1>Päeva väljakutse</h1>
-        <button type="button" className="ad-btn ad-btn--primary" onClick={() => setAdding(true)}>
+        <button type="button" className="pn-btn pn-btn--primary" onClick={() => setAdding(true)}>
           Lisa tulemus
         </button>
       </div>
-      <div className="ad-filters">
+      <div className="pn-filters">
         <input
           type="date"
-          className="ad-input"
+          className="pn-input"
           aria-label="Päev"
           value={day}
           onChange={(e) => {
@@ -36,7 +36,7 @@ export function DailyPage() {
         />
         <button
           type="button"
-          className="ad-btn ad-btn--small"
+          className="pn-btn pn-btn--small"
           onClick={() => {
             setDay(day ? '' : tallinnToday());
             setOffset(0);
