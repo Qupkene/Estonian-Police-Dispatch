@@ -2,6 +2,43 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.29.0 (2026-10-23)
+
+- **Mitmikmängus jätkate pärast mängu samas ruumis:** aruande põhinupp on nüüd „Tagasi ruumi“ (ka Enter), mitte „Uus vahetus“, mis viis kiirmängule. Keegi ei pea koodiga uuesti liituma.
+  - Kui kõik on lõpetanud, avaneb ruum järgmiseks vooruks: sama kood ja samad mängijad. Eelmise vooru tulemused jäävad paneelile „Eelmine voor“.
+  - Ruumi looja saab uuesti valida kõike, ka režiimi (võistlus, rollid, sektorid), prefektuuri, ala, raskuse, pikkuse ja koosseisu. Teised annavad uuesti märku, et on valmis, ja looja alustab.
+  - Igal voorul on uus seeme, vahetus on iga kord uus. Rollid, töölauad ja oma ekipaažid jäävad alles.
+  - Aruande ruumi paneel näitab, kas teised alles mängivad, kas voor on läbi või ootab ruum juba järgmist vooru. Ruumist saab lahkuda otse aruandest („Lahku ruumist“). Kui ruum on suletud, viib aruanne uue ruumi juurde.
+  - Mängija, kes pani akna kinni, ei takista järgmise vooru alustamist ega lõppu. Kui kellelgi läheb kaua, saab looja vooru kõigi jaoks lõpetada („Lõpeta voor“). Kui looja on ruumist 5 minutit eemal, saab looja rolli järgmine kohalolija.
+  - Voorude vahel näitab peamenüü mitmikmängu rida ruumi edasi ja sinna saab koodiga liituda ka uus mängija. Ühisvahetuse kogemuspunktid lähevad karjääri iga vooru eest eraldi. Admini paneelis on näha ruumi voorud ja nende tulemused.
+- **Päeva väljakutse avaneb menüüst:** vajuta Teenistuse real „Päeva väljakutse“ ja paremalt libiseb sisse väljakutse paneel, kaardil muutub väljakutse sektor oranžiks.
+  - Vajuta sama rida uuesti ja väljakutse algab. Rida ütleb ise, mis järgmisena juhtub (alusta, jätka, vaata tulemust või harjuta).
+  - Paneeli all on suur nupp „Alusta väljakutset“. Kui tänane tulemus on juba kirjas, on nupp „Harjuta uuesti“ ja tulemus on paneelis kohe näha.
+  - Paneeli saab sulgeda Esc-klahvi, ristiga või klõpsuga mujale menüüs. Telefonis tõuseb väljakutse alt lehena üles ja kaardiriba näitab samal ajal oranži ala.
+- **Vahetuse „Tingimused“ on uue kujundusega:** ülal on kohe näha, millal vahetus on, milline ilm on ja kui suur on oodatav koormus.
+  - Raskusastmed on kaartidel: väljakutsete hulk tavalisega võrreldes ning kiirmängus tööl olevate ekipaažide arv, karjääris XP kordaja.
+  - Vahetus on 24 tunni joonel: iga tunni väljakutsete hulk, pimedad tunnid päikesetõusu ja -loojangu järgi ning valitud vahetus.
+  - Kuupäevad on kalendrilehtedena koos sellega, kui tihe on valitud vahetus sel päeval. Eripäevadel öeldakse, mida rohkem juhtub (nt jaaniööl lõkked, ilutulestik ja joobes juhid).
+  - Ilm on ikoonidega ja iga ilm näitab, kuidas see sõiduaegu, liiklussündmusi ja väljakutseid mõjutab.
+  - „Alusta vahetust“ on lehe allservas ja alati käeulatuses, ka telefonis.
+- **Vahetuse lõpu ajalehes on päris joonistused:** 12 joonistust, igas lehes uus ja päeva peaossa sobiv (liiklusloo juures kiiruse mõõtmine, jälituse juures patrullauto või politseibuss, rahutuste juures rahvahulk).
+  - Sama raport näitab alati sama pilti, järgmine vahetus toob uue. Kahte viimati nähtud pilti kohe ei korrata.
+  - Pildid on lehe jaoks paras suuruses ja telefonis teravad. Trükitud lehe täpiline filter jäi alles, aga on joonistuste peal pehmem.
+  - Ilma internetita, kui pilti pole vahemälus, näitab leht vana visandit.
+
+<details>
+<summary>English</summary>
+
+Rooms play round after round: the report's main action is "Back to the room" instead of a new quick shift. The first player back reopens a finished room (`POST /api/rooms/{code}/reopen`) with the same code and players, a new secret seed and reset ready marks; the round's results are archived (schema step 11, additive only: `rooms.round`, `room_round_results`) and shown as the last round. Options, mode, roles, desks and drafts stay, and the host can switch the mode in the lobby (PUT with `mode`). Players who are away no longer hold up the start, a round waits only for those who took part, the host can end a waiting round (late results answer 409 `round_over` by seed), and a lobby whose host has been away for 5 minutes passes to the next player present. Co-op rounds are new shared shifts on both engines, and co-op XP is paid once per room and round (`room:<code>:<seed>`). Rooms are deleted 30 days after their last change; the admin panel shows a room's rounds.
+
+The daily challenge opens from the menu: pressing its Teenistus row slides the challenge panel in from the right and lights the challenge's sector amber on the duty map; pressing the row again (or the panel's wide amber button) starts it. Esc, the close button or a click elsewhere closes it; on a phone the panel is a bottom sheet under the lit map strip.
+
+The briefing's Conditions panel was redesigned around the sim's own numbers: a summary strip (when, weather, expected load), difficulty cards with call volume and crews on duty (XP in career), the shift on a 24-hour line with calls per hour and the dark hours, calendar tiles that rate how busy the chosen shift is and name what special days bring, and weather tiles with icons and their effect on drive times, traffic incidents and calls. "Start shift" sits in a bar that sticks to the bottom of the screen.
+
+The end-of-shift newspaper prints the owner's 12 halftone drawings instead of the flat sketch: one that fits the lead story where it can (every incident category but the easter eggs has one), a different one each shift (the last two shown are skipped), the same one when a report is reopened. Two sizes each, cached when first shown, with the old sketch as the offline fallback; `node scripts/paper-drawing.mjs` adds the next one.
+
+</details>
+
 ## 2.28.2 (2026-10-23)
 
 - **Mängu versioon on nüüd vahetuse ajal näha:** väikselt kaardi all vasakus nurgas. Menüü ülaribalt võeti see ära, menüü jaluses on versioon nagu varem.

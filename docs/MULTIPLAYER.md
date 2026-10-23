@@ -552,7 +552,7 @@ host keeps it on.
 - A custom game is never ranked (`flags.custom`, `ShiftReport.custom`, `unrankedReason` 'custom'); room results stay
   in the room as always.
 
-## 11. Rounds: the same lobby after a game
+## 11. Rounds: the same lobby after a game (2.29.0)
 
 The owner's words: when a multiplayer game ends, "start new" must not lead to a quick shift; everybody carries on in
 the same lobby, the room's creator picks the modes and options again, the others are still in it and nobody joins

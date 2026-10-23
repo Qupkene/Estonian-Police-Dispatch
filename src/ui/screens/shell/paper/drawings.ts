@@ -80,6 +80,37 @@ export const DRAWINGS: readonly Drawing[] = [
     alt: { et: 'Politseibuss väljakutsel', en: 'A police van on a call-out' },
     tags: ['domestic', 'violence', 'alarm', 'pursuit', 'busy'],
   },
+  {
+    id: 'buss',
+    w: 800,
+    h: 447,
+    alt: { et: 'Politseibuss kooli juures', en: 'A police van outside a school' },
+    tags: ['missing', 'assist', 'property', 'quiet'],
+  },
+  {
+    id: 'oovahetus',
+    w: 800,
+    h: 598,
+    alt: { et: 'Öövahetuse patrull jaoskonna ees', en: 'The night shift outside the station' },
+    tags: ['night', 'quiet', 'holiday'],
+  },
+  {
+    id: 'rahvahulk',
+    w: 800,
+    h: 450,
+    alt: {
+      et: 'Politseinikud peavad rahvahulgas kinni korrarikkuja',
+      en: 'Officers detain a troublemaker in a crowd',
+    },
+    tags: ['public_order', 'violence', 'major', 'holiday'],
+  },
+  {
+    id: 'kontroll',
+    w: 800,
+    h: 534,
+    alt: { et: 'Patrull kontrollib autojuhti', en: 'A patrol checks a driver' },
+    tags: ['traffic', 'drugs', 'pursuit', 'border'],
+  },
 ];
 
 const FILES = import.meta.glob<string>('./*.webp', { eager: true, import: 'default' });
