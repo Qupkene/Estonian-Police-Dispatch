@@ -1280,3 +1280,22 @@ export function dutyOverlay(
   }
   return { mine, offered, challenge, challengePin, towns, labels };
 }
+
+/** An area the map lights up on its own layer (DutyMap's `lit`): its outline, the clip of that, its box (px). */
+export interface LitArea {
+  d: string;
+  clip: string | null;
+  box: Rect;
+}
+
+/** The daily challenge's area: its sector, or its prefecture when it is played whole (or the sector is unknown). */
+export function challengeArea(view: MapView, challenge: DutyInput['challenge']): LitArea | null {
+  if (!challenge) return null;
+  const s = challenge.sector ? sectorShape(view, challenge.sector) : null;
+  if (s) return { d: s.d, clip: s.clip, box: s.box };
+  const d = baseMap(view).prefectures[challenge.regionId];
+  if (!d) return null;
+  const V = vertexPx(view);
+  const rings = outline(countySet((c) => c.regionId === challenge.regionId));
+  return { d, clip: null, box: boundsOf(rings.flat().map(V)) };
+}

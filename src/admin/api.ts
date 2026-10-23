@@ -136,6 +136,8 @@ export interface Room {
   difficulty: string;
   hours: number;
   engine: string;
+  /** Rounds played in the room so far, the current one included. */
+  round: number;
   created: number;
   started: number | null;
   updated: number;

@@ -372,5 +372,8 @@ describe('co-op commands', () => {
     expect(coopXp({ xp: 20 }, own)).toBe(30);
     expect(coopXp({ xp: 200 }, undefined)).toBe(200);
     expect(coopPaidKey('K7M2QX')).toBe('room:K7M2QX');
+    // A room plays round after round: each round's shift (its seed) pays once.
+    expect(coopPaidKey('K7M2QX', 123456789)).toBe('room:K7M2QX:123456789');
+    expect(coopPaidKey('K7M2QX', 987)).not.toBe(coopPaidKey('K7M2QX', 123456789));
   });
 });

@@ -13,8 +13,9 @@ export function precacheList(files: readonly string[]): string[] {
     /^assets\/.+\.(?:js|mjs|css)$/.test(f) ||
     // Latin fonts only: Estonian needs latin + latin-ext, the browser fetches other subsets on demand.
     /^assets\/.+-latin(?:-ext)?-.+\.woff2$/.test(f) ||
-    // Images the bundle references.
-    /^assets\/.+\.(?:svg|png|webp)$/.test(f) ||
+    // Images the bundle references, but not the newspaper's drawings (src/ui/screens/shell/paper): they are big
+    // and only a finished shift shows them, so each is cached the first time it does.
+    (/^assets\/.+\.(?:svg|png|webp)$/.test(f) && !/^assets\/paper-[^/]+\.webp$/.test(f)) ||
     // Map labels and the 2024/2025 originals.
     /^glyphs\/.+\.pbf$/.test(f) ||
     /^legacy\/.+\.html$/.test(f);

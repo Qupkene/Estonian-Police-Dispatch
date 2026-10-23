@@ -1,7 +1,7 @@
 /* Shift briefing (BriefingScreen.tsx) on the Valvekaart frame (ShellPage, vk.css): the prefecture picker, the
-   career area on the duty map, the conditions as segmented rows, and the päevakäsk as a document the system
-   produced. Prefix: vk-brief, vk-doc (the e2e tests still use .sh-brief__area, .sh-order__area and
-   .sh-roster__station). */
+   career area on the duty map, the päevakäsk as a document the system produced, the conditions as cards and
+   pictures (BriefConditions.tsx) and the start bar. Prefix: vk-brief, vk-cond, vk-card, vk-tl, vk-doc (the e2e
+   tests still use .sh-brief__area, .sh-order__area and .sh-roster__station). */
 
 .vk-brief__strip {
   margin-bottom: 12px;
@@ -187,48 +187,362 @@
   white-space: nowrap;
 }
 
-/* ── Conditions: a row per choice, a segmented control in each ────────── */
+/* ── Conditions: the shift at a glance, then each choice as cards ──────── */
+
+.vk-cond__glance {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  background: var(--vk-chrome);
+  border-bottom: 1px solid var(--vk-line-2);
+}
+.vk-cond__cell {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px 14px;
+}
+.vk-cond__cell + .vk-cond__cell {
+  border-left: 1px solid var(--vk-line-2);
+}
+.vk-cond__cell dt {
+  font-family: var(--vk-font-display);
+  font-size: 10px;
+  font-weight: 600;
+  font-stretch: 112%;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--vk-text-3);
+}
+.vk-cond__cell dd {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  min-width: 0;
+}
+.vk-cond__value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--vk-text-0);
+}
+.vk-cond__icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--vk-acc);
+}
+.vk-cond__sub {
+  font-size: 12px;
+  color: var(--vk-text-3);
+  text-wrap: pretty;
+}
+.vk-cond__sub.vk-mono {
+  font-size: 11.5px;
+}
 
 .vk-brief__rows > .vk-brief__row + .vk-brief__row {
   border-top: 1px solid var(--vk-line-2);
 }
 .vk-brief__row {
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
-  align-items: start;
-  gap: 12px;
-  padding: 12px 14px;
-}
-.vk-brief__rowLabel {
-  padding-top: 9px;
+  gap: 8px;
+  padding: 14px;
 }
 .vk-brief__rowCtl {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
 .vk-brief__rowNote {
   margin: 0;
-  font-size: 12px;
-  color: var(--vk-text-3);
+  font-size: 12.5px;
+  color: var(--vk-text-2);
   text-wrap: pretty;
 }
-.vk-choices {
-  justify-self: start;
+.vk-brief__note {
+  margin: 0;
 }
-.vk-choices button[aria-checked='true'] {
+
+/* A radio group of cards (BriefConditions.tsx ChoiceGroup): a hairline box each, the picked one in the accent. */
+.vk-cards {
+  display: grid;
+  grid-template-columns: repeat(var(--vk-cards-n, 4), minmax(0, 1fr));
+  gap: 6px;
+}
+.vk-cards--3 {
+  --vk-cards-n: 3;
+}
+.vk-cards--dates {
+  --vk-cards-n: 5;
+}
+.vk-card {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 4px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 9px 11px 10px;
+  border: 1px solid var(--vk-line);
+  border-radius: 6px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-2);
+  font: 400 12px/1.3 var(--vk-font-text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background-color 0.12s ease;
+}
+.vk-card:hover {
+  border-color: var(--vk-text-3);
   background: var(--vk-raise);
-  color: var(--vk-text-0);
-  font-weight: 600;
-  box-shadow: inset 0 -2px var(--vk-acc);
 }
-.vk-choice__sub {
+.vk-card[aria-checked='true'] {
+  border-color: var(--vk-acc);
+  background: color-mix(in oklch, var(--vk-acc) 11%, var(--vk-panel));
+  box-shadow: inset 0 0 0 1px var(--vk-acc);
+}
+.vk-card:focus-visible {
+  outline: 2px solid var(--vk-acc);
+  outline-offset: 2px;
+}
+.vk-card__name {
+  max-width: 100%;
+  font-family: var(--vk-font-display);
+  font-size: 13.5px;
+  font-weight: 650;
+  font-stretch: 104%;
+  line-height: 1.2;
+  color: var(--vk-text-1);
+}
+.vk-card[aria-checked='true'] .vk-card__name {
+  color: var(--vk-text-0);
+}
+.vk-card__time {
+  font-size: 12px;
+  color: var(--vk-text-1);
+}
+.vk-card__line {
+  max-width: 100%;
+  overflow: hidden;
   font-size: 11px;
-  font-weight: 400;
+  color: var(--vk-text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vk-cards--dates .vk-card {
+  grid-template-rows: auto auto 1fr;
+}
+.vk-card__foot {
+  align-self: end;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  margin-top: 2px;
+}
+.vk-card__bars {
+  margin: 2px 0 1px;
+}
+
+/* Four small rising bars: a level of 1..4 (load, difficulty, how busy a date is). */
+.vk-lvl {
+  display: inline-flex;
+  flex: none;
+  align-items: flex-end;
+  gap: 2px;
+  height: 13px;
+}
+.vk-lvl i {
+  width: 4px;
+  border-radius: 1px;
+  background: var(--vk-line);
+}
+.vk-lvl i:nth-child(1) {
+  height: 5px;
+}
+.vk-lvl i:nth-child(2) {
+  height: 8px;
+}
+.vk-lvl i:nth-child(3) {
+  height: 11px;
+}
+.vk-lvl i:nth-child(4) {
+  height: 13px;
+}
+.vk-lvl i.is-on {
+  background: var(--vk-text-2);
+}
+.vk-card[aria-checked='true'] .vk-lvl i.is-on,
+.vk-cond__value .vk-lvl i.is-on {
+  background: var(--vk-acc);
+}
+
+/* Weather tiles: the icon over the name and what it does to driving. */
+.vk-wx__icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  margin-bottom: 2px;
+  color: var(--vk-text-2);
+}
+.vk-wx__icon.is-auto {
+  opacity: 0.7;
+}
+.vk-card[aria-checked='true'] .vk-wx__icon {
+  color: var(--vk-acc);
+  opacity: 1;
+}
+
+/* The shift on the day's line: 24 hours from 07:00, calls per hour as bars, the dark shaded, the shift framed. */
+.vk-tl {
+  --vk-tl-dark: oklch(0.08 0.02 252 / 0.42);
+  margin: 4px 0 0;
+}
+:root[data-theme='light'] .vk-tl {
+  --vk-tl-dark: oklch(0.35 0.03 252 / 0.1);
+}
+.vk-tl__plot {
+  position: relative;
+  height: 64px;
+  overflow: hidden;
+  border: 1px solid var(--vk-line-2);
+  border-radius: 4px;
+  background: var(--vk-panel-2);
+}
+.vk-tl__dark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--vk-tl-dark);
+}
+.vk-tl__span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-inline: 1.5px solid var(--vk-acc);
+  background: color-mix(in oklch, var(--vk-acc) 10%, transparent);
+}
+.vk-tl__bars {
+  position: absolute;
+  inset: 8px 0 0;
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+}
+.vk-tl__bars > span {
+  display: flex;
+  align-items: flex-end;
+  padding: 0 1.5px;
+}
+.vk-tl__bars i {
+  display: block;
+  width: 100%;
+  border-radius: 1px 1px 0 0;
+  background: var(--vk-text-3);
+  opacity: 0.4;
+}
+.vk-tl__bars .is-on i {
+  background: var(--vk-acc);
+  opacity: 1;
+}
+.vk-tl__axis {
+  position: relative;
+  height: 16px;
+  margin-top: 3px;
+  font-size: 10.5px;
   color: var(--vk-text-3);
 }
-.vk-brief__note {
-  margin: 0 14px 14px;
+.vk-tl__axis span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
+.vk-tl__axis span:first-child {
+  transform: none;
+}
+.vk-tl__axis span:last-child {
+  transform: translateX(-100%);
+}
+.vk-tl__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--vk-text-3);
+}
+.vk-tl__legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.vk-tl__key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.vk-tl__key.is-bar {
+  background: var(--vk-text-3);
+  opacity: 0.6;
+}
+.vk-tl__key.is-shift {
+  border: 1.5px solid var(--vk-acc);
+  background: color-mix(in oklch, var(--vk-acc) 20%, transparent);
+}
+.vk-tl__key.is-dark {
+  border: 1px solid var(--vk-line);
+  background: var(--vk-tl-dark);
+}
+.vk-tl__sun {
+  margin-left: auto;
+  font-size: 11px;
+}
+
+/* The start bar: at the end of the page, and stuck to the bottom of the screen until then. The page keeps a
+   focused card or link clear of it (WCAG 2.4.11), so Tab never puts the focus under the bar. */
+.vk-brief-page {
+  scroll-padding-bottom: 96px;
+}
+.vk-brief__go {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 12px -16px -16px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--vk-line);
+  background: var(--vk-chrome);
+  box-shadow: 0 -12px 24px -16px oklch(0 0 0 / 0.5);
+}
+.vk-brief__goText {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--vk-text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vk-brief__goText.vk-msg {
+  white-space: normal;
+}
+.vk-brief__go .vk-go {
+  flex: none;
+  height: 44px;
+  padding: 0 12px 0 22px;
 }
 
 /* ── Päevakäsk: a document, paper in the console ───────────────────────── */
@@ -391,6 +705,22 @@
   .vk-brief {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* One column: the conditions come before the order they produce. */
+  .vk-brief__col {
+    display: contents;
+  }
+  .vk-brief__opts,
+  .vk-brief__note {
+    order: 1;
+  }
+  .sh-order,
+  .vk-brief__roster {
+    order: 2;
+  }
+  .vk-brief__go {
+    margin: 12px -12px -12px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  }
   .vk-brief__strip.vk-strip {
     --vk-strip-n: 3 !important;
   }
@@ -402,21 +732,65 @@
   }
 }
 @media (max-width: 640px) {
-  .vk-choices {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    justify-self: stretch;
-  }
-  .vk-choices button {
-    justify-content: center;
-    white-space: normal;
-  }
-  .vk-brief__row {
+  .vk-cond__glance {
     grid-template-columns: minmax(0, 1fr);
-    gap: 6px;
   }
-  .vk-brief__rowLabel {
-    padding-top: 0;
+  .vk-cond__cell {
+    grid-template-columns: 76px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 10px;
+    padding: 10px 14px;
+  }
+  .vk-cond__cell + .vk-cond__cell {
+    border-left: 0;
+    border-top: 1px solid var(--vk-line-2);
+  }
+  .vk-cards--4 {
+    --vk-cards-n: 2;
+  }
+  .vk-cards--dates {
+    --vk-cards-n: 3;
+  }
+  .vk-cards--wx {
+    --vk-cards-n: 4;
+  }
+  .vk-cards--wx .vk-card {
+    justify-items: center;
+    padding: 8px 4px;
+    text-align: center;
+  }
+  .vk-cards--wx .vk-card__name {
+    font-size: 12px;
+  }
+  .vk-cards--wx .vk-wx__fx {
+    display: none;
+  }
+}
+/* A narrow phone: "Automaatne" is wider than a quarter of the row, so the weather goes three tiles a row (and the
+   dates two on the narrowest, so a date never runs past its tile). */
+@media (max-width: 440px) {
+  .vk-cards--wx {
+    --vk-cards-n: 3;
+  }
+}
+@media (max-width: 360px) {
+  .vk-cards--dates {
+    --vk-cards-n: 2;
+  }
+}
+@media (max-width: 640px) {
+  .vk-brief__goText {
+    display: none;
+  }
+  .vk-brief__goText.vk-msg {
+    display: block;
+  }
+  .vk-brief__go {
+    flex-wrap: wrap;
+  }
+  .vk-brief__go .vk-go {
+    flex: 1;
+    height: 48px;
   }
   .vk-doc {
     padding: 16px;

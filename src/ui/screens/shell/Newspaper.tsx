@@ -1,6 +1,8 @@
 // Classic broadsheet front page rendering ShiftReport.newspaper.
+import { useMemo, useState } from 'react';
 import type { Lang, ShiftReport, Text } from '@/sim/types';
 import { useT } from '@/i18n';
+import { drawingForPaper, drawingSrc } from './paper/drawings';
 import './newspaper.css';
 
 export function Newspaper({
@@ -9,6 +11,7 @@ export function Newspaper({
   issue,
   weather,
   extra,
+  photoKey,
 }: {
   paper: ShiftReport['newspaper'];
   lang: Lang;
@@ -16,8 +19,15 @@ export function Newspaper({
   weather?: string;
   /** A signed piece about the career's story (docs/STORY.md), set after the lead story. */
   extra?: { title: Text; body: Text; byline: string } | null;
+  /** The shift the page is for (ShiftReport.shiftKey): the same report keeps its photo, the next one gets another. */
+  photoKey?: string;
 }) {
   const t = useT();
+  const key = photoKey ?? `${paper.date}|${paper.headline.et}`;
+  const drawing = useMemo(() => drawingForPaper(key, paper.topics), [key, paper.topics]);
+  // Offline before the drawing was ever loaded (it is not precached): the old sketch instead.
+  const [failed, setFailed] = useState<string | null>(null);
+  const photo = drawing && failed !== drawing.id ? drawing : undefined;
   const own = paper.stories ?? [];
   const stories: { title: Text; body: Text; byline?: string }[] = extra
     ? [...own.slice(0, 1), extra, ...own.slice(1, 3)]
@@ -42,22 +52,44 @@ export function Newspaper({
       <p className="sh-paper__deck">{paper.sub[lang] || paper.sub.et}</p>
       <div className="sh-paper__body">
         <figure className="sh-paper__photo">
-          <div className="sh-paper__halftone" aria-hidden="true">
-            <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice">
-              <rect width="320" height="180" className="sh-paper__sky" />
-              <path
-                d="M0 132 L60 120 L110 128 L170 112 L230 124 L320 116 L320 180 L0 180Z"
-                className="sh-paper__ground"
+          <div className={`sh-paper__halftone${photo ? ' is-drawing' : ''}`}>
+            {photo ? (
+              <img
+                {...drawingSrc(photo)}
+                sizes="(max-width: 600px) 92vw, (max-width: 1100px) 46vw, 320px"
+                width={photo.w}
+                height={photo.h}
+                alt={photo.alt[lang] || photo.alt.et}
+                decoding="async"
+                onError={() => setFailed(photo.id)}
               />
-              <g className="sh-paper__car">
-                <path d="M96 128 l14-18 h62 l20 18 h22 a6 6 0 0 1 6 6 v12 h-140 v-12 a6 6 0 0 1 6-6z" />
-                <rect x="132" y="102" width="22" height="7" rx="2" className="sh-paper__bar" />
-                <circle cx="118" cy="148" r="11" />
-                <circle cx="196" cy="148" r="11" />
-              </g>
-            </svg>
+            ) : (
+              <svg aria-hidden="true" viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice">
+                <rect width="320" height="180" className="sh-paper__sky" />
+                <path
+                  d="M0 132 L60 120 L110 128 L170 112 L230 124 L320 116 L320 180 L0 180Z"
+                  className="sh-paper__ground"
+                />
+                <g className="sh-paper__car">
+                  <path d="M96 128 l14-18 h62 l20 18 h22 a6 6 0 0 1 6 6 v12 h-140 v-12 a6 6 0 0 1 6-6z" />
+                  <rect x="132" y="102" width="22" height="7" rx="2" className="sh-paper__bar" />
+                  <circle cx="118" cy="148" r="11" />
+                  <circle cx="196" cy="148" r="11" />
+                </g>
+              </svg>
+            )}
           </div>
-          <figcaption>{t('shell.paper.caption')}</figcaption>
+          <figcaption>
+            {photo ? (
+              <>
+                {/* The image's alt already says this: a screen reader hears it once, then the credit. */}
+                <span aria-hidden="true">{photo.alt[lang] || photo.alt.et}. </span>
+                {t('shell.paper.credit')}
+              </>
+            ) : (
+              t('shell.paper.caption')
+            )}
+          </figcaption>
         </figure>
         {stories.map((s, i) => (
           <section

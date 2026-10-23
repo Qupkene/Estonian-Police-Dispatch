@@ -59,7 +59,7 @@ interface CareerStore {
   /** Run a rule that may fail; returns the error text if it did. */
   attempt: (fn: (p: CareerProfile) => { profile: CareerProfile; error?: Text }) => Text | undefined;
   applyReport: (r: ShiftReport) => LedgerEntry[];
-  /** A co-op room shift's XP, once per key (room:<code>): 'paid', 'already' paid, or 'none' without a career. */
+  /** A co-op room shift's XP, once per key (room:<code>:<seed>): 'paid', 'already' paid, or 'none' without a career. */
   applyCoopXp: (key: string, r: ShiftReport, xp: number) => 'paid' | 'already' | 'none';
   /** Take a sector the prefect offered (docs/SECTORS.md); returns the error text if it could not. */
   acceptOffer: (sectorId: string) => Text | undefined;

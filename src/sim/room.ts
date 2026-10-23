@@ -99,6 +99,18 @@ export function roomShiftOptions(shift: RoomShift, playerName: string, own?: Cus
   };
 }
 
+/**
+ * The custom force when the host switches the room to `mode` (docs/MULTIPLAYER.md section 11): a role room has the
+ * host's drafted force (custom forces merely switched on, with no crews, become the standard roster until the host
+ * drafts one); a race or sector room has custom forces on with every player drafting their own (the host's role-room
+ * force is no player's draft, so it does not carry over). Undefined: the prefecture's own roster.
+ */
+export function customForMode(mode: RoomMode, custom: CustomSetup | undefined): CustomSetup | undefined {
+  if (!custom) return undefined;
+  if (mode === 'role') return custom.crews.length ? custom : undefined;
+  return { crews: [], ...(custom.budget ? { budget: true } : {}) };
+}
+
 /** The desks of a sector room's shift ([] for the other modes). */
 export function roomDesks(shift: Pick<RoomShift, 'mode' | 'options'>): string[] {
   if (shift.mode && shift.mode !== 'sector') return [];

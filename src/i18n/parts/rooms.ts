@@ -17,7 +17,8 @@ export default {
   // Room states
   'rooms.state.lobby': { et: 'ootab alustamist', en: 'waiting to start' },
   'rooms.state.running': { et: 'vahetus käib', en: 'shift on' },
-  'rooms.state.finished': { et: 'lõppenud', en: 'finished' },
+  'rooms.state.finished': { et: 'voor läbi', en: 'round over' },
+  'rooms.round': { et: '{n}. voor', en: 'round {n}' },
   'rooms.state.closed': { et: 'suletud', en: 'closed' },
 
   // Modes
@@ -87,8 +88,8 @@ export default {
     en: 'The others join with the code and mark themselves ready.',
   },
   'rooms.how.3': {
-    et: 'Looja alustab vahetust. Iga lõpetatud vahetus läheb ruumi tabelisse, mitte üldisesse edetabelisse.',
-    en: 'The creator starts the shift. Every finished shift goes on the room board, not the general leaderboard.',
+    et: 'Looja alustab vahetust. Pärast seda jätkate samas ruumis: looja valib järgmise vooru, kood jääb samaks.',
+    en: 'The creator starts the shift. Afterwards you carry on in the same room: the creator sets up the next round, the code stays.',
   },
 
   'rooms.rules.title': { et: 'Võistluse reeglid', en: 'Competition rules' },
@@ -137,10 +138,18 @@ export default {
     en: 'The shift is on. If you leave, your row stays on the board marked "left" and you can no longer send a result.',
   },
   'rooms.leave.yes': { et: 'Jah, lahku', en: 'Yes, leave' },
+  'rooms.rep.leaveConfirm': {
+    et: 'Sinu tulemus pole veel ruumi jõudnud. Kui lahkud, jääb su rida tabelisse märkega "lahkus" ja tulemust enam saata ei saa.',
+    en: 'Your result has not reached the room yet. If you leave, your row stays on the board marked "left" and the result can no longer be sent.',
+  },
   'rooms.leave.no': { et: 'Jää ruumi', en: 'Stay' },
   'rooms.block.too_few': {
     et: 'Alustamiseks on vaja vähemalt kahte mängijat. Saada kood edasi.',
     en: 'You need at least two players to start. Pass the code on.',
+  },
+  'rooms.block.away': {
+    et: 'Teised mängijad ei ole praegu ruumis. Alustada saab, kui keegi on tagasi.',
+    en: 'The other players are not in the room right now. You can start once someone is back.',
   },
   'rooms.block.not_ready': {
     et: 'Ootan, kuni kõik mängijad on valmis.',
@@ -171,6 +180,24 @@ export default {
     en: 'Your result is on the board. Waiting for the others.',
   },
   'rooms.run.sentDone': { et: 'Kõik tulemused on koos.', en: 'All results are in.' },
+  'rooms.run.next': {
+    et: 'Kui kõik on lõpetanud, avaneb ruum järgmiseks vooruks.',
+    en: 'Once everyone has finished, the room opens for the next round.',
+  },
+  'rooms.run.endHint': {
+    et: 'Kui kellelgi läheb kaua, võid vooru kõigi jaoks lõpetada.',
+    en: 'If someone takes long, you can end the round for everyone.',
+  },
+  'rooms.endRound': { et: 'Lõpeta voor', en: 'End the round' },
+  'rooms.endRound.confirm': {
+    et: 'Voor lõpeb kõigi jaoks ja ruum avaneb järgmiseks vooruks. Kes on veel vahetuses, selle tulemus tabelisse ei jõua.',
+    en: 'The round ends for everyone and the room opens for the next one. Anyone still on shift will not get a result on the board.',
+  },
+  'rooms.endRound.yes': { et: 'Jah, lõpeta voor', en: 'Yes, end the round' },
+  'rooms.endRound.no': { et: 'Oota veel', en: 'Keep waiting' },
+  'rooms.reopening': { et: 'Avan ruumi järgmiseks vooruks…', en: 'Opening the room for the next round…' },
+  'rooms.last.title': { et: 'Eelmine voor', en: 'Last round' },
+  'rooms.last.caption': { et: '{n}. vooru tulemused', en: 'Results of round {n}' },
   'rooms.run.text': {
     et: 'Vahetus algas {time}. Kõigil on sama vahetus, igaüks mängib omaette.',
     en: 'The shift started at {time}. Everyone has the same shift and plays on their own.',
@@ -215,7 +242,29 @@ export default {
     et: 'Ruumi tulemus läheb arvesse ainult kontoga.',
     en: 'A room result only counts with an account.',
   },
-  'rooms.rep.toRoom': { et: 'Ruumi', en: 'To the room' },
+  'rooms.rep.toRoom': { et: 'Tagasi ruumi', en: 'Back to the room' },
+  'rooms.rep.wait': { et: 'Ootame, kuni teised lõpetavad.', en: 'Waiting for the others to finish.' },
+  'rooms.rep.over': {
+    et: 'Voor on läbi. Järgmine voor algab samas ruumis.',
+    en: 'The round is over. The next one starts in the same room.',
+  },
+  'rooms.rep.open': {
+    et: 'Ruum on järgmiseks vooruks avatud. Uue vooru alustab {name}.',
+    en: 'The room is open for the next round. {name} starts it.',
+  },
+  'rooms.rep.openMine': {
+    et: 'Ruum on järgmiseks vooruks avatud. Uue vooru alustad sina.',
+    en: 'The room is open for the next round. You start it.',
+  },
+  'rooms.rep.next': {
+    et: 'Ruumis käib juba järgmine voor.',
+    en: 'The next round is already on in the room.',
+  },
+  'rooms.rep.closed': { et: 'Ruum on suletud.', en: 'The room is closed.' },
+  'rooms.rep.left': {
+    et: 'Sa lahkusid ruumist. Sinu tulemus jääb selle vooru tabelisse.',
+    en: 'You left the room. Your result stays on this round’s board.',
+  },
 
   // Errors
   'rooms.err.bad_code': {
@@ -229,6 +278,10 @@ export default {
   'rooms.err.not_custom': {
     et: 'Selles ruumis oma koosseisu ei valita.',
     en: 'Players do not draft their own force in this room.',
+  },
+  'rooms.err.round_over': {
+    et: 'See voor oli juba läbi, tulemus tabelisse ei jõudnud.',
+    en: 'This round was already over, the result did not reach the board.',
   },
   'rooms.err.room_not_found': { et: 'Sellise koodiga ruumi ei ole.', en: 'There is no room with that code.' },
   'rooms.err.room_full': { et: 'Ruum on täis (4 mängijat).', en: 'The room is full (4 players).' },

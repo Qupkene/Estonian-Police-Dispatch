@@ -13,7 +13,8 @@ Phase 1 built the shared room foundation and mode (c) end to end. Phases 2 and 3
 simulation (section 4 chooses how) and mode (b) on top of it; section 7 describes what was built. Phase 4 built
 mode (a) on the same lockstep core; section 8 describes it. Since 2.21.0 the co-op shifts run on a game server
 (section 9): a click takes effect in about a tenth of a second instead of two or three, and the lockstep core is the
-fallback when the game server is not there. Careers and polish are next (section 6).
+fallback when the game server is not there. A room plays round after round: after a game everybody carries on in the
+same lobby (section 11). Careers and polish are next (section 6).
 
 Code: `server/lib/rooms.php` (routes in `server/api/index.php`, schema step 4 in `server/lib/db.php`),
 `src/net/rooms.ts`, `src/sim/room.ts`, `src/ui/screens/LobbyScreen.tsx`, `src/ui/screens/shell/RoomBoard.tsx`,
@@ -44,19 +45,21 @@ docs/SERVER.md, "Multiplayer rooms".
 
 A room is the meeting point of every mode: a code, a lobby, a host, up to four seats and the shift's options.
 
-**Lifecycle.** `lobby` → (host starts) → `running` → (every player still in has a result, or 12 hours) →
-`finished`. A lobby nobody polled for 30 minutes becomes `closed`, and so does a lobby everybody left.
+**Lifecycle.** `lobby` → (host starts) → `running` → (every player taking part has a result, or 12 hours) →
+`finished` → (a player comes back) → `lobby` of the next round (section 11). A lobby nobody polled for 30 minutes
+becomes `closed`, and so does a lobby everybody left.
 
 **Code.** Six characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no I, O, 0, 1, so a code read aloud or off a
 screen is unambiguous), about 10^9 codes. Typed codes are upper-cased and lose spaces and dashes. The UI shows
 them as two groups of three (`K7M 2QX`).
 
 **Seats.** Seat 0 to 3; the creator is the host and always counts as ready. A player is in one open room at a
-time: creating or joining another one leaves the previous one. The host's role passes to whoever joined
-first among those still in when the host leaves (or deletes their account).
+time (a room between two rounds counts): creating or joining another one leaves the previous one. The host's role
+passes to whoever joined first among those still in when the host leaves (or deletes their account), and in the
+lobby to the earliest-joined player who is online once the host has not polled for five minutes.
 
-**Options** (host only, lobby only; a change clears the others' ready marks): prefecture, area (a sector of
-it or the whole prefecture), difficulty, length (2, 3, 4 or 6 game hours) and part of the day. The seed and
+**Options** (host only, lobby only; a change clears the others' ready marks): the mode, prefecture, area (a sector
+of it or the whole prefecture), difficulty, length (2, 3, 4 or 6 game hours) and part of the day. The seed and
 the day are chosen by the server and revealed only when the shift starts, so nobody can play it early.
 
 **Polling.** `GET /api/rooms/{code}?v=<tag>`. The tag is `<revision>.<online seats as a bit mask>`; the
@@ -68,10 +71,11 @@ runs, every 5 s while the page is hidden, backs off to 15 s after failures, and 
 
 **Tables (schema step 4).** `rooms` (code, mode, host, options, seed, day, state, revision, times),
 `room_players` (room, user, seat, ready, joined, seen, left_at), `room_results` (room, user, score, grade,
-incidents, arrests, at). Foreign keys cascade from `users` and `rooms`; `rooms.host_id` is set to NULL.
+incidents, arrests, at). Foreign keys cascade from `users` and `rooms`; `rooms.host_id` is set to NULL. Schema
+step 11 adds the rounds (section 11): `rooms.round` and `room_round_results`.
 
 **Expiry and cleanup.** Time rules are applied whenever a room is read or written (no cron): the 30 minute
-lobby rule and the 12 hour running rule above. Rooms older than 30 days are deleted with their players and
+lobby rule and the 12 hour running rule above. Rooms nobody changed for 30 days are deleted with their players and
 results, swept whenever a room is created.
 
 **Abuse limits.**
@@ -90,8 +94,9 @@ are removed, the host's role passes on, a room nobody is left in closes (`epd_ro
 ## 3. Mode (c), Võistlus (built)
 
 1. The host creates a room (mode `race`), the others join with the code and mark ready.
-2. The host starts once at least two players are in and all are ready. The server stores the start time, the
-   day (Europe/Tallinn) and reveals the seed.
+2. The host starts once at least two players take part and every player who is here is ready (section 11: a player
+   who is away does not hold the start up). The server stores the start time, the day (Europe/Tallinn) and reveals
+   the seed.
 3. Every client sees `running` on its next poll and goes on shift by itself. The shift follows from the room
    alone (`roomShiftOptions` in `src/sim/room.ts`): the seed, the room's day at an hour of the chosen part of
    the day (picked by the seed), the options, mode `free`, `fixedSchedule: true`. The weather comes from the
@@ -99,9 +104,9 @@ are removed, the host's role passes on, a room nobody is left in closes (`epd_ro
 4. The run is marked `sim.flags.room = <code>`. It is saved and resumed like any shift, so a reload or a
    closed tab continues it; the menu row shows the open room and leads back to it (`GET /api/rooms`).
 5. The report posts the result once to `POST /api/rooms/{code}/result` (never to `/api/score` or
-   `/api/daily`) and shows the room's board, polled every 2 s until every player still in has finished.
-   A player who leaves stays on the board as having left; a shift without incidents is refused
-   (`empty_shift`), as on the other boards.
+   `/api/daily`) and shows the room's board, polled every 2 s while the report is open. A player who leaves stays
+   on the board as having left; a shift without incidents is refused (`empty_shift`), as on the other boards. The
+   report's way on is back to the room for the next round (section 11), never a new single-player shift.
 
 **XP and career.** As a normal free shift: the report shows the XP, the career is not touched, the normal
 leaderboard is not touched.
@@ -206,8 +211,8 @@ everywhere. Each player posts it with their seat's own figures (calls answered, 
 sent). Each player's XP is the team's XP plus a share for their own work. It goes into that player's own career
 locally (the career lives in the browser and syncs as the `career` save): XP, rank progress, the shift count and
 achievements, but no money, staff, fleet or reputation, which belong to the career's own sector. It is applied
-once per room, keyed `room:<code>` in the profile's `paidShifts`, so a reload or a second report never pays
-twice. The server keeps each player's row in `room_results` (with the XP) for the board.
+once per room and round, keyed `room:<code>:<seed>` in the profile's `paidShifts` (section 11), so a reload or a
+second report never pays twice. The server keeps each player's row in `room_results` (with the XP) for the board.
 
 ## 5. What the co-op modes add on top
 
@@ -239,8 +244,8 @@ counters in the stats.
    game screen, per-seat counters, the co-op report.
 4. **Sector co-op (a) (done, section 8).** Desk choice in the lobby, multi-sector shifts with per-desk queues and
    crews, lending, AI colleagues for empty desks.
-5. **Careers and polish.** Co-op XP into careers (section 4.6), achievements, a rematch with the same options,
-   an invite link (`?ruum=K7M2QX`), spectators.
+5. **Careers and polish.** Co-op XP into careers (section 4.6), achievements, an invite link (`?ruum=K7M2QX`),
+   spectators. The rematch is built: a room plays round after round in the same lobby (section 11).
 
 ## 7. Phases 2 and 3 as built
 
@@ -323,7 +328,8 @@ role picker (`src/ui/screens/LobbyScreen.tsx`) and the team table on the report.
   closed, acknowledged, crews sent, radio replies, closed, queries, pings, commands, refused). The table "Meeskonna
   töö" is the same on every report.
 - XP: `coopXp` = the team's XP + the seat's own work (`seatWork`, at most half the team's). It goes into the
-  player's own career once per room, keyed `room:<code>` in `paidShifts` (`applyCoopXp`, `applyCoopShift`): XP,
+  player's own career once per room and round, keyed `room:<code>:<seed>` in `paidShifts` (`applyCoopXp`,
+  `applyCoopShift`): XP,
   promotions (and the prefectures a rank opens), the shift count, incidents, arrests and achievements. Never money,
   staff, fleet, reputation, the career day or its history. Each player posts the team's result with their XP to
   `/result` (`room_results.xp`).
@@ -436,7 +442,7 @@ nobody picked and a player who leaves (`left`, or offline for 60 s) are the same
 The report's `coop` gains `mode: 'sector'`, each seat's `desk` and `desks`: one row per desk, the same on every
 client (`deskRows`): who sat there (or the AI colleague), the desk's incidents and how many closed, crews lent,
 help, hand-overs and what the colleague took back. The players' table shows calls, incidents created, crews sent,
-crews lent and help. XP as for role co-op (section 7.4), once per career keyed `room:<code>`.
+crews lent and help. XP as for role co-op (section 7.4), once per career and round keyed `room:<code>:<seed>`.
 
 ### 8.6 Limits
 
@@ -545,3 +551,91 @@ host keeps it on.
   longer in it to one that is (`adaptSetup`).
 - A custom game is never ranked (`flags.custom`, `ShiftReport.custom`, `unrankedReason` 'custom'); room results stay
   in the room as always.
+
+## 11. Rounds: the same lobby after a game (2.29.0)
+
+The owner's words: when a multiplayer game ends, "start new" must not lead to a quick shift; everybody carries on in
+the same lobby, the room's creator picks the modes and options again, the others are still in it and nobody joins
+again with the code after every game. A room therefore plays round after round, in all three modes.
+
+Code: `epd_room_new_round` and `epd_route_room_reopen` in `server/lib/rooms.php` (schema step 11 in
+`server/lib/db.php`), `reopenRoom`, `roundOfShift`, `participants` and `startBlock` in `src/net/rooms.ts`, the
+lobby's `RoomView` (`src/ui/screens/LobbyScreen.tsx`), the room panel of the report (`RoomReportBoard` in
+`src/ui/screens/ReportScreen.tsx`), `customForMode` in `src/sim/room.ts`, the round guards of both co-op sessions in
+`src/store/coop.ts`. API reference: docs/SERVER.md, "Multiplayer rooms". Tests: `tests/server.test.ts` (the rounds in
+"multiplayer rooms", the next shared shift in "co-op lockstep (role rooms)" and on the game server, the admin's
+rooms), `tests/rooms.test.ts` ("rounds"), `e2e/multiplayer.spec.ts` (a second race round), `e2e/coop.spec.ts` (a
+second and third role co-op round on the game server).
+
+### 11.1 Back to the room
+
+- The report of a room run leads back to its room: the page's main action (and Enter) is "Tagasi ruumi", never "Uus
+  vahetus". The room's panel on the report shows the board of the shift's round (the shift's seed tells the round
+  apart: the room's current round while it is on it, its last round once the room has moved on), what the room does
+  now (others still playing, round over, open for the next round and who starts it, the next round already on,
+  closed) and "Lahku ruumist". It keeps polling while the report is open, so a player reading the report counts as
+  here and the next round does not start without them.
+- A round is over (`finished`) once every player taking part has sent a result, or 12 hours after its start. The first
+  player still in the room who comes back opens it for the next round (`POST /api/rooms/{code}/reopen`): the lobby
+  view does it by itself when it shows a finished room, whether the player came from the report, the menu (the
+  menu's room row shows a room between rounds for 12 hours after the round's start) or the code. Any player may do it,
+  not only the host: the round is over for everybody, so nothing is lost, and the host keeps the host's role. A
+  `round` in the request makes it idempotent: whoever comes back from a round the room has already left behind changes
+  nothing.
+- The new round: the round's results move to `room_round_results` (with the round number, mode and seed) and the room
+  shows them as its `last` round; players who left during the round go (their seats are free); everybody else stays,
+  not ready (the host always is); the seed is new and secret until the start; the start time, the engine, the co-op
+  clock, log, snapshot and digests are cleared. The options, the mode, the roles, the desks and the players' drafts
+  stay; a sector room's force, joined from the drafts at the start, is again each desk's own draft. The revision
+  grows, so every poller sees the lobby at once.
+- In the lobby the host changes whatever they like, the mode too (`PUT` with `mode`): a mode change clears the
+  players' drafts (a race draft is of the whole area, a sector draft of a desk, a role room has the host's force), and
+  the custom force follows the mode (`customForMode`). Then the others mark ready and the host starts. Every player
+  whose lobby view saw the lobby goes on shift by itself, as in the first round; a race player's saved run counts
+  only when its seed is the round's.
+- Joining between two rounds is allowed (a finished room takes new players, who are in the next round), and so is
+  leaving: the player's result stays on the round's board, the room leaves their menu, and coming back with the code
+  undoes it.
+
+### 11.2 Who the next round waits for
+
+- The start: the round is for the host, everybody ready and everybody here (online: polled within 20 s). A player here
+  who is not ready holds the start up (409 `not_ready`, "Ootan, kuni kõik mängijad on valmis"); a player who is away
+  does not (they closed the tab after the last round), so nobody has to wait for them or make a new room. At least two
+  players must take part (409 `too_few`; the lobby says "Teised mängijad ei ole praegu ruumis" when the others are
+  only away). A player away at the start stays in the room and may still play the round (a race shift of their own,
+  or the shared shift, where their seat is in the setup), but the round does not wait for their result: once the
+  round is on, `ready` says who takes part, and the round is over when they all have sent one.
+- The host may end a round that waits for somebody (a race player who never finishes, a co-op player whose tab
+  closed before the end, or a shared shift without incidents, whose results no board takes): "Lõpeta voor" in the
+  room, with a confirmation, is `reopen` with `end: true` (403 `not_host` for the others). A result that arrives after
+  that is of a round the room has left behind: the result carries the shift's seed and the room answers 409
+  `round_over` ("See voor oli juba läbi"). A result without a seed (an older client) counts for the current round.
+- The host away: in the lobby, a host who has not polled for five minutes hands the room to the earliest-joined player
+  who is online (and is no longer ready), so a host who closed the tab after a round does not keep the others waiting
+  for ever. Five minutes, so that a host who switches to another app to send the code to friends keeps the room.
+
+### 11.3 Co-op rounds and the game server
+
+- Every round of a co-op room is a new shared shift: a new seed and start time in the setup and in the ticket. The game
+  server builds a new shift for a ticket whose start differs from the room it holds (it closes the old one, which by
+  then nobody plays), so nothing about a room's earlier rounds carries over.
+- A player still connected to the old shift when the host ends a round (a hidden tab) ends there: the lockstep session
+  stops when the log answers `lobby` or another start time, the game server's session when its presence poll sees the
+  room in the lobby or on another seed, or a reconnect gets another seed. The game shows "Vahetus lõppenud" and the
+  pause menu leads out.
+- XP goes into the careers once per room and round: the profile key is `room:<code>:<seed>`. Before rounds it was
+  `room:<code>`; a co-op round finished before the update and reported again after it (a rejoin across the update)
+  could pay a second time, which is harmless.
+
+### 11.4 Limits
+
+- A player who never comes back and never leaves keeps one of the four seats; the start and the end of a round do not
+  wait for them, but a fifth player cannot join while all four seats are taken. There is no way for the host to remove
+  a player.
+- A co-op player who is away at the start keeps a seat in the shared shift; on the game server the desk or role is
+  held by nobody for up to a minute (the seat's grace to connect) before the others take it over, as for a player who
+  loses the connection.
+- The admin panel shows a room's rounds (the current one's results and every earlier one's, newest first) and can
+  close a room between rounds; earlier rounds' results are kept while the room is kept, and go with the room (30 days
+  after its last change) or with a player's account.

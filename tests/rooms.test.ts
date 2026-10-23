@@ -5,6 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  customForMode,
   DEFAULT_ROOM_OPTIONS,
   displayRoomCode,
   markRoom,
@@ -26,15 +27,19 @@ import {
   myResult,
   parseOptions,
   parseRoom,
+  participants,
   pollDelay,
   pollRoom,
+  reopenRoom,
   RoomPoller,
   roomErrorKey,
   roomResultBody,
   roomShiftOf,
+  roundOfShift,
   startBlock,
   stillPlaying,
   submitRoomResultOnce,
+  updateRoomOptions,
   type Room,
 } from '@/net/rooms';
 import { ApiError } from '@/net/api';
@@ -276,6 +281,7 @@ describe('room answers', () => {
 
   it('maps errors to messages', () => {
     expect(roomErrorKey(new ApiError(409, 'room_full', 'x'))).toBe('rooms.err.room_full');
+    expect(roomErrorKey(new ApiError(409, 'round_over', 'x'))).toBe('rooms.err.round_over');
     expect(roomErrorKey(new ApiError(500, 'server_error', 'x'))).toBe('rooms.err.other');
     expect(roomErrorKey(new Error('offline'))).toBe('rooms.err.network');
   });
@@ -287,6 +293,101 @@ describe('room answers', () => {
     expect(pollDelay(true, 3)).toBe(8000);
     expect(pollDelay(true, 10)).toBe(15_000);
     expect(pollDelay(true, 0, 2000)).toBe(2000);
+  });
+});
+
+describe('rounds (docs/MULTIPLAYER.md section 11)', () => {
+  const RESULT = {
+    id: 2,
+    name: 'Ivo',
+    score: 81,
+    grade: 'A',
+    incidents: 9,
+    arrests: 1,
+    xp: 0,
+    at: 5,
+    rank: 1,
+  };
+
+  it('reads the round and the last round, and nothing from a broken one', () => {
+    const fresh = parseRoom(serverRoom())!;
+    expect(fresh.round).toBe(1);
+    expect(fresh.last).toBeNull();
+    const later = parseRoom(
+      serverRoom({ round: 3, last: { round: 2, mode: 'role', seed: 77, results: [RESULT] } }),
+    )!;
+    expect(later.round).toBe(3);
+    expect(later.last).toEqual({ round: 2, mode: 'role', seed: 77, results: [RESULT] });
+    for (const last of [null, 'x', { round: 0, results: [RESULT] }, { round: 2, results: [] }, { round: 2 }])
+      expect(parseRoom(serverRoom({ round: 3, last }))!.last, JSON.stringify(last)).toBeNull();
+    expect(parseRoom(serverRoom({ round: -4 }))!.round).toBe(1);
+  });
+
+  it('starts without a player who is away, but never without one who is here and not ready', () => {
+    const room = parseRoom(serverRoom())!;
+    const [hanna, ivo] = room.players;
+    const jaan = { ...ivo, id: 3, name: 'Jaan', seat: 2, ready: false, online: false };
+    // Ivo is here and not ready: he holds the start up; Jaan, away, does not.
+    expect(startBlock({ ...room, players: [hanna, ivo, jaan] })).toBe('not_ready');
+    expect(startBlock({ ...room, players: [hanna, { ...ivo, ready: true }, jaan] })).toBeNull();
+    // Away but ready (before the tab closed): still takes part.
+    expect(startBlock({ ...room, players: [hanna, { ...ivo, online: false, ready: true }] })).toBeNull();
+    // Only players who are away: there are players enough, but nobody to play with now.
+    expect(startBlock({ ...room, players: [hanna, { ...ivo, online: false }] })).toBe('away');
+    expect(startBlock({ ...room, players: [hanna] })).toBe('too_few');
+  });
+
+  it('waits only for the players taking part in the round', () => {
+    const room = parseRoom(
+      serverRoom({
+        state: 'running',
+        seed: 99,
+        day: '2026-10-20',
+        started: 1,
+        players: [
+          { id: 1, name: 'Hanna', seat: 0, host: true, ready: true, online: true, left: false, done: true },
+          { id: 2, name: 'Ivo', seat: 1, host: false, ready: true, online: false, left: false, done: false },
+          {
+            id: 3,
+            name: 'Jaan',
+            seat: 2,
+            host: false,
+            ready: false,
+            online: false,
+            left: false,
+            done: false,
+          },
+        ],
+        results: [{ ...RESULT, id: 1, name: 'Hanna' }],
+      }),
+    )!;
+    expect(participants(room).map((p) => p.name)).toEqual(['Hanna', 'Ivo']);
+    expect(stillPlaying(room).map((p) => p.name)).toEqual(['Ivo']);
+  });
+
+  it('finds the board of a report’s round: the current one, the last one, or none', () => {
+    const running = parseRoom(
+      serverRoom({ state: 'running', round: 2, seed: 99, day: '2026-10-20', results: [RESULT] }),
+    )!;
+    expect(roundOfShift(running, 99)).toEqual({ round: 2, results: [RESULT], current: true });
+    expect(roundOfShift(running, 98)).toBeNull();
+    // The room opened for round 3: the report of round 2 shows round 2 as the room's last round.
+    const reopened = parseRoom(
+      serverRoom({ round: 3, last: { round: 2, mode: 'race', seed: 99, results: [RESULT] } }),
+    )!;
+    expect(roundOfShift(reopened, 99)).toEqual({ round: 2, results: [RESULT], current: false });
+    expect(roundOfShift(reopened, 98)).toBeNull();
+  });
+
+  it('carries the custom force over when the host switches the mode', () => {
+    const own: CustomSetup = { crews: [['patrol', 'louna-tartu', 1]], budget: true };
+    expect(customForMode('race', undefined)).toBeUndefined();
+    // A role room's force is the host's: custom forces merely switched on become the standard roster.
+    expect(customForMode('role', own)).toBe(own);
+    expect(customForMode('role', { crews: [], budget: true })).toBeUndefined();
+    // A race or sector room: custom forces on, everybody drafts their own (the budget rule stays).
+    expect(customForMode('race', own)).toEqual({ crews: [], budget: true });
+    expect(customForMode('sector', { crews: [['patrol', 'louna-tartu']] })).toEqual({ crews: [] });
   });
 });
 
@@ -361,6 +462,15 @@ describe('room requests', () => {
       stats: { incidents: 9, arrests: 2 },
     } as unknown as ShiftReport;
     expect(roomResultBody(report)).toEqual({ score: 82, grade: 'A', incidents: 9, arrests: 2 });
+    // The shift's seed tells the room which round the result is of.
+    expect(roomResultBody(report, 310, 77)).toEqual({
+      score: 82,
+      grade: 'A',
+      incidents: 9,
+      arrests: 2,
+      xp: 310,
+      seed: 77,
+    });
     fetchMock.mockResolvedValueOnce(json({ error: 'server_error', message: 'x' }, 500));
     await expect(submitRoomResultOnce(report, 'K7M2QX')).rejects.toBeInstanceOf(ApiError);
     fetchMock.mockResolvedValueOnce(
@@ -372,5 +482,28 @@ describe('room requests', () => {
     expect(await b).toBe(await a);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1][0]).toBe('/api/rooms/K7M2QX/result');
+  });
+
+  it('comes back to a room with the round it comes from, and the host ends a round only when asked', async () => {
+    fetchMock.mockResolvedValueOnce(json({ room: serverRoom({ round: 2 }) }));
+    expect((await reopenRoom('K7M2QX', { round: 1 })).round).toBe(2);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/rooms/K7M2QX/reopen');
+    expect(init?.method).toBe('POST');
+    expect((init?.headers as Record<string, string>)['X-EPD']).toBe('1');
+    expect(JSON.parse(String(init?.body))).toEqual({ round: 1 });
+    fetchMock.mockResolvedValueOnce(json({ room: serverRoom({ round: 3 }) }));
+    await reopenRoom('K7M2QX', { round: 2, end: true });
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({ round: 2, end: true });
+  });
+
+  it('switches the mode only when asked', async () => {
+    const opts = { ...DEFAULT_ROOM_OPTIONS };
+    fetchMock.mockImplementation(async () => json({ room: serverRoom() }));
+    await updateRoomOptions('K7M2QX', opts);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual(opts);
+    await updateRoomOptions('K7M2QX', opts, 'role');
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({ ...opts, mode: 'role' });
+    expect(fetchMock.mock.calls[1][1]?.method).toBe('PUT');
   });
 });

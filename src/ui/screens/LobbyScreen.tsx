@@ -14,6 +14,7 @@ import {
   myResult,
   pollRoom,
   present,
+  reopenRoom,
   roomErrorKey,
   RoomPoller,
   roomShiftOf,
@@ -28,6 +29,7 @@ import { useLang, useT, useTx } from '@/i18n';
 import { sfx } from '@/audio/sfx';
 import { sectorsOf, starterSectors } from '@/sim/sectors';
 import {
+  customForMode,
   DEFAULT_ROOM_OPTIONS,
   displayRoomCode,
   markRoom,
@@ -54,7 +56,7 @@ import { Button, Modal, Segmented, Select, Spinner } from '@/ui/components';
 import { ShellPage, useToast } from './shell/ShellPage';
 import { regionSummary } from './shell/helpers';
 import { lobbyFocus } from './shell/lobbyNav';
-import { boardCount, RoomBoard } from './shell/RoomBoard';
+import { boardCount, ResultsBoard, RoomBoard } from './shell/RoomBoard';
 import { VkLayer } from './shell/VkLayer';
 import { DeskOptions, DeskPicker, DeskSummary, deskOfPlayer, desksOf, withDesks } from './shell/LobbyDesks';
 import { CustomEditor } from './custom/CustomEditor';
@@ -82,6 +84,13 @@ function roomArea(o: RoomOptions, mode: RoomMode): string[] {
 /** What a room of this mode is created with: a sector room carries its desks (the first is its sector). */
 function optionsForMode(mode: RoomMode, o: RoomOptions): RoomOptions {
   return mode === 'sector' ? withDesks(o, desksOf(o)) : o;
+}
+
+/** The options when the host switches the room to another mode in the lobby (the custom force follows the mode). */
+function switchMode(mode: RoomMode, o: RoomOptions): RoomOptions {
+  const { custom, ...rest } = o;
+  const next = customForMode(mode, custom);
+  return optionsForMode(mode, next ? { ...rest, custom: next } : rest);
 }
 
 export function LobbyScreen() {
@@ -150,6 +159,7 @@ export function LobbyScreen() {
       <RoomView
         key={room.code}
         initial={room}
+        onRoom={setRoom}
         onLeft={() => {
           setRoom(null);
           setError(null);
@@ -382,17 +392,22 @@ function ModePicker({ value, onChange }: { value: RoomMode; onChange: (m: RoomMo
   );
 }
 
-/** The shift's options: prefecture, area (a sector room: its desks), difficulty, length and time of day. */
+/**
+ * The shift's options: prefecture, area (a sector room: its desks), difficulty, length and time of day. In a room's
+ * lobby (`onMode`) the host switches the mode here too.
+ */
 function OptionsForm({
   value,
   onChange,
   disabled,
   mode,
+  onMode,
 }: {
   value: RoomOptions;
   onChange: (o: RoomOptions) => void;
   disabled?: boolean;
   mode: RoomMode;
+  onMode?: (m: RoomMode) => void;
 }) {
   const t = useT();
   const tx = useTx();
@@ -414,6 +429,21 @@ function OptionsForm({
   );
   return (
     <div className="vk-mp__form" aria-disabled={disabled || undefined}>
+      {onMode &&
+        row(
+          t('rooms.mode'),
+          <Segmented<RoomMode>
+            size="sm"
+            label={t('rooms.mode')}
+            value={mode}
+            onChange={(m) => m !== mode && onMode(m)}
+            options={MODES.map((m) => ({
+              value: m,
+              label: t(`rooms.mode.${m}`),
+              disabled: disabled || !OPEN_ROOM_MODES.includes(m),
+            }))}
+          />,
+        )}
       {row(
         t('rooms.opt.region'),
         <Segmented<RegionId>
@@ -594,10 +624,13 @@ function OptionsSummary({ o, room }: { o: RoomOptions; room?: Room }) {
 
 function RoomView({
   initial,
+  onRoom,
   onLeft,
   toast,
 }: {
   initial: Room;
+  /** The room as it is now (the page's subtitle shows its state). */
+  onRoom: (r: Room) => void;
   onLeft: () => void;
   toast: (text: string, tone?: 'ok' | 'gold' | 'danger' | 'info') => void;
 }) {
@@ -605,17 +638,23 @@ function RoomView({
   const gameUser = useGame((s) => s.user);
   const resumeShift = useGame((s) => s.resumeShift);
   const [room, setRoom] = useState<Room>(initial);
+  useEffect(() => onRoom(room), [room]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gone, setGone] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
   const pollerRef = useRef<RoomPoller | null>(null);
   const seenLobby = useRef(initial.state === 'lobby');
-  const autoStarted = useRef(false);
+  /** The round (its seed) this view sent the player into, so each round starts by itself only once. */
+  const autoStarted = useRef<number | null>(null);
+  /** The round this view asked to open again (once per round, docs/MULTIPLAYER.md section 11). */
+  const reopened = useRef<number | null>(null);
 
-  const final = room.state === 'finished' || room.state === 'closed';
+  // A finished round opens again for the next one, so only a closed room stops being polled.
+  const closed = room.state === 'closed';
   useEffect(() => {
-    if (final) return;
+    if (closed) return;
     const p = new RoomPoller({
       code: room.code,
       every: room.state === 'lobby' ? 1000 : 2000,
@@ -634,17 +673,32 @@ function RoomView({
       p.stop();
       pollerRef.current = null;
     };
-    // A new poller when the room moves from the lobby to the shift (slower) or ends.
-  }, [room.code, room.state === 'lobby', final]);
+    // A new poller when the room moves from the lobby to the shift (slower) or is closed.
+  }, [room.code, room.state === 'lobby', closed]);
 
   const host = isHost(room);
   const me = meIn(room);
   const mine = myResult(room);
   const shift = roomShiftOf(room);
+  // Only a saved run of this round: an earlier round's shift of the same room is another shift.
   const saved = useMemo(() => {
     const s = loadAutosave();
-    return s && roomCodeOf(s) === room.code ? s : null;
-  }, [room.code, room.state]);
+    return s && roomCodeOf(s) === room.code && s.seed === room.seed ? s : null;
+  }, [room.code, room.state, room.seed]);
+
+  // Back in a room whose round is over: it opens for the next round, whoever of its players comes back first.
+  const waiting = room.state === 'finished' && !!me && !me.left;
+  const [reopenTry, setReopenTry] = useState(0);
+  useEffect(() => {
+    if (!waiting || reopened.current === room.round) return;
+    reopened.current = room.round;
+    reopenRoom(room.code, { round: room.round })
+      .then((r) => {
+        setRoom(r);
+        pollerRef.current?.now();
+      })
+      .catch((e: unknown) => setError(t(roomErrorKey(e))));
+  }, [waiting, room.code, room.round, reopenTry]);
 
   /** Into the room's shift: the saved run of it when there is one, else a new run from the room's seed. */
   const coop = isCoopMode(room.mode);
@@ -676,11 +730,18 @@ function RoomView({
     }
   };
 
-  // The host started while we waited in the lobby: everybody goes on shift at once.
+  // The host started while we waited in the lobby: everybody goes on shift at once (every round).
   useEffect(() => {
     if (room.state === 'lobby') seenLobby.current = true;
-    if (room.state === 'running' && seenLobby.current && !autoStarted.current && !mine && me && !me.left) {
-      autoStarted.current = true;
+    if (
+      room.state === 'running' &&
+      seenLobby.current &&
+      autoStarted.current !== room.seed &&
+      !mine &&
+      me &&
+      !me.left
+    ) {
+      autoStarted.current = room.seed;
       play();
     }
   });
@@ -714,6 +775,12 @@ function RoomView({
     onLeft();
   };
 
+  /** The host ends a round that waits for somebody: the room opens for the next one at once. */
+  const endRound = () => {
+    setConfirmEnd(false);
+    void act(() => reopenRoom(room.code, { round: room.round, end: true }));
+  };
+
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(room.code);
@@ -744,12 +811,14 @@ function RoomView({
     <div className="vk-mp" data-testid="room" data-state={room.state}>
       <div className="vk-mp__col">
         <section className="vk-panel vk-mp__room" aria-labelledby="vk-mp-room">
-          <div className="vk-panel__head">
+          <div className="vk-panel__head vk-mp__boardHead">
             <h2 className="vk-h" id="vk-mp-room">
               {t('rooms.room')}
             </h2>
-            <span className="vk-meta">
-              {t(`rooms.mode.${room.mode}`)} · {t(`rooms.state.${room.state}`)}
+            <span className="vk-meta" data-testid="room-meta">
+              {t(`rooms.mode.${room.mode}`)} ·{' '}
+              {room.round > 1 ? `${t('rooms.round', { n: room.round })} · ` : ''}
+              {t(`rooms.state.${room.state}`)}
             </span>
           </div>
           <div className="vk-mp__codeBox">
@@ -772,6 +841,7 @@ function RoomView({
                 disabled={busy}
                 mode={room.mode}
                 onChange={(o) => void act(() => updateRoomOptions(room.code, optionsForMode(room.mode, o)))}
+                onMode={(m) => void act(() => updateRoomOptions(room.code, switchMode(m, room.options), m))}
               />
               <p className="vk-mp__hint">{t('rooms.hostEdits')}</p>
             </>
@@ -794,12 +864,21 @@ function RoomView({
             <div className="vk-panel__body">
               {room.state === 'closed' ? (
                 <p>{t('rooms.closed')}</p>
+              ) : waiting && !error ? (
+                <p className="vk-mp__reopen" role="status" data-testid="room-reopening">
+                  <Spinner size={13} /> {t('rooms.reopening')}
+                </p>
               ) : me?.left && !mine ? (
                 <p>{t('rooms.run.left')}</p>
               ) : mine ? (
-                <p data-testid="room-sent">
-                  {t(room.state === 'finished' ? 'rooms.run.sentDone' : 'rooms.run.sent')}
-                </p>
+                <>
+                  <p data-testid="room-sent">
+                    {t(room.state === 'finished' ? 'rooms.run.sentDone' : 'rooms.run.sent')}
+                  </p>
+                  {room.state === 'running' && (
+                    <p className="vk-dim">{t(host ? 'rooms.run.endHint' : 'rooms.run.next')}</p>
+                  )}
+                </>
               ) : (
                 <p>
                   {t(room.mode === 'sector' ? 'desk.run.text' : coop ? 'coop.run.text' : 'rooms.run.text', {
@@ -808,10 +887,41 @@ function RoomView({
                 </p>
               )}
             </div>
-            {room.state === 'running' && !mine && me && !me.left && (
+            {room.state === 'running' && ((!mine && me && !me.left) || host) && (
               <div className="vk-panel__foot">
-                <button type="button" className="vk-btn vk-btn--primary" onClick={play} data-sfx="click">
-                  {coop ? t('coop.run.join') : saved ? t(saved.ended ? 'rooms.run.report' : 'rooms.run.resume') : t('rooms.run.start')}
+                {!mine && me && !me.left && (
+                  <button type="button" className="vk-btn vk-btn--primary" onClick={play} data-sfx="click">
+                    {coop
+                      ? t('coop.run.join')
+                      : saved
+                        ? t(saved.ended ? 'rooms.run.report' : 'rooms.run.resume')
+                        : t('rooms.run.start')}
+                  </button>
+                )}
+                {host && (
+                  <button
+                    type="button"
+                    className="vk-btn vk-btn--ghost vk-mp__end"
+                    onClick={() => setConfirmEnd(true)}
+                    disabled={busy}
+                  >
+                    {t('rooms.endRound')}
+                  </button>
+                )}
+              </div>
+            )}
+            {waiting && error && (
+              <div className="vk-panel__foot">
+                <button
+                  type="button"
+                  className="vk-btn vk-btn--primary"
+                  onClick={() => {
+                    reopened.current = null;
+                    setError(null);
+                    setReopenTry((n) => n + 1);
+                  }}
+                >
+                  {t('rooms.retry')}
                 </button>
               </div>
             )}
@@ -898,6 +1008,23 @@ function RoomView({
             </div>
           </section>
         ) : null}
+        {room.state === 'lobby' && room.last && (
+          <section className="vk-panel vk-mp__last" aria-labelledby="vk-mp-last" data-testid="room-last">
+            <div className="vk-panel__head vk-mp__boardHead">
+              <h2 className="vk-h" id="vk-mp-last">
+                {t('rooms.last.title')}
+              </h2>
+              <span className="vk-meta">
+                {t('rooms.round', { n: room.last.round })} · {t(`rooms.mode.${room.last.mode}`)}
+              </span>
+            </div>
+            <ResultsBoard
+              results={room.last.results}
+              me={room.me}
+              caption={t('rooms.last.caption', { n: room.last.round })}
+            />
+          </section>
+        )}
         {room.state === 'lobby' && (
           <section className="vk-panel" aria-labelledby="vk-mp-rules">
             <div className="vk-panel__head">
@@ -919,12 +1046,13 @@ function RoomView({
         )}
         {room.state !== 'lobby' && (
           <section className="vk-panel vk-mp__results" aria-labelledby="vk-mp-results">
-            <div className="vk-panel__head">
+            <div className="vk-panel__head vk-mp__boardHead">
               <h2 className="vk-h" id="vk-mp-results">
                 {t('rooms.board.title')}
               </h2>
               <span className="vk-meta">
-                {boardCount(t, room)} · {final ? t('rooms.board.final') : t('rooms.board.live')}
+                {room.round > 1 ? `${t('rooms.round', { n: room.round })} · ` : ''}
+                {boardCount(t, room)} · {room.state === 'running' ? t('rooms.board.live') : t('rooms.board.final')}
               </span>
             </div>
             <RoomBoard room={room} />
@@ -935,7 +1063,7 @@ function RoomView({
               </p>
             )}
             <div className="vk-panel__foot">
-              {final ? (
+              {closed || !me || me.left ? (
                 <button type="button" className="vk-btn" onClick={onLeft}>
                   {t('rooms.new')}
                 </button>
@@ -943,7 +1071,7 @@ function RoomView({
                 <button
                   type="button"
                   className="vk-btn vk-btn--ghost vk-mp__leave"
-                  onClick={() => (mine || me?.left ? void leave() : setConfirmLeave(true))}
+                  onClick={() => (mine || room.state !== 'running' ? void leave() : setConfirmLeave(true))}
                   disabled={busy}
                 >
                   {t('rooms.leave')}
@@ -953,6 +1081,31 @@ function RoomView({
           </section>
         )}
       </div>
+
+      {confirmEnd && (
+        <VkLayer>
+          <Modal
+            open
+            onClose={() => setConfirmEnd(false)}
+            title={t('rooms.endRound')}
+            width={460}
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => setConfirmEnd(false)}>
+                  {t('rooms.endRound.no')}
+                </Button>
+                <Button variant="danger" onClick={endRound}>
+                  {t('rooms.endRound.yes')}
+                </Button>
+              </>
+            }
+          >
+            <div className="vk-dialog">
+              <p>{t('rooms.endRound.confirm')}</p>
+            </div>
+          </Modal>
+        </VkLayer>
+      )}
 
       {confirmLeave && (
         <VkLayer>

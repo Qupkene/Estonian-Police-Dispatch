@@ -361,6 +361,22 @@
   padding-top: 10px;
   border-top: 1px solid var(--vk-line-2);
 }
+/* A panel head on a phone: a meta too long for the title's line (round, how many finished, live or final) goes under
+   the title; one that fits stays at the right. */
+@media (max-width: 480px) {
+  .vk-mp__boardHead {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+  .vk-mp__boardHead .vk-h {
+    margin-right: auto;
+  }
+  .vk-mp__boardHead .vk-meta {
+    margin-left: 0;
+  }
+}
 
 @media (max-width: 1099px) {
   .vk-mp {
@@ -394,7 +410,7 @@
   }
 }
 
-/* The room board on the report. */
+/* The room board on the report: the board of the shift's round, what the room does now, back into it or out. */
 .vk-rep__roomNote {
   flex: 1;
   min-width: 0;
@@ -402,6 +418,52 @@
   color: var(--vk-text-3);
 }
 .vk-rep__toRoom {
+  margin-left: auto;
+}
+.vk-rep__roomState {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  margin: 0;
+  padding: 10px 14px;
+  border-top: 1px solid var(--vk-line-2);
+  color: var(--vk-text-1);
+  font-size: 12.5px;
+  text-wrap: pretty;
+}
+.vk-rep__roomState::before {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--vk-line);
+  transform: translateY(-1px);
+}
+/* The room is open for the next round: it waits for this player (the player's blue). */
+.vk-rep__roomState.is-open {
+  color: var(--vk-text-0);
+}
+.vk-rep__roomState.is-open::before {
+  background: var(--vk-acc);
+}
+@media (max-width: 560px) {
+  .vk-rep__roomFoot .vk-rep__roomNote {
+    flex-basis: 100%;
+  }
+  .vk-rep__roomFoot .vk-btn {
+    flex: 1 1 0;
+  }
+}
+
+/* Between rounds: the room opening again, the host's way to end a round that waits for somebody. */
+.vk-mp__reopen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--vk-text-2);
+}
+.vk-mp__end {
   margin-left: auto;
 }
 

@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type KeyboardEvent,
   type ReactNode,
   type RefObject,
 } from 'react';
@@ -26,7 +25,7 @@ import { Rng } from '@/sim/rng';
 import { sunTimes } from '@/sim/sun';
 import { DAY, HOUR, hhmm, wall } from '@/sim/time';
 import { initialWeather } from '@/sim/weather';
-import type { Difficulty, GameMode, NewShiftOptions, RegionId, RosterUnit, Text, Weather } from '@/sim/types';
+import type { Difficulty, GameMode, NewShiftOptions, RegionId, RosterUnit, Text } from '@/sim/types';
 import { EstoniaMap } from './shell/EstoniaMap';
 import { DutyMap } from './shell/DutyMap';
 import { fitView, type DutyInput, type MapView } from './shell/dutyMap';
@@ -40,9 +39,9 @@ import {
 } from './career/sectors';
 import { ShellPage, useEnter } from './shell/ShellPage';
 import { SignedStamp } from './shell/ShellFrame';
+import { BriefConditions, type WeatherPick } from './shell/BriefConditions';
 import {
   careerShiftRegion,
-  DATE_PRESETS,
   formatMoney,
   presetHoliday,
   regionSummary,
@@ -57,10 +56,7 @@ import {
 } from './shell/helpers';
 import './shell/briefing.css';
 
-const DIFFICULTIES: Difficulty[] = ['cadet', 'normal', 'veteran', 'realistic'];
 const DIFF_FACTOR: Record<Difficulty, number> = { cadet: 0.6, normal: 1, veteran: 1.35, realistic: 1.8 };
-type WeatherPick = Weather['kind'] | 'auto';
-const WEATHERS: WeatherPick[] = ['auto', 'clear', 'cloudy', 'rain', 'snow', 'sleet', 'fog', 'storm'];
 
 function safe<T>(fn: () => T): T | null {
   try {
@@ -127,12 +123,17 @@ export function BriefingScreen() {
 
   const start = shiftStart(date, shift);
   const hours = SHIFT_PRESETS[shift].hours;
+  // The automatic forecast (its tile shows it), and the weather the shift gets: that, or the kind picked.
+  const autoForecast = useMemo(
+    () => safe(() => initialWeather(new Rng(seed ^ 0x77), start, undefined, regionId)),
+    [seed, start, regionId],
+  );
   const forecast = useMemo(
     () =>
-      safe(() =>
-        initialWeather(new Rng(seed ^ 0x77), start, weather === 'auto' ? undefined : weather, regionId),
-      ),
-    [seed, start, weather, regionId],
+      weather === 'auto'
+        ? autoForecast
+        : safe(() => initialWeather(new Rng(seed ^ 0x77), start, weather, regionId)),
+    [autoForecast, seed, start, weather, regionId],
   );
   const sun = useMemo(() => {
     const s = safe(() => sunTimes(start, region.hq[1], region.hq[0]));
@@ -297,7 +298,6 @@ export function BriefingScreen() {
       meta={t('shell.brief.orderNo', { n: `${wall(start).year % 100}-${orderNo}` })}
       onBack={() => setScreen(career ? 'career' : custom ? 'custom' : 'menu')}
       backTo={career ? 'career' : 'menu'}
-      actions={startButton}
       keys={startKey}
       className="vk-brief-page"
     >
@@ -381,86 +381,6 @@ export function BriefingScreen() {
 
           {areaOn && <AreaPanel regionId={regionId} area={area!} who={profile?.name ?? ''} />}
 
-          {/* ── Conditions ── */}
-          <section className="vk-panel vk-brief__opts" aria-labelledby="vk-brief-opts">
-            <div className="vk-panel__head">
-              <h2 className="vk-h" id="vk-brief-opts">
-                {t('shell.brief.conditions')}
-              </h2>
-            </div>
-            <div className="vk-brief__rows">
-              <OptRow label={t('shell.brief.difficulty')} note={t(`shell.diff.${difficulty}.desc`)}>
-                <ChoiceGroup<Difficulty>
-                  label={t('shell.brief.difficulty')}
-                  value={difficulty}
-                  onChange={setDifficulty}
-                >
-                  {DIFFICULTIES.map((d) => (
-                    <Choice key={d} value={d}>
-                      {t(`shell.diff.${d}`)}
-                    </Choice>
-                  ))}
-                </ChoiceGroup>
-              </OptRow>
-              <OptRow label={t('shell.brief.shift')}>
-                <ChoiceGroup<ShiftPreset> label={t('shell.brief.shift')} value={shift} onChange={setShift}>
-                  {(Object.keys(SHIFT_PRESETS) as ShiftPreset[]).map((x) => (
-                    <Choice key={x} value={x}>
-                      {t(`shell.shift.${x}`)}{' '}
-                      <span className="vk-mono vk-choice__sub">{t(`shell.shift.${x}.time`)}</span>
-                    </Choice>
-                  ))}
-                </ChoiceGroup>
-              </OptRow>
-              {!career && (
-                <OptRow label={t('shell.brief.date')}>
-                  <ChoiceGroup<DatePreset>
-                    label={t('shell.brief.date')}
-                    value={datePreset}
-                    onChange={setDatePreset}
-                  >
-                    {DATE_PRESETS.map((x) => (
-                      <Choice key={x} value={x}>
-                        {t(`shell.date.${x}`)}{' '}
-                        <span className="vk-mono vk-choice__sub">
-                          {ymdText(resolveDatePreset(x, Date.now()))}
-                        </span>
-                      </Choice>
-                    ))}
-                  </ChoiceGroup>
-                </OptRow>
-              )}
-              <OptRow
-                label={t('shell.brief.weather')}
-                note={
-                  weather === 'auto' && forecast
-                    ? t('shell.brief.autoWeather', { weather: forecast.text[lang] })
-                    : undefined
-                }
-              >
-                <ChoiceGroup<WeatherPick>
-                  label={t('shell.brief.weather')}
-                  value={weather}
-                  onChange={setWeather}
-                >
-                  {WEATHERS.map((w) => (
-                    <Choice key={w} value={w}>
-                      {t(`shell.weather.${w}`)}
-                    </Choice>
-                  ))}
-                </ChoiceGroup>
-              </OptRow>
-            </div>
-            {mode === 'director' && <p className="vk-msg vk-brief__note">{t('shell.brief.director.note')}</p>}
-          </section>
-        </div>
-
-        <div className="vk-brief__col">
-          {error && (
-            <p className="vk-msg is-bad" role="alert">
-              {error}
-            </p>
-          )}
           {/* ── Päevakäsk: the order the system produces, as a document ── */}
           <article className="vk-doc sh-order" aria-labelledby="sh-order-title">
             <header className="vk-doc__head">
@@ -535,6 +455,32 @@ export function BriefingScreen() {
               <SignedStamp className="vk-doc__stamp" />
             </footer>
           </article>
+        </div>
+
+        <div className="vk-brief__col">
+          {/* ── Conditions ── */}
+          <BriefConditions
+            lang={lang}
+            career={career}
+            unitsFor={career || custom ? undefined : (d) => regionUnitsOnDuty(regionId, shiftKind, d)}
+            hq={region.hq}
+            difficulty={difficulty}
+            onDifficulty={setDifficulty}
+            shift={shift}
+            onShift={setShift}
+            datePreset={datePreset}
+            onDatePreset={setDatePreset}
+            weather={weather}
+            onWeather={setWeather}
+            date={date}
+            start={start}
+            hours={hours}
+            forecast={forecast}
+            autoForecast={autoForecast}
+            load={load}
+            holiday={holiday}
+          />
+          {mode === 'director' && <p className="vk-msg vk-brief__note">{t('shell.brief.director.note')}</p>}
 
           {(career || custom) && (
             <section className="vk-panel vk-brief__roster" aria-labelledby="vk-brief-roster">
@@ -590,6 +536,18 @@ export function BriefingScreen() {
           )}
         </div>
       </div>
+
+      {/* ── The start, always at hand: sticks to the bottom of the screen until the page ends ── */}
+      <div className="vk-brief__go">
+        {error ? (
+          <p className="vk-msg is-bad vk-brief__goText" role="alert">
+            {error}
+          </p>
+        ) : (
+          <p className="vk-brief__goText">{summary}</p>
+        )}
+        {startButton}
+      </div>
     </ShellPage>
   );
 }
@@ -621,18 +579,6 @@ function StripCell({
         {value}
         {sub && <span className="vk-mono vk-strip__badge">{sub}</span>}
       </dd>
-    </div>
-  );
-}
-
-function OptRow({ label, note, children }: { label: string; note?: string; children: ReactNode }) {
-  return (
-    <div className="vk-brief__row">
-      <span className="vk-label vk-brief__rowLabel">{label}</span>
-      <div className="vk-brief__rowCtl">
-        {children}
-        {note && <p className="vk-brief__rowNote">{note}</p>}
-      </div>
     </div>
   );
 }
@@ -743,63 +689,5 @@ function AreaPanel({ regionId, area, who }: { regionId: RegionId; area: ShiftAre
         )}
       </dl>
     </section>
-  );
-}
-
-// ── Segmented radio group (roving focus, arrow keys) ───────────────────────
-
-interface ChoiceProps<T extends string> {
-  value: T;
-  children: ReactNode;
-}
-function Choice<T extends string>(_p: ChoiceProps<T>): null {
-  return null;
-}
-
-function ChoiceGroup<T extends string>({
-  value,
-  onChange,
-  label,
-  children,
-}: {
-  value: T;
-  onChange: (v: T) => void;
-  label: string;
-  children: ReactNode;
-}) {
-  const items = (Array.isArray(children) ? children : [children]).filter(Boolean) as {
-    props: ChoiceProps<T>;
-  }[];
-  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    const keys = ['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'];
-    if (!keys.includes(e.key)) return;
-    e.preventDefault();
-    const i = items.findIndex((c) => c.props.value === value);
-    const n =
-      e.key === 'ArrowRight' || e.key === 'ArrowDown'
-        ? (i + 1) % items.length
-        : (i - 1 + items.length) % items.length;
-    onChange(items[n].props.value);
-    e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')[n]?.focus();
-  };
-  return (
-    <div className="vk-seg vk-choices" role="radiogroup" aria-label={label} onKeyDown={onKey}>
-      {items.map(({ props }) => {
-        const active = props.value === value;
-        return (
-          <button
-            key={props.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            tabIndex={active ? 0 : -1}
-            onClick={() => onChange(props.value)}
-            data-sfx="click"
-          >
-            {props.children}
-          </button>
-        );
-      })}
-    </div>
   );
 }

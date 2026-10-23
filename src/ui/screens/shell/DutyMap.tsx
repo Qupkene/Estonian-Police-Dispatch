@@ -3,12 +3,13 @@
 // on it moves. The shapes are painted once into a canvas (dutyMapCanvas.ts: a full-screen SVG of them cost
 // seconds of raster on machines without GPU raster), the dots, pin and names go on top as SVG. Decorative
 // (aria-hidden): the panels and the legend say everything it shows.
-import { memo, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { t as translate, useLang } from '@/i18n';
 import { sectorById } from '@/sim/sectors';
 import type { Lang } from '@/sim/types';
 import {
   baseMap,
+  challengeArea,
   DESKTOP_VIEW,
   dutyOverlay,
   graticuleLabels,
@@ -16,12 +17,13 @@ import {
   type BaseMap,
   type DutyInput,
   type DutyOverlay,
+  type LitArea,
   type MapNameKey,
   type MapView,
   type XY,
   viewKey,
 } from './dutyMap';
-import { frameOf, paintMap, readColours } from './dutyMapCanvas';
+import { frameOf, paintLit, paintMap, readColours } from './dutyMapCanvas';
 
 /** Where the full map sits on screen: its slice scale and offset, the left panel's edge and the challenge card. */
 export interface MapLayout {
@@ -48,6 +50,8 @@ interface Built {
   base: BaseMap;
   overlay: DutyOverlay;
   input: DutyInput;
+  /** The challenge's area, for its own layer when the map has one (`lit`). */
+  lit: LitArea | null;
 }
 
 const built = new Map<string, Built>();
@@ -71,6 +75,7 @@ function build(
   return {
     input,
     base: baseMap(view),
+    lit: challengeArea(view, input.challenge),
     overlay: dutyOverlay(
       view,
       input,
@@ -165,6 +170,7 @@ export const DutyMap = memo(function DutyMap({
   view: focus,
   who = '',
   offerWord = '',
+  lit,
 }: {
   variant: 'full' | 'strip';
   input: DutyInput;
@@ -176,6 +182,11 @@ export const DutyMap = memo(function DutyMap({
   who?: string;
   /** What the hatched sectors are, under their names (default "pakkumine"; the briefing: tonight's cover). */
   offerWord?: string;
+  /**
+   * The challenge on a layer of its own that is shown only while this is true (the menu's daily panel open),
+   * stronger and faded in and out. Left out, the challenge is always on the map, quietly.
+   */
+  lit?: boolean;
 }) {
   const lang = useLang();
   const full = variant === 'full';
@@ -184,7 +195,9 @@ export const DutyMap = memo(function DutyMap({
   const { width: w, height: h } = map?.base.view ?? view;
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const litRef = useRef<HTMLCanvasElement>(null);
   const { box, theme } = usePaintTarget(rootRef);
+  const litLayer = lit !== undefined;
 
   // The shapes, painted once per map, size, pixel ratio and theme (not on every render).
   useLayoutEffect(() => {
@@ -200,8 +213,44 @@ export const DutyMap = memo(function DutyMap({
     const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
     if (!ctx) return;
     const { width: vw, height: vh } = map.base.view;
-    paintMap(ctx, frameOf(vw, vh, cw, chh, full), map.base, map.overlay, map.input, full, readColours(root));
-  }, [map, box, theme, full]);
+    // With a lit layer the challenge is painted there, not under everything else.
+    const overlay = litLayer ? { ...map.overlay, challenge: null } : map.overlay;
+    paintMap(ctx, frameOf(vw, vh, cw, chh, full), map.base, overlay, map.input, full, readColours(root));
+  }, [map, box, theme, full, litLayer]);
+
+  // The lit layer covers only the challenge's area (CSS px in the box, a few px over for its edge).
+  const litRect = useMemo(() => {
+    if (!litLayer || !map?.lit || !box || box.w < 1 || box.h < 1) return null;
+    const f = frameOf(map.base.view.width, map.base.view.height, box.w, box.h, full);
+    const [x0, y0, x1, y1] = map.lit.box;
+    const pad = 8;
+    const left = Math.max(0, Math.floor(f.offX + x0 * f.scale - pad));
+    const top = Math.max(0, Math.floor(f.offY + y0 * f.scale - pad));
+    const right = Math.min(box.w, Math.ceil(f.offX + x1 * f.scale + pad));
+    const bottom = Math.min(box.h, Math.ceil(f.offY + y1 * f.scale + pad));
+    if (right - left < 1 || bottom - top < 1) return null;
+    return { left, top, width: right - left, height: bottom - top, frame: f, dpr: box.dpr };
+  }, [litLayer, map, box, full]);
+
+  useLayoutEffect(() => {
+    const canvas = litRef.current;
+    const root = rootRef.current;
+    if (!canvas || !root || !map?.lit || !litRect) return;
+    const { dpr, frame: f } = litRect;
+    const cw = Math.max(1, Math.round(litRect.width * dpr));
+    const chh = Math.max(1, Math.round(litRect.height * dpr));
+    if (canvas.width !== cw) canvas.width = cw;
+    if (canvas.height !== chh) canvas.height = chh;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const k = cw / litRect.width;
+    const frame = {
+      scale: f.scale * k,
+      offX: (f.offX - litRect.left) * k,
+      offY: (f.offY - litRect.top) * k,
+    };
+    paintLit(ctx, frame, map.lit, full, readColours(root));
+  }, [map, litRect, theme, full]);
 
   if (!map)
     return (
@@ -231,33 +280,54 @@ export const DutyMap = memo(function DutyMap({
     }
   }
   const pin: XY | null = overlay.challengePin;
+  const label = (l: DutyOverlay['labels'][number], i: number) => (
+    <text
+      key={`${l.kind}-${i}`}
+      className={`vk-map__label is-${l.kind}`}
+      x={l.x.toFixed(1)}
+      y={l.y.toFixed(1)}
+      textAnchor={l.anchor ?? 'start'}
+    >
+      {l.text}
+    </text>
+  );
+  // The challenge's marks: in the map's own ink, or on the lit layer above it.
+  const marks = (
+    <>
+      {leader && (
+        <path
+          className="vk-map__leader"
+          d={`M${leader.x.toFixed(1)} ${leader.y0.toFixed(1)}V${leader.y1.toFixed(1)}`}
+        />
+      )}
+      {pin && (
+        <g className="vk-map__pin" transform={`translate(${pin[0].toFixed(1)} ${pin[1].toFixed(1)})`}>
+          <circle r={full ? 8 : 6} />
+          <circle r={full ? 2.8 : 2.2} />
+        </g>
+      )}
+    </>
+  );
+  const viewBox = `0 0 ${w} ${h}`;
+  const aspect = full ? 'xMidYMid slice' : 'xMidYMid meet';
 
   return (
     <div
       ref={rootRef}
-      className={`vk-map vk-map--${variant}`}
+      className={`vk-map vk-map--${variant}${litLayer ? ' has-lit' : ''}${lit ? ' is-lit' : ''}`}
       style={{ aspectRatio: `${w} / ${h}` }}
       aria-hidden="true"
     >
       <canvas ref={canvasRef} className="vk-map__canvas" />
-      <svg
-        className="vk-map__ink"
-        viewBox={`0 0 ${w} ${h}`}
-        preserveAspectRatio={full ? 'xMidYMid slice' : 'xMidYMid meet'}
-        focusable="false"
-      >
-        {leader && (
-          <path
-            className="vk-map__leader"
-            d={`M${leader.x.toFixed(1)} ${leader.y0.toFixed(1)}V${leader.y1.toFixed(1)}`}
-          />
-        )}
-        {pin && (
-          <g className="vk-map__pin" transform={`translate(${pin[0].toFixed(1)} ${pin[1].toFixed(1)})`}>
-            <circle r={full ? 8 : 6} />
-            <circle r={full ? 2.8 : 2.2} />
-          </g>
-        )}
+      {litRect && (
+        <canvas
+          ref={litRef}
+          className="vk-map__lit"
+          style={{ left: litRect.left, top: litRect.top, width: litRect.width, height: litRect.height }}
+        />
+      )}
+      <svg className="vk-map__ink" viewBox={viewBox} preserveAspectRatio={aspect} focusable="false">
+        {!litLayer && marks}
         <g className="vk-map__dots">
           {overlay.towns.map((tw) => (
             <circle
@@ -321,23 +391,24 @@ export const DutyMap = memo(function DutyMap({
               {translate(`career.region.${r.id}.short`, lang)}
             </text>
           ))}
-        {overlay.labels.map((l, i) => (
-          <text
-            key={`${l.kind}-${i}`}
-            className={`vk-map__label is-${l.kind}`}
-            x={l.x.toFixed(1)}
-            y={l.y.toFixed(1)}
-            textAnchor={l.anchor ?? 'start'}
-          >
-            {l.text}
-          </text>
-        ))}
+        {overlay.labels.map((l, i) => (litLayer && l.kind === 'challenge' ? null : label(l, i)))}
         {degrees.map((d) => (
           <text key={d.text} className="vk-map__deg" x={d.x.toFixed(1)} y={d.y.toFixed(1)}>
             {d.text}
           </text>
         ))}
       </svg>
+      {litLayer && (
+        <svg
+          className="vk-map__ink vk-map__litInk"
+          viewBox={viewBox}
+          preserveAspectRatio={aspect}
+          focusable="false"
+        >
+          {marks}
+          {overlay.labels.map((l, i) => (l.kind === 'challenge' ? label(l, i) : null))}
+        </svg>
+      )}
     </div>
   );
 });

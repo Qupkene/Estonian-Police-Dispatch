@@ -13,11 +13,14 @@ import { tplOf } from './internal';
 import { PLACE_KIND_LABEL } from './radio';
 import { falloutPoints } from './scoring';
 import { ddmmyyyy, HOUR, MIN, wall } from './time';
-import type { Incident, Person, Priority, RegionId, ShiftReport, SimState, Text, Unit } from './types';
+import type { Difficulty, Incident, Person, Priority, RegionId, ShiftReport, SimState, Text, Unit } from './types';
 
 const T = (et: string, en: string): Text => ({ et, en });
 
 export const PRIORITY_WEIGHT: Record<Priority, number> = { 1: 3, 2: 2, 3: 1, 4: 0.5 };
+
+/** XP multiplier of a difficulty (the briefing shows it). */
+export const DIFFICULTY_XP: Record<Difficulty, number> = { cadet: 0.7, normal: 1, veteran: 1.3, realistic: 1.6 };
 
 /** Grade thresholds (score ≥ value). */
 export const GRADE_THRESHOLDS: [ShiftReport['grade'], number][] = [
@@ -542,7 +545,7 @@ export function buildReport(s: SimState): ShiftReport {
   const earnings = { bonus, fuel, overtime, fines, total: bonus - fuel - overtime - fines };
 
   // ── XP ────────────────────────────────────────────────────────────────────
-  const diffMult = { cadet: 0.7, normal: 1, veteran: 1.3, realistic: 1.6 }[s.difficulty] ?? 1;
+  const diffMult = DIFFICULTY_XP[s.difficulty] ?? 1;
   const hoursFactor = clamp(hours / 8, 0.5, 1.5);
   const xp = Math.max(
     0,
@@ -799,5 +802,8 @@ function buildNewspaper(
       body: T('Hädaolukorras helista 112. Kui märkad joobes juhti, anna sellest kohe teada.', 'In an emergency, call 112. If you see a drunk driver, report it immediately.'),
     });
   }
-  return { masthead, date, headline, sub, stories: stories.slice(0, 4) };
+  // What the front page is about, most telling first: the photo goes by it (src/ui/screens/shell/paper/drawings.ts).
+  const topics: string[] = lead ? [...(lead.pursuit ? ['pursuit'] : []), lead.category] : [holiday ? 'holiday' : n >= 35 ? 'busy' : 'quiet'];
+  if (o.night) topics.push('night');
+  return { masthead, date, headline, sub, stories: stories.slice(0, 4), topics };
 }

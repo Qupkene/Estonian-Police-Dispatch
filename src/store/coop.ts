@@ -257,6 +257,13 @@ class CoopSession implements Session {
         this.stop();
         return;
       }
+      // The room has left this shift behind: back in the lobby it switched to a mode without a shared shift, or this
+      // player left it. Either way the shift is over (the mode changes only in the lobby), not the connection.
+      if (err.status === 409 && (err.code === 'not_coop' || err.code === 'left_room')) {
+        setUi({ status: 'ended', error: 'round_over' });
+        this.stop();
+        return;
+      }
       if (this.failures >= 3) setUi({ status: 'offline', error: err.code });
       return this.schedule(pollDelay(true, this.failures));
     }
@@ -272,6 +279,13 @@ class CoopSession implements Session {
       this.bestRtt = Math.min(this.bestRtt, rtt);
       this.offset = sample;
     } else this.offset += (sample - this.offset) * 0.1;
+    // The room has moved on to its next round (the host ended this one, docs/MULTIPLAYER.md section 11): the log is no
+    // longer this shift's.
+    if (r.state === 'lobby' || (this.started !== null && r.started !== null && r.started !== this.started)) {
+      setUi({ status: 'ended' });
+      this.stop();
+      return;
+    }
     this.started = r.started;
     this.turnMs = r.turnMs;
     for (const c of r.cmds) {
@@ -528,6 +542,8 @@ class ServerSession implements Session {
   private sentAt = new Map<number, number>();
   /** Digests of the copy at every HASH_SEQ-th patch: every client of the room gets the same numbered patches. */
   private history: { turn: number; hash: string }[] = [];
+  /** The shift's seed (from its first state): the room's next round is another shift (section 11). */
+  private seed: number | null = null;
 
   constructor(code: string) {
     this.code = code;
@@ -631,6 +647,14 @@ class ServerSession implements Session {
       try {
         const r = await pollRoom(this.code, this.roomTag);
         this.roomTag = r.v;
+        // The host ended this round and the room has opened for (or started) the next one: this shift is over.
+        const room = r.room;
+        if (
+          room &&
+          this.seed !== null &&
+          (room.state === 'lobby' || (room.seed !== null && room.seed !== this.seed))
+        )
+          return this.end('ended', 'round_over');
       } catch (e) {
         const err = toApiError(e);
         if (err.status === 404 || err.status === 401) return this.end('gone', err.code);
@@ -649,6 +673,9 @@ class ServerSession implements Session {
       case 'hello': {
         const state = msg.state;
         if (!state || !state.coop || state.coop.code !== this.code) return;
+        // A reconnect found the room's next round on the game server: not this shift any more.
+        if (this.seed !== null && state.seed !== this.seed) return this.end('ended', 'round_over');
+        this.seed = state.seed;
         state.events = [];
         this.seq = msg.v;
         this.seat = msg.seat;

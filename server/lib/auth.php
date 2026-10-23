@@ -269,6 +269,7 @@ function epd_delete_user(PDO $db, int $userId): void
             'DELETE FROM scores WHERE user_id = ?',
             'DELETE FROM daily_scores WHERE user_id = ?',
             'DELETE FROM room_results WHERE user_id = ?',
+            'DELETE FROM room_round_results WHERE user_id = ?',
             'DELETE FROM room_commands WHERE user_id = ?',
             'DELETE FROM room_snapshots WHERE user_id = ?',
             'DELETE FROM room_players WHERE user_id = ?',

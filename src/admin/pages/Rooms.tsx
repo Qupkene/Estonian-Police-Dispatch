@@ -1,4 +1,5 @@
-// Ruumid: multiplayer rooms by state; one room's players and results, close it, delete it, drop a result.
+// Ruumid: multiplayer rooms by state; one room's players and results (its earlier rounds too), close it, delete it,
+// drop a result.
 import { useState } from 'react';
 import { api, qs, type Room } from '../api';
 import { DIFFICULTIES, REGIONS, ROOM_MODES, ROOM_STATES, ago, label, when } from '../labels';
@@ -42,6 +43,7 @@ export function Rooms({ code }: { code?: string }) {
                     <th>Kood</th>
                     <th>Režiim</th>
                     <th>Olek</th>
+                    <th className="num">Voor</th>
                     <th>Piirkond</th>
                     <th>Võõrustaja</th>
                     <th className="num">Mängijaid</th>
@@ -61,6 +63,7 @@ export function Rooms({ code }: { code?: string }) {
                       <td>
                         <StateBadge state={r.state} />
                       </td>
+                      <td className="num">{r.round}</td>
                       <td>{label(REGIONS, r.regionId)}</td>
                       <td>{r.host ?? ''}</td>
                       <td className="num">{r.players ?? ''}</td>
@@ -70,7 +73,7 @@ export function Rooms({ code }: { code?: string }) {
                   ))}
                   {loaded.data.rooms.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="pn-empty">
+                      <td colSpan={9} className="pn-empty">
                         Ruume ei ole.
                       </td>
                     </tr>
@@ -92,6 +95,18 @@ function StateBadge({ state }: { state: string }) {
   return <Badge kind={kind}>{label(ROOM_STATES, state)}</Badge>;
 }
 
+interface RoomResult {
+  id: number;
+  name: string;
+  score: number;
+  grade: string;
+  incidents: number;
+  arrests: number;
+  xp: number;
+  at: number;
+  rank: number;
+}
+
 interface RoomDetail {
   room: Room;
   players: {
@@ -104,17 +119,41 @@ interface RoomDetail {
     role: string;
     desk: string;
   }[];
-  results: {
-    id: number;
-    name: string;
-    score: number;
-    grade: string;
-    incidents: number;
-    arrests: number;
-    xp: number;
-    at: number;
-    rank: number;
-  }[];
+  results: RoomResult[];
+  /** The room's earlier rounds, newest first (the server keeps them while the room is kept). */
+  rounds?: { round: number; mode: string; seed: number; results: RoomResult[] }[];
+}
+
+/** An earlier round's results (read only: an admin drops results of the current round). */
+function RoundTable({ results }: { results: RoomResult[] }) {
+  return (
+    <div className="pn-scroll">
+      <table className="pn-table">
+        <thead>
+          <tr>
+            <th className="num">Koht</th>
+            <th>Mängija</th>
+            <th className="num">Skoor</th>
+            <th>Hinne</th>
+            <th className="num">Sündmusi</th>
+            <th className="num">XP</th>
+          </tr>
+        </thead>
+        <tbody>
+          {results.map((r) => (
+            <tr key={r.id}>
+              <td className="num">{r.rank}</td>
+              <td>{r.name}</td>
+              <td className="num strong">{r.score}</td>
+              <td className="mono">{r.grade}</td>
+              <td className="num">{r.incidents}</td>
+              <td className="num">{r.xp}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function RoomDialog({
@@ -146,6 +185,8 @@ function RoomDialog({
               <dd>
                 <StateBadge state={d.room.state} />
               </dd>
+              <dt>Voor</dt>
+              <dd className="mono">{d.room.round}</dd>
               <dt>Piirkond</dt>
               <dd>
                 {label(REGIONS, d.room.regionId)}
@@ -157,7 +198,7 @@ function RoomDialog({
               </dd>
               <dt>Mootor</dt>
               <dd>
-                {d.room.engine === 'mp'
+                {d.room.engine === 'server'
                   ? 'mänguserver'
                   : d.room.mode === 'race'
                     ? 'iga mängija oma'
@@ -198,7 +239,7 @@ function RoomDialog({
                 </tbody>
               </table>
             </div>
-            <h3>Tulemused</h3>
+            <h3>{d.room.round > 1 ? `Tulemused (${d.room.round}. voor)` : 'Tulemused'}</h3>
             {d.results.length === 0 ? (
               <p className="pn-empty">Tulemusi pole.</p>
             ) : (
@@ -239,8 +280,16 @@ function RoomDialog({
                 </table>
               </div>
             )}
+            {(d.rounds ?? []).map((r) => (
+              <div key={r.round}>
+                <h3>
+                  {r.round}. voor, {label(ROOM_MODES, r.mode)}
+                </h3>
+                <RoundTable results={r.results} />
+              </div>
+            ))}
             <div className="pn-actions">
-              {(d.room.state === 'lobby' || d.room.state === 'running') && (
+              {(d.room.state === 'lobby' || d.room.state === 'running' || d.room.state === 'finished') && (
                 <button type="button" className="pn-btn" onClick={() => setAsk('close')}>
                   Sulge ruum
                 </button>
@@ -257,8 +306,8 @@ function RoomDialog({
           title="Sulge ruum"
           text={
             <p>
-              Ruum {code} suletakse: ootel mängijad näevad seda kohe, käimasolev ühisvahetus lõpeb. Tulemused
-              jäävad alles.
+              Ruum {code} suletakse: ootel mängijad näevad seda kohe, käimasolev ühisvahetus lõpeb ja uut
+              vooru enam ei tule. Tulemused jäävad alles.
             </p>
           }
           button="Sulge"

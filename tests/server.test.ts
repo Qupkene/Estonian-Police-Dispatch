@@ -1190,9 +1190,200 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       ]);
       expect(board.players.find((p: Json) => p.name === 'Kati')).toMatchObject({ left: true, done: false });
       expect((await kati.post(`/api/rooms/${code}/result`, RESULT)).json.error).toBe('left_room');
-      expect((await hanna.get('/api/rooms')).json.room).toBeNull();
+      // Between two rounds the room is still the players' own: the menu leads back to it (not Kati's: she left).
+      expect((await hanna.get('/api/rooms')).json.room).toMatchObject({ code, state: 'finished', round: 1 });
+      expect((await kati.get('/api/rooms')).json.room).toBeNull();
       // Room results never reach the normal leaderboard.
       expect((await client().get('/api/scores?limit=50')).json.scores).toEqual(scoresBefore);
+    });
+
+    it('opens the next round to whoever comes back first, with the same players and a new seed', async () => {
+      const [[seed1]] = JSON.parse(sql(`SELECT seed FROM rooms WHERE code = '${code}'`));
+      const options = (await hanna.get(`/api/rooms/${code}`)).json.room.options;
+      // Kati left during the round, strangers are not in it, and the fields are checked.
+      const gone = await kati.post(`/api/rooms/${code}/reopen`, { round: 1 });
+      expect(gone.status).toBe(409);
+      expect(gone.json.error).toBe('left_room');
+      expect((await alice.post(`/api/rooms/${code}/reopen`, {})).status).toBe(404);
+      expect((await jaan.post(`/api/rooms/${code}/reopen`, { round: 'x' })).json).toMatchObject({ error: 'invalid_room', field: 'round' });
+      expect((await jaan.post(`/api/rooms/${code}/reopen`, { end: 1 })).json).toMatchObject({ error: 'invalid_room', field: 'end' });
+      expect((await jaan.post(`/api/rooms/${code}/reopen`, {}, { csrf: false })).status).toBe(403);
+
+      // Jaan, not the host, comes back first: the lobby opens again, nobody ready but the host, Kati's seat free.
+      const back = await jaan.post(`/api/rooms/${code}/reopen`, { round: 1 });
+      expect(back.status).toBe(200);
+      const room = back.json.room;
+      expect(room).toMatchObject({ state: 'lobby', round: 2, seed: null, day: null, started: null, results: [], options });
+      expect(room.players.map((p: Json) => [p.name, p.seat, p.host, p.ready, p.left, p.done])).toEqual([
+        ['Hanna', 0, true, true, false, false],
+        ['Ivo', 1, false, false, false, false],
+        ['Jaan', 2, false, false, false, false],
+      ]);
+      // The round just played is the room's last round, ranked as before.
+      expect(room.last).toMatchObject({ round: 1, mode: 'race', seed: seed1 });
+      expect(room.last.results.map((r: Json) => [r.name, r.score, r.rank])).toEqual([
+        ['Ivo', 88, 1],
+        ['Hanna', 74, 2],
+        ['Jaan', 74, 2],
+      ]);
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM room_results x JOIN rooms r ON r.id = x.room_id WHERE r.code = '${code}'`))).toEqual([[0]]);
+      // The next round has a seed of its own, still secret.
+      const [[seed2]] = JSON.parse(sql(`SELECT seed FROM rooms WHERE code = '${code}'`));
+      expect(seed2).not.toBe(seed1);
+
+      // Ivo comes back from the same round a moment later: nothing changes.
+      const again = await ivo.post(`/api/rooms/${code}/reopen`, { round: 1 });
+      expect(again.json.room).toMatchObject({ state: 'lobby', round: 2 });
+      expect(again.json.room.v.split('.')[0]).toBe(room.v.split('.')[0]);
+      // A result of the round that is over counts nowhere; the lobby has no shift yet.
+      const late = await hanna.post(`/api/rooms/${code}/result`, { ...RESULT, seed: seed1 });
+      expect(late.status).toBe(409);
+      expect(late.json.error).toBe('round_over');
+      expect((await hanna.post(`/api/rooms/${code}/result`, { ...RESULT, seed: 'x' })).json.field).toBe('seed');
+      expect((await hanna.post(`/api/rooms/${code}/result`, RESULT)).json.error).toBe('not_started');
+      expect((await ivo.get('/api/rooms')).json.room).toMatchObject({ code, state: 'lobby', round: 2 });
+    });
+
+    it('starts the next round without a player who is away, and does not wait for them', async () => {
+      const later = Date.now() + 60_000;
+      // Jaan is here and not ready: he holds the start up.
+      expect((await ivo.post(`/api/rooms/${code}/ready`, { ready: true })).status).toBe(200);
+      const early = await hanna.post(`/api/rooms/${code}/start`);
+      expect(early.status).toBe(409);
+      expect(early.json.error).toBe('not_ready');
+      // A minute later Jaan has gone quiet (closed the tab): the others start without him.
+      await ivo.get(`/api/rooms/${code}`, at(later));
+      const started = await hanna.post(`/api/rooms/${code}/start`, undefined, at(later + 100));
+      expect(started.status).toBe(200);
+      const room = started.json.room;
+      expect(room).toMatchObject({ state: 'running', round: 2 });
+      expect(room.seed).toBe(JSON.parse(sql(`SELECT seed FROM rooms WHERE code = '${code}'`))[0][0]);
+      expect(room.players.map((p: Json) => [p.name, p.ready])).toEqual([
+        ['Hanna', true],
+        ['Ivo', true],
+        ['Jaan', false],
+      ]);
+      // The round is over once Hanna and Ivo have sent theirs; Jaan may still play it and send his.
+      const seed = room.seed;
+      expect((await hanna.post(`/api/rooms/${code}/result`, { ...RESULT, score: 60, seed }, at(later + 200))).json.room.state).toBe('running');
+      const done = await ivo.post(`/api/rooms/${code}/result`, { ...RESULT, score: 70, seed }, at(later + 300));
+      expect(done.json).toMatchObject({ counted: true, rank: 1 });
+      expect(done.json.room.state).toBe('finished');
+      expect((await jaan.post(`/api/rooms/${code}/result`, { ...RESULT, score: 80, seed }, at(later + 400))).json.rank).toBe(1);
+      // Leaving between rounds keeps a player's result and takes the room out of their menu; coming back undoes it.
+      expect((await jaan.post(`/api/rooms/${code}/leave`, undefined, at(later + 500))).status).toBe(200);
+      expect((await jaan.get('/api/rooms', at(later + 600))).json.room).toBeNull();
+      const board = (await hanna.get(`/api/rooms/${code}`, at(later + 700))).json.room;
+      expect(board.results.map((r: Json) => r.name)).toEqual(['Jaan', 'Ivo', 'Hanna']);
+      expect(board.players.find((p: Json) => p.name === 'Jaan')).toMatchObject({ left: true, done: true });
+      expect((await jaan.post('/api/rooms/join', { code }, at(later + 800))).json.room.players.find((p: Json) => p.name === 'Jaan').left).toBe(false);
+      // Somebody new may join a room between rounds: Kati is in the next one.
+      const kat = await kati.post('/api/rooms/join', { code }, at(later + 900));
+      expect(kat.status).toBe(200);
+      expect(kat.json.room).toMatchObject({ state: 'finished', round: 2 });
+      expect(names(kat)).toEqual(['Hanna', 'Ivo', 'Jaan', 'Kati']);
+    });
+
+    it('lets only the host end a round that waits for somebody', async () => {
+      const t = Date.now() + 120_000;
+      const reopened = await ivo.post(`/api/rooms/${code}/reopen`, { round: 2 }, at(t));
+      expect(reopened.json.room).toMatchObject({ state: 'lobby', round: 3 });
+      expect(reopened.json.room.last.results.map((r: Json) => r.name)).toEqual(['Jaan', 'Ivo', 'Hanna']);
+      for (const c of [ivo, jaan, kati]) expect((await c.post(`/api/rooms/${code}/ready`, { ready: true }, at(t + 100))).status).toBe(200);
+      const room = (await hanna.post(`/api/rooms/${code}/start`, undefined, at(t + 200))).json.room;
+      expect(room).toMatchObject({ state: 'running', round: 3 });
+      await hanna.post(`/api/rooms/${code}/result`, { ...RESULT, score: 66, seed: room.seed }, at(t + 300));
+      // The others are still playing: coming back changes nothing, and only the host may end the round.
+      expect((await ivo.post(`/api/rooms/${code}/reopen`, { round: 3 }, at(t + 400))).json.room.state).toBe('running');
+      const notHost = await ivo.post(`/api/rooms/${code}/reopen`, { end: true }, at(t + 500));
+      expect(notHost.status).toBe(403);
+      expect(notHost.json.error).toBe('not_host');
+      // Ending a round the room has already moved on from changes nothing either.
+      expect((await hanna.post(`/api/rooms/${code}/reopen`, { end: true, round: 2 }, at(t + 600))).json.room.state).toBe('running');
+      const ended = await hanna.post(`/api/rooms/${code}/reopen`, { end: true, round: 3 }, at(t + 700));
+      expect(ended.status).toBe(200);
+      expect(ended.json.room).toMatchObject({ state: 'lobby', round: 4, results: [] });
+      expect(ended.json.room.last.results.map((r: Json) => [r.name, r.score])).toEqual([['Hanna', 66]]);
+      // Ivo finishes after the end: his result counts nowhere.
+      const late = await ivo.post(`/api/rooms/${code}/result`, { ...RESULT, seed: room.seed }, at(t + 800));
+      expect(late.json.error).toBe('round_over');
+      // Every round is kept for the room (the admin panel shows them); the players see the last one.
+      expect(JSON.parse(sql(`SELECT x.round, COUNT(*) FROM room_round_results x JOIN rooms r ON r.id = x.room_id WHERE r.code = '${code}' GROUP BY x.round ORDER BY x.round`))).toEqual([
+        [1, 3],
+        [2, 3],
+        [3, 1],
+      ]);
+    });
+
+    it('lets the host switch the mode in the lobby; the players’ drafts go with the old mode', async () => {
+      const t = Date.now() + 130_000;
+      const put = (c: Client, body: Record<string, unknown>, ms = t) => c.put(`/api/rooms/${code}`, { body, ...at(ms) });
+      const on = await put(hanna, { ...OPTS, custom: { crews: [], budget: true } });
+      expect(on.status).toBe(200);
+      expect((await ivo.post(`/api/rooms/${code}/custom`, { custom: { crews: [['patrol', 'louna-tartu', 7]] } }, at(t + 50))).status).toBe(200);
+      expect((await put(ivo, { ...OPTS, mode: 'role' }, t + 100)).json.error).toBe('not_host');
+      expect((await put(hanna, { ...OPTS, mode: 'battle' }, t + 100)).json).toMatchObject({ error: 'invalid_room', field: 'mode' });
+      expect((await put(hanna, { ...OPTS, mode: 'sector' }, t + 100)).json).toMatchObject({ error: 'invalid_room', field: 'desks' });
+      const sector = await put(hanna, { ...OPTS, mode: 'sector', desks: ['louna-tartu', 'louna-tartumaa'], custom: { crews: [] } }, t + 200);
+      expect(sector.status).toBe(200);
+      expect(sector.json.room).toMatchObject({ mode: 'sector', round: 4, options: { sector: 'louna-tartu', desks: ['louna-tartu', 'louna-tartumaa'] } });
+      expect(sector.json.room.players.map((p: Json) => [p.name, p.desk, p.custom])).toEqual([
+        ['Hanna', 'louna-tartu', undefined],
+        ['Ivo', 'louna-tartumaa', undefined],
+        ['Jaan', 'louna-tartu', undefined],
+        ['Kati', 'louna-tartumaa', undefined],
+      ]);
+      const role = await put(hanna, { ...OPTS, mode: 'role' }, t + 300);
+      expect(role.json.room.mode).toBe('role');
+      expect(role.json.room.options.desks).toBeUndefined();
+      expect(role.json.room.players.map((p: Json) => p.role)).toEqual(['dispatch', 'calls', 'radio', 'dispatch']);
+      // Without `mode` the room keeps its own.
+      expect((await hanna.put(`/api/rooms/${code}`, { body: { ...OPTS, mode: undefined, hours: 4 }, ...at(t + 400) })).json.room).toMatchObject({ mode: 'role', options: { hours: 4 } });
+    });
+
+    it('hands a lobby to the earliest player here once its host has been away for five minutes', async () => {
+      const t = Date.now() + 140_000;
+      // Four minutes without the host: nothing changes.
+      await ivo.get(`/api/rooms/${code}`, at(t + 4 * 60_000));
+      expect((await ivo.get(`/api/rooms/${code}`, at(t + 4 * 60_000 + 6000))).json.room.players.find((p: Json) => p.host).name).toBe('Hanna');
+      // Six minutes: Ivo, who joined first of those here, takes over (Jaan and Kati are quiet as well).
+      await ivo.get(`/api/rooms/${code}`, at(t + 6 * 60_000));
+      const r = await ivo.get(`/api/rooms/${code}`, at(t + 6 * 60_000 + 6000));
+      expect(r.json.room.players.map((p: Json) => [p.name, p.host, p.ready])).toEqual([
+        ['Hanna', false, false],
+        ['Ivo', true, true],
+        ['Jaan', false, false],
+        ['Kati', false, false],
+      ]);
+      expect(roomRow(code)[0][1]).toBe(r.json.room.me);
+      // Hanna comes back as a player.
+      const back = await hanna.get(`/api/rooms/${code}`, at(t + 6 * 60_000 + 7000));
+      expect(back.json.room.host).toBe(r.json.room.me);
+      expect((await hanna.post(`/api/rooms/${code}/start`, undefined, at(t + 6 * 60_000 + 8000))).json.error).toBe('not_host');
+    });
+
+    it('keeps a host who finished a race last when the room opens for the next round', async () => {
+      const [heino, urmas] = [client(), client()];
+      expect((await register(heino, 'Heino')).status).toBe(200);
+      expect((await register(urmas, 'Urmas')).status).toBe(200);
+      const t = Date.now() + 200_000;
+      const r = (await heino.post('/api/rooms', OPTS, at(t))).json.room;
+      await urmas.post('/api/rooms/join', { code: r.code }, at(t + 100));
+      await urmas.post(`/api/rooms/${r.code}/ready`, { ready: true }, at(t + 200));
+      const room = (await heino.post(`/api/rooms/${r.code}/start`, undefined, at(t + 300))).json.room;
+      expect(room.state).toBe('running');
+      // A race shift polls nothing: Urmas finishes first and waits in the room, Heino sends his ten minutes in.
+      const late = t + 10 * 60_000;
+      await urmas.post(`/api/rooms/${r.code}/result`, { ...RESULT, seed: room.seed }, at(late - 60_000));
+      await urmas.get(`/api/rooms/${r.code}`, at(late - 30_000));
+      expect((await heino.post(`/api/rooms/${r.code}/result`, { ...RESULT, seed: room.seed }, at(late))).json.room.state).toBe('finished');
+      // Urmas is back first and opens the next round: his next poll must not hand him the lobby.
+      expect((await urmas.post(`/api/rooms/${r.code}/reopen`, { round: 1 }, at(late + 1000))).json.room.state).toBe('lobby');
+      const host = async (ms: number) => (await urmas.get(`/api/rooms/${r.code}`, at(ms))).json.room.players.find((p: Json) => p.host).name;
+      expect(await host(late + 7000)).toBe('Heino');
+      // From the new lobby on the usual rule holds: five minutes away and the room passes on.
+      await host(late + 6 * 60_000);
+      expect(await host(late + 6 * 60_000 + 6000)).toBe('Urmas');
     });
 
     it('frees a seat in the lobby, passes the host on and closes an empty lobby', async () => {
@@ -1542,6 +1733,38 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       expect((await a.get(`/api/rooms/${race.code}/log`, at(300_100))).json.error).toBe('not_coop');
       expect((await a.post(`/api/rooms/${race.code}/role`, { role: 'calls' }, at(300_100))).json.error).toBe('not_coop');
     });
+
+    it('opens again after the shared shift and starts the next one with a fresh log', async () => {
+      const [[maxId]] = JSON.parse(sql('SELECT COALESCE(MAX(id), 0) FROM room_commands'));
+      const back = await lea.post(`/api/rooms/${code}/reopen`, { round: 1 }, at(400_000));
+      expect(back.status).toBe(200);
+      const room = back.json.room;
+      // Nora left during the shift and Olev is gone: Lea and Mati stay, with the roles they picked; Mati still hosts.
+      expect(room).toMatchObject({ state: 'lobby', round: 2, engine: '' });
+      expect(room.players.map((p: Json) => [p.name, p.seat, p.role, p.host, p.ready])).toEqual([
+        ['Lea', 0, 'dispatch', false, false],
+        ['Mati', 1, 'calls', true, true],
+      ]);
+      expect(room.last.results.map((r: Json) => [r.name, r.xp])).toEqual([
+        ['Lea', 310],
+        ['Mati', 290],
+      ]);
+      expect(JSON.parse(sql(`SELECT host_seat, cmd_count, ref_hashes, snap_req FROM rooms WHERE code = '${code}'`))).toEqual([[-1, 0, '', 0]]);
+      expect(JSON.parse(sql(`SELECT MAX(away), MAX(resync), MAX(hash_turn) FROM room_players p JOIN rooms r ON r.id = p.room_id WHERE r.code = '${code}'`))).toEqual([[0, -1, -1]]);
+      expect((await log(lea, 400_100)).json).toMatchObject({ state: 'lobby', cmds: [] });
+      expect((await cmd(lea, 400_100, [{ k: 'ping', a: ['x'] }])).json.error).toBe('not_running');
+      // Mati comes back from the same round: the room is already open.
+      expect((await mati.post(`/api/rooms/${code}/reopen`, { round: 1 }, at(400_150))).json.room.round).toBe(2);
+      await lea.post(`/api/rooms/${code}/ready`, { ready: true }, at(400_200));
+      const started = await mati.post(`/api/rooms/${code}/start`, undefined, at(401_000));
+      expect(started.json.room).toMatchObject({ state: 'running', round: 2, started: T0 + 401_000 });
+      // The new shift's log: its own setup at turn 0, on the new clock, with the host's seat.
+      const r = await log(lea, 401_500, 'after=0');
+      expect(r.json).toMatchObject({ state: 'running', turn: 0, started: T0 + 401_000, seat: 0, host: 1, isHost: false });
+      expect(kinds(r)).toEqual([['setup', -1, [1, [[0, 'dispatch', 'Lea'], [1, 'calls', 'Mati']]]]]);
+      expect(r.json.cmds[0].id).toBeGreaterThan(maxId);
+      expect((await cmd(lea, 404_200, [{ k: 'ack', a: ['i1'] }])).json.turn).toBe(5);
+    });
   });
 
   describe('co-op lockstep (sector rooms)', () => {
@@ -1743,6 +1966,7 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
         'daily_scores WHERE user_id',
         'room_players WHERE user_id',
         'room_results WHERE user_id',
+        'room_round_results WHERE user_id',
         'room_commands WHERE user_id',
         'room_snapshots WHERE user_id',
         'rooms WHERE host_id',
@@ -2015,6 +2239,46 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       expect((await juhan.del(`/api/admin/rooms/${room.code}`)).status).toBe(200);
       expect((await juhan.get(`/api/admin/rooms/${room.code}`)).status).toBe(404);
       expect(JSON.parse(sql(`SELECT COUNT(*) FROM room_players p LEFT JOIN rooms r ON r.id = p.room_id WHERE r.id IS NULL`))).toEqual([[0]]);
+    });
+
+    it('shows a room’s rounds and closes a room between two rounds', async () => {
+      const host = client();
+      await login(host, 'Toomas.T', 'uus-parool-77');
+      const guest = client();
+      await register(guest, 'Mirjam');
+      const RESULT = { score: 80, grade: 'A', incidents: 7, arrests: 1 };
+      const room = (await host.post('/api/rooms', { mode: 'race', regionId: 'ida', sector: '', difficulty: 'normal', hours: 2, slot: 'night' })).json.room;
+      await guest.post('/api/rooms/join', { code: room.code });
+      await guest.post(`/api/rooms/${room.code}/ready`, { ready: true });
+      await host.post(`/api/rooms/${room.code}/start`);
+      await host.post(`/api/rooms/${room.code}/result`, RESULT);
+      await guest.post(`/api/rooms/${room.code}/result`, { ...RESULT, score: 90 });
+      await guest.post(`/api/rooms/${room.code}/reopen`, {});
+      const list = await juhan.get('/api/admin/rooms?state=lobby');
+      expect(list.json.rooms.find((r: Json) => r.code === room.code)).toMatchObject({ round: 2, players: 2 });
+      const detail = await juhan.get(`/api/admin/rooms/${room.code}`);
+      expect(detail.json.room).toMatchObject({ round: 2, state: 'lobby' });
+      expect(detail.json.results).toEqual([]);
+      expect(detail.json.rounds).toEqual([
+        {
+          round: 1,
+          mode: 'race',
+          seed: expect.any(Number),
+          results: [
+            expect.objectContaining({ name: 'Mirjam', score: 90, rank: 1 }),
+            expect.objectContaining({ name: 'Toomas.T', score: 80, rank: 2 }),
+          ],
+        },
+      ]);
+      // The second round, closed by an admin once it is over: the room never opens again.
+      await guest.post(`/api/rooms/${room.code}/ready`, { ready: true });
+      await host.post(`/api/rooms/${room.code}/start`);
+      await host.post(`/api/rooms/${room.code}/result`, RESULT);
+      await guest.post(`/api/rooms/${room.code}/result`, RESULT);
+      expect((await juhan.post(`/api/admin/rooms/${room.code}/close`)).json.room).toMatchObject({ state: 'closed', round: 2 });
+      expect((await guest.post(`/api/rooms/${room.code}/reopen`, {})).json.error).toBe('room_closed');
+      expect((await juhan.del(`/api/admin/rooms/${room.code}`)).status).toBe(200);
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM room_round_results x LEFT JOIN rooms r ON r.id = x.room_id WHERE r.id IS NULL`))).toEqual([[0]]);
     });
 
     it('shows the account with its history and the log', async () => {
@@ -2904,5 +3168,25 @@ describe.skipIf(!HAS_PHP)('game server rooms (mp.php, docs/MULTIPLAYER.md sectio
     // The lockstep room still has its log.
     const log = await lockstep.a.get(`/api/rooms/${lockstep.code}/log?after=0`);
     expect(log.json.cmds[0]).toMatchObject({ k: 'setup', a: [0, [[0, 'dispatch', 'Liis'], [1, 'calls', 'Andres']]] });
+  });
+
+  it('plays the next round of a room on the game server as a new shift', async () => {
+    const { a, b, code, room } = await started(up, 'role', ['Merike', 'Jüri']);
+    const secret = readFileSync(join(root, 'up', 'mp', 'secret'), 'utf8').trim();
+    const RESULT = { score: 70, grade: 'B', incidents: 6, arrests: 1, xp: 200 };
+    for (const c of [a, b]) expect((await c.post(`/api/rooms/${code}/result`, { ...RESULT, seed: room.seed })).status).toBe(200);
+    // The guest comes back first; the next round is decided at its own start (the game server is asked again).
+    const back = await b.post(`/api/rooms/${code}/reopen`, { round: 1 });
+    expect(back.json.room).toMatchObject({ state: 'lobby', round: 2, engine: '' });
+    expect((await b.post(`/api/rooms/${code}/ticket`)).json.error).toBe('not_server_room');
+    await sleep(5);
+    await b.post(`/api/rooms/${code}/ready`, { ready: true });
+    const next = (await a.post(`/api/rooms/${code}/start`)).json.room;
+    expect(next).toMatchObject({ state: 'running', round: 2, engine: 'server' });
+    // A new ticket describes the new shift: another seed and start, so the game server builds it afresh.
+    const ticket = verifyTicket((await b.post(`/api/rooms/${code}/ticket`)).json.ticket, secret);
+    expect(ticket!.room).toMatchObject({ code, seed: next.seed, started: next.started, setup: [0, [[0, 'dispatch', 'Merike'], [1, 'calls', 'Jüri']]] });
+    expect(next.seed).not.toBe(room.seed);
+    expect(next.started).toBeGreaterThan(room.started);
   });
 });

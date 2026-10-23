@@ -55,6 +55,8 @@ export default {
   'daily.resume': { et: 'Jätka väljakutset', en: 'Continue the challenge' },
   'daily.report': { et: 'Vaata tulemust', en: 'See your result' },
   'daily.board': { et: 'Edetabel', en: 'Leaderboard' },
+  'daily.close': { et: 'Sulge', en: 'Close' },
+  'daily.onMap': { et: '{area} on kaardil märgitud.', en: '{area} is marked on the map.' },
   'daily.next': { et: 'Uus väljakutse {time} pärast', en: 'Next challenge in {time}' },
   'daily.players': { et: '{n} mängijat', en: '{n} players' },
   'daily.players.one': { et: '1 mängija', en: '1 player' },

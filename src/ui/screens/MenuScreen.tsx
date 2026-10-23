@@ -1,6 +1,8 @@
 // Main menu (Valvekaart): the duty map of Estonia with the player's desk, the prefect's offer and today's challenge
-// on it, and flat panels over it: Teenistus (the menu), Teated, the daily challenge, Karjäär and Edetabel. On a
-// narrow screen the map is a strip on top and the panels stack. Owned by ui-shell.
+// on it, and flat panels over it: Teenistus (the menu), Teated, Karjäär and Edetabel. The daily challenge's panel
+// slides in when its Teenistus row is pressed (a sheet from below on a phone) and its area lights up amber on the
+// map; pressing the row again starts it. On a narrow screen the map is a strip on top and the panels stack. Owned
+// by ui-shell.
 import {
   useEffect,
   useLayoutEffect,
@@ -13,6 +15,7 @@ import {
 } from 'react';
 import { clearAutosave, loadAutosave, shiftKeyOf, useGame, type Screen } from '@/store/game';
 import { useCareer } from '@/store/career';
+import { useSettings } from '@/store/settings';
 import { useAccount } from '@/net/account';
 import { fetchMyRoom, type Room } from '@/net/rooms';
 import { useLang, useT, useTx } from '@/i18n';
@@ -67,8 +70,14 @@ interface Row {
   desc: string;
   mono?: boolean;
   mark?: 'mine' | 'challenge';
+  /** A row that opens a panel elsewhere (the daily challenge's): whether it is open, and its id. */
+  expanded?: boolean;
+  controls?: string;
   run: () => void;
 }
+
+/** The daily challenge's panel (DailyCard), opened from its Teenistus row. */
+const DAILY_PANEL = 'vk-day-panel';
 
 /** A career profile the menu can show (a broken save goes to the career screen, which explains it). */
 function usable(p: CareerProfile | null): p is CareerProfile {
@@ -147,6 +156,53 @@ export function MenuScreen() {
   const cardRef = useRef<HTMLDivElement>(null);
   const dailyPlayRef = useRef<HTMLButtonElement>(null);
 
+  // The daily challenge's panel: closed until its row is pressed; pressed again, the row starts the challenge.
+  const [dailyOpen, setDailyOpen] = useState(false);
+  const dailyRow = () => rootRef.current?.querySelector<HTMLButtonElement>('[data-daily-row]') ?? null;
+  const openDaily = () => {
+    setDailyOpen(true);
+    // A phone: the map strip on top shows the lit area above the sheet, and the sheet's own start is next.
+    if (stacked) {
+      const still =
+        useSettings.getState().reducedMotion ||
+        !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      rootRef.current?.scrollTo?.({ top: 0, behavior: still ? 'auto' : 'smooth' });
+      requestAnimationFrame(() => dailyPlayRef.current?.focus({ preventScroll: true }));
+    }
+  };
+  /** Close it; focus inside it goes back to its row. */
+  const closeDaily = () => {
+    const inside = !!cardRef.current?.contains(document.activeElement);
+    setDailyOpen(false);
+    if (inside) dailyRow()?.focus({ preventScroll: stacked });
+  };
+  // A click anywhere else in the menu closes it (that click still does its own thing); its dialogs do not.
+  // Esc closes it too when nothing has focus (Safari does not focus a clicked button; the menu's own keys
+  // handle Esc when focus is in it).
+  useEffect(() => {
+    if (!dailyOpen) return;
+    const onEsc = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape' && (e.target === document.body || e.target === document.documentElement))
+        setDailyOpen(false);
+    };
+    const onClick = (e: MouseEvent) => {
+      const el = e.target instanceof Element ? e.target : null;
+      if (
+        !el ||
+        !el.isConnected ||
+        el.closest(`[data-daily-row], #${DAILY_PANEL}, .vk-layer, [role="dialog"]`)
+      )
+        return;
+      setDailyOpen(false);
+    };
+    document.addEventListener('click', onClick);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('click', onClick);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [dailyOpen]);
+
   const go = (s: Screen) => () => setScreen(s);
   const brief = (mode: GameMode) => () => {
     // A custom game's force and area stay out of every other shift.
@@ -181,17 +237,19 @@ export function MenuScreen() {
     {
       id: 'daily',
       title: t('daily.title'),
-      desc: t('shell.menu.row.daily', {
-        area: daily.d.area,
-        slot: daily.d.slot.toLocaleLowerCase(lang),
-        state: daily.short,
-      }),
+      desc: dailyOpen
+        ? t(`shell.menu.row.dailyAgain.${daily.action}`)
+        : t('shell.menu.row.daily', {
+            area: daily.d.area,
+            slot: daily.d.slot.toLocaleLowerCase(lang),
+            state: daily.short,
+          }),
       mark: 'challenge',
-      // The card holds the way in (and the rule that only the first run counts): the row takes you there.
-      run: () => {
-        dailyPlayRef.current?.focus();
-        dailyPlayRef.current?.scrollIntoView({ block: 'nearest' });
-      },
+      expanded: dailyOpen,
+      controls: DAILY_PANEL,
+      // The first press shows the challenge (the panel, its area on the map); the second starts it, as the
+      // panel's own button does (today's run continued, a replay as practice).
+      run: () => (dailyOpen ? daily.play() : openDaily()),
     },
     {
       id: 'solo',
@@ -286,6 +344,11 @@ export function MenuScreen() {
     // Keys typed in a dialog (portalled, but still inside this tree for React) or a field are theirs.
     if (!root || !root.contains(e.target as Node) || e.altKey || e.ctrlKey || e.metaKey) return;
     if ((e.target as HTMLElement).closest('input, textarea, select, [role="menu"]')) return;
+    if (e.key === 'Escape' && dailyOpen) {
+      e.preventDefault();
+      closeDaily();
+      return;
+    }
     const btns = Array.from(root.querySelectorAll<HTMLButtonElement>('.vk-row'));
     const i = btns.indexOf(document.activeElement as HTMLButtonElement);
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -296,6 +359,7 @@ export function MenuScreen() {
       const row = rows[Number(e.key) - 1];
       if (row) {
         e.preventDefault();
+        if (row.id !== 'daily') setDailyOpen(false);
         row.run();
       }
     }
@@ -347,11 +411,16 @@ export function MenuScreen() {
       stacked={stacked}
     />
   );
-  const dailyCard = <DailyCard daily={daily} playRef={dailyPlayRef} />;
+  const dailyPanel = (
+    <div className={`vk-menu__daily${dailyOpen ? ' is-open' : ''}`} ref={cardRef} inert={!dailyOpen}>
+      <DailyCard daily={daily} id={DAILY_PANEL} playRef={dailyPlayRef} onClose={closeDaily} />
+    </div>
+  );
   const noticesPanel = notices.length > 0 ? <NoticesPanel notices={notices} max={stacked ? 3 : 3} /> : null;
   const board = backend === 'online' ? <Leaderboard me={accountUser?.name ?? null} /> : null;
-  // 1.82 px per km on the 1:1 map.
-  const legend = <MapLegend input={input} compact={stacked} pxPerKm={1.82 * (layout?.scale ?? 1)} />;
+  // 1.82 px per km on the 1:1 map. The challenge is on the map (and in its key) only while its panel is open.
+  const legendInput = useMemo(() => (dailyOpen ? input : { ...input, challenge: null }), [input, dailyOpen]);
+  const legend = <MapLegend input={legendInput} compact={stacked} pxPerKm={1.82 * (layout?.scale ?? 1)} />;
 
   return (
     <div className={`vk vk-menu${stacked ? ' is-stacked' : ''}`} ref={rootRef} onKeyDown={onKey}>
@@ -360,13 +429,12 @@ export function MenuScreen() {
         {stacked ? (
           <>
             <div className="vk-menu__strip">
-              <DutyMap variant="strip" input={input} />
+              <DutyMap variant="strip" input={input} lit={dailyOpen} />
               {legend}
             </div>
             <div className="vk-menu__stack">
               {career}
               {service}
-              {dailyCard}
               {noticesPanel}
               {board}
               {user && (
@@ -375,11 +443,12 @@ export function MenuScreen() {
                 </section>
               )}
             </div>
+            {dailyPanel}
           </>
         ) : (
           <>
             <div className="vk-menu__map">
-              <DutyMap variant="full" input={input} layout={layout} />
+              <DutyMap variant="full" input={input} layout={layout} lit={dailyOpen} />
             </div>
             <div className="vk-menu__docks">
               <div className="vk-menu__col vk-menu__col--left" ref={leftRef}>
@@ -387,9 +456,7 @@ export function MenuScreen() {
                 {noticesPanel}
               </div>
               <div className="vk-menu__center">
-                <div className="vk-menu__daily" ref={cardRef}>
-                  {dailyCard}
-                </div>
+                {dailyPanel}
                 {legend}
               </div>
               <div className="vk-menu__col vk-menu__col--right" ref={rightRef}>
@@ -400,6 +467,11 @@ export function MenuScreen() {
           </>
         )}
       </main>
+      <p className="vk-sr" role="status">
+        {dailyOpen
+          ? `${t('daily.onMap', { area: daily.d.area })} ${upperFirst(t(`shell.menu.row.dailyAgain.${daily.action}`), lang)}.`
+          : ''}
+      </p>
       <ShellFooter>{!stacked && <MenuKeys n={rows.length} />}</ShellFooter>
     </div>
   );
@@ -469,10 +541,12 @@ function ServicePanel({
     <li key={r.id}>
       <button
         type="button"
-        className={`vk-row${r.system ? ' is-system' : ''}${sub ? ' vk-row--sub' : ''}${r.sub ? ' vk-row--group' : ''}`}
+        className={`vk-row${r.system ? ' is-system' : ''}${sub ? ' vk-row--sub' : ''}${r.sub ? ' vk-row--group' : ''}${r.id === 'daily' ? ' vk-row--daily' : ''}`}
         onClick={r.run}
         aria-keyshortcuts={sub ? undefined : String(i + 1)}
-        aria-expanded={r.sub ? open === r.id : undefined}
+        aria-expanded={r.sub ? open === r.id : r.expanded}
+        aria-controls={r.controls}
+        data-daily-row={r.id === 'daily' ? '' : undefined}
         data-sfx-hover
         data-sfx="click"
         autoFocus={focusFirst && i === 0 && !sub}
@@ -827,6 +901,10 @@ function CareerPanel({
 
 function lowerFirst(s: string, lang: Lang): string {
   return s ? s[0].toLocaleLowerCase(lang) + s.slice(1) : s;
+}
+
+function upperFirst(s: string, lang: Lang): string {
+  return s ? s[0].toLocaleUpperCase(lang) + s.slice(1) : s;
 }
 
 // ── Teated ───────────────────────────────────────────────────────────────────

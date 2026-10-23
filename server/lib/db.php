@@ -277,6 +277,27 @@ function epd_migrations(): array
             )",
             'CREATE INDEX admin_log_at ON admin_log (at)',
         ],
+        // Mitmikmängu voorud (rooms.php epd_room_new_round, docs/MULTIPLAYER.md section 11): a room plays one round
+        // after another without its players joining again. `round` counts them; when the room opens for the next
+        // round, the results of the one before move to room_round_results with that round's mode and seed.
+        11 => [
+            'ALTER TABLE rooms ADD COLUMN round INTEGER NOT NULL DEFAULT 1',
+            "CREATE TABLE room_round_results (
+                room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+                round INTEGER NOT NULL,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                mode TEXT NOT NULL DEFAULT 'race',
+                seed INTEGER NOT NULL DEFAULT 0,
+                score INTEGER NOT NULL,
+                grade TEXT NOT NULL,
+                incidents INTEGER NOT NULL,
+                arrests INTEGER NOT NULL DEFAULT 0,
+                xp INTEGER NOT NULL DEFAULT 0,
+                at INTEGER NOT NULL,
+                PRIMARY KEY (room_id, round, user_id)
+            )",
+            'CREATE INDEX room_round_results_user ON room_round_results (user_id)',
+        ],
     ];
 }
 
