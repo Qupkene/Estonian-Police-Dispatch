@@ -198,6 +198,14 @@ export default {
     en: 'new career: a prefecture and a first sector',
   },
   'shell.menu.row.daily': { et: '{area} · {slot} · {state}', en: '{area} · {slot} · {state}' },
+  // The daily panel is open: the row's second press starts it (daily.play), continues it, opens its report or practises.
+  'shell.menu.row.dailyAgain.play': { et: 'vajuta uuesti, et alustada', en: 'press again to start' },
+  'shell.menu.row.dailyAgain.resume': { et: 'vajuta uuesti, et jätkata', en: 'press again to continue' },
+  'shell.menu.row.dailyAgain.report': {
+    et: 'vajuta uuesti, et näha tulemust',
+    en: 'press again to see your result',
+  },
+  'shell.menu.row.dailyAgain.practice': { et: 'vajuta uuesti, et harjutada', en: 'press again to practise' },
   'shell.menu.row.quick': { et: 'üks vahetus, vabad seaded', en: 'one shift, your own settings' },
   'shell.menu.row.director': { et: 'stseenid, HUD peidetav', en: 'scenes, the HUD can hide' },
   'shell.menu.row.settings': { et: 'keel, heli, kaart, ligipääs', en: 'language, sound, map, access' },

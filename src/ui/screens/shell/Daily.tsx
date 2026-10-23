@@ -115,6 +115,14 @@ export function useDaily(saved: SimState | null) {
   // new run would replace it without the backup copy a different shift gets.
   const resumable = !!saved && dailyDateOf(saved) === today ? saved : null;
   const played = !!mine || !!local;
+  /** What starting it now does: today's run continued or its report opened, a first run, or practice. */
+  const action: 'resume' | 'report' | 'play' | 'practice' = resumable
+    ? resumable.ended
+      ? 'report'
+      : 'resume'
+    : played
+      ? 'practice'
+      : 'play';
 
   const play = () => {
     setError(null);
@@ -174,6 +182,7 @@ export function useDaily(saved: SimState | null) {
     local,
     resumable,
     played,
+    action,
     play,
     status,
     note,
@@ -184,24 +193,32 @@ export function useDaily(saved: SimState | null) {
   };
 }
 
-/** The menu's card: today's challenge, the player's result and place, and the way in. */
+/**
+ * The menu's daily panel: today's challenge, the player's result and place, and the way in at its foot. With
+ * `onClose` it has a close button (the menu opens it from its Päeva väljakutse row).
+ */
 export function DailyCard({
   daily,
+  id,
   className,
   playRef,
+  onClose,
 }: {
   daily: DailyState;
+  id?: string;
   className?: string;
   playRef?: Ref<HTMLButtonElement>;
+  onClose?: () => void;
 }) {
   const t = useT();
   const lang = useLang();
-  const { c, d, now, board, resumable, played, play, status, note, error, backend } = daily;
+  const { c, d, now, board, action, play, status, note, error, backend } = daily;
   const rough = ROUGH.includes(c.weather);
   const p = parseDate(c.date)!;
   return (
     <section
       className={`vk-panel vk-day${className ? ' ' + className : ''}`}
+      id={id}
       aria-labelledby="vk-day-title"
       data-testid="daily-tile"
     >
@@ -217,6 +234,19 @@ export function DailyCard({
           {d.weekdayShort} {`${String(p.d).padStart(2, '0')}.${String(p.m).padStart(2, '0')}`}
           {board && <span className="vk-day__players"> · {playersText(t, board.players)}</span>}
         </span>
+        {onClose && (
+          <button
+            type="button"
+            className="vk-day__close"
+            onClick={onClose}
+            aria-label={t('daily.close')}
+            title={t('daily.close')}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <path d="M3 3l8 8M11 3l-8 8" />
+            </svg>
+          </button>
+        )}
       </div>
       <div className="vk-day__body">
         <p className="vk-day__title">
@@ -257,46 +287,45 @@ export function DailyCard({
           </p>
         )}
       </div>
-      <div className="vk-day__foot">
-        <div className="vk-day__actions">
-          <button
-            type="button"
-            className={`vk-btn${played && !resumable ? ' vk-btn--ghost' : ''}`}
-            onClick={play}
-            data-sfx="click"
-            ref={playRef}
-          >
-            {resumable
-              ? t(resumable.ended ? 'daily.report' : 'daily.resume')
-              : played
-                ? t('daily.practice')
-                : t('daily.play')}
-          </button>
+      <div className={`vk-day__foot${daily.played ? ' is-played' : ''}`}>
+        <p className="vk-day__status" data-testid="daily-status">
+          {status}
+          {note && <span className="vk-day__note"> {note}</span>}
+        </p>
+      </div>
+      <div className="vk-day__go">
+        <button
+          type="button"
+          className={`vk-btn vk-day__start${action === 'practice' ? ' is-practice' : ''}`}
+          onClick={play}
+          data-sfx="click"
+          ref={playRef}
+        >
+          <span>{t(`daily.${action}`)}</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3 8h9.5M8.5 4l4 4-4 4" />
+          </svg>
+        </button>
+        {error && (
+          <p className="vk-day__error" role="alert">
+            {error}
+          </p>
+        )}
+        <p className="vk-day__line">
+          <span className="vk-day__next">
+            {t('daily.next', { time: durationText(nextChallengeAt(now) - now, lang) })}.
+          </span>
           {backend === 'online' && (
             <button
               type="button"
-              className="vk-btn vk-btn--ghost vk-day__board"
+              className="vk-linkbtn vk-day__board"
               onClick={() => daily.setBoardOpen(true)}
             >
               {t('daily.board')}
             </button>
           )}
-        </div>
-        <p className="vk-day__status">
-          <span data-testid="daily-status">
-            {status}
-            {note && <span className="vk-day__note"> {note}</span>}
-          </span>{' '}
-          <span className="vk-day__next">
-            {t('daily.next', { time: durationText(nextChallengeAt(now) - now, lang) })}.
-          </span>
         </p>
       </div>
-      {error && (
-        <p className="vk-day__error" role="alert">
-          {error}
-        </p>
-      )}
       <DailyBoardModal open={daily.boardOpen} onClose={() => daily.setBoardOpen(false)} today={daily.today} />
     </section>
   );

@@ -55,8 +55,34 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 380px;
+  z-index: 1;
+  width: 420px;
   max-width: 100%;
+  /* The panel comes in from behind the right column: cut at the column's edge, its shadow free elsewhere. */
+  clip-path: inset(-80px -12px -120px -80px);
+  pointer-events: none;
+}
+.vk-menu__daily.is-open {
+  pointer-events: auto;
+}
+/* Closed: out to the right and hidden; open: in, eased out. Reduced motion: no transitions (vk.css). */
+.vk-menu__daily > .vk-day {
+  visibility: hidden;
+  opacity: 0;
+  transform: translateX(calc(100% + 16px));
+  transition:
+    transform 0.2s cubic-bezier(0.4, 0, 1, 1),
+    opacity 0.2s ease,
+    visibility 0s linear 0.2s;
+}
+.vk-menu__daily.is-open > .vk-day {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+  transition:
+    transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.18s ease,
+    visibility 0s;
 }
 .vk-menu__center > .vk-legend {
   position: absolute;
@@ -193,6 +219,23 @@
   color: var(--vk-text-3);
 }
 
+/* Päeva väljakutse with its panel open: amber, and its line says that a second press starts it. */
+.vk-row--daily[aria-expanded='true'] {
+  background: color-mix(in oklch, var(--vk-amb) 10%, var(--vk-panel));
+  box-shadow: inset 3px 0 var(--vk-amb);
+}
+.vk-row--daily[aria-expanded='true']:hover,
+.vk-row--daily[aria-expanded='true']:focus {
+  background: color-mix(in oklch, var(--vk-amb) 15%, var(--vk-panel));
+}
+.vk-row--daily[aria-expanded='true'] .vk-row__desc {
+  color: var(--vk-amb);
+}
+.vk-row--daily[aria-expanded='true']:focus .vk-row__key {
+  border-color: var(--vk-amb);
+  background: var(--vk-amb);
+}
+
 /* Groups (Üksikmäng, Muu): the rows open below their group, indented, without a number. */
 .vk-row__fold {
   transition: transform 0.15s ease;
@@ -291,32 +334,113 @@
   font-weight: 600;
   color: var(--vk-amb);
 }
+.vk-day .vk-h {
+  white-space: nowrap;
+}
+.vk-day .vk-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vk-day__close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin-right: -8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vk-text-2);
+  cursor: pointer;
+}
+.vk-day__close:hover {
+  background: var(--vk-raise);
+  color: var(--vk-text-0);
+}
+.vk-day__close svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
 .vk-day__foot {
-  padding: 8px 16px 10px;
+  padding: 8px 16px;
   border-top: 1px solid var(--vk-line-2);
 }
-.vk-day__actions {
+.vk-day__status {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--vk-text-1);
+  text-wrap: pretty;
+}
+/* Today's run counted (or a guest's played): the result reads first, in full ink. */
+.vk-day__foot.is-played .vk-day__status {
+  color: var(--vk-text-0);
+  font-weight: 500;
+}
+.vk-day__note {
+  font-weight: 400;
+  color: var(--vk-text-3);
+}
+/* The way in, at the panel's foot: wide and amber like the challenge (a replay is practice: outlined). */
+.vk-day__go {
+  padding: 10px 16px;
+  border-top: 1px solid var(--vk-line-2);
+}
+.vk-day__start {
+  justify-content: space-between;
+  width: 100%;
+  height: 42px;
+  padding: 0 12px 0 16px;
+  border-color: transparent;
+  background: var(--vk-amb);
+  color: var(--vk-on-acc);
+  font-size: 14.5px;
+  font-weight: 650;
+}
+.vk-day__start:hover {
+  border-color: transparent;
+  background: color-mix(in oklch, var(--vk-amb) 88%, var(--vk-text-0));
+}
+.vk-day__start:focus-visible {
+  outline-color: var(--vk-amb);
+  outline-offset: 2px;
+}
+.vk-day__start.is-practice {
+  border-color: var(--vk-amb);
+  background: transparent;
+  color: var(--vk-amb);
+}
+.vk-day__start.is-practice:hover {
+  background: color-mix(in oklch, var(--vk-amb) 12%, transparent);
+}
+.vk-day__start svg {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.vk-day__line {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 7px 0 0;
+  font-size: 12px;
+  color: var(--vk-text-3);
 }
 .vk-day__board {
   margin-left: auto;
-}
-.vk-day__status {
-  margin: 7px 0 0;
   font-size: 12px;
-  line-height: 1.4;
-  color: var(--vk-text-2);
-  text-wrap: pretty;
-}
-.vk-day__note,
-.vk-day__next {
-  color: var(--vk-text-3);
+  white-space: nowrap;
 }
 .vk-day__error {
-  margin: 0;
-  padding: 0 16px 10px;
+  margin: 8px 0 0;
   font-size: 12px;
   color: var(--vk-bad);
 }
@@ -717,7 +841,16 @@
     margin-top: 8px;
   }
   .vk-day__foot {
-    padding: 6px 16px 8px;
+    padding: 6px 16px;
+  }
+  .vk-day__go {
+    padding: 8px 16px;
+  }
+  .vk-day__start {
+    height: 38px;
+  }
+  .vk-day__line {
+    margin-top: 5px;
   }
 }
 
@@ -937,16 +1070,59 @@
   display: block;
 }
 .is-stacked .vk-day__foot {
-  padding: 12px 14px 14px;
+  padding: 10px 14px;
 }
-.is-stacked .vk-day__actions {
-  flex-wrap: wrap;
+.is-stacked .vk-day__go {
+  padding: 12px 14px calc(8px + env(safe-area-inset-bottom, 0px));
 }
-.is-stacked .vk-day__actions .vk-btn {
-  flex: 1;
-  height: 48px;
+.is-stacked .vk-day__start {
+  justify-content: center;
+  gap: 10px;
+  height: 50px;
   border-radius: 6px;
-  font-size: 15px;
+  font-size: 15.5px;
+}
+.is-stacked .vk-day__line {
+  align-items: center;
+  margin-top: 2px;
+  font-size: 12.5px;
+}
+.is-stacked .vk-day__board {
+  height: 44px;
+  padding: 0 4px 0 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.is-stacked .vk-day__close {
+  width: 44px;
+  height: 44px;
+  margin-right: -12px;
+}
+/* A phone: the panel is a sheet that slides up from below, over the stacked panels, under the map strip. */
+.is-stacked .vk-menu__daily {
+  position: fixed;
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  width: auto;
+  max-width: none;
+  clip-path: none;
+}
+.is-stacked .vk-menu__daily > .vk-day {
+  max-width: 640px;
+  max-height: calc(100dvh - 120px);
+  margin: 0 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -18px 40px -12px oklch(0 0 0 / 0.55);
+  transform: translateY(100%);
+}
+.is-stacked .vk-menu__daily.is-open > .vk-day {
+  transform: none;
 }
 .is-stacked .vk-notes .vk-panel__head {
   min-height: 44px;

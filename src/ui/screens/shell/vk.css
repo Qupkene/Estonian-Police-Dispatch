@@ -901,6 +901,37 @@ a.vk-acct__item {
   width: 100%;
   height: 100%;
 }
+/* The challenge lit on a layer of its own (the menu's daily panel open): faded in and out on the compositor. */
+.vk-map__lit {
+  position: absolute;
+  display: block;
+}
+.vk-map__lit,
+.vk-map__litInk {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  will-change: opacity;
+  pointer-events: none;
+}
+.vk-map.is-lit .vk-map__lit,
+.vk-map.is-lit .vk-map__litInk {
+  opacity: 1;
+  transition-duration: 0.26s;
+}
+.vk-map.is-lit .vk-map__litInk .vk-map__pin circle:first-child {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vk-pin-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.vk-map__litInk .vk-map__label.is-challenge {
+  fill: var(--vk-amb);
+}
+@keyframes vk-pin-in {
+  from {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
 .vk-map__leader {
   fill: none;
   stroke: var(--vk-amb);

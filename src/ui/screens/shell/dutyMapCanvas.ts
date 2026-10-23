@@ -5,7 +5,7 @@
 // is rasterized once per view, size, theme and pixel ratio, and then only composited.
 // The look follows the SVG it replaced: the colours are vk.css's map tokens, read from the element, and the
 // widths, dashes and opacities below are in view px (the viewBox units), scaled with the view like SVG strokes.
-import type { BaseMap, DutyInput, DutyOverlay, SectorShape } from './dutyMap';
+import type { BaseMap, DutyInput, DutyOverlay, LitArea, SectorShape } from './dutyMap';
 
 /** The map tokens the canvas paints with (vk.css, per theme). */
 const TOKENS = [
@@ -222,4 +222,38 @@ export function paintMap(
   }
   ctx.globalAlpha = 1;
   ctx.setLineDash([]);
+}
+
+/**
+ * The daily challenge's area lit up (the menu's daily panel open), on a transparent canvas of its own over the
+ * map, so it fades in and out on the compositor: a soft amber band along its edge, the fill and the edge.
+ */
+export function paintLit(
+  ctx: CanvasRenderingContext2D,
+  frame: PaintFrame,
+  area: LitArea,
+  full: boolean,
+  c: MapColours,
+): void {
+  const canvas = ctx.canvas;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.setTransform(frame.scale, 0, 0, frame.scale, frame.offX, frame.offY);
+  ctx.save();
+  if (area.clip) ctx.clip(path(area.clip));
+  const d = path(area.d);
+  ctx.setLineDash([]);
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = c.amb;
+  ctx.fillStyle = c.amb;
+  ctx.globalAlpha = 0.28;
+  ctx.lineWidth = full ? 7 : 5;
+  ctx.stroke(d);
+  ctx.globalAlpha = 0.36;
+  ctx.fill(d);
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = full ? 1.8 : 1.4;
+  ctx.stroke(d);
+  ctx.restore();
+  ctx.globalAlpha = 1;
 }
