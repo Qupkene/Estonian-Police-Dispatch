@@ -15,6 +15,7 @@ import {
 } from 'react';
 import { clearAutosave, loadAutosave, shiftKeyOf, useGame, type Screen } from '@/store/game';
 import { useCareer } from '@/store/career';
+import { useSettings } from '@/store/settings';
 import { useAccount } from '@/net/account';
 import { fetchMyRoom, type Room } from '@/net/rooms';
 import { useLang, useT, useTx } from '@/i18n';
@@ -162,7 +163,9 @@ export function MenuScreen() {
     setDailyOpen(true);
     // A phone: the map strip on top shows the lit area above the sheet, and the sheet's own start is next.
     if (stacked) {
-      const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      const still =
+        useSettings.getState().reducedMotion ||
+        !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
       rootRef.current?.scrollTo?.({ top: 0, behavior: still ? 'auto' : 'smooth' });
       requestAnimationFrame(() => dailyPlayRef.current?.focus({ preventScroll: true }));
     }
@@ -174,8 +177,14 @@ export function MenuScreen() {
     if (inside) dailyRow()?.focus({ preventScroll: stacked });
   };
   // A click anywhere else in the menu closes it (that click still does its own thing); its dialogs do not.
+  // Esc closes it too when nothing has focus (Safari does not focus a clicked button; the menu's own keys
+  // handle Esc when focus is in it).
   useEffect(() => {
     if (!dailyOpen) return;
+    const onEsc = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape' && (e.target === document.body || e.target === document.documentElement))
+        setDailyOpen(false);
+    };
     const onClick = (e: MouseEvent) => {
       const el = e.target instanceof Element ? e.target : null;
       if (
@@ -187,7 +196,11 @@ export function MenuScreen() {
       setDailyOpen(false);
     };
     document.addEventListener('click', onClick);
-    return () => document.removeEventListener('click', onClick);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('click', onClick);
+      document.removeEventListener('keydown', onEsc);
+    };
   }, [dailyOpen]);
 
   const go = (s: Screen) => () => setScreen(s);

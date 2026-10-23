@@ -77,6 +77,12 @@ describe('the menu daily challenge panel', () => {
     expect(row.getAttribute('aria-expanded')).toBe('true');
     act(() => view.container.querySelector<HTMLElement>('.vk-car')!.click());
     expect(row.getAttribute('aria-expanded')).toBe('false');
+
+    // Esc with nothing focused (Safari does not focus a clicked button) closes it as well.
+    fireEvent.click(row);
+    expect(row.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(row.getAttribute('aria-expanded')).toBe('false');
   });
 
   it("another row's number key closes it; its own number opens it", async () => {
