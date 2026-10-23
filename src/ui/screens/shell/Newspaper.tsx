@@ -80,9 +80,15 @@ export function Newspaper({
             )}
           </div>
           <figcaption>
-            {photo
-              ? `${photo.alt[lang] || photo.alt.et}. ${t('shell.paper.credit')}`
-              : t('shell.paper.caption')}
+            {photo ? (
+              <>
+                {/* The image's alt already says this: a screen reader hears it once, then the credit. */}
+                <span aria-hidden="true">{photo.alt[lang] || photo.alt.et}. </span>
+                {t('shell.paper.credit')}
+              </>
+            ) : (
+              t('shell.paper.caption')
+            )}
           </figcaption>
         </figure>
         {stories.map((s, i) => (

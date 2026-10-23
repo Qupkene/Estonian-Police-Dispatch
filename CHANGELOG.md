@@ -14,16 +14,16 @@ Kõik olulised muudatused on kirjas siin. Each version has a short English summa
 - **Päeva väljakutse avaneb menüüst:** vajuta Teenistuse real „Päeva väljakutse“ ja paremalt libiseb sisse väljakutse paneel, kaardil muutub väljakutse sektor oranžiks.
   - Vajuta sama rida uuesti ja väljakutse algab. Rida ütleb ise, mis järgmisena juhtub (alusta, jätka, vaata tulemust või harjuta).
   - Paneeli all on suur nupp „Alusta väljakutset“. Kui tänane tulemus on juba kirjas, on nupp „Harjuta uuesti“ ja tulemus on paneelis kohe näha.
-  - Paneeli saab sulgeda Esc-klahvi, ristiga või klõpsuga mujale menüüs. Telefonis tõuseb väljakutse alt lehena üles ja kaardiriba näitab samal ajal oranži ala.
+  - Paneeli saab sulgeda Esc-klahviga, ristiga või klõpsuga mujale menüüs. Telefonis tõuseb väljakutse alt lehena üles ja kaardiriba näitab samal ajal oranži ala.
 - **Vahetuse „Tingimused“ on uue kujundusega:** ülal on kohe näha, millal vahetus on, milline ilm on ja kui suur on oodatav koormus.
   - Raskusastmed on kaartidel: väljakutsete hulk tavalisega võrreldes ning kiirmängus tööl olevate ekipaažide arv, karjääris XP kordaja.
   - Vahetus on 24 tunni joonel: iga tunni väljakutsete hulk, pimedad tunnid päikesetõusu ja -loojangu järgi ning valitud vahetus.
   - Kuupäevad on kalendrilehtedena koos sellega, kui tihe on valitud vahetus sel päeval. Eripäevadel öeldakse, mida rohkem juhtub (nt jaaniööl lõkked, ilutulestik ja joobes juhid).
   - Ilm on ikoonidega ja iga ilm näitab, kuidas see sõiduaegu, liiklussündmusi ja väljakutseid mõjutab.
   - „Alusta vahetust“ on lehe allservas ja alati käeulatuses, ka telefonis.
-- **Vahetuse lõpu ajalehes on päris joonistused:** 12 joonistust, igas lehes uus ja päeva peaossa sobiv (liiklusloo juures kiiruse mõõtmine, jälituse juures patrullauto või politseibuss, rahutuste juures rahvahulk).
-  - Sama raport näitab alati sama pilti, järgmine vahetus toob uue. Kahte viimati nähtud pilti kohe ei korrata.
-  - Pildid on lehe jaoks paras suuruses ja telefonis teravad. Trükitud lehe täpiline filter jäi alles, aga on joonistuste peal pehmem.
+- **Vahetuse lõpu ajalehes on päris joonistused:** 12 joonistust, igas lehes uus ja päeva pealooga sobiv (liiklusloo juures kiiruse mõõtmine, jälituse juures patrullauto või politseibuss, rahutuste juures rahvahulk).
+  - Uuesti avatud raport näitab sama pilti, järgmine vahetus toob uue. Viimati nähtud pilti kohe ei korrata, võimaluse korral ka eelviimast.
+  - Pildid on lehe jaoks parajas suuruses ja telefonis teravad. Trükitud lehe täpiline filter jäi alles, aga on joonistuste peal pehmem.
   - Ilma internetita, kui pilti pole vahemälus, näitab leht vana visandit.
 
 <details>
@@ -35,7 +35,7 @@ The daily challenge opens from the menu: pressing its Teenistus row slides the c
 
 The briefing's Conditions panel was redesigned around the sim's own numbers: a summary strip (when, weather, expected load), difficulty cards with call volume and crews on duty (XP in career), the shift on a 24-hour line with calls per hour and the dark hours, calendar tiles that rate how busy the chosen shift is and name what special days bring, and weather tiles with icons and their effect on drive times, traffic incidents and calls. "Start shift" sits in a bar that sticks to the bottom of the screen.
 
-The end-of-shift newspaper prints the owner's 12 halftone drawings instead of the flat sketch: one that fits the lead story where it can (every incident category but the easter eggs has one), a different one each shift (the last two shown are skipped), the same one when a report is reopened. Two sizes each, cached when first shown, with the old sketch as the offline fallback; `node scripts/paper-drawing.mjs` adds the next one.
+The end-of-shift newspaper prints the owner's 12 halftone drawings instead of the flat sketch: one that fits the lead story where it can (every incident category but the easter eggs has one), a different one each shift (never the last one shown, and not the one before it when another fits), the same one when a report is reopened. Two sizes each, cached when first shown, with the old sketch as the offline fallback; `node scripts/paper-drawing.mjs` adds the next one.
 
 </details>
 

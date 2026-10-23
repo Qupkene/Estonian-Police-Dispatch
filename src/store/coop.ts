@@ -257,6 +257,13 @@ class CoopSession implements Session {
         this.stop();
         return;
       }
+      // The room has left this shift behind: back in the lobby it switched to a mode without a shared shift, or this
+      // player left it. Either way the shift is over (the mode changes only in the lobby), not the connection.
+      if (err.status === 409 && (err.code === 'not_coop' || err.code === 'left_room')) {
+        setUi({ status: 'ended', error: 'round_over' });
+        this.stop();
+        return;
+      }
       if (this.failures >= 3) setUi({ status: 'offline', error: err.code });
       return this.schedule(pollDelay(true, this.failures));
     }

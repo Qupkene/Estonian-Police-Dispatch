@@ -26,11 +26,12 @@ import { displayRoomCode, roomCodeOf } from '@/sim/room';
 import { coopPaidKey, coopXp, type CoopReport, type SeatStats } from '@/sim/coop';
 import { sectorById } from '@/sim/sectors';
 import { useCoop } from '@/store/coop';
-import { Button, PpaLogo, PriorityChip, Spinner } from '@/ui/components';
+import { Button, Modal, PpaLogo, PriorityChip, Spinner } from '@/ui/components';
 import { Newspaper } from './shell/Newspaper';
 import { DailyBoardModal } from './shell/Daily';
 import { boardCount, ResultsBoard, RoomBoard, useLiveRoom } from './shell/RoomBoard';
 import { openLobby } from './shell/lobbyNav';
+import { VkLayer } from './shell/VkLayer';
 import { ShellPage, useEnter } from './shell/ShellPage';
 import { SignedStamp } from './shell/ShellFrame';
 import { MonoNumbers } from './shell/notices';
@@ -991,6 +992,9 @@ function RoomReportBoard({
   const { room, gone } = useLiveRoom(code, sent, active);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  // The result is still on its way (or waits for a retry): leaving now would lose it, so the player is asked first.
+  const pending = send.state.status === 'sending' || (send.state.status === 'error' && send.state.retry);
   const round = room ? roundOfShift(room, seed) : null;
   const roomHost = room?.players.find((p) => p.host);
   // A player who left before the result went in has no room in hand (nothing is polled): the panel says so.
@@ -1013,6 +1017,7 @@ function RoomReportBoard({
   const shut = gone || room?.state === 'closed';
   useEffect(() => onShut(shut), [shut]);
   const leave = async () => {
+    setConfirmLeave(false);
     setBusy(true);
     setError(null);
     try {
@@ -1072,7 +1077,12 @@ function RoomReportBoard({
       <div className="vk-panel__foot vk-rep__roomFoot">
         <span className="vk-rep__roomNote">{t('rooms.board.note')}</span>
         {open && (
-          <button type="button" className="vk-btn vk-btn--ghost" onClick={() => void leave()} disabled={busy}>
+          <button
+            type="button"
+            className="vk-btn vk-btn--ghost"
+            onClick={() => (pending ? setConfirmLeave(true) : void leave())}
+            disabled={busy}
+          >
             {t('rooms.leave')}
           </button>
         )}
@@ -1085,6 +1095,30 @@ function RoomReportBoard({
           {t(open ? 'rooms.rep.toRoom' : 'rooms.new')}
         </button>
       </div>
+      {confirmLeave && (
+        <VkLayer>
+          <Modal
+            open
+            onClose={() => setConfirmLeave(false)}
+            title={t('rooms.leave')}
+            width={460}
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => setConfirmLeave(false)}>
+                  {t('rooms.leave.no')}
+                </Button>
+                <Button variant="danger" onClick={() => void leave()}>
+                  {t('rooms.leave.yes')}
+                </Button>
+              </>
+            }
+          >
+            <div className="vk-dialog">
+              <p>{t('rooms.rep.leaveConfirm')}</p>
+            </div>
+          </Modal>
+        </VkLayer>
+      )}
     </section>
   );
 }

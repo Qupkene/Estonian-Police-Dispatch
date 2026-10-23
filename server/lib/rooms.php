@@ -1079,6 +1079,10 @@ function epd_route_room_result(string $code): ApiReply
         if ($member['left_at'] !== null) {
             epd_fail(409, 'left_room', 'Sa lahkusid sellest ruumist.');
         }
+        // Sending a result counts as being here: a race shift polls nothing, and the lobby's host rule reads `seen`.
+        if ((int) $member['seen'] < $now - EPD_ROOM_SEEN_EVERY_MS) {
+            $db->prepare('UPDATE room_players SET seen = ? WHERE room_id = ? AND user_id = ?')->execute([$now, $room['id'], $userId]);
+        }
         $insert = $db->prepare(
             'INSERT INTO room_results (room_id, user_id, score, grade, incidents, arrests, xp, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (room_id, user_id) DO NOTHING'
@@ -1125,10 +1129,12 @@ function epd_room_new_round(PDO $db, array $room, int $userId, int $now): void
     $db->prepare('DELETE FROM room_results WHERE room_id = ?')->execute([$roomId]);
     $db->prepare('DELETE FROM room_players WHERE room_id = ? AND left_at IS NOT NULL')->execute([$roomId]);
     $host = $room['host_id'] === null ? $userId : (int) $room['host_id'];
+    // The host counts as here when the lobby opens (a race shift polls nothing): the 5-minute hand-over to the next
+    // player (epd_room_lobby_heir) starts from now, not from the last poll before the round.
     $db->prepare(
         "UPDATE room_players SET ready = CASE WHEN user_id = ? THEN 1 ELSE 0 END, away = 0, hash_turn = -1, hash = '', resync = -1,
-         cmd_tokens = ?, cmd_at = 0 WHERE room_id = ?"
-    )->execute([$host, EPD_COOP_BURST, $roomId]);
+         cmd_tokens = ?, cmd_at = 0, seen = CASE WHEN user_id = ? THEN MAX(seen, ?) ELSE seen END WHERE room_id = ?"
+    )->execute([$host, EPD_COOP_BURST, $host, $now, $roomId]);
     epd_coop_forget_room($db, $roomId);
     $set = [
         'state' => 'lobby',

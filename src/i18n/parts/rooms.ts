@@ -138,6 +138,10 @@ export default {
     en: 'The shift is on. If you leave, your row stays on the board marked "left" and you can no longer send a result.',
   },
   'rooms.leave.yes': { et: 'Jah, lahku', en: 'Yes, leave' },
+  'rooms.rep.leaveConfirm': {
+    et: 'Sinu tulemus pole veel ruumi jõudnud. Kui lahkud, jääb su rida tabelisse märkega "lahkus" ja tulemust enam saata ei saa.',
+    en: 'Your result has not reached the room yet. If you leave, your row stays on the board marked "left" and the result can no longer be sent.',
+  },
   'rooms.leave.no': { et: 'Jää ruumi', en: 'Stay' },
   'rooms.block.too_few': {
     et: 'Alustamiseks on vaja vähemalt kahte mängijat. Saada kood edasi.',

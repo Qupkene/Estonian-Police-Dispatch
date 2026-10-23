@@ -765,6 +765,20 @@
   .vk-cards--wx .vk-wx__fx {
     display: none;
   }
+}
+/* A narrow phone: "Automaatne" is wider than a quarter of the row, so the weather goes three tiles a row (and the
+   dates two on the narrowest, so a date never runs past its tile). */
+@media (max-width: 440px) {
+  .vk-cards--wx {
+    --vk-cards-n: 3;
+  }
+}
+@media (max-width: 360px) {
+  .vk-cards--dates {
+    --vk-cards-n: 2;
+  }
+}
+@media (max-width: 640px) {
   .vk-brief__goText {
     display: none;
   }

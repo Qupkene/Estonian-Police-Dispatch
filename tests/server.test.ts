@@ -1362,6 +1362,30 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       expect((await hanna.post(`/api/rooms/${code}/start`, undefined, at(t + 6 * 60_000 + 8000))).json.error).toBe('not_host');
     });
 
+    it('keeps a host who finished a race last when the room opens for the next round', async () => {
+      const [heino, urmas] = [client(), client()];
+      expect((await register(heino, 'Heino')).status).toBe(200);
+      expect((await register(urmas, 'Urmas')).status).toBe(200);
+      const t = Date.now() + 200_000;
+      const r = (await heino.post('/api/rooms', OPTS, at(t))).json.room;
+      await urmas.post('/api/rooms/join', { code: r.code }, at(t + 100));
+      await urmas.post(`/api/rooms/${r.code}/ready`, { ready: true }, at(t + 200));
+      const room = (await heino.post(`/api/rooms/${r.code}/start`, undefined, at(t + 300))).json.room;
+      expect(room.state).toBe('running');
+      // A race shift polls nothing: Urmas finishes first and waits in the room, Heino sends his ten minutes in.
+      const late = t + 10 * 60_000;
+      await urmas.post(`/api/rooms/${r.code}/result`, { ...RESULT, seed: room.seed }, at(late - 60_000));
+      await urmas.get(`/api/rooms/${r.code}`, at(late - 30_000));
+      expect((await heino.post(`/api/rooms/${r.code}/result`, { ...RESULT, seed: room.seed }, at(late))).json.room.state).toBe('finished');
+      // Urmas is back first and opens the next round: his next poll must not hand him the lobby.
+      expect((await urmas.post(`/api/rooms/${r.code}/reopen`, { round: 1 }, at(late + 1000))).json.room.state).toBe('lobby');
+      const host = async (ms: number) => (await urmas.get(`/api/rooms/${r.code}`, at(ms))).json.room.players.find((p: Json) => p.host).name;
+      expect(await host(late + 7000)).toBe('Heino');
+      // From the new lobby on the usual rule holds: five minutes away and the room passes on.
+      await host(late + 6 * 60_000);
+      expect(await host(late + 6 * 60_000 + 6000)).toBe('Urmas');
+    });
+
     it('frees a seat in the lobby, passes the host on and closes an empty lobby', async () => {
       const r = (await ivo.post('/api/rooms', OPTS)).json.room;
       await jaan.post('/api/rooms/join', { code: r.code });
