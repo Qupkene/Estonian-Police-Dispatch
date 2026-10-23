@@ -6,6 +6,9 @@ import { sunTimes } from '@/sim/sun';
 import { HOUR, tallinnTime, wall } from '@/sim/time';
 import { initialWeather } from '@/sim/weather';
 import { Rng } from '@/sim/rng';
+import { dayInfo } from '@/sim/calendar';
+import { TEMPLATES } from '@/data/incidents';
+import { DAY } from '@/sim/time';
 import {
   darkSpans,
   dayBars,
@@ -91,6 +94,15 @@ describe('briefing conditions: the dates', () => {
       expect(DICT[`shell.tag.${tag}`]?.et, tag).toBeTruthy();
       expect(DICT[`shell.tag.${tag}`]?.en, tag).toBeTruthy();
     }
+  });
+
+  it('names every day tag that some calls answer to (only the day itself is left out)', () => {
+    const answered = new Set(TEMPLATES.flatMap((x) => x.tags ?? []));
+    const days = new Set<string>();
+    const from = shiftStart({ y: 2027, m: 1, d: 1 }, 'day');
+    for (let t = from; t < from + 366 * DAY; t += 3 * HOUR) for (const tag of dayInfo(t).tags) days.add(tag);
+    const unnamed = [...days].filter((x) => answered.has(x) && !(TAG_ORDER as readonly string[]).includes(x));
+    expect(unnamed).toEqual(['jaanipaev']); // the day's own name, already in the line as the date
   });
 
   it('puts an Estonian weekday in the genitive for its night', () => {

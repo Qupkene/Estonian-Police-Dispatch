@@ -250,15 +250,18 @@ export function BriefConditions(p: ConditionsProps) {
               onChange={p.onDatePreset}
               className="vk-cards vk-cards--dates"
             >
-              {DATE_PRESETS.map((x) => (
-                <Choice
-                  key={x}
-                  value={x}
-                  label={`${t(`shell.date.${x}`)}, ${ymdText(resolveDatePreset(x, Date.now()))}`}
-                >
-                  <DateTile preset={x} shift={shift} lang={lang} />
-                </Choice>
-              ))}
+              {DATE_PRESETS.map((x) => {
+                const ymd = resolveDatePreset(x, Date.now());
+                return (
+                  <Choice
+                    key={x}
+                    value={x}
+                    label={`${t(`shell.date.${x}`)}, ${weekdayName(shiftStart(ymd, shift), lang)} ${ymdText(ymd)}`}
+                  >
+                    <DateTile preset={x} shift={shift} lang={lang} />
+                  </Choice>
+                );
+              })}
             </ChoiceGroup>
           </OptRow>
         )}
@@ -286,21 +289,21 @@ export function BriefConditions(p: ConditionsProps) {
             {WEATHERS.map((w) => {
               const kind = w === 'auto' ? p.autoForecast?.kind : w;
               const drive = w === 'auto' ? null : kindDrive(w);
+              const fxLine =
+                w === 'auto'
+                  ? p.autoForecast
+                    ? `${t('shell.brief.wx.forecast')}: ${weatherName(p.autoForecast, lang)}`
+                    : t('shell.brief.wx.forecast')
+                  : drive && drive > 1.01
+                    ? t('shell.brief.wx.drive', { pct: fmtChange(drive) })
+                    : t('shell.brief.wx.driveOk');
               return (
-                <Choice key={w} value={w} label={t(`shell.weather.${w}`)}>
+                <Choice key={w} value={w} label={`${t(`shell.weather.${w}`)}, ${fxLine.toLowerCase()}`}>
                   <span className={`vk-wx__icon${w === 'auto' ? ' is-auto' : ''}`}>
                     {kind && <WxIcon kind={kind} />}
                   </span>
                   <span className="vk-card__name">{t(`shell.weather.${w}`)}</span>
-                  <span className="vk-card__line vk-wx__fx">
-                    {w === 'auto'
-                      ? p.autoForecast
-                        ? `${t('shell.brief.wx.forecast')}: ${weatherName(p.autoForecast, lang)}`
-                        : t('shell.brief.wx.forecast')
-                      : drive && drive > 1.01
-                        ? t('shell.brief.wx.drive', { pct: fmtChange(drive) })
-                        : t('shell.brief.wx.driveOk')}
-                  </span>
+                  <span className="vk-card__line vk-wx__fx">{fxLine}</span>
                 </Choice>
               );
             })}

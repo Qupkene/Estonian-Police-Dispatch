@@ -508,7 +508,11 @@
   font-size: 11px;
 }
 
-/* The start bar: at the end of the page, and stuck to the bottom of the screen until then. */
+/* The start bar: at the end of the page, and stuck to the bottom of the screen until then. The page keeps a
+   focused card or link clear of it (WCAG 2.4.11), so Tab never puts the focus under the bar. */
+.vk-brief-page {
+  scroll-padding-bottom: 96px;
+}
 .vk-brief__go {
   position: sticky;
   bottom: 0;
