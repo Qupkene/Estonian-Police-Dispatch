@@ -578,6 +578,7 @@ export function ReportScreen() {
           issue={issue}
           weather={sim?.weather ? sim.weather.text[lang] : undefined}
           extra={press}
+          photoKey={report.shiftKey}
         />
       </section>
 

@@ -491,6 +491,8 @@ describe('report', () => {
     }
     expect(np.stories.length).toBeGreaterThanOrEqual(3);
     expect(np.stories.length).toBeLessThanOrEqual(4);
+    // The photo goes by what the page is about (src/ui/screens/shell/paper/drawings.ts).
+    expect(np.topics?.length).toBeGreaterThan(0);
     expect(np.stories.some((x) => x.body.et.includes('kutsuti politsei Tallinnas Lasnamäel aadressile Punane tn 16-45.'))).toBe(true);
     expect(np.stories.some((x) => x.body.en.includes('police were called to Punane tn 16-45, Lasnamäe, Tallinn.'))).toBe(true);
     expect(r.officerXp['u1-o1']).toBeGreaterThan(0);
@@ -529,6 +531,7 @@ describe('report', () => {
     const r = buildReport(s);
     expect(r.newspaper.headline.et).toMatch(/Rahulik/);
     expect(r.newspaper.stories.length).toBeGreaterThanOrEqual(3);
+    expect(r.newspaper.topics?.[0]).toBe('quiet');
   });
   it('ending a shift early keeps at most half the points, fewer the earlier it ended', () => {
     const perfect = (now: number, mode: SimState['mode'] = 'free'): ShiftReportX => {

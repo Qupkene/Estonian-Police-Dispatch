@@ -121,6 +121,22 @@
   width: 100%;
   height: 100%;
 }
+/* The owner's drawings (paper/drawings.ts): printed into the paper, at their own shape. */
+.sh-paper__halftone.is-drawing {
+  aspect-ratio: auto;
+  background: var(--paper-bg);
+}
+.sh-paper__halftone img {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: grayscale(0.3) sepia(0.15) contrast(1.08);
+  mix-blend-mode: multiply;
+}
+/* They are halftone already: the print screen only hints. */
+.sh-paper__halftone.is-drawing::after {
+  opacity: 0.24;
+}
 .sh-paper__halftone::after {
   content: '';
   position: absolute;

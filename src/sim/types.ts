@@ -1134,7 +1134,16 @@ export interface ShiftReport {
   officerXp: Record<string, number>;
   highlights: { incidentId: string; title: Text; text: Text; good: boolean }[];
   /** Generated newspaper front page. */
-  newspaper: { masthead: string; date: string; headline: Text; sub: Text; stories: { title: Text; body: Text }[] };
+  newspaper: {
+    masthead: string;
+    date: string;
+    headline: Text;
+    sub: Text;
+    stories: { title: Text; body: Text }[];
+    /** What the page is about, most telling first: the lead's 'pursuit' and category, else 'holiday', 'busy' or
+     * 'quiet'; then 'night'. Picks the photo; older reports have none. */
+    topics?: string[];
+  };
   /** `${seed}:${startTime}` of the shift (set by the game store), so one shift is paid out only once. */
   shiftKey?: string;
   /** A co-op room shift: the seats, their roles and what each did (src/sim/coop.ts). */

@@ -241,11 +241,15 @@ describe('build stamping', () => {
       'assets/inter-latin-wght-normal-D.woff2',
       'assets/inter-latin-ext-wght-normal-E.woff2',
       'assets/inter-cyrillic-wght-normal-F.woff2',
+      'assets/id-ee-G.webp',
+      'assets/paper-radar-H.webp',
+      'assets/paper-radar-sm-I.webp',
       'glyphs/Noto Sans Regular/0-255.pbf',
       'legacy/politseimang-2025.html',
     ];
     expect(precacheList(files)).toEqual([
       'assets/GameScreen-B.js',
+      'assets/id-ee-G.webp',
       'assets/index-A.css',
       'assets/index-A.js',
       'assets/inter-latin-ext-wght-normal-E.woff2',

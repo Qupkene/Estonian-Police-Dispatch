@@ -749,6 +749,7 @@ export default {
     et: 'Politseipatrull öises linnas. Foto: arhiiv',
     en: 'A police patrol in the city at night. Photo: archive',
   },
+  'shell.paper.credit': { et: 'Joonis: arhiiv', en: 'Illustration: archive' },
   'shell.paper.empty': {
     et: 'Toimetus ootab veel lugusid.',
     en: 'The newsroom is still waiting for stories.',

@@ -799,5 +799,8 @@ function buildNewspaper(
       body: T('Hädaolukorras helista 112. Kui märkad joobes juhti, anna sellest kohe teada.', 'In an emergency, call 112. If you see a drunk driver, report it immediately.'),
     });
   }
-  return { masthead, date, headline, sub, stories: stories.slice(0, 4) };
+  // What the front page is about, most telling first: the photo goes by it (src/ui/screens/shell/paper/drawings.ts).
+  const topics: string[] = lead ? [...(lead.pursuit ? ['pursuit'] : []), lead.category] : [holiday ? 'holiday' : n >= 35 ? 'busy' : 'quiet'];
+  if (o.night) topics.push('night');
+  return { masthead, date, headline, sub, stories: stories.slice(0, 4), topics };
 }
