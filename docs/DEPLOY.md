@@ -792,6 +792,11 @@ workeri, mis laeb uue ehituse vahemällu ja kustutab vanad vahemälud. Eelmise e
 vahemälu jääb alles, et veel avatud vaheleht saaks oma ülejäänud tükid kätte. Käsitsi pole vaja
 midagi tõsta.
 
+Ajalehe joonistused (`assets/paper-*.webp`) jäävad nimekirjast välja: need on suured ja jõuavad
+vahemällu alles siis, kui leht neid esimest korda näitab. Teise deploy järel on need vahemälust
+jälle läinud. Kui joonist ei saa laadida (võrku pole ja vahemälus seda pole), näitab leht vana
+visandit.
+
 ## .eu domeen
 
 - `.eu` domeeni võib hoida EL-i või EMP kodanik, elanik või seal asutatud ettevõte. Hoia

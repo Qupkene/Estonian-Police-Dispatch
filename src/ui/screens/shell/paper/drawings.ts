@@ -3,7 +3,8 @@
 // To add a drawing: `node scripts/paper-drawing.mjs <image> <id>` writes paper-<id>.webp and paper-<id>-sm.webp
 // here and prints the line for DRAWINGS below; fill in its alt text and tags. Tags are what the front page can be
 // about (ShiftReport.newspaper.topics): an incident category (traffic, violence, domestic, property, public_order,
-// drugs, missing, alarm, assist, major, border, environment), 'pursuit', 'quiet', 'busy', 'holiday' or 'night'.
+// drugs, missing, alarm, assist, major, border, environment, fraud, easter), 'pursuit', 'quiet', 'busy', 'holiday' or
+// 'night'. Every category but easter has a drawing (tests/paper-drawings.test.ts).
 import type { Text } from '@/sim/types';
 import { hashString } from '@/sim/rng';
 
@@ -46,7 +47,7 @@ export const DRAWINGS: readonly Drawing[] = [
     w: 800,
     h: 598,
     alt: { et: 'Patrull vormistab sündmuskohal teadet', en: 'A patrol files a report at the scene' },
-    tags: ['property', 'assist', 'environment', 'border', 'traffic'],
+    tags: ['property', 'assist', 'environment', 'border', 'traffic', 'fraud'],
   },
   {
     id: 'mootmine',

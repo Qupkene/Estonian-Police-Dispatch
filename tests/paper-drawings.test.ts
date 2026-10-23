@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import type { IncidentCategory } from '@/sim/types';
 import {
   DRAWING_FILES,
   DRAWINGS,
@@ -13,25 +14,24 @@ import {
 
 const DIR = join(__dirname, '..', 'src', 'ui', 'screens', 'shell', 'paper');
 
-const TOPICS = [
-  'violence',
-  'domestic',
-  'property',
-  'traffic',
-  'public_order',
-  'drugs',
-  'missing',
-  'alarm',
-  'assist',
-  'major',
-  'border',
-  'environment',
-  'pursuit',
-  'quiet',
-  'busy',
-  'holiday',
-  'night',
-];
+// Every incident category (a compile error here when one is added), then the other topics of buildNewspaper.
+const CATEGORIES: Record<IncidentCategory, true> = {
+  violence: true,
+  domestic: true,
+  property: true,
+  traffic: true,
+  public_order: true,
+  drugs: true,
+  missing: true,
+  alarm: true,
+  assist: true,
+  major: true,
+  border: true,
+  environment: true,
+  fraud: true,
+  easter: true,
+};
+const TOPICS = [...Object.keys(CATEGORIES), 'pursuit', 'quiet', 'busy', 'holiday', 'night'];
 
 /** Width and height of a WebP file (lossy VP8, lossless VP8L or extended VP8X). */
 function webpSize(file: string): [number, number] {
@@ -95,6 +95,13 @@ describe('the drawings', () => {
       }
       expect(x.tags.length, x.id).toBeGreaterThan(0);
       for (const t of x.tags) expect(TOPICS, `${x.id}: ${t}`).toContain(t);
+    }
+  });
+
+  it('cover every lead story category but the easter eggs, and a chase', () => {
+    const tagged = new Set(DRAWINGS.flatMap((x) => x.tags));
+    for (const c of [...Object.keys(CATEGORIES).filter((c) => c !== 'easter'), 'pursuit']) {
+      expect(tagged.has(c), c).toBe(true);
     }
   });
 });
