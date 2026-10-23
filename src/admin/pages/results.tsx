@@ -32,8 +32,8 @@ export function ScoreTable({
   const [deleting, setDeleting] = useState<Score | null>(null);
   const run = useAction();
   return (
-    <div className="ad-scroll">
-      <table className="ad-table">
+    <div className="pn-scroll">
+      <table className="pn-table">
         <thead>
           <tr>
             {showName && <th>Mängija</th>}
@@ -64,13 +64,13 @@ export function ScoreTable({
               <td className="num">{s.incidents}</td>
               <td className="num">{s.arrests}</td>
               <td className="mono">{when(s.at)}</td>
-              <td className="ad-rowact">
-                <button type="button" className="ad-btn ad-btn--small" onClick={() => setEditing(s)}>
+              <td className="pn-rowact">
+                <button type="button" className="pn-btn pn-btn--small" onClick={() => setEditing(s)}>
                   Muuda
                 </button>
                 <button
                   type="button"
-                  className="ad-btn ad-btn--small ad-btn--ghostbad"
+                  className="pn-btn pn-btn--small pn-btn--ghostbad"
                   onClick={() => setDeleting(s)}
                 >
                   Kustuta
@@ -80,7 +80,7 @@ export function ScoreTable({
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={showName ? 10 : 9} className="ad-empty">
+              <td colSpan={showName ? 10 : 9} className="pn-empty">
                 Tulemusi ei ole.
               </td>
             </tr>
@@ -180,11 +180,11 @@ export function ScoreDialog({
       title={score ? `Muuda tulemust (${score.name ?? 'mängija'})` : 'Lisa tulemus edetabelisse'}
       onClose={onClose}
     >
-      <form className="ad-form ad-form--grid" onSubmit={submit}>
+      <form className="pn-form pn-form--grid" onSubmit={submit}>
         {!score && userId === undefined && (
           <Field label="Mängija (kasutajanimi)" wide>
             <input
-              className="ad-input"
+              className="pn-input"
               value={who}
               onChange={(e) => setWho(e.target.value)}
               required
@@ -194,7 +194,7 @@ export function ScoreDialog({
         )}
         <Field label="Skoor (0 kuni 100)">
           <input
-            className="ad-input"
+            className="pn-input"
             type="number"
             min={0}
             max={100}
@@ -217,7 +217,7 @@ export function ScoreDialog({
         </Field>
         <Field label="Aeg">
           <input
-            className="ad-input"
+            className="pn-input"
             type="datetime-local"
             value={f.at}
             onChange={(e) => set('at')(e.target.value)}
@@ -226,7 +226,7 @@ export function ScoreDialog({
         </Field>
         <Field label="Sündmusi">
           <input
-            className="ad-input"
+            className="pn-input"
             type="number"
             min={0}
             max={100000}
@@ -237,7 +237,7 @@ export function ScoreDialog({
         </Field>
         <Field label="Vahistamisi">
           <input
-            className="ad-input"
+            className="pn-input"
             type="number"
             min={0}
             max={100000}
@@ -247,14 +247,14 @@ export function ScoreDialog({
           />
         </Field>
         {(f.mode === 'director' || f.mode === 'tutorial') && (
-          <p className="ad-hint ad-wide">Režissööri ja õppevahetuse tulemusi avalik edetabel ei näita.</p>
+          <p className="pn-hint pn-wide">Režissööri ja õppevahetuse tulemusi avalik edetabel ei näita.</p>
         )}
-        {error && <p className="ad-error ad-wide">{error}</p>}
-        <div className="ad-actions ad-wide">
-          <button type="button" className="ad-btn" onClick={onClose}>
+        {error && <p className="pn-error pn-wide">{error}</p>}
+        <div className="pn-actions pn-wide">
+          <button type="button" className="pn-btn" onClick={onClose}>
             Loobu
           </button>
-          <button type="submit" className="ad-btn ad-btn--primary" disabled={busy}>
+          <button type="submit" className="pn-btn pn-btn--primary" disabled={busy}>
             {score ? 'Salvesta' : 'Lisa'}
           </button>
         </div>
@@ -278,8 +278,8 @@ export function DailyTable({
   const [deleting, setDeleting] = useState<Daily | null>(null);
   const run = useAction();
   return (
-    <div className="ad-scroll">
-      <table className="ad-table">
+    <div className="pn-scroll">
+      <table className="pn-table">
         <thead>
           <tr>
             <th>Päev</th>
@@ -310,13 +310,13 @@ export function DailyTable({
               <td className="num">{d.incidents}</td>
               <td className="num">{d.arrests}</td>
               <td className="mono">{when(d.at)}</td>
-              <td className="ad-rowact">
-                <button type="button" className="ad-btn ad-btn--small" onClick={() => setEditing(d)}>
+              <td className="pn-rowact">
+                <button type="button" className="pn-btn pn-btn--small" onClick={() => setEditing(d)}>
                   Muuda
                 </button>
                 <button
                   type="button"
-                  className="ad-btn ad-btn--small ad-btn--ghostbad"
+                  className="pn-btn pn-btn--small pn-btn--ghostbad"
                   onClick={() => setDeleting(d)}
                 >
                   Kustuta
@@ -326,7 +326,7 @@ export function DailyTable({
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={showName ? 10 : 9} className="ad-empty">
+              <td colSpan={showName ? 10 : 9} className="pn-empty">
                 Tulemusi ei ole.
               </td>
             </tr>
@@ -423,11 +423,11 @@ export function DailyDialog({
       title={daily ? `Muuda päeva tulemust (${daily.name ?? 'mängija'})` : 'Lisa päeva väljakutse tulemus'}
       onClose={onClose}
     >
-      <form className="ad-form ad-form--grid" onSubmit={submit}>
+      <form className="pn-form pn-form--grid" onSubmit={submit}>
         {!daily && userId === undefined && (
           <Field label="Mängija (kasutajanimi)" wide>
             <input
-              className="ad-input"
+              className="pn-input"
               value={who}
               onChange={(e) => setWho(e.target.value)}
               required
@@ -437,7 +437,7 @@ export function DailyDialog({
         )}
         <Field label="Päev">
           <input
-            className="ad-input"
+            className="pn-input"
             type="date"
             value={f.day}
             onChange={(e) => set('day')(e.target.value)}
@@ -446,7 +446,7 @@ export function DailyDialog({
         </Field>
         <Field label="Skoor (0 kuni 100)">
           <input
-            className="ad-input"
+            className="pn-input"
             type="number"
             min={0}
             max={100}
@@ -463,7 +463,7 @@ export function DailyDialog({
         </Field>
         <Field label="Sektor (valikuline)">
           <input
-            className="ad-input"
+            className="pn-input"
             value={f.sector}
             onChange={(e) => set('sector')(e.target.value)}
             placeholder="nt pohja-kesklinn"
@@ -472,7 +472,7 @@ export function DailyDialog({
         </Field>
         <Field label="Sündmusi">
           <input
-            className="ad-input"
+            className="pn-input"
             type="number"
             min={0}
             max={100000}
@@ -483,7 +483,7 @@ export function DailyDialog({
         </Field>
         <Field label="Vahistamisi">
           <input
-            className="ad-input"
+            className="pn-input"
             type="number"
             min={0}
             max={100000}
@@ -492,12 +492,12 @@ export function DailyDialog({
             required
           />
         </Field>
-        {error && <p className="ad-error ad-wide">{error}</p>}
-        <div className="ad-actions ad-wide">
-          <button type="button" className="ad-btn" onClick={onClose}>
+        {error && <p className="pn-error pn-wide">{error}</p>}
+        <div className="pn-actions pn-wide">
+          <button type="button" className="pn-btn" onClick={onClose}>
             Loobu
           </button>
-          <button type="submit" className="ad-btn ad-btn--primary" disabled={busy}>
+          <button type="submit" className="pn-btn pn-btn--primary" disabled={busy}>
             {daily ? 'Salvesta' : 'Lisa'}
           </button>
         </div>
@@ -518,7 +518,7 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className={`ad-field${wide ? ' ad-wide' : ''}`}>
+    <label className={`pn-field${wide ? ' pn-wide' : ''}`}>
       <span>{text}</span>
       {children}
     </label>
@@ -535,7 +535,7 @@ function Pick({
   onChange: (v: string) => void;
 }) {
   return (
-    <select className="ad-input" value={value} onChange={(e) => onChange(e.target.value)}>
+    <select className="pn-input" value={value} onChange={(e) => onChange(e.target.value)}>
       {Object.entries(options).map(([k, v]) => (
         <option key={k} value={k}>
           {v}

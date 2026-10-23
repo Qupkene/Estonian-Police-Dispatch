@@ -338,7 +338,26 @@
   border-left: 1px solid var(--vk-line-2);
 }
 .vk-top__spacer {
+  display: flex;
   flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  padding: 0 14px;
+  overflow: hidden;
+}
+.vk-top__ver {
+  font: 400 10.5px/1 var(--vk-font-mono);
+  letter-spacing: 0.04em;
+  color: var(--vk-text-3);
+  opacity: 0.8;
+  white-space: nowrap;
+}
+/* Too narrow for it next to the clock and the language switch: the footer still shows it. */
+@media (max-width: 359px) {
+  .vk-top__ver {
+    display: none;
+  }
 }
 .vk-top__spacer + .vk-top__cell {
   border-left: 0;

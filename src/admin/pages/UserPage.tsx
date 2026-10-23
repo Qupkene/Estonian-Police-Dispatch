@@ -29,21 +29,21 @@ export function UserPage({ id, me }: { id: number; me: AdminUser }) {
 
   return (
     <section>
-      <div className="ad-crumbs">
+      <div className="pn-crumbs">
         <a href="#/kontod">Kontod</a> / {d?.user.name ?? id}
       </div>
       <LoadState loaded={loaded}>
         {d && (
           <>
-            <div className="ad-head">
+            <div className="pn-head">
               <h1>
                 {d.user.name} <UserBadges user={d.user} />
               </h1>
             </div>
-            <div className="ad-grid2">
-              <div className="ad-panel">
+            <div className="pn-grid2">
+              <div className="pn-panel">
                 <h2>Konto</h2>
-                <dl className="ad-dl">
+                <dl className="pn-dl">
                   <dt>ID</dt>
                   <dd className="mono">{d.user.id}</dd>
                   <dt>Loodud</dt>
@@ -61,9 +61,9 @@ export function UserPage({ id, me }: { id: number; me: AdminUser }) {
                 </dl>
                 <Rename user={d.user} onSave={(name) => patch({ name }, 'Nimi muudetud.')} />
               </div>
-              <div className="ad-panel">
+              <div className="pn-panel">
                 <h2>Tegevused</h2>
-                <div className="ad-acts">
+                <div className="pn-acts">
                   <Act
                     title="Uus parool"
                     text="Määra parool ise või lase serveril teha. Kõik selle konto seansid lõpevad."
@@ -133,7 +133,7 @@ export function UserPage({ id, me }: { id: number; me: AdminUser }) {
               </div>
             </div>
 
-            <div className="ad-tabs" role="tablist">
+            <div className="pn-tabs" role="tablist">
               {(
                 [
                   ['scores', `Edetabel (${d.scores.length})`],
@@ -155,13 +155,13 @@ export function UserPage({ id, me }: { id: number; me: AdminUser }) {
                 </button>
               ))}
             </div>
-            <div className="ad-panel ad-panel--tab">
+            <div className="pn-panel pn-panel--tab">
               {tab === 'scores' && (
                 <>
-                  <div className="ad-tabhead">
+                  <div className="pn-tabhead">
                     <button
                       type="button"
-                      className="ad-btn ad-btn--small ad-btn--primary"
+                      className="pn-btn pn-btn--small pn-btn--primary"
                       onClick={() => setAdding('score')}
                     >
                       Lisa tulemus
@@ -172,10 +172,10 @@ export function UserPage({ id, me }: { id: number; me: AdminUser }) {
               )}
               {tab === 'daily' && (
                 <>
-                  <div className="ad-tabhead">
+                  <div className="pn-tabhead">
                     <button
                       type="button"
-                      className="ad-btn ad-btn--small ad-btn--primary"
+                      className="pn-btn pn-btn--small pn-btn--primary"
                       onClick={() => setAdding('daily')}
                     >
                       Lisa päeva tulemus
@@ -292,7 +292,7 @@ function Act({
   return (
     <button
       type="button"
-      className={`ad-act${danger ? ' ad-act--danger' : ''}`}
+      className={`pn-act${danger ? ' pn-act--danger' : ''}`}
       onClick={onClick}
       disabled={disabled}
     >
@@ -312,18 +312,18 @@ function Rename({ user, onSave }: { user: AdminUser; onSave: (name: string) => P
     setBusy(false);
   };
   return (
-    <form className="ad-inline" onSubmit={submit}>
-      <label className="ad-field">
+    <form className="pn-inline" onSubmit={submit}>
+      <label className="pn-field">
         <span>Kasutajanimi</span>
         <input
-          className="ad-input"
+          className="pn-input"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
           autoComplete="off"
         />
       </label>
-      <button type="submit" className="ad-btn" disabled={busy || name.trim() === user.name}>
+      <button type="submit" className="pn-btn" disabled={busy || name.trim() === user.name}>
         Nimeta ümber
       </button>
     </form>
@@ -359,25 +359,25 @@ function PasswordDialog({
   return (
     <Modal title={`Uus parool: ${user.name}`} onClose={onClose}>
       {made !== undefined ? (
-        <div className="ad-form">
+        <div className="pn-form">
           {made ? (
             <SecretBox name={user.name} password={made} />
           ) : (
             <p>Parool on vahetatud. Kõik konto seansid lõppesid.</p>
           )}
-          <div className="ad-actions">
-            <button type="button" className="ad-btn ad-btn--primary" onClick={onClose}>
+          <div className="pn-actions">
+            <button type="button" className="pn-btn pn-btn--primary" onClick={onClose}>
               Valmis
             </button>
           </div>
         </div>
       ) : (
-        <form className="ad-form" onSubmit={submit}>
+        <form className="pn-form" onSubmit={submit}>
           <input type="text" name="username" value={user.name} autoComplete="username" readOnly hidden />
-          <label className="ad-field">
+          <label className="pn-field">
             <span>Uus parool</span>
             <input
-              className="ad-input"
+              className="pn-input"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -387,12 +387,12 @@ function PasswordDialog({
             />
             <small>Vähemalt 8 märki. Konto kõik seansid lõpevad ja sisselogimise piirang kaob.</small>
           </label>
-          {error && <p className="ad-error">{error}</p>}
-          <div className="ad-actions">
-            <button type="button" className="ad-btn" onClick={onClose}>
+          {error && <p className="pn-error">{error}</p>}
+          <div className="pn-actions">
+            <button type="button" className="pn-btn" onClick={onClose}>
               Loobu
             </button>
-            <button type="submit" className="ad-btn ad-btn--primary" disabled={busy}>
+            <button type="submit" className="pn-btn pn-btn--primary" disabled={busy}>
               {password ? 'Määra parool' : 'Tee uus parool'}
             </button>
           </div>
@@ -421,12 +421,12 @@ function Saves({
   const bySlot = new Map(saves.map((s) => [s.slot, s]));
   return (
     <>
-      <p className="ad-hint">
+      <p className="pn-hint">
         Pilvesalvestused, nagu mäng need saatis. Muudetud salvestus jõuab mängija seadmetesse järgmisel
         sünkroonimisel. Enne suurt muudatust laadi koopia alla.
       </p>
-      <div className="ad-scroll">
-        <table className="ad-table">
+      <div className="pn-scroll">
+        <table className="pn-table">
           <thead>
             <tr>
               <th>Koht</th>
@@ -446,15 +446,15 @@ function Saves({
                   </td>
                   <td className="mono">{s ? when(s.updated) : ''}</td>
                   <td className="num">{has ? bytes(s.bytes) : s ? 'kustutatud' : 'pole'}</td>
-                  <td className="ad-rowact">
+                  <td className="pn-rowact">
                     {has && (
                       <>
-                        <button type="button" className="ad-btn ad-btn--small" onClick={() => setOpen(slot)}>
+                        <button type="button" className="pn-btn pn-btn--small" onClick={() => setOpen(slot)}>
                           Vaata ja muuda
                         </button>
                         <button
                           type="button"
-                          className="ad-btn ad-btn--small"
+                          className="pn-btn pn-btn--small"
                           onClick={() =>
                             void run(async () => {
                               const r = await readSave(user.id, slot);
@@ -468,7 +468,7 @@ function Saves({
                     )}
                     <button
                       type="button"
-                      className="ad-btn ad-btn--small"
+                      className="pn-btn pn-btn--small"
                       onClick={() => {
                         setUploadSlot(slot);
                         fileRef.current?.click();
@@ -479,7 +479,7 @@ function Saves({
                     {has && (
                       <button
                         type="button"
-                        className="ad-btn ad-btn--small ad-btn--ghostbad"
+                        className="pn-btn pn-btn--small pn-btn--ghostbad"
                         onClick={() => setDeleting(slot)}
                       >
                         Kustuta
@@ -585,30 +585,30 @@ function SaveEditor({
   return (
     <Modal title={`${label(SAVE_SLOTS, slot)}: ${user.name}`} onClose={onClose} wide>
       <LoadState loaded={loaded}>
-        <div className="ad-form">
-          <p className="ad-hint">
+        <div className="pn-form">
+          <p className="pn-hint">
             Versioon {loaded.data?.updated ? when(loaded.data.updated) : ''},{' '}
             {bytes(loaded.data?.text.length ?? 0)}. Muuda ainult välju, mille tähendust tead: vigane salvestus
             võib mängija karjääri rikkuda.
           </p>
           <textarea
-            className="ad-input ad-code"
+            className="pn-input pn-code"
             value={value}
             onChange={(e) => setText(e.target.value)}
             spellCheck={false}
           />
-          {error && <p className="ad-error">{error}</p>}
-          <div className="ad-actions">
-            <button type="button" className="ad-btn" onClick={() => setText(pretty(value))}>
+          {error && <p className="pn-error">{error}</p>}
+          <div className="pn-actions">
+            <button type="button" className="pn-btn" onClick={() => setText(pretty(value))}>
               Vorminda
             </button>
-            <span className="ad-spacer" />
-            <button type="button" className="ad-btn" onClick={onClose}>
+            <span className="pn-spacer" />
+            <button type="button" className="pn-btn" onClick={onClose}>
               Loobu
             </button>
             <button
               type="button"
-              className="ad-btn ad-btn--primary"
+              className="pn-btn pn-btn--primary"
               onClick={save}
               disabled={busy || text === null}
             >
@@ -633,8 +633,8 @@ function pretty(text: string): string {
 
 function UserRooms({ rooms }: { rooms: UserDetail['rooms'] }) {
   return (
-    <div className="ad-scroll">
-      <table className="ad-table">
+    <div className="pn-scroll">
+      <table className="pn-table">
         <thead>
           <tr>
             <th>Kood</th>
@@ -665,7 +665,7 @@ function UserRooms({ rooms }: { rooms: UserDetail['rooms'] }) {
           ))}
           {rooms.length === 0 && (
             <tr>
-              <td colSpan={7} className="ad-empty">
+              <td colSpan={7} className="pn-empty">
                 Ruume ei ole.
               </td>
             </tr>

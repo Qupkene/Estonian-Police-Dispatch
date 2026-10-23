@@ -14,13 +14,13 @@ export function Rooms({ code }: { code?: string }) {
   const loaded = useLoad(() => api<{ total: number; rooms: Room[] }>('GET', path), path);
   return (
     <section>
-      <div className="ad-head">
+      <div className="pn-head">
         <h1>Ruumid</h1>
-        <button type="button" className="ad-btn ad-btn--small" onClick={loaded.reload}>
+        <button type="button" className="pn-btn pn-btn--small" onClick={loaded.reload}>
           Värskenda
         </button>
       </div>
-      <div className="ad-filters">
+      <div className="pn-filters">
         <Select
           label="Olek"
           value={state}
@@ -35,8 +35,8 @@ export function Rooms({ code }: { code?: string }) {
       <LoadState loaded={loaded}>
         {loaded.data && (
           <>
-            <div className="ad-scroll">
-              <table className="ad-table ad-table--click">
+            <div className="pn-scroll">
+              <table className="pn-table pn-table--click">
                 <thead>
                   <tr>
                     <th>Kood</th>
@@ -70,7 +70,7 @@ export function Rooms({ code }: { code?: string }) {
                   ))}
                   {loaded.data.rooms.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="ad-empty">
+                      <td colSpan={8} className="pn-empty">
                         Ruume ei ole.
                       </td>
                     </tr>
@@ -138,8 +138,8 @@ function RoomDialog({
     <Modal title={`Ruum ${code}`} onClose={onClose} wide>
       <LoadState loaded={loaded}>
         {d && (
-          <div className="ad-form">
-            <dl className="ad-dl ad-dl--cols">
+          <div className="pn-form">
+            <dl className="pn-dl pn-dl--cols">
               <dt>Režiim</dt>
               <dd>{label(ROOM_MODES, d.room.mode)}</dd>
               <dt>Olek</dt>
@@ -171,8 +171,8 @@ function RoomDialog({
               <dd>{d.room.host ?? ''}</dd>
             </dl>
             <h3>Mängijad</h3>
-            <div className="ad-scroll">
-              <table className="ad-table">
+            <div className="pn-scroll">
+              <table className="pn-table">
                 <thead>
                   <tr>
                     <th className="num">Koht</th>
@@ -200,10 +200,10 @@ function RoomDialog({
             </div>
             <h3>Tulemused</h3>
             {d.results.length === 0 ? (
-              <p className="ad-empty">Tulemusi pole.</p>
+              <p className="pn-empty">Tulemusi pole.</p>
             ) : (
-              <div className="ad-scroll">
-                <table className="ad-table">
+              <div className="pn-scroll">
+                <table className="pn-table">
                   <thead>
                     <tr>
                       <th className="num">Koht</th>
@@ -224,10 +224,10 @@ function RoomDialog({
                         <td className="mono">{r.grade}</td>
                         <td className="num">{r.incidents}</td>
                         <td className="num">{r.xp}</td>
-                        <td className="ad-rowact">
+                        <td className="pn-rowact">
                           <button
                             type="button"
-                            className="ad-btn ad-btn--small ad-btn--ghostbad"
+                            className="pn-btn pn-btn--small pn-btn--ghostbad"
                             onClick={() => setAsk({ id: r.id, name: r.name })}
                           >
                             Kustuta
@@ -239,13 +239,13 @@ function RoomDialog({
                 </table>
               </div>
             )}
-            <div className="ad-actions">
+            <div className="pn-actions">
               {(d.room.state === 'lobby' || d.room.state === 'running') && (
-                <button type="button" className="ad-btn" onClick={() => setAsk('close')}>
+                <button type="button" className="pn-btn" onClick={() => setAsk('close')}>
                   Sulge ruum
                 </button>
               )}
-              <button type="button" className="ad-btn ad-btn--danger" onClick={() => setAsk('delete')}>
+              <button type="button" className="pn-btn pn-btn--danger" onClick={() => setAsk('delete')}>
                 Kustuta ruum
               </button>
             </div>

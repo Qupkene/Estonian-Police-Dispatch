@@ -2,6 +2,18 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.28.1 (2026-10-23)
+
+- **Admini paneel töötab ka Brave'is:** Brave'i reklaamiblokeerija peitis sisselogimise välja ja nupud, sest paneeli kujunduse nimed algasid „ad-“ (nagu reklaamidel). Nimed on nüüd teised ja test hoiab, et ükski mängu või paneeli nimi ei satu reklaamiblokeerijate nimekirja.
+- **Mängu versioon on menüü ülaribal** väikselt kella ja keelevaliku vahel.
+
+<details>
+<summary>English</summary>
+
+The admin panel works in Brave: its class names used the prefix ad-, and ad blockers' generic EasyList rules (`.ad-field`, `.ad-btn`, `.ad-card`, `.ad-panel` and more) hid the login form and most of the panel. The prefix is now pn-, every class of the game and the panel was checked against EasyList's generic hiding rules, and `tests/adblock-safe.test.ts` keeps class names clear of them. The out-of-game top bar shows the version, small and quiet, in its free stretch.
+
+</details>
+
 ## 2.28.0 (2026-10-22)
 
 - **Admini paneel aadressil politsei.eu/admin:** omanik saab hallata kõike ühest kohast, ka telefonis.

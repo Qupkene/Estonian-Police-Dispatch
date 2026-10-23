@@ -24,13 +24,13 @@ export function Users() {
   const loaded = useLoad(() => api<{ total: number; users: UserRow[] }>('GET', path), path);
   return (
     <section>
-      <div className="ad-head">
+      <div className="pn-head">
         <h1>Kontod</h1>
-        <button type="button" className="ad-btn ad-btn--primary" onClick={() => setCreating(true)}>
+        <button type="button" className="pn-btn pn-btn--primary" onClick={() => setCreating(true)}>
           Uus konto
         </button>
       </div>
-      <div className="ad-filters">
+      <div className="pn-filters">
         <SearchInput
           value={q}
           placeholder="Otsi nime järgi"
@@ -52,8 +52,8 @@ export function Users() {
       <LoadState loaded={loaded}>
         {loaded.data && (
           <>
-            <div className="ad-scroll">
-              <table className="ad-table ad-table--click">
+            <div className="pn-scroll">
+              <table className="pn-table pn-table--click">
                 <thead>
                   <tr>
                     <th>Nimi</th>
@@ -89,7 +89,7 @@ export function Users() {
                   ))}
                   {loaded.data.users.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="ad-empty">
+                      <td colSpan={8} className="pn-empty">
                         Ühtegi kontot ei leitud.
                       </td>
                     </tr>
@@ -108,7 +108,7 @@ export function Users() {
 
 export function UserBadges({ user }: { user: AdminUser }) {
   return (
-    <span className="ad-badges">
+    <span className="pn-badges">
       {user.admin && <Badge kind="acc">admin</Badge>}
       {user.disabled && <Badge kind="bad">blokeeritud</Badge>}
       {!user.admin && !user.disabled && <Badge kind="dim">tavaline</Badge>}
@@ -143,7 +143,7 @@ function CreateUser({ onClose, onMade }: { onClose: () => void; onMade: () => vo
   return (
     <Modal title="Uus konto" onClose={onClose}>
       {made ? (
-        <div className="ad-form">
+        <div className="pn-form">
           {made.password ? (
             <SecretBox name={made.user.name} password={made.password} />
           ) : (
@@ -151,13 +151,13 @@ function CreateUser({ onClose, onMade }: { onClose: () => void; onMade: () => vo
               Konto <b>{made.user.name}</b> on loodud sinu antud parooliga.
             </p>
           )}
-          <div className="ad-actions">
-            <button type="button" className="ad-btn" onClick={onClose}>
+          <div className="pn-actions">
+            <button type="button" className="pn-btn" onClick={onClose}>
               Sulge
             </button>
             <button
               type="button"
-              className="ad-btn ad-btn--primary"
+              className="pn-btn pn-btn--primary"
               onClick={() => go(`kontod/${made.user.id}`)}
             >
               Ava konto
@@ -165,11 +165,11 @@ function CreateUser({ onClose, onMade }: { onClose: () => void; onMade: () => vo
           </div>
         </div>
       ) : (
-        <form className="ad-form" onSubmit={submit}>
-          <label className="ad-field">
+        <form className="pn-form" onSubmit={submit}>
+          <label className="pn-field">
             <span>Kasutajanimi</span>
             <input
-              className="ad-input"
+              className="pn-input"
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoFocus
@@ -178,10 +178,10 @@ function CreateUser({ onClose, onMade }: { onClose: () => void; onMade: () => vo
             />
             <small>3 kuni 24 märki: tähed, numbrid ja _ . -</small>
           </label>
-          <label className="ad-field">
+          <label className="pn-field">
             <span>Parool</span>
             <input
-              className="ad-input"
+              className="pn-input"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -189,16 +189,16 @@ function CreateUser({ onClose, onMade }: { onClose: () => void; onMade: () => vo
               placeholder="Tühi: server teeb tugeva parooli"
             />
           </label>
-          <label className="ad-check">
+          <label className="pn-check">
             <input type="checkbox" checked={admin} onChange={(e) => setAdmin(e.target.checked)} /> Admini
             õigustega
           </label>
-          {error && <p className="ad-error">{error}</p>}
-          <div className="ad-actions">
-            <button type="button" className="ad-btn" onClick={onClose}>
+          {error && <p className="pn-error">{error}</p>}
+          <div className="pn-actions">
+            <button type="button" className="pn-btn" onClick={onClose}>
               Loobu
             </button>
-            <button type="submit" className="ad-btn ad-btn--primary" disabled={busy}>
+            <button type="submit" className="pn-btn pn-btn--primary" disabled={busy}>
               Loo konto
             </button>
           </div>

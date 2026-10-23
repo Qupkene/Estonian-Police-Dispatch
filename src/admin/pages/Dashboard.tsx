@@ -8,11 +8,11 @@ export function Dashboard() {
   const s = loaded.data;
   return (
     <section>
-      <div className="ad-head">
+      <div className="pn-head">
         <h1>Ülevaade</h1>
         <button
           type="button"
-          className="ad-btn ad-btn--small"
+          className="pn-btn pn-btn--small"
           onClick={loaded.reload}
           disabled={loaded.loading}
         >
@@ -22,7 +22,7 @@ export function Dashboard() {
       <LoadState loaded={loaded}>
         {s && (
           <>
-            <div className="ad-cards">
+            <div className="pn-cards">
               <Card title="Kontod" big={s.users.total} href="#/kontod">
                 <Line k="Uued 24 h" v={s.users.new1d} />
                 <Line k="Uued 7 päeva" v={s.users.new7d} />
@@ -50,8 +50,8 @@ export function Dashboard() {
                 <Line k="Skeemi versioon" v={s.db.schema} />
               </Card>
             </div>
-            <div className="ad-grid2">
-              <div className="ad-panel">
+            <div className="pn-grid2">
+              <div className="pn-panel">
                 <h2>Viimased 30 päeva</h2>
                 <Chart
                   now={s.now}
@@ -61,12 +61,12 @@ export function Dashboard() {
                   ]}
                 />
               </div>
-              <div className="ad-panel">
+              <div className="pn-panel">
                 <h2>Parimad mängijad</h2>
                 {s.top.length === 0 ? (
-                  <p className="ad-empty">Edetabel on tühi.</p>
+                  <p className="pn-empty">Edetabel on tühi.</p>
                 ) : (
-                  <table className="ad-table">
+                  <table className="pn-table">
                     <thead>
                       <tr>
                         <th>#</th>
@@ -110,10 +110,10 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <a className="ad-card" href={href}>
-      <span className="ad-card__title">{title}</span>
-      <span className="ad-card__big">{typeof big === 'number' ? n(big) : big}</span>
-      <dl className="ad-card__lines">{children}</dl>
+    <a className="pn-card" href={href}>
+      <span className="pn-card__title">{title}</span>
+      <span className="pn-card__big">{typeof big === 'number' ? n(big) : big}</span>
+      <dl className="pn-card__lines">{children}</dl>
     </a>
   );
 }
@@ -145,33 +145,33 @@ function Chart({
   for (let i = 29; i >= 0; i--) days.push(fmt.format(now - i * 86400_000));
   const max = Math.max(1, ...series.flatMap((s) => days.map((d) => s.data[d] ?? 0)));
   return (
-    <div className="ad-chart">
-      <div className="ad-chart__legend">
+    <div className="pn-chart">
+      <div className="pn-chart__legend">
         {series.map((s) => (
           <span key={s.name}>
-            <i className={`ad-dot ad-dot--${s.cls}`} /> {s.name}
+            <i className={`pn-dot pn-dot--${s.cls}`} /> {s.name}
           </span>
         ))}
-        <span className="ad-chart__max">kuni {max} päevas</span>
+        <span className="pn-chart__max">kuni {max} päevas</span>
       </div>
-      <div className="ad-chart__bars" role="img" aria-label="Uued kontod ja tulemused päevade kaupa">
+      <div className="pn-chart__bars" role="img" aria-label="Uued kontod ja tulemused päevade kaupa">
         {days.map((d) => (
           <div
             key={d}
-            className="ad-chart__day"
+            className="pn-chart__day"
             title={`${d.slice(8)}.${d.slice(5, 7)}: ${series.map((s) => `${s.name} ${s.data[d] ?? 0}`).join(', ')}`}
           >
             {series.map((s) => (
               <span
                 key={s.name}
-                className={`ad-bar ad-bar--${s.cls}`}
+                className={`pn-bar pn-bar--${s.cls}`}
                 style={{ height: `${((s.data[d] ?? 0) / max) * 100}%` }}
               />
             ))}
           </div>
         ))}
       </div>
-      <div className="ad-chart__axis">
+      <div className="pn-chart__axis">
         <span>{`${days[0].slice(8)}.${days[0].slice(5, 7)}`}</span>
         <span>täna</span>
       </div>
