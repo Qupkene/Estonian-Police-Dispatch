@@ -1,7 +1,14 @@
 // Mitmikmäng: a room's results board (lobby and report), and the hook that keeps a room current by polling it.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useT } from '@/i18n';
-import { RoomPoller, present, stillPlaying, type Room, type RoomPlayer, type RoomResult } from '@/net/rooms';
+import {
+  RoomPoller,
+  participants,
+  stillPlaying,
+  type Room,
+  type RoomPlayer,
+  type RoomResult,
+} from '@/net/rooms';
 import { displayRoomCode } from '@/sim/room';
 import { hhmm } from '@/sim/time';
 
@@ -9,7 +16,8 @@ const GRADES = ['S', 'A', 'B', 'C', 'D', 'F'];
 
 /**
  * A room kept current: polled every `every` ms (with ?v=, so an unchanged room costs a few bytes) while `active`,
- * until it is finished or closed. `seed` is a room already in hand (the result reply), shown at once.
+ * until it is closed (a finished round opens again for the next one, docs/MULTIPLAYER.md section 11). `seed` is a
+ * room already in hand (the result reply), shown at once.
  */
 export function useLiveRoom(code: string | null, seed: Room | null, active = true, every = 2000) {
   const [room, setRoom] = useState<Room | null>(seed);
@@ -18,7 +26,7 @@ export function useLiveRoom(code: string | null, seed: Room | null, active = tru
   useEffect(() => {
     if (seed) setRoom(seed);
   }, [seed]);
-  const final = room?.state === 'finished' || room?.state === 'closed';
+  const final = room?.state === 'closed';
   useEffect(() => {
     if (!code || !active || final) return;
     const p = new RoomPoller({
@@ -37,7 +45,7 @@ export function useLiveRoom(code: string | null, seed: Room | null, active = tru
   return { room, gone, refresh: () => pollerRef.current?.now() };
 }
 
-/** The board: results best first, then who is still on shift and who left. */
+/** The board of the room's current round: results best first, then who is still on shift and who left. */
 export function RoomBoard({ room, caption }: { room: Room; caption?: string }) {
   const t = useT();
   const playing = stillPlaying(room);
@@ -45,8 +53,46 @@ export function RoomBoard({ room, caption }: { room: Room; caption?: string }) {
   const total = room.results.length + playing.length + left.length;
   if (!total) return <p className="vk-mp__state">{t('rooms.board.empty')}</p>;
   return (
+    <BoardTable caption={caption ?? t('rooms.board.titleCode', { code: displayRoomCode(room.code) })}>
+      {room.results.map((r) => (
+        <ResultRow key={r.id} row={r} mine={r.id === room.me} />
+      ))}
+      {playing.map((p) => (
+        <WaitRow key={p.id} p={p} mine={p.id === room.me} kind="playing" />
+      ))}
+      {left.map((p) => (
+        <WaitRow key={p.id} p={p} mine={p.id === room.me} kind="left" />
+      ))}
+    </BoardTable>
+  );
+}
+
+/** An earlier round's board (results only): the room's last round in the lobby, a report's round after it. */
+export function ResultsBoard({
+  results,
+  me,
+  caption,
+}: {
+  results: RoomResult[];
+  me: number;
+  caption: string;
+}) {
+  const t = useT();
+  if (!results.length) return <p className="vk-mp__state">{t('rooms.board.empty')}</p>;
+  return (
+    <BoardTable caption={caption}>
+      {results.map((r) => (
+        <ResultRow key={r.id} row={r} mine={r.id === me} />
+      ))}
+    </BoardTable>
+  );
+}
+
+function BoardTable({ caption, children }: { caption: string; children: ReactNode }) {
+  const t = useT();
+  return (
     <table className="vk-table vk-mp__board" data-testid="room-board">
-      <caption>{caption ?? t('rooms.board.titleCode', { code: displayRoomCode(room.code) })}</caption>
+      <caption>{caption}</caption>
       <thead>
         <tr>
           <th scope="col" className="is-num">
@@ -59,26 +105,16 @@ export function RoomBoard({ room, caption }: { room: Room; caption?: string }) {
           </th>
         </tr>
       </thead>
-      <tbody>
-        {room.results.map((r) => (
-          <ResultRow key={r.id} row={r} mine={r.id === room.me} />
-        ))}
-        {playing.map((p) => (
-          <WaitRow key={p.id} p={p} mine={p.id === room.me} kind="playing" />
-        ))}
-        {left.map((p) => (
-          <WaitRow key={p.id} p={p} mine={p.id === room.me} kind="left" />
-        ))}
-      </tbody>
+      <tbody>{children}</tbody>
     </table>
   );
 }
 
-/** "2/3 finished" for the board's head. */
+/** "2/3 finished" for the board's head: results of the players taking part in the round. */
 export function boardCount(t: ReturnType<typeof useT>, room: Room): string {
   return t('rooms.board.of', {
     n: room.results.length,
-    m: Math.max(room.results.length, present(room).length),
+    m: Math.max(room.results.length, participants(room).length),
   });
 }
 

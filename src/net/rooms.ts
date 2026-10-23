@@ -24,6 +24,7 @@ export interface RoomPlayer {
   name: string;
   seat: number;
   host: boolean;
+  /** In the lobby: ready to start (the host always is). Once the round is on: takes part in it. */
   ready: boolean;
   online: boolean;
   /** Left the room after its shift started (stays on the board). */
@@ -52,10 +53,23 @@ export interface RoomResult {
   rank: number;
 }
 
+/** An earlier round of a room (the one before the current, docs/MULTIPLAYER.md section 11). */
+export interface RoomRound {
+  round: number;
+  mode: RoomMode;
+  /** The round's shift seed: a report of that shift has the same (SimState.seed). */
+  seed: number;
+  results: RoomResult[];
+}
+
 export interface Room {
   code: string;
   mode: RoomMode;
   state: RoomStateName;
+  /** Rounds played in the room so far, the current one included (1 for a new room). */
+  round: number;
+  /** The round before the current one, while anybody's result of it is kept. */
+  last: RoomRound | null;
   /** Poll tag: send it back as ?v= and an unchanged room answers in a few bytes. */
   v: string;
   /** The host's account id (null when nobody is left). */
@@ -143,6 +157,17 @@ function parseResult(v: unknown, i: number): RoomResult | null {
   };
 }
 
+const parseResults = (v: unknown): RoomResult[] =>
+  Array.isArray(v) ? v.map(parseResult).filter((r): r is RoomResult => !!r) : [];
+
+/** The room's last round, or null (none yet, or nobody's result of it is kept). */
+function parseRound(v: unknown): RoomRound | null {
+  if (!isObj(v) || typeof v.round !== 'number' || v.round < 1) return null;
+  const results = parseResults(v.results);
+  if (!results.length) return null;
+  return { round: Math.round(v.round), mode: oneOf(v.mode, MODES, 'race'), seed: num(v.seed), results };
+}
+
 /** A room from the server, or null when the answer is not one. */
 export function parseRoom(v: unknown): Room | null {
   if (!isObj(v)) return null;
@@ -158,13 +183,13 @@ export function parseRoom(v: unknown): Room | null {
         .filter((p): p is RoomPlayer => !!p)
         .sort((a, b) => a.seat - b.seat)
     : [];
-  const results = Array.isArray(v.results)
-    ? v.results.map(parseResult).filter((r): r is RoomResult => !!r)
-    : [];
+  const results = parseResults(v.results);
   return {
     code,
     mode: oneOf(v.mode, MODES, 'race'),
     state: oneOf(v.state, STATES, 'closed'),
+    round: Math.max(1, Math.round(num(v.round, 1))),
+    last: parseRound(v.last),
     v: str(v.v),
     host: typeof v.host === 'number' ? v.host : null,
     me: num(v.me),
@@ -191,22 +216,46 @@ export const meIn = (room: Room): RoomPlayer | undefined => room.players.find((p
 /** Players who are still in the room. */
 export const present = (room: Room): RoomPlayer[] => room.players.filter((p) => !p.left);
 
-/** Why the host cannot start yet, or null when the shift can start. The server checks the same rules. */
-export function startBlock(room: Room): 'not_host' | 'state' | 'too_few' | 'not_ready' | null {
+/**
+ * Why the host cannot start yet, or null when the shift can start. The server checks the same rules: the round is for
+ * the host, everybody ready and everybody here (online); somebody here who is not ready holds it up, somebody away
+ * (closed the tab after the last round) does not. 'away': there would be players enough, but the others are away.
+ */
+export function startBlock(room: Room): 'not_host' | 'state' | 'too_few' | 'away' | 'not_ready' | null {
   if (!isHost(room)) return 'not_host';
   if (room.state !== 'lobby') return 'state';
   const here = present(room);
-  if (here.length < 2) return 'too_few';
-  if (here.some((p) => !p.ready)) return 'not_ready';
+  const part = here.filter((p) => p.host || p.ready || p.online);
+  if (part.length < 2) return here.length < 2 ? 'too_few' : 'away';
+  if (part.some((p) => !p.ready)) return 'not_ready';
   return null;
 }
 
 /** The caller's own result, when sent. */
 export const myResult = (room: Room): RoomResult | undefined => room.results.find((r) => r.id === room.me);
 
-/** Players still playing (no result yet, not left), for the board's waiting rows. */
+/** Players who take part in the running (or just finished) round: still in the room and ready at its start. */
+export const participants = (room: Room): RoomPlayer[] => present(room).filter((p) => p.ready);
+
+/** Players still playing (taking part, no result yet), for the board's waiting rows. */
 export function stillPlaying(room: Room): RoomPlayer[] {
-  return present(room).filter((p) => !room.results.some((r) => r.id === p.id));
+  return participants(room).filter((p) => !room.results.some((r) => r.id === p.id));
+}
+
+/**
+ * The board of the round a report's shift (its seed) belongs to: the room's current round while it is on it, its
+ * last round once the room has moved on, or null when that round's results are gone (the room went further, or the
+ * shift is not of this room's rounds).
+ */
+export function roundOfShift(
+  room: Room,
+  seed: number,
+): { round: number; results: RoomResult[]; current: boolean } | null {
+  if (room.state !== 'lobby' && room.seed === seed)
+    return { round: room.round, results: room.results, current: true };
+  if (room.last && room.last.seed === seed)
+    return { round: room.last.round, results: room.last.results, current: false };
+  return null;
 }
 
 // ── Requests ─────────────────────────────────────────────────────────────────
@@ -246,8 +295,18 @@ export async function pollRoom(code: string, v = ''): Promise<{ v: string; room:
   return { v: room.v || str(o.v), room };
 }
 
-export async function updateRoomOptions(code: string, options: RoomOptions): Promise<Room> {
-  return roomOf(await request<unknown>('PUT', path(code), options));
+/** The host's options for the next shift; `mode` switches the room's mode too (lobby only). */
+export async function updateRoomOptions(code: string, options: RoomOptions, mode?: RoomMode): Promise<Room> {
+  return roomOf(await request<unknown>('PUT', path(code), mode ? { ...options, mode } : options));
+}
+
+/**
+ * Back in the room after a round: a room whose round is over opens for the next one (whoever comes back first opens
+ * it); a round still on stays as it is, unless the host ends it for everybody (`end`). `round` is the round the
+ * player comes back from: when the room has moved on since, nothing changes.
+ */
+export async function reopenRoom(code: string, opts: { round?: number; end?: boolean } = {}): Promise<Room> {
+  return roomOf(await request<unknown>('POST', path(code, '/reopen'), opts));
 }
 
 /** Kohandatud mäng: the player's own draft (race and sector rooms); 409 `officer_taken` when another has one. */
@@ -267,14 +326,18 @@ export async function leaveRoom(code: string): Promise<void> {
   await request<unknown>('POST', path(code, '/leave'));
 }
 
-/** Body of POST /api/rooms/{code}/result (a co-op player adds their own XP). */
-export function roomResultBody(r: ShiftReport, xp?: number) {
+/**
+ * Body of POST /api/rooms/{code}/result (a co-op player adds their own XP). `seed` is the shift's: the room answers
+ * `round_over` when its round is over by then.
+ */
+export function roomResultBody(r: ShiftReport, xp?: number, seed?: number) {
   return {
     score: Math.max(0, Math.min(100, Math.round(r.score))),
     grade: r.grade,
     incidents: r.stats?.incidents ?? 0,
     arrests: r.stats?.arrests ?? 0,
     ...(xp !== undefined ? { xp: Math.max(0, Math.min(100000, Math.round(xp))) } : {}),
+    ...(seed !== undefined ? { seed } : {}),
   };
 }
 
@@ -288,10 +351,15 @@ export interface RoomResultReply {
 const submitted = new WeakMap<ShiftReport, Promise<RoomResultReply>>();
 
 /** POST the room run's result once per report (StrictMode and re-renders included); a failure may be retried. */
-export function submitRoomResultOnce(report: ShiftReport, code: string, xp?: number): Promise<RoomResultReply> {
+export function submitRoomResultOnce(
+  report: ShiftReport,
+  code: string,
+  xp?: number,
+  seed?: number,
+): Promise<RoomResultReply> {
   let p = submitted.get(report);
   if (!p) {
-    p = request<unknown>('POST', path(code, '/result'), roomResultBody(report, xp)).then((res) => {
+    p = request<unknown>('POST', path(code, '/result'), roomResultBody(report, xp, seed)).then((res) => {
       const o = isObj(res) ? res : {};
       const rank = num(o.rank);
       return { counted: o.counted !== false, rank: rank > 0 ? rank : null, room: parseRoom(o.room) };
@@ -327,6 +395,7 @@ export function roomErrorKey(e: unknown): string {
     'replaced',
     'officer_taken',
     'not_custom',
+    'round_over',
     'network',
     'timeout',
   ];

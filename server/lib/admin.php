@@ -897,6 +897,7 @@ function epd_admin_room_out(array $r): array
         'difficulty' => (string) $r['difficulty'],
         'hours' => (int) $r['hours'],
         'engine' => (string) ($r['engine'] ?? ''),
+        'round' => max(1, (int) ($r['round'] ?? 1)),
         'created' => (int) $r['created'],
         'started' => $r['started'] === null ? null : (int) $r['started'],
         'updated' => (int) $r['updated'],
@@ -932,7 +933,7 @@ function epd_route_admin_rooms(): ApiReply
     return epd_reply(['total' => (int) $count->fetchColumn(), 'rooms' => array_map('epd_admin_room_out', $stmt->fetchAll())]);
 }
 
-/** GET /api/admin/rooms/{code}: the room, its players and results. */
+/** GET /api/admin/rooms/{code}: the room, its players and results, and the results of its earlier rounds (newest first). */
 function epd_route_admin_room_get(string $code): ApiReply
 {
     epd_admin_require();
@@ -949,23 +950,31 @@ function epd_route_admin_room_get(string $code): ApiReply
         'role' => (string) $p['role'],
         'desk' => (string) $p['desk'],
     ], epd_room_players($db, (int) $room['id']));
+    $stmt = $db->prepare('SELECT DISTINCT round FROM room_round_results WHERE room_id = ? ORDER BY round DESC');
+    $stmt->execute([(int) $room['id']]);
+    $rounds = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $n) {
+        $rounds[] = epd_room_round($db, (int) $room['id'], (int) $n);
+    }
     return epd_reply([
         'room' => epd_admin_room_out($room + ['host_name' => $host['name'] ?? null, 'players' => count(array_filter($players, static fn (array $p): bool => !$p['left']))]),
         'players' => $players,
         'results' => epd_room_results($db, (int) $room['id']),
+        'rounds' => array_values(array_filter($rounds)),
     ]);
 }
 
 /**
- * POST /api/admin/rooms/{code}/close: a lobby or running room is closed (its co-op log goes, its members' polls see
- * it). A room on the game server keeps running there until its players leave; nothing more is sent to it.
+ * POST /api/admin/rooms/{code}/close: a lobby or running room, or one between two rounds, is closed (its co-op log
+ * goes, its members' polls see it, it never opens again). A room on the game server keeps running there until its
+ * players leave; nothing more is sent to it.
  */
 function epd_route_admin_room_close(string $code): ApiReply
 {
     $admin = epd_admin_require();
     $db = epd_db();
     $room = epd_admin_room_or_404($db, $code);
-    if (in_array((string) $room['state'], ['lobby', 'running'], true)) {
+    if (in_array((string) $room['state'], ['lobby', 'running', 'finished'], true)) {
         epd_room_tx($db, static function (PDO $db) use ($room): void {
             epd_room_bump($db, (int) $room['id'], epd_room_now_ms(), ['state' => 'closed']);
         });
@@ -982,7 +991,7 @@ function epd_route_admin_room_delete(string $code): ApiReply
     $room = epd_admin_room_or_404($db, $code);
     $rid = (int) $room['id'];
     epd_room_tx($db, static function (PDO $db) use ($rid): void {
-        foreach (['room_commands', 'room_snapshots', 'room_results', 'room_players'] as $table) {
+        foreach (['room_commands', 'room_snapshots', 'room_results', 'room_round_results', 'room_players'] as $table) {
             $db->prepare("DELETE FROM $table WHERE room_id = ?")->execute([$rid]);
         }
         $db->prepare('DELETE FROM rooms WHERE id = ?')->execute([$rid]);

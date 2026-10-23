@@ -7,7 +7,14 @@ import { storyPress } from '@/sim/story';
 import { useAccount } from '@/net/account';
 import { submitScoreOnce, unrankedReason } from '@/net/scores';
 import { rememberGuestDaily, submitDailyOnce, type DailyResult, type DailyRun } from '@/net/daily';
-import { roomErrorKey, submitRoomResultOnce, type Room } from '@/net/rooms';
+import {
+  leaveRoom,
+  participants,
+  roomErrorKey,
+  roundOfShift,
+  submitRoomResultOnce,
+  type Room,
+} from '@/net/rooms';
 import { ApiError } from '@/net/api';
 import { useLang, useT, useTx } from '@/i18n';
 import { sfx } from '@/audio/sfx';
@@ -22,7 +29,7 @@ import { useCoop } from '@/store/coop';
 import { Button, PpaLogo, PriorityChip, Spinner } from '@/ui/components';
 import { Newspaper } from './shell/Newspaper';
 import { DailyBoardModal } from './shell/Daily';
-import { boardCount, RoomBoard, useLiveRoom } from './shell/RoomBoard';
+import { boardCount, ResultsBoard, RoomBoard, useLiveRoom } from './shell/RoomBoard';
 import { openLobby } from './shell/lobbyNav';
 import { ShellPage, useEnter } from './shell/ShellPage';
 import { SignedStamp } from './shell/ShellFrame';
@@ -42,7 +49,7 @@ import './shell/lobby.css';
 /** Reports already applied to the career profile (applyReport must run exactly once per report). */
 const applied = new WeakSet<ShiftReport>();
 const careerResult = new WeakMap<ShiftReport, { ledger: LedgerEntry[]; error?: string }>();
-/** Co-op reports whose XP went to the career (once per room, keyed room:<code>), and how. */
+/** Co-op reports whose XP went to the career (once per room and round, keyed room:<code>:<seed>), and how. */
 const coopPaid = new WeakMap<ShiftReport, 'paid' | 'already' | 'none'>();
 
 const PRIOS: Priority[] = [1, 2, 3, 4];
@@ -99,22 +106,34 @@ export function ReportScreen() {
     () => (!dailyRun && report && sim && report.shiftKey === shiftKeyOf(sim) ? roomCodeOf(sim) : null),
     [dailyRun, report, sim],
   );
+  // A room plays round after round: the shift's seed tells its round apart (docs/MULTIPLAYER.md section 11).
+  const roomSeed = roomCode && sim ? sim.seed : undefined;
   // Co-op: the same report for everyone; each player's XP is the team's plus a share for their own seat's work.
   const mySeat = useCoop((s) => s.seat);
   const coopMine = report?.coop?.seats.find((x) => x.seat === mySeat);
   const myXp = report?.coop ? coopXp(report, coopMine?.stats) : undefined;
-  const roomSend = useRoomSubmit(report, roomCode, myXp);
+  const roomSend = useRoomSubmit(report, roomCode, myXp, roomSeed);
   useEffect(() => {
     if (!report?.coop || !roomCode || myXp === undefined || coopPaid.has(report)) return;
     try {
-      coopPaid.set(report, useCareer.getState().applyCoopXp(coopPaidKey(roomCode), report, myXp));
+      coopPaid.set(report, useCareer.getState().applyCoopXp(coopPaidKey(roomCode, roomSeed), report, myXp));
     } catch (e) {
       console.warn('[EPD] co-op XP not applied', e);
     }
     rerender((n) => n + 1);
-  }, [report, roomCode, myXp]);
+  }, [report, roomCode, myXp, roomSeed]);
+  // Left the room from this report (or before the result went in): the way on is a new room, not this one.
+  const [leftRoom, setLeftRoom] = useState(false);
+  const roomLeft =
+    leftRoom || (roomSend.state.status === 'error' && roomSend.state.key === 'rooms.err.left_room');
 
   const toMenu = () => quitShift();
+  /** A room run goes back to its room (the lobby of the next round), never to a quick shift. */
+  const toLobby = (code: string | null) => {
+    quitShift();
+    openLobby(code);
+  };
+  const toRoom = () => toLobby(roomLeft ? null : roomCode);
   const toCareer = () => {
     quitShift();
     setScreen('career');
@@ -240,6 +259,10 @@ export function ReportScreen() {
       : []),
   ];
 
+  // The page's main action: a new shift, or for a room run back to the room (a new room once the player left it).
+  const go = roomCode ? toRoom : newShift;
+  const goText = roomCode ? t(roomLeft ? 'rooms.new' : 'rooms.rep.toRoom') : t('shell.rep.newShift');
+
   const rows: { label: string; value: ReactNode; note?: ReactNode; tone?: 'warn' | 'bad' }[] = [
     {
       label: t('shell.rep.s.replies'),
@@ -275,8 +298,8 @@ export function ReportScreen() {
       onBack={toMenu}
       backTo="menu"
       actions={
-        <button type="button" className="vk-btn vk-btn--primary vk-go" onClick={newShift} data-sfx="click">
-          <span>{t('shell.rep.newShift')}</span>
+        <button type="button" className="vk-btn vk-btn--primary vk-go" onClick={go} data-sfx="click">
+          <span>{goText}</span>
           <span className="vk-go__key" aria-hidden="true">
             ⏎
           </span>
@@ -284,11 +307,11 @@ export function ReportScreen() {
       }
       keys={
         <li>
-          <kbd className="vk-kbd">⏎</kbd> {t('shell.rep.newShift').toLocaleLowerCase()}
+          <kbd className="vk-kbd">⏎</kbd> {goText.toLocaleLowerCase()}
         </li>
       }
     >
-      <Enter fn={newShift} />
+      <Enter fn={go} />
       {/* The report as a document of the prefecture's command centre: PPA's letterhead and the digital seal. */}
       <header className="vk-panel vk-rep__letter">
         <PpaLogo height={28} className="vk-rep__logo" />
@@ -351,7 +374,16 @@ export function ReportScreen() {
             />
           )}
 
-          {roomCode && <RoomReportBoard code={roomCode} send={roomSend} />}
+          {roomCode && roomSeed !== undefined && (
+            <RoomReportBoard
+              code={roomCode}
+              seed={roomSeed}
+              send={roomSend}
+              left={roomLeft}
+              onLeft={() => setLeftRoom(true)}
+              onBack={toLobby}
+            />
+          )}
 
           {/* ── Statistics ── */}
           <section className="vk-panel" aria-labelledby="vk-rep-stats">
@@ -591,15 +623,15 @@ export function ReportScreen() {
             {t('shell.rep.toHq')}
           </button>
         )}
-        <button type="button" className="vk-btn vk-btn--primary" onClick={newShift}>
-          {t('shell.rep.newShift')}
+        <button type="button" className="vk-btn vk-btn--primary" onClick={go}>
+          {goText}
         </button>
       </div>
     </ShellPage>
   );
 }
 
-/** Enter starts a new shift (the page's main action). */
+/** Enter runs the page's main action (a new shift, or back to the room after a room run). */
 function Enter({ fn }: { fn: () => void }) {
   const ref = useRef(fn);
   ref.current = fn;
@@ -852,8 +884,11 @@ type RoomSend =
   | { status: 'done'; counted: boolean; rank: number | null; room: Room | null }
   | { status: 'error'; key: string; retry: boolean };
 
-/** Sends a room run's result once (accounts only) and keeps the answer for the result line and the board. */
-function useRoomSubmit(report: ShiftReport | null, code: string | null, xp?: number) {
+/**
+ * Sends a room run's result once (accounts only) and keeps the answer for the result line and the board. `seed` is
+ * the shift's: the room refuses a result of a round it has already left behind (`round_over`).
+ */
+function useRoomSubmit(report: ShiftReport | null, code: string | null, xp?: number, seed?: number) {
   const user = useAccount((s) => s.user);
   const gameUser = useGame((s) => s.user);
   const loggedIn = !!user && gameUser?.method === 'account';
@@ -867,7 +902,7 @@ function useRoomSubmit(report: ShiftReport | null, code: string | null, xp?: num
     }
     let alive = true;
     setState({ status: 'sending' });
-    submitRoomResultOnce(report, code, xp)
+    submitRoomResultOnce(report, code, xp, seed)
       .then((r) => alive && setState({ status: 'done', ...r }))
       .catch((e: unknown) => {
         if (!alive) return;
@@ -878,7 +913,7 @@ function useRoomSubmit(report: ShiftReport | null, code: string | null, xp?: num
     return () => {
       alive = false;
     };
-  }, [report, code, loggedIn, attempt]);
+  }, [report, code, loggedIn, attempt, seed]);
   return { state, retry: () => setAttempt((n) => n + 1) };
 }
 
@@ -893,9 +928,7 @@ function RoomLine({ code, send }: { code: string; send: ReturnType<typeof useRoo
       </p>
     );
   if (state.status === 'done') {
-    const n = state.room
-      ? Math.max(state.room.results.length, state.room.players.filter((p) => !p.left).length)
-      : null;
+    const n = state.room ? Math.max(state.room.results.length, participants(state.room).length) : null;
     return (
       <div data-testid="room-rank">
         {!state.counted && <p className="vk-rep__line is-hint">{t('rooms.rep.replay')}</p>}
@@ -923,43 +956,118 @@ function RoomLine({ code, send }: { code: string; send: ReturnType<typeof useRoo
   );
 }
 
-/** The room's board on the report, kept current until every player has finished. */
-function RoomReportBoard({ code, send }: { code: string; send: ReturnType<typeof useRoomSubmit> }) {
+/**
+ * The room on the report: the board of this shift's round (live while the round is on, the room's last round once the
+ * room has opened for the next one), what the room is doing now, and the way back into it or out of it. Kept current
+ * while the report is open, so the player also counts as here for the next round's start.
+ */
+function RoomReportBoard({
+  code,
+  seed,
+  send,
+  left,
+  onLeft,
+  onBack,
+}: {
+  code: string;
+  seed: number;
+  send: ReturnType<typeof useRoomSubmit>;
+  left: boolean;
+  onLeft: () => void;
+  /** Into the room's lobby (the next round), or with null to the multiplayer screen (a new room). */
+  onBack: (code: string | null) => void;
+}) {
   const t = useT();
-  const seed = send.state.status === 'done' ? send.state.room : null;
-  const active = send.state.status === 'done' || send.state.status === 'error';
-  const { room } = useLiveRoom(code, seed, active);
-  const final = room?.state === 'finished' || room?.state === 'closed';
+  const sent = send.state.status === 'done' ? send.state.room : null;
+  const active = !left && (send.state.status === 'done' || send.state.status === 'error');
+  const { room, gone } = useLiveRoom(code, sent, active);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const round = room ? roundOfShift(room, seed) : null;
+  const hostName = room?.players.find((p) => p.host)?.name ?? '';
+  const status = !room
+    ? null
+    : left
+      ? t(send.state.status === 'done' ? 'rooms.rep.left' : 'rooms.run.left')
+      : gone
+        ? t('rooms.gone')
+        : room.state === 'closed'
+          ? t('rooms.rep.closed')
+          : room.state === 'lobby'
+            ? t('rooms.rep.open', { name: hostName })
+            : round?.current
+              ? t(room.state === 'running' ? 'rooms.rep.wait' : 'rooms.rep.over')
+              : t(room.state === 'running' ? 'rooms.rep.next' : 'rooms.rep.over');
+  const open = !left && !gone && room?.state !== 'closed';
+  const leave = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await leaveRoom(code);
+      onLeft();
+    } catch (e) {
+      sfx.play('error');
+      setError(t(roomErrorKey(e)));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const live = !!round?.current && room?.state === 'running';
   return (
     <section className="vk-panel" aria-labelledby="vk-rep-room" data-testid="room-report">
-      <div className="vk-panel__head">
+      <div className="vk-panel__head vk-mp__boardHead">
         <h2 className="vk-h" id="vk-rep-room">
           {t('rooms.board.titleCode', { code: displayRoomCode(code) })}
         </h2>
-        {room && (
+        {room && round && (
           <span className="vk-meta">
-            {boardCount(t, room)} · {final ? t('rooms.board.final') : t('rooms.board.live')}
+            {round.round > 1 ? `${t('rooms.round', { n: round.round })} · ` : ''}
+            {round.current ? `${boardCount(t, room)} · ` : ''}
+            {live ? t('rooms.board.live') : t('rooms.board.final')}
           </span>
         )}
       </div>
-      {room ? (
-        <RoomBoard room={room} />
-      ) : (
+      {!room ? (
         <p className="vk-mp__state" role="status">
           <Spinner size={14} /> {t('rooms.rep.sending')}
         </p>
+      ) : round?.current ? (
+        <RoomBoard room={room} />
+      ) : round ? (
+        <ResultsBoard
+          results={round.results}
+          me={room.me}
+          caption={t('rooms.last.caption', { n: round.round })}
+        />
+      ) : null}
+      {status && (
+        <p
+          className={`vk-rep__roomState${open && room?.state === 'lobby' ? ' is-open' : ''}`}
+          role="status"
+          data-testid="room-report-state"
+        >
+          {status}
+        </p>
       )}
-      <div className="vk-panel__foot">
+      {error && (
+        <p className="vk-msg is-bad vk-mp__err" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="vk-panel__foot vk-rep__roomFoot">
         <span className="vk-rep__roomNote">{t('rooms.board.note')}</span>
+        {open && (
+          <button type="button" className="vk-btn vk-btn--ghost" onClick={() => void leave()} disabled={busy}>
+            {t('rooms.leave')}
+          </button>
+        )}
         <button
           type="button"
-          className="vk-btn vk-btn--ghost vk-rep__toRoom"
-          onClick={() => {
-            useGame.getState().quitShift();
-            openLobby(code);
-          }}
+          className="vk-btn vk-rep__toRoom"
+          onClick={() => onBack(open ? code : null)}
+          disabled={busy}
         >
-          {t('rooms.rep.toRoom')}
+          {t(open ? 'rooms.rep.toRoom' : 'rooms.new')}
         </button>
       </div>
     </section>

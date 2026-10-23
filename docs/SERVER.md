@@ -137,15 +137,16 @@ Errors: `{ "error": "<code>", "message": "<Estonian text>" }` with a fitting sta
 | GET | /api/scores?region=&limit= | | `{ scores: [{ name, score, grade, regionId, difficulty, incidents, at }] }` best per user |
 | POST | /api/daily | `{ day, regionId, sector, score, grade, incidents, arrests, started? }` | `{ ok: true, counted, rank, players }` (logged-in users only; the first run of the day counts) |
 | GET | /api/daily?day=YYYY-MM-DD | | `{ day, players, scores: [{ name, score, grade, incidents, at, rank }], me: { ...row, rank } \| null }` top 50 of the day |
-| GET | /api/rooms | | `{ room \| null }` the caller's open room (lobby or running) |
+| GET | /api/rooms | | `{ room \| null }` the caller's open room (lobby or running, or between two rounds) |
 | POST | /api/rooms | `{ mode, regionId, sector, desks?, difficulty, hours, slot }` | `{ room }` new room, the caller is host (`desks` for mode `sector`) |
 | POST | /api/rooms/join | `{ code }` | `{ room }`; 404 unknown code, 409 `room_full` / `room_started`, 429 too many wrong codes |
 | GET | /api/rooms/{code}?v= | | `{ v, room }`, or `{ v, unchanged: true }` while `v` still matches (members only, else 404) |
-| PUT | /api/rooms/{code} | `{ regionId, sector, desks?, difficulty, hours, slot }` | `{ room }` (host, lobby) |
+| PUT | /api/rooms/{code} | `{ mode?, regionId, sector, desks?, difficulty, hours, slot }` | `{ room }` (host, lobby) |
 | POST | /api/rooms/{code}/ready | `{ ready }` | `{ room }` |
-| POST | /api/rooms/{code}/start | | `{ room }` (host; at least 2 players, all ready) |
+| POST | /api/rooms/{code}/start | | `{ room }` (host; at least 2 players take part, everybody here ready) |
 | POST | /api/rooms/{code}/leave | | `{ ok: true }` |
-| POST | /api/rooms/{code}/result | `{ score, grade, incidents, arrests, xp? }` | `{ ok: true, counted, rank, room }` (the first result counts) |
+| POST | /api/rooms/{code}/result | `{ score, grade, incidents, arrests, xp?, seed? }` | `{ ok: true, counted, rank, room }` (the first result counts; 409 `round_over`) |
+| POST | /api/rooms/{code}/reopen | `{ round?, end? }` | `{ room }` (back after a round: a finished round opens the next one; `end` the host's) |
 | POST | /api/rooms/{code}/role | `{ role }` | `{ room }` (co-op lobby: `calls`, `dispatch` or `radio`) |
 | POST | /api/rooms/{code}/desk | `{ desk }` | `{ room }` (sector room's lobby: one of the room's desks) |
 | POST | /api/rooms/{code}/cmd | `{ cmds: [{ k, a }] }` | `{ ok: true, turn, ids }` (running co-op room; at most 20 commands, 4 kB) |
@@ -341,32 +342,57 @@ docs/MULTIPLAYER.md):
   of 2 to 4 distinct sector ids of the prefecture (`<regionId>-<name>`; that they neighbour each other is the
   client's check), and its `sector` becomes the first desk. Invalid fields give 400 `invalid_room` with
   `field`. 20 new rooms per IP and hour (`room_create`), else 429. The server draws the seed and the code.
-- A player is in one open room (`lobby` or `running`) at a time: creating or joining another leaves the others.
-  Joining a room one is already in (also after leaving a running one) is coming back, not a second seat. A full
-  room (4) answers 409 `room_full`, a started one 409 `room_started` to anyone not already in it.
-- The room (`room`): `{ code, mode, state, v, host, me, max, options: { regionId, sector, difficulty, hours, slot },
-  seed, day, created, started, players: [{ id, name, seat, host, ready, online, left, done, role }], results: [{
-  id, name, score, grade, incidents, arrests, xp, at, rank }] }`. `role` is the co-op desk the player picked, or
-  the seat's default (`dispatch`, `calls`, `radio`, `dispatch` for seats 0 to 3). A `sector` room adds
+- A player is in one open room (`lobby` or `running`, or `finished` between two rounds) at a time: creating or joining
+  another leaves the others. Joining a room one is already in (also after leaving a running one) is coming back, not a
+  second seat. A full room (4) answers 409 `room_full`, a running one 409 `room_started` to anyone not already in it; a
+  room between two rounds takes new players (they are in the next round).
+- The room (`room`): `{ code, mode, state, round, last, v, host, me, max, options: { regionId, sector, difficulty,
+  hours, slot }, seed, day, created, started, players: [{ id, name, seat, host, ready, online, left, done, role }],
+  results: [{ id, name, score, grade, incidents, arrests, xp, at, rank }] }`. `role` is the co-op desk the player
+  picked, or the seat's default (`dispatch`, `calls`, `radio`, `dispatch` for seats 0 to 3). A `sector` room adds
   `options.desks` and each player's `desk`: the one they picked if the room still has it, else
   `desks[seat % desks.length]`. `seed` and `day` (the start day in Tallinn) are `null`
-  until the start. `host` and `me` are account ids. `rank` is 1 + the number of strictly higher scores.
+  until the start. `host` and `me` are account ids. `rank` is 1 + the number of strictly higher scores. `ready` is
+  the lobby's ready mark (the host always is); once the round is on it says who takes part in it (was ready at the
+  start). `round` counts the room's rounds (1 for a new room); `results` are the current round's, and `last` is the
+  round before: `{ round, mode, seed, results }`, or `null` in the first round (or when nobody's result of it is kept).
 - `v` = `<revision>.<online seat mask>`. The revision grows on every change; `online` = polled within 20 s. A
   poll writes the caller's `seen` at most every 5 s. With `?v=` equal to the current tag the answer is
   `{ v, unchanged: true }`.
 - `PUT /api/rooms/{code}` (host, lobby; 403 `not_host`, 409 `room_started`) replaces the options and clears the
-  other players' ready marks. `ready` must be a boolean. `start`: 403 `not_host`, 409 `too_few` (fewer than 2
-  players), 409 `not_ready`, 409 `room_started`; sets `running`, `started` and `day`.
-- `leave`: in the lobby the seat is freed; in a running room the player stays listed with `left: true` and can
-  no longer send a result (409 `left_room`). The host's role passes to the earliest-joined player still in. A
-  lobby nobody is left in becomes `closed`, a running room `finished`.
+  other players' ready marks. `mode` (optional, the room's own when missing) switches the mode: `race`, `role` or
+  `sector` (400 `invalid_room` `field: mode`, 400 `mode_unavailable` for a mode not offered; a sector room needs
+  `desks` as at the creation), and a mode change clears the players' drafts. `ready` must be a boolean. `start`: 403 `not_host`, 409 `too_few` (fewer than 2 players take
+  part), 409 `not_ready`, 409 `room_started`; sets `running`, `started` and `day`. Taking part: the host, every
+  player ready, and every player here (polled within 20 s); somebody here and not ready answers `not_ready`,
+  somebody away does not count (they stay in the room and may still play the round, which does not wait for them).
+- `leave`: in the lobby the seat is freed; in a running room, or one between two rounds, the player stays listed with
+  `left: true` and can no longer send a result (409 `left_room`). The host's role passes to the earliest-joined player
+  still in. A lobby nobody is left in becomes `closed`, a running room `finished`. In the lobby the host's role also
+  passes, to the earliest-joined player who is online, when the host has not polled for 5 minutes (the old host is no
+  longer ready).
 - `result`: fields and limits as for `POST /api/score` (`score` 0 to 100, `grade`, `incidents` at least 1 else
   400 `empty_shift`, `arrests`); 409 `not_started` in the lobby, 409 `room_closed` for a closed room or one
-  finished over 12 hours ago. The first result of a player counts (`counted: true`), later ones answer
-  `counted: false`. Once every player still in has a result the room is `finished`.
+  finished over 12 hours ago. `seed` (optional, 0 to 2^32 - 1) is the shift's: when it is not the room's current
+  round's, 409 `round_over` (a result of a round the host ended, or of an earlier one). The first result of a player
+  counts (`counted: true`), later ones answer `counted: false`. Once every player still in who takes part in the round
+  has a result the room is `finished`.
+- `reopen` (rounds, docs/MULTIPLAYER.md section 11) `{ round?, end? }`: a member still in the room comes back after a
+  round (409 `left_room` after leaving it, 409 `room_closed` for a closed room; 400 `invalid_room` with `field` for a
+  `round` that is not a positive integer or an `end` that is not a boolean). A `finished` room opens for its next round,
+  whoever comes back first; a `running` one changes only with `end: true` from the host (403 `not_host` for the
+  others), which ends the round for everybody; a lobby and a `round` other than the room's change nothing. The next
+  round: the results move to `room_round_results` (with the round, mode and seed) and become `last`, players who left
+  go, the others stay not ready (the host is), `round` grows, a new seed is drawn, `started`, `engine`, the co-op
+  clock, digests, log and snapshot are cleared, a sector room's joined force is again `{ crews: [] }`. Options, mode,
+  roles, desks and drafts stay. Counts as a poll (`seen`).
+- `GET /api/rooms` also answers a room between two rounds (`finished`) the caller is still in when its round started in
+  the last 12 hours; an open room comes first.
 - Time rules, applied on every read and write: a lobby nobody polled for 30 minutes becomes `closed`, a running
-  room is `finished` 12 hours after its start. Rooms older than 30 days are deleted with their rows (swept on
-  `POST /api/rooms`). Tables `rooms`, `room_players`, `room_results` (schema step 4).
+  room is `finished` 12 hours after its start. Rooms nobody changed for 30 days (`updated`) are deleted with their rows
+  (swept on `POST /api/rooms`). Tables `rooms`, `room_players`, `room_results` (schema step 4); schema step 11
+  (additive): `rooms.round` (default 1) and `room_round_results` (room, round, user, mode, seed, score, grade,
+  incidents, arrests, xp, at; key room, round and user; it goes with the room and with the account).
 - Custom force (2.26.0, `src/sim/custom.ts`): the options may carry `custom: { crews: [[type, station, officer...]...],
   budget?: true }`, at most 40 crews of the known unit types, a station id of the room's prefecture, at most 6 distinct
   officer indices 0..59 (the prefecture's draft pool) per crew, each officer once (400 `invalid_room`, field `custom`).
@@ -380,7 +406,7 @@ docs/MULTIPLAYER.md):
   joins the drafts in seat order into `rooms.custom` (at most 100 crews). A change of prefecture, or custom forces
   off, clears the drafts.
 - Room results never go to `/api/score`, `/api/daily` or their boards. Deleting an account removes its seats and
-  results and passes on the host role (`epd_rooms_forget_user`, in the deletion's transaction).
+  results (earlier rounds' too) and passes on the host role (`epd_rooms_forget_user`, in the deletion's transaction).
 - The clock of the room rules is the daily challenge's: `X-EPD-Test-Now` works under `EPD_TEST_CLOCK=1` with
   PHP's built-in server only.
 
@@ -544,10 +570,10 @@ them. Passwords never go into the log.
 | GET | /api/admin/daily?day=&user=&q=&region=&limit=&offset= | | `{ total, daily: [{ id, userId, name, day, regionId, sector, score, grade, incidents, arrests, at }] }` |
 | POST | /api/admin/daily | `{ userId, day, regionId, sector?, score, grade, incidents, arrests?, at? }` | `{ daily }`; 409 `daily_exists` (one per player and day) |
 | PATCH / DELETE | /api/admin/daily/{id} | any of the fields | `{ daily }` / `{ ok }` |
-| GET | /api/admin/rooms?state=&limit=&offset= | | `{ total, rooms: [{ code, mode, state, regionId, sector, difficulty, hours, engine, created, started, updated, host, players }] }` |
-| GET | /api/admin/rooms/{code} | | `{ room, players, results }` |
-| POST | /api/admin/rooms/{code}/close | | `{ room }` (a lobby or running room closes; its co-op log goes) |
-| DELETE | /api/admin/rooms/{code} | | `{ ok }` (the room with its players, results, commands and snapshot) |
+| GET | /api/admin/rooms?state=&limit=&offset= | | `{ total, rooms: [{ code, mode, state, regionId, sector, difficulty, hours, engine, round, created, started, updated, host, players }] }` |
+| GET | /api/admin/rooms/{code} | | `{ room, players, results, rounds }` (`results` the current round's, `rounds` the earlier ones newest first: `{ round, mode, seed, results }`) |
+| POST | /api/admin/rooms/{code}/close | | `{ room }` (a lobby or running room, or one between two rounds, closes for good; its co-op log goes) |
+| DELETE | /api/admin/rooms/{code} | | `{ ok }` (the room with its players, results of every round, commands and snapshot) |
 | DELETE | /api/admin/rooms/{code}/results/{userId} | | `{ ok }` |
 | GET | /api/admin/log?action=&limit=&offset= | | `{ total, log: [{ id, at, adminId, admin, action, target, detail, ip }] }` |
 | GET | /api/admin/backups | | `{ backups: [{ name, bytes, at }] }` the copies in `EPD_DATA/varu`, newest first |

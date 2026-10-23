@@ -11,6 +11,10 @@ declare(strict_types=1);
  *
  * Everything is plain HTTP: the client polls GET /api/rooms/{code}?v= about once a second while it waits, and
  * the reply is a few bytes while nothing changed (`v` = the room's revision plus who is online).
+ *
+ * A room plays round after round (docs/MULTIPLAYER.md section 11): once a round is over, the first member who comes
+ * back opens the lobby again (POST /reopen) with the same players, a new seed and the round's results kept as the
+ * room's last round; the host picks the options (the mode too) and starts the next one.
  */
 
 require_once __DIR__ . '/http.php';
@@ -44,9 +48,11 @@ const EPD_ROOM_ONLINE_MS = 20 * 1000;
 const EPD_ROOM_SEEN_EVERY_MS = 5 * 1000;
 /** A lobby nobody polled for this long closes (ms). */
 const EPD_ROOM_LOBBY_IDLE_MS = 30 * 60 * 1000;
+/** A lobby whose host has not polled for this long passes to the earliest-joined player who is online (ms). */
+const EPD_ROOM_HOST_AWAY_MS = 5 * 60 * 1000;
 /** A running room is finished this long after its start at the latest (ms). */
 const EPD_ROOM_RUN_MAX_MS = 12 * 3600 * 1000;
-/** Rooms and their results are deleted this long after they were created (ms). */
+/** Rooms and their results are deleted this long after their last change (ms). */
 const EPD_ROOM_KEEP_MS = 30 * 86400 * 1000;
 /** New rooms per IP and hour. */
 const EPD_ROOM_CREATE_LIMIT = 20;
@@ -276,7 +282,8 @@ function epd_room_bump(PDO $db, int $roomId, int $now, array $set = []): void
 
 /**
  * The room after its time rules: a lobby nobody polled for 30 minutes closes, a running room is finished 12 hours
- * after its start. Returns the (re-read) row.
+ * after its start. A lobby whose host has been away for five minutes passes to the earliest-joined player who is
+ * online, so the others are not stuck waiting (a host who closed the tab after a round). Returns the (re-read) row.
  *
  * @param array<string, mixed> $room
  * @return array<string, mixed>
@@ -285,11 +292,17 @@ function epd_room_refresh(PDO $db, array $room, int $now): array
 {
     $next = null;
     if ($room['state'] === 'lobby') {
-        $stmt = $db->prepare('SELECT MAX(seen) FROM room_players WHERE room_id = ? AND left_at IS NULL');
+        $stmt = $db->prepare('SELECT user_id, seen FROM room_players WHERE room_id = ? AND left_at IS NULL ORDER BY joined, seat');
         $stmt->execute([$room['id']]);
-        $seen = (int) $stmt->fetchColumn();
+        $here = $stmt->fetchAll();
+        $seen = $here === [] ? 0 : max(array_map(static fn (array $p): int => (int) $p['seen'], $here));
         if (max($seen, (int) $room['updated']) < $now - EPD_ROOM_LOBBY_IDLE_MS) {
             $next = 'closed';
+        } elseif (($heir = epd_room_lobby_heir($room, $here, $now)) !== null) {
+            // The host who went away is an ordinary player from now on: not ready until they say so.
+            $db->prepare('UPDATE room_players SET ready = 0 WHERE room_id = ? AND user_id = ?')->execute([$room['id'], (int) $room['host_id']]);
+            epd_room_bump($db, (int) $room['id'], $now, ['host_id' => $heir]);
+            return epd_room_by_id($db, (int) $room['id']) ?? $room;
         }
     } elseif ($room['state'] === 'running' && (int) $room['started'] < $now - EPD_ROOM_RUN_MAX_MS) {
         $next = 'finished';
@@ -309,6 +322,29 @@ function epd_room_refresh(PDO $db, array $room, int $now): array
 }
 
 /**
+ * Who takes a lobby over from a host who has not polled for EPD_ROOM_HOST_AWAY_MS: the earliest-joined player who is
+ * online, or null while the host is around (or nobody else is).
+ *
+ * @param array<string, mixed> $room
+ * @param list<array<string, mixed>> $here players still in the room (user_id, seen), in joining order
+ */
+function epd_room_lobby_heir(array $room, array $here, int $now): ?int
+{
+    $host = $room['host_id'] === null ? null : (int) $room['host_id'];
+    foreach ($here as $p) {
+        if ((int) $p['user_id'] === $host && (int) $p['seen'] >= $now - EPD_ROOM_HOST_AWAY_MS) {
+            return null;
+        }
+    }
+    foreach ($here as $p) {
+        if ((int) $p['user_id'] !== $host && (int) $p['seen'] >= $now - EPD_ROOM_ONLINE_MS) {
+            return (int) $p['user_id'];
+        }
+    }
+    return null;
+}
+
+/**
  * Results of a room, best first, each with its place (1 + the number of strictly higher scores).
  *
  * @return list<array{id: int, name: string, score: int, grade: string, incidents: int, arrests: int, xp: int, at: int, rank: int}>
@@ -323,21 +359,56 @@ function epd_room_results(PDO $db, int $roomId): array
          ORDER BY r.score DESC, r.at ASC'
     );
     $stmt->execute([$roomId]);
-    $out = [];
-    foreach ($stmt->fetchAll() as $r) {
-        $out[] = [
-            'id' => (int) $r['user_id'],
-            'name' => (string) $r['name'],
-            'score' => (int) $r['score'],
-            'grade' => (string) $r['grade'],
-            'incidents' => (int) $r['incidents'],
-            'arrests' => (int) $r['arrests'],
-            'xp' => (int) $r['xp'],
-            'at' => (int) $r['at'],
-            'rank' => (int) $r['rank'],
-        ];
+    return array_map('epd_room_result_out', $stmt->fetchAll());
+}
+
+/**
+ * A result row as the API shows it.
+ *
+ * @param array<string, mixed> $r
+ * @return array{id: int, name: string, score: int, grade: string, incidents: int, arrests: int, xp: int, at: int, rank: int}
+ */
+function epd_room_result_out(array $r): array
+{
+    return [
+        'id' => (int) $r['user_id'],
+        'name' => (string) $r['name'],
+        'score' => (int) $r['score'],
+        'grade' => (string) $r['grade'],
+        'incidents' => (int) $r['incidents'],
+        'arrests' => (int) $r['arrests'],
+        'xp' => (int) $r['xp'],
+        'at' => (int) $r['at'],
+        'rank' => (int) $r['rank'],
+    ];
+}
+
+/**
+ * An earlier round of a room: its mode, seed and results (best first, ranked like the current round's), or null
+ * when nobody's result of it is kept.
+ *
+ * @return array{round: int, mode: string, seed: int, results: list<array<string, int|string>>}|null
+ */
+function epd_room_round(PDO $db, int $roomId, int $round): ?array
+{
+    $stmt = $db->prepare(
+        'SELECT r.user_id, u.name, r.mode, r.seed, r.score, r.grade, r.incidents, r.arrests, r.xp, r.at,
+                RANK() OVER (ORDER BY r.score DESC) AS rank
+         FROM room_round_results r JOIN users u ON u.id = r.user_id
+         WHERE r.room_id = ? AND r.round = ?
+         ORDER BY r.score DESC, r.at ASC'
+    );
+    $stmt->execute([$roomId, $round]);
+    $rows = $stmt->fetchAll();
+    if ($rows === []) {
+        return null;
     }
-    return $out;
+    return [
+        'round' => $round,
+        'mode' => (string) $rows[0]['mode'],
+        'seed' => (int) $rows[0]['seed'],
+        'results' => array_map('epd_room_result_out', $rows),
+    ];
 }
 
 /**
@@ -374,6 +445,7 @@ function epd_room_public(PDO $db, array $room, int $userId, int $now): array
     $results = epd_room_results($db, (int) $room['id']);
     $done = array_column($results, 'id');
     $host = $room['host_id'] === null ? null : (int) $room['host_id'];
+    $lobby = $room['state'] === 'lobby';
     $list = [];
     foreach ($players as $p) {
         $id = (int) $p['user_id'];
@@ -382,8 +454,9 @@ function epd_room_public(PDO $db, array $room, int $userId, int $now): array
             'name' => (string) $p['name'],
             'seat' => (int) $p['seat'],
             'host' => $id === $host,
-            // The host is always ready; the others say so themselves.
-            'ready' => $id === $host || (int) $p['ready'] === 1,
+            // The host is always ready; the others say so themselves. Once the round is on, `ready` says who takes part
+            // in it: everybody who was ready at the start (a player who was away then is not waited for).
+            'ready' => ($lobby && $id === $host) || (int) $p['ready'] === 1,
             'online' => $p['left_at'] === null && (int) $p['seen'] >= $now - EPD_ROOM_ONLINE_MS,
             'left' => $p['left_at'] !== null,
             'done' => in_array($id, $done, true),
@@ -400,11 +473,15 @@ function epd_room_public(PDO $db, array $room, int $userId, int $now): array
             $list[count($list) - 1]['custom'] = $draft['custom'];
         }
     }
-    $running = $room['state'] !== 'lobby';
+    $running = !$lobby;
+    $round = max(1, (int) ($room['round'] ?? 1));
     return [
         'code' => (string) $room['code'],
         'mode' => (string) $room['mode'],
         'state' => (string) $room['state'],
+        // Rounds played in this room so far (the current one included), and the results of the one before.
+        'round' => $round,
+        'last' => $round > 1 ? epd_room_round($db, (int) $room['id'], $round - 1) : null,
         'v' => epd_room_tag($room, $players, $now),
         'host' => $host,
         'me' => $userId,
@@ -480,7 +557,8 @@ function epd_room_remove(PDO $db, array $room, int $userId, int $now, bool $forg
 }
 
 /**
- * `['state' => 'finished']` when every player still in the room has a result, else [].
+ * `['state' => 'finished']` when every player still in the room who takes part in the round (was ready at its start)
+ * has a result, else [].
  *
  * @return array<string, string>
  */
@@ -488,19 +566,22 @@ function epd_room_finish_if_done(PDO $db, int $roomId): array
 {
     $stmt = $db->prepare(
         'SELECT COUNT(*) FROM room_players p
-         WHERE p.room_id = ? AND p.left_at IS NULL
+         WHERE p.room_id = ? AND p.left_at IS NULL AND p.ready = 1
            AND NOT EXISTS (SELECT 1 FROM room_results r WHERE r.room_id = p.room_id AND r.user_id = p.user_id)'
     );
     $stmt->execute([$roomId]);
     return (int) $stmt->fetchColumn() === 0 && epd_room_count($db, $roomId) > 0 ? ['state' => 'finished'] : [];
 }
 
-/** A player is in one open room at a time: creating or joining another one leaves the others. */
+/**
+ * A player is in one open room at a time: creating or joining another one leaves the others (a room between two
+ * rounds too, so it never opens again with them in two lobbies).
+ */
 function epd_room_leave_others(PDO $db, int $userId, int $keepRoomId, int $now): void
 {
     $stmt = $db->prepare(
         "SELECT r.* FROM rooms r JOIN room_players p ON p.room_id = r.id
-         WHERE p.user_id = ? AND p.left_at IS NULL AND r.id <> ? AND r.state IN ('lobby', 'running')"
+         WHERE p.user_id = ? AND p.left_at IS NULL AND r.id <> ? AND r.state IN ('lobby', 'running', 'finished')"
     );
     $stmt->execute([$userId, $keepRoomId]);
     foreach ($stmt->fetchAll() as $room) {
@@ -528,15 +609,17 @@ function epd_rooms_forget_user(PDO $db, int $userId): void
     $db->prepare('DELETE FROM room_snapshots WHERE user_id = ?')->execute([$userId]);
 }
 
-/** Rooms older than 30 days go, with their players and results. */
+/**
+ * Rooms nobody has used for 30 days go, with their players and results (a room that plays round after round stays
+ * while it is used: `updated` moves with every change).
+ */
 function epd_rooms_sweep(PDO $db, int $now): void
 {
     $old = $now - EPD_ROOM_KEEP_MS;
-    $db->prepare('DELETE FROM room_commands WHERE room_id IN (SELECT id FROM rooms WHERE created < ?)')->execute([$old]);
-    $db->prepare('DELETE FROM room_snapshots WHERE room_id IN (SELECT id FROM rooms WHERE created < ?)')->execute([$old]);
-    $db->prepare('DELETE FROM room_results WHERE room_id IN (SELECT id FROM rooms WHERE created < ?)')->execute([$old]);
-    $db->prepare('DELETE FROM room_players WHERE room_id IN (SELECT id FROM rooms WHERE created < ?)')->execute([$old]);
-    $db->prepare('DELETE FROM rooms WHERE created < ?')->execute([$old]);
+    foreach (['room_commands', 'room_snapshots', 'room_results', 'room_round_results', 'room_players'] as $table) {
+        $db->prepare("DELETE FROM $table WHERE room_id IN (SELECT id FROM rooms WHERE updated < ?)")->execute([$old]);
+    }
+    $db->prepare('DELETE FROM rooms WHERE updated < ?')->execute([$old]);
 }
 
 /** Record a wrong or unknown code and answer 429 once this IP guessed too often. */
@@ -669,7 +752,8 @@ function epd_route_room_join(): ApiReply
             }
             return;
         }
-        if ($room['state'] !== 'lobby') {
+        // A lobby takes new players, and so does a room between two rounds (they are in the next one).
+        if ($room['state'] === 'running') {
             epd_fail(409, 'room_started', 'Selle ruumi vahetus on juba alanud.');
         }
         $stmt = $db->prepare('SELECT seat FROM room_players WHERE room_id = ?');
@@ -693,7 +777,10 @@ function epd_route_room_join(): ApiReply
     return epd_room_reply($db, (string) $room['code'], $userId, $now);
 }
 
-/** GET /api/rooms: the caller's open room (lobby or running), or null. */
+/**
+ * GET /api/rooms: the caller's open room (lobby or running), or one between two rounds whose round started in the
+ * last 12 hours (coming back to it opens the next round), or null.
+ */
 function epd_route_room_mine(): ApiReply
 {
     $user = epd_require_user();
@@ -702,16 +789,17 @@ function epd_route_room_mine(): ApiReply
     $now = epd_room_now_ms();
     $stmt = $db->prepare(
         "SELECT r.* FROM rooms r JOIN room_players p ON p.room_id = r.id
-         WHERE p.user_id = ? AND p.left_at IS NULL AND r.state IN ('lobby', 'running')
-         ORDER BY r.created DESC LIMIT 1"
+         WHERE p.user_id = ? AND p.left_at IS NULL
+           AND (r.state IN ('lobby', 'running') OR (r.state = 'finished' AND r.started >= ?))
+         ORDER BY r.state = 'finished', r.created DESC LIMIT 1"
     );
-    $stmt->execute([$userId]);
+    $stmt->execute([$userId, $now - EPD_ROOM_RUN_MAX_MS]);
     $room = $stmt->fetch();
     if (!is_array($room)) {
         return epd_reply(['room' => null]);
     }
     $room = epd_room_refresh($db, $room, $now);
-    if (!in_array($room['state'], ['lobby', 'running'], true)) {
+    if (!in_array($room['state'], ['lobby', 'running', 'finished'], true)) {
         return epd_reply(['room' => null]);
     }
     return epd_reply(['room' => epd_room_public($db, $room, $userId, $now)]);
@@ -740,7 +828,10 @@ function epd_route_room_get(string $code): ApiReply
     return epd_reply(['v' => $tag, 'room' => epd_room_public($db, $room, $userId, $now)]);
 }
 
-/** PUT /api/rooms/{code}: the host changes the shift's options in the lobby; everybody's ready resets. */
+/**
+ * PUT /api/rooms/{code}: the host changes the shift's options in the lobby, the mode too (`mode`, else the room's own);
+ * everybody's ready resets.
+ */
 function epd_route_room_update(string $code): ApiReply
 {
     $user = epd_require_user();
@@ -750,7 +841,15 @@ function epd_route_room_update(string $code): ApiReply
     $now = epd_room_now_ms();
     $clean = epd_room_tx($db, static function (PDO $db) use ($code, $userId, $body, $now): string {
         [$room] = epd_room_for_member($db, $code, $userId, $now);
-        $opts = epd_room_options($body, (string) $room['mode']);
+        $mode = $body['mode'] ?? (string) $room['mode'];
+        if (!is_string($mode) || !in_array($mode, EPD_ROOM_MODES, true)) {
+            epd_room_invalid('mode');
+        }
+        // A room keeps its own mode even if that mode is no longer offered; switching is to an open one only.
+        if ($mode !== (string) $room['mode'] && !in_array($mode, EPD_ROOM_OPEN_MODES, true)) {
+            epd_fail(400, 'mode_unavailable', 'See mitmikmängu režiim ei ole veel avatud.', [], ['field' => 'mode']);
+        }
+        $opts = epd_room_options($body, $mode);
         if ((int) ($room['host_id'] ?? 0) !== $userId) {
             epd_fail(403, 'not_host', 'Seda saab muuta ainult ruumi looja.');
         }
@@ -758,11 +857,12 @@ function epd_route_room_update(string $code): ApiReply
             epd_fail(409, 'room_started', 'Selle ruumi vahetus on juba alanud.');
         }
         $db->prepare('UPDATE room_players SET ready = 0 WHERE room_id = ? AND user_id <> ?')->execute([$room['id'], $userId]);
-        if ($opts['region_id'] !== (string) $room['region_id'] || $opts['custom'] === '') {
-            // A draft is of its prefecture's stations and officers, and only while custom forces are on.
+        if ($opts['region_id'] !== (string) $room['region_id'] || $opts['custom'] === '' || $mode !== (string) $room['mode']) {
+            // A draft is of its prefecture's stations and officers, only while custom forces are on, and of its mode
+            // (a race player's whole area, a sector player's desk; a role room has the host's force only).
             $db->prepare("UPDATE room_players SET custom = '' WHERE room_id = ?")->execute([$room['id']]);
         }
-        epd_room_bump($db, (int) $room['id'], $now, $opts);
+        epd_room_bump($db, (int) $room['id'], $now, $opts + ['mode' => $mode]);
         return (string) $room['code'];
     });
     return epd_room_reply($db, $clean, $userId, $now);
@@ -866,7 +966,11 @@ function epd_route_room_ready(string $code): ApiReply
     return epd_room_reply($db, $clean, $userId, $now);
 }
 
-/** POST /api/rooms/{code}/start: the host starts the shift once at least two players are in and all are ready. */
+/**
+ * POST /api/rooms/{code}/start: the host starts the shift once at least two players take part and every player who is
+ * here (online) is ready. A player who is away (closed the tab after the last round) does not hold the others up: they
+ * stay in the room and may still join this round, but it does not wait for their result.
+ */
 function epd_route_room_start(string $code): ApiReply
 {
     $user = epd_require_user();
@@ -886,14 +990,21 @@ function epd_route_room_start(string $code): ApiReply
             epd_fail(409, 'room_started', 'Selle ruumi vahetus on juba alanud.');
         }
         $players = array_values(array_filter(epd_room_players($db, (int) $room['id']), static fn (array $p): bool => $p['left_at'] === null));
-        if (count($players) < 2) {
+        // Who takes part: the host, everybody ready, and everybody here who is not (they hold the start up).
+        $part = array_filter(
+            $players,
+            static fn (array $p): bool => (int) $p['user_id'] === $userId || (int) $p['ready'] === 1 || (int) $p['seen'] >= $now - EPD_ROOM_ONLINE_MS,
+        );
+        if (count($part) < 2) {
             epd_fail(409, 'too_few', 'Alustamiseks on vaja vähemalt kahte mängijat.');
         }
-        foreach ($players as $p) {
+        foreach ($part as $p) {
             if ((int) $p['user_id'] !== $userId && (int) $p['ready'] !== 1) {
                 epd_fail(409, 'not_ready', 'Kõik mängijad ei ole veel valmis.');
             }
         }
+        // The host takes part too (their ready mark is what the end of the round waits for, epd_room_finish_if_done).
+        $db->prepare('UPDATE room_players SET ready = 1 WHERE room_id = ? AND user_id = ?')->execute([$room['id'], $userId]);
         $start = ['state' => 'running', 'started' => $now, 'day' => epd_daily_date($now)];
         if ((string) $room['mode'] === 'sector' && (string) $room['custom'] !== '') {
             // The shared shift's force: every desk player's draft, in seat order (src/sim/room.ts fills the rest).
@@ -922,7 +1033,7 @@ function epd_route_room_leave(string $code): ApiReply
     $now = epd_room_now_ms();
     epd_room_tx($db, static function (PDO $db) use ($code, $userId, $now): void {
         [$room, $member] = epd_room_for_member($db, $code, $userId, $now);
-        if ($member['left_at'] === null && in_array($room['state'], ['lobby', 'running'], true)) {
+        if ($member['left_at'] === null && in_array($room['state'], ['lobby', 'running', 'finished'], true)) {
             epd_room_remove($db, $room, $userId, $now);
         }
     });
@@ -930,9 +1041,10 @@ function epd_route_room_leave(string $code): ApiReply
 }
 
 /**
- * POST /api/rooms/{code}/result `{ score, grade, incidents, arrests, xp? }`: a player's result of the room's shift,
- * the first one counts. In co-op every player sends the team's result with their own XP. The room is finished once
- * every player still in it has sent one.
+ * POST /api/rooms/{code}/result `{ score, grade, incidents, arrests, xp?, seed? }`: a player's result of the room's
+ * shift, the first one counts. In co-op every player sends the team's result with their own XP. The room is finished
+ * once every player taking part has sent one. `seed` is the shift's: a result of a round that is already over (the
+ * room has moved on to the next one) answers 409 `round_over` and counts nowhere.
  */
 function epd_route_room_result(string $code): ApiReply
 {
@@ -946,14 +1058,18 @@ function epd_route_room_result(string $code): ApiReply
         'arrests' => epd_number_field($body, 'arrests', 0, 100000),
         'xp' => array_key_exists('xp', $body) ? epd_number_field($body, 'xp', 0, 100000) : 0,
     ];
+    $seed = array_key_exists('seed', $body) ? epd_number_field($body, 'seed', 0, 4294967295) : null;
     // A shift with no incidents gets a flat grade from the sim; it says nothing about the player.
     if ($row['incidents'] < 1) {
         epd_fail(400, 'empty_shift', 'Sündmusteta vahetus edetabelisse ei lähe.', [], ['field' => 'incidents']);
     }
     $db = epd_db();
     $now = epd_room_now_ms();
-    [$clean, $counted] = epd_room_tx($db, static function (PDO $db) use ($code, $userId, $row, $now): array {
+    [$clean, $counted] = epd_room_tx($db, static function (PDO $db) use ($code, $userId, $row, $seed, $now): array {
         [$room, $member] = epd_room_for_member($db, $code, $userId, $now);
+        if ($seed !== null && $seed !== (int) $room['seed']) {
+            epd_fail(409, 'round_over', 'See voor on juba läbi.');
+        }
         if ($room['state'] === 'lobby') {
             epd_fail(409, 'not_started', 'Selle ruumi vahetus ei ole veel alanud.');
         }
@@ -988,6 +1104,97 @@ function epd_route_room_result(string $code): ApiReply
         'rank' => $mine['rank'] ?? null,
         'room' => $room === null ? null : epd_room_public($db, $room, $userId, $now),
     ]);
+}
+
+/**
+ * The room opens for its next round (inside the caller's transaction): the round's results move to
+ * room_round_results, players who left go, everybody else stays and is not ready (the host always is), the next round
+ * gets a new seed, and the round's shared-shift state (log, snapshot, clock, digests) is cleared. The options, the
+ * mode, the roles, the desks and the players' drafts stay; a sector room's force is again each desk's own draft.
+ *
+ * @param array<string, mixed> $room
+ */
+function epd_room_new_round(PDO $db, array $room, int $userId, int $now): void
+{
+    $roomId = (int) $room['id'];
+    $round = max(1, (int) ($room['round'] ?? 1));
+    $db->prepare(
+        'INSERT OR IGNORE INTO room_round_results (room_id, round, user_id, mode, seed, score, grade, incidents, arrests, xp, at)
+         SELECT room_id, ?, user_id, ?, ?, score, grade, incidents, arrests, xp, at FROM room_results WHERE room_id = ?'
+    )->execute([$round, (string) $room['mode'], (int) $room['seed'], $roomId]);
+    $db->prepare('DELETE FROM room_results WHERE room_id = ?')->execute([$roomId]);
+    $db->prepare('DELETE FROM room_players WHERE room_id = ? AND left_at IS NOT NULL')->execute([$roomId]);
+    $host = $room['host_id'] === null ? $userId : (int) $room['host_id'];
+    $db->prepare(
+        "UPDATE room_players SET ready = CASE WHEN user_id = ? THEN 1 ELSE 0 END, away = 0, hash_turn = -1, hash = '', resync = -1,
+         cmd_tokens = ?, cmd_at = 0 WHERE room_id = ?"
+    )->execute([$host, EPD_COOP_BURST, $roomId]);
+    epd_coop_forget_room($db, $roomId);
+    $set = [
+        'state' => 'lobby',
+        'round' => $round + 1,
+        'host_id' => $host,
+        'seed' => random_int(1, 2147483646),
+        'started' => null,
+        'engine' => '',
+        'host_seat' => -1,
+        'cmd_count' => 0,
+        'ref_hashes' => '',
+        'snap_req' => 0,
+    ];
+    if ((string) $room['mode'] === 'sector' && (string) $room['custom'] !== '') {
+        // At the start the drafts were joined into the room's force; the next round is drafted again.
+        $joined = json_decode((string) $room['custom'], true);
+        $set['custom'] = json_encode(['crews' => []] + (is_array($joined) && ($joined['budget'] ?? false) === true ? ['budget' => true] : []), JSON_THROW_ON_ERROR);
+    }
+    epd_room_bump($db, $roomId, $now, $set);
+}
+
+/**
+ * POST /api/rooms/{code}/reopen `{ round?, end? }`: a member comes back to the room after a round. A room whose round
+ * is over (finished) opens for the next one, whoever of its players comes back first. While the round runs nothing
+ * changes (the others are still playing), unless the host ends it for everybody (`end: true`, 403 `not_host` for the
+ * others): results not sent by then do not count. `round` is the round the caller comes back from; when the room has
+ * moved on since, nothing changes either. Answers the room.
+ */
+function epd_route_room_reopen(string $code): ApiReply
+{
+    $user = epd_require_user();
+    $userId = (int) $user['id'];
+    $body = epd_json_body();
+    $end = $body['end'] ?? false;
+    $round = $body['round'] ?? null;
+    if (!is_bool($end)) {
+        epd_room_invalid('end');
+    }
+    if ($round !== null && (!is_int($round) || $round < 1)) {
+        epd_room_invalid('round');
+    }
+    $db = epd_db();
+    $now = epd_room_now_ms();
+    $clean = epd_room_tx($db, static function (PDO $db) use ($code, $userId, $end, $round, $now): string {
+        [$room, $member] = epd_room_for_member($db, $code, $userId, $now);
+        if ($room['state'] === 'closed') {
+            epd_fail(409, 'room_closed', 'See ruum on suletud.');
+        }
+        if ($member['left_at'] !== null) {
+            epd_fail(409, 'left_room', 'Sa lahkusid sellest ruumist.');
+        }
+        if ((int) $member['seen'] < $now - EPD_ROOM_SEEN_EVERY_MS) {
+            $db->prepare('UPDATE room_players SET seen = ? WHERE room_id = ? AND user_id = ?')->execute([$now, $room['id'], $userId]);
+        }
+        if ($round !== null && $round !== (int) $room['round']) {
+            return (string) $room['code'];
+        }
+        if ($room['state'] === 'running' && $end && (int) ($room['host_id'] ?? 0) !== $userId) {
+            epd_fail(403, 'not_host', 'Vooru saab lõpetada ainult ruumi looja.');
+        }
+        if ($room['state'] === 'finished' || ($room['state'] === 'running' && $end)) {
+            epd_room_new_round($db, $room, $userId, $now);
+        }
+        return (string) $room['code'];
+    });
+    return epd_room_reply($db, $clean, $userId, $now);
 }
 
 // The shared shift (command log, clock, digests, snapshots) builds on everything above.

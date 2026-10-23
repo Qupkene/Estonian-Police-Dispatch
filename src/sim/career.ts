@@ -964,7 +964,7 @@ function promote(p: CareerProfileX, oldRank: number, messages: Text[]): void {
 /**
  * A co-op room shift in a player's own career (docs/MULTIPLAYER.md, 4.6): the XP (team plus own share), promotions,
  * the shift count and achievements. Never money, staff, fleet, reputation or the career day: those belong to the
- * career's own sector. The caller pays it once per room (CareerProfile.paidShifts, key room:<code>).
+ * career's own sector. The caller pays it once per room and round (CareerProfile.paidShifts, key room:<code>:<seed>).
  */
 export function applyCoopShift(p0: CareerProfile, r: ShiftReport, xp: number, ctx?: AchievementContext): { profile: CareerProfile; messages: Text[] } {
   const p = clone(p0) as CareerProfileX;

@@ -18,7 +18,7 @@ export const ROOM_MODES: Record<string, string> = { race: 'Võistlus', sector: '
 export const ROOM_STATES: Record<string, string> = {
   lobby: 'Ootab',
   running: 'Käib',
-  finished: 'Lõppenud',
+  finished: 'Voor läbi',
   closed: 'Suletud',
 };
 export const SAVE_SLOTS: Record<string, string> = {

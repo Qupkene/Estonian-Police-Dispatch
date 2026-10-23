@@ -5,7 +5,10 @@ import { expect, test, type Browser, type BrowserContext, type Page } from '@pla
  * in two browser contexts create a room, join it with the code, mark ready and start; both play the same shift
  * (same seed, start and room mark), end it and send their results, and the report shows the room's live board.
  * Two more players join and play through the API, so the board has four rows. Nothing reaches the normal
- * leaderboard. MP_SHOTS=<dir> also saves screenshots of the lobby (1440 dark and light, 390) and the report board.
+ * leaderboard. Then the second round in the same room (docs/MULTIPLAYER.md section 11): the report leads back to the
+ * room, the guest's return opens it again with the first round as its last, one API player leaves, the host changes
+ * the length and starts, and both play a new shift of the same room. MP_SHOTS=<dir> also saves screenshots of the
+ * lobby (1440 dark and light, 390), the report board, the report with the room open again and the second lobby.
  */
 
 type EpdWindow = Window & {
@@ -276,11 +279,67 @@ test.describe.serial('multiplayer rooms', () => {
       expect.arrayContaining([HOST, GUEST, `kati_${STAMP}`, `mart_${STAMP}`]),
     );
 
-    // Back to the room from the report: the finished room with its board.
-    await host.page.getByRole('button', { name: 'Ruumi', exact: true }).click();
+    // The report's way on is back to the room, never a quick shift.
+    for (const p of [host.page, guest.page]) {
+      await expect(p.locator('.vk-page__actions')).toContainText('Tagasi ruumi');
+      await expect(p.getByRole('button', { name: 'Uus vahetus' })).toHaveCount(0);
+    }
+
+    // Round 2 in the same room. Kati is done for today; Mart stays.
+    expect((await kati.request.post(`/api/rooms/${code}/leave`, { headers: H })).ok()).toBe(true);
+    // The guest goes back first: the room opens for the next round by itself, the round just played kept as the last.
+    await guest.page.getByTestId('room-report').getByRole('button', { name: 'Tagasi ruumi' }).click();
+    await expect.poll(() => screen(guest.page)).toBe('lobby');
+    await expect(guest.page.getByTestId('room')).toHaveAttribute('data-state', 'lobby', { timeout: 15_000 });
+    await expect(guest.page.getByTestId('room-meta')).toContainText('2. voor');
+    await expect(guest.page.getByTestId('room-last').locator('tbody tr')).toHaveCount(4);
+    await expect(guest.page.getByTestId('room-seats').locator('li:not(.is-free)')).toHaveCount(3);
+    // The host, still on the report, sees the room waiting, and goes back with Enter.
+    await expect(host.page.getByTestId('room-report-state')).toContainText('järgmiseks vooruks avatud', {
+      timeout: 15_000,
+    });
+    await expect(host.page.getByTestId('room-report').locator('tbody tr')).toHaveCount(4);
+    if (SHOTS) await shot(host.page, 'report-room-open');
+    await host.page.keyboard.press('Enter');
     await expect.poll(() => screen(host.page)).toBe('lobby');
-    await expect(host.page.getByTestId('room')).toHaveAttribute('data-state', 'finished');
-    await expect(host.page.getByTestId('room-sent')).toContainText('Kõik tulemused on koos');
+    await expect(host.page.getByTestId('room')).toHaveAttribute('data-state', 'lobby');
+
+    // The host changes the shift (3 hours) and starts once the others are ready again.
+    await host.page.getByRole('radio', { name: '3 h' }).click();
+    await expect(guest.page.getByTestId('room')).toContainText('3 h', { timeout: 10_000 });
+    await expect(host.page.getByTestId('room-block')).toContainText('Ootan, kuni kõik mängijad on valmis');
+    await mart.request.post(`/api/rooms/${code}/ready`, { headers: H, data: { ready: true } });
+    await guest.page.getByRole('button', { name: 'Olen valmis' }).click();
+    await expect(host.page.getByTestId('room-block')).toContainText('Kõik on valmis', { timeout: 10_000 });
+    if (SHOTS) await shot(host.page, 'lobby-round-2');
+    await host.page.getByRole('button', { name: 'Alusta vahetust' }).click();
+
+    // Both go on shift by themselves again: another shift of the same room.
+    await expect.poll(() => screen(host.page), { timeout: 20_000 }).toBe('game');
+    await expect.poll(() => screen(guest.page), { timeout: 20_000 }).toBe('game');
+    const a2 = await simInfo(host.page);
+    expect(await simInfo(guest.page)).toEqual(a2);
+    expect(a2).toMatchObject({ room: code, hours: 3, regionId: 'louna' });
+    expect(a2!.seed).not.toBe(a!.seed);
+    await mart.request.post(`/api/rooms/${code}/result`, {
+      headers: H,
+      data: { score: 64, grade: 'C', incidents: 9, arrests: 1, seed: a2!.seed },
+    });
+    await playAndEnd(guest.page);
+    await playAndEnd(host.page);
+    for (const p of [host.page, guest.page]) {
+      const report = p.getByTestId('room-report');
+      await expect(report).toContainText('2. voor', { timeout: 15_000 });
+      await expect(report).toContainText('3/3 lõpetanud', { timeout: 15_000 });
+      await expect(report.locator('tbody tr')).toHaveCount(3);
+    }
+    const round2 = (await (await mart.request.get(`/api/rooms/${code}`)).json()).room;
+    expect(round2).toMatchObject({ state: 'finished', round: 2 });
+    expect(round2.results.map((r: { name: string }) => r.name)).toEqual(
+      expect.arrayContaining([HOST, GUEST, `mart_${STAMP}`]),
+    );
+    expect(round2.last.results).toHaveLength(4);
+    expect(posts.filter((p) => p.endsWith('/result'))).toHaveLength(4);
 
     expect(host.errors, host.errors.join('\n')).toEqual([]);
     expect(guest.errors, guest.errors.join('\n')).toEqual([]);

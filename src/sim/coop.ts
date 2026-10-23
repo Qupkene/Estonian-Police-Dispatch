@@ -922,5 +922,10 @@ export function coopXp(report: Pick<ShiftReport, 'xp'>, seat: SeatStats | undefi
   return team + own;
 }
 
-/** Profile key of a co-op shift's XP, so it is paid once per room (CareerProfile.paidShifts). */
-export const coopPaidKey = (code: string): string => `room:${code}`;
+/**
+ * Profile key of a co-op shift's XP, so it is paid once (CareerProfile.paidShifts): per room and round, the round
+ * told apart by its shift's seed (a room plays round after round, docs/MULTIPLAYER.md section 11). Without a seed:
+ * the room's key as before rounds.
+ */
+export const coopPaidKey = (code: string, seed?: number): string =>
+  seed === undefined ? `room:${code}` : `room:${code}:${seed}`;
