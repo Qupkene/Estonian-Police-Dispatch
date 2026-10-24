@@ -2083,7 +2083,7 @@ const PLACES: Place[] = [
   }),
   place('la-jahisadam', 'Pärnu jahisadam', 'port', P, 'Ranna pst 2', [24.4905, 58.3818], {
     district: 'Rannarajoon',
-    tags: ['water'],
+    tags: ['water', 'marina'],
   }),
   place('la-kaubasadam', 'Pärnu kaubasadam', 'port', P, 'Sadama tn 19', [24.487, 58.386], {
     district: 'Vana-Pärnu',
@@ -2092,7 +2092,7 @@ const PLACES: Place[] = [
   // ── Pärnu: beach district
   place('la-parnu-rand', 'Pärnu rand', 'beach', P, 'Ranna pst', [24.5055, 58.3722], {
     district: 'Rannarajoon',
-    tags: ['water', 'summer', 'tourists'],
+    tags: ['water', 'summer', 'tourists', 'sea'],
   }),
   place('la-promenaad', 'Pärnu rannapromenaad', 'park', P, 'Mere pst', [24.512, 58.3712], {
     district: 'Rannarajoon',
@@ -2129,7 +2129,7 @@ const PLACES: Place[] = [
   }),
   place('la-muul', 'Pärnu muul', 'park', P, 'Pärnu muul', [24.479, 58.377], {
     district: 'Rannarajoon',
-    tags: ['water', 'remote'],
+    tags: ['water', 'remote', 'breakwater'],
   }),
   place(
     'la-lasteaed-rannarajoon',
@@ -2161,7 +2161,7 @@ const PLACES: Place[] = [
   }),
   place('la-weekend', 'Festivaliala (Raeküla)', 'concert', P, 'Raeküla, Pärnu', [24.552, 58.3605], {
     district: 'Raeküla',
-    tags: ['events', 'summer'],
+    tags: ['events', 'summer', 'festival'],
   }),
   place('la-lasteaed-raekula', 'Lasteaed (Raeküla)', 'kindergarten', P, 'Metsa 40', [24.5465, 58.3703], {
     district: 'Raeküla',
@@ -2175,7 +2175,7 @@ const PLACES: Place[] = [
   }),
   place('la-mai-rand', 'Mai rand', 'beach', P, 'Mai rand', [24.46, 58.383], {
     district: 'Mai',
-    tags: ['water', 'summer'],
+    tags: ['water', 'summer', 'sea'],
   }),
   place('la-kool-ulejoe', 'Põhikool (Ülejõe)', 'school', P, 'Tallinna mnt 40', [24.5165, 58.4045], {
     district: 'Ülejõe',
@@ -2210,7 +2210,7 @@ const PLACES: Place[] = [
     'Valgeranna',
     'Valgeranna küla, Pärnu linn',
     [24.37, 58.387],
-    { tags: ['water', 'summer'] },
+    { tags: ['water', 'summer', 'sea'] },
   ),
   place(
     'la-suvila-valgerand',
@@ -2269,6 +2269,7 @@ const PLACES: Place[] = [
     'Häädemeeste',
     'E67, Häädemeeste',
     [24.505, 58.08],
+    { tags: ['latvia'] },
   ),
   place(
     'la-t5-vandra',
@@ -2312,7 +2313,7 @@ const PLACES: Place[] = [
   ),
   place('la-kur-rand', 'Kuressaare linnarand', 'beach', 'Kuressaare', 'Kalda pst', [22.476, 58.247], {
     zone: SAA,
-    tags: ['water', 'summer'],
+    tags: ['water', 'summer', 'sea'],
   }),
   place('la-kur-spa', 'Spaahotell (Kuressaare)', 'hotel', 'Kuressaare', 'Kalda pst 1', [22.4775, 58.2502], {
     zone: SAA,
@@ -2367,7 +2368,7 @@ const PLACES: Place[] = [
     'Kuressaare',
     'Roomassaare sadam',
     [22.506, 58.2192],
-    { zone: SAA, tags: ['water'] },
+    { zone: SAA, tags: ['water', 'marina'] },
   ),
   place('la-kuivastu', 'Kuivastu sadam', 'port', 'Kuivastu', 'Kuivastu küla, Muhu vald', [23.389, 58.5745], {
     zone: SAA,
@@ -2393,7 +2394,7 @@ const PLACES: Place[] = [
     'Orissaare',
     'Väinatamm, Saaremaa vald',
     [23.1143, 58.5575],
-    { zone: SAA },
+    { zone: SAA, tags: ['causeway'] },
   ),
   place(
     'la-t10-laimjala',
@@ -2402,7 +2403,7 @@ const PLACES: Place[] = [
     'Valjala',
     'Põhimaantee 10, Laimjala',
     [22.87, 58.455],
-    { zone: SAA },
+    { zone: SAA, tags: ['rally'] },
   ),
   place(
     'la-kaali',
@@ -2435,7 +2436,7 @@ const PLACES: Place[] = [
   ),
   place('la-mandjala', 'Mändjala rand', 'beach', 'Mändjala', 'Mändjala küla, Saaremaa vald', [22.35, 58.22], {
     zone: SAA,
-    tags: ['water', 'summer'],
+    tags: ['water', 'summer', 'sea'],
   }),
   place('la-salme', 'Salme', 'village', 'Salme', 'Salme alevik, Saaremaa vald', [22.247, 58.1611], {
     zone: SAA,
@@ -2487,11 +2488,11 @@ const PLACES: Place[] = [
   }),
   place('la-kardla-sadam', 'Kärdla sadam', 'port', 'Kärdla', 'Sadama tn 13', [22.7475, 59.0066], {
     zone: HII,
-    tags: ['water'],
+    tags: ['water', 'marina'],
   }),
   place('la-kardla-rand', 'Kärdla rand', 'beach', 'Kärdla', 'Lubjaahju tn', [22.735, 59.006], {
     zone: HII,
-    tags: ['water', 'summer'],
+    tags: ['water', 'summer', 'sea'],
   }),
   place(
     'la-kardla-lennujaam',
@@ -2578,10 +2579,10 @@ const PLACES: Place[] = [
     { tags: ['tourists', 'events'] },
   ),
   place('la-hap-paralepa', 'Paralepa rand', 'beach', 'Haapsalu', 'Ranna tee', [23.505, 58.9405], {
-    tags: ['water', 'summer'],
+    tags: ['water', 'summer', 'sea'],
   }),
   place('la-hap-aafrika', 'Aafrika rand', 'beach', 'Haapsalu', 'Promenaadi tn', [23.533, 58.9495], {
-    tags: ['water', 'summer'],
+    tags: ['water', 'summer', 'sea'],
   }),
   place('la-hap-kuursaal', 'Haapsalu Kuursaal', 'concert', 'Haapsalu', 'Promenaadi 1', [23.541, 58.95], {
     tags: ['events', 'summer'],
@@ -2653,6 +2654,7 @@ const PLACES: Place[] = [
     'Taebla',
     'Põhimaantee 9, Taebla',
     [23.735, 58.9495],
+    { tags: ['ferryroad'] },
   ),
   place(
     'la-t10-lihula',
@@ -2661,6 +2663,7 @@ const PLACES: Place[] = [
     'Lihula',
     'Põhimaantee 10, Lihula',
     [23.85, 58.69],
+    { tags: ['ferryroad'] },
   ),
 
   // ── Rapla county

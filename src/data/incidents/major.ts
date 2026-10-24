@@ -1261,6 +1261,8 @@ export const TEMPLATES_MAJOR: IncidentTemplate[] = [
     regions: ['laane'],
     hours: 'day',
     places: ['port'],
+    // The island ferry ports with a car queue (Virtsu, Kuivastu, Rohuküla, Heltermaa), never the cargo or yacht harbours.
+    placeTags: ['queue'],
     units: { need: [u('patrol', 2)], ideal: [u('patrol', 3), u('boat'), u('heli')] },
     onScene: [90, 180],
     persons: [

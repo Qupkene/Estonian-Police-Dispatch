@@ -87,8 +87,8 @@ describe('briefing conditions: the dates', () => {
 
   it('names only the tags that some calls answer to, each with words', () => {
     const tags = shiftTags(shiftStart({ y: 2027, m: 6, d: 23 }, 'night'), 12);
-    expect(tags).toEqual(expect.arrayContaining(['bonfire', 'drunk_driving', 'drunk', 'fireworks']));
-    expect(tags).not.toContain('drowning');
+    // Midsummer drownings: the regional water stories answer the tag since 2.30.0.
+    expect(tags).toEqual(expect.arrayContaining(['bonfire', 'drunk_driving', 'drunk', 'drowning', 'fireworks']));
     expect(shiftTags(shiftStart({ y: 2026, m: 10, d: 20 }, 'day'), 12)).toEqual([]);
     for (const tag of TAG_ORDER) {
       expect(DICT[`shell.tag.${tag}`]?.et, tag).toBeTruthy();

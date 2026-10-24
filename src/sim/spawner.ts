@@ -2,7 +2,7 @@
  * Spawning (engine-core, DESIGN §4.2): Poisson process, template choice, incident generation
  * (location, persons, vehicles, texts, SLA, beats…).
  */
-import { pickLocation, townStreetAddress } from '@/gen/address';
+import { pickLocation, taggedPlaces, townStreetAddress } from '@/gen/address';
 import { surnameForGender } from '@/gen/names';
 import { generatePerson } from '@/gen/person';
 import { generateVehicle } from '@/gen/vehicle';
@@ -228,8 +228,9 @@ const CURATED_ONLY = new Set<PlaceKind>([
 
 const placeKindCache = new WeakMap<RegionDef, Set<PlaceKind>>();
 
-/** Multiplier 0..1 for how well the region can host a template's place kinds. */
-export function placeAvailability(region: RegionDef, kinds: PlaceKind[]): number {
+/** Multiplier 0..1 for how well the region can host a template's place kinds (with `tags`: 1 or 0, see IncidentTemplate.placeTags). */
+export function placeAvailability(region: RegionDef, kinds: PlaceKind[], tags?: string[]): number {
+  if (tags?.length) return taggedPlaces(region, kinds, tags).length ? 1 : 0;
   if (!kinds.length) return 1;
   let have = placeKindCache.get(region);
   if (!have) {
@@ -285,7 +286,7 @@ export function templateWeight(s: SimState, tpl: IncidentTemplate, ctx: PickCtx)
   if (tpl.months && tpl.months.length && !tpl.months.includes(ctx.month)) return 0;
   if (tpl.seasons && tpl.seasons.length && !tpl.seasons.includes(ctx.season as never)) return 0;
   const region = regionOf(s);
-  const avail = placeAvailability(region, tpl.places);
+  const avail = placeAvailability(region, tpl.places, tpl.placeTags);
   if (avail <= 0) return 0;
   let w = tpl.weight * avail * hourMultiplier(tpl.hours, ctx.hour, ctx.weekday);
   if (ctx.weekendNight) w *= tpl.weekendBoost ?? 1;
@@ -457,7 +458,7 @@ function fallbackLocation(r: Rng, region: RegionDef, kinds: PlaceKind[]): Incide
 function templateLocation(r: Rng, region: RegionDef, tpl: IncidentTemplate): IncidentLocation {
   let location: IncidentLocation;
   try {
-    location = pickLocation(r, region, tpl.places.length ? tpl.places : ['street']);
+    location = pickLocation(r, region, tpl.places.length ? tpl.places : ['street'], tpl.placeTags);
   } catch {
     location = fallbackLocation(r, region, tpl.places);
   }
@@ -486,6 +487,8 @@ const AREA_LOCATION_TRIES = 8;
  */
 function areaLocation(r: Rng, s: SimState, region: RegionDef, tpl: IncidentTemplate): IncidentLocation | undefined {
   const view = areaView(region, areaOf(s));
+  // A story that needs a tagged place (a ferry queue) has none to happen at in an area without one.
+  if (tpl.placeTags?.length && !placeAvailability(view, tpl.places, tpl.placeTags)) return undefined;
   const skip = skippedZones(s);
   for (let i = 0; i < AREA_LOCATION_TRIES; i++) {
     const loc = templateLocation(r, view, tpl);

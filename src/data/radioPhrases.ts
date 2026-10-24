@@ -414,7 +414,7 @@ export const RADIO: Record<string, Text[]> = {
   reply_clean: [
     T('{callsign}, selge, puhas. Jätkame.', '{callsign}, copy, clean. Continuing.'),
     T('{short}, selge, märkeid pole.', '{short}, copy, nothing on file.'),
-    T('{callsign}, selge, puhas, laseme minna.', '{callsign}, roger, clean, letting them go.'),
+    T('{callsign}, selge, puhas, jätkame kohapeal.', '{callsign}, roger, clean, carrying on at the scene.'),
     T('{short}, selge, puhas.', '{short}, copy, clean.'),
   ],
   reply_wanted: [
