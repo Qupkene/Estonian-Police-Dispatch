@@ -1,6 +1,9 @@
 /**
  * Lõuna prefektuur (South Prefecture): Tartu, Jõgeva, Põlva, Valga, Viljandi and Võru county.
  *
+ * Stations, arrest houses, prisons and border points (2.30.1): the addresses were checked against
+ * politsei.ee and vangla.ee in October 2026, and every point is the Estonian address register (ADS)
+ * point of that address, taken from the Overture Maps addresses release 2026-10-21.
  * Sources: docs/research/ppa-organisation.md (jaoskonnad, addresses, custody, border, vehicles),
  * docs/research/names-demographics.md (Russian-speaker shares), src/data/geo/settlements.json
  * (town/village polygon centroids) and county/land polygons for sanity checks. POI coordinates
@@ -95,16 +98,16 @@ const STATIONS: Station[] = [
     kind: 'hq',
     city: 'Tartu',
     address: 'Riia tn 132',
-    coord: [26.6941, 58.36475],
+    coord: [26.68783, 58.35974],
   },
   {
     id: 'lo-tartu-vangla',
-    name: t('Tartu Vangla (arest ja kainestus)', 'Tartu Prison (arrest & sobering-up)'),
-    short: 'Tartu Vangla',
+    name: t('Tartu arestimaja (arest ja kainestus)', 'Tartu Arrest House (arrest & sobering-up)'),
+    short: 'Tartu AM',
     kind: 'arrest',
     city: 'Tartu',
-    address: 'Turu tn 56',
-    coord: [26.7556, 58.3619],
+    address: 'Riia tn 179a',
+    coord: [26.67996, 58.35678],
   },
   {
     id: 'lo-elva',
@@ -113,7 +116,7 @@ const STATIONS: Station[] = [
     kind: 'post',
     city: 'Elva',
     address: 'Kesk tn 32',
-    coord: [26.4191, 58.2246],
+    coord: [26.41782, 58.2238],
   },
   {
     id: 'lo-jogeva',
@@ -122,7 +125,7 @@ const STATIONS: Station[] = [
     kind: 'station',
     city: 'Jõgeva',
     address: 'Suur tn 1',
-    coord: [26.3972, 58.7463],
+    coord: [26.39839, 58.74618],
   },
   {
     id: 'lo-viljandi',
@@ -131,7 +134,7 @@ const STATIONS: Station[] = [
     kind: 'station',
     city: 'Viljandi',
     address: 'Pargi tn 1',
-    coord: [25.5963, 58.3662],
+    coord: [25.56424, 58.36155],
   },
   {
     id: 'lo-polva',
@@ -140,7 +143,7 @@ const STATIONS: Station[] = [
     kind: 'station',
     city: 'Põlva',
     address: 'Võru tn 12',
-    coord: [27.0708, 58.0588],
+    coord: [27.0567, 58.05158],
   },
   {
     id: 'lo-voru',
@@ -148,8 +151,8 @@ const STATIONS: Station[] = [
     short: 'Võru PJ',
     kind: 'station',
     city: 'Võru',
-    address: 'Jüri tn 22',
-    coord: [27.0181, 57.8365],
+    address: 'Räpina mnt 20a',
+    coord: [27.02286, 57.84434],
   },
   {
     id: 'lo-valga',
@@ -158,7 +161,7 @@ const STATIONS: Station[] = [
     kind: 'station',
     city: 'Valga',
     address: 'Puiestee tn 4',
-    coord: [26.0488, 57.7786],
+    coord: [26.03189, 57.77594],
   },
   {
     id: 'lo-otepaa',
@@ -167,7 +170,7 @@ const STATIONS: Station[] = [
     kind: 'post',
     city: 'Otepää',
     address: 'Lipuväljak 13',
-    coord: [26.4961, 58.0577],
+    coord: [26.49582, 58.05785],
   },
   {
     id: 'lo-rapina',
@@ -176,7 +179,7 @@ const STATIONS: Station[] = [
     kind: 'post',
     city: 'Räpina',
     address: 'Kooli tn 1',
-    coord: [27.4628, 58.0985],
+    coord: [27.46484, 58.09724],
   },
   {
     id: 'lo-koidula',
@@ -185,25 +188,25 @@ const STATIONS: Station[] = [
     kind: 'border',
     city: 'Koidula',
     address: 'Koidula küla, Setomaa vald',
-    coord: [27.6012, 57.8384],
+    coord: [27.59557, 57.83623],
   },
   {
     id: 'lo-luhamaa',
     name: t('Luhamaa piiripunkt', 'Luhamaa border crossing point'),
     short: 'Luhamaa PP',
     kind: 'border',
-    city: 'Koorla',
-    address: 'Luhamaa piiripunkt, Koorla küla, Setomaa vald',
-    coord: [27.3746, 57.6524],
+    city: 'Lütä',
+    address: 'Luhamaa piiripunkt, Lütä küla, Setomaa vald',
+    coord: [27.37336, 57.64278],
   },
   {
     id: 'lo-varska',
-    name: t('Värska kordon', 'Värska border guard station'),
-    short: 'Värska K',
+    name: t('Piusa kordon', 'Piusa border guard station'),
+    short: 'Piusa K',
     kind: 'border',
-    city: 'Värska',
-    address: 'Värska alevik, Setomaa vald',
-    coord: [27.6352, 57.9596],
+    city: 'Võmmorski',
+    address: 'Piusa kordon, Võmmorski küla, Setomaa vald',
+    coord: [27.5306, 57.82809],
   },
   {
     id: 'lo-mehikoorma',
@@ -212,7 +215,7 @@ const STATIONS: Station[] = [
     kind: 'harbour',
     city: 'Mehikoorma',
     address: 'Mehikoorma alevik, Räpina vald',
-    coord: [27.4718, 58.2362],
+    coord: [27.47475, 58.23784],
   },
 ];
 
@@ -2131,7 +2134,7 @@ const PLACES: Place[] = [
     'construction',
     T,
     'Kalda tee 5',
-    [26.7527, 58.372],
+    [26.75801, 58.37196],
     { district: 'Annelinn' },
   ),
   place('lo-ihaste', 'Ihaste eramurajoon', 'house', T, 'Ihaste tee 30', [26.787, 58.359], {
@@ -2184,7 +2187,7 @@ const PLACES: Place[] = [
   place('lo-ropka-toostus', 'Ropka tööstusrajoon', 'industrial', T, 'Ringtee 35', [26.7468, 58.3555], {
     district: 'Ropka',
   }),
-  place('lo-vangla', 'Tartu vangla', 'prison', T, 'Turu 56', [26.7552, 58.3622], { district: 'Ropka' }),
+  place('lo-vangla', 'Tartu vangla', 'prison', T, 'Turu tn 56', [26.7453, 58.3443], { district: 'Ropka' }),
   place('lo-lennujaam', 'Tartu lennujaam', 'airport', 'Reola', 'Lennu tn 40, Reola küla', [26.6903, 58.3075]),
 
   // ── Tartu county
@@ -2479,7 +2482,7 @@ const PLACES: Place[] = [
     'border',
     'Koidula',
     'Koidula küla, Setomaa vald',
-    [27.6005, 57.8392],
+    [27.59521, 57.83682],
     { tags: ['russia'] },
   ),
   place(
@@ -2626,9 +2629,9 @@ const PLACES: Place[] = [
     'lo-luhamaa-pp',
     'Luhamaa piiripunkt',
     'border',
-    'Koorla',
-    'Luhamaa piiripunkt, Koorla küla, Setomaa vald',
-    [27.3752, 57.6528],
+    'Lütä',
+    'Luhamaa piiripunkt, Lütä küla, Setomaa vald',
+    [27.37346, 57.64228],
     { tags: ['russia', 'trucks'] },
   ),
   place(

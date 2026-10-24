@@ -1,6 +1,9 @@
 /**
  * Lääne prefektuur (West Prefecture): Pärnu, Lääne, Saare, Hiiu, Rapla and Järva county.
  *
+ * Stations, arrest houses, prisons and border points (2.30.1): the addresses were checked against
+ * politsei.ee and vangla.ee in October 2026, and every point is the Estonian address register (ADS)
+ * point of that address, taken from the Overture Maps addresses release 2026-10-21.
  * Sources: docs/research/ppa-organisation.md (five jaoskonnad, addresses, custody, sea rescue
  * groups, patrol boats Terje and Tuul), docs/research/names-demographics.md (Russian-speaker
  * shares), src/data/geo/settlements.json (town/village polygon centroids) and the county/land
@@ -110,7 +113,7 @@ const STATIONS: Station[] = [
     kind: 'hq',
     city: 'Pärnu',
     address: 'A. H. Tammsaare pst 61',
-    coord: [24.53, 58.3792],
+    coord: [24.53103, 58.37658],
   },
   {
     id: 'la-parnu-arest',
@@ -119,7 +122,7 @@ const STATIONS: Station[] = [
     kind: 'arrest',
     city: 'Pärnu',
     address: 'A. H. Tammsaare pst 61',
-    coord: [24.5309, 58.3798],
+    coord: [24.53145, 58.37633],
   },
   {
     id: 'la-parnu-sadam',
@@ -130,8 +133,8 @@ const STATIONS: Station[] = [
     short: 'Pärnu sadam',
     kind: 'harbour',
     city: 'Pärnu',
-    address: 'Ranna pst 2',
-    coord: [24.4905, 58.3818],
+    address: 'Lootsi tn 6',
+    coord: [24.48918, 58.38591],
   },
   {
     id: 'la-haapsalu',
@@ -140,7 +143,7 @@ const STATIONS: Station[] = [
     kind: 'station',
     city: 'Haapsalu',
     address: 'Lossiplats 4',
-    coord: [23.541, 58.9463],
+    coord: [23.53849, 58.94889],
   },
   {
     id: 'la-kuressaare',
@@ -149,7 +152,7 @@ const STATIONS: Station[] = [
     kind: 'station',
     city: 'Kuressaare',
     address: 'Transvaali tn 58',
-    coord: [22.4786, 58.2632],
+    coord: [22.4961, 58.255],
     zone: SAA,
   },
   {
@@ -161,8 +164,8 @@ const STATIONS: Station[] = [
     short: 'Roomassaare',
     kind: 'harbour',
     city: 'Kuressaare',
-    address: 'Roomassaare sadam, Kuressaare',
-    coord: [22.506, 58.219],
+    address: 'Roomassaare tee 12',
+    coord: [22.50476, 58.21621],
     zone: SAA,
   },
   {
@@ -171,8 +174,8 @@ const STATIONS: Station[] = [
     short: 'Kärdla PJ',
     kind: 'station',
     city: 'Kärdla',
-    address: 'Keskväljak 5',
-    coord: [22.7486, 58.9972],
+    address: 'Sadama tn 26',
+    coord: [22.75395, 59.00637],
     zone: HII,
   },
   {
@@ -181,8 +184,8 @@ const STATIONS: Station[] = [
     short: 'Kärdla sadam',
     kind: 'harbour',
     city: 'Kärdla',
-    address: 'Sadama tn 13',
-    coord: [22.7475, 59.0068],
+    address: 'Sadama tn 30',
+    coord: [22.75137, 59.00864],
     zone: HII,
   },
   // Short-hold cells on the islands (detainees wait here for the ferry to Pärnu arestimaja).
@@ -193,7 +196,7 @@ const STATIONS: Station[] = [
     kind: 'arrest',
     city: 'Kuressaare',
     address: 'Transvaali tn 58',
-    coord: [22.4792, 58.2636],
+    coord: [22.49666, 58.25514],
     zone: SAA,
   },
   {
@@ -202,8 +205,8 @@ const STATIONS: Station[] = [
     short: 'Kärdla AK',
     kind: 'arrest',
     city: 'Kärdla',
-    address: 'Keskväljak 5',
-    coord: [22.7481, 58.9968],
+    address: 'Sadama tn 26',
+    coord: [22.75375, 59.00637],
     zone: HII,
   },
   {
@@ -213,7 +216,7 @@ const STATIONS: Station[] = [
     kind: 'station',
     city: 'Rapla',
     address: 'Savi tn 2',
-    coord: [24.7998, 59.0047],
+    coord: [24.82601, 58.99491],
   },
   {
     id: 'la-paide',
@@ -222,7 +225,7 @@ const STATIONS: Station[] = [
     kind: 'station',
     city: 'Paide',
     address: 'Tallinna tn 12',
-    coord: [25.5582, 58.8876],
+    coord: [25.5687, 58.88868],
   },
 ];
 

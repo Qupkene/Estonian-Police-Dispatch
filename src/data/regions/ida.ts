@@ -1,6 +1,9 @@
 /**
  * Ida prefektuur: Ida-Viru maakond + Lääne-Viru maakond (HQ Jõhvi).
  *
+ * Stations, arrest houses, prisons and border points (2.30.1): the addresses were checked against
+ * politsei.ee and vangla.ee in October 2026, and every point is the Estonian address register (ADS)
+ * point of that address, taken from the Overture Maps addresses release 2026-10-21.
  * Sources: docs/research/ppa-organisation.md (Narva/Jõhvi/Rakvere jaoskonnad, Kohtla-Järve and
  * Tapa offices, Viru Vangla taking over arrest-house duties, Narva-1 checkpoint and Narva
  * kordon; Mustajõe and Alajõe posts are closed), prior geographic knowledge and the processed
@@ -67,7 +70,7 @@ const STATIONS: Station[] = [
     kind: 'hq',
     city: 'Jõhvi',
     address: 'Rahu tn 38',
-    coord: [27.406, 59.361],
+    coord: [27.40902, 59.36374],
   },
   {
     id: 'ida-narva',
@@ -76,7 +79,7 @@ const STATIONS: Station[] = [
     kind: 'station',
     city: 'Narva',
     address: 'Vahtra tn 3',
-    coord: [28.185, 59.381],
+    coord: [28.16083, 59.37877],
   },
   {
     id: 'ida-rakvere',
@@ -85,7 +88,7 @@ const STATIONS: Station[] = [
     kind: 'station',
     city: 'Rakvere',
     address: 'F. R. Kreutzwaldi tn 5a',
-    coord: [26.36, 59.35],
+    coord: [26.34635, 59.34956],
   },
   {
     id: 'ida-kohtlajarve',
@@ -94,7 +97,7 @@ const STATIONS: Station[] = [
     kind: 'post',
     city: KJ,
     address: 'Järveküla tee 40',
-    coord: [27.263, 59.399],
+    coord: [27.27397, 59.39592],
   },
   {
     id: 'ida-sillamae',
@@ -102,8 +105,8 @@ const STATIONS: Station[] = [
     short: 'Sillamäe PG',
     kind: 'post',
     city: 'Sillamäe',
-    address: 'Kesk tn',
-    coord: [27.762, 59.3972],
+    address: 'I. Pavlovi tn 4',
+    coord: [27.7746, 59.39378],
   },
   {
     id: 'ida-tapa',
@@ -112,7 +115,7 @@ const STATIONS: Station[] = [
     kind: 'post',
     city: 'Tapa',
     address: 'Pikk tn 18a',
-    coord: [25.957, 59.26],
+    coord: [25.96311, 59.26067],
   },
   {
     id: 'ida-kivioli',
@@ -120,17 +123,17 @@ const STATIONS: Station[] = [
     short: 'Kiviõli PP',
     kind: 'post',
     city: 'Kiviõli',
-    address: 'Keskpuiestee, Kiviõli',
-    coord: [26.97, 59.354],
+    address: 'Viru tn 23',
+    coord: [26.98049, 59.35946],
   },
   {
     id: 'ida-narvajoesuu',
-    name: { et: 'Narva-Jõesuu konstaablipunkt', en: 'Narva-Jõesuu police post' },
+    name: { et: 'Narva-Jõesuu kordon (politsei ja piirivalve)', en: 'Narva-Jõesuu police and border guard station' },
     short: 'N-Jõesuu',
     kind: 'post',
     city: 'Narva-Jõesuu',
-    address: 'Kesk tn, Narva-Jõesuu',
-    coord: [28.041, 59.459],
+    address: 'Suur-Lootsi tn 1b',
+    coord: [28.04191, 59.46924],
   },
   {
     id: 'ida-arest',
@@ -139,7 +142,7 @@ const STATIONS: Station[] = [
     kind: 'arrest',
     city: 'Jõhvi',
     address: 'Ülesõidu tn 1',
-    coord: [27.404, 59.348],
+    coord: [27.4567, 59.35663],
   },
   {
     id: 'ida-narva-pp',
@@ -148,7 +151,7 @@ const STATIONS: Station[] = [
     kind: 'border',
     city: 'Narva',
     address: 'Peterburi mnt 1',
-    coord: [28.1995, 59.3772],
+    coord: [28.19947, 59.37637],
   },
   {
     id: 'ida-narva-kordon',
@@ -156,8 +159,8 @@ const STATIONS: Station[] = [
     short: 'Narva kordon',
     kind: 'border',
     city: 'Narva',
-    address: 'Narva, Siivertsi',
-    coord: [28.199, 59.39],
+    address: 'Tiigi tn 9a',
+    coord: [28.16624, 59.35799],
   },
   {
     id: 'ida-vasknarva',
@@ -165,8 +168,8 @@ const STATIONS: Station[] = [
     short: 'Vasknarva',
     kind: 'harbour',
     city: 'Vasknarva',
-    address: 'Vasknarva küla, Alutaguse vald',
-    coord: [27.676, 59.017],
+    address: 'Muuli tee 3, Vasknarva küla, Alutaguse vald',
+    coord: [27.74096, 58.99655],
   },
 ];
 
@@ -380,7 +383,7 @@ const PLACES: Place[] = [
   // Narva
   pl('i-pl-narva-linnus', 'Narva linnus', 'museum', 'Narva', 'Peterburi mnt 2', [28.2019, 59.3756], ['tourist', 'russian']),
   pl('i-pl-narva-raekoda', 'Narva raekoja plats', 'oldtown', 'Narva', 'Raekoja plats 1', [28.1989, 59.3789], ['tourist', 'russian']),
-  pl('i-pl-narva-pp', 'Narva piiripunkt (Narva-1)', 'border', 'Narva', 'Peterburi mnt 1', [28.1995, 59.3772], ['russian', 'borderqueue']),
+  pl('i-pl-narva-pp', 'Narva piiripunkt (Narva-1)', 'border', 'Narva', 'Peterburi mnt 1', [28.19947, 59.37637], ['russian', 'borderqueue']),
   pl('i-pl-narva-sild', 'Sõprussild (riigipiir)', 'border', 'Narva', 'Peterburi mnt', [28.2035, 59.3778], ['russian']),
   pl('i-pl-narva-piir-siivertsi', 'Riigipiir, Narva jõe kallas (Siivertsi)', 'border', 'Narva', 'Narva jõe kallas, Siivertsi', [28.199, 59.392], ['russian']),
   pl('i-pl-narva-parkla-piir', 'Piiriületuse ooteala parkla', 'parking', 'Narva', 'Tallinna mnt', [28.18, 59.3765], ['russian']),
@@ -443,7 +446,7 @@ const PLACES: Place[] = [
   pl('i-pl-johvi-bussijaam', 'Jõhvi bussijaam', 'busstation', 'Jõhvi', 'Narva mnt 5', [27.4235, 59.3598]),
   pl('i-pl-johvi-gumnaasium', 'Jõhvi gümnaasium', 'school', 'Jõhvi', 'Hariduse tn 5', [27.408, 59.357]),
   pl('i-pl-johvi-spordihall', 'Jõhvi spordihall', 'stadium', 'Jõhvi', 'Hariduse tn 5', [27.407, 59.3555]),
-  pl('i-pl-viru-vangla', 'Viru Vangla', 'prison', 'Jõhvi', 'Ülesõidu tn 1', [27.404, 59.348]),
+  pl('i-pl-viru-vangla', 'Viru Vangla', 'prison', 'Jõhvi', 'Ülesõidu tn 1', [27.46077, 59.35817]),
   pl('i-pl-johvi-pank', 'Pank (Jõhvi)', 'bank', 'Jõhvi', 'Rakvere tn 7', [27.4175, 59.3592]),
   pl('i-pl-johvi-hotell', 'Hotell (Jõhvi)', 'hotel', 'Jõhvi', 'Narva mnt 12', [27.427, 59.3602]),
   pl('i-pl-johvi-tankla', 'Tankla (Jõhvi, E20)', 'gasstation', 'Jõhvi', 'Tallinna-Narva mnt, Jõhvi', [27.43, 59.37]),
