@@ -44,7 +44,7 @@ export function startSearch(s: SimState, inc: Incident, radiusKm: number): void 
   // A template search beat already radioed its own line (engine-core); only announce ad-hoc searches.
   const tpl = tplOf(inc);
   if (inc.beats.some((b) => b.status === 'active' && tpl?.beats?.[b.index]?.kind === 'search')) return;
-  const missing = inc.category === 'missing';
+  const missing = seeksPerson(inc);
   const lead = inc.assigned.map((id) => s.units[id]).find(Boolean);
   pushRadio(s, {
     from: lead?.callsign ?? 'JK',
@@ -56,6 +56,14 @@ export function startSearch(s: SimState, inc: Incident, radiusKm: number): void 
     kind: 'info',
     incidentId: inc.id,
   });
+}
+
+/**
+ * Whether the search is for someone who needs finding (a missing person, someone fallen or lost in a story with
+ * nobody suspected) rather than for a suspect who fled: the radio then says "person found", never "suspect detained".
+ */
+function seeksPerson(inc: Incident): boolean {
+  return inc.category === 'missing' || inc.persons.some((p) => p.role === 'missing') || !inc.persons.some((p) => p.role === 'suspect');
 }
 
 function fmtKm(km: number): string {
@@ -114,7 +122,7 @@ export function updateSearch(s: SimState, inc: Incident, dtMin: number): boolean
   // Credit the unit that contributes most.
   const best = units.reduce((a, b) => (b.weight > a.weight ? b : a));
   const u = s.units[best.id];
-  const missing = inc.category === 'missing';
+  const missing = seeksPerson(inc);
   const minutes = Math.max(1, Math.round((s.now - st.startedAt) / 60_000));
   pushRadio(s, {
     from: u?.callsign ?? 'JK',
