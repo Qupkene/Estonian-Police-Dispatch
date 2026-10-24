@@ -7,6 +7,7 @@ import { pFlags, vFlags } from '../lib/engine';
 import { FlagBanner, FlagDots, KV, Plate, Section } from '../parts';
 import { PendingStrip } from './PendingStrip';
 import { RelatedIncidents } from './PersonCard';
+import { hasPhoto } from '@/gen/face';
 
 export function VehicleCard({
   vehicle: v,
@@ -72,6 +73,7 @@ export function VehicleCard({
           <button type="button" className="tl-row tl-row--person" onClick={() => onOpenPerson(owner.id)}>
             <Avatar
               seed={owner.avatarSeed}
+              photo={hasPhoto(owner)}
               size={36}
               gender={owner.gender}
               age={ageAt(owner.birthDate, s.now)}

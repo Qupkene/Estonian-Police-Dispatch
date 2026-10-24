@@ -637,6 +637,10 @@ export default {
     et: "Hallkaart ja ortofotod (WMTS); maakondade piirid (Who's On First kaudu).",
     en: "Grey base map and orthophotos (WMTS); county boundaries (via Who's On First).",
   },
+  'shell.cred.src.faces': {
+    et: 'Registri inimeste fotod: tehisintellekti loodud näod, keegi neist ei ole päris inimene.',
+    en: 'Photos of people in the registry: AI-generated faces, none of them a real person.',
+  },
   'shell.cred.src.noto': { et: 'Kaardi kirjad.', en: 'Map labels.' },
   'shell.cred.src.inter': { et: 'Vahetuse töölaua kiri.', en: 'Typeface of the shift desk.' },
   'shell.cred.src.archivo': { et: 'Menüüde pealkirjad ja sildid.', en: 'Headings and labels of the menus.' },

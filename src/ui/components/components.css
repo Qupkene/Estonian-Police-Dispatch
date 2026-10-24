@@ -973,6 +973,9 @@
   background: var(--bg-3);
   flex: none;
 }
+.ui-avatar--photo {
+  object-fit: cover;
+}
 .ui-icon {
   flex: none;
 }

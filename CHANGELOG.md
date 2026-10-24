@@ -2,6 +2,18 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.33.0 (2026-10-24)
+
+- **Registri inimestel on fotod:** väljamõeldud inimese kaardil on nüüd fotoportree, mis sobib tema soo, vanuse, juuksevärvi ja habemega. Sama inimene saab alati sama näo. Pildid on tehisintellekti loodud näod (thispersondoesnotexist.com), keegi neist ei ole päris inimene.
+- **Joonistuse juurde jäävad** tuntud inimesed, 2025. aasta legendid ja politseinikud. Kui sobivat fotot ei ole või pilt ei laadi, näidatakse joonistust nagu varem.
+
+<details>
+<summary>English</summary>
+
+Made-up people in the registry get photo portraits: synthetic StyleGAN2 faces from thispersondoesnotexist.com, labelled automatically (InsightFace for sex and age, pixels for hair colour, baldness, beard and skin tone; `scripts/faces/`), served from `public/faces/` at 256 px and picked by `src/gen/face.ts` to fit the person's sex, age, hair and beard, the same face every time, with the drawn avatars' mostly Northern European tone mix. Public figures, the 2025 legends and officers keep their drawings, and the drawing is the fallback when nothing fits or the image does not load. The service worker caches the faces like other static files.
+
+</details>
+
 ## 2.32.0 (2026-10-24)
 
 - **Tuntud eestlased on nüüd ka väljakutsetes:** 8 uut lugu, kus kuulsus helistab, on tunnistaja või kannatanu. Petturid kasutavad tema nime ja nägu investeerimisreklaamis ning raha kaotanud fänn tuleb kontorisse. Fänn jälitab esinejat. Esinemise ajal murtakse tema autosse. Ta näeb teelt väljasõitu ja jääb kannatanu juurde. Sportlane leiab metsarajalt vigastatu. Poliitikut ahistatakse tänavaüritusel. Autogrammitunnil tekib tunglemine.

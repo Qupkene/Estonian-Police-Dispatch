@@ -15,6 +15,7 @@ import { PersonCard } from './registry/PersonCard';
 import { VehicleCard } from './registry/VehicleCard';
 import { ClassicProfile } from './registry/ClassicProfile';
 import './tools.css';
+import { hasPhoto } from '@/gen/face';
 
 type Mode = RegMode;
 type View = RegView;
@@ -292,6 +293,7 @@ function ResultsList({ sim, results, onOpen }: { sim: SimState; results: Results
                   <button type="button" className="tl-row tl-row--person" onClick={() => onOpen({ kind: 'person', id: p.id })}>
                     <Avatar
                       seed={p.avatarSeed}
+                      photo={hasPhoto(p)}
                       size={38}
                       gender={p.gender}
                       age={age}

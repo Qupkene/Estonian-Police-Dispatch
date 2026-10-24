@@ -37,7 +37,7 @@ const MATCH = { ignoreVary: true };
 const SCOPE_URL = new URL(self.registration.scope);
 const BASE = SCOPE_URL.pathname; // '/' on politsei.eu, '/<repo>/' on a project page
 const INDEX_URL = SCOPE_URL.href;
-const STATIC_PREFIXES = [`${BASE}assets/`, `${BASE}glyphs/`];
+const STATIC_PREFIXES = [`${BASE}assets/`, `${BASE}glyphs/`, `${BASE}faces/`];
 const SHELL_EXTRAS = ['favicon.svg', 'manifest.webmanifest'].map((p) => new URL(p, SCOPE_URL).href);
 const BYPASS_PREFIXES = [`${BASE}api/`, `${BASE}tiles/`, `${BASE}admin/`];
 const isBypassed = (url) =>

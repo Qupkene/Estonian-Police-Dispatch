@@ -4,6 +4,7 @@ import { lawById } from '@/data/laws';
 import { Avatar } from '@/ui/components';
 import { useT, useTx } from '@/i18n';
 import { ageAt, isoToEt, lawIdLabel } from '../lib/helpers';
+import { hasPhoto } from '@/gen/face';
 
 export function ClassicProfile({ person: p, sim: s }: { person: Person; sim: SimState }) {
   const t = useT();
@@ -16,7 +17,7 @@ export function ClassicProfile({ person: p, sim: s }: { person: Person; sim: Sim
       <div className="tl-classic__body">
         <div className="tl-classic__profile">
           <div className="tl-classic__pic">
-            <Avatar seed={p.avatarSeed} size={150} gender={p.gender} age={age} hair={a.hair} hairColor={a.hairColor} beard={a.beard} glasses={a.glasses} />
+            <Avatar seed={p.avatarSeed} photo={hasPhoto(p)} size={150} gender={p.gender} age={age} hair={a.hair} hairColor={a.hairColor} beard={a.beard} glasses={a.glasses} />
           </div>
           <div className="tl-classic__info">
             <h3>
