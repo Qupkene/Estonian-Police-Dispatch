@@ -5,6 +5,7 @@
 import { pickLocation, taggedPlaces, townStreetAddress } from '@/gen/address';
 import { surnameForGender } from '@/gen/names';
 import { generatePerson } from '@/gen/person';
+import { castCelebrity } from './celebrities';
 import { generateVehicle } from '@/gen/vehicle';
 import { dayInfo, hourCurve, weekdayFactor } from './calendar';
 import { maybeCreateCall } from './calls';
@@ -14,7 +15,17 @@ import { incidentVars } from './incidents';
 import { Rng, withRng } from './rng';
 import { withScenario } from './scenario';
 import { defaultSla, slaFor } from './scoring';
-import { areaOf, areaShare, areaView, borderPoints, inArea, sectorOf, sectorStationIds, spotsNear, stationShare } from './sectors';
+import {
+  areaOf,
+  areaShare,
+  areaView,
+  borderPoints,
+  inArea,
+  sectorOf,
+  sectorStationIds,
+  spotsNear,
+  stationShare,
+} from './sectors';
 import { fillText } from './text';
 import { HOUR, isoDate, MIN, seasonOf, wall } from './time';
 import { RESPONSE_TYPES, rosterSpecsFor, stationById, zoneAt } from './units';
@@ -43,7 +54,12 @@ const T = (et: string, en: string): Text => ({ et, en });
 
 // Tuned for fun over realism: a normal shift keeps the desk busy but leaves time to read the calls and the registry.
 // 2.23.0 raised it (players saw six calls in a three-hour daily challenge).
-export const DIFFICULTY_FACTOR: Record<Difficulty, number> = { cadet: 0.55, normal: 0.9, veteran: 1.2, realistic: 1.6 };
+export const DIFFICULTY_FACTOR: Record<Difficulty, number> = {
+  cadet: 0.55,
+  normal: 0.9,
+  veteran: 1.2,
+  realistic: 1.6,
+};
 
 /** Event-number prefixes per prefecture ("PÕ-261017-0042"). */
 export const NUMBER_PREFIX: Record<RegionId, string> = { pohja: 'PÕ', ida: 'ID', louna: 'LÕ', laane: 'LÄ' };
@@ -151,7 +167,9 @@ export function initCareerLoad(s: SimState): void {
   const region = regionOf(s);
   if (!region) return;
   const shift = s.flags.shiftKind === 'night' ? 'night' : 'day';
-  let regular = rosterSpecsFor(region, shift, 'normal').filter((sp) => !sp.onCall && RESPONSE_TYPES.has(sp.type));
+  let regular = rosterSpecsFor(region, shift, 'normal').filter(
+    (sp) => !sp.onCall && RESPONSE_TYPES.has(sp.type),
+  );
   let regularCount = regular.length;
   const area = s.sectors ?? [];
   if (area.length) {
@@ -159,12 +177,16 @@ export function initCareerLoad(s: SimState): void {
     regular = regular.filter((sp) => stations.includes(sp.stationId));
     regularCount = regular.reduce((a, sp) => a + stationShare(region, area, sp.stationId), 0);
   }
-  const mine = s.unitOrder.map((id) => s.units[id]).filter((u) => !!u && !u.onCall && RESPONSE_TYPES.has(u.type));
+  const mine = s.unitOrder
+    .map((id) => s.units[id])
+    .filter((u) => !!u && !u.onCall && RESPONSE_TYPES.has(u.type));
   // Between linear and square root: a small force gets fewer calls, but not so few that the shift turns dull.
   const factor = regularCount > 0 ? Math.pow(mine.length / regularCount, CAREER_LOAD_EXP) : 1;
   s.flags.loadFactor = Math.round(Math.max(CAREER_LOAD_FLOOR, Math.min(1, factor)) * 1000) / 1000;
   const covered = new Set(mine.map((u) => u.zone || 'mainland'));
-  const staffed = new Set(regular.map((sp) => sp.zone ?? stationById(region, sp.stationId)?.zone ?? 'mainland'));
+  const staffed = new Set(
+    regular.map((sp) => sp.zone ?? stationById(region, sp.stationId)?.zone ?? 'mainland'),
+  );
   s.flags.skipZones = covered.size ? [...staffed].filter((z) => !covered.has(z)).join(',') : '';
 }
 
@@ -186,12 +208,30 @@ export function skippedZones(s: SimState): Set<string> {
 
 const PROFILES: Record<Exclude<HourProfile, number[]>, number[]> = {
   flat: Array(24).fill(1),
-  day: [0.2, 0.15, 0.1, 0.1, 0.1, 0.2, 0.4, 0.8, 1.2, 1.5, 1.6, 1.6, 1.6, 1.6, 1.6, 1.6, 1.5, 1.4, 1.2, 1.0, 0.8, 0.6, 0.4, 0.3],
-  night: [1.9, 1.9, 1.8, 1.6, 1.2, 0.7, 0.4, 0.3, 0.3, 0.3, 0.3, 0.3, 0.4, 0.4, 0.4, 0.5, 0.6, 0.7, 0.9, 1.1, 1.3, 1.6, 1.8, 1.9],
-  evening: [1.0, 0.7, 0.5, 0.3, 0.2, 0.2, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.8, 0.9, 1.0, 1.2, 1.5, 1.8, 2.0, 2.0, 1.9, 1.7, 1.3],
-  nightlife: [2.6, 2.8, 2.6, 2.0, 1.2, 0.5, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.2, 0.2, 0.3, 0.5, 0.8, 1.2, 1.6, 2.0, 2.4],
-  commute: [0.2, 0.1, 0.1, 0.1, 0.2, 0.5, 1.2, 2.2, 2.4, 1.4, 1.0, 1.0, 1.1, 1.1, 1.2, 1.6, 2.2, 2.4, 1.8, 1.2, 0.9, 0.6, 0.4, 0.3],
-  business: [0.1, 0.1, 0.1, 0.1, 0.1, 0.2, 0.4, 0.9, 1.6, 1.9, 2.0, 2.0, 1.9, 2.0, 2.0, 1.9, 1.7, 1.2, 0.7, 0.4, 0.3, 0.2, 0.1, 0.1],
+  day: [
+    0.2, 0.15, 0.1, 0.1, 0.1, 0.2, 0.4, 0.8, 1.2, 1.5, 1.6, 1.6, 1.6, 1.6, 1.6, 1.6, 1.5, 1.4, 1.2, 1.0, 0.8,
+    0.6, 0.4, 0.3,
+  ],
+  night: [
+    1.9, 1.9, 1.8, 1.6, 1.2, 0.7, 0.4, 0.3, 0.3, 0.3, 0.3, 0.3, 0.4, 0.4, 0.4, 0.5, 0.6, 0.7, 0.9, 1.1, 1.3,
+    1.6, 1.8, 1.9,
+  ],
+  evening: [
+    1.0, 0.7, 0.5, 0.3, 0.2, 0.2, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.8, 0.9, 1.0, 1.2, 1.5, 1.8, 2.0, 2.0,
+    1.9, 1.7, 1.3,
+  ],
+  nightlife: [
+    2.6, 2.8, 2.6, 2.0, 1.2, 0.5, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.2, 0.2, 0.3, 0.5, 0.8, 1.2,
+    1.6, 2.0, 2.4,
+  ],
+  commute: [
+    0.2, 0.1, 0.1, 0.1, 0.2, 0.5, 1.2, 2.2, 2.4, 1.4, 1.0, 1.0, 1.1, 1.1, 1.2, 1.6, 2.2, 2.4, 1.8, 1.2, 0.9,
+    0.6, 0.4, 0.3,
+  ],
+  business: [
+    0.1, 0.1, 0.1, 0.1, 0.1, 0.2, 0.4, 0.9, 1.6, 1.9, 2.0, 2.0, 1.9, 2.0, 2.0, 1.9, 1.7, 1.2, 0.7, 0.4, 0.3,
+    0.2, 0.1, 0.1,
+  ],
 };
 
 /** Hour-of-day multiplier for a template hour profile. */
@@ -203,7 +243,18 @@ export function hourMultiplier(p: HourProfile | undefined, hour: number, weekday
 }
 
 /** Place kinds the address generator can always produce. */
-const GENERATED_KINDS = new Set<PlaceKind>(['residential', 'house', 'street', 'village', 'farm', 'summerhouse', 'forest', 'ruralroad', 'lake', 'highway']);
+const GENERATED_KINDS = new Set<PlaceKind>([
+  'residential',
+  'house',
+  'street',
+  'village',
+  'farm',
+  'summerhouse',
+  'forest',
+  'ruralroad',
+  'lake',
+  'highway',
+]);
 /** Kinds that only make sense at a curated real place. */
 const CURATED_ONLY = new Set<PlaceKind>([
   'airport',
@@ -258,7 +309,10 @@ interface PickCtx {
 
 function pickCtx(s: SimState, t: number): PickCtx {
   const w = wall(t);
-  const weekendNight = (w.weekday === 4 && w.hour >= 18) || (w.weekday === 5 && (w.hour < 6 || w.hour >= 18)) || (w.weekday === 6 && w.hour < 6);
+  const weekendNight =
+    (w.weekday === 4 && w.hour >= 18) ||
+    (w.weekday === 5 && (w.hour < 6 || w.hour >= 18)) ||
+    (w.weekday === 6 && w.hour < 6);
   const wk = s.weather?.kind;
   let dayTags: string[] = [];
   try {
@@ -367,7 +421,11 @@ export function repetitionFactor(
 ): number {
   const times = told.get(tpl.id) ?? 0;
   // A family's story is told once a shift: a domestic template comes again only with a scenario not yet told.
-  if (times && tpl.category === 'domestic' && !(tpl.scenarios ?? []).some((sc) => !seen.has(`${tpl.id}/${sc.id}`)))
+  if (
+    times &&
+    tpl.category === 'domestic' &&
+    !(tpl.scenarios ?? []).some((sc) => !seen.has(`${tpl.id}/${sc.id}`))
+  )
     return 0;
   let f = 1 / (1 + TOLD_TEMPLATE_DECAY * times);
   if (recent.includes(tpl.id)) f *= RECENT_TEMPLATE_FACTOR;
@@ -378,7 +436,9 @@ export function repetitionFactor(
 /** The category of the last two incidents when they share one. */
 function categoryStreak(s: SimState): string | undefined {
   const cats = flagList(s.flags[RECENT_CAT]);
-  return cats.length >= 2 && cats[cats.length - 1] === cats[cats.length - 2] ? cats[cats.length - 1] : undefined;
+  return cats.length >= 2 && cats[cats.length - 1] === cats[cats.length - 2]
+    ? cats[cats.length - 1]
+    : undefined;
 }
 
 /** Weighted scenario pick: a scenario already told this shift is strongly down-weighted. */
@@ -392,7 +452,12 @@ export function pickScenario(s: SimState, r: Rng, tpl: IncidentTemplate): Incide
 }
 
 /** Weighted template pick with the easter-egg budget (about 4 % of events, never more than 7 %). */
-export function pickTemplate(s: SimState, r: Rng, templates: IncidentTemplate[], t: number): IncidentTemplate | undefined {
+export function pickTemplate(
+  s: SimState,
+  r: Rng,
+  templates: IncidentTemplate[],
+  t: number,
+): IncidentTemplate | undefined {
   const ctx = pickCtx(s, t);
   const recent = recentTemplateIds(s);
   const streak = categoryStreak(s);
@@ -442,7 +507,15 @@ function fallbackLocation(r: Rng, region: RegionDef, kinds: PlaceKind[]): Incide
   const places = region.places.filter((p) => kinds.includes(p.kind));
   if (places.length) {
     const p = r.pick(places);
-    return { address: p.address, coord: p.coord, city: p.city, district: p.district, placeName: p.name, placeKind: p.kind, zone: p.zone ?? 'mainland' };
+    return {
+      address: p.address,
+      coord: p.coord,
+      city: p.city,
+      district: p.district,
+      placeName: p.name,
+      placeKind: p.kind,
+      zone: p.zone ?? 'mainland',
+    };
   }
   const kind = kinds[0] ?? 'street';
   if (region.towns.length) {
@@ -451,7 +524,13 @@ function fallbackLocation(r: Rng, region: RegionDef, kinds: PlaceKind[]): Incide
     return { address: town.name, coord, city: town.name, placeKind: kind, zone: town.zone ?? 'mainland' };
   }
   const coord = destination(region.center, r.range(0, 4), r.range(0, 360));
-  return { address: coordText(coord), coord, city: '', placeKind: kind, zone: region.zones[0]?.id ?? 'mainland' };
+  return {
+    address: coordText(coord),
+    coord,
+    city: '',
+    placeKind: kind,
+    zone: region.zones[0]?.id ?? 'mainland',
+  };
 }
 
 /** A location for a template's place kinds, with its zone filled in. */
@@ -469,7 +548,12 @@ function templateLocation(r: Rng, region: RegionDef, tpl: IncidentTemplate): Inc
  * Career: a location outside the skipped zones (a few re-picks), or undefined when the template
  * only fits places there (e.g. an island ferry port), in which case the call is not spawned.
  */
-function coveredLocation(r: Rng, region: RegionDef, tpl: IncidentTemplate, skip: Set<string>): IncidentLocation | undefined {
+function coveredLocation(
+  r: Rng,
+  region: RegionDef,
+  tpl: IncidentTemplate,
+  skip: Set<string>,
+): IncidentLocation | undefined {
   for (let i = 0; i < 8; i++) {
     const loc = templateLocation(r, region, tpl);
     if (!skip.has(loc.zone ?? 'mainland')) return loc;
@@ -485,7 +569,12 @@ const AREA_LOCATION_TRIES = 8;
  * zones), picked from the area's own towns, streets and places; undefined when the template has no place
  * there (a forest call in a city sector).
  */
-function areaLocation(r: Rng, s: SimState, region: RegionDef, tpl: IncidentTemplate): IncidentLocation | undefined {
+function areaLocation(
+  r: Rng,
+  s: SimState,
+  region: RegionDef,
+  tpl: IncidentTemplate,
+): IncidentLocation | undefined {
   const view = areaView(region, areaOf(s));
   // A story that needs a tagged place (a ferry queue) has none to happen at in an area without one.
   if (tpl.placeTags?.length && !placeAvailability(view, tpl.places, tpl.placeTags)) return undefined;
@@ -510,7 +599,14 @@ function coordText(c: LngLat): string {
  * address is read as that kind of place (locationFromCoord), for a call template that needs one; with `from`,
  * the border is that of these sectors (default: the whole area, night cover included).
  */
-export function borderLocation(s: SimState, r: Rng, to: string, n = 6, kind?: PlaceKind, from: string[] = areaOf(s)): IncidentLocation | undefined {
+export function borderLocation(
+  s: SimState,
+  r: Rng,
+  to: string,
+  n = 6,
+  kind?: PlaceKind,
+  from: string[] = areaOf(s),
+): IncidentLocation | undefined {
   const region = regionOf(s);
   if (!region || !from.length || from.includes(to)) return undefined;
   const spots = borderPoints(region, from, to, n * 2)
@@ -525,7 +621,15 @@ export function borderLocation(s: SimState, r: Rng, to: string, n = 6, kind?: Pl
  * stations), as a full address: a colleague's call for help the player's crews can actually reach. One of the
  * `n` nearest addressable points of `to` that fit; undefined when none is that close.
  */
-export function nearLocation(s: SimState, r: Rng, to: string, refs: LngLat[], maxKm: number, kind?: PlaceKind, n = 6): IncidentLocation | undefined {
+export function nearLocation(
+  s: SimState,
+  r: Rng,
+  to: string,
+  refs: LngLat[],
+  maxKm: number,
+  kind?: PlaceKind,
+  n = 6,
+): IncidentLocation | undefined {
   const region = regionOf(s);
   if (!region || !refs.length) return undefined;
   const near = (c: LngLat) => Math.min(...refs.map((q) => haversineKm(c, q)));
@@ -544,7 +648,8 @@ export function nearLocation(s: SimState, r: Rng, to: string, refs: LngLat[], ma
 function pickAddress(r: Rng, spots: IncidentLocation[]): IncidentLocation | undefined {
   const named = spots.filter((loc) => !loc.address.includes(COORD_WORD));
   const loc = named.length ? r.pick(named) : spots.length ? r.pick(spots) : undefined;
-  if (loc && loc.city && loc.address.includes(COORD_WORD)) return { ...loc, address: townStreetAddress(r, loc.city) };
+  if (loc && loc.city && loc.address.includes(COORD_WORD))
+    return { ...loc, address: townStreetAddress(r, loc.city) };
   return loc;
 }
 
@@ -613,9 +718,28 @@ export function locationFromCoord(s: SimState, coord: LngLat, kind?: PlaceKind):
       town = t;
     }
   }
-  const pk: PlaceKind = kind ?? (best ? (best.kind === 'apartment' ? 'residential' : best.kind === 'house' ? 'house' : 'street') : town ? 'street' : 'forest');
-  if (best) return { address: `${best.name} ${best.n}`, coord, city: best.city, district: best.district, placeKind: pk, zone };
-  if (town) return { address: `${town.name}, ${coordText(coord)}`, coord, city: town.name, placeKind: pk, zone };
+  const pk: PlaceKind =
+    kind ??
+    (best
+      ? best.kind === 'apartment'
+        ? 'residential'
+        : best.kind === 'house'
+          ? 'house'
+          : 'street'
+      : town
+        ? 'street'
+        : 'forest');
+  if (best)
+    return {
+      address: `${best.name} ${best.n}`,
+      coord,
+      city: best.city,
+      district: best.district,
+      placeKind: pk,
+      zone,
+    };
+  if (town)
+    return { address: `${town.name}, ${coordText(coord)}`, coord, city: town.name, placeKind: pk, zone };
   return { address: coordText(coord), coord, city: '', placeKind: pk, zone };
 }
 
@@ -797,7 +921,10 @@ function makeIncident(s: SimState, base: IncidentTemplate, o: CreateOpts): Incid
     onSceneMin: r.int(tpl.onScene[0], Math.max(tpl.onScene[0], tpl.onScene[1])),
     workDone: 0,
     slaMin: 0,
-    beats: (tpl.beats ?? []).map((b, index) => ({ index, status: r.chance(b.chance ?? 1) ? 'pending' : 'skipped' })),
+    beats: (tpl.beats ?? []).map((b, index) => ({
+      index,
+      status: r.chance(b.chance ?? 1) ? 'pending' : 'skipped',
+    })),
     agencyNeeds: [],
     effects: { success: 0, risk: 0, trust: 0, time: 0, arrests: 0 },
     timeline: [],
@@ -807,9 +934,11 @@ function makeIncident(s: SimState, base: IncidentTemplate, o: CreateOpts): Incid
   inc.slaMin = slaFor(s, inc, truePriority, tpl);
   // Rural callers wait longer: distances are bigger and they know it (DESIGN §4.3).
   const ruralWait = inc.slaMin > defaultSla(truePriority, true) ? 1.6 : 1;
-  inc.expiresAt = now + (tpl.expiresMin ?? DEFAULT_EXPIRES_MIN[truePriority]) * ruralWait * CALLER_PATIENCE * MIN;
+  inc.expiresAt =
+    now + (tpl.expiresMin ?? DEFAULT_EXPIRES_MIN[truePriority]) * ruralWait * CALLER_PATIENCE * MIN;
   if (tpl.escalation) inc.escalateAt = now + tpl.escalation.afterMin * MIN;
-  for (const a of tpl.agencies ?? []) if (r.chance(a.chance)) inc.agencyNeeds.push({ agency: a.agency, reason: a.reason });
+  for (const a of tpl.agencies ?? [])
+    if (r.chance(a.chance)) inc.agencyNeeds.push({ agency: a.agency, reason: a.reason });
   if (tpl.referral && r.chance(tpl.referral.chance)) inc.referral = tpl.referral.agency;
   if (tpl.falseAlarmChance && r.chance(tpl.falseAlarmChance)) inc.falseAlarm = true;
 
@@ -828,12 +957,22 @@ function makeIncident(s: SimState, base: IncidentTemplate, o: CreateOpts): Incid
   return inc;
 }
 
-function generateInvolved(s: SimState, r: Rng, tpl: IncidentTemplate, inc: Incident, region: RegionDef): void {
+function generateInvolved(
+  s: SimState,
+  r: Rng,
+  tpl: IncidentTemplate,
+  inc: Incident,
+  region: RegionDef,
+): void {
   const now = s.now;
   const loc = inc.location;
   const ru = ruShareAt(region, loc);
   const householdLang = pickLang(r, ru);
-  const atHome = loc.placeKind === 'residential' || loc.placeKind === 'house' || loc.placeKind === 'farm' || loc.placeKind === 'summerhouse';
+  const atHome =
+    loc.placeKind === 'residential' ||
+    loc.placeKind === 'house' ||
+    loc.placeKind === 'farm' ||
+    loc.placeKind === 'summerhouse';
   const specs = tpl.persons ?? [];
   const order = specs.map((sp, i) => ({ sp, i }));
   // Anchors (no family relation) first, victims before others; family members after.
@@ -851,24 +990,49 @@ function generateInvolved(s: SimState, r: Rng, tpl: IncidentTemplate, inc: Incid
     const rel = sp.relation ?? '';
     const fam = FAMILY.has(rel) && !!anchor;
     let gender: Gender | undefined = sp.gender && sp.gender !== 'any' ? sp.gender : undefined;
-    if (!gender && fam && anchor && (rel === 'partner' || rel === 'ex_partner')) gender = r.chance(0.92) ? (anchor.gender === 'M' ? 'F' : 'M') : anchor.gender;
-    const lang: SpeakerLang = fam && anchor ? anchor.lang : !anchor || sp.role === 'victim' || rel === 'neighbour' ? householdLang : pickLang(r, ru);
+    if (!gender && fam && anchor && (rel === 'partner' || rel === 'ex_partner'))
+      gender = r.chance(0.92) ? (anchor.gender === 'M' ? 'F' : 'M') : anchor.gender;
+    const lang: SpeakerLang =
+      fam && anchor
+        ? anchor.lang
+        : !anchor || sp.role === 'victim' || rel === 'neighbour'
+          ? householdLang
+          : pickLang(r, ru);
     let lastName: string | undefined;
     let home: { address: string; city: string; coord?: LngLat } | undefined;
     if (fam && anchor) {
-      const share = rel === 'child' || rel === 'parent' ? 0.9 : rel === 'family' ? 0.75 : rel === 'partner' ? 0.6 : 0.2;
+      const share =
+        rel === 'child' || rel === 'parent' ? 0.9 : rel === 'family' ? 0.75 : rel === 'partner' ? 0.6 : 0.2;
       if (r.chance(share)) {
         if (!gender) gender = r.chance(0.5) ? 'M' : 'F';
         lastName = safeSurname(anchor.lastName, gender, lang);
       }
-      if (rel !== 'ex_partner' && (rel !== 'family' || r.chance(0.7))) home = { address: anchor.address, city: anchor.city, coord: anchor.coord };
-    } else if (atHome && !anchor && (sp.role === 'victim' || sp.role === 'caller' || sp.role === 'missing' || sp.role === 'deceased')) {
+      if (rel !== 'ex_partner' && (rel !== 'family' || r.chance(0.7)))
+        home = { address: anchor.address, city: anchor.city, coord: anchor.coord };
+    } else if (
+      atHome &&
+      !anchor &&
+      (sp.role === 'victim' || sp.role === 'caller' || sp.role === 'missing' || sp.role === 'deceased')
+    ) {
       home = { address: loc.address, city: loc.city, coord: loc.coord };
     } else if (atHome && rel === 'neighbour') {
       home = { address: loc.address.replace(/-\d+$/, `-${r.int(1, 60)}`), city: loc.city, coord: loc.coord };
     }
-    const p = generatePerson(r, { id: newPersonId(s), now, region, gender, age: sp.age, lang, spec: sp, home, lastName });
-    if (sp.role === 'missing' && !p.flags.missing) p.flags.missing = { since: isoDate(now), text: T('Kadunud, otsitakse', 'Missing, search ongoing') };
+    const p =
+      castCelebrity(s, r, sp) ??
+      generatePerson(r, {
+        id: newPersonId(s),
+        now,
+        region,
+        gender,
+        age: sp.age,
+        lang,
+        spec: sp,
+        home,
+        lastName,
+      });
+    if (sp.role === 'missing' && !p.flags.missing)
+      p.flags.missing = { since: isoDate(now), text: T('Kadunud, otsitakse', 'Missing, search ongoing') };
     if (sp.role === 'deceased') p.flags.deceased = true;
     s.persons[p.id] = p;
     made[i] = p;
@@ -884,7 +1048,8 @@ function generateInvolved(s: SimState, r: Rng, tpl: IncidentTemplate, inc: Incid
   if (victim >= 0 && made[victim]) {
     for (let i = 0; i < specs.length; i++) {
       const p = made[i];
-      if (p && specs[i].role === 'suspect' && p.flags.restrainingOrder) p.flags.restrainingOrder.protectedName = full(made[victim]!);
+      if (p && specs[i].role === 'suspect' && p.flags.restrainingOrder)
+        p.flags.restrainingOrder.protectedName = full(made[victim]!);
     }
   }
   // Caller.
@@ -915,19 +1080,31 @@ function generateInvolved(s: SimState, r: Rng, tpl: IncidentTemplate, inc: Incid
         spec,
         age: spec.age,
         lastName: fam && r.chance(0.8) ? safeSurname(fam.lastName, gender, lang) : undefined,
-        home: fam ? { address: fam.address, city: fam.city, coord: fam.coord } : atHome && r.chance(0.6) ? { address: loc.address.replace(/-\d+$/, `-${r.int(1, 60)}`), city: loc.city, coord: loc.coord } : undefined,
+        home: fam
+          ? { address: fam.address, city: fam.city, coord: fam.coord }
+          : atHome && r.chance(0.6)
+            ? { address: loc.address.replace(/-\d+$/, `-${r.int(1, 60)}`), city: loc.city, coord: loc.coord }
+            : undefined,
       });
       s.persons[caller.id] = caller;
       inc.persons.push({ personId: caller.id, role: 'caller' });
     }
   }
-  if (caller) inc.caller = { name: full(caller), phone: caller.phone, lang: caller.lang, personId: caller.id };
+  if (caller)
+    inc.caller = { name: full(caller), phone: caller.phone, lang: caller.lang, personId: caller.id };
 
   // Vehicles.
   for (const vs of tpl.vehicles ?? []) {
     const ownerIdx = vs.driverRole ? specs.findIndex((sp) => sp.role === vs.driverRole) : -1;
     const owner = ownerIdx >= 0 ? made[ownerIdx] : undefined;
-    const v = generateVehicle(r, { now, kind: vs.kind, owner, spec: vs, region: s.regionId, isTaken: (p) => !!s.vehicles[p] });
+    const v = generateVehicle(r, {
+      now,
+      kind: vs.kind,
+      owner,
+      spec: vs,
+      region: s.regionId,
+      isTaken: (p) => !!s.vehicles[p],
+    });
     if (s.vehicles[v.plate]) continue;
     if (v.flags.stolen && owner && (vs.driverRole === 'suspect' || vs.driverRole === 'driver')) {
       // A stolen car belongs to someone else (the theft victim lives in the registry).

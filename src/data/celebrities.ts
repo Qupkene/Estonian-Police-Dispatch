@@ -7,19 +7,9 @@
  * suspect and never picked for a story. Everything the registry adds about them (isikukood serial, car, phone,
  * appearance) is made up, and the card says so. Anyone who asks to be left out: delete the line.
  */
-import type { Gender, Text } from '@/sim/types';
+import type { CelebrityField, Gender, Text } from '@/sim/types';
 
-export type CelebrityField =
-  | 'politics'
-  | 'music'
-  | 'sport'
-  | 'acting'
-  | 'media'
-  | 'literature'
-  | 'business'
-  | 'science'
-  | 'art'
-  | 'fashion';
+export type { CelebrityField };
 
 export interface CelebrityDef {
   /** Row in the owner's list; the person id is `vip-<nr>`, so it never changes. */

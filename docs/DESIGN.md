@@ -293,7 +293,9 @@ and co-op clients (which search with `log: false`) wait for the room's `q` comma
 record is always clean (an info flag "AVALIKU ELU TEGELANE", no records, no flags), the isikukood serial is
 701-999 (hospitals used 001-700 before 2013, so it is nobody's real code), there is no home address or phone, and
 the card says the car, code and looks are made up. Nothing else in the sim reads the catalogue, so a public figure
-is never a suspect, a bulletin or part of a story.
+is never a suspect or a bulletin. Stories cast them through `PersonSpec.celebrity` (2.32.0,
+`src/data/incidents/celebrity.ts`): a caller, a witness or a victim only (`CELEBRITY_ROLES`), someone who fits
+the spec's fields, gender and age and is not in the shift yet; texts name them with `{celeb}` and `{celebFor}`.
 Search: by isikukood (exact), by name (case/diacritic-insensitive substring), by plate
 (normalise spaces/case), by VIN. Every query is logged (`QueryLog`).
 

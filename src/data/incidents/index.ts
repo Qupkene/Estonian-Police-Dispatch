@@ -16,6 +16,7 @@ import { TEMPLATES_MAJOR } from './major';
 import { TEMPLATES_ESCALATING } from './escalating';
 import { TEMPLATES_STORIES } from './stories';
 import { TEMPLATES_REGIONAL } from './regional';
+import { TEMPLATES_CELEBRITY } from './celebrity';
 
 export const TEMPLATES: IncidentTemplate[] = [
   ...TEMPLATES_VIOLENCE,
@@ -35,6 +36,7 @@ export const TEMPLATES: IncidentTemplate[] = [
   ...TEMPLATES_ESCALATING,
   ...TEMPLATES_STORIES,
   ...TEMPLATES_REGIONAL,
+  ...TEMPLATES_CELEBRITY,
 ];
 
 export const TEMPLATE_BY_ID: Record<string, IncidentTemplate> = Object.fromEntries(TEMPLATES.map((t) => [t.id, t]));
