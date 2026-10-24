@@ -351,9 +351,23 @@ export interface UnitNeed {
 }
 
 /** Hour-of-day profile key or explicit 24 multipliers (index = hour 0..23). */
-export type HourProfile = 'flat' | 'day' | 'night' | 'evening' | 'nightlife' | 'commute' | 'business' | number[];
+export type HourProfile =
+  'flat' | 'day' | 'night' | 'evening' | 'nightlife' | 'commute' | 'business' | number[];
 
 export type PersonRole = 'suspect' | 'victim' | 'caller' | 'witness' | 'driver' | 'missing' | 'deceased';
+
+/** Line of work of a public figure (src/data/celebrities.ts). */
+export type CelebrityField =
+  | 'politics'
+  | 'music'
+  | 'sport'
+  | 'acting'
+  | 'media'
+  | 'literature'
+  | 'business'
+  | 'science'
+  | 'art'
+  | 'fashion';
 
 export interface PersonSpec {
   role: PersonRole;
@@ -367,10 +381,26 @@ export interface PersonSpec {
   noLicense?: number; // license suspended/revoked/none
   probation?: number;
   /** Relation to the victim/caller, used in text: partner, neighbour, stranger, family, employee... */
-  relation?: 'partner' | 'ex_partner' | 'neighbour' | 'stranger' | 'family' | 'child' | 'parent' | 'employee' | 'customer' | 'friend';
+  relation?:
+    | 'partner'
+    | 'ex_partner'
+    | 'neighbour'
+    | 'stranger'
+    | 'family'
+    | 'child'
+    | 'parent'
+    | 'employee'
+    | 'customer'
+    | 'friend';
   /** Identity known to the caller from the start (otherwise only a description). */
   known?: boolean;
   intoxicated?: number;
+  /**
+   * A well-known Estonian from src/data/celebrities.ts plays this person, for a caller, a witness or a victim only
+   * (a suspect or a driver is always made up). `true` takes anyone who fits `gender` and `age`; a list of fields
+   * narrows the pick. Texts name them with {celeb}.
+   */
+  celebrity?: true | CelebrityField[];
 }
 
 export interface VehicleSpec {
@@ -523,7 +553,8 @@ export interface OutcomeSpec {
 }
 
 /** Caller mood for 112 call-taking. */
-export type CallerMood = 'panic' | 'calm' | 'drunk' | 'angry' | 'child' | 'elderly' | 'whisper' | 'confused' | 'prank';
+export type CallerMood =
+  'panic' | 'calm' | 'drunk' | 'angry' | 'child' | 'elderly' | 'whisper' | 'confused' | 'prank';
 
 export type CallQuestionId =
   | 'where'
@@ -909,7 +940,17 @@ export interface RadioMsg {
   to?: string;
   text: Text;
   level: 'routine' | 'priority' | 'emergency';
-  kind: 'status' | 'query' | 'choice' | 'backup' | 'agency' | 'info' | 'system' | 'dispatch' | 'reply' | 'pursuit';
+  kind:
+    | 'status'
+    | 'query'
+    | 'choice'
+    | 'backup'
+    | 'agency'
+    | 'info'
+    | 'system'
+    | 'dispatch'
+    | 'reply'
+    | 'pursuit';
   incidentId?: string;
   unitId?: string;
   replies?: RadioReply[];
@@ -1111,7 +1152,18 @@ export interface FleetVehicle {
 
 export interface LedgerEntry {
   day: number;
-  kind: 'budget' | 'bonus' | 'salary' | 'hire' | 'vehicle' | 'upgrade' | 'upkeep' | 'fuel' | 'overtime' | 'fine' | 'other';
+  kind:
+    | 'budget'
+    | 'bonus'
+    | 'salary'
+    | 'hire'
+    | 'vehicle'
+    | 'upgrade'
+    | 'upkeep'
+    | 'fuel'
+    | 'overtime'
+    | 'fine'
+    | 'other';
   amount: number; // + income, - expense
   text: Text;
 }

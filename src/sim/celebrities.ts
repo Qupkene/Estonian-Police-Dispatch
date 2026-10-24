@@ -12,7 +12,7 @@ import { idcodeChecksum } from '@/gen/isikukood';
 import { generateVehicle } from '@/gen/vehicle';
 import { Rng, hashString } from './rng';
 import { DAY, HOUR, isoDate } from './time';
-import type { Appearance, Person, RegionId, SimState, Text, Vehicle } from './types';
+import type { Appearance, Person, PersonRole, PersonSpec, RegionId, SimState, Text, Vehicle } from './types';
 
 export const CELEB_PREFIX = 'vip-';
 
@@ -245,4 +245,36 @@ export function materialiseCelebrities(s: SimState, ids: string[]): void {
     });
     s.persons[id] = p;
   }
+}
+
+/** The roles a public figure may play in a story: never a suspect, a driver, a missing person or a death. */
+export const CELEBRITY_ROLES: ReadonlySet<PersonRole> = new Set(['caller', 'witness', 'victim']);
+
+/**
+ * Cast a public figure for a story's person (PersonSpec.celebrity): someone who fits the spec's fields, gender and
+ * age and is not in the shift yet, copied into the shift with their car. Undefined when the role is not allowed or
+ * nobody fits (the story then makes someone up).
+ */
+export function castCelebrity(s: SimState, r: Rng, sp: PersonSpec): Person | undefined {
+  if (!sp.celebrity || !CELEBRITY_ROLES.has(sp.role)) return undefined;
+  const fields = sp.celebrity === true ? undefined : sp.celebrity;
+  const year = Number(isoDate(s.now).slice(0, 4));
+  const pool = CELEBRITIES.filter((c) => {
+    const age = year - Number(c.born.slice(0, 4));
+    return (
+      (!fields || fields.includes(c.field)) &&
+      (!sp.gender || sp.gender === 'any' || c.gender === sp.gender) &&
+      (!sp.age || (age >= sp.age[0] && age <= sp.age[1])) &&
+      !s.persons[`${CELEB_PREFIX}${c.nr}`]
+    );
+  });
+  if (!pool.length) return undefined;
+  const id = `${CELEB_PREFIX}${r.pick(pool).nr}`;
+  materialiseCelebrities(s, [id]);
+  return s.persons[id];
+}
+
+/** The name people know a public figure by (a stage name where there is one). */
+export function knownName(p: Pick<Person, 'id' | 'firstName' | 'lastName'>): string {
+  return celebrityDef(p.id)?.name ?? `${p.firstName} ${p.lastName}`;
 }

@@ -7,12 +7,17 @@
 import { describe, expect, it } from 'vitest';
 import { CELEBRITIES } from '@/data/celebrities';
 import { parseIdcode } from '@/gen/isikukood';
-import { CELEB_PREFIX, celebrityCatalogue } from '@/sim/celebrities';
+import { TEMPLATES } from '@/data/incidents';
+import { TEMPLATES_CELEBRITY } from '@/data/incidents/celebrity';
+import { hourCurve } from '@/sim/calendar';
+import { CELEB_PREFIX, CELEBRITY_ROLES, celebrityCatalogue } from '@/sim/celebrities';
+import { directorSpawn } from '@/sim/commands';
 import { createShift } from '@/sim/engine';
 import { personFlags, personReply, searchPersons, searchVehicles, vehicleFlags } from '@/sim/registry';
+import { templateWeight } from '@/sim/spawner';
 import { tallinnTime } from '@/sim/time';
 import type { SimState } from '@/sim/types';
-import { DASHES } from './fixtures/incidentSuite';
+import { DASHES, incidentSuite } from './fixtures/incidentSuite';
 
 function shift(seed = 7): SimState {
   return createShift({
@@ -150,5 +155,113 @@ describe('public figures: registry search', () => {
     searchPersons(s, 'Anett Kontaveit');
     expect(s.persons[target.id].vehicles).toEqual([]);
     expect(s.vehicles[plate].ownerId).toBe(local.ownerId);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stories with a public figure in them (src/data/incidents/celebrity.ts)
+// ─────────────────────────────────────────────────────────────────────────────
+
+incidentSuite('celebrity stories', TEMPLATES_CELEBRITY);
+
+describe('public figures: stories', () => {
+  it('cast them only as callers, witnesses and victims, in every story here and nowhere else', () => {
+    expect(TEMPLATES_CELEBRITY.length).toBeGreaterThanOrEqual(8);
+    for (const t of TEMPLATES) {
+      for (const p of t.persons)
+        if (p.celebrity) expect(CELEBRITY_ROLES.has(p.role), `${t.id}: ${p.role}`).toBe(true);
+    }
+    for (const t of TEMPLATES_CELEBRITY) expect(t.persons.filter((p) => p.celebrity).length, t.id).toBe(1);
+    expect(
+      TEMPLATES.filter((t) => t.persons.some((p) => p.celebrity))
+        .map((t) => t.id)
+        .sort(),
+    ).toEqual(TEMPLATES_CELEBRITY.map((t) => t.id).sort());
+  });
+
+  it('put a fitting public figure into the story, named in the texts, with a clean record', () => {
+    for (const t of TEMPLATES_CELEBRITY) {
+      const s = shift(11);
+      const id = directorSpawn(s, { templateId: t.id });
+      expect(id, t.id).not.toBe('');
+      const inc = s.incidents[id];
+      const spec = t.persons.find((p) => p.celebrity)!;
+      const refs = inc.persons.filter((x) => x.personId.startsWith(CELEB_PREFIX));
+      expect(
+        refs.map((x) => x.role),
+        t.id,
+      ).toEqual([spec.role]);
+      const p = s.persons[refs[0].personId];
+      const def = CELEBRITIES.find((c) => `${CELEB_PREFIX}${c.nr}` === p.id)!;
+      if (Array.isArray(spec.celebrity)) expect(spec.celebrity, `${t.id}: ${def.name}`).toContain(def.field);
+      if (spec.gender && spec.gender !== 'any') expect(p.gender).toBe(spec.gender);
+      expect(p.records).toEqual([]);
+      expect(p.flags).toEqual({});
+      expect(
+        inc.persons.filter((x) => x.role === 'suspect').every((x) => !x.personId.startsWith(CELEB_PREFIX)),
+      ).toBe(true);
+      // The card text names them by the name people know.
+      const text = JSON.stringify([inc.summary, inc.details, inc.hiddenDetails]);
+      expect(text, t.id).not.toContain('{celeb');
+      if (JSON.stringify([t.summary, t.details]).includes('{celeb}')) expect(text, t.id).toContain(def.name);
+    }
+  });
+
+  it('never cast the same person twice in a shift', () => {
+    const s = shift(12);
+    const t = TEMPLATES_CELEBRITY[0];
+    const seen = new Set<string>();
+    for (let i = 0; i < 25; i++) {
+      const inc = s.incidents[directorSpawn(s, { templateId: t.id })];
+      const ref = inc.persons.find((x) => x.personId.startsWith(CELEB_PREFIX));
+      if (!ref) continue;
+      expect(seen.has(ref.personId), ref.personId).toBe(false);
+      seen.add(ref.personId);
+    }
+    expect(seen.size).toBeGreaterThan(20);
+  });
+
+  it('come up now and then, not every shift', () => {
+    const ids = new Set(TEMPLATES_CELEBRITY.map((t) => t.id));
+    let mine = 0;
+    let all = 0;
+    for (const regionId of ['pohja', 'ida', 'louna', 'laane'] as const) {
+      const s = createShift({
+        seed: 3,
+        regionId,
+        mode: 'director',
+        difficulty: 'normal',
+        start: tallinnTime(2026, 7, 15, 12, 0),
+        hours: 4,
+        playerName: 'Test',
+      });
+      for (let month = 1; month <= 12; month += 3) {
+        const season =
+          month <= 2 || month === 12 ? 'winter' : month <= 5 ? 'spring' : month <= 8 ? 'summer' : 'autumn';
+        for (let hour = 0; hour < 24; hour++) {
+          const ctx = {
+            hour,
+            weekday: 2,
+            month,
+            season,
+            weekendNight: false,
+            trafficF: 1,
+            wet: false,
+            dayTags: [] as string[],
+          } as const;
+          for (const tpl of TEMPLATES) {
+            if (tpl.easterEgg) continue;
+            const w =
+              templateWeight(s, tpl, { ...ctx, season: ctx.season as 'winter' }) * hourCurve(hour + 0.5);
+            all += w;
+            if (ids.has(tpl.id)) mine += w;
+          }
+        }
+      }
+    }
+    const share = mine / all;
+    // About one call in sixty: one every shift or two.
+    expect(share).toBeGreaterThan(0.005);
+    expect(share).toBeLessThan(0.035);
   });
 });

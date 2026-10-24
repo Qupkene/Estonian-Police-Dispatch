@@ -21,6 +21,8 @@ export const TEMPLATE_PLACEHOLDERS = [
   'n', // a small number (count of people etc.)
   'time', // hh:mm
   'agency',
+  'celeb', // the name people know a public figure in the incident by (src/data/celebrities.ts)
+  'celebFor', // what that person is known for
 ] as const;
 
 /** Values may be plain strings (same in both languages) or bilingual Text. */

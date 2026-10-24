@@ -2,6 +2,19 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.32.0 (2026-10-24)
+
+- **Tuntud eestlased on nüüd ka väljakutsetes:** 8 uut lugu, kus kuulsus helistab, on tunnistaja või kannatanu. Petturid kasutavad tema nime ja nägu investeerimisreklaamis ning raha kaotanud fänn tuleb kontorisse. Fänn jälitab esinejat. Esinemise ajal murtakse tema autosse. Ta näeb teelt väljasõitu ja jääb kannatanu juurde. Sportlane leiab metsarajalt vigastatu. Poliitikut ahistatakse tänavaüritusel. Autogrammitunnil tekib tunglemine.
+- **Ööklubis väidab joobes mees, et ta on kuulus laulja**, ja nõuab tasuta VIP-lauda. Registrikontroll näitab kedagi muud.
+- **Tuntud inimene ei ole kunagi kahtlusalune.** Kui lool on süüdlane, on see väljamõeldud isik. Selline kõne tuleb umbes korra vahetuse või kahe jooksul. Inimene valitakse loo järgi (spordilugu sportlasele, tänavaüritus poliitikule) ja samas vahetuses ei kordu keegi.
+
+<details>
+<summary>English</summary>
+
+Public figures now turn up in calls: 8 stories (`src/data/incidents/celebrity.ts`) in which a well-known Estonian calls, witnesses something or is wronged. Scammers run fake investment ads with their face and a fan who lost money comes to the office; a fan stalks a performer; a performer's car is broken into during the show; someone sees a car leave the road and stays with the driver; an athlete finds an injured person on a forest trail; a politician is harassed at a street event; a signing ends in a crowd surge; and a drunk man at a club door claims to be a famous singer while his ID says otherwise. A new person spec field `celebrity` casts someone who fits the story's fields, gender and age (callers, witnesses and victims only; a suspect is always made up), nobody twice in a shift, and texts name them with `{celeb}` and `{celebFor}`. Together the stories are about one call in sixty.
+
+</details>
+
 ## 2.31.0 (2026-10-24)
 
 - **Andmebaasis on 300 tuntud eestlast:** poliitikud, muusikud, näitlejad, sportlased, saatejuhid, kirjanikud, ettevõtjad, teadlased, kunstnikud ja modellid. Otsi nime järgi ja inimene tuleb registrist välja koos oma autoga. Leiab ka lavanime järgi: „Tommy Cash“ leiab Tomas Tammemetsa ja „Alika“ Alika Milova. Leiab ka isikukoodi ja auto numbri järgi.

@@ -4,6 +4,7 @@
  */
 import { ageOf, describePerson, vehicleName, withArticleEn } from '@/gen/describe';
 import { JK_QUERY_REPLY } from '@/data/radioPhrases';
+import { CELEB_PREFIX, celebrityDef, knownName } from './celebrities';
 import { bearing, destination, haversineKm } from './geo';
 import { addTimeline, emit, publishIncident, regionOf, tplOf } from './internal';
 import { startPursuit, updatePursuit } from './pursuit';
@@ -107,7 +108,20 @@ export function isHidden(s: SimState, inc: Incident): boolean {
   return !!s.flags[`hidden:${inc.id}`];
 }
 
-const IF_KEYS = ['arr', 'acklate', 'needmsg', 'bk', 'bkwait', 'pub', 'ps', 'wk', 'pend', 'send', 'prioSet', 'left'];
+const IF_KEYS = [
+  'arr',
+  'acklate',
+  'needmsg',
+  'bk',
+  'bkwait',
+  'pub',
+  'ps',
+  'wk',
+  'pend',
+  'send',
+  'prioSet',
+  'left',
+];
 
 /** An incident left without units after the first arrival lapses after this long. */
 const ABANDON_MS = 45 * MIN;
@@ -154,7 +168,9 @@ function safeDescribe(p: Person | undefined, now: number): Text | undefined {
     return T(d.et, withArticleEn(d.en));
   } catch {
     const age = safeAge(p, now);
-    return p.gender === 'M' ? T(`mees, u ${age}a`, `a man, about ${age}`) : T(`naine, u ${age}a`, `a woman, about ${age}`);
+    return p.gender === 'M'
+      ? T(`mees, u ${age}a`, `a man, about ${age}`)
+      : T(`naine, u ${age}a`, `a woman, about ${age}`);
   }
 }
 
@@ -174,7 +190,10 @@ export function safeCar(s: SimState, plate: string | undefined): Text | undefine
   try {
     return vehicleName(v);
   } catch {
-    return T(`${v.color?.et?.toLowerCase() ?? ''} ${v.make} ${v.model}`.trim(), `${v.color?.en?.toLowerCase() ?? ''} ${v.make} ${v.model}`.trim());
+    return T(
+      `${v.color?.et?.toLowerCase() ?? ''} ${v.make} ${v.model}`.trim(),
+      `${v.color?.en?.toLowerCase() ?? ''} ${v.make} ${v.model}`.trim(),
+    );
   }
 }
 
@@ -197,7 +216,9 @@ export function directionText(s: SimState, inc: Pick<Incident, 'id' | 'location'
   const roll = r.next();
   const here = inc.location.coord;
   if (roll < 0.45) {
-    const streets = region.streets.filter((st) => st.city === inc.location.city && st.points.length && haversineKm(st.points[0], here) < 4);
+    const streets = region.streets.filter(
+      (st) => st.city === inc.location.city && st.points.length && haversineKm(st.points[0], here) < 4,
+    );
     if (streets.length) {
       const st = r.pick(streets);
       return T(`${genitiveName(st.name)} suunas`, `towards ${st.name}`);
@@ -221,10 +242,17 @@ export function incidentVars(s: SimState, inc: Incident): Vars {
   const now = inc.createdAt;
   const suspect = personOf(s, inc, 'suspect') ?? personOf(s, inc, 'driver');
   const victim = personOf(s, inc, 'victim') ?? personOf(s, inc, 'missing') ?? personOf(s, inc, 'deceased');
-  const ageP = personOf(s, inc, 'missing') ?? suspect ?? victim ?? (inc.persons[0] ? s.persons[inc.persons[0].personId] : undefined);
+  const ageP =
+    personOf(s, inc, 'missing') ??
+    suspect ??
+    victim ??
+    (inc.persons[0] ? s.persons[inc.persons[0].personId] : undefined);
   const veh = inc.vehicles.find((v) => v.role === 'suspect') ?? inc.vehicles[0];
   const r = new Rng(hashString(`n:${inc.id}`));
   const ag = inc.agencyNeeds[0]?.agency ?? inc.referral;
+  const celebRef = inc.persons.find((x) => x.personId.startsWith(CELEB_PREFIX));
+  const celeb = celebRef ? s.persons[celebRef.personId] : undefined;
+  const celebDef = celeb ? celebrityDef(celeb.id) : undefined;
   return {
     address: inc.location.address,
     place: placeText(inc.location),
@@ -242,6 +270,8 @@ export function incidentVars(s: SimState, inc: Incident): Vars {
     n: String(2 + (hashString(inc.id) % 5)),
     time: hhmm(now),
     agency: ag ? agencyName(ag) : undefined,
+    celeb: celeb ? knownName(celeb) : T('tuntud inimene', 'a well-known person'),
+    celebFor: celebDef ? celebDef.knownAs : T('tuntud inimene', 'a well-known person'),
   };
 }
 
@@ -291,13 +321,28 @@ export function publishIncidentImpl(s: SimState, inc: Incident): void {
   } else if (inc.source === 'director') {
     addTimeline(s, inc, 'system', T('Sündmus lisatud (režissöör)', 'Event added (director)'));
   } else if (inc.source === 'alarm') {
-    addTimeline(s, inc, 'system', T('Valvekeskus edastas häire', 'The alarm monitoring centre forwarded an alarm'));
+    addTimeline(
+      s,
+      inc,
+      'system',
+      T('Valvekeskus edastas häire', 'The alarm monitoring centre forwarded an alarm'),
+    );
   } else if (inc.source === 'anpr') {
-    addTimeline(s, inc, 'system', T('ANPR-kaamera tabas otsitava sõiduki', 'An ANPR camera flagged a wanted vehicle'));
+    addTimeline(
+      s,
+      inc,
+      'system',
+      T('ANPR-kaamera tabas otsitava sõiduki', 'An ANPR camera flagged a wanted vehicle'),
+    );
   } else if (inc.source === 'field') {
     addTimeline(s, inc, 'radio', T('Välijuhi / üksuse algatatud sündmus', 'Event raised from the field'));
   } else {
-    addTimeline(s, inc, 'hk', T('Häirekeskus edastas sündmuse', 'The Emergency Response Centre forwarded the event'));
+    addTimeline(
+      s,
+      inc,
+      'hk',
+      T('Häirekeskus edastas sündmuse', 'The Emergency Response Centre forwarded the event'),
+    );
   }
   emit(s, { type: inc.priority === 1 ? 'incident_p1' : 'incident_new', incidentId: inc.id, text: inc.title });
   if (inc.priority === 1 && inc.source === 'hk') hkPhrase(s, 'hkP1', inc, {}, { level: 'priority' });
@@ -327,7 +372,12 @@ function updateIncident(s: SimState, inc: Incident, dtMs: number): void {
     if (now - pub > 2 * MIN) {
       setIF(s, inc, 'acklate', true);
       addTrust(s, -1);
-      addTimeline(s, inc, 'system', T('Sündmus kinnitamata üle 2 minuti', 'Event unacknowledged for over 2 minutes'));
+      addTimeline(
+        s,
+        inc,
+        'system',
+        T('Sündmus kinnitamata üle 2 minuti', 'Event unacknowledged for over 2 minutes'),
+      );
     }
   }
 
@@ -336,9 +386,17 @@ function updateIncident(s: SimState, inc: Incident, dtMs: number): void {
     const rq = n.requested;
     if (rq && !rq.arrived && now >= rq.arriveAt) {
       rq.arrived = true;
-      addTimeline(s, inc, 'agency', fillText(T('Kohale jõudis: {agency}', 'Arrived on scene: {agency}'), { agency: agencyName(n.agency) }));
+      addTimeline(
+        s,
+        inc,
+        'agency',
+        fillText(T('Kohale jõudis: {agency}', 'Arrived on scene: {agency}'), {
+          agency: agencyName(n.agency),
+        }),
+      );
       const u = speakerOf(s, inc);
-      if (u && u.status === 'onscene') unitPhrase(s, u, 'agencyArrive', inc, { agency: agencyName(n.agency) });
+      if (u && u.status === 'onscene')
+        unitPhrase(s, u, 'agencyArrive', inc, { agency: agencyName(n.agency) });
     }
   }
 
@@ -415,7 +473,11 @@ export function workProgress(inc: Incident): number {
 }
 
 /** Why work is paused, if it is. */
-export function workBlocked(s: SimState, inc: Incident, tpl: IncidentTemplate | undefined): 'backup' | 'pursuit' | 'search' | null {
+export function workBlocked(
+  s: SimState,
+  inc: Incident,
+  tpl: IncidentTemplate | undefined,
+): 'backup' | 'pursuit' | 'search' | null {
   if (inc.pursuit && !inc.pursuit.ended) return 'pursuit';
   if (inc.search && !getIF(s, inc, 'send') && !inc.search.found) return 'search';
   for (const b of inc.beats) {
@@ -431,7 +493,9 @@ export function workBlocked(s: SimState, inc: Incident, tpl: IncidentTemplate | 
 }
 
 function updateOnScene(s: SimState, inc: Incident, tpl: IncidentTemplate | undefined, dtMin: number): void {
-  const onScene = inc.assigned.map((id) => s.units[id]).filter((u): u is Unit => !!u && u.status === 'onscene');
+  const onScene = inc.assigned
+    .map((id) => s.units[id])
+    .filter((u): u is Unit => !!u && u.status === 'onscene');
   processBeats(s, inc, tpl, onScene);
   if (inc.state === 'closed' || !onScene.length) return;
 
@@ -472,7 +536,12 @@ function updateOnScene(s: SimState, inc: Incident, tpl: IncidentTemplate | undef
     if (noBeats && withRng(s, (r) => r.chance(0.45))) unitPhrase(s, onScene[0], 'working', inc);
   }
 
-  if (inc.workDone >= target - 1e-9 && beatsResolved(inc) && agenciesSettled(inc) && !workBlocked(s, inc, tpl)) {
+  if (
+    inc.workDone >= target - 1e-9 &&
+    beatsResolved(inc) &&
+    agenciesSettled(inc) &&
+    !workBlocked(s, inc, tpl)
+  ) {
     completeIncident(s, inc, tpl);
   }
 }
@@ -577,7 +646,11 @@ export function findRadio(s: SimState, id: string): RadioMsg | undefined {
 }
 
 /** Subject of a query beat (same rule as the UI: role person, or suspect vehicle / first vehicle). */
-export function querySubjectOf(_s: SimState, inc: Incident, spec: QueryBeat): { personId?: string; plate?: string } | null {
+export function querySubjectOf(
+  _s: SimState,
+  inc: Incident,
+  spec: QueryBeat,
+): { personId?: string; plate?: string } | null {
   if (spec.queryType === 'vehicle' || spec.subject === 'vehicle') {
     const v = inc.vehicles.find((x) => x.role === 'suspect') ?? inc.vehicles[0];
     return v ? { plate: v.plate } : null;
@@ -595,7 +668,8 @@ export function truthReply(s: SimState, subj: { personId?: string; plate?: strin
     if (p.flags.wanted) return 'wanted';
     if (p.flags.missing) return 'missing';
     if (p.flags.restrainingOrder && p.flags.restrainingOrder.until >= today) return 'restraining';
-    if (p.license && ['suspended', 'revoked', 'none', 'expired'].includes(p.license.status)) return 'nolicense';
+    if (p.license && ['suspended', 'revoked', 'none', 'expired'].includes(p.license.status))
+      return 'nolicense';
     if (p.weaponPermit) return 'weapon';
     if (p.flags.probation && p.flags.probation.until >= today) return 'probation';
     return 'clean';
@@ -615,7 +689,10 @@ export function truthReply(s: SimState, subj: { personId?: string; plate?: strin
 }
 
 /** Context for registry.correctReply (driving context matters for 'nolicense'). */
-export function queryCtx(inc: Incident, spec: QueryBeat): { role?: PersonRole; traffic?: boolean; incidentId?: string } {
+export function queryCtx(
+  inc: Incident,
+  spec: QueryBeat,
+): { role?: PersonRole; traffic?: boolean; incidentId?: string } {
   return {
     role: spec.subject === 'vehicle' ? undefined : spec.subject,
     traffic: inc.category === 'traffic',
@@ -642,8 +719,14 @@ export function expectedReply(
 }
 
 const DEFAULT_QUERY_RADIO: Record<'person' | 'vehicle', Text> = {
-  person: T('Juhtimiskeskus, {callsign}. Palun kontrolli isikut {name}, isikukood {idcode}.', 'Control, {callsign}. Please check {name}, ID code {idcode}.'),
-  vehicle: T('Juhtimiskeskus, {callsign}. Palun kontrolli sõidukit {plate}.', 'Control, {callsign}. Please run the plate {plate}.'),
+  person: T(
+    'Juhtimiskeskus, {callsign}. Palun kontrolli isikut {name}, isikukood {idcode}.',
+    'Control, {callsign}. Please check {name}, ID code {idcode}.',
+  ),
+  vehicle: T(
+    'Juhtimiskeskus, {callsign}. Palun kontrolli sõidukit {plate}.',
+    'Control, {callsign}. Please run the plate {plate}.',
+  ),
 };
 
 function fireBeat(s: SimState, inc: Incident, tpl: IncidentTemplate, b: BeatState, onScene: Unit[]): void {
@@ -667,7 +750,9 @@ function fireBeat(s: SimState, inc: Incident, tpl: IncidentTemplate, b: BeatStat
         plate: subj.plate ?? vars.plate,
         car: subj.plate ? safeCar(s, subj.plate) : vars.car,
       };
-      const text = spec.radio?.length ? pickFill(s, spec.radio, qv) : fillText(DEFAULT_QUERY_RADIO[isVeh ? 'vehicle' : 'person'], qv);
+      const text = spec.radio?.length
+        ? pickFill(s, spec.radio, qv)
+        : fillText(DEFAULT_QUERY_RADIO[isVeh ? 'vehicle' : 'person'], qv);
       b.timeoutAt = s.now + 6 * MIN;
       const msg = unitSay(s, u, text, inc, {
         level: 'priority',
@@ -677,7 +762,14 @@ function fireBeat(s: SimState, inc: Incident, tpl: IncidentTemplate, b: BeatStat
       });
       b.radioId = msg.id;
       b.status = 'active';
-      addTimeline(s, inc, 'radio', isVeh ? T('Üksus palub sõiduki päringut', 'Unit requests a vehicle check') : T('Üksus palub isikupäringut', 'Unit requests a person check'));
+      addTimeline(
+        s,
+        inc,
+        'radio',
+        isVeh
+          ? T('Üksus palub sõiduki päringut', 'Unit requests a vehicle check')
+          : T('Üksus palub isikupäringut', 'Unit requests a person check'),
+      );
       return;
     }
     case 'choice': {
@@ -801,7 +893,12 @@ function queryTimeout(s: SimState, inc: Incident, spec: QueryBeat, b: BeatState)
     inc.effects.time += 8;
     inc.effects.success -= 0.05;
     if (u) unitPhrase(s, u, 'queryTimeout', inc);
-    addTimeline(s, inc, 'radio', T('Päringule ei vastatud, üksus kontrollis ise', 'The check went unanswered, the unit checked itself'));
+    addTimeline(
+      s,
+      inc,
+      'radio',
+      T('Päringule ei vastatud, üksus kontrollis ise', 'The check went unanswered, the unit checked itself'),
+    );
   }
   if (truth === 'wanted' || truth === 'stolen') inc.effects.arrests += 1;
 }
@@ -816,7 +913,15 @@ function choiceTimeout(s: SimState, inc: Incident, spec: ChoiceBeat, b: BeatStat
   if (opt) applyEffects(s, inc, opt.effects);
   const u = speakerOf(s, inc);
   if (u) unitPhrase(s, u, 'choiceTimeout', inc);
-  if (opt) addTimeline(s, inc, 'radio', fillText(T('JK ei vastanud, üksus otsustas: {x}', 'No answer from control, the unit decided: {x}'), { x: opt.label }));
+  if (opt)
+    addTimeline(
+      s,
+      inc,
+      'radio',
+      fillText(T('JK ei vastanud, üksus otsustas: {x}', 'No answer from control, the unit decided: {x}'), {
+        x: opt.label,
+      }),
+    );
 }
 
 /** Player answered a radio message with replies. Returns true if it was handled. */
@@ -891,13 +996,20 @@ function answerQuery(
   b.correct = correct;
   const said = JK_QUERY_REPLY[subj?.plate ? 'vehicle' : 'person'][replyId];
   if (u) {
-    const lead = correction ? T('Parandus! {callsign}, {x}', 'Correction! {callsign}, {x}') : T('{callsign}, {x}', '{callsign}, {x}');
+    const lead = correction
+      ? T('Parandus! {callsign}, {x}', 'Correction! {callsign}, {x}')
+      : T('{callsign}, {x}', '{callsign}, {x}');
     const tx = said
       ? fillText(lead, { ...radioVars(s, u, inc), x: said })
-      : fillText(correction ? T('Parandus! {callsign}, {x}.', 'Correction! {callsign}, {x}.') : T('{callsign}, {x}.', '{callsign}, {x}.'), {
-          ...radioVars(s, u, inc),
-          x: lower(label ?? T(replyId, replyId)),
-        });
+      : fillText(
+          correction
+            ? T('Parandus! {callsign}, {x}.', 'Correction! {callsign}, {x}.')
+            : T('{callsign}, {x}.', '{callsign}, {x}.'),
+          {
+            ...radioVars(s, u, inc),
+            x: lower(label ?? T(replyId, replyId)),
+          },
+        );
     jkSay(s, tx, { unit: u, inc, kind: 'reply' });
     unitPhrase(s, u, correction ? 'queryCorrected' : `reply_${replyId}`, inc);
   }
@@ -906,7 +1018,12 @@ function answerQuery(
       s,
       inc,
       'radio',
-      fillText(correction ? T('JK parandas päringu vastust: {x}', 'Control corrected the check: {x}') : T('JK vastus päringule: {x}', 'Control answered the check: {x}'), { x: label }),
+      fillText(
+        correction
+          ? T('JK parandas päringu vastust: {x}', 'Control corrected the check: {x}')
+          : T('JK vastus päringule: {x}', 'Control answered the check: {x}'),
+        { x: label },
+      ),
     );
   const held = (id: string | undefined) => id === 'wanted' || id === 'stolen';
   if (correction) {
@@ -981,7 +1098,10 @@ export function checkBackup(s: SimState, inc: Incident): void {
   const fresh = inc.assigned
     .filter((id) => !present.has(id))
     .map((id) => s.units[id])
-    .filter((u): u is Unit => !!u && (u.status === 'enroute' || u.status === 'onscene') && typeFits(spec.need.type, u.type));
+    .filter(
+      (u): u is Unit =>
+        !!u && (u.status === 'enroute' || u.status === 'onscene') && typeFits(spec.need.type, u.type),
+    );
   if (fresh.length < spec.need.count) return;
   b.status = 'done';
   applyEffects(s, inc, spec.successEffects);
@@ -991,7 +1111,11 @@ export function checkBackup(s: SimState, inc: Incident): void {
   const speaker = speakerOf(s, inc);
   const units = fresh.map((u) => radioVars(s, u).callsign as string).join(', ');
   if (speaker) {
-    jkSay(s, phrase(s, 'backupSent', radioVars(s, speaker, inc, { units })), { unit: speaker, inc, kind: 'dispatch' });
+    jkSay(s, phrase(s, 'backupSent', radioVars(s, speaker, inc, { units })), {
+      unit: speaker,
+      inc,
+      kind: 'dispatch',
+    });
   }
   addTimeline(s, inc, 'dispatch', fillText(T('Toetus saadetud: {units}', 'Backup sent: {units}'), { units }));
 }
@@ -1001,7 +1125,8 @@ export function requestAgencyInternal(s: SimState, inc: Incident, agency: Agency
   let need = inc.agencyNeeds.find((n) => n.agency === agency);
   if (need?.requested) return false;
   const region = regionOf(s);
-  const rural = !inc.location.city || !region.towns.some((t) => t.name === inc.location.city && t.population >= 10_000);
+  const rural =
+    !inc.location.city || !region.towns.some((t) => t.name === inc.location.city && t.population >= 10_000);
   const base: Record<Agency, [number, number]> = {
     kiirabi: [8, 16],
     paaste: [8, 18],
@@ -1023,9 +1148,21 @@ export function requestAgencyInternal(s: SimState, inc: Incident, agency: Agency
   }
   need.requested = rq;
   hkPhrase(s, 'agencyRequested', inc, { agency: agencyName(agency), n: String(mins) });
-  addTimeline(s, inc, 'agency', fillText(T('Häirekeskust teavitatud: {agency}', 'ERC notified: {agency}'), { agency: agencyName(agency) }));
+  addTimeline(
+    s,
+    inc,
+    'agency',
+    fillText(T('Häirekeskust teavitatud: {agency}', 'ERC notified: {agency}'), {
+      agency: agencyName(agency),
+    }),
+  );
   const tpl = tplOf(inc);
-  const b = inc.beats.find((x) => x.status === 'active' && tpl?.beats?.[x.index]?.kind === 'agency' && (tpl.beats![x.index] as AgencyBeat).agency === agency);
+  const b = inc.beats.find(
+    (x) =>
+      x.status === 'active' &&
+      tpl?.beats?.[x.index]?.kind === 'agency' &&
+      (tpl.beats![x.index] as AgencyBeat).agency === agency,
+  );
   if (b) {
     b.status = 'done';
     b.correct = true;
@@ -1070,19 +1207,35 @@ export function onUnitArrived(s: SimState, inc: Incident, u: Unit): void {
       b.dueAt = s.now + at * MIN;
     }
     unitPhrase(s, u, 'arrive', inc);
-    addTimeline(s, inc, 'status', fillText(T('{callsign} saabus sündmuskohale', '{callsign} arrived on scene'), radioVars(s, u, inc)));
+    addTimeline(
+      s,
+      inc,
+      'status',
+      fillText(T('{callsign} saabus sündmuskohale', '{callsign} arrived on scene'), radioVars(s, u, inc)),
+    );
     if (inc.falseAlarm) unitPhrase(s, u, 'falseAlarm', inc);
     else if (inc.referral) unitPhrase(s, u, 'referralOnScene', inc, { agency: agencyName(inc.referral) });
   } else if (!arr.includes(u.id)) {
     unitPhrase(s, u, 'backupArrive', inc);
-    addTimeline(s, inc, 'status', fillText(T('{callsign} saabus toetuseks', '{callsign} arrived to assist'), radioVars(s, u, inc)));
+    addTimeline(
+      s,
+      inc,
+      'status',
+      fillText(T('{callsign} saabus toetuseks', '{callsign} arrived to assist'), radioVars(s, u, inc)),
+    );
   }
   if (wait.includes(u.id)) delIF(s, inc, 'bkwait');
   if (inc.state !== 'closed') inc.state = 'onscene';
   emit(s, { type: 'unit_arrived', incidentId: inc.id, unitId: u.id });
 }
 
-export function escalateIncident(s: SimState, inc: Incident, toPriority: Priority, text: Text | undefined, by: 'hk' | 'unit'): void {
+export function escalateIncident(
+  s: SimState,
+  inc: Incident,
+  toPriority: Priority,
+  text: Text | undefined,
+  by: 'hk' | 'unit',
+): void {
   const tpl = tplOf(inc);
   const more = toPriority < inc.truePriority;
   inc.escalated = true;
@@ -1128,7 +1281,12 @@ function onPursuitEnded(s: SimState, inc: Incident, tpl: IncidentTemplate | unde
       inc.effects.success += 0.2;
       inc.effects.arrests = Math.max(1, inc.effects.arrests);
       s.stats.pursuitsCaught++;
-      addTimeline(s, inc, 'outcome', T('Jälitus lõppes kahtlustatava kinnipidamisega', 'Pursuit ended with the suspect caught'));
+      addTimeline(
+        s,
+        inc,
+        'outcome',
+        T('Jälitus lõppes kahtlustatava kinnipidamisega', 'Pursuit ended with the suspect caught'),
+      );
       break;
     case 'crashed':
       inc.effects.success -= 0.15;
@@ -1146,16 +1304,27 @@ function onPursuitEnded(s: SimState, inc: Incident, tpl: IncidentTemplate | unde
       forceOutcome(inc, tpl, 'escaped');
       addTimeline(s, inc, 'outcome', T('Kahtlustatav pääses', 'Suspect escaped'));
   }
-  for (const b of inc.beats) if (b.status === 'active' && tpl?.beats?.[b.index]?.kind === 'pursuit') b.status = 'done';
+  for (const b of inc.beats)
+    if (b.status === 'active' && tpl?.beats?.[b.index]?.kind === 'pursuit') b.status = 'done';
 }
 
 function onSearchEnded(s: SimState, inc: Incident, tpl: IncidentTemplate | undefined, found: boolean): void {
   setIF(s, inc, 'send', true);
   if (inc.search && found) inc.search.found = true;
   inc.effects.success += found ? 0.15 : -0.2;
-  if (found && inc.category !== 'missing' && personOf(s, inc, 'suspect')) inc.effects.arrests = Math.max(1, inc.effects.arrests);
-  addTimeline(s, inc, 'outcome', found ? T('Otsitav leitud', 'Target found') : T('Otsingud lõpetati tulemuseta', 'Search ended without result'));
-  for (const b of inc.beats) if (b.status === 'active' && tpl?.beats?.[b.index]?.kind === 'search') b.status = found ? 'done' : 'failed';
+  if (found && inc.category !== 'missing' && personOf(s, inc, 'suspect'))
+    inc.effects.arrests = Math.max(1, inc.effects.arrests);
+  addTimeline(
+    s,
+    inc,
+    'outcome',
+    found
+      ? T('Otsitav leitud', 'Target found')
+      : T('Otsingud lõpetati tulemuseta', 'Search ended without result'),
+  );
+  for (const b of inc.beats)
+    if (b.status === 'active' && tpl?.beats?.[b.index]?.kind === 'search')
+      b.status = found ? 'done' : 'failed';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1163,7 +1332,12 @@ function onSearchEnded(s: SimState, inc: Incident, tpl: IncidentTemplate | undef
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Common closing bookkeeping (state, units, stats, events). */
-export function finalizeClose(s: SimState, inc: Incident, closedBy: NonNullable<Incident['closedBy']>, recall: boolean): void {
+export function finalizeClose(
+  s: SimState,
+  inc: Incident,
+  closedBy: NonNullable<Incident['closedBy']>,
+  recall: boolean,
+): void {
   inc.closedBy = closedBy;
   inc.state = 'closed';
   inc.closedAt = s.now;
@@ -1173,7 +1347,8 @@ export function finalizeClose(s: SimState, inc: Incident, closedBy: NonNullable<
     const u = s.units[id];
     if (!u) continue;
     if (u.incidentId === inc.id && (u.status === 'enroute' || u.status === 'onscene')) {
-      if (recall && u.status === 'enroute') jkSay(s, phrase(s, 'recall', radioVars(s, u, inc)), { unit: u, inc });
+      if (recall && u.status === 'enroute')
+        jkSay(s, phrase(s, 'recall', radioVars(s, u, inc)), { unit: u, inc });
       releaseUnit(s, u, false);
     }
   }
@@ -1204,14 +1379,26 @@ export function finalizeClose(s: SimState, inc: Incident, closedBy: NonNullable<
  * arrive but were all recalled before the job was done (and nobody came back in time). Both
  * cost the same Staatus; only the wording differs.
  */
-export function expireIncident(s: SimState, inc: Incident, reason: 'expired' | 'abandoned' = 'expired'): void {
+export function expireIncident(
+  s: SimState,
+  inc: Incident,
+  reason: 'expired' | 'abandoned' = 'expired',
+): void {
   // Legacy "Staatus −7" for a missed emergency; low-priority events cost less.
   const pen: Record<Priority, number> = { 1: -7, 2: -4, 3: -2, 4: -1 };
   s.stats.expired++;
   addTrust(s, pen[inc.truePriority]);
   const abandoned = reason === 'abandoned';
   if (abandoned) {
-    addTimeline(s, inc, 'system', T('Sündmus jäi pooleli: üksused lahkusid enne lõpetamist', 'Event abandoned: units left before it was resolved'));
+    addTimeline(
+      s,
+      inc,
+      'system',
+      T(
+        'Sündmus jäi pooleli: üksused lahkusid enne lõpetamist',
+        'Event abandoned: units left before it was resolved',
+      ),
+    );
   } else {
     hkPhrase(s, 'hkExpired', inc);
     addTimeline(s, inc, 'hk', T('Sündmus aegus: keegi ei jõudnud kohale', 'Event lapsed: nobody arrived'));
@@ -1220,7 +1407,10 @@ export function expireIncident(s: SimState, inc: Incident, reason: 'expired' | '
     id: abandoned ? 'abandoned' : 'expired',
     result: 'unfounded',
     text: abandoned
-      ? T('Sündmus jäi pooleli: politsei lahkus enne, kui töö sai tehtud.', 'Event abandoned: the police left before the job was done.')
+      ? T(
+          'Sündmus jäi pooleli: politsei lahkus enne, kui töö sai tehtud.',
+          'Event abandoned: the police left before the job was done.',
+        )
       : T('Sündmus aegus: politsei ei jõudnud kohale.', 'Event lapsed: police never arrived.'),
     success: 0,
     arrests: 0,
@@ -1256,7 +1446,8 @@ export function closeWithoutUnits(
   correct: boolean,
   text: Text,
 ): void {
-  const result: OutcomeResult = how === 'prank' ? 'false_alarm' : how === 'duplicate' ? 'unfounded' : 'referred';
+  const result: OutcomeResult =
+    how === 'prank' ? 'false_alarm' : how === 'duplicate' ? 'unfounded' : 'referred';
   const breakdown = how === 'director' ? { ...ZERO_BREAKDOWN } : closureBreakdown(correct, inc);
   inc.outcome = {
     id: `closed_${how}`,
@@ -1295,26 +1486,55 @@ function completeIncident(s: SimState, inc: Incident, tpl: IncidentTemplate | un
       id: 'referred',
       weight: 1,
       result: 'referred',
-      text: T('{callsign}: politsei pädevusse ei kuulu, teataja suunatud: {agency}.', '{callsign}: not a police matter, caller referred to {agency}.'),
+      text: T(
+        '{callsign}: politsei pädevusse ei kuulu, teataja suunatud: {agency}.',
+        '{callsign}: not a police matter, caller referred to {agency}.',
+      ),
     };
   }
-  const noArrest = out.result === 'escaped' || out.result === 'unfounded' || out.result === 'false_alarm' || out.result === 'referred';
+  const noArrest =
+    out.result === 'escaped' ||
+    out.result === 'unfounded' ||
+    out.result === 'false_alarm' ||
+    out.result === 'referred';
   // Escaped: only people detained earlier on (e.g. a wanted person found by a registry check) count.
   const arrests =
-    out.result === 'escaped' ? inc.effects.arrests : noArrest ? 0 : Math.max(out.arrests ?? (out.result === 'arrest' ? 1 : 0), inc.effects.arrests);
+    out.result === 'escaped'
+      ? inc.effects.arrests
+      : noArrest
+        ? 0
+        : Math.max(out.arrests ?? (out.result === 'arrest' ? 1 : 0), inc.effects.arrests);
   const injuries = out.injuries ?? 0;
   const arrived = listIF(s, inc, 'arr')
     .map((id) => s.units[id])
     .filter((u): u is Unit => !!u);
-  const onScene = inc.assigned.map((id) => s.units[id]).filter((u): u is Unit => !!u && u.status === 'onscene');
+  const onScene = inc.assigned
+    .map((id) => s.units[id])
+    .filter((u): u is Unit => !!u && u.status === 'onscene');
   const pInj = injuryChance(s, inc, tpl, success);
-  const injured = onScene.length && withRng(s, (r) => r.chance(pInj)) ? withRng(s, (r) => r.pick(onScene)) : undefined;
+  const injured =
+    onScene.length && withRng(s, (r) => r.chance(pInj)) ? withRng(s, (r) => r.pick(onScene)) : undefined;
   inc.closedBy = 'units';
   const speaker = onScene[0] ?? speakerOf(s, inc);
   const vars = beatVars(s, inc, speaker);
-  const breakdown = scoreIncident(s, inc, tpl, { success, result: out.result, officerInjured: !!injured, injuries });
+  const breakdown = scoreIncident(s, inc, tpl, {
+    success,
+    result: out.result,
+    officerInjured: !!injured,
+    injuries,
+  });
   const text = fillText(out.text, vars);
-  inc.outcome = { id: out.id, result: out.result, text, success, arrests, injuries, officerInjured: !!injured, score: breakdown.total, breakdown };
+  inc.outcome = {
+    id: out.id,
+    result: out.result,
+    text,
+    success,
+    arrests,
+    injuries,
+    officerInjured: !!injured,
+    score: breakdown.total,
+    breakdown,
+  };
 
   // Trust & stats.
   const pw: Record<Priority, number> = { 1: 1.5, 2: 1.2, 3: 1, 4: 0.6 };
@@ -1327,7 +1547,10 @@ function completeIncident(s: SimState, inc: Incident, tpl: IncidentTemplate | un
   if (out.result === 'false_alarm' || inc.falseAlarm) s.stats.falseAlarms++;
 
   // On the air only a short report; the full summary goes to the timeline (and the report).
-  if (speaker && text.et.trim()) unitSay(s, speaker, fillText(out.radio ?? radioClosure(out.text, out.result), vars), inc, { kind: 'status' });
+  if (speaker && text.et.trim())
+    unitSay(s, speaker, fillText(out.radio ?? radioClosure(out.text, out.result), vars), inc, {
+      kind: 'status',
+    });
   addTimeline(s, inc, 'outcome', text);
 
   // Officer stress.
@@ -1345,8 +1568,11 @@ function completeIncident(s: SimState, inc: Incident, tpl: IncidentTemplate | un
     if (spec?.kind === 'transport' && b.status === 'done') transports.push(spec);
   }
   const pickUnit = (): Unit | undefined => {
-    const cands = onScene.filter((u) => free.has(u.id) && u !== injured && u.type !== 'heli' && u.type !== 'boat');
-    const pref = cands.find((u) => u.type === 'transport') ?? cands.find((u) => u.type === 'patrol') ?? cands[0];
+    const cands = onScene.filter(
+      (u) => free.has(u.id) && u !== injured && u.type !== 'heli' && u.type !== 'boat',
+    );
+    const pref =
+      cands.find((u) => u.type === 'transport') ?? cands.find((u) => u.type === 'patrol') ?? cands[0];
     if (pref) free.delete(pref.id);
     return pref;
   };
@@ -1381,7 +1607,13 @@ function completeIncident(s: SimState, inc: Incident, tpl: IncidentTemplate | un
   finalizeClose(s, inc, 'units', true);
 }
 
-function startTransport(s: SimState, inc: Incident, u: Unit, dest: TransportBeat['dest'], paperwork: [number, number]): void {
+function startTransport(
+  s: SimState,
+  inc: Incident,
+  u: Unit,
+  dest: TransportBeat['dest'],
+  paperwork: [number, number],
+): void {
   let to = inc.location.coord;
   let place = '';
   let key = dest === 'home' ? 'transportHome' : 'transportStation';
@@ -1431,7 +1663,15 @@ function startTransport(s: SimState, inc: Incident, u: Unit, dest: TransportBeat
     return;
   }
   unitSay(s, u, phrase(s, key, radioVars(s, u, inc, { place })), inc);
-  addTimeline(s, inc, 'status', fillText(T('{callsign}: transport, sihtkoht {place}', '{callsign}: transport to {place}'), radioVars(s, u, inc, { place })));
+  addTimeline(
+    s,
+    inc,
+    'status',
+    fillText(
+      T('{callsign}: transport, sihtkoht {place}', '{callsign}: transport to {place}'),
+      radioVars(s, u, inc, { place }),
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1454,7 +1694,11 @@ function injureOfficer(s: SimState, inc: Incident, u: Unit): void {
   u.incidentId = follow.id;
   unitPhrase(s, u, 'emergency', follow, {}, { level: 'emergency' });
   publishIncident(s, follow);
-  jkSay(s, phrase(s, 'emergencyJK', radioVars(s, u, follow)), { level: 'emergency', kind: 'info', inc: follow });
+  jkSay(s, phrase(s, 'emergencyJK', radioVars(s, u, follow)), {
+    level: 'emergency',
+    kind: 'info',
+    inc: follow,
+  });
   if (inc.outcome) inc.outcome.officerInjured = true;
 }
 
@@ -1477,7 +1721,10 @@ export function createOfficerDown(s: SimState, inc: Incident, u: Unit): Incident
     createdAt: s.now,
     location: { ...inc.location },
     summary: fillText(
-      T('{callsign} teatab: ametnik vigastatud, {address}. Vajab kohe abi.', '{callsign} reports: officer injured, {address}. Needs help immediately.'),
+      T(
+        '{callsign} teatab: ametnik vigastatud, {address}. Vajab kohe abi.',
+        '{callsign} reports: officer injured, {address}. Needs help immediately.',
+      ),
       vars,
     ),
     details: [],
@@ -1505,7 +1752,12 @@ export function createOfficerDown(s: SimState, inc: Incident, u: Unit): Incident
   s.flags[`od:${id}`] = u.id;
   // Häirekeskus sends an ambulance straight away.
   requestAgencyInternal(s, follow, 'kiirabi');
-  addTimeline(s, follow, 'radio', fillText(T('{callsign}: ametnik vajab abi!', '{callsign}: officer needs help!'), vars));
+  addTimeline(
+    s,
+    follow,
+    'radio',
+    fillText(T('{callsign}: ametnik vajab abi!', '{callsign}: officer needs help!'), vars),
+  );
   return follow;
 }
 
