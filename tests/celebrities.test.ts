@@ -64,7 +64,8 @@ describe('public figures: the catalogue', () => {
       expect(p.flags).toEqual({});
       expect(p.license.status).toBe('valid');
       expect(p.address).toBe('Eesti');
-      expect(personFlags(p, s.now).map((f) => f.id)).toEqual(['vip']);
+      expect(personFlags(p, s.now)).toEqual([]);
+      expect(p.notes).toHaveLength(1);
       expect(personReply(s, p)).toBe('clean');
     }
     expect(new Set(cat.persons.map((p) => p.idcode)).size).toBe(300);

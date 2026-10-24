@@ -282,20 +282,17 @@ with flags from `PersonSpec`/`VehicleSpec`, plus 150 residents and 60 cars per p
 searches return plausible hits and some BOLO/wanted entries exist. The residents are fixed (2.33.0):
 drawn from the region's own stream as of `RESIDENT_EPOCH`, the same people every shift; the shift's
 stream redraws their warrants, orders and probation (`refreshResident`) and which cars are stolen.
-Crews are fixed too: each officer comes from `crewRng(region, callsign, day/night, seat)`. Two legendary
-easter-egg persons from the 2025 version are always present: **Rainer Okimum** (22, "CSS koodi
-kirjutaja", records: "Kriminaalne mittepeatumine", "Tule avamine relvast avalikus kohas",
-"Kehavigastuste tekitamine", wanted) and **Magnus Sarmert 「✔ ᵛᵉʳᶦᶠᶦᵉᵈ」** (age 438,
-"Hesburgeri klienditeenindaja", records "Mõrvakatse", "Toidumürgitamine", "Relvastatud
-Hesburgerirööv", wanted). Both are shown with a gold "LEGEND 2025" ribbon.
+Crews are fixed too: each officer comes from `crewRng(region, callsign, day/night, seat)`. The two wanted men from the 2025 version are always present as ordinary entries:
+**Rainer Okimum** (CSS code writer, wanted) and **Magnus Sarmert** (Hesburger customer service worker,
+wanted), with no extra notes or marks; now and then a BOLO bulletin carries Okimum.
 **Public figures** (2.31.0): 300 well-known living Estonians from the owner's list
 (`src/data/celebrities.ts`) answer to their register name, the name people know (Tommy Cash finds Tomas
 Tammemets) and their isikukood, each with a car (`src/sim/celebrities.ts`). They are not in a new shift: a
 logged search copies the ones it finds, with their cars, into the state, so saves and co-op snapshots stay small
 and co-op clients (which search with `log: false`) wait for the room's `q` command like every other change. The
-record is always clean (an info flag "AVALIKU ELU TEGELANE", no records, no flags), the isikukood serial is
-701-999 (hospitals used 001-700 before 2013, so it is nobody's real code), there is no home address or phone, and
-the card says the car, code and looks are made up. Nothing else in the sim reads the catalogue, so a public figure
+record is always clean (no records, no flags) and the card reads like anyone's, with one note on what they are
+known for; the isikukood serial is 701-999 (hospitals used 001-700 before 2013, so it is nobody's real code) and
+there is no home address or phone. Nothing else in the sim reads the catalogue, so a public figure
 is never a suspect or a bulletin. Stories cast them through `PersonSpec.celebrity` (2.32.0,
 `src/data/incidents/celebrity.ts`): a caller, a witness or a victim only (`CELEBRITY_ROLES`), someone who fits
 the spec's fields, gender and age and is not in the shift yet; texts name them with `{celeb}` and `{celebFor}`.

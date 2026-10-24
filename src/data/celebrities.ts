@@ -3,9 +3,9 @@
  * comes up with a car. The list of 300 names, birth dates, fields and heights is the owner's (eesti_kuulsused_300.xlsx,
  * October 2026, from Wikidata and the Estonian Wikipedia; people known for crimes or scandals were left out).
  *
- * Rules (src/sim/celebrities.ts keeps them): a public figure only ever has a clean record, is never wanted, never a
- * suspect and never picked for a story. Everything the registry adds about them (isikukood serial, car, phone,
- * appearance) is made up, and the card says so. Anyone who asks to be left out: delete the line.
+ * Rules (src/sim/celebrities.ts keeps them): a public figure only ever has a clean record, is never wanted and never
+ * a suspect. Everything the registry adds about them (isikukood serial, car, phone, appearance) is made up, and
+ * there is no home address. Anyone who asks to be left out: delete the line.
  */
 import type { CelebrityField, Gender, Text } from '@/sim/types';
 

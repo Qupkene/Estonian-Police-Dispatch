@@ -24,7 +24,7 @@ const EXTRA_FOLD: Record<string, string> = { ß: 'ss', æ: 'ae', ø: 'o', đ: 'd
 
 /**
  * Case- and diacritic-insensitive fold: "Õunapuu" → "ounapuu", "Šurõgin" → "surogin",
- * "Žanna" → "zanna". NFKD also folds the 2025 legend's superscript "ᵛᵉʳᶦᶠᶦᵉᵈ" to "verified".
+ * "Žanna" → "zanna". NFKD also folds superscript and compatibility letters to their plain forms.
  */
 export function foldName(s: string): string {
   return s
@@ -221,10 +221,6 @@ const LICENSE_TEXT: Record<'suspended' | 'revoked' | 'none' | 'expired', Text> =
 export function personFlags(p: Person, now: number): RecordFlag[] {
   const out: RecordFlag[] = [];
   const f = p.flags;
-  if (p.id.startsWith('legend-'))
-    out.push({ id: 'legend', severity: 'info', text: { et: 'LEGEND 2025', en: 'LEGEND 2025' } });
-  if (isCelebrity(p))
-    out.push({ id: 'vip', severity: 'info', text: { et: 'AVALIKU ELU TEGELANE', en: 'PUBLIC FIGURE' } });
   if (f.deceased) out.push({ id: 'deceased', severity: 'info', text: { et: 'SURNUD', en: 'DECEASED' } });
   if (f.wanted) {
     out.push({

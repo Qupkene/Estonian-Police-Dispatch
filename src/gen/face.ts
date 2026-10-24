@@ -126,7 +126,7 @@ function split(pool: readonly FaceDef[]): Split {
   give('legend-okimum', 2025_0001, { gender: 'M', age: 22, hair: 'short', hairColor: 'brown' });
   give('legend-sarmert', 2025_0438, {
     gender: 'M',
-    age: 80,
+    age: 38,
     hair: 'curly',
     hairColor: 'grey',
     beard: 'full',

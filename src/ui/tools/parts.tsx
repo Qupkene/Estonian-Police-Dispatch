@@ -96,11 +96,10 @@ const SEV_ICON: Record<FlagLike['severity'], IconName> = { danger: 'alert', warn
 
 export function FlagBanner({ flags }: { flags: FlagLike[] }) {
   const tx = useTx();
-  const shown = flags.filter((f) => f.id !== 'legend');
-  if (!shown.length) return null;
+  if (!flags.length) return null;
   return (
     <ul className="tl-flags" role="list">
-      {shown.map((f) => {
+      {flags.map((f) => {
         const full = tx(f.text);
         const { head, rest } = splitFlagText(full);
         return (
@@ -116,23 +115,15 @@ export function FlagBanner({ flags }: { flags: FlagLike[] }) {
 }
 
 /** Tiny severity markers for result rows. */
-export function FlagDots({ flags, legend }: { flags: FlagLike[]; legend?: boolean }) {
+export function FlagDots({ flags }: { flags: FlagLike[] }) {
   const tx = useTx();
   return (
     <span className="tl-dots">
-      {legend && (
-        <span className="tl-dot tl-dot--gold" title="LEGEND 2025">
-          <Icon name="star" size={12} />
+      {flags.slice(0, 4).map((f) => (
+        <span key={f.id} className={`tl-dot tl-dot--${f.severity}`} title={tx(f.text)}>
+          <Icon name={SEV_ICON[f.severity]} size={12} />
         </span>
-      )}
-      {flags
-        .filter((f) => f.id !== 'legend')
-        .slice(0, 4)
-        .map((f) => (
-          <span key={f.id} className={`tl-dot tl-dot--${f.severity}`} title={tx(f.text)}>
-            <Icon name={SEV_ICON[f.severity]} size={12} />
-          </span>
-        ))}
+      ))}
     </span>
   );
 }

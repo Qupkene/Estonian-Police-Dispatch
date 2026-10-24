@@ -218,8 +218,10 @@ describe('engine-core with fixtures', () => {
     const sm = s.persons['legend-sarmert'];
     expect(ok.flags.wanted).toBeTruthy();
     expect(sm.flags.wanted).toBeTruthy();
-    expect(ok.notes[0].et).toContain('LEGEND 2025');
-    expect(sm.lastName).toContain('ᵛᵉʳᶦᶠᶦᵉᵈ');
+    // Ordinary registry entries: no extra notes or marks.
+    expect(ok.notes).toEqual([]);
+    expect(sm.lastName).toBe('Sarmert');
+    expect(sm.birthDate).toBe('1988-04-01');
     // Bulletins: 2-4 BOLO + päevakäsk + weather.
     const bolo = s.bulletins.filter((b) => b.kind === 'bolo_person' || b.kind === 'bolo_vehicle');
     expect(bolo.length).toBeGreaterThanOrEqual(2);

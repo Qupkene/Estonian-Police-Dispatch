@@ -297,10 +297,6 @@
   color: var(--info-ink);
   background: color-mix(in srgb, var(--info) 14%, transparent);
 }
-.tl-dot--gold {
-  color: var(--ink-on-bright);
-  background: var(--gold);
-}
 
 /* ── licence plate ──────────────────────────────────────────────────────── */
 .tl-plate {
@@ -640,25 +636,6 @@
   font-size: var(--fs-sm);
   color: var(--text-1);
   flex-wrap: wrap;
-}
-.tl-ribbon {
-  position: absolute;
-  top: 16px;
-  right: -38px;
-  width: 150px;
-  transform: rotate(38deg);
-  padding: 3px 0;
-  text-align: center;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 85%, #fff), var(--gold), color-mix(in srgb, var(--gold) 80%, #000));
-  color: var(--ink-on-bright);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.14em;
-  box-shadow: var(--shadow-1);
-  z-index: 2;
-}
-.tl-card.is-legend {
-  border-color: color-mix(in srgb, var(--gold) 60%, var(--line));
 }
 .tl-alerts {
   display: grid;

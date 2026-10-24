@@ -7,7 +7,7 @@ import { hhmm } from '@/sim/time';
 import { useGame } from '@/store/game';
 import { useLang, useT, useTx } from '@/i18n';
 import { Avatar, Button, Empty, Icon, IconButton, Segmented } from '@/ui/components';
-import { ageAt, isLegend, querySubject, queriesForRecord, uncheckedLinks, vehicleByPlate, type RecordRef } from './lib/helpers';
+import { ageAt, querySubject, queriesForRecord, uncheckedLinks, vehicleByPlate, type RecordRef } from './lib/helpers';
 import { pending, pFlags, run, searchP, searchV, TEMPLATES_BY_ID, useSim, vFlags } from './lib/engine';
 import { FlagDots, Plate } from './parts';
 import { useRegistryUi, type RegMode, type RegResults, type RegView } from './lib/registryUi';
@@ -308,7 +308,7 @@ function ResultsList({ sim, results, onOpen }: { sim: SimState; results: Results
                         <span className="mono">{p.idcode}</span> · {age} · {p.city}
                       </span>
                     </span>
-                    <FlagDots flags={pFlags(p, sim.now)} legend={isLegend(p)} />
+                    <FlagDots flags={pFlags(p, sim.now)} />
                   </button>
                 </li>
               );
