@@ -608,6 +608,12 @@ export interface IncidentTemplate {
   /** Only these months (1..12). */
   months?: number[];
   places: PlaceKind[];
+  /**
+   * The story needs a curated place of one of `places` that carries one of these tags (Place.tags): a ferry
+   * queue only at a port tagged 'queue', a Peipsi story only on a shore tagged 'peipsi'. The template never
+   * spawns in a prefecture without such a place, nor as a call in a sector that has none.
+   */
+  placeTags?: string[];
   regions?: RegionId[];
   units: { need: UnitNeed[]; ideal?: UnitNeed[] };
   /** Minutes on scene when handled adequately. */

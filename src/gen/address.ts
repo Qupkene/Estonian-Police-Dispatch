@@ -708,6 +708,11 @@ const SIMILAR: Partial<Record<PlaceKind, PlaceKind[]>> = {
   museum: ['oldtown', 'church'],
 };
 
+/** Curated places of one of `kinds` that carry one of `tags`. */
+export function taggedPlaces(region: RegionDef, kinds: PlaceKind[], tags: string[]): Place[] {
+  return region.places.filter((p) => kinds.includes(p.kind) && !!p.tags?.some((t) => tags.includes(t)));
+}
+
 function placeLocation(region: RegionDef, p: Place): IncidentLocation {
   return {
     address: p.address,
@@ -738,8 +743,16 @@ function exact(rng: Rng, region: RegionDef, kind: PlaceKind): IncidentLocation |
   return generated(rng, region, kind) ?? (places.length ? placeLocation(region, rng.pick(places)) : null);
 }
 
-/** Pick an incident location in the region for one of the given place kinds (see DESIGN §4.2). */
-export function pickLocation(rng: Rng, region: RegionDef, kinds: PlaceKind[]): IncidentLocation {
+/**
+ * Pick an incident location in the region for one of the given place kinds (see DESIGN §4.2). With `tags`, a
+ * curated place of those kinds that carries one of the tags (IncidentTemplate.placeTags); the usual pick when
+ * the region has none.
+ */
+export function pickLocation(rng: Rng, region: RegionDef, kinds: PlaceKind[], tags?: string[]): IncidentLocation {
+  if (tags?.length) {
+    const tagged = taggedPlaces(region, kinds, tags);
+    if (tagged.length) return placeLocation(region, rng.pick(tagged));
+  }
   const order = rng.shuffle(kinds.length ? [...kinds] : (['street'] as PlaceKind[]));
   for (const k of order) {
     const loc = exact(rng, region, k);

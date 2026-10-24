@@ -186,7 +186,7 @@ const HELP_KINDS: PlaceKind[] = ['residential', 'house', 'street', 'ruralroad', 
 /** Unit types a colleague asks for: an ordinary patrol job, never a specialist one. */
 const HELP_UNITS = new Set(['patrol', 'traffic']);
 
-/** Templates a colleague asks help with: an ordinary P2/P3 patrol job at an address, no story event. */
+/** Templates a colleague asks help with: an ordinary P2/P3 patrol job at an address, no story event or special place. */
 export function helpTemplates(): IncidentTemplate[] {
   return allTemplates().filter(
     (t) =>
@@ -197,6 +197,8 @@ export function helpTemplates(): IncidentTemplate[] {
       !(t.tags ?? []).some((x) => x === 'anpr' || x === 'alarm') &&
       t.units.need.every((n) => HELP_UNITS.has(n.type)) &&
       t.units.need.reduce((a, n) => a + n.count, 0) <= 2 &&
+      // A story tied to a tagged place (IncidentTemplate.placeTags) does not fit any border address.
+      !t.placeTags?.length &&
       t.places.some((p) => HELP_KINDS.includes(p)),
   );
 }
