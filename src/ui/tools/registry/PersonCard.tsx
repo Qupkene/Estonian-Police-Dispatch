@@ -20,7 +20,7 @@ import {
 import { describe, pFlags, vFlags } from '../lib/engine';
 import { CountryFlag, FlagBanner, FlagDots, KV, Plate, Section } from '../parts';
 import { PendingStrip } from './PendingStrip';
-import { hasPhoto } from '@/gen/face';
+import { faceFor } from '@/gen/face';
 
 export function PersonCard({
   person: p,
@@ -55,7 +55,7 @@ export function PersonCard({
         <div className="tl-person__photo">
           <Avatar
             seed={p.avatarSeed}
-            photo={hasPhoto(p)}
+            face={faceFor(s, p)}
             size={104}
             gender={p.gender}
             age={age}

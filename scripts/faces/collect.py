@@ -8,7 +8,7 @@ Each download is a new StyleGAN2 face (1024 px, FFHQ-aligned). For each image:
     a beard from the chin against the cheeks (men only, conservative);
   - the skin tone is the ITA angle of the cheek skin (light / medium / dark), so the game can keep the same
     mostly-Northern-European mix the drawn avatars use.
-Kept as a 256 px WebP; the original is not stored. Results append to labels.jsonl, so the run can resume.
+Kept as a 192 px WebP; the original is not stored. Results append to labels.jsonl, so the run can resume.
 
 Setup (once, outside the repo's own tooling):
   python3 -m venv .venv && .venv/bin/pip install -r scripts/faces/requirements.txt
@@ -174,7 +174,7 @@ def main():
         else:
             g, age = gender_age(img, faces[0])
             rec.update({'id': md5[:10], 'gender': g, 'age': age, 'score': round(faces[0][4], 3), **traits(img, faces[0])})
-            Image.open(tmp).convert('RGB').resize((256, 256), Image.LANCZOS).save(os.path.join(out, 'img', f"{rec['id']}.webp"), 'WEBP', quality=80, method=6)
+            Image.open(tmp).convert('RGB').resize((192, 192), Image.LANCZOS).save(os.path.join(out, 'img', f"{rec['id']}.webp"), 'WEBP', quality=80, method=6)
         with open(labels, 'a') as f:
             f.write(json.dumps(rec) + '\n')
         n += 1

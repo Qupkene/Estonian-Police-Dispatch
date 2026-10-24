@@ -8,7 +8,7 @@ import { ageAt } from './lib/helpers';
 import { regionOf, useSim } from './lib/engine';
 import { Plate } from './parts';
 import './tools.css';
-import { hasPhoto } from '@/gen/face';
+import { faceFor } from '@/gen/face';
 
 const GROUPS: Bulletin['kind'][] = ['order', 'bolo_vehicle', 'bolo_person', 'weather', 'event'];
 const GROUP_ICON: Record<Bulletin['kind'], IconName> = {
@@ -98,7 +98,7 @@ function BulletinItem({ b, sim }: { b: Bulletin; sim: SimState }) {
         {b.kind === 'bolo_person' && person && (
           <Avatar
             seed={person.avatarSeed}
-            photo={hasPhoto(person)}
+            face={faceFor(sim, person)}
             size={44}
             gender={person.gender}
             age={ageAt(person.birthDate, sim.now)}

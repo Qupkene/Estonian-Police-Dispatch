@@ -296,12 +296,13 @@ the card says the car, code and looks are made up. Nothing else in the sim reads
 is never a suspect or a bulletin. Stories cast them through `PersonSpec.celebrity` (2.32.0,
 `src/data/incidents/celebrity.ts`): a caller, a witness or a victim only (`CELEBRITY_ROLES`), someone who fits
 the spec's fields, gender and age and is not in the shift yet; texts name them with `{celeb}` and `{celebFor}`.
-**Photo portraits** (2.33.0): made-up civilians show a synthetic face from `public/faces/` (StyleGAN2 via
+**Photo portraits** (2.33.0): everyone shows a synthetic face from `public/faces/` (StyleGAN2 via
 thispersondoesnotexist.com, labelled automatically by `scripts/faces/collect.py`: InsightFace sex and age, pixel
 rules for hair colour, baldness, beard and the cheeks' ITA skin tone; `build.py` keeps a balanced pool per sex
 and age band). `src/gen/face.ts` picks one of the same sex and a close age, preferring the same hair colour,
-baldness and beard, with the drawn avatars' tone weights, seeded by `avatarSeed`. Public figures, the legends and
-officers keep the drawing, which is also the fallback.
+baldness and beard, with the drawn avatars' tone weights. `faceFor` hands faces out in the order people joined
+the shift, each one nobody has yet, so it is the same on every client; officers use `pickFace` by avatar seed.
+The drawing is the fallback when an image does not load.
 Search: by isikukood (exact), by name (case/diacritic-insensitive substring), by plate
 (normalise spaces/case), by VIN. Every query is logged (`QueryLog`).
 

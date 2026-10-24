@@ -2,7 +2,7 @@
 Pick a balanced pool from the collected faces and write it into the game.
 
 Buckets: sex x age band. Each bucket keeps up to CAP light-toned faces plus up to CAP_OTHER medium and dark ones
-(the game weights tones itself). Copies the WebP files to public/faces/ and writes the rows into src/data/faces.ts.
+(the game weights tones itself). Enough faces per bucket that nobody in a shift shares one (src/gen/face.ts). Copies the WebP files to public/faces/ and writes the rows into src/data/faces.ts.
 
 Usage: python build.py COLLECT_DIR REPO_DIR
 """
@@ -13,7 +13,7 @@ import shutil
 import sys
 
 BANDS = [(0, 12), (13, 17), (18, 24), (25, 34), (35, 44), (45, 54), (55, 64), (65, 74), (75, 120)]
-CAP, CAP_OTHER = 48, 8
+CAP, CAP_OTHER = 110, 12
 
 
 def main():

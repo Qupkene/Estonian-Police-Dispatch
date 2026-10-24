@@ -4,13 +4,13 @@ Kõik olulised muudatused on kirjas siin. Each version has a short English summa
 
 ## 2.33.0 (2026-10-24)
 
-- **Registri inimestel on fotod:** väljamõeldud inimese kaardil on nüüd fotoportree, mis sobib tema soo, vanuse, juuksevärvi ja habemega. Sama inimene saab alati sama näo. Pildid on tehisintellekti loodud näod (thispersondoesnotexist.com), keegi neist ei ole päris inimene.
-- **Joonistuse juurde jäävad** tuntud inimesed, 2025. aasta legendid ja politseinikud. Kui sobivat fotot ei ole või pilt ei laadi, näidatakse joonistust nagu varem.
+- **Kõigil on nüüd foto:** igal registri inimesel, igal kõne tegelasel, tuntud inimestel, 2025. aasta legendidel ja politseinikel on fotoportree, mis sobib tema soo, vanuse, juuksevärvi ja habemega. Sama inimene saab alati sama näo ja samas vahetuses ei ole kahel inimesel sama nägu.
+- **Pildid on tehisintellekti loodud näod** (thispersondoesnotexist.com), keegi neist ei ole päris inimene, ka tuntud inimeste puhul mitte. Kui pilt ei laadi, näidatakse joonistust nagu varem.
 
 <details>
 <summary>English</summary>
 
-Made-up people in the registry get photo portraits: synthetic StyleGAN2 faces from thispersondoesnotexist.com, labelled automatically (InsightFace for sex and age, pixels for hair colour, baldness, beard and skin tone; `scripts/faces/`), served from `public/faces/` at 256 px and picked by `src/gen/face.ts` to fit the person's sex, age, hair and beard, the same face every time, with the drawn avatars' mostly Northern European tone mix. Public figures, the 2025 legends and officers keep their drawings, and the drawing is the fallback when nothing fits or the image does not load. The service worker caches the faces like other static files.
+Everyone gets a photo portrait: synthetic StyleGAN2 faces from thispersondoesnotexist.com, labelled automatically (InsightFace for sex and age, pixel rules for hair colour, baldness, beard and skin tone; `scripts/faces/`), served from `public/faces/` at 192 px. `src/gen/face.ts` picks a face of the same sex and a close age, preferring the same hair and beard, with the drawn avatars' mostly Northern European tone mix; within a shift people get faces in the order they joined, each one nobody has yet, so every client and every reload shows the same faces. Public figures, the 2025 legends and officers get synthetic faces too (the card already says their looks are made up). The drawing is the fallback when an image does not load, and the service worker caches the faces like other static files.
 
 </details>
 
