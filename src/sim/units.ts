@@ -8,7 +8,7 @@ import { emit, regionOf } from './internal';
 import { onUnitArrived } from './incidents';
 import { waterBodiesNear } from './land';
 import { phrase, radioVars, unitPhrase, unitSay } from './radio';
-import { Rng, withRng } from './rng';
+import { Rng, hashString, withRng } from './rng';
 import { mainStation, sectorStationIds } from './sectors';
 import { HOUR, MIN } from './time';
 import type {
@@ -638,6 +638,11 @@ export function generateOfficer(
   };
 }
 
+/** The stream a crew member is drawn from: the same callsign, shift and seat give the same officer every shift. */
+export function crewRng(regionId: string, callsign: string, shift: 'day' | 'night', seat: number): Rng {
+  return new Rng(hashString(`crew:${regionId}:${callsign}:${shift}:${seat}`) || 1);
+}
+
 /** Which region roster units exist for this shift (DESIGN §4.8 + difficulty scaling). */
 export function rosterSpecsFor(region: RegionDef, shift: 'day' | 'night', difficulty: Difficulty): UnitSpec[] {
   return region.roster.filter((spec) => {
@@ -769,7 +774,12 @@ export function buildUnits(s: SimState, r: Rng, opts: NewShiftOptions): void {
     if (!crew.length) {
       const n = Math.max(1, sp.crewN ?? 2);
       crew = [];
-      for (let k = 0; k < n; k++) crew.push(generateOfficer(r, region, sp.type, k, `${id}-o${k + 1}`, used, sp.crewNames?.[k]));
+      for (let k = 0; k < n; k++) {
+        // The shift stream still draws as it always did (unit positions and the rest stay put); the person comes
+        // from the crew's own stream, so a callsign has the same day and night crew in every shift.
+        generateOfficer(r, region, sp.type, k, `${id}-o${k + 1}`, new Set(used), sp.crewNames?.[k]);
+        crew.push(generateOfficer(crewRng(region.id, sp.callsign, shift, k), region, sp.type, k, `${id}-o${k + 1}`, used, sp.crewNames?.[k]));
+      }
     } else for (const o of crew) used.add(o.badge);
     const u: Unit = {
       id,

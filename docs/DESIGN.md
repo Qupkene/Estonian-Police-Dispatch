@@ -278,8 +278,11 @@ Fatigue +0.06/h, ×1.5 for P1 work; breaks (`break` 30 min) reset 60 %. Fatigue 
 
 ### 4.10 Registry
 Persons/vehicles are generated per incident (suspect, victim, caller, witness, driver, vehicle)
-with flags from `PersonSpec`/`VehicleSpec`, plus a background population of ~150 people per
-shift so name searches return plausible hits and some BOLO/wanted entries exist. Two legendary
+with flags from `PersonSpec`/`VehicleSpec`, plus 150 residents and 60 cars per prefecture so name
+searches return plausible hits and some BOLO/wanted entries exist. The residents are fixed (2.33.0):
+drawn from the region's own stream as of `RESIDENT_EPOCH`, the same people every shift; the shift's
+stream redraws their warrants, orders and probation (`refreshResident`) and which cars are stolen.
+Crews are fixed too: each officer comes from `crewRng(region, callsign, day/night, seat)`. Two legendary
 easter-egg persons from the 2025 version are always present: **Rainer Okimum** (22, "CSS koodi
 kirjutaja", records: "Kriminaalne mittepeatumine", "Tule avamine relvast avalikus kohas",
 "Kehavigastuste tekitamine", wanted) and **Magnus Sarmert 「✔ ᵛᵉʳᶦᶠᶦᵉᵈ」** (age 438,
@@ -300,8 +303,10 @@ the spec's fields, gender and age and is not in the shift yet; texts name them w
 thispersondoesnotexist.com, labelled automatically by `scripts/faces/collect.py`: InsightFace sex and age, pixel
 rules for hair colour, baldness, beard and the cheeks' ITA skin tone; `build.py` keeps a balanced pool per sex
 and age band). `src/gen/face.ts` picks one of the same sex and a close age, preferring the same hair colour,
-baldness and beard, with the drawn avatars' tone weights. `faceFor` hands faces out in the order people joined
-the shift, each one nobody has yet, so it is the same on every client; officers use `pickFace` by avatar seed.
+baldness and beard, with the drawn avatars' tone weights. Half the pool is kept for people who are the same
+everywhere (public figures, legends, every crew), handed out once in a fixed order (`officerFace` for crews);
+`faceFor` gives the other half to residents and call people in the order they joined the shift, each one
+nobody has yet, so faces stay the same between shifts and on every client.
 The drawing is the fallback when an image does not load.
 Search: by isikukood (exact), by name (case/diacritic-insensitive substring), by plate
 (normalise spaces/case), by VIN. Every query is logged (`QueryLog`).

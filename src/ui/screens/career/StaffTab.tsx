@@ -11,6 +11,7 @@ import { capitalize, fmtMoney, fmtNum, levelTone, pct, safe, sortRows, staffAge,
 const SEVERANCE = (economy as unknown as { SEVERANCE_MONTHS?: number }).SEVERANCE_MONTHS ?? 0;
 import { useToast } from './Toasts';
 import { SortHeader, SpecialtyFilter, Stat } from './bits';
+import { officerFace } from '@/gen/face';
 
 type SortKey = 'name' | 'specialty' | 'skill' | 'salary' | 'morale' | 'status' | 'shifts' | 'xp';
 
@@ -127,7 +128,7 @@ export function StaffTab({ profile, goRecruit }: { profile: CareerProfile; goRec
                   <tr key={m.id} className={m.status !== 'active' ? 'is-away' : ''}>
                     <td>
                       <div className="cr-person">
-                        <Avatar seed={m.avatarSeed} size={36} gender={m.gender} age={staffAge(m)} uniform />
+                        <Avatar seed={m.avatarSeed} face={officerFace(m)} size={36} gender={m.gender} age={staffAge(m)} uniform />
                         <div>
                           <strong>
                             {m.firstName} {m.lastName}
@@ -209,7 +210,7 @@ export function StaffTab({ profile, goRecruit }: { profile: CareerProfile; goRec
                 <div className="cr-crew__members">
                   {u.crew.map((o) => (
                     <span key={o.id} className="cr-crew__member" title={`${o.firstName} ${o.lastName}`}>
-                      <Avatar seed={o.avatarSeed} size={22} gender={o.gender} age={30} uniform />
+                      <Avatar seed={o.avatarSeed} face={officerFace(o)} size={22} gender={o.gender} age={30} uniform />
                       {o.firstName[0]}. {o.lastName}
                     </span>
                   ))}
@@ -241,7 +242,7 @@ export function StaffTab({ profile, goRecruit }: { profile: CareerProfile; goRec
       >
         {firing && (
           <div className="cr-confirm">
-            <Avatar seed={firing.avatarSeed} size={56} gender={firing.gender} age={staffAge(firing)} uniform />
+            <Avatar seed={firing.avatarSeed} face={officerFace(firing)} size={56} gender={firing.gender} age={staffAge(firing)} uniform />
             <div>
               <p>
                 {t('career.staff.fireText', { name: `${firing.firstName} ${firing.lastName}`, badge: firing.badge })}

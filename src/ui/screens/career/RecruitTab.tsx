@@ -7,6 +7,7 @@ import type { Candidate, CareerProfile, Text, UnitType } from '@/sim/types';
 import { affordability, calendarOf, costsOf, fmtMoney, levelTone, monthlyBudget, pct, safe, sortRows, UNIT_ICON, type Affordability } from './helpers';
 import { SpecialtyFilter } from './bits';
 import { useToast } from './Toasts';
+import { officerFace } from '@/gen/face';
 
 type SortKey = 'skill' | 'salary' | 'years' | 'value';
 
@@ -126,7 +127,7 @@ function CandidateCard({ c, aff, cost, onHire, fresh }: { c: Candidate; aff: Aff
   return (
     <article className={`cr-cand${fresh ? ' is-fresh' : ''}`}>
       <div className="cr-cand__top">
-        <Avatar seed={c.avatarSeed} size={60} gender={c.gender} age={c.age} uniform />
+        <Avatar seed={c.avatarSeed} face={officerFace(c)} size={60} gender={c.gender} age={c.age} uniform />
         <div className="cr-cand__who">
           <strong className="cr-cand__name">
             {c.firstName} {c.lastName}

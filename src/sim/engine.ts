@@ -3,7 +3,7 @@
  * See DESIGN §4. The SimState is mutated in place and stays JSON-serialisable.
  */
 import { ageOf, describePerson, describeVehicle } from '@/gen/describe';
-import { generatePerson } from '@/gen/person';
+import { generatePerson, refreshResident, RESIDENT_EPOCH } from '@/gen/person';
 import { generateVehicle } from '@/gen/vehicle';
 import { dayInfo } from './calendar';
 import { updateCalls } from './calls';
@@ -183,12 +183,22 @@ const BACKGROUND_SPEC: PersonSpec = {
   restraining: 0.015,
 };
 
+/** Residents carry no warrant, order or probation of their own; refreshResident draws those per shift. */
+const RESIDENT_SPEC: PersonSpec = { ...BACKGROUND_SPEC, wanted: 0, restraining: 0, probation: 0 };
+
+/**
+ * The prefecture's residents (2.33.0): the same 150 people and 60 cars in every shift, drawn from the region's own
+ * stream as of RESIDENT_EPOCH (names, codes, homes, looks, records, plates). The shift's stream decides what
+ * changes: warrants, orders and probation at the background rates, and which cars are stolen.
+ */
 function populateRegistry(s: SimState, r: Rng, region: RegionDef): void {
+  const home = new Rng(hashString(`residents:${region.id}`) || 1);
   const people: Person[] = [];
   for (let i = 0; i < 150; i++) {
     try {
       // No explicit lang/age: gen/person applies the regional demographics.
-      const p = generatePerson(r, { id: `p${++s.seq.person}`, now: s.now, region, spec: BACKGROUND_SPEC });
+      const p = generatePerson(home, { id: `p${++s.seq.person}`, now: RESIDENT_EPOCH, region, spec: RESIDENT_SPEC });
+      refreshResident(r, p, { now: s.now, region, spec: BACKGROUND_SPEC });
       s.persons[p.id] = p;
       people.push(p);
     } catch (err) {
@@ -198,18 +208,19 @@ function populateRegistry(s: SimState, r: Rng, region: RegionDef): void {
   }
   if (!people.length) return;
   for (let i = 0; i < 60; i++) {
-    const owner = r.pick(people);
+    const owner = home.pick(people);
     try {
-      const v = generateVehicle(r, {
+      const v = generateVehicle(home, {
         now: s.now,
         owner,
         region: s.regionId,
         isTaken: (pl) => !!s.vehicles[pl],
-        spec: { role: 'involved', stolen: 0.04, noInsurance: 0.05, noInspection: 0.07, suspended: 0.015 },
+        spec: { role: 'involved', stolen: 0, noInsurance: 0.05, noInspection: 0.07, suspended: 0.015 },
       });
       if (s.vehicles[v.plate]) continue;
       if (!v.ownerCompany) v.ownerId = owner.id;
       if (v.ownerId === owner.id && !owner.vehicles.includes(v.plate)) owner.vehicles.push(v.plate);
+      if (r.chance(0.04)) v.flags.stolen = { since: isoDate(s.now - r.int(1, 20) * DAY), text: T('Varastatud omaniku elukoha juurest', 'Stolen from outside the owner’s home') };
       s.vehicles[v.plate] = v;
     } catch (err) {
       if (i === 0) console.warn('[EPD] generateVehicle failed', err);

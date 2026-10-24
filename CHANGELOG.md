@@ -4,13 +4,17 @@ Kõik olulised muudatused on kirjas siin. Each version has a short English summa
 
 ## 2.33.0 (2026-10-24)
 
-- **Kõigil on nüüd foto:** igal registri inimesel, igal kõne tegelasel, tuntud inimestel, 2025. aasta legendidel ja politseinikel on fotoportree, mis sobib tema soo, vanuse, juuksevärvi ja habemega. Sama inimene saab alati sama näo ja samas vahetuses ei ole kahel inimesel sama nägu.
+- **Kõigil on nüüd foto:** igal registri inimesel, igal kõne tegelasel, tuntud inimestel, 2025. aasta legendidel ja politseinikel on fotoportree, mis sobib tema soo, vanuse, juuksevärvi ja habemega. Samas vahetuses ei ole kahel inimesel sama nägu.
+- **Samal inimesel on alati sama nimi ja nägu:**
+  - Igal ekipaažil on kindel koosseis: näiteks LÕUNA 11 päevavahetuses on alati samad politseinikud sama nime, märginumbri ja näoga. Öövahetusel on oma kindel koosseis.
+  - Igal prefektuuril on kindlad elanikud: samad 150 inimest sama nime, isikukoodi, aadressi, auto ja näoga igas vahetuses. Tagaotsitavus, lähenemiskeelud ja katseaeg muutuvad vahetusest vahetusse ning riided käivad aastaajaga kaasas.
+  - Tuntud inimestel ja legendidel on alati sama nägu. Karjääri politseinikud olid ka varem kindlad, nüüd on neil ka kindel foto.
 - **Pildid on tehisintellekti loodud näod** (thispersondoesnotexist.com), keegi neist ei ole päris inimene, ka tuntud inimeste puhul mitte. Kui pilt ei laadi, näidatakse joonistust nagu varem.
 
 <details>
 <summary>English</summary>
 
-Everyone gets a photo portrait: synthetic StyleGAN2 faces from thispersondoesnotexist.com, labelled automatically (InsightFace for sex and age, pixel rules for hair colour, baldness, beard and skin tone; `scripts/faces/`), served from `public/faces/` at 192 px. `src/gen/face.ts` picks a face of the same sex and a close age, preferring the same hair and beard, with the drawn avatars' mostly Northern European tone mix; within a shift people get faces in the order they joined, each one nobody has yet, so every client and every reload shows the same faces. Public figures, the 2025 legends and officers get synthetic faces too (the card already says their looks are made up). The drawing is the fallback when an image does not load, and the service worker caches the faces like other static files.
+Everyone gets a photo portrait: synthetic StyleGAN2 faces from thispersondoesnotexist.com, labelled automatically (`scripts/faces/`) and served from `public/faces/` at 192 px. The same person always has the same name and face. A callsign's crew is drawn from its own stream (`crewRng`: region, callsign, day or night, seat), so it is the same in every shift while the shift stream draws exactly as before. A prefecture's 150 residents and 60 cars come from the region's stream as of a fixed epoch (`RESIDENT_EPOCH`); `refreshResident` redraws warrants, restraining orders and probation from the shift stream at the background rates, renews documents and dresses them for the month, and the shift decides which cars are stolen. `src/gen/face.ts` keeps half of the pool for people who are the same everywhere (public figures, the legends, every crew), handed out once in a fixed order, and gives the other half to residents and the people of the calls in the order they joined the shift, each one nobody in it has yet. Faces match sex and age and prefer the same hair and beard, with the drawn avatars' mostly Northern European tone mix. The drawing is the fallback when an image does not load, and the service worker caches the faces like other static files.
 
 </details>
 

@@ -64,11 +64,11 @@ describe('photo portraits: picking a face', () => {
 });
 
 describe('photo portraits: a shift', () => {
-  // A big synthetic pool: 30 faces per sex and five-year band.
+  // A big synthetic pool: 60 faces per sex and five-year band.
   const BIG: FaceDef[] = [];
   for (const g of ['M', 'F'] as const)
     for (let age = 2; age <= 92; age += 5)
-      for (let i = 0; i < 30; i++)
+      for (let i = 0; i < 60; i++)
         BIG.push({
           id: `${g}${age}-${i}`,
           gender: g,
