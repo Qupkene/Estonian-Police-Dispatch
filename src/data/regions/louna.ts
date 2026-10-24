@@ -1995,7 +1995,7 @@ const PLACES: Place[] = [
   // ── Tartu: centre
   place('lo-raekoja-plats', 'Raekoja plats', 'oldtown', T, 'Raekoja plats', [26.7224, 58.3803], {
     district: 'Kesklinn',
-    tags: ['tourists', 'nightlife'],
+    tags: ['tourists', 'nightlife', 'raekoja'],
   }),
   place(
     'lo-raekoda',
@@ -2014,7 +2014,7 @@ const PLACES: Place[] = [
   }),
   place('lo-toomemagi', 'Toomemägi', 'park', T, 'Lossi tn', [26.7163, 58.38], {
     district: 'Kesklinn',
-    tags: ['night'],
+    tags: ['night', 'toomemagi'],
   }),
   place('lo-riigikohus', 'Riigikohus', 'government', T, 'Lossi 17', [26.7148, 58.3783], {
     district: 'Kesklinn',
@@ -2073,7 +2073,7 @@ const PLACES: Place[] = [
   }),
   place('lo-emajogi-kaarsild', 'Emajõgi (Kaarsilla juures)', 'lake', T, 'Kaarsild', [26.7257, 58.3813], {
     district: 'Kesklinn',
-    tags: ['water', 'river'],
+    tags: ['water', 'river', 'kaarsild'],
   }),
   place('lo-ulejoe-park', 'Ülejõe park', 'park', T, 'Narva mnt', [26.7286, 58.3826], { district: 'Ülejõe' }),
   place('lo-pank-ruutli', 'Pank (Rüütli tn)', 'bank', T, 'Rüütli 2', [26.7223, 58.3809], {
@@ -2145,7 +2145,7 @@ const PLACES: Place[] = [
   }),
   place('lo-raadi-lennuvali', 'Endine Raadi lennuväli', 'industrial', T, 'Lennuvälja tn', [26.775, 58.4005], {
     district: 'Raadi-Kruusamäe',
-    tags: ['remote'],
+    tags: ['remote', 'airfield'],
   }),
   place('lo-tahtvere-park', 'Tähtvere park', 'park', T, 'Laulupeo pst', [26.7078, 58.3866], {
     district: 'Tähtvere',
@@ -2218,10 +2218,10 @@ const PLACES: Place[] = [
     'Kolkja',
     'Kolkja alevik, Peipsiääre vald',
     [27.2109, 58.5483],
-    { tags: ['oldbelievers'] },
+    { tags: ['oldbelievers', 'onions'] },
   ),
   place('lo-varnja', 'Varnja', 'village', 'Varnja', 'Varnja alevik, Peipsiääre vald', [27.2352, 58.4895], {
-    tags: ['oldbelievers'],
+    tags: ['oldbelievers', 'onions'],
   }),
   place(
     'lo-kasepaa',
@@ -2230,7 +2230,7 @@ const PLACES: Place[] = [
     'Kasepää',
     'Kasepää alevik, Peipsiääre vald',
     [27.2247, 58.5157],
-    { tags: ['oldbelievers'] },
+    { tags: ['oldbelievers', 'onions'] },
   ),
   place(
     'lo-peipsiaare-tee',
@@ -2239,6 +2239,7 @@ const PLACES: Place[] = [
     'Kolkja',
     'Kallaste-Varnja tee',
     [27.1985, 58.5805],
+    { tags: ['onions'] },
   ),
   place(
     'lo-alatskivi-loss',
@@ -2355,7 +2356,7 @@ const PLACES: Place[] = [
 
   // ── Viljandi county
   place('lo-viljandi-lossimaed', 'Viljandi lossimäed', 'park', 'Viljandi', 'Lossi tn', [25.5938, 58.3612], {
-    tags: ['tourists'],
+    tags: ['tourists', 'lossimaed'],
   }),
   place(
     'lo-viljandi-folk',
@@ -2470,7 +2471,7 @@ const PLACES: Place[] = [
     [27.6455, 57.9625],
   ),
   place('lo-piusa', 'Piusa koopad', 'museum', 'Piusa', 'Piusa küla, Setomaa vald', [27.4698, 57.8414], {
-    tags: ['remote'],
+    tags: ['remote', 'caves'],
   }),
   place(
     'lo-koidula-pp',

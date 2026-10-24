@@ -602,7 +602,7 @@ export const TEMPLATES_MISSING: IncidentTemplate[] = [
         'Помогите, кто-то тонет! Он был тут у буя, а теперь его нет!',
       ],
     },
-    tags: ['water'],
+    tags: ['water', 'drowning'],
   },
   {
     id: 'missing_kalurid_jaatykil',

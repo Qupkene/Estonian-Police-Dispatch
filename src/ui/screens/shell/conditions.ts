@@ -74,6 +74,7 @@ export const TAG_ORDER = [
   'fireworks',
   'drunk_driving',
   'drunk',
+  'drowning',
   'crowd',
   'students',
   'youth',

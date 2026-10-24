@@ -158,6 +158,16 @@ Location: pick a place kind from `template.places`, then:
 * `highway` → point along a Natural Earth road within region bounds, e.g. "Tallinna-Tartu
   maantee (E263), 34. km".
 
+A story that fits only some places of a kind names their tags (`template.placeTags`, matched against
+`Place.tags`): the ferry queue happens at a port tagged `queue` (Virtsu, Kuivastu, Rohuküla, Heltermaa), never
+at the Pärnu cargo harbour. Such a template spawns only at a tagged curated place: its place availability is 0
+in a prefecture without one, a sector shift without one never gets it, and colleagues never ask for help with it.
+
+Regional stories (`src/data/incidents/regional/`, 2.30.0): each prefecture has its own set of calls, every one with
+`regions` set to it (the Rummu quarry and the Tallinn port in Põhja, the ash hills and Narva in Ida, the Kaarsild,
+Peipsi's old-believer villages and Valga-Valka in Lõuna, the ferry ports, Pärnu and the islands in Lääne), about
+one in sixteen of the prefecture's calls, each story rare at its own place (tests/incidents-regional.test.ts).
+
 ### 4.3 Incident lifecycle
 `incoming` (new card, unacknowledged, blinking) → `queued` (acknowledged) → `dispatched`
 (≥1 unit assigned and en route) → `onscene` (≥1 unit arrived) → `closed`.

@@ -441,6 +441,7 @@ export default {
   'shell.tag.fireworks': { et: 'ilutulestik', en: 'fireworks' },
   'shell.tag.drunk_driving': { et: 'joobes juhid', en: 'drunk drivers' },
   'shell.tag.drunk': { et: 'purjus inimesed', en: 'drunk people' },
+  'shell.tag.drowning': { et: 'uppumised', en: 'drownings' },
   'shell.tag.crowd': { et: 'rahvahulgad', en: 'crowds' },
   'shell.tag.students': { et: 'tudengid', en: 'students' },
   'shell.tag.youth': { et: 'noored', en: 'young people' },

@@ -2,6 +2,29 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.30.0 (2026-10-24)
+
+- **Igal prefektuuril on nüüd oma lood:** 48 uut väljakutset, 12 igas prefektuuris. Need juhtuvad ainult seal ja just neis kohtades. Umbes iga kuueteistkümnes väljakutse on nüüd oma prefektuuri lugu, see tähendab üks või kaks vahetuse kohta. Iga lugu on oma kohas harv: sama asi ei kordu igas vahetuses.
+  - **Põhja:** kruiisireisija ei jõua laevale tagasi, joobes päevareisijad sadamaterminalis, taskuvargad turistigrupi kallal vanalinnas, rahutu reisija antakse lennukis üle, koputused veoki haagisest Muuga või Paldiski sadamas, hüppaja Rummu karjääris, ujujad Ülemiste joogiveehoidlas, loomaaiast pääsenud kaljukits, turistile tuhandete eurode klubiarve, ärritunud mees saatkonna väravas, noormees kukkus suletud Linnahallis ja palgata ehitustöölised piiravad töödejuhatajat.
+  - **Ida:** krossisõitja kukkus tuhamäe nõlval, metallivargad Kreenholmi tühjas vabrikuhoones, tüli Narva piiripunkti jalakäijate järjekorras, keelatud sümboolika Siivertsi sõjahaudade juures, vool viib ujuja Narva-Jõesuus jõesuust merele, mees kukkus promenaadilt Narva jõkke, sõiduauto ja sõjaväekolonn E20 maanteel, kahtlane pildistaja Tapa linnaku väravas, õlireostus Sillamäe või Kunda sadamas, taskuvargad Kuremäe palverändurite seas, ajateenija lahkus linnakust ja alaealiste joomapidu Võsu rannas.
+  - **Lõuna:** purjus noormees Kaarsilla kaarel, tudengit rööviti öösel Toomemäel, Valkas varastatud auto sõitis üle piiri Valgasse, joobes veokijuht Luhamaa piiripunkti järjekorras, sibulavargad Peipsi vanausuliste külades, suusataja ei tulnud Tehvandi radadelt tagasi, joobes mees kukkus Viljandi lossimägedel vallikraavi, noored suletud Piusa koobastes, seeneline eksis Saatse saapas piiri äärde, öine driftimine Raadi lennuväljal, vanausuliste palvelast varastati ikoonid ja joobes seltskond ronib Suudlevate tudengite skulptuurile.
+  - **Lääne:** inimene tormisel Pärnu muulil, joobes juht Läti piiripoest tagasi, praamile kiirustav juht möödub ohtlikult, auto sõitis Väinatammilt merre, viimasest praamist maha jäänud mees märatseb sadamas, varastatud auto praamijärjekorras, tabletimüüja Raeküla festivalil, kanuumatkajad Soomaa suurveel, kulupõletamisest süttis Matsalu roostik, hülgepoeg rannal, jaht saabus piirikontrollita ja joobes pealtvaataja sõitis Saaremaa ralli kiiruskatsele.
+  - Igal lool on oma 112 kõne (ka vene keelt kõnelevale helistajale), raadioread, otsused ja mitu lõppu. Paljud lood lähevad hullemaks, kui keegi ei jõua õigel ajal kohale. Osa lugusid kuulub oma aastaaega või kellaaega: Soomaa suurvesi kevadel, Rummu suvel, Tehvandi talveõhtul, Kaarsild ja Raadi öösel.
+- **Lood juhtuvad õiges kohas:** praamijärjekorra tüli ja tulekahju parvlaeval tulevad nüüd ainult Virtsu, Kuivastu, Rohuküla või Heltermaa sadamas, mitte Pärnu kaubasadamas või jahisadamas. Uued lood on oma kohtadega seotud samamoodi.
+- **Vahetuse tingimused nimetavad uppumisi:** jaanipäeval on veeõnnetusi rohkem (ka kadunud ujuja lugu tuleb siis sagedamini) ja eripäeva juures on nüüd kirjas ka „uppumised“.
+- **Raadio parandused:** kui otsitakse kadunud või kukkunud inimest, ütleb ekipaaž leidmisel „isik leitud“, mitte „kahtlustatav kinni peetud“. Puhta registripäringu vastus ei ütle enam „laseme minna“, sest inimene võidakse sama juhtumi pärast ikkagi kinni pidada.
+
+<details>
+<summary>English</summary>
+
+Every prefecture gets its own stories: 48 regional incident templates, 12 each, in `src/data/incidents/regional/` (all with `regions` set to one prefecture), together about one call in sixteen (one or two a shift), each kept rare at its own place. Põhja has the Tallinn port, the old town, the airport, the embassies, Rummu, Ülemiste and the closed Linnahall; Ida the ash hills, Kreenholm, the Narva-1 queue, Siivertsi, the Narva river, a military convoy on the E20, Tapa, the harbours, Kuremäe and Võsu; Lõuna the Kaarsild, Toomemägi, Valga-Valka, Luhamaa, Peipsi's old-believer villages, Tehvandi, the Viljandi castle hills, Piusa, the Saatse Boot, Raadi and the Kissing Students; Lääne the Pärnu breakwater, Ikla, the ferry roads, ports and queues, the Väinatamm, the Raeküla festival, Soomaa's spring flood, Matsalu, seal pups, yachts and Saaremaa Rally. Each has a 112 call with Russian lines, radio beats, decisions and several endings; most escalate when nobody arrives in time. Each set was written, reviewed twice (realism and game logic; Estonian, English and Russian) and fixed.
+
+A new template field `placeTags` ties a story to curated places with a tag (`Place.tags`): the ferry queue fight and the ferry fire now happen only at the island ferry ports. A tagged template never spawns where no such place exists (a prefecture, a sector) and is never a colleague's help call; untagged templates pick exactly as before. The briefing names the `drowning` day tag (Midsummer), which the regional water stories and the nationwide missing swimmer story now answer. A search in a story with no suspect radios "person found" instead of "suspect detained", and a clean registry check no longer answers "letting them go".
+
+The escalating stories' checks moved to `tests/fixtures/incidentSuite.ts` and also run on the regional set (`tests/incidents-regional.test.ts`, with per-prefecture counts, spawnability and share). `docs/MANHUNT.md` designs the next feature: searching people and cars, wanted status and search parties.
+
+</details>
+
 ## 2.29.0 (2026-10-23)
 
 - **Mitmikmängus jätkate pärast mängu samas ruumis:** aruande põhinupp on nüüd „Tagasi ruumi“ (ka Enter), mitte „Uus vahetus“, mis viis kiirmängule. Keegi ei pea koodiga uuesti liituma.

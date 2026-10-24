@@ -380,7 +380,7 @@ const PLACES: Place[] = [
   // Narva
   pl('i-pl-narva-linnus', 'Narva linnus', 'museum', 'Narva', 'Peterburi mnt 2', [28.2019, 59.3756], ['tourist', 'russian']),
   pl('i-pl-narva-raekoda', 'Narva raekoja plats', 'oldtown', 'Narva', 'Raekoja plats 1', [28.1989, 59.3789], ['tourist', 'russian']),
-  pl('i-pl-narva-pp', 'Narva piiripunkt (Narva-1)', 'border', 'Narva', 'Peterburi mnt 1', [28.1995, 59.3772], ['russian']),
+  pl('i-pl-narva-pp', 'Narva piiripunkt (Narva-1)', 'border', 'Narva', 'Peterburi mnt 1', [28.1995, 59.3772], ['russian', 'borderqueue']),
   pl('i-pl-narva-sild', 'Sõprussild (riigipiir)', 'border', 'Narva', 'Peterburi mnt', [28.2035, 59.3778], ['russian']),
   pl('i-pl-narva-piir-siivertsi', 'Riigipiir, Narva jõe kallas (Siivertsi)', 'border', 'Narva', 'Narva jõe kallas, Siivertsi', [28.199, 59.392], ['russian']),
   pl('i-pl-narva-parkla-piir', 'Piiriületuse ooteala parkla', 'parking', 'Narva', 'Tallinna mnt', [28.18, 59.3765], ['russian']),
@@ -396,12 +396,12 @@ const PLACES: Place[] = [
   pl('i-pl-narva-haigla', 'Narva Haigla', 'hospital', 'Narva', 'Haigla tn 1', [28.188, 59.387], ['russian']),
   pl('i-pl-narva-raudteejaam', 'Narva raudteejaam', 'trainstation', 'Narva', 'Vaksali tn', [28.187, 59.3718], ['russian']),
   pl('i-pl-narva-bussijaam', 'Narva bussijaam', 'busstation', 'Narva', 'Vaksali tn', [28.1888, 59.3722], ['russian']),
-  pl('i-pl-narva-kreenholm', 'Kreenholmi manufaktuur', 'industrial', 'Narva', 'Joala tn', [28.199, 59.3625], ['russian', 'tourist']),
+  pl('i-pl-narva-kreenholm', 'Kreenholmi manufaktuur', 'industrial', 'Narva', 'Joala tn', [28.199, 59.3625], ['russian', 'tourist', 'abandoned']),
   pl('i-pl-narva-joaorg', 'Joaoru rand', 'beach', 'Narva', 'Joaorg', [28.2045, 59.3705], ['russian']),
-  pl('i-pl-narva-promenaad', 'Narva jõe promenaad', 'park', 'Narva', 'Kalda tn', [28.2015, 59.3802], ['russian', 'tourist']),
+  pl('i-pl-narva-promenaad', 'Narva jõe promenaad', 'park', 'Narva', 'Kalda tn', [28.2015, 59.3802], ['russian', 'tourist', 'riverside']),
   pl('i-pl-narva-katedraal', 'Narva Ülestõusmise katedraal', 'church', 'Narva', 'Bastrakovi tn 4', [28.1855, 59.3705], ['russian']),
   pl('i-pl-narva-aleksandri', 'Narva Aleksandri kirik', 'church', 'Narva', 'Kiriku tn 9', [28.1945, 59.38]),
-  pl('i-pl-narva-kalmistu', 'Siivertsi kalmistu', 'cemetery', 'Narva', 'Kalda tn', [28.1965, 59.3935], ['russian']),
+  pl('i-pl-narva-kalmistu', 'Siivertsi kalmistu', 'cemetery', 'Narva', 'Kalda tn', [28.1965, 59.3935], ['russian', 'memorial']),
   pl('i-pl-narva-linnavalitsus', 'Narva linnavalitsus', 'government', 'Narva', 'Peetri plats 5', [28.1915, 59.3767], ['russian']),
   pl('i-pl-narva-kool-pahklimae', 'Narva põhikool (Pähklimäe)', 'school', 'Narva', 'Kangelaste prospekt 31', [28.162, 59.388], ['russian']),
   pl('i-pl-narva-kool-kreenholmi', 'Narva põhikool (Kreenholm)', 'school', 'Narva', 'Kreenholmi tn 36', [28.193, 59.366], ['russian']),
@@ -419,7 +419,7 @@ const PLACES: Place[] = [
   pl('i-pl-eesti-ej', 'Eesti elektrijaam (Auvere)', 'industrial', 'Narva-Jõesuu', 'Auvere küla', [27.9, 59.27]),
 
   // Narva-Jõesuu
-  pl('i-pl-nj-rand', 'Narva-Jõesuu rand', 'beach', 'Narva-Jõesuu', 'Aia tn', [28.025, 59.453], ['tourist', 'russian']),
+  pl('i-pl-nj-rand', 'Narva-Jõesuu rand', 'beach', 'Narva-Jõesuu', 'Aia tn', [28.025, 59.453], ['tourist', 'russian', 'rivermouth']),
   pl('i-pl-nj-spaa', 'Spaahotell (Narva-Jõesuu)', 'hotel', 'Narva-Jõesuu', 'Aia tn 3', [28.036, 59.458], ['tourist']),
   pl('i-pl-nj-sadam', 'Narva-Jõesuu jõesadam', 'port', 'Narva-Jõesuu', 'Narva jõgi', [28.046, 59.4615]),
   pl('i-pl-nj-mets', 'Narva-Jõesuu männimets', 'forest', 'Narva-Jõesuu', 'Narva-Jõesuu', [28.01, 59.438]),
@@ -453,7 +453,7 @@ const PLACES: Place[] = [
   pl('i-pl-kj-haigla', 'Ida-Viru Keskhaigla', 'hospital', KJ, 'Ilmajaama tn 14', [27.262, 59.4045], ['russian'], 'Järve'),
   pl('i-pl-kj-keskus', 'Kaubanduskeskus (Järve)', 'mall', KJ, 'Keskallee 9', [27.27, 59.399], ['russian'], 'Järve'),
   pl('i-pl-kj-oli', 'Põlevkiviõli tehas', 'industrial', KJ, 'Järveküla tee 14', [27.29, 59.41], ['russian'], 'Järve'),
-  pl('i-pl-kj-tuhamagi', 'Kohtla-Järve poolkoksimägi', 'industrial', KJ, 'Järveküla tee', [27.279, 59.4135], ['russian'], 'Järve'),
+  pl('i-pl-kj-tuhamagi', 'Kohtla-Järve poolkoksimägi', 'industrial', KJ, 'Järveküla tee', [27.279, 59.4135], ['russian', 'ashhill'], 'Järve'),
   pl('i-pl-kj-bussijaam', 'Kohtla-Järve bussijaam', 'busstation', KJ, 'Kalevi tn 4', [27.269, 59.397], ['russian'], 'Järve'),
   pl('i-pl-kj-raudteejaam', 'Kohtla-Järve raudteepeatus', 'trainstation', KJ, 'Jaama tn', [27.257, 59.3905], ['russian'], 'Järve'),
   pl('i-pl-kj-kool', 'Kohtla-Järve gümnaasium', 'school', KJ, 'Kalevi tn 3', [27.266, 59.4], ['russian'], 'Järve'),
@@ -466,7 +466,7 @@ const PLACES: Place[] = [
   pl('i-pl-ahtme-haigla', 'Ida-Viru Keskhaigla (Ahtme)', 'hospital', KJ, 'Ahtme mnt 95', [27.426, 59.3285], ['russian'], 'Ahtme'),
 
   // Kiviõli, Püssi, Toila, Aseri, Kunda
-  pl('i-pl-kivioli-seiklus', 'Kiviõli seikluskeskus (tuhamägi)', 'park', 'Kiviõli', 'Kiviõli tuhamäed', [26.953, 59.347], ['tourist']),
+  pl('i-pl-kivioli-seiklus', 'Kiviõli seikluskeskus (tuhamägi)', 'park', 'Kiviõli', 'Kiviõli tuhamäed', [26.953, 59.347], ['tourist', 'ashhill']),
   pl('i-pl-kivioli-tehas', 'Kiviõli keemiatööstus', 'industrial', 'Kiviõli', 'Turu tn', [26.985, 59.359], ['russian']),
   pl('i-pl-kivioli-jaam', 'Kiviõli raudteejaam', 'trainstation', 'Kiviõli', 'Jaama tn', [26.97, 59.3595]),
   pl('i-pl-pussi-tehas', 'Püssi puitplaaditehas', 'industrial', 'Püssi', 'Viru tn', [27.048, 59.362]),
@@ -497,19 +497,19 @@ const PLACES: Place[] = [
   pl('i-pl-rakvere-tankla', 'Tankla (Rakvere)', 'gasstation', 'Rakvere', 'Tallinna tn 92', [26.334, 59.3555]),
 
   // Tapa, Tamsalu, small towns
-  pl('i-pl-tapa-jaam', 'Tapa raudteejaam', 'trainstation', 'Tapa', 'Jaama tn', [25.961, 59.2615]),
-  pl('i-pl-tapa-linnak', 'Tapa linnak (Kaitsevägi)', 'government', 'Tapa', 'Tapa linnak', [25.93, 59.238]),
+  pl('i-pl-tapa-jaam', 'Tapa raudteejaam', 'trainstation', 'Tapa', 'Jaama tn', [25.961, 59.2615], ['garrison']),
+  pl('i-pl-tapa-linnak', 'Tapa linnak (Kaitsevägi)', 'government', 'Tapa', 'Tapa linnak', [25.93, 59.238], ['military']),
   pl('i-pl-tapa-kool', 'Tapa gümnaasium', 'school', 'Tapa', 'Pikk tn 7', [25.955, 59.2585]),
   pl('i-pl-tamsalu-jaam', 'Tamsalu raudteejaam', 'trainstation', 'Tamsalu', 'Jaama tn', [26.117, 59.161]),
   pl('i-pl-vmaarja-kirik', 'Väike-Maarja kirik', 'church', 'Väike-Maarja', 'Pikk tn', [26.2511, 59.1279]),
   pl('i-pl-kadrina-kirik', 'Kadrina kirik', 'church', 'Kadrina', 'Viitna tee', [26.1379, 59.3409]),
   pl('i-pl-haljala-kirik', 'Haljala kirik', 'church', 'Haljala', 'Tallinna mnt', [26.2542, 59.4351]),
-  pl('i-pl-kuremae', 'Kuremäe klooster', 'church', 'Kuremäe', 'Kuremäe küla', [27.536, 59.196], ['russian', 'tourist']),
+  pl('i-pl-kuremae', 'Kuremäe klooster', 'church', 'Kuremäe', 'Kuremäe küla', [27.536, 59.196], ['russian', 'tourist', 'convent']),
 
   // Lahemaa & Alutaguse
   pl('i-pl-palmse', 'Palmse mõis', 'museum', 'Palmse', 'Palmse küla', [25.9555, 59.516], ['tourist']),
   pl('i-pl-sagadi', 'Sagadi mõis', 'hotel', 'Sagadi', 'Sagadi küla', [26.0367, 59.5534], ['tourist']),
-  pl('i-pl-vosu-rand', 'Võsu rand', 'beach', 'Võsu', 'Rannapargi tn', [25.9642, 59.577], ['tourist']),
+  pl('i-pl-vosu-rand', 'Võsu rand', 'beach', 'Võsu', 'Rannapargi tn', [25.9642, 59.577], ['tourist', 'partybeach']),
   pl('i-pl-kasmu', 'Käsmu kapteniteküla', 'village', 'Käsmu', 'Käsmu küla', [25.8913, 59.6016], ['tourist']),
   pl('i-pl-altja', 'Altja kalurküla', 'village', 'Altja', 'Altja küla', [26.0957, 59.579], ['tourist']),
   pl('i-pl-lahemaa', 'Lahemaa rahvuspark', 'forest', 'Haljala vald', 'Lahemaa rahvuspark', [26.0, 59.52]),
@@ -529,13 +529,13 @@ const PLACES: Place[] = [
   pl('i-pl-talu-kiltsi', 'Talu (Kiltsi)', 'farm', 'Väike-Maarja vald', 'Kiltsi alevik', [26.1795, 59.0896]),
 
   // Highways
-  pl('i-pl-e20-85', 'Tallinna-Narva mnt (E20), 85. km', 'highway', 'Haljala vald', 'Tallinna-Narva mnt (E20), 85. km', [26.25, 59.42]),
-  pl('i-pl-e20-100', 'Tallinna-Narva mnt (E20), 100. km', 'highway', 'Rakvere vald', 'Tallinna-Narva mnt (E20), 100. km', [26.43, 59.37]),
-  pl('i-pl-e20-130', 'Tallinna-Narva mnt (E20), 130. km', 'highway', 'Viru-Nigula vald', 'Tallinna-Narva mnt (E20), 130. km', [26.86, 59.425]),
-  pl('i-pl-e20-150', 'Tallinna-Narva mnt (E20), 150. km', 'highway', 'Lüganuse vald', 'Tallinna-Narva mnt (E20), 150. km', [27.05, 59.375]),
-  pl('i-pl-e20-163', 'Tallinna-Narva mnt (E20), 163. km', 'highway', 'Jõhvi vald', 'Tallinna-Narva mnt (E20), 163. km', [27.41, 59.368]),
-  pl('i-pl-e20-185', 'Tallinna-Narva mnt (E20), 185. km', 'highway', 'Sillamäe', 'Tallinna-Narva mnt (E20), 185. km', [27.73, 59.389]),
-  pl('i-pl-e20-200', 'Tallinna-Narva mnt (E20), 200. km', 'highway', 'Narva-Jõesuu', 'Tallinna-Narva mnt (E20), 200. km', [27.88, 59.38]),
+  pl('i-pl-e20-85', 'Tallinna-Narva mnt (E20), 85. km', 'highway', 'Haljala vald', 'Tallinna-Narva mnt (E20), 85. km', [26.25, 59.42], ['e20']),
+  pl('i-pl-e20-100', 'Tallinna-Narva mnt (E20), 100. km', 'highway', 'Rakvere vald', 'Tallinna-Narva mnt (E20), 100. km', [26.43, 59.37], ['e20']),
+  pl('i-pl-e20-130', 'Tallinna-Narva mnt (E20), 130. km', 'highway', 'Viru-Nigula vald', 'Tallinna-Narva mnt (E20), 130. km', [26.86, 59.425], ['e20']),
+  pl('i-pl-e20-150', 'Tallinna-Narva mnt (E20), 150. km', 'highway', 'Lüganuse vald', 'Tallinna-Narva mnt (E20), 150. km', [27.05, 59.375], ['e20']),
+  pl('i-pl-e20-163', 'Tallinna-Narva mnt (E20), 163. km', 'highway', 'Jõhvi vald', 'Tallinna-Narva mnt (E20), 163. km', [27.41, 59.368], ['e20']),
+  pl('i-pl-e20-185', 'Tallinna-Narva mnt (E20), 185. km', 'highway', 'Sillamäe', 'Tallinna-Narva mnt (E20), 185. km', [27.73, 59.389], ['e20']),
+  pl('i-pl-e20-200', 'Tallinna-Narva mnt (E20), 200. km', 'highway', 'Narva-Jõesuu', 'Tallinna-Narva mnt (E20), 200. km', [27.88, 59.38], ['e20']),
   pl('i-pl-mnt3-iisaku', 'Jõhvi-Tartu-Valga mnt (3), Iisaku', 'highway', 'Alutaguse vald', 'Jõhvi-Tartu-Valga mnt (3), 33. km', [27.315, 59.11]),
   pl('i-pl-mnt91-kudrukula', 'Narva-Narva-Jõesuu mnt (91), Kudruküla', 'highway', 'Narva-Jõesuu', 'Narva-Narva-Jõesuu mnt (91), Kudruküla', [28.094, 59.432], ['russian']),
 ];
