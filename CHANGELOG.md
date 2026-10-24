@@ -2,6 +2,19 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.31.0 (2026-10-24)
+
+- **Andmebaasis on 300 tuntud eestlast:** poliitikud, muusikud, näitlejad, sportlased, saatejuhid, kirjanikud, ettevõtjad, teadlased, kunstnikud ja modellid. Otsi nime järgi ja inimene tuleb registrist välja koos oma autoga. Leiab ka lavanime järgi: „Tommy Cash“ leiab Tomas Tammemetsa ja „Alika“ Alika Milova. Leiab ka isikukoodi ja auto numbri järgi.
+- **Kaardil on märge „Avaliku elu tegelane“**, amet, mille poolest inimest teatakse, ja auto. Karistusregister on alati puhas: tuntud inimene ei ole kunagi tagaotsitav, kahtlustatav ega mõne loo tegelane.
+- **Päris on ainult nimi, sünniaeg ja avalik info.** Isikukood, auto, telefon ja välimus on mängu jaoks välja mõeldud ja kaart ütleb seda. Kodust aadressi ei näidata. Isikukoodi järjenumber on 701-999, sellist enne 2013. aastat sündinutel päriselt ei ole.
+
+<details>
+<summary>English</summary>
+
+The registry knows 300 well-known living Estonians from the owner's list (politics, music, film and theatre, sport, media, literature, business, science, art and fashion): search a name, a stage name (Tommy Cash finds Tomas Tammemets), an isikukood or a plate and the person comes up with a car. The card carries a "public figure" flag, the occupation and what the person is known for; the record is always clean and a public figure is never wanted, a suspect or part of a story. Only the name, birth date and public facts are real: the isikukood serial (701-999, which hospitals never used before 2013), the car, the phone and the looks are made up, the card says so, and there is no home address. They join a shift only when a search finds them, so saves and co-op snapshots stay the same size.
+
+</details>
+
 ## 2.30.1 (2026-10-24)
 
 - **Jaoskonnad, arestimajad ja vanglad on kaardil oma päris kohas:** iga aadress on üle kontrollitud (politsei.ee ja vangla.ee) ja punkt võetud Maa-ameti aadressiregistrist, nii et märk on õige maja peal. Varem olid paljud punktid sadu meetreid kuni mitu kilomeetrit mööda, näiteks Ida-Harju jaoskond 3,6 km, Viru vangla 3,1 km ja Tartu vangla 2,1 km. Ekipaažid alustavad nüüd päris jaoskonnast, nii et sõiduajad on õigemad.
