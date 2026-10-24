@@ -2,6 +2,19 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.30.1 (2026-10-24)
+
+- **Jaoskonnad, arestimajad ja vanglad on kaardil oma päris kohas:** iga aadress on üle kontrollitud (politsei.ee ja vangla.ee) ja punkt võetud Maa-ameti aadressiregistrist, nii et märk on õige maja peal. Varem olid paljud punktid sadu meetreid kuni mitu kilomeetrit mööda, näiteks Ida-Harju jaoskond 3,6 km, Viru vangla 3,1 km ja Tartu vangla 2,1 km. Ekipaažid alustavad nüüd päris jaoskonnast, nii et sõiduajad on õigemad.
+- **Parandatud aadressid:** PPA lennusalk (Väike-Sõjamäe tn 22a), Sillamäe (I. Pavlovi tn 4), Kiviõli politsei- ja päästemaja (Viru tn 23), Narva kordon (Tiigi tn 9a), Võru politseimaja (Räpina mnt 20a), Kärdla jaoskond ja merepääste (Sadama tn 26 ja sadam), Pärnu ja Roomassaare merepääste sadamas ning Vasknarva sadam.
+- **Õiged nimed:** Tartu „vangla“ jaam on nüüd Tartu arestimaja (Riia tn 179a), Tartu vangla jääb Turu tänavale. Luhamaa piiripunkt on Lütä külas. Narva-Jõesuu post on kordoni hoones (Suur-Lootsi tn 1b). Kinnitamata Värska kordoni asemel on Piusa kordon.
+
+<details>
+<summary>English</summary>
+
+Police stations, arrest houses, prisons, border points and police harbours sit at their real places: every address was checked against politsei.ee and vangla.ee, and every point is the Estonian address register (ADS) point of that address, taken from the Overture Maps addresses release. Many points were hundreds of metres to several kilometres off (Ida-Harju 3.6 km, Viru Vangla 3.1 km, Tartu Vangla 2.1 km), so crews now start from the real buildings and drive times change with them. Wrong or out-of-date addresses were corrected (the PPA air unit, Sillamäe, Kiviõli, Narva kordon, Võru, Kärdla, the Pärnu and Roomassaare boat bases, Vasknarva), the Tartu arrest station is the Tartu arestimaja at Riia tn 179a instead of a second copy of Tartu Vangla, the Luhamaa crossing is in Lütä küla, the Narva-Jõesuu post is the kordon building, and the unconfirmed Värska kordon became the Piusa kordon. Station ids are unchanged, so saves and sectors keep working.
+
+</details>
+
 ## 2.30.0 (2026-10-24)
 
 - **Igal prefektuuril on nüüd oma lood:** 48 uut väljakutset, 12 igas prefektuuris. Need juhtuvad ainult seal ja just neis kohtades. Umbes iga kuueteistkümnes väljakutse on nüüd oma prefektuuri lugu, see tähendab üks või kaks vahetuse kohta. Iga lugu on oma kohas harv: sama asi ei kordu igas vahetuses.

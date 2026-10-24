@@ -1,6 +1,9 @@
 /**
  * Põhja prefektuur: Harju maakond incl. Tallinn.
  *
+ * Stations, arrest houses, prisons and border points (2.30.1): the addresses were checked against
+ * politsei.ee and vangla.ee in October 2026, and every point is the Estonian address register (ADS)
+ * point of that address, taken from the Overture Maps addresses release 2026-10-21.
  * Sources: docs/research/ppa-organisation.md (stations, custody, units, vehicles), prior
  * geographic knowledge, and the processed geodata in src/data/geo (district polygons of
  * Tallinn, settlement centroids). Every Tallinn street/place point is checked against
@@ -72,7 +75,7 @@ const STATIONS: Station[] = [
     kind: 'hq',
     city: TLN,
     address: 'Pärnu mnt 139',
-    coord: [24.7362, 59.413],
+    coord: [24.73641, 59.4085],
   },
   {
     id: 'pohja-idaharju',
@@ -81,7 +84,7 @@ const STATIONS: Station[] = [
     kind: 'station',
     city: TLN,
     address: 'P. Pinna tn 4',
-    coord: [24.902, 59.442],
+    coord: [24.83859, 59.43679],
   },
   {
     id: 'pohja-laaneharju',
@@ -90,7 +93,7 @@ const STATIONS: Station[] = [
     kind: 'station',
     city: TLN,
     address: 'Rahumäe tee 6/1',
-    coord: [24.7215, 59.3962],
+    coord: [24.70873, 59.39621],
   },
   {
     id: 'pohja-pohjatallinn',
@@ -99,7 +102,7 @@ const STATIONS: Station[] = [
     kind: 'post',
     city: TLN,
     address: 'Kolde pst 65',
-    coord: [24.694, 59.4455],
+    coord: [24.70598, 59.43893],
   },
   {
     id: 'pohja-kose',
@@ -108,7 +111,7 @@ const STATIONS: Station[] = [
     kind: 'post',
     city: 'Kose',
     address: 'Hariduse tn 1, Kose alevik',
-    coord: [25.167, 59.1835],
+    coord: [25.16657, 59.18349],
   },
   {
     id: 'pohja-saku',
@@ -117,7 +120,7 @@ const STATIONS: Station[] = [
     kind: 'post',
     city: 'Saku vald',
     address: 'Päästekeskuse tee 1, Tammemäe küla',
-    coord: [24.674, 59.3175],
+    coord: [24.6795, 59.31273],
   },
   {
     id: 'pohja-arest',
@@ -128,7 +131,7 @@ const STATIONS: Station[] = [
     kind: 'arrest',
     city: 'Rae vald',
     address: 'Linnaaru tee 5, Soodevahe küla',
-    coord: [24.891, 59.4158],
+    coord: [24.90475, 59.42322],
   },
   {
     id: 'pohja-kainestus',
@@ -137,7 +140,7 @@ const STATIONS: Station[] = [
     kind: 'arrest',
     city: TLN,
     address: 'Merelahe tee 4',
-    coord: [24.688, 59.445],
+    coord: [24.69641, 59.43054],
   },
   {
     id: 'pohja-lennusalk',
@@ -145,8 +148,8 @@ const STATIONS: Station[] = [
     short: 'Lennusalk',
     kind: 'airbase',
     city: TLN,
-    address: 'Lennujaama tee, Tallinna lennujaam',
-    coord: [24.813, 59.419],
+    address: 'Väike-Sõjamäe tn 22a',
+    coord: [24.82694, 59.41633],
   },
 ];
 
@@ -642,7 +645,7 @@ const PLACES: Place[] = [
   pl('p-pl-saatkond-kentmanni', 'Saatkond (Kentmanni tn)', 'embassy', TLN, KESK, 'Kentmanni tn 20', [24.747, 59.4315]),
   pl('p-pl-saatkond-pikk', 'Saatkond (Pikk tn)', 'embassy', TLN, KESK, 'Pikk tn 19', [24.747, 59.4397]),
   pl('p-pl-saatkond-kohtu', 'Saatkond (Kohtu tn)', 'embassy', TLN, KESK, 'Kohtu tn 4', [24.7393, 59.438]),
-  pl('p-pl-vangla', 'Tallinna Vangla', 'prison', 'Rae vald', undefined, 'Linnaaru tee 5, Soodevahe küla', [24.889, 59.4165]),
+  pl('p-pl-vangla', 'Tallinna Vangla', 'prison', 'Rae vald', undefined, 'Linnaaru tee 5, Soodevahe küla', [24.90408, 59.42458]),
   pl('p-pl-piir-vanasadam', 'Vanasadama piirikontroll', 'border', TLN, KESK, 'Sadama tn 25', [24.7685, 59.4425]),
   pl('p-pl-piir-lennujaam', 'Lennujaama piirikontroll', 'border', TLN, LASN, 'Lennujaama tee 2', [24.8005, 59.4162]),
 
