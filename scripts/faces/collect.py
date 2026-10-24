@@ -31,7 +31,7 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODELS = os.path.join(HERE, 'models')
-URL = 'https://thispersondoesnotexist.com/'
+URL = 'https://thispersondoesnotexist.com/random-person.jpeg'
 UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'
 
 det = ort.InferenceSession(os.path.join(MODELS, 'det_500m.onnx'), providers=['CPUExecutionProvider'])
@@ -42,7 +42,7 @@ GA_MEAN, GA_STD = float(os.environ.get('GA_MEAN', 0.0)), float(os.environ.get('G
 def detect(img):
     """SCRFD 500m at 640x640: list of (x1, y1, x2, y2, score)."""
     h, w = img.shape[:2]
-    scale = 640 / max(h, w)
+    scale = 320 / max(h, w)  # FFHQ faces fill the frame; at full 640 they are too big for SCRFD's anchors
     rs = cv2.resize(img, (int(w * scale), int(h * scale)))
     pad = np.zeros((640, 640, 3), dtype=np.uint8)
     pad[: rs.shape[0], : rs.shape[1]] = rs
@@ -130,7 +130,7 @@ def traits(img, box):
     if chin is not None:
         cL, ca, cb = lab_median(chin)
         beard = (sL - cL) > 18 and math.hypot(ca, cb) < math.hypot(sa, sb) * 0.8
-    return {'tone': tone, 'ita': round(ita, 1), 'hair': hair, 'bald': bald, 'beard': beard}
+    return {'tone': tone, 'ita': round(ita, 1), 'hair': hair, 'bald': bool(bald), 'beard': bool(beard)}
 
 
 def fetch(path):
