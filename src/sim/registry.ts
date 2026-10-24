@@ -4,6 +4,7 @@
  *
  * Owned by engine-systems.
  */
+import { celebrityCatalogue, celebrityDef, isCelebrity, materialiseCelebrities } from './celebrities';
 import type { Person, PersonRole, SimState, Text, Vehicle } from './types';
 import { isoDate } from './time';
 
@@ -53,7 +54,13 @@ export interface SearchOptions {
   log?: boolean;
 }
 
-function logQuery(s: SimState, kind: 'person' | 'vehicle', query: string, resultIds: string[], opts?: SearchOptions): void {
+function logQuery(
+  s: SimState,
+  kind: 'person' | 'vehicle',
+  query: string,
+  resultIds: string[],
+  opts?: SearchOptions,
+): void {
   if (opts?.log === false) return;
   s.queries.push({ t: s.now, kind, query, resultIds });
   if (s.queries.length > 500) s.queries.splice(0, s.queries.length - 500);
@@ -62,17 +69,47 @@ function logQuery(s: SimState, kind: 'person' | 'vehicle', query: string, result
   if (kind === 'person' && resultIds.some((id) => id.startsWith('legend-'))) s.flags['legendQueried'] = true;
 }
 
-/** Search persons by isikukood (exact, 11 digits) or name (case/diacritic-insensitive substring), ≤ 30, relevance-sorted. */
+/** The shift's people, plus the public figures nobody has looked up yet (src/sim/celebrities.ts). */
+function personPool(s: SimState): Person[] {
+  const out = Object.values(s.persons);
+  for (const p of celebrityCatalogue(s.now, s.regionId).persons) if (!s.persons[p.id]) out.push(p);
+  return out;
+}
+
+function nameScore(tokens: string[], first: string, last: string): number {
+  const full = `${first} ${last}`;
+  const parts = full.split(' ');
+  let score = 0;
+  for (const t of tokens) {
+    if (!full.includes(t)) return 0;
+    if (parts.includes(t))
+      score += 30; // whole name part
+    else if (parts.some((x) => x.startsWith(t)))
+      score += 18; // prefix
+    else score += 6; // substring
+  }
+  const joined = tokens.join(' ');
+  if (full === joined || `${last} ${first}` === joined) score += 100;
+  if (last === joined) score += 25;
+  if (first === joined) score += 15;
+  return score;
+}
+
+/**
+ * Search persons by isikukood (exact, 11 digits) or name (case/diacritic-insensitive substring), ≤ 30, relevance-sorted.
+ * A public figure also answers to the name people know (Tommy Cash). A logged search brings the public figures it
+ * finds into the shift; `log: false` only reads.
+ */
 export function searchPersons(s: SimState, q: string, opts?: SearchOptions): Person[] {
   const raw = q.trim();
   if (!raw) return [];
   const digits = raw.replace(/\s/g, '');
   let out: Person[];
   if (/^\d{11}$/.test(digits)) {
-    out = Object.values(s.persons).filter((p) => p.idcode === digits);
+    out = personPool(s).filter((p) => p.idcode === digits);
   } else if (/^\d{5,10}$/.test(digits)) {
     // Partial isikukood prefix (e.g. birth-date part), handy when a unit reads it out slowly.
-    out = Object.values(s.persons)
+    out = personPool(s)
       .filter((p) => p.idcode.startsWith(digits))
       .sort((a, b) => a.idcode.localeCompare(b.idcode))
       .slice(0, MAX_RESULTS);
@@ -83,35 +120,34 @@ export function searchPersons(s: SimState, q: string, opts?: SearchOptions): Per
       return [];
     }
     const scored: { p: Person; score: number }[] = [];
-    for (const p of Object.values(s.persons)) {
-      const first = foldName(p.firstName);
-      const last = foldName(p.lastName);
-      const full = `${first} ${last}`;
-      const parts = full.split(' ');
-      let score = 0;
-      let ok = true;
-      for (const t of tokens) {
-        if (!full.includes(t)) {
-          ok = false;
-          break;
-        }
-        if (parts.includes(t)) score += 30; // whole name part
-        else if (parts.some((x) => x.startsWith(t))) score += 18; // prefix
-        else score += 6; // substring
+    for (const p of personPool(s)) {
+      let score = nameScore(tokens, foldName(p.firstName), foldName(p.lastName));
+      const aka = isCelebrity(p) ? celebrityDef(p.id) : undefined;
+      if (aka?.legal) {
+        const [first, ...rest] = foldName(aka.name).split(' ');
+        score = Math.max(score, nameScore(tokens, first, rest.join(' ')));
       }
-      if (!ok) continue;
-      const joined = tokens.join(' ');
-      if (full === joined || `${last} ${first}` === joined) score += 100;
-      if (last === joined) score += 25;
-      if (first === joined) score += 15;
+      if (!score) continue;
       // Tiny bias so dangerous people surface first among equals (dispatchers care).
       if (p.flags.wanted) score += 2;
       scored.push({ p, score });
     }
-    scored.sort((a, b) => b.score - a.score || a.p.lastName.localeCompare(b.p.lastName, 'et') || a.p.firstName.localeCompare(b.p.firstName, 'et'));
+    scored.sort(
+      (a, b) =>
+        b.score - a.score ||
+        a.p.lastName.localeCompare(b.p.lastName, 'et') ||
+        a.p.firstName.localeCompare(b.p.firstName, 'et'),
+    );
     out = scored.slice(0, MAX_RESULTS).map((x) => x.p);
   }
   out = out.slice(0, MAX_RESULTS);
+  if (opts?.log !== false) {
+    materialiseCelebrities(
+      s,
+      out.map((p) => p.id),
+    );
+    out = out.map((p) => s.persons[p.id] ?? p);
+  }
   logQuery(
     s,
     'person',
@@ -128,6 +164,11 @@ export function searchVehicles(s: SimState, q: string, opts?: SearchOptions): Ve
   if (!raw) return [];
   const key = plateKey(raw);
   const all = Object.values(s.vehicles);
+  // Public figures' cars nobody has looked up yet (src/sim/celebrities.ts).
+  const unseen = new Set<Vehicle>();
+  for (const v of celebrityCatalogue(s.now, s.regionId).vehicles.values())
+    if (!s.vehicles[v.plate] && v.ownerId && !s.persons[v.ownerId]) unseen.add(v);
+  all.push(...unseen);
   const exact: Vehicle[] = [];
   const prefix: Vehicle[] = [];
   const vin: Vehicle[] = [];
@@ -139,7 +180,14 @@ export function searchVehicles(s: SimState, q: string, opts?: SearchOptions): Ve
     else if (vk === key || (key.length >= 6 && vk.endsWith(key))) vin.push(v);
   }
   prefix.sort((a, b) => a.plate.localeCompare(b.plate));
-  const out = [...exact, ...vin, ...prefix].slice(0, MAX_RESULTS);
+  let out = [...exact, ...vin, ...prefix].slice(0, MAX_RESULTS);
+  if (opts?.log !== false) {
+    materialiseCelebrities(
+      s,
+      out.flatMap((v) => (unseen.has(v) && v.ownerId ? [v.ownerId] : [])),
+    );
+    out = out.flatMap((v) => (!unseen.has(v) ? [v] : s.vehicles[v.plate] ? [s.vehicles[v.plate]] : []));
+  }
   logQuery(
     s,
     'vehicle',
@@ -173,7 +221,10 @@ const LICENSE_TEXT: Record<'suspended' | 'revoked' | 'none' | 'expired', Text> =
 export function personFlags(p: Person, now: number): RecordFlag[] {
   const out: RecordFlag[] = [];
   const f = p.flags;
-  if (p.id.startsWith('legend-')) out.push({ id: 'legend', severity: 'info', text: { et: 'LEGEND 2025', en: 'LEGEND 2025' } });
+  if (p.id.startsWith('legend-'))
+    out.push({ id: 'legend', severity: 'info', text: { et: 'LEGEND 2025', en: 'LEGEND 2025' } });
+  if (isCelebrity(p))
+    out.push({ id: 'vip', severity: 'info', text: { et: 'AVALIKU ELU TEGELANE', en: 'PUBLIC FIGURE' } });
   if (f.deceased) out.push({ id: 'deceased', severity: 'info', text: { et: 'SURNUD', en: 'DECEASED' } });
   if (f.wanted) {
     out.push({
@@ -185,15 +236,27 @@ export function personFlags(p: Person, now: number): RecordFlag[] {
       },
     });
     if (f.wanted.dangerous || f.wanted.armed) {
-      out.push({ id: 'armed', severity: 'danger', text: { et: 'RELVASTATUD JA OHTLIK', en: 'ARMED AND DANGEROUS' } });
+      out.push({
+        id: 'armed',
+        severity: 'danger',
+        text: { et: 'RELVASTATUD JA OHTLIK', en: 'ARMED AND DANGEROUS' },
+      });
     }
   }
-  if (f.sis) out.push({ id: 'sis', severity: 'danger', text: { et: `SIS-TABAMUS: ${f.sis.et}`, en: `SIS HIT: ${f.sis.en}` } });
+  if (f.sis)
+    out.push({
+      id: 'sis',
+      severity: 'danger',
+      text: { et: `SIS-TABAMUS: ${f.sis.et}`, en: `SIS HIT: ${f.sis.en}` },
+    });
   if (f.missing) {
     out.push({
       id: 'missing',
       severity: 'warn',
-      text: { et: `KADUNUD ISIK: ${f.missing.text.et} (alates ${fmtDate(f.missing.since)})`, en: `MISSING PERSON: ${f.missing.text.en} (since ${fmtDate(f.missing.since)})` },
+      text: {
+        et: `KADUNUD ISIK: ${f.missing.text.et} (alates ${fmtDate(f.missing.since)})`,
+        en: `MISSING PERSON: ${f.missing.text.en} (since ${fmtDate(f.missing.since)})`,
+      },
     });
   }
   if (f.restrainingOrder && active(f.restrainingOrder.until, now)) {
@@ -207,11 +270,23 @@ export function personFlags(p: Person, now: number): RecordFlag[] {
     });
   }
   if (f.probation && active(f.probation.until, now)) {
-    out.push({ id: 'probation', severity: 'warn', text: { et: `KATSEAEG (kuni ${fmtDate(f.probation.until)})`, en: `ON PROBATION (until ${fmtDate(f.probation.until)})` } });
+    out.push({
+      id: 'probation',
+      severity: 'warn',
+      text: {
+        et: `KATSEAEG (kuni ${fmtDate(f.probation.until)})`,
+        en: `ON PROBATION (until ${fmtDate(f.probation.until)})`,
+      },
+    });
   }
   const lic = licenseState(p, now);
   if (lic !== 'valid') out.push({ id: 'license', severity: 'warn', text: LICENSE_TEXT[lic] });
-  else if (p.license.probationary) out.push({ id: 'probationary', severity: 'info', text: { et: 'ESMANE JUHILUBA', en: 'PROBATIONARY LICENCE' } });
+  else if (p.license.probationary)
+    out.push({
+      id: 'probationary',
+      severity: 'info',
+      text: { et: 'ESMANE JUHILUBA', en: 'PROBATIONARY LICENCE' },
+    });
   if (p.weaponPermit) {
     const valid = active(p.weaponPermit.validUntil, now);
     out.push({
@@ -227,7 +302,10 @@ export function personFlags(p: Person, now: number): RecordFlag[] {
     out.push({
       id: 'records',
       severity: crimes > 0 ? 'warn' : 'info',
-      text: { et: `KARISTATUD (${p.records.length} ${p.records.length === 1 ? 'kord' : 'korda'})`, en: `PRIOR RECORD (${p.records.length} ${p.records.length === 1 ? 'entry' : 'entries'})` },
+      text: {
+        et: `KARISTATUD (${p.records.length} ${p.records.length === 1 ? 'kord' : 'korda'})`,
+        en: `PRIOR RECORD (${p.records.length} ${p.records.length === 1 ? 'entry' : 'entries'})`,
+      },
     });
   }
   return out;
@@ -249,14 +327,38 @@ export function vehicleFlags(v: Vehicle, now: number, owner?: Person): RecordFla
     out.push({
       id: 'stolen',
       severity: 'danger',
-      text: { et: `VARASTATUD: ${v.flags.stolen.text.et} (alates ${fmtDate(v.flags.stolen.since)})`, en: `STOLEN: ${v.flags.stolen.text.en} (since ${fmtDate(v.flags.stolen.since)})` },
+      text: {
+        et: `VARASTATUD: ${v.flags.stolen.text.et} (alates ${fmtDate(v.flags.stolen.since)})`,
+        en: `STOLEN: ${v.flags.stolen.text.en} (since ${fmtDate(v.flags.stolen.since)})`,
+      },
     });
   }
-  if (v.flags.wanted) out.push({ id: 'wanted', severity: 'danger', text: { et: `OTSITAV: ${v.flags.wanted.et}`, en: `WANTED VEHICLE: ${v.flags.wanted.en}` } });
-  if (owner?.flags.wanted) out.push({ id: 'ownerwanted', severity: 'danger', text: { et: 'OMANIK TAGAOTSITAV', en: 'OWNER WANTED' } });
-  if (v.flags.suspended) out.push({ id: 'suspended', severity: 'warn', text: { et: 'REGISTREERING PEATATUD', en: 'REGISTRATION SUSPENDED' } });
-  if (!v.insurance.valid || v.insurance.until < today(now)) out.push({ id: 'noinsurance', severity: 'warn', text: { et: 'KINDLUSTUS PUUDUB', en: 'NO INSURANCE' } });
-  if (!v.inspection.valid || v.inspection.until < today(now)) out.push({ id: 'noinspection', severity: 'warn', text: { et: 'ÜLEVAATUS AEGUNUD', en: 'INSPECTION EXPIRED' } });
+  if (v.flags.wanted)
+    out.push({
+      id: 'wanted',
+      severity: 'danger',
+      text: { et: `OTSITAV: ${v.flags.wanted.et}`, en: `WANTED VEHICLE: ${v.flags.wanted.en}` },
+    });
+  if (owner?.flags.wanted)
+    out.push({
+      id: 'ownerwanted',
+      severity: 'danger',
+      text: { et: 'OMANIK TAGAOTSITAV', en: 'OWNER WANTED' },
+    });
+  if (v.flags.suspended)
+    out.push({
+      id: 'suspended',
+      severity: 'warn',
+      text: { et: 'REGISTREERING PEATATUD', en: 'REGISTRATION SUSPENDED' },
+    });
+  if (!v.insurance.valid || v.insurance.until < today(now))
+    out.push({ id: 'noinsurance', severity: 'warn', text: { et: 'KINDLUSTUS PUUDUB', en: 'NO INSURANCE' } });
+  if (!v.inspection.valid || v.inspection.until < today(now))
+    out.push({
+      id: 'noinspection',
+      severity: 'warn',
+      text: { et: 'ÜLEVAATUS AEGUNUD', en: 'INSPECTION EXPIRED' },
+    });
   return out;
 }
 
@@ -284,15 +386,31 @@ export interface ReplyContext {
 }
 
 /** Person reply severity order (DESIGN §4.4). */
-export const PERSON_REPLY_ORDER = ['wanted', 'restraining', 'nolicense', 'weapon', 'probation', 'clean'] as const;
+export const PERSON_REPLY_ORDER = [
+  'wanted',
+  'restraining',
+  'nolicense',
+  'weapon',
+  'probation',
+  'clean',
+] as const;
 /** Vehicle reply severity order. */
-export const VEHICLE_REPLY_ORDER = ['stolen', 'ownerwanted', 'suspended', 'noinsurance', 'noinspection', 'clean'] as const;
+export const VEHICLE_REPLY_ORDER = [
+  'stolen',
+  'ownerwanted',
+  'suspended',
+  'noinsurance',
+  'noinspection',
+  'clean',
+] as const;
 
 function drivingContext(s: SimState, personId: string, ctx?: ReplyContext): boolean {
   if (ctx?.role === 'driver' || ctx?.traffic) return true;
   if (ctx?.role) return false;
   const incs = ctx?.incidentId ? [s.incidents[ctx.incidentId]].filter(Boolean) : Object.values(s.incidents);
-  return incs.some((inc) => inc.persons.some((r) => r.personId === personId && (r.role === 'driver' || inc.category === 'traffic')));
+  return incs.some((inc) =>
+    inc.persons.some((r) => r.personId === personId && (r.role === 'driver' || inc.category === 'traffic')),
+  );
 }
 
 /** Correct radio reply id for a person record (most severe wins). */
@@ -319,7 +437,11 @@ export function vehicleReply(s: SimState, v: Vehicle): (typeof VEHICLE_REPLY_ORD
 }
 
 /** Correct radio reply id for a query subject (person id or plate). */
-export function correctReply(s: SimState, subject: { personId?: string; plate?: string }, context?: ReplyContext): string {
+export function correctReply(
+  s: SimState,
+  subject: { personId?: string; plate?: string },
+  context?: ReplyContext,
+): string {
   if (subject.personId !== undefined) {
     const p = s.persons[subject.personId];
     return p ? personReply(s, p, context) : 'notfound';

@@ -285,6 +285,15 @@ kirjutaja", records: "Kriminaalne mittepeatumine", "Tule avamine relvast avaliku
 "Kehavigastuste tekitamine", wanted) and **Magnus Sarmert 「✔ ᵛᵉʳᶦᶠᶦᵉᵈ」** (age 438,
 "Hesburgeri klienditeenindaja", records "Mõrvakatse", "Toidumürgitamine", "Relvastatud
 Hesburgerirööv", wanted). Both are shown with a gold "LEGEND 2025" ribbon.
+**Public figures** (2.31.0): 300 well-known living Estonians from the owner's list
+(`src/data/celebrities.ts`) answer to their register name, the name people know (Tommy Cash finds Tomas
+Tammemets) and their isikukood, each with a car (`src/sim/celebrities.ts`). They are not in a new shift: a
+logged search copies the ones it finds, with their cars, into the state, so saves and co-op snapshots stay small
+and co-op clients (which search with `log: false`) wait for the room's `q` command like every other change. The
+record is always clean (an info flag "AVALIKU ELU TEGELANE", no records, no flags), the isikukood serial is
+701-999 (hospitals used 001-700 before 2013, so it is nobody's real code), there is no home address or phone, and
+the card says the car, code and looks are made up. Nothing else in the sim reads the catalogue, so a public figure
+is never a suspect, a bulletin or part of a story.
 Search: by isikukood (exact), by name (case/diacritic-insensitive substring), by plate
 (normalise spaces/case), by VIN. Every query is logged (`QueryLog`).
 
