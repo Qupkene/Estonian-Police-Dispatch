@@ -182,7 +182,7 @@ describe('registry search', () => {
       license: { status: 'suspended', categories: ['B'] },
     });
     const ids = personFlags(p, T0).map((f) => f.id);
-    expect(ids).toEqual(['legend', 'wanted', 'armed', 'license', 'weapon', 'records']);
+    expect(ids).toEqual(['wanted', 'armed', 'license', 'weapon', 'records']);
     const v = makeVehicle('1 A', { flags: { stolen: { since: '2026-10-01', text: { et: 'Varastati hoovist', en: 'Stolen from a yard' } } }, insurance: { valid: false, until: '2025-01-01', insurer: 'X' } });
     expect(vehicleFlags(v, T0, makePerson('o', { flags: { wanted: { reason: { et: 'x', en: 'x' }, since: '2026-01-01', dangerous: false, authority: 'x' } } })).map((f) => f.id)).toEqual([
       'stolen',

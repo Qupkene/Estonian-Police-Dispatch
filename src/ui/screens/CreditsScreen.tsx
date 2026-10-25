@@ -43,6 +43,12 @@ const DATA: Source[] = [
     descKey: 'shell.cred.src.maaamet',
     url: 'https://maaruum.ee',
   },
+  {
+    name: 'This Person Does Not Exist',
+    licence: 'StyleGAN2 (NVIDIA)',
+    descKey: 'shell.cred.src.faces',
+    url: 'https://thispersondoesnotexist.com',
+  },
 ];
 
 const SOFTWARE: Source[] = [

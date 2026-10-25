@@ -100,6 +100,16 @@ export const personModule = {
     if (rng.chance(sp?.probation ?? 0)) p.flags.probation = { until: '2099-01-01' };
     return p;
   },
+  RESIDENT_EPOCH: Date.UTC(2026, 0, 1, 10, 0),
+  /** Per-shift status of a fixed resident (the real one: gen/person refreshResident). */
+  refreshResident(rng: Rng, p: Person, o: { now: number; spec?: PersonSpec }): void {
+    delete p.flags.wanted;
+    delete p.flags.restrainingOrder;
+    delete p.flags.probation;
+    if (rng.chance(o.spec?.wanted ?? 0)) p.flags.wanted = { reason: { et: 'Vargus', en: 'Theft' }, since: '2026-01-01', dangerous: false, authority: 'Harju Maakohus' };
+    if (rng.chance(o.spec?.restraining ?? 0)) p.flags.restrainingOrder = { protectedName: 'Keegi Teine', until: '2099-01-01' };
+    if (rng.chance(o.spec?.probation ?? 0)) p.flags.probation = { until: '2099-01-01' };
+  },
 };
 
 // ── gen/vehicle ─────────────────────────────────────────────────────────────

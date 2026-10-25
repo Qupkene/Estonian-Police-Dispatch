@@ -11,7 +11,6 @@ import {
   citizenshipLabel,
   incidentsForPerson,
   isExpired,
-  isLegend,
   isoToEt,
   lawIdLabel,
   SPEAKER_LANG,
@@ -20,6 +19,7 @@ import {
 import { describe, pFlags, vFlags } from '../lib/engine';
 import { CountryFlag, FlagBanner, FlagDots, KV, Plate, Section } from '../parts';
 import { PendingStrip } from './PendingStrip';
+import { faceFor } from '@/gen/face';
 
 export function PersonCard({
   person: p,
@@ -36,7 +36,6 @@ export function PersonCard({
   const tx = useTx();
   const lang = useLang();
   const flags = pFlags(p, s.now);
-  const legend = isLegend(p);
   const info = parseIdcode(p.idcode);
   const age = ageAt(p.birthDate, s.now);
   const cit = citizenshipLabel(p.citizenship, lang);
@@ -46,14 +45,14 @@ export function PersonCard({
   const licTone = lic.status === 'valid' ? 'ok' : lic.status === 'none' ? 'neutral' : 'danger';
 
   return (
-    <article className={`tl-card tl-person${legend ? ' is-legend' : ''}${p.flags.wanted ? ' is-wanted' : ''}`}>
-      {legend && <div className="tl-ribbon">{t('tools.p.legend')}</div>}
+    <article className={`tl-card tl-person${p.flags.wanted ? ' is-wanted' : ''}`}>
       <PendingStrip msgs={pendingMsgs} />
 
       <header className="tl-person__head">
         <div className="tl-person__photo">
           <Avatar
             seed={p.avatarSeed}
+            face={faceFor(s, p)}
             size={104}
             gender={p.gender}
             age={age}

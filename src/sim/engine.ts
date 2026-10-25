@@ -3,7 +3,7 @@
  * See DESIGN §4. The SimState is mutated in place and stays JSON-serialisable.
  */
 import { ageOf, describePerson, describeVehicle } from '@/gen/describe';
-import { generatePerson } from '@/gen/person';
+import { generatePerson, refreshResident, RESIDENT_EPOCH } from '@/gen/person';
 import { generateVehicle } from '@/gen/vehicle';
 import { dayInfo } from './calendar';
 import { updateCalls } from './calls';
@@ -183,12 +183,22 @@ const BACKGROUND_SPEC: PersonSpec = {
   restraining: 0.015,
 };
 
+/** Residents carry no warrant, order or probation of their own; refreshResident draws those per shift. */
+const RESIDENT_SPEC: PersonSpec = { ...BACKGROUND_SPEC, wanted: 0, restraining: 0, probation: 0 };
+
+/**
+ * The prefecture's residents (2.33.0): the same 150 people and 60 cars in every shift, drawn from the region's own
+ * stream as of RESIDENT_EPOCH (names, codes, homes, looks, records, plates). The shift's stream decides what
+ * changes: warrants, orders and probation at the background rates, and which cars are stolen.
+ */
 function populateRegistry(s: SimState, r: Rng, region: RegionDef): void {
+  const home = new Rng(hashString(`residents:${region.id}`) || 1);
   const people: Person[] = [];
   for (let i = 0; i < 150; i++) {
     try {
       // No explicit lang/age: gen/person applies the regional demographics.
-      const p = generatePerson(r, { id: `p${++s.seq.person}`, now: s.now, region, spec: BACKGROUND_SPEC });
+      const p = generatePerson(home, { id: `p${++s.seq.person}`, now: RESIDENT_EPOCH, region, spec: RESIDENT_SPEC });
+      refreshResident(r, p, { now: s.now, region, spec: BACKGROUND_SPEC });
       s.persons[p.id] = p;
       people.push(p);
     } catch (err) {
@@ -198,18 +208,19 @@ function populateRegistry(s: SimState, r: Rng, region: RegionDef): void {
   }
   if (!people.length) return;
   for (let i = 0; i < 60; i++) {
-    const owner = r.pick(people);
+    const owner = home.pick(people);
     try {
-      const v = generateVehicle(r, {
+      const v = generateVehicle(home, {
         now: s.now,
         owner,
         region: s.regionId,
         isTaken: (pl) => !!s.vehicles[pl],
-        spec: { role: 'involved', stolen: 0.04, noInsurance: 0.05, noInspection: 0.07, suspended: 0.015 },
+        spec: { role: 'involved', stolen: 0, noInsurance: 0.05, noInspection: 0.07, suspended: 0.015 },
       });
       if (s.vehicles[v.plate]) continue;
       if (!v.ownerCompany) v.ownerId = owner.id;
       if (v.ownerId === owner.id && !owner.vehicles.includes(v.plate)) owner.vehicles.push(v.plate);
+      if (r.chance(0.04)) v.flags.stolen = { since: isoDate(s.now - r.int(1, 20) * DAY), text: T('Varastatud omaniku elukoha juurest', 'Stolen from outside the owner’s home') };
       s.vehicles[v.plate] = v;
     } catch (err) {
       if (i === 0) console.warn('[EPD] generateVehicle failed', err);
@@ -220,11 +231,9 @@ function populateRegistry(s: SimState, r: Rng, region: RegionDef): void {
 
 // ── The two legends from the 2025 version ───────────────────────────────────
 
-const LEGEND_NOTE = T('LEGEND 2025: EPD 2025. aasta versiooni legendaarne tagaotsitav.', 'LEGEND 2025: legendary wanted person from the 2025 version of EPD.');
-
-function legendPerson(base: Omit<Person, 'notes' | 'vehicles' | 'flags'> & { flags: Person['flags']; extra: Text[] }): Person {
-  const { extra, ...p } = base;
-  return { ...p, vehicles: [], notes: [LEGEND_NOTE, ...extra] };
+/** The two wanted men of the 2025 version, ordinary registry entries like anyone else. */
+function legendPerson(base: Omit<Person, 'notes' | 'vehicles' | 'flags'> & { flags: Person['flags'] }): Person {
+  return { ...base, vehicles: [], notes: [] };
 }
 
 export function addLegends(s: SimState): void {
@@ -266,15 +275,14 @@ export function addLegends(s: SimState): void {
       },
     },
     avatarSeed: 2025_0001,
-    extra: [T('Varasemad juhtumid: Kriminaalne mittepeatumine; Tule avamine relvast avalikus kohas; Kehavigastuste tekitamine.', 'Previous cases: criminal failure to stop; opening fire in a public place; causing bodily injuries.')],
   });
   const sarmert = legendPerson({
     id: 'legend-sarmert',
-    idcode: '18804014383',
+    idcode: '38804014385',
     firstName: 'Magnus',
-    lastName: 'Sarmert 「✔ ᵛᵉʳᶦᶠᶦᵉᵈ」',
+    lastName: 'Sarmert',
     gender: 'M',
-    birthDate: '1588-04-01',
+    birthDate: '1988-04-01',
     citizenship: 'EST',
     lang: 'et',
     address: 'Tallinn',
@@ -306,7 +314,6 @@ export function addLegends(s: SimState): void {
       },
     },
     avatarSeed: 2025_0438,
-    extra: [T('Varasemad juhtumid: Mõrvakatse; Toidumürgitamine; Relvastatud Hesburgerirööv. Vanus 438 a (kinnitatud).', 'Previous cases: attempted murder; food poisoning; armed Hesburger robbery. Age 438 (verified).')],
   });
   s.persons[okimum.id] = okimum;
   s.persons[sarmert.id] = sarmert;
@@ -386,6 +393,26 @@ function addAreaBulletin(s: SimState): void {
   });
 }
 
+function boloPerson(p: Person, now: number): Omit<Bulletin, 'id' | 't'> {
+  const d = descPerson(p, now);
+  const reason = p.flags.wanted!.reason;
+  let age = 0;
+  try {
+    age = ageOf(p, now);
+  } catch {
+    age = 30;
+  }
+  return {
+    kind: 'bolo_person',
+    title: T(`Tagaotsitav: ${p.firstName} ${p.lastName}`, `Wanted: ${p.firstName} ${p.lastName}`),
+    text: {
+      et: `${p.firstName} ${p.lastName} (${age}), isikukood ${p.idcode}. ${sentence(d.et)} ${sentence(reason.et)}${p.flags.wanted!.dangerous ? ' Võib olla ohtlik!' : ''}`,
+      en: `${p.firstName} ${p.lastName} (${age}), ID code ${p.idcode}. ${sentence(d.en)} ${sentence(reason.en)}${p.flags.wanted!.dangerous ? ' May be dangerous!' : ''}`,
+    },
+    personId: p.id,
+  };
+}
+
 function addBulletins(s: SimState, r: Rng, region: RegionDef): void {
   const now = s.now;
   const persons = Object.values(s.persons).filter((p) => !p.id.startsWith('legend-'));
@@ -427,36 +454,9 @@ function addBulletins(s: SimState, r: Rng, region: RegionDef): void {
       wanted = persons.filter((x) => x.flags.wanted);
     }
   }
-  for (const p of r.shuffle([...wanted]).slice(0, nPer)) {
-    const d = descPerson(p, now);
-    const reason = p.flags.wanted!.reason;
-    let age = 0;
-    try {
-      age = ageOf(p, now);
-    } catch {
-      age = 30;
-    }
-    pushBulletin(s, {
-      kind: 'bolo_person',
-      title: T(`Tagaotsitav: ${p.firstName} ${p.lastName}`, `Wanted: ${p.firstName} ${p.lastName}`),
-      text: {
-        et: `${p.firstName} ${p.lastName} (${age}), isikukood ${p.idcode}. ${sentence(d.et)} ${sentence(reason.et)}${p.flags.wanted!.dangerous ? ' Võib olla ohtlik!' : ''}`,
-        en: `${p.firstName} ${p.lastName} (${age}), ID code ${p.idcode}. ${sentence(d.en)} ${sentence(reason.en)}${p.flags.wanted!.dangerous ? ' May be dangerous!' : ''}`,
-      },
-      personId: p.id,
-    });
-  }
-  if (r.chance(0.15)) {
-    pushBulletin(s, {
-      kind: 'bolo_person',
-      title: T('Tagaotsitav: Rainer Okimum', 'Wanted: Rainer Okimum'),
-      text: T(
-        'LEGEND 2025. Kriminaalne mittepeatumine, tule avamine relvast avalikus kohas. Viimati nähtud CSS-i kirjutamas. Ohtlik!',
-        'LEGEND 2025. Criminal failure to stop, opening fire in public. Last seen writing CSS. Dangerous!',
-      ),
-      personId: 'legend-okimum',
-    });
-  }
+  for (const p of r.shuffle([...wanted]).slice(0, nPer)) pushBulletin(s, boloPerson(p, now));
+  // Now and then the bulletin also carries one of the two wanted men from the 2025 version.
+  if (r.chance(0.15) && s.persons['legend-okimum']) pushBulletin(s, boloPerson(s.persons['legend-okimum'], now));
 
   // Päevakäsk from the prefecture commander.
   const w = wall(now);

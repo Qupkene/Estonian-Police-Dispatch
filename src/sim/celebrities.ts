@@ -4,8 +4,9 @@
  * people it finds, and their cars, into the state. The 300 people would otherwise triple every save and co-op
  * snapshot. It stays deterministic: the catalogue depends only on the list, the shift's day and its prefecture.
  *
- * A public figure's record is always clean: no records, no flags, never a suspect, never picked for a story or a
- * bulletin (nothing else in the sim reads the catalogue, and the background population never contains them).
+ * A public figure's record is always clean: no records, no flags, never a suspect, and never a bulletin (stories
+ * cast them only as callers, witnesses and victims). Their code, car, phone and looks are made up; there is no home
+ * address.
  */
 import { CELEBRITIES, type CelebrityDef, type CelebrityField } from '@/data/celebrities';
 import { idcodeChecksum } from '@/gen/isikukood';
@@ -128,11 +129,6 @@ function appearanceOf(rng: Rng, c: CelebrityDef, age: number): Appearance {
   return out;
 }
 
-const MADE_UP: Text = {
-  et: 'Avaliku elu tegelane. Isikukood, sõiduk, telefon ja välimus on mängu jaoks välja mõeldud; päris on nimi, sünniaeg ja avalik info.',
-  en: 'Public figure. ID code, vehicle, phone and appearance are made up for the game; the name, birth date and public facts are real.',
-};
-
 function buildPerson(rng: Rng, c: CelebrityDef, now: number): Person {
   const [firstName, lastName] = splitName(c.legal ?? c.name);
   const by = Number(c.born.slice(0, 4));
@@ -163,7 +159,7 @@ function buildPerson(rng: Rng, c: CelebrityDef, now: number): Person {
     records: [],
     flags: {},
     vehicles: [],
-    notes: [known, MADE_UP],
+    notes: [known],
     avatarSeed: hashString(`vip-avatar-${c.nr}`),
   };
 }

@@ -13,6 +13,7 @@ import { countdown, unitEtaMin } from './format';
 import { Section, UnitTypeIcon, useMsg, useSim } from './bits';
 import { useSelectedIncident } from './IncidentParts';
 import { useGameUi } from './uiStore';
+import { officerFace } from '@/gen/face';
 
 export function UnitPanel() {
   const sim = useSim();
@@ -40,7 +41,7 @@ function CrewCard({ o, fatigue }: { o: Officer; fatigue: number }) {
   const tx = useTx();
   return (
     <div className={`gm-crew${o.injured ? ' is-injured' : ''}`}>
-      <Avatar seed={o.avatarSeed} size={52} gender={o.gender} age={Math.min(62, 22 + o.years)} uniform />
+      <Avatar seed={o.avatarSeed} face={officerFace(o)} size={52} gender={o.gender} age={Math.min(62, 22 + o.years)} uniform />
       <div className="gm-crew__body">
         <div className="gm-crew__name">
           {o.firstName} {o.lastName}

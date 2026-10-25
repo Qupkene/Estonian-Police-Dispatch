@@ -10,3 +10,5 @@ playwright-report
 data-dev
 public/tiles
 .claude/worktrees
+# Face labelling models (scripts/faces/collect.py downloads them)
+scripts/faces/models/

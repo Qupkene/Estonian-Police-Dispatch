@@ -7,7 +7,7 @@ import { hhmm } from '@/sim/time';
 import { useGame } from '@/store/game';
 import { useLang, useT, useTx } from '@/i18n';
 import { Avatar, Button, Empty, Icon, IconButton, Segmented } from '@/ui/components';
-import { ageAt, isLegend, querySubject, queriesForRecord, uncheckedLinks, vehicleByPlate, type RecordRef } from './lib/helpers';
+import { ageAt, querySubject, queriesForRecord, uncheckedLinks, vehicleByPlate, type RecordRef } from './lib/helpers';
 import { pending, pFlags, run, searchP, searchV, TEMPLATES_BY_ID, useSim, vFlags } from './lib/engine';
 import { FlagDots, Plate } from './parts';
 import { useRegistryUi, type RegMode, type RegResults, type RegView } from './lib/registryUi';
@@ -15,6 +15,7 @@ import { PersonCard } from './registry/PersonCard';
 import { VehicleCard } from './registry/VehicleCard';
 import { ClassicProfile } from './registry/ClassicProfile';
 import './tools.css';
+import { faceFor } from '@/gen/face';
 
 type Mode = RegMode;
 type View = RegView;
@@ -292,6 +293,7 @@ function ResultsList({ sim, results, onOpen }: { sim: SimState; results: Results
                   <button type="button" className="tl-row tl-row--person" onClick={() => onOpen({ kind: 'person', id: p.id })}>
                     <Avatar
                       seed={p.avatarSeed}
+                      face={faceFor(sim, p)}
                       size={38}
                       gender={p.gender}
                       age={age}
@@ -306,7 +308,7 @@ function ResultsList({ sim, results, onOpen }: { sim: SimState; results: Results
                         <span className="mono">{p.idcode}</span> · {age} · {p.city}
                       </span>
                     </span>
-                    <FlagDots flags={pFlags(p, sim.now)} legend={isLegend(p)} />
+                    <FlagDots flags={pFlags(p, sim.now)} />
                   </button>
                 </li>
               );

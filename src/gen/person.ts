@@ -6,7 +6,7 @@ import { TATTOOS } from '@/gen/describe';
 import { makeIdcode } from '@/gen/isikukood';
 import { randomNameFor, surnameForGender, type NameOrigin } from '@/gen/names';
 import { foreignMobile, mobileNumber } from '@/gen/phone';
-import type { Rng } from '@/sim/rng';
+import { Rng, hashString } from '@/sim/rng';
 import { DAY, seasonOf, wall } from '@/sim/time';
 import type {
   Appearance,
@@ -1203,4 +1203,42 @@ export function generatePerson(rng: Rng, o: PersonGenOptions): Person {
     intoxicated: spec?.intoxicated ?? 0,
   });
   return person;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Residents (2.33.0): the same people live in a prefecture in every shift
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Residents are drawn as of this moment, so their birth dates, codes and records never move. */
+export const RESIDENT_EPOCH = Date.UTC(2026, 0, 1, 10, 0);
+
+/**
+ * What changes for a resident from one shift to the next: warrants, restraining orders and probation (drawn from
+ * the shift's stream at the spec's rates, dated from `now`), documents renewed when they ran out, clothes for the
+ * month. Name, code, home, looks, job and records stay as drawn.
+ */
+export function refreshResident(rng: Rng, p: Person, o: { now: number; region: RegionDef; spec?: PersonSpec }): void {
+  const spec = o.spec;
+  const today = todayUtc(o.now);
+  const age = Math.floor((today - dateMs(p.birthDate)) / (365.25 * DAY));
+  const month = wall(o.now).month;
+  p.appearance.clothing = makeClothing(new Rng(hashString(`wear:${p.idcode}:${month}`) || 1), p.gender, age, month);
+  const renew = (until: string, years: number) => {
+    let t = dateMs(until);
+    while (t < today) t += years * 365.25 * DAY;
+    return isoUtc(t);
+  };
+  if (p.license.validUntil && p.license.status === 'valid') p.license.validUntil = renew(p.license.validUntil, 10);
+  if (p.weaponPermit) p.weaponPermit.validUntil = renew(p.weaponPermit.validUntil, 5);
+  delete p.flags.wanted;
+  delete p.flags.restrainingOrder;
+  delete p.flags.probation;
+  if (age >= 14 && rng.chance(spec?.wanted ?? 0)) p.flags.wanted = makeWanted(rng, o.now, o.region.id);
+  if (age >= 16 && rng.chance(spec?.restraining ?? 0)) {
+    const partner: Gender = rng.chance(0.85) ? (p.gender === 'M' ? 'F' : 'M') : p.gender;
+    const q = randomNameFor(rng, p.lang satisfies NameOrigin, partner, Number(p.birthDate.slice(0, 4)) + rng.int(-6, 6));
+    p.flags.restrainingOrder = { protectedName: `${q.firstName} ${q.lastName}`, until: relDate(o.now, rng.int(45, 730)) };
+  }
+  if (age >= 18 && (rng.chance(spec?.probation ?? 0) || (p.records.length > 0 && rng.chance(0.06))))
+    p.flags.probation = { until: relDate(o.now, rng.int(90, 1095)) };
 }

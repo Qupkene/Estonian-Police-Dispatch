@@ -86,7 +86,6 @@ export default {
   'tools.p.missing': { et: 'Kadunud alates {date}', en: 'Missing since {date}' },
   'tools.p.sis': { et: 'SIS-hoiatus', en: 'SIS alert' },
   'tools.p.deceased': { et: 'Isik on surnud', en: 'Person is deceased' },
-  'tools.p.legend': { et: 'LEGEND 2025', en: 'LEGEND 2025' },
   'tools.p.idInvalid': { et: 'kontrollnumber ei klapi', en: 'checksum mismatch' },
   'tools.p.description': { et: 'Tunnused', en: 'Description' },
   'tools.p.role.suspect': { et: 'kahtlustatav', en: 'suspect' },
