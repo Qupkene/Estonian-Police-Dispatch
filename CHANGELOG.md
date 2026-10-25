@@ -2,6 +2,18 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.33.1 (2026-10-25)
+
+- **Kuulsused näevad välja nagu päriselt:** kõigil 300 tuntud inimesel on registrikaardil avalikkusest tuntud juuksed, juuksevärv, habe, kehaehitus ja nahatoon, ning foto valitakse nende järgi. Näiteks Tanel Padaril on nüüd lühikesed pruunid juuksed ja kõrrehabe nii kaardil kui pildil.
+- Umbes kolmandiku puhul on välimus kindel, ülejäänute juuksed ja habe on parim hinnang; nende silmavärv ja prillid on endiselt juhuslikud. Pilt on ikka tehisintellekti loodud nägu, mitte inimese päris foto.
+
+<details>
+<summary>English</summary>
+
+Public figures look as they do in public: `src/data/celebrityLooks.ts` gives each of the 300 their hair, hair colour, beard, glasses, build, eyes and skin tone (about 90 confident, the rest best guesses with eyes and glasses left to chance). The registry card uses it, and the photo picker asks for that hair colour, baldness, beard and tone, so about 80% of the photos now have the right hair colour. The photo is still a synthetic face.
+
+</details>
+
 ## 2.33.0 (2026-10-24)
 
 - **Kõigil on nüüd foto:** igal registri inimesel, igal kõne tegelasel, tuntud inimestel, 2025. aasta legendidel ja politseinikel on fotoportree, mis sobib tema soo, vanuse, juuksevärvi ja habemega. Samas vahetuses ei ole kahel inimesel sama nägu.

@@ -6,6 +6,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CELEBRITIES } from '@/data/celebrities';
+import { CELEBRITY_LOOKS } from '@/data/celebrityLooks';
+import { faceFor } from '@/gen/face';
 import { parseIdcode } from '@/gen/isikukood';
 import { TEMPLATES } from '@/data/incidents';
 import { TEMPLATES_CELEBRITY } from '@/data/incidents/celebrity';
@@ -50,6 +52,23 @@ describe('public figures: the list', () => {
 describe('public figures: the catalogue', () => {
   const s = shift();
   const cat = celebrityCatalogue(s.now, s.regionId);
+
+  it('look as they do in public, on the card and in the photo', () => {
+    expect(Object.keys(CELEBRITY_LOOKS).length).toBe(300);
+    let sameHair = 0;
+    for (const p of cat.persons) {
+      const c = CELEBRITIES.find((x) => `${CELEB_PREFIX}${x.nr}` === p.id)!;
+      const look = CELEBRITY_LOOKS[c.nr];
+      expect(p.appearance.hair, c.name).toBe(look.hair);
+      expect(p.appearance.hairColor, c.name).toBe(look.hairColor);
+      expect(p.appearance.beard, c.name).toBe(look.beard);
+      if (c.gender === 'F') expect(look.beard, c.name).toBeUndefined();
+      const f = faceFor({ persons: {}, startTime: s.startTime }, p)!;
+      expect(f.gender, c.name).toBe(c.gender);
+      if (f.hair === look.hairColor) sameHair++;
+    }
+    expect(sameHair / 300).toBeGreaterThan(0.7);
+  });
 
   it('gives everyone a valid made-up isikukood on their birth date and a clean record', () => {
     expect(cat.persons.length).toBe(300);

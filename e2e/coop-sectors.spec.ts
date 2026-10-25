@@ -268,7 +268,16 @@ test.describe.serial('sector co-op', () => {
         const req = guest.page.getByTestId('lend-request').first();
         if (await req.isVisible().catch(() => false)) {
           await shot(guest.page, 'lend-request');
-          await req.getByTestId('lend-yes').click({ timeout: 2000 });
+          // The request card moves with the panel at 4x too: a click that misses is tried on the next round.
+          const yes = await req
+            .getByTestId('lend-yes')
+            .click({ timeout: 5000 })
+            .then(() => true)
+            .catch(() => false);
+          if (!yes) {
+            await host.page.waitForTimeout(300);
+            continue;
+          }
           await expect
             .poll(async () => (await lends(host.page)).find((r) => r.state === 'accepted'), {
               timeout: 20_000,
