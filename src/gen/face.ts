@@ -4,9 +4,10 @@
  * baldness and beard; the skin tones follow the drawn avatars' mix (mostly Northern European with some variety).
  *
  * Half the pool is kept for people who are the same in every shift: the public figures, the 2025 legends and the
- * crews (src/sim/units.ts crewRng). Their faces are handed out once, in a fixed order, so nobody shares one while
- * the half lasts. The other half goes to a shift's residents and the people of its calls, in the order they joined
- * the shift (residents first, always in the same order), each one nobody in the shift has yet.
+ * crews (src/sim/units.ts crewRng). Their faces are handed out once, in a fixed order: no two public figures share
+ * one, nor two crew members of a prefecture, while the half lasts. The other half goes to a shift's residents and
+ * the people of its calls, in the order they joined the shift (residents first, always in the same order), each
+ * one nobody in the shift has yet.
  */
 import { CELEBRITIES } from '@/data/celebrities';
 import { FACES, type FaceDef, type FaceTone } from '@/data/faces';
@@ -109,7 +110,7 @@ function split(pool: readonly FaceDef[]): Split {
   const fixed = pool.filter(kept);
   const open = pool.filter((f) => !kept(f));
   const byKey = new Map<string, FaceDef>();
-  const uses = new Map<string, number>();
+  let uses = new Map<string, number>();
   const give = (key: string, seed: number, q: FaceQuery) => {
     if (byKey.has(key)) return;
     const f = pickFace(seed, q, fixed.length ? fixed : pool, uses);
@@ -118,6 +119,8 @@ function split(pool: readonly FaceDef[]): Split {
     uses.set(f.id, (uses.get(f.id) ?? 0) + 1);
   };
   // Public figures (their age in the year the people were set), the legends, then every crew in every prefecture.
+  // A shift shows one prefecture's crews, so each prefecture's crews start again from the whole half: they keep to
+  // the light-skinned faces as the drawn avatars do instead of running out of them.
   for (const c of CELEBRITIES)
     give(`vip-${c.nr}`, hashString(`vip-avatar-${c.nr}`), {
       gender: c.gender,
@@ -133,6 +136,7 @@ function split(pool: readonly FaceDef[]): Split {
   });
   for (const id of Object.keys(REGIONS).sort()) {
     const region = REGIONS[id as keyof typeof REGIONS];
+    uses = new Map();
     for (const u of region.roster) {
       for (const shift of ['day', 'night'] as const) {
         if ((u.shift ?? 'both') !== 'both' && u.shift !== shift) continue;
