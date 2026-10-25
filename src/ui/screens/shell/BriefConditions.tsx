@@ -3,6 +3,7 @@
 // tiles and the weather as icon tiles, each with what it does in the game (conditions.ts). Styles in briefing.css.
 import { useMemo, type KeyboardEvent, type ReactNode } from 'react';
 import { useT } from '@/i18n';
+import { CRISIS_CHOICES, type CrisisChoice } from '@/sim/crisis';
 import { sunTimes } from '@/sim/sun';
 import { DAY, HOUR, hhmm } from '@/sim/time';
 import type { Difficulty, Lang, LngLat, Text, Weather } from '@/sim/types';
@@ -84,6 +85,8 @@ export interface ConditionsProps {
   autoForecast: Weather | null;
   load: LoadLevel;
   holiday: Text | null;
+  /** Free play: the major crisis choice (docs/CRISIS.md section 6) and the shift's chance when left to chance. */
+  crisis?: { value: CrisisChoice; onChange: (c: CrisisChoice) => void; chance: number };
 }
 
 export function BriefConditions(p: ConditionsProps) {
@@ -309,6 +312,28 @@ export function BriefConditions(p: ConditionsProps) {
             })}
           </ChoiceGroup>
         </OptRow>
+
+        {/* ── Major crisis ── */}
+        {p.crisis && (
+          <OptRow label={t('shell.brief.crisis')} note={t('shell.brief.crisis.note')}>
+            <ChoiceGroup<CrisisChoice>
+              label={t('shell.brief.crisis')}
+              value={p.crisis.value}
+              onChange={p.crisis.onChange}
+              className="vk-cards vk-cards--3"
+            >
+              {CRISIS_CHOICES.map((c) => {
+                const line = t(`shell.brief.crisis.${c}.line`, { p: Math.round(p.crisis!.chance * 100) });
+                return (
+                  <Choice key={c} value={c} label={`${t(`shell.brief.crisis.${c}`)}, ${line}`}>
+                    <span className="vk-card__name">{t(`shell.brief.crisis.${c}`)}</span>
+                    <span className="vk-card__line vk-mono">{line}</span>
+                  </Choice>
+                );
+              })}
+            </ChoiceGroup>
+          </OptRow>
+        )}
       </div>
     </section>
   );

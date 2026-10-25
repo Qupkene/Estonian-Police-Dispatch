@@ -4,9 +4,11 @@
 import type { Difficulty, RegionId, ShiftReport } from '@/sim/types';
 import {
   normalizeRoomCode,
+  ROOM_CRISIS,
   ROOM_DIFFICULTIES,
   ROOM_HOURS,
   ROOM_SLOTS,
+  type RoomCrisis,
   type RoomMode,
   type RoomOptions,
   type RoomShift,
@@ -118,6 +120,7 @@ export function parseOptions(v: unknown): RoomOptions {
     hours: (ROOM_HOURS as readonly number[]).includes(hours) ? hours : 3,
     slot: oneOf<RoomSlot>(o.slot, ROOM_SLOTS, 'evening'),
     ...customOf(o.custom, oneOf(o.regionId, REGIONS, 'pohja')),
+    crisis: oneOf<RoomCrisis>(o.crisis, ROOM_CRISIS, 'random'),
   };
 }
 

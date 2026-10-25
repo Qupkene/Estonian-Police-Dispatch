@@ -1052,6 +1052,7 @@ export interface GameEvent {
     | 'achievement'
     | 'complaint'
     | 'crisis_start'
+    | 'crisis_decision'
     | 'crisis_escalated'
     | 'crisis_end';
   incidentId?: string;

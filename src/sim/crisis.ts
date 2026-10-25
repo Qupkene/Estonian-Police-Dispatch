@@ -11,6 +11,7 @@ import { CRISES, crisisById } from '@/data/crises';
 import { haversineKm, destination } from './geo';
 import { closeByColleague, escalateIncident } from './incidents';
 import { addTimeline, emit, publishIncident, pushRadio, regionOf } from './internal';
+import { addMoment } from './moments';
 import { hashString, withRng, type Rng } from './rng';
 import { areaOf, inArea, sectorAt, sectorOf } from './sectors';
 import { COORD_WORD, createIncident, locationFromCoord } from './spawner';
@@ -85,6 +86,8 @@ export interface CrisisScenario {
   places: PlaceKind[];
   /** Months it can happen in (missing: any). */
   months?: number[];
+  /** Tallinn hours it can break out in, from the first to before the second (missing: any time of day). */
+  hours?: [number, number];
   /** What happened, for the briefing ({address}, {place}). */
   briefing: Text;
   tasks: CrisisTaskSpec[];
@@ -179,6 +182,15 @@ export function taskSpec(sc: CrisisScenario, id: string): CrisisTaskSpec | undef
 
 // ── Scheduling ───────────────────────────────────────────────────────────────
 
+/** A setup's choice (a free shift's briefing, a room's lobby): the shift's own chance, always, never. */
+export type CrisisChoice = 'random' | 'on' | 'off';
+export const CRISIS_CHOICES: CrisisChoice[] = ['random', 'on', 'off'];
+
+/** The chance a choice gives: always, never, or `random` (the shift's own chance) when left to chance. */
+export function choiceChance(choice: CrisisChoice | undefined, random: number): number {
+  return choice === 'on' ? 1 : choice === 'off' ? 0 : random;
+}
+
 /**
  * The chance of a crisis in a shift the player starts alone (docs/CRISIS.md section 6): a free shift's random
  * setting and a career shift, by difficulty, in proportion to its length (four hours the full chance).
@@ -252,6 +264,22 @@ function candidates(
   return out;
 }
 
+/**
+ * The times a scenario with `hours` may break out at, every five minutes between 20 % and 50 % of the shift; null for a
+ * scenario that may come at any time of day.
+ */
+function dueTimes(s: SimState, sc: CrisisScenario): number[] | null {
+  if (!sc.hours) return null;
+  const [from, to] = sc.hours;
+  const length = s.endTime - s.startTime;
+  const out: number[] = [];
+  for (let t = s.startTime + length * 0.2; t <= s.startTime + length * 0.5; t += 5 * MIN) {
+    const h = wall(t).hour;
+    if (h >= from && h < to) out.push(Math.round(t));
+  }
+  return out;
+}
+
 function weighted<T extends { w: number }>(r: Rng, list: T[]): T | undefined {
   const total = list.reduce((a, x) => a + x.w, 0);
   if (!(total > 0)) return undefined;
@@ -279,13 +307,15 @@ export function initCrisis(s: SimState, chance: number | undefined): void {
     // The chance first, always one draw, so the rest of the stream does not depend on it.
     if (!r.chance(Math.min(1, chance))) return;
     const fits = CRISES.filter((sc) => !sc.months || sc.months.includes(month))
-      .map((sc) => ({ sc, places: candidates(s, region, sc) }))
-      .filter((x) => x.places.length > 0);
+      .map((sc) => ({ sc, places: candidates(s, region, sc), times: dueTimes(s, sc) }))
+      .filter((x) => x.places.length > 0 && (!x.times || x.times.length > 0));
     if (!fits.length) return;
     const pick = fits[r.int(0, fits.length - 1)];
     const place = weighted(r, pick.places)!;
     const length = s.endTime - s.startTime;
-    const due = Math.round(s.startTime + length * r.range(0.2, 0.5));
+    const due = pick.times
+      ? pick.times[r.int(0, pick.times.length - 1)]
+      : Math.round(s.startTime + length * r.range(0.2, 0.5));
     s.crisis = {
       id: pick.sc.id,
       phase: 'due',
@@ -384,7 +414,8 @@ function hk(
   pushRadio(s, { from: 'HK', to: 'JK', text, level, kind: 'info', ...(incidentId ? { incidentId } : {}) });
 }
 
-const fill = (t: Text, c: CrisisState): Text => ({
+/** A scenario's text with the crisis's {address} and {place} filled in (the radio, the briefing). */
+export const fill = (t: Text, c: Pick<CrisisState, 'address' | 'placeName'>): Text => ({
   et: t.et.replaceAll('{address}', c.address).replaceAll('{place}', c.placeName ?? c.address),
   en: t.en.replaceAll('{address}', c.address).replaceAll('{place}', c.placeName ?? c.address),
 });
@@ -401,6 +432,7 @@ function breakOut(s: SimState, c: CrisisState, sc: CrisisScenario): void {
   }));
   hk(s, fill(sc.radio.outbreak, c), 'emergency');
   emit(s, { type: 'crisis_start', text: sc.title });
+  if (s.coop) addMoment(s.coop, { t: Math.round(s.now), k: 'crisis', seat: -1, crisis: sc.id });
   for (const task of c.tasks) {
     const spec = taskSpec(sc, task.id);
     if (spec && s.now >= task.opensAt) openTask(s, c, sc, task, spec);
@@ -488,8 +520,17 @@ function escalate(
 ): void {
   task.escalated = true;
   c.level = Math.min(MAX_LEVEL, c.level + 1);
-  escalateIncident(s, inc, 1 as Priority, sc.radio.escalate, 'hk');
+  escalateIncident(s, inc, 1 as Priority, fill(sc.radio.escalate, c), 'hk');
   emit(s, { type: 'crisis_escalated', incidentId: inc.id, text: spec.name });
+  if (s.coop)
+    addMoment(s.coop, {
+      t: Math.round(s.now),
+      k: 'cesc',
+      seat: -1,
+      crisis: sc.id,
+      task: spec.id,
+      n: c.level,
+    });
   const follow = spec.followUp ? sc.followUps.find((f) => f.id === spec.followUp) : undefined;
   if (follow && !c.tasks.some((t) => t.id === follow.id)) {
     c.tasks.push({ id: follow.id, opensAt: s.now, deadline: s.now + follow.deadlineMin * MIN });
@@ -521,6 +562,7 @@ function neighboursTake(
 function ask(s: SimState, c: CrisisState, d: CrisisDecision): void {
   c.asked[d.id] = s.now + DECIDE_MIN * MIN;
   hk(s, T(`Staap: ${d.question.et}`, `Staff: ${d.question.en}`), 'priority');
+  emit(s, { type: 'crisis_decision', text: d.question });
 }
 
 /**
@@ -537,6 +579,8 @@ export function decide(s: SimState, decisionId: string, optionId: string, seat: 
   if (seat >= 0 && c.lead !== seat) return false;
   c.decisions[d.id] = o.id;
   if (seat < 0) (c.defaulted ??= {})[d.id] = 1;
+  if (s.coop)
+    addMoment(s.coop, { t: Math.round(s.now), k: 'cdec', seat, crisis: sc.id, option: `${d.id}:${o.id}` });
   if (o.help) c.help = true;
   for (const task of c.tasks) {
     const inc = task.incidentId ? s.incidents[task.incidentId] : undefined;
@@ -561,6 +605,7 @@ export function takeCommand(s: SimState, seat: number, host: boolean): boolean {
   if (c.lead === seat) return false;
   if (c.lead >= 0 && !host) return false;
   c.lead = seat;
+  if (s.coop) addMoment(s.coop, { t: Math.round(s.now), k: 'clead', seat, crisis: c.id });
   return true;
 }
 
@@ -575,6 +620,7 @@ function end(s: SimState, c: CrisisState, sc: CrisisScenario): void {
   c.result = crisisResult(s, c);
   if (!s.ended) hk(s, fill(sc.radio.end, c), 'routine');
   emit(s, { type: 'crisis_end', text: sc.title });
+  if (s.coop) addMoment(s.coop, { t: Math.round(s.now), k: 'cend', seat: -1, crisis: sc.id, n: c.result });
 }
 
 /** The crisis's result: its tasks' average score (a task the neighbours took counts HELPED_SCORE), less the levels. */

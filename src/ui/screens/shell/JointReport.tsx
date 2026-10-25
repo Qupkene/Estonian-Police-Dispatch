@@ -5,7 +5,9 @@ import { useState, type ReactNode } from 'react';
 import { useLang, useT, useTx } from '@/i18n';
 import { avgResponse, coopAwards, type Award, type RoomSummary } from '@/sim/joint';
 import type { CoopReportSeat } from '@/sim/coop';
-import type { ReportMoment } from '@/sim/moments';
+import { crisisById } from '@/data/crises';
+import { taskSpec } from '@/sim/crisis';
+import type { CoopMoment, ReportMoment } from '@/sim/moments';
 import { sectorById } from '@/sim/sectors';
 import { hhmm } from '@/sim/time';
 import { Icon, PlayerAvatar, type IconName } from '@/ui/components';
@@ -306,10 +308,51 @@ function momentLine(
     case 'left':
     case 'back':
       return { title: t(`joint.m.${m.k}`, { name: name(m.seat) }), seats: [m.seat] };
+    default:
+      return crisisLine(m, name, t, tx);
+  }
+}
+
+/** A crisis moment on the timeline (2.37.0): it broke out, escalated, a player took command, a decision, the end. */
+function crisisLine(
+  m: CoopMoment,
+  name: (seat: number | undefined) => string,
+  t: ReturnType<typeof useT>,
+  tx: ReturnType<typeof useTx>,
+): { title: string; text?: string; seats: number[] } {
+  const sc = m.crisis ? crisisById(m.crisis) : undefined;
+  const title = sc ? tx(sc.title) : '?';
+  switch (m.k) {
+    case 'crisis':
+      return { title: t('joint.m.crisis', { title }), seats: [] };
+    case 'cesc': {
+      const task = sc && m.task ? taskSpec(sc, m.task) : undefined;
+      return { title: t('joint.m.cesc', { task: task ? tx(task.name) : '?' }), seats: [] };
+    }
+    case 'clead':
+      return { title: t('joint.m.clead', { name: name(m.seat) }), seats: [m.seat] };
+    case 'cdec': {
+      const [decision, option] = (m.option ?? ':').split(':');
+      const label = sc?.decisions.find((d) => d.id === decision)?.options.find((o) => o.id === option)?.label;
+      return {
+        title: t('joint.m.cdec', { option: label ? tx(label) : '?' }),
+        text: m.seat >= 0 ? name(m.seat) : t('joint.m.cdec.default'),
+        seats: m.seat >= 0 ? [m.seat] : [],
+      };
+    }
+    case 'cend':
+      return { title: t('joint.m.cend', { title, n: m.n ?? 0 }), seats: [] };
+    default:
+      return { title: '?', seats: [] };
   }
 }
 
 const MOMENT_ICON: Record<ReportMoment['k'], IconName> = {
+  crisis: 'alert',
+  cesc: 'fire',
+  clead: 'shield',
+  cdec: 'list',
+  cend: 'flag',
   good: 'check',
   bad: 'warning',
   lend: 'car',

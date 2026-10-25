@@ -68,6 +68,12 @@ export default {
   'joint.m.left': { et: '{name} lahkus vahetusest', en: '{name} left the shift' },
   'joint.m.back': { et: '{name} tuli tagasi', en: '{name} came back' },
   'joint.m.handover': { et: 'Jälitus anti üle: {from} → {to}', en: 'Pursuit handed over: {from} → {to}' },
+  'joint.m.crisis': { et: 'Suurõnnetus: {title}', en: 'Major incident: {title}' },
+  'joint.m.cesc': { et: 'Olukord teravnes: {task} jäi ekipaažita', en: 'The situation worsened: {task} was left without a crew' },
+  'joint.m.clead': { et: '{name} võttis staabi juhtimise üle', en: '{name} took command of the staff' },
+  'joint.m.cdec': { et: 'Staap otsustas: {option}', en: 'The staff decided: {option}' },
+  'joint.m.cdec.default': { et: 'vaikimisi, keegi ei otsustanud', en: 'by default, nobody decided' },
+  'joint.m.cend': { et: 'Suurõnnetus lahendatud: {n}/100', en: 'Major incident resolved: {n}/100' },
   'joint.m.good': { et: 'Hästi läinud', en: 'Went well' },
   'joint.m.bad': { et: 'Läks halvasti', en: 'Went badly' },
 

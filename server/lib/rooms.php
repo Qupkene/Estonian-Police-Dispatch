@@ -45,6 +45,8 @@ const EPD_ROOM_CUSTOM_JOINED = 100;
 const EPD_ROOM_CUSTOM_OFFICERS = 6;
 const EPD_ROOM_CUSTOM_POOL = 60;
 const EPD_ROOM_SLOTS = ['morning', 'afternoon', 'evening', 'night'];
+/** Suurõnnetus (2.37.0): its chance ('random'), always ('on'), never ('off'). */
+const EPD_ROOM_CRISIS = ['random', 'on', 'off'];
 /** A player counts as online when their last poll is this recent (ms). */
 const EPD_ROOM_ONLINE_MS = 20 * 1000;
 /** `seen` is written at most this often per player (ms), so polling stays a read. */
@@ -104,7 +106,7 @@ function epd_room_invalid(string $field): never
  * sectors of the prefecture; its `sector` becomes the first desk. Other modes store no desks.
  *
  * @param array<string, mixed> $body
- * @return array{region_id: string, sector: string, difficulty: string, hours: int, slot: string, desks: string}
+ * @return array{region_id: string, sector: string, difficulty: string, hours: int, slot: string, desks: string, custom: string, crisis: string}
  */
 function epd_room_options(array $body, string $mode = 'race'): array
 {
@@ -147,7 +149,19 @@ function epd_room_options(array $body, string $mode = 'race'): array
         $sector = $list[0];
     }
     $custom = epd_room_custom($body['custom'] ?? null, $region);
-    return ['region_id' => $region, 'sector' => $sector, 'difficulty' => $difficulty, 'hours' => $hours, 'slot' => $slot, 'desks' => $desks, 'custom' => $custom];
+    // Suurõnnetus (2.37.0): missing means its chance, as for a room made before the choice existed.
+    $crisis = $body['crisis'] ?? 'random';
+    if (!is_string($crisis) || !in_array($crisis, EPD_ROOM_CRISIS, true)) {
+        epd_room_invalid('crisis');
+    }
+    return ['region_id' => $region, 'sector' => $sector, 'difficulty' => $difficulty, 'hours' => $hours, 'slot' => $slot, 'desks' => $desks, 'custom' => $custom, 'crisis' => $crisis];
+}
+
+/** A room's crisis choice as the room JSON and the game server's ticket show it. */
+function epd_room_crisis(array $room): string
+{
+    $v = (string) ($room['crisis'] ?? 'random');
+    return in_array($v, EPD_ROOM_CRISIS, true) ? $v : 'random';
 }
 
 /**
@@ -520,6 +534,7 @@ function epd_room_public(PDO $db, array $room, int $userId, int $now): array
             'difficulty' => (string) $room['difficulty'],
             'hours' => (int) $room['hours'],
             'slot' => (string) $room['slot'],
+            'crisis' => epd_room_crisis($room),
         ] + ((string) $room['mode'] === 'sector' ? ['desks' => epd_room_desks($room)] : []) + epd_room_custom_out($room),
         // The seed and the day only once the shift is on: nobody can play it before the others.
         'seed' => $running ? (int) $room['seed'] : null,
@@ -754,15 +769,15 @@ function epd_route_room_create(): ApiReply
         epd_rate_event($db, 'room_create', $ip);
         epd_rooms_sweep($db, $now);
         $insert = $db->prepare(
-            'INSERT INTO rooms (code, mode, host_id, region_id, sector, desks, custom, difficulty, hours, slot, seed, day, state, rev, created, updated)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'lobby\', 1, ?, ?)'
+            'INSERT INTO rooms (code, mode, host_id, region_id, sector, desks, custom, crisis, difficulty, hours, slot, seed, day, state, rev, created, updated)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'lobby\', 1, ?, ?)'
         );
         for ($try = 0; ; $try++) {
             $code = epd_room_new_code();
             try {
                 $insert->execute([
-                    $code, $mode, $userId, $opts['region_id'], $opts['sector'], $opts['desks'], $opts['custom'], $opts['difficulty'], $opts['hours'],
-                    $opts['slot'], random_int(1, 2147483646), epd_daily_date($now), $now, $now,
+                    $code, $mode, $userId, $opts['region_id'], $opts['sector'], $opts['desks'], $opts['custom'], $opts['crisis'], $opts['difficulty'],
+                    $opts['hours'], $opts['slot'], random_int(1, 2147483646), epd_daily_date($now), $now, $now,
                 ]);
                 break;
             } catch (PDOException $e) {

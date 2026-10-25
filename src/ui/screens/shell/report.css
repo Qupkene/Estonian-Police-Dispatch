@@ -378,3 +378,76 @@
   text-transform: uppercase;
   color: var(--vk-text-1);
 }
+
+/* Suurõnnetus (2.37.0, CrisisReport.tsx) */
+.vk-crep__score {
+  font-weight: 700;
+}
+.vk-crep--good .vk-crep__score {
+  color: var(--ok-ink);
+}
+.vk-crep--mid .vk-crep__score {
+  color: var(--warn-ink);
+}
+.vk-crep--bad .vk-crep__score {
+  color: var(--p1-ink);
+}
+.vk-crep__top {
+  display: flex;
+  gap: 14px;
+  padding: 12px 16px 4px;
+}
+.vk-crep__img {
+  flex: none;
+  width: 168px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+}
+.vk-crep__img.is-card {
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--p1) 12%, var(--bg-2));
+  color: var(--p1-ink);
+}
+.vk-crep__facts {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+  font-size: var(--fs-sm);
+}
+.vk-crep__facts > span {
+  color: var(--text-2);
+}
+.vk-crep__list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0 16px 12px;
+  list-style: none;
+}
+.vk-crep__list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--line);
+  font-size: var(--fs-sm);
+}
+.vk-crep__list li em {
+  color: var(--text-2);
+  font-style: normal;
+}
+.vk-crep__list li.is-bad em {
+  color: var(--p1-ink);
+}
+@media (max-width: 520px) {
+  .vk-crep__top {
+    flex-direction: column;
+  }
+  .vk-crep__img {
+    width: 100%;
+  }
+}

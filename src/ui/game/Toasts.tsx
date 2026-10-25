@@ -20,6 +20,7 @@ const ICON: Record<ToastKind, IconName> = {
   error: 'x',
   ok: 'check',
   complaint: 'warning',
+  crisis: 'alert',
 };
 
 /** Translate engine events into toasts. Mounted once by GameScreen. */
@@ -59,6 +60,8 @@ function toToast(s: SimState, ev: GameEvent): Omit<Toast, 'id' | 'createdAt'> | 
     }
     case 'radio_emergency': {
       const m = findMsg(s, ev);
+      // Häirekeskus declaring a major incident is no officer in need: the crisis has its own briefing.
+      if (m?.from === 'HK') return null;
       return { ...base, kind: 'emergency', title: 'game.toast.emergency', text: ev.text, vars: { sub: m?.from ?? '' } };
     }
     case 'call_missed':
@@ -73,6 +76,13 @@ function toToast(s: SimState, ev: GameEvent): Omit<Toast, 'id' | 'createdAt'> | 
       return { ...base, kind: 'achievement', title: 'game.toast.achievement', text: ev.text };
     case 'complaint':
       return { ...base, kind: 'complaint', title: 'game.toast.complaint', text: ev.text, vars: { sub: inc?.code ?? '' } };
+    // Suurõnnetus (docs/CRISIS.md): the outbreak has its own briefing; a decision, an escalation and the end toast.
+    case 'crisis_decision':
+      return { ...base, kind: 'crisis', title: 'game.toast.crisisDecision', text: ev.text, vars: { sub: '' } };
+    case 'crisis_escalated':
+      return { ...base, kind: 'escalated', title: 'game.toast.crisisEscalated', text: ev.text, vars: { sub: incLabel(s, ev.incidentId) ?? '' } };
+    case 'crisis_end':
+      return { ...base, kind: 'crisis', title: 'game.toast.crisisEnd', text: ev.text, vars: { sub: s.crisis?.result !== undefined ? `${s.crisis.result}/100` : '' } };
     default:
       return null;
   }

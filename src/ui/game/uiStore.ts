@@ -6,7 +6,7 @@ import type { QueueFilter } from './format';
 export type RadioFilter = 'all' | 'reply' | 'emergency' | 'selected';
 export type MobileTab = 'map' | 'queue' | 'panel' | 'radio' | 'units';
 
-export type ToastKind = 'p1' | 'escalated' | 'backup' | 'emergency' | 'missed' | 'pursuit' | 'pursuitEnd' | 'shift' | 'achievement' | 'error' | 'ok' | 'complaint';
+export type ToastKind = 'p1' | 'escalated' | 'backup' | 'emergency' | 'missed' | 'pursuit' | 'pursuitEnd' | 'shift' | 'achievement' | 'error' | 'ok' | 'complaint' | 'crisis';
 
 export interface Toast {
   id: number;
@@ -23,6 +23,7 @@ export interface Toast {
 /** How long each kind stays up (real ms). Kinds not listed stay 8 s. */
 export const TOAST_TTL: Partial<Record<ToastKind, number>> = {
   emergency: 14_000,
+  crisis: 12_000,
   backup: 12_000,
   p1: 10_000,
   complaint: 10_000,
@@ -39,6 +40,7 @@ export const MAX_TOASTS = 3;
 /** Which toast goes first when the stack is full: lower rank first, then the oldest. */
 const TOAST_RANK: Record<ToastKind, number> = {
   emergency: 3,
+  crisis: 3,
   backup: 2,
   p1: 2,
   error: 2,

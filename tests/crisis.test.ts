@@ -20,16 +20,18 @@ import {
 } from '@/sim/crisis';
 import { createShift, drainEvents, finalizeShift, step } from '@/sim/engine';
 import { recommendUnits } from '@/sim/selectors';
-import { MIN, tallinnTime } from '@/sim/time';
+import { MIN, tallinnTime, wall } from '@/sim/time';
 import type { SimState } from '@/sim/types';
 
-const shift = (o: { seed?: number; crisis?: number; hours?: number; sectors?: string[] } = {}): SimState =>
+const shift = (
+  o: { seed?: number; crisis?: number; hours?: number; sectors?: string[]; startHour?: number } = {},
+): SimState =>
   createShift({
     seed: o.seed ?? 4242,
     regionId: 'pohja',
     mode: 'free',
     difficulty: 'normal',
-    start: tallinnTime(2026, 10, 14, 18, 0),
+    start: tallinnTime(2026, 10, 14, o.startHour ?? 18, 0),
     hours: o.hours ?? 4,
     playerName: 'Test',
     ...(o.sectors ? { sectors: o.sectors } : {}),
@@ -76,6 +78,23 @@ describe('crisis: scheduling', () => {
     expect(crisisChance('free', 'cadet', 4)).toBeCloseTo(0.05);
     expect(crisisChance('free', 'veteran', 2)).toBeCloseTo(0.075);
     expect(crisisChance('career', 'normal', 8)).toBeCloseTo(0.16);
+  });
+
+  it('breaks out only in its hours: a shopping centre while it is open, never at night', () => {
+    const mall = crisisById('mall')!;
+    expect(mall.hours).toBeDefined();
+    let malls = 0;
+    for (let seed = 1; seed <= 80; seed++) {
+      const night = shift({ seed, crisis: 1, startHour: 23, hours: 6 });
+      expect(night.crisis?.id, `seed ${seed}`).not.toBe('mall');
+      const day = shift({ seed, crisis: 1, startHour: 9, hours: 8 });
+      if (day.crisis?.id !== 'mall') continue;
+      malls++;
+      const h = wall(day.crisis.due).hour;
+      expect(h).toBeGreaterThanOrEqual(mall.hours![0]);
+      expect(h).toBeLessThan(mall.hours![1]);
+    }
+    expect(malls).toBeGreaterThan(0);
   });
 
   it('breaks out only where its place is: never in an area without one', () => {
@@ -224,6 +243,12 @@ describe('crisis: data', () => {
           expect(id, `${sc.id}: ${id}`).toMatch(/^[a-z_]{1,24}$/);
       }
       expect(taskSpec(sc, sc.tasks[0].id)).toBe(sc.tasks[0]);
+      if (sc.hours) {
+        expect(sc.hours[0], sc.id).toBeGreaterThanOrEqual(0);
+        expect(sc.hours[1], sc.id).toBeLessThanOrEqual(24);
+        expect(sc.hours[0], sc.id).toBeLessThan(sc.hours[1]);
+      }
+      for (const m of sc.months ?? []) expect(m >= 1 && m <= 12, `${sc.id}: month ${m}`).toBe(true);
     }
   });
 });

@@ -48,6 +48,7 @@ import {
   type DeskRow,
   type DeskState,
 } from './desks';
+import { commandLeft, crisisDigest, crisisTaskOf, decide, takeCommand } from './crisis';
 import { emit } from './internal';
 import { addMoment, reportMoments, type CoopMoment, type ReportMoment } from './moments';
 import { searchPersons, searchVehicles } from './registry';
@@ -309,6 +310,9 @@ export const COMMAND_ROLE: Record<string, Need> = {
   lendans: 'dispatch',
   take: 'dispatch',
   give: 'dispatch',
+  // Suurõnnetus (2.37.0): take command of the crisis's staff, and the commander's decisions (checked in the command).
+  lead: 'any',
+  cdec: 'any',
   q: 'any',
   ping: 'any',
   speed: 'host',
@@ -497,7 +501,8 @@ function deskAllows(s: SimState, c: CoopState, cmd: LogCmd): boolean {
     case 'check':
       return incOk(a[0]);
     case 'send': {
-      if (!incOk(a[0])) return false;
+      // A crisis's task takes any desk's own crews straight away (docs/CRISIS.md section 5): the staff coordinates.
+      if (!incOk(a[0]) && !crisisTaskOf(s.incidents[str(a[0])])) return false;
       const ids = Array.isArray(a[1]) ? a[1] : [];
       return ids.every((id) => {
         const u = s.units[str(id)];
@@ -575,6 +580,8 @@ function run(s: SimState, c: CoopState, cmd: LogCmd): CmdResult {
       x.present = cmd.k === 'back';
       if (was !== x.present)
         addMoment(c, { t: Math.round(s.now), k: cmd.k, seat: x.seat, ...(x.desk ? { desk: x.desk } : {}) });
+      // A commander who left gives up the crisis's command.
+      if (!x.present) commandLeft(s, x.seat);
       // Sector co-op: an emptied desk is announced (its colleague holds it, anybody may take it over); a player who
       // comes back gets their desk back from whoever took it over.
       if (c.sec && was && !x.present) deskSeatLeft(s, c, x);
@@ -771,6 +778,11 @@ function run(s: SimState, c: CoopState, cmd: LogCmd): CmdResult {
       if (!c.sec) return NOOP;
       return giveDesk(s, c, str(a[0]), seat);
     }
+    // ── Suurõnnetus (2.37.0, src/sim/crisis.ts) ──
+    case 'lead':
+      return takeCommand(s, seat, seat === c.host) ? { ok: true } : NOOP;
+    case 'cdec':
+      return decide(s, str(a[0], 24), str(a[1], 24), seat) ? { ok: true } : NOOP;
     default:
       return NOOP;
   }
@@ -929,6 +941,7 @@ export function simDigest(s: SimState): string {
     }
     if (c.sec) parts.push(deskDigest(c.sec));
   }
+  if (s.crisis) parts.push(crisisDigest(s.crisis));
   const all = parts.join('\n');
   return (
     fnv(all, 0x811c9dc5).toString(16).padStart(8, '0') +

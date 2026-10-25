@@ -379,6 +379,13 @@ export default {
   'tools.dir.hud': { et: 'Liides nähtav (HUD)', en: 'HUD visible' },
   'tools.dir.realtime': { et: 'Reaalaeg 1:1', en: 'Real time 1:1' },
   'tools.dir.scenes': { et: 'Stseenid', en: 'Scenes' },
+  'tools.dir.crisis': { et: 'Suurõnnetus', en: 'Major incident' },
+  'tools.dir.crisisStart': { et: 'Käivita', en: 'Start' },
+  'tools.dir.crisisOn': { et: 'Käib: {title}. Uue saab käivitada, kui see on lõppenud.', en: 'Running: {title}. A new one can start once it is over.' },
+  'tools.dir.crisisNoPlace': {
+    et: 'Selles prefektuuris pole sellele sobivat kohta.',
+    en: 'This prefecture has no place for it.',
+  },
   'tools.dir.scenesNote': {
     et: 'Stseenid on kirjutatud Tallinna jaoks. Teistes prefektuurides paigutatakse need piirkonna keskuse lähedale.',
     en: 'Scenes are written for Tallinn. In other prefectures they are placed near the regional centre.',

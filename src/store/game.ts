@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { createShift, drainEvents, finalizeShift, step } from '@/sim/engine';
 import { REGION_IDS } from '@/data/regions';
 import { CALL_SPEED, coopReport, effectiveSpeed, TURN_SPEEDS } from '@/sim/coop';
+import type { CrisisChoice } from '@/sim/crisis';
 import type { GameEvent, GameMode, LngLat, NewShiftOptions, RadioMsg, ShiftReport, SimState } from '@/sim/types';
 import { careerShiftPaid, useCareer } from './career';
 import {
@@ -31,7 +32,7 @@ export type Screen =
   | 'lobby'
   | 'custom';
 
-export type RightTab = 'incident' | 'unit' | 'registry' | 'stats' | 'bulletins' | 'director';
+export type RightTab = 'incident' | 'unit' | 'registry' | 'stats' | 'bulletins' | 'director' | 'crisis';
 
 export interface LoginUser {
   name: string;
@@ -70,7 +71,7 @@ interface GameStore {
   mapFocus: { coord: LngLat; zoom?: number; n: number } | null;
   hud: boolean;
   /** Briefing → game: options chosen on the briefing screen. */
-  briefing: Partial<NewShiftOptions> & { shiftKind?: 'day' | 'night' | 'custom' };
+  briefing: Partial<NewShiftOptions> & { shiftKind?: 'day' | 'night' | 'custom'; crisisChoice?: CrisisChoice };
 
   setScreen: (s: Screen) => void;
   login: (u: LoginUser) => void;

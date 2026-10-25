@@ -5,6 +5,7 @@
  * player at once, two or three seconds later.
  */
 import * as C from '@/sim/commands';
+import { decide } from '@/sim/crisis';
 import { emitPlayerResolved, useGame } from '@/store/game';
 import { coopIssue, deskCan, onOwnResult } from '@/store/coop';
 import { openUnitAsks, resolvedSince } from '@/audio/radioSpeech';
@@ -176,6 +177,19 @@ export function requestLend(incidentId: string, unitId: string) {
 /** Answer a lend request that reached this desk. */
 export function answerLend(requestId: number, yes: boolean) {
   coopIssue('lendans', [requestId, yes ? 1 : 0]);
+}
+
+// ── Suurõnnetus (src/sim/crisis.ts) ──────────────────────────────────────────
+
+/** Co-op: take command of the crisis staff (when nobody holds it; the host takes it over). Single player commands. */
+export function crisisLead() {
+  coopIssue('lead', []);
+}
+
+/** The commander's decision. */
+export function crisisDecide(decisionId: string, optionId: string) {
+  if (coopIssue('cdec', [decisionId, optionId])) return;
+  run((s) => decide(s, decisionId, optionId, 0));
 }
 
 // ── 112 calls (the call-taker's card) ────────────────────────────────────────

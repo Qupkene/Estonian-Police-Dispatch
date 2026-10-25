@@ -4509,3 +4509,622 @@ td.gm-table__task .muted {
     display: none;
   }
 }
+
+/* ───────────────────────────── Suurõnnetus (2.37.0, CrisisPanel.tsx) ───────────────────────────── */
+/* The crisis is red like a P1, its situation from green (under control) to a pulsing red (very critical). */
+.gm-crisisbar {
+  position: absolute;
+  z-index: 21;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: calc(100% - 120px);
+  padding: 7px 14px 7px 11px;
+  border: 1px solid color-mix(in srgb, var(--p1) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--p1) 16%, var(--glass));
+  color: var(--text-0);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  box-shadow: var(--shadow-2);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+.gm-crisisbar:hover {
+  background: color-mix(in srgb, var(--p1) 24%, var(--glass));
+}
+.gm-crisisbar:focus-visible {
+  outline: 2px solid var(--p1);
+  outline-offset: 2px;
+}
+.gm-crisisbar > .ui-icon {
+  flex: none;
+  color: var(--p1-ink);
+}
+.gm-crisisbar__kicker {
+  color: var(--p1-ink);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.gm-crisisbar__title {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+.gm-crisisbar__level {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ok) 22%, transparent);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.gm-crisisbar--l1 .gm-crisisbar__level {
+  background: color-mix(in srgb, var(--warn) 28%, transparent);
+}
+.gm-crisisbar--l2 .gm-crisisbar__level,
+.gm-crisisbar--l3 .gm-crisisbar__level {
+  background: var(--p1);
+  color: var(--ink-on-bright);
+}
+.gm-crisisbar--l3 {
+  animation: epd-pulse 1.4s infinite;
+}
+.gm-crisisbar__tasks {
+  flex: none;
+  color: var(--text-1);
+  font-size: var(--fs-xs);
+}
+.gm-crisisbar__tasks em {
+  color: var(--warn-ink);
+  font-style: normal;
+}
+.gm-crisisbar__ask {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--ink-on-bright);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  animation: gm-coop-blink 1.2s infinite;
+}
+/* The director's placement hint goes under the bar. */
+.gm-crisisbar ~ .gm-placing {
+  top: 56px;
+}
+@media (max-width: 1100px) {
+  .gm-crisisbar__tasks {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .gm-crisisbar {
+    max-width: calc(100% - 70px);
+    left: 10px;
+    transform: none;
+  }
+  .gm-crisisbar__kicker {
+    display: none;
+  }
+}
+
+/* The drawing, or a text card for a scenario not drawn yet */
+.gm-cpic {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--bg-2);
+}
+.gm-cpic--card {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  background:
+    repeating-linear-gradient(-45deg, transparent 0 14px, color-mix(in srgb, var(--p1) 10%, transparent) 14px 28px),
+    color-mix(in srgb, var(--p1) 10%, var(--bg-2));
+  color: var(--p1-ink);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.gm-cpic--sm {
+  width: 112px;
+  flex: none;
+}
+.gm-cpic--card.gm-cpic--sm {
+  font-size: 9px;
+  gap: 4px;
+  padding: 4px;
+}
+
+/* The briefing */
+.gm-cbrief {
+  display: grid;
+  gap: 10px;
+}
+.gm-cbrief__title {
+  margin: 4px 0 0;
+  font-size: var(--fs-md);
+}
+.gm-cbrief__addr {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+}
+.gm-cbrief__addr .mono {
+  margin-left: auto;
+  color: var(--text-2);
+}
+.gm-cbrief__text {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+.gm-cbrief__tasks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 4px 18px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-1);
+}
+.gm-cbrief__tasks h4 {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.gm-cbrief__tasks ul {
+  display: contents;
+  list-style: none;
+}
+.gm-cbrief__tasks li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--line);
+  font-size: var(--fs-sm);
+}
+.gm-cbrief__tasks li .mono {
+  flex: none;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+.gm-cbrief__how {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
+/* The staff panel */
+.gm-crisis {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 12px;
+}
+.gm-crisis__head {
+  display: flex;
+  gap: 12px;
+  padding: 12px 12px 4px;
+}
+.gm-crisis__headText {
+  min-width: 0;
+}
+.gm-crisis__kicker {
+  color: var(--p1-ink);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.gm-crisis__head h2 {
+  margin: 2px 0 4px;
+  font-size: var(--fs-md);
+  line-height: 1.25;
+}
+.gm-crisis__head p {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+.gm-crisis__hint {
+  margin: 8px 12px 0;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
+.gm-clevel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 12px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-1);
+}
+.gm-clevel__k {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.gm-clevel__bars {
+  display: flex;
+  gap: 3px;
+}
+.gm-clevel__bars i {
+  width: 18px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--bg-3);
+}
+.gm-clevel__bars i.is-on {
+  background: var(--ok);
+}
+.gm-clevel__bars i.is-on.is-l1 {
+  background: var(--warn);
+}
+.gm-clevel__bars i.is-on.is-l2,
+.gm-clevel__bars i.is-on.is-l3 {
+  background: var(--p1);
+}
+.gm-clevel__v {
+  margin-left: auto;
+  font-size: var(--fs-sm);
+}
+.gm-clevel__v.is-l0 {
+  color: var(--ok-ink);
+}
+.gm-clevel__v.is-l1 {
+  color: var(--warn-ink);
+}
+.gm-clevel__v.is-l2,
+.gm-clevel__v.is-l3 {
+  color: var(--p1-ink);
+}
+.gm-crisis--l3:not(.is-over) .gm-clevel {
+  border-color: var(--p1);
+  animation: epd-pulse 1.4s infinite;
+}
+.gm-clead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 12px 0;
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+}
+.gm-clead .ui-btn {
+  margin-left: auto;
+}
+.gm-clead.is-empty {
+  padding: 8px 10px;
+  border: 1px dashed var(--gold);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--gold) 8%, var(--bg-1));
+}
+.gm-cdecs {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px;
+}
+.gm-cdec {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-1);
+}
+.gm-cdec.is-open {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 7%, var(--bg-1));
+}
+.gm-cdec__q {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+.gm-cdec__q span {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.gm-cdec__q strong {
+  font-size: var(--fs-sm);
+}
+.gm-cdec__q em {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+.gm-cdec__effect {
+  margin: 4px 0 0;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
+.gm-cdec__opts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+.gm-cdec__opt {
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--bg-2);
+  color: var(--text-0);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.gm-cdec__opt strong {
+  font-size: var(--fs-sm);
+}
+.gm-cdec__opt span {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+}
+.gm-cdec__opt:hover:not(:disabled) {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 12%, var(--bg-2));
+}
+.gm-cdec__opt:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+.gm-cdec__opt:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.gm-cdec__opt.is-default strong::after {
+  content: ' *';
+  color: var(--text-3);
+}
+.gm-cdec__timer {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 8px 0 0;
+  color: var(--warn-ink);
+  font-size: var(--fs-xs);
+}
+.gm-cdec__note {
+  margin: 4px 0 0;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.gm-ctasks {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0 12px;
+  list-style: none;
+}
+.gm-ctask__btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg-1);
+  color: var(--text-0);
+  font: inherit;
+  text-align: left;
+}
+button.gm-ctask__btn {
+  cursor: pointer;
+}
+button.gm-ctask__btn:hover {
+  border-color: var(--line-3);
+  background: var(--bg-2);
+}
+.gm-ctask.is-later .gm-ctask__btn {
+  border-style: dashed;
+  opacity: 0.7;
+}
+.gm-ctask.is-waiting .gm-ctask__btn {
+  border-color: color-mix(in srgb, var(--warn) 55%, transparent);
+}
+.gm-ctask.is-escalated .gm-ctask__btn {
+  border-color: var(--p1);
+  background: color-mix(in srgb, var(--p1) 8%, var(--bg-1));
+}
+.gm-ctask__dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.gm-ctask__dot.is-waiting {
+  background: var(--warn);
+}
+.gm-ctask__dot.is-escalated {
+  background: var(--p1);
+}
+.gm-ctask__dot.is-enroute {
+  background: var(--st-enroute);
+}
+.gm-ctask__dot.is-onscene {
+  background: var(--st-onscene);
+}
+.gm-ctask__dot.is-done {
+  background: var(--ok);
+}
+.gm-ctask__dot.is-helped {
+  background: var(--accent-2);
+}
+.gm-ctask__main {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+.gm-ctask__main strong {
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gm-ctask__line {
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gm-ctask.is-escalated .gm-ctask__line {
+  color: var(--p1-ink);
+}
+.gm-ctask__desk {
+  flex: none;
+  max-width: 110px;
+  overflow: hidden;
+  padding: 1px 6px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gm-ctask__follow {
+  flex: none;
+  color: var(--warn-ink);
+}
+.gm-cres {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 6px 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-1);
+}
+.gm-cres__score {
+  display: grid;
+  justify-items: center;
+}
+.gm-cres__score span {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.gm-cres__score strong {
+  font-size: 28px;
+  line-height: 1.1;
+}
+.gm-cres__score small {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.gm-cres--ok .gm-cres__score strong {
+  color: var(--ok-ink);
+}
+.gm-cres--warn .gm-cres__score strong {
+  color: var(--warn-ink);
+}
+.gm-cres--danger .gm-cres__score strong {
+  color: var(--p1-ink);
+}
+.gm-cres__facts {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  font-size: var(--fs-xs);
+}
+.gm-cres__facts div {
+  display: flex;
+  gap: 8px;
+}
+.gm-cres__facts dt {
+  min-width: 110px;
+  color: var(--text-2);
+}
+.gm-cres__facts dd {
+  margin: 0;
+}
+
+/* A crisis task's mark on its queue card, and its note in the incident */
+.gm-ctag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 1px 8px 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--p1) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--p1) 10%, transparent);
+  color: var(--p1-ink);
+  font-size: var(--fs-xs);
+}
+.gm-ctag__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gm-ctag__cd {
+  flex: none;
+  color: var(--warn-ink);
+}
+.gm-cnote {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 12px 0;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--p1) 50%, transparent);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--p1) 8%, var(--bg-1));
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+.gm-cnote > .ui-icon {
+  flex: none;
+  color: var(--p1-ink);
+}
+.gm-cnote p {
+  flex: 1;
+  margin: 0;
+}
+.gm-cnote .ui-btn {
+  flex: none;
+}
+.gm-toast--crisis {
+  border-left-color: var(--p1);
+}
+.gm-toast--crisis .gm-toast__icon {
+  background: var(--p1-soft);
+  color: var(--p1-ink);
+}

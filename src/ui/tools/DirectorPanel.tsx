@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import type { IncidentCategory, Priority, RadioMsg, SimState, Text } from '@/sim/types';
 import { TEMPLATES } from '@/data/incidents';
 import { directorRadio, directorSpawn } from '@/sim/commands';
+import { CRISES, crisisById } from '@/data/crises';
+import { startCrisisNow } from '@/sim/crisis';
 import { useGame } from '@/store/game';
 import { useT, useTx } from '@/i18n';
 import { Badge, Button, Empty, Icon, PriorityChip, Segmented, Toggle } from '@/ui/components';
@@ -58,6 +60,7 @@ export function DirectorPanel() {
       <Teleport sim={sim} />
       <CameraTime />
       <Scenes sim={sim} />
+      <Crises sim={sim} />
     </div>
   );
 }
@@ -325,6 +328,41 @@ function CameraTime() {
         <Toggle checked={hud} onChange={(v) => useGame.getState().setHud(v)} label={t('tools.dir.hud')} />
         <Toggle checked={realtime} onChange={(v) => useGame.getState().setRealtime(v)} label={t('tools.dir.realtime')} />
       </div>
+    </Section>
+  );
+}
+
+/** Start a crisis by hand (docs/CRISIS.md): a director's shift never gets one by itself. */
+function Crises({ sim }: { sim: SimState }) {
+  const t = useT();
+  const tx = useTx();
+  const [failed, setFailed] = useState<string | null>(null);
+  const on = sim.crisis && sim.crisis.phase !== 'over' ? crisisById(sim.crisis.id) : undefined;
+  return (
+    <Section title={t('tools.dir.crisis')} icon="alert">
+      {on && <p className="tl-muted-line">{t('tools.dir.crisisOn', { title: tx(on.title) })}</p>}
+      <ul className="tl-scenes" role="list">
+        {CRISES.map((sc) => (
+          <li key={sc.id} className="tl-scene">
+            <span className="tl-scene__icon">
+              <Icon name="alert" size={18} />
+            </span>
+            <span className="tl-scene__text">
+              <strong>{tx(sc.title)}</strong>
+              {failed === sc.id && <span>{t('tools.dir.crisisNoPlace')}</span>}
+            </span>
+            <Button
+              size="sm"
+              icon="play"
+              disabled={!!on}
+              onClick={() => setFailed(run((s) => startCrisisNow(s, sc.id)) ? null : sc.id)}
+              data-testid={`dir-crisis-${sc.id}`}
+            >
+              {t('tools.dir.crisisStart')}
+            </Button>
+          </li>
+        ))}
+      </ul>
     </Section>
   );
 }

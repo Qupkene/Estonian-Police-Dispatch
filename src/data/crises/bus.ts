@@ -821,8 +821,8 @@ export const BUS: CrisisScenario = {
   title: T('Bussiõnnetus maanteel', 'Bus crash on the highway'),
   places: ['highway'],
   briefing: T(
-    '{address}. Kaugliinibuss sõitis teelt välja ja jäi külili, pardal on umbes 40 reisijat. Osa reisijaid on kiilunud, maantee on blokeeritud ja ummik kasvab mõlemas suunas. Häirekeskus kuulutas välja suurõnnetuse: kannatanutele on vaja abi, liiklus tuleb ümber suunata ja sündmuskoht piirata.',
-    '{address}. A long-distance bus went off the road and is on its side with about 40 passengers on board. Some are trapped, the highway is blocked and the queue is growing both ways. The Emergency Response Centre has declared a major incident: the casualties need help, traffic must be diverted and the scene secured.',
+    '{address}. Kaugliinibuss sõitis teelt välja ja jäi külili, pardal on palju reisijaid. Osa reisijaid on kiilunud, maantee on blokeeritud ja ummik kasvab mõlemas suunas. Häirekeskus kuulutas välja suurõnnetuse: kannatanutele on vaja abi, liiklus tuleb ümber suunata ja sündmuskoht piirata.',
+    '{address}. A long-distance bus went off the road and is on its side with many passengers on board. Some are trapped, the highway is blocked and the queue is growing both ways. The Emergency Response Centre has declared a major incident: the casualties need help, traffic must be diverted and the scene secured.',
   ),
   tasks: [
     {
