@@ -5,10 +5,12 @@
  * snapshot. It stays deterministic: the catalogue depends only on the list, the shift's day and its prefecture.
  *
  * A public figure's record is always clean: no records, no flags, never a suspect, and never a bulletin (stories
- * cast them only as callers, witnesses and victims). Their code, car, phone and looks are made up; there is no home
- * address.
+ * cast them only as callers, witnesses and victims). Their code, car and phone are made up; there is no home address.
+ * Their looks (hair, beard, glasses, build, eyes) are how they appear in public (src/data/celebrityLooks.ts); the
+ * photo is still a synthetic face that matches them.
  */
 import { CELEBRITIES, type CelebrityDef, type CelebrityField } from '@/data/celebrities';
+import { CELEBRITY_LOOKS } from '@/data/celebrityLooks';
 import { idcodeChecksum } from '@/gen/isikukood';
 import { generateVehicle } from '@/gen/vehicle';
 import { Rng, hashString } from './rng';
@@ -126,6 +128,17 @@ function appearanceOf(rng: Rng, c: CelebrityDef, age: number): Appearance {
   };
   if (male && rng.chance(0.25)) out.beard = rng.pick(['stubble', 'full', 'goatee']);
   if (rng.chance(age > 50 ? 0.4 : 0.15)) out.glasses = true;
+  // The draws above still run so the rest of the person (licence, car) stays as it was.
+  const look = CELEBRITY_LOOKS[c.nr];
+  if (!look) return out;
+  out.hair = look.hair;
+  out.hairColor = look.hairColor;
+  out.build = c.field === 'sport' && look.build === 'average' ? 'athletic' : look.build;
+  if (look.eyes) out.eyes = look.eyes;
+  if (look.beard) out.beard = look.beard;
+  else delete out.beard;
+  if (look.glasses) out.glasses = true;
+  else delete out.glasses;
   return out;
 }
 

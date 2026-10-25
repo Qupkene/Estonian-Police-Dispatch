@@ -10,6 +10,7 @@
  * one nobody in the shift has yet.
  */
 import { CELEBRITIES } from '@/data/celebrities';
+import { CELEBRITY_LOOKS } from '@/data/celebrityLooks';
 import { FACES, type FaceDef, type FaceTone } from '@/data/faces';
 import { REGIONS } from '@/data/regions';
 import { Rng, hashString } from '@/sim/rng';
@@ -22,6 +23,8 @@ export interface FaceQuery {
   hair?: Appearance['hair'];
   hairColor?: Appearance['hairColor'];
   beard?: Appearance['beard'];
+  /** Only for people whose skin tone is known (the public figures): faces of that tone first. */
+  tone?: FaceTone;
 }
 
 /** Same weights as the light, medium and dark ends of the drawn avatars' skin palette (src/gen/avatar.ts). */
@@ -53,7 +56,8 @@ export function pickFace(
 ): FaceDef | undefined {
   if (!pool.length) return undefined;
   const same = pool.filter((f) => f.gender === q.gender);
-  const base = same.length ? same : pool;
+  const toned = q.tone ? same.filter((f) => f.tone === q.tone) : [];
+  const base = toned.length ? toned : same.length ? same : pool;
   const used = (f: FaceDef) => uses?.get(f.id) ?? 0;
   const tol = Math.max(4, q.age * 0.12);
   const within = (k: number) => base.filter((f) => Math.abs(f.age - q.age) <= tol * k);
@@ -118,14 +122,21 @@ function split(pool: readonly FaceDef[]): Split {
     byKey.set(key, f);
     uses.set(f.id, (uses.get(f.id) ?? 0) + 1);
   };
-  // Public figures (their age in the year the people were set), the legends, then every crew in every prefecture.
+  // Public figures (their age in the year the people were set, their hair, beard and skin as seen in public), the
+  // legends, then every crew in every prefecture.
   // A shift shows one prefecture's crews, so each prefecture's crews start again from the whole half: they keep to
   // the light-skinned faces as the drawn avatars do instead of running out of them.
-  for (const c of CELEBRITIES)
+  for (const c of CELEBRITIES) {
+    const look = CELEBRITY_LOOKS[c.nr];
     give(`vip-${c.nr}`, hashString(`vip-avatar-${c.nr}`), {
       gender: c.gender,
       age: 2026 - Number(c.born.slice(0, 4)),
+      hair: look?.hair,
+      hairColor: look?.hairColor,
+      beard: look?.beard,
+      tone: look?.tone,
     });
+  }
   give('legend-okimum', 2025_0001, { gender: 'M', age: 22, hair: 'short', hairColor: 'brown' });
   give('legend-sarmert', 2025_0438, {
     gender: 'M',
