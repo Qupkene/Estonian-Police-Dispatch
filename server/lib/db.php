@@ -314,6 +314,18 @@ function epd_migrations(): array
         13 => [
             "ALTER TABLE users ADD COLUMN avatar TEXT NOT NULL DEFAULT ''",
         ],
+        // Ühine raport ja ruumi ajalugu (rooms.php epd_route_room_history, 2.36.0, docs/MULTIPLAYER.md section 14): the
+        // joint report of a co-op round, as the first result of the round brought it (a game server round: its signed
+        // result), so the room's players can open it again later.
+        14 => [
+            'CREATE TABLE room_reports (
+                room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+                round INTEGER NOT NULL,
+                summary TEXT NOT NULL,
+                at INTEGER NOT NULL,
+                PRIMARY KEY (room_id, round)
+            )',
+        ],
     ];
 }
 

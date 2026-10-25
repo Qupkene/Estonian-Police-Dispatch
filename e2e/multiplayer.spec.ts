@@ -293,6 +293,13 @@ test.describe.serial('multiplayer rooms', () => {
     await expect(guest.page.getByTestId('room')).toHaveAttribute('data-state', 'lobby', { timeout: 15_000 });
     await expect(guest.page.getByTestId('room-meta')).toContainText('2. voor');
     await expect(guest.page.getByTestId('room-last').locator('tbody tr')).toHaveCount(4);
+    // The room's history (2.36.0) has the race too: its results open again from it.
+    const history = guest.page.getByTestId('room-history');
+    await expect(history).toContainText('Koos mängitud: 1 vahetus', { timeout: 15_000 });
+    await history.getByTestId('history-row').click();
+    await expect(guest.page.getByTestId('history-view').locator('tbody tr')).toHaveCount(4);
+    await guest.page.keyboard.press('Escape');
+    await expect(guest.page.getByTestId('history-view')).toHaveCount(0);
     await expect(guest.page.getByTestId('room-seats').locator('li:not(.is-free)')).toHaveCount(3);
     // The host, still on the report, sees the room waiting, and goes back with Enter.
     await expect(host.page.getByTestId('room-report-state')).toContainText('järgmiseks vooruks avatud', {

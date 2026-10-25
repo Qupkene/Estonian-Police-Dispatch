@@ -402,6 +402,15 @@ test.describe.serial('role co-op', () => {
     }
     await expect(host.page.getByTestId('room-meta')).toContainText('2. voor');
     await expect(guest.page.getByTestId('room-last').locator('tbody tr')).toHaveCount(2);
+    // The room's history (2.36.0): the first round, and its joint report opens again from it.
+    const history = guest.page.getByTestId('room-history');
+    await expect(history).toContainText('Koos mängitud: 1 vahetus', { timeout: 15_000 });
+    await history.getByTestId('history-row').click();
+    const view = guest.page.getByTestId('history-view');
+    await expect(view.getByTestId('coop-report-row')).toHaveCount(2);
+    await expect(view.getByTestId('joint-timeline')).toContainText('Vahetus algas');
+    await guest.page.keyboard.press('Escape');
+    await expect(view).toHaveCount(0);
     await expect(
       guest.page.getByTestId('role-picker').getByRole('radio', { name: /Kõnevastuvõtja/ }),
     ).toHaveAttribute('aria-checked', 'true');

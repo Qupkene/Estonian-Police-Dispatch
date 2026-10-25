@@ -991,7 +991,7 @@ function epd_route_admin_room_delete(string $code): ApiReply
     $room = epd_admin_room_or_404($db, $code);
     $rid = (int) $room['id'];
     epd_room_tx($db, static function (PDO $db) use ($rid): void {
-        foreach (['room_commands', 'room_snapshots', 'room_results', 'room_round_results', 'room_players'] as $table) {
+        foreach (['room_commands', 'room_snapshots', 'room_results', 'room_round_results', 'room_reports', 'room_bans', 'room_players'] as $table) {
             $db->prepare("DELETE FROM $table WHERE room_id = ?")->execute([$rid]);
         }
         $db->prepare('DELETE FROM rooms WHERE id = ?')->execute([$rid]);

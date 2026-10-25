@@ -13,6 +13,7 @@ import { pendingRadio, queue, recommendUnits } from '@/sim/selectors';
 import { finalizeShift } from '@/sim/engine';
 import { coopReport, coopXp, PLAYER_KINDS, simDigest, TURN_PIECES } from '@/sim/coop';
 import { roomResultBody } from '@/net/rooms';
+import { roomSummary } from '@/sim/joint';
 import type { SimState } from '@/sim/types';
 import { AWAY_MS, MpRoom, PIECE_MS, type Peer } from '../server/mp/room';
 import { signTicket, verifyKick, verifyTicket, type TicketRoom } from '../server/mp/ticket';
@@ -315,7 +316,7 @@ describe('game server room', () => {
     const copy = host.sim();
     copy.ended = true;
     const report = finalizeShift(copy);
-    const coop = coopReport(copy)!;
+    const coop = coopReport(copy, report.highlights)!;
     const team = roomResultBody(report);
     expect(p).toEqual({
       v: 1,
@@ -328,6 +329,8 @@ describe('game server room', () => {
       incidents: team.incidents,
       arrests: team.arrests,
       xp: coop.seats.map((x) => [x.seat, Math.round(coopXp(report, x.stats))]),
+      // The joint report every browser builds too (2.36.0).
+      sum: roomSummary({ ...report, coop }),
     });
     expect(signTicket(p, secret)).toBe(token);
     // Back after the end: the same result again.

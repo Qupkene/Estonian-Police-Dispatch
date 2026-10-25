@@ -2022,6 +2022,120 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
     });
   });
 
+  describe('joint report and history (2.36.0)', () => {
+    const OPTS = {
+      mode: 'sector',
+      regionId: 'pohja',
+      sector: '',
+      difficulty: 'normal',
+      hours: 2,
+      slot: 'evening',
+      desks: ['pohja-kesklinn', 'pohja-lasnamae'],
+    };
+    const T0 = Date.UTC(2026, 9, 22, 17, 0, 0);
+    const at = (ms: number) => ({ headers: { 'X-EPD-Test-Now': String(T0 + ms) } });
+    const RESULT = { score: 66, grade: 'C', incidents: 12, arrests: 2 };
+    /** A joint report as a browser sends it (src/sim/joint.ts roomSummary), for two seats. */
+    const summary = (names: [string, string], score = 66) => ({
+      v: 1,
+      regionId: 'pohja',
+      difficulty: 'normal',
+      start: T0,
+      end: T0 + 7_200_000,
+      score,
+      grade: 'C',
+      incidents: 12,
+      arrests: 2,
+      xp: 300,
+      coop: {
+        code: 'ROOM',
+        host: 0,
+        mode: 'sector',
+        seats: names.map((name, seat) => ({ seat, name, role: 'dispatch', present: true, stats: { calls: 3 }, worked: 4, p1: 1 })),
+        desks: [],
+        moments: [{ t: T0 + 60_000, k: 'lend', seat: 1, other: 0, unit: 'PÕHJA 21' }],
+      },
+    });
+    let piret: Client;
+    let raul: Client;
+    let code = '';
+    const play = async (round: number, ms: number, bodies: [Json, Json]) => {
+      if (round > 1) {
+        await piret.post(`/api/rooms/${code}/reopen`, { round: round - 1 }, at(ms));
+        await raul.post(`/api/rooms/${code}/reopen`, { round: round - 1 }, at(ms + 100));
+      }
+      await raul.post(`/api/rooms/${code}/ready`, { ready: true }, at(ms + 200));
+      const start = await piret.post(`/api/rooms/${code}/start`, undefined, at(ms + 300));
+      expect(start.json.room, JSON.stringify(start.json)).toMatchObject({ state: 'running', round });
+      expect((await piret.post(`/api/rooms/${code}/result`, { ...RESULT, ...bodies[0] }, at(ms + 60_000))).status).toBe(200);
+      const done = await raul.post(`/api/rooms/${code}/result`, { ...RESULT, ...bodies[1] }, at(ms + 60_100));
+      expect(done.json.room?.state, JSON.stringify(done.json)).toBe('finished');
+    };
+
+    it('keeps the first joint report of a co-op round and shows it in both players’ history', async () => {
+      piret = client();
+      raul = client();
+      await register(piret, 'Piret.H');
+      await register(raul, 'Raul.H');
+      code = (await piret.post('/api/rooms', OPTS, at(0))).json.room.code;
+      await raul.post('/api/rooms/join', { code }, at(100));
+      expect((await piret.get('/api/rooms/history')).json).toEqual({ rounds: [] });
+      await play(1, 1000, [{ summary: summary(['Piret.H', 'Raul.H']) }, { summary: summary(['Piret.H', 'Raul.H'], 99) }]);
+      for (const c of [piret, raul]) {
+        const h = (await c.get('/api/rooms/history')).json.rounds;
+        expect(h).toHaveLength(1);
+        expect(h[0]).toMatchObject({ code, round: 1, mode: 'sector', summary: summary(['Piret.H', 'Raul.H']) });
+        expect(h[0].results.map((r: Json) => r.name).sort()).toEqual(['Piret.H', 'Raul.H']);
+      }
+      // Nobody else sees it, and a guest gets nothing.
+      const stranger = client();
+      expect((await register(stranger, 'Võõras.H')).status).toBe(200);
+      expect((await stranger.get('/api/rooms/history')).json).toEqual({ rounds: [] });
+      expect((await client().get('/api/rooms/history')).status).toBe(401);
+    });
+
+    it('leaves out what is not a joint report, and lists the rounds newest first', async () => {
+      const huge = summary(['Piret.H', 'Raul.H']);
+      (huge.coop.moments as Json[]).push(
+        ...Array.from({ length: 70 }, (_, i) => ({ t: i, k: 'good', seats: [0], title: { et: 'x'.repeat(150), en: 'x' }, text: { et: 'y'.repeat(300), en: 'y' } })),
+      );
+      // Over the 32 kB a round keeps, under the 64 kB a request may carry.
+      expect(JSON.stringify(huge).length).toBeGreaterThan(32_768);
+      expect(JSON.stringify(huge).length).toBeLessThan(60_000);
+      await play(2, 200_000, [{ summary: { ...summary(['Piret.H', 'Raul.H']), coop: { seats: [] } } }, { summary: huge }]);
+      const h = (await piret.get('/api/rooms/history')).json.rounds;
+      expect(h.map((r: Json) => [r.round, r.summary === null])).toEqual([
+        [2, true],
+        [1, false],
+      ]);
+      // A race round keeps no joint report, whatever a client sends.
+      const race = (await piret.post('/api/rooms', { ...OPTS, mode: 'race' }, at(400_000))).json.room.code;
+      await raul.post('/api/rooms/join', { code: race }, at(400_100));
+      await raul.post(`/api/rooms/${race}/ready`, { ready: true }, at(400_200));
+      await piret.post(`/api/rooms/${race}/start`, undefined, at(400_300));
+      await piret.post(`/api/rooms/${race}/result`, { ...RESULT, summary: summary(['Piret.H', 'Raul.H']) }, at(460_000));
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM room_reports t JOIN rooms r ON r.id = t.room_id WHERE r.code = '${race}'`))).toEqual([[0]]);
+      // Still running for Raul: not in the history yet.
+      expect((await piret.get('/api/rooms/history')).json.rounds.map((r: Json) => r.code)).toEqual([code, code]);
+      await raul.post(`/api/rooms/${race}/result`, RESULT, at(460_100));
+      const all = (await piret.get('/api/rooms/history')).json.rounds;
+      expect(all.map((r: Json) => [r.code, r.round, r.mode])).toEqual([
+        [race, 1, 'race'],
+        [code, 2, 'sector'],
+        [code, 1, 'sector'],
+      ]);
+      expect(all[0].summary).toBeNull();
+    });
+
+    it('takes a deleted account’s name out of the joint reports and keeps the round for the others', async () => {
+      expect((await raul.del('/api/me', { password: 'salajane-123' })).status).toBe(200);
+      const h = (await piret.get('/api/rooms/history')).json.rounds;
+      const first = h.find((r: Json) => r.code === code && r.round === 1);
+      expect(first.summary.coop.seats.map((x: Json) => x.name)).toEqual(['Piret.H', '']);
+      expect(first.results.map((r: Json) => r.name)).toEqual(['Piret.H']);
+    });
+  });
+
   describe('delete account', () => {
     it('needs a login, the current password and X-EPD', async () => {
       expect((await client().del('/api/me', { password: 'salajane-123' })).status).toBe(401);
@@ -3289,6 +3403,39 @@ describe.skipIf(!HAS_PHP)('game server rooms (mp.php, docs/MULTIPLAYER.md sectio
     expect(ok.status, JSON.stringify(ok.json)).toBe(200);
     expect(ok.json.room.results).toEqual([expect.objectContaining({ name: 'Hele', score: 64, grade: 'C', incidents: 9, arrests: 2, xp: 310 })]);
     expect((await b.post(`/api/rooms/${code}/result`, { ...CLAIM, signed: signedResult(secret, room, code) })).json.room.results.find((r: Json) => r.name === 'Kalev')).toMatchObject({ score: 64, xp: 280 });
+  });
+
+  it('keeps the joint report the game server signed, not one a client sends (2.36.0)', async () => {
+    const { a, b, code, room } = await started(up, 'role', ['Laine', 'Jaak']);
+    const secret = readFileSync(join(root, 'up', 'mp', 'secret'), 'utf8').trim();
+    const sum = {
+      v: 1,
+      regionId: 'pohja',
+      difficulty: 'normal',
+      start: room.started,
+      end: room.started + 7_200_000,
+      score: 64,
+      grade: 'C',
+      incidents: 9,
+      arrests: 2,
+      xp: 290,
+      coop: {
+        code,
+        host: 0,
+        mode: 'role',
+        seats: [
+          { seat: 0, name: 'Laine', role: 'dispatch', present: true, stats: { sent: 4 }, worked: 5, p1: 1 },
+          { seat: 1, name: 'Jaak', role: 'calls', present: true, stats: { calls: 6 }, worked: 6, p1: 0 },
+        ],
+        moments: [],
+      },
+    };
+    const forged = { ...sum, score: 100, grade: 'S' };
+    const BODY = { score: 100, grade: 'S', incidents: 40, arrests: 9, xp: 5000, seed: room.seed };
+    expect((await a.post(`/api/rooms/${code}/result`, { ...BODY, summary: forged, signed: signedResult(secret, room, code, { sum }) })).status).toBe(200);
+    expect((await b.post(`/api/rooms/${code}/result`, { ...BODY, signed: signedResult(secret, room, code, { sum }) })).status).toBe(200);
+    const h = (await b.get('/api/rooms/history')).json.rounds;
+    expect(h[0]).toMatchObject({ code, round: 1, mode: 'role', summary: sum });
   });
 
   it('removes a player from a running server room and tells the game server (2.34.0)', async () => {

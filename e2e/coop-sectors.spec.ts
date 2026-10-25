@@ -1,3 +1,4 @@
+import { statSync } from 'node:fs';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
 /**
@@ -348,6 +349,16 @@ test.describe.serial('sector co-op', () => {
     }
     await host.page.getByTestId('desk-report').scrollIntoViewIfNeeded();
     await shot(host.page, 'report-desks');
+    // The joint report (2.36.0): the moments of the shift, the lent crew among them, and a picture of it all,
+    // downloaded where the browser cannot share files.
+    await expect(host.page.getByTestId('joint-timeline')).toContainText('laenati');
+    const [download] = await Promise.all([
+      host.page.waitForEvent('download'),
+      host.page.getByTestId('joint-share').click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/^epd-uhine-raport-[A-Z0-9]{6}\.png$/);
+    expect(statSync(await download.path()).size).toBeGreaterThan(20_000);
+    if (SHOTS) await download.saveAs(`${SHOTS}/joint-picture.png`);
 
     expect(host.errors, host.errors.join('\n')).toEqual([]);
     expect(guest.errors, guest.errors.join('\n')).toEqual([]);

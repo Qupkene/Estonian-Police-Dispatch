@@ -26,6 +26,7 @@ import {
   type CmdResult,
   type LogCmd,
 } from '@/sim/coop';
+import { roomSummary } from '@/sim/joint';
 import { diffInto, jsonClone, type PatchOp } from '@/sim/patch';
 import { markRoom, roomDesks, roomShiftOptions, teamName, type RoomShift } from '@/sim/room';
 import { parseOptions, roomResultBody } from '@/net/rooms';
@@ -211,8 +212,8 @@ export class MpRoom {
 
   /**
    * The shift's result signed for the PHP API (server/lib/mp.php epd_mp_signed_result): the report every client builds
-   * from the exact final state (finalizeShift on the same JSON copy the `full` message carries), the team's numbers
-   * and every seat's XP. Null without a signer or before the end.
+   * from the exact final state (finalizeShift on the same JSON copy the `full` message carries), the team's numbers,
+   * every seat's XP and the joint report (`sum`, src/sim/joint.ts). Null without a signer or before the end.
    */
   signedResult(): string | null {
     if (!this.sim.ended || !this.signer) return null;
@@ -221,11 +222,14 @@ export class MpRoom {
       const copy = jsonClone({ ...this.sim, events: [] }) as unknown as SimState;
       copy.ended = true;
       const report = finalizeShift(copy);
+      report.coop = coopReport(copy, report.highlights);
       const team = roomResultBody(report);
-      const xp = (coopReport(copy)?.seats ?? []).map((x) => [
+      const xp = (report.coop?.seats ?? []).map((x) => [
         x.seat,
         Math.max(0, Math.min(100000, Math.round(coopXp(report, x.stats)))),
       ]);
+      // The joint report too (2.36.0): the room's history keeps the one the game server built.
+      const sum = roomSummary(report);
       this.result = this.signer({
         v: 1,
         kind: 'result',
@@ -237,6 +241,7 @@ export class MpRoom {
         incidents: team.incidents,
         arrests: team.arrests,
         xp,
+        ...(sum ? { sum } : {}),
       });
     } catch (err) {
       console.error(`[mp ${this.code}] result failed`, err);

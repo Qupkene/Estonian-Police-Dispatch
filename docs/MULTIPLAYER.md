@@ -729,3 +729,65 @@ kirjutades omadusi").
   in the account chip, the lobby seats, the co-op panel and the room's results board, and a co-op shift keeps the
   avatars of its seats from the start (`CoopUi.avatars`).
 - A player may pick a face that is also someone in the game's registry; the photos are synthetic faces, nobody real.
+
+## 14. The joint report and the history (2.36.0)
+
+The owner's list, point 12 ("Ühine lõpuraport: kes mida tegi, parim saatmine, aeglaseim vastus, päeva kangelane"),
+with the room history the owner asked for ("Ruumi ajalugu seal on näha mis eelmised mängud, mis toimus, nende
+kokkuvõtet uuesti vaadata").
+
+Code: `src/sim/moments.ts` (the moments a shift keeps, the timeline), `src/sim/joint.ts` (awards, the summary and its
+reader), the counters in `src/sim/coop.ts` and `src/sim/desks.ts`; `src/ui/screens/shell/JointReport.tsx`,
+`jointArt.ts` (the awards' icons), `jointShare.ts` (the picture), `RoomHistory.tsx`; `epd_route_room_history` and
+`epd_room_summary_json` in `server/lib/rooms.php`. Tests: `tests/joint-report.test.ts`, `tests/coop-sectors.test.ts`,
+`tests/mp.test.ts`, `tests/server.test.ts`, `e2e/coop.spec.ts`, `e2e/coop-sectors.spec.ts`, `e2e/multiplayer.spec.ts`.
+
+### 14.1 What the shift keeps
+
+- Every client records the same, as it applies the same commands (none of it is in the digest):
+  - `SeatStats.respSum` and `respN`: when a seat sends the first crew to an incident, how long it waited (game ms).
+  - `CoopState.touch`: per incident, the seats that worked on it (acknowledged, sent, closed, created it from a call,
+    answered its radio, lent to it), as a bit mask.
+  - `CoopState.moments` (at most 40, the oldest go): crews lent across a border, desks taken over and handed back,
+    pursuits handed over, seats leaving and coming back, each with its game time and seats.
+- The report (`coopReport(s, highlights)`) adds per seat the incidents worked on (`worked`) and the truly most urgent
+  ones among them (`p1`, true priority 1), and the timeline: at most 16 moments (rarer kinds and lends between two
+  players first) and the report's highlights with the seats that worked on each, in time order.
+
+### 14.2 Awards
+
+From the report alone, the same everywhere (`coopAwards`), for two players or more; one seat may win several:
+
+| Award | Goes to |
+| --- | --- |
+| Päeva kangelane | the most work (`seatWork`, the XP share's points) |
+| Kiireim käsi | the shortest average time to the first crew, with at least 3 first crews |
+| Abivalmis naaber (sector) / kolleeg (role) | sector: crews lent and neighbours helped, pursuits handed and taken over, desks taken over; role: radio answers and registry checks |
+| Raudne närv | the most truly most urgent incidents worked on |
+| Tigu (in jest) | the longest average time to the first crew, when two seats or more are timed and it is at least 1.25 times the fastest |
+
+A tie goes to the seat that worked on more incidents. An award nobody earned is left out.
+
+### 14.3 The report and the picture
+
+- The report's co-op panel is the joint report: the awards, a card per player with their profile picture (section 13)
+  and numbers, the timeline from the start to the end, the desks of a sector room, the player's XP.
+- "Jaga pildina" draws it as a 1200 × 675 PNG (the team's grade and points, each player with picture, numbers and
+  awards): shared through the system's share sheet where the browser can share files, downloaded elsewhere.
+
+### 14.4 The history
+
+- The first counted result of a co-op round brings its joint report (`roomSummary`: the team's numbers and the co-op
+  report); a game server round's comes inside its signed result, so a client cannot change it. The room keeps it with
+  the round (docs/SERVER.md 4.1).
+- `GET /api/rooms/history`: the rounds the player sent a result for, as long as their rooms are kept (30 days). The
+  multiplayer menu lists all of them ("Varasemad mängud"); a room's lobby lists its own from its second round on
+  ("Ruumi ajalugu"), with how many shifts the players have played together and who was most often the hero of the day.
+  A round opens again: its joint report, or a race's results.
+- A deleted account's name leaves the kept joint reports; its results go as before.
+
+### 14.5 Limits
+
+- A lockstep round's joint report is the first client's; another client could send a different one (as with its
+  result). A game server round's is the server's.
+- The history has only the rounds the player sent a result for: a round left before its end is not in it.

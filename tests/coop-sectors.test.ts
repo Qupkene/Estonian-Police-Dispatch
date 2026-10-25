@@ -51,6 +51,7 @@ import {
   unitDesk,
   validDesks,
 } from '@/sim/desks';
+import { parseRoomSummary, roomSummary } from '@/sim/joint';
 import { sectorAt, sectorsOf } from '@/sim/sectors';
 import type { Incident, LngLat, RegionId, SimState } from '@/sim/types';
 
@@ -230,9 +231,22 @@ describe('sector co-op lockstep', () => {
         const rb = finalizeShift(b);
         expect(rb.score).toBe(ra.score);
         expect(rb.stats).toEqual(ra.stats);
-        const rep = coopReport(a)!;
-        expect(coopReport(b)).toEqual(rep);
+        const rep = coopReport(a, ra.highlights)!;
+        expect(coopReport(b, rb.highlights)).toEqual(rep);
         expect(rep.mode).toBe('sector');
+        // The joint report (2.36.0): the same on the late joiner, who worked on what and how fast, the moments
+        // between the desks and the highlights with their seats, in time order, and a summary that reads back whole.
+        expect(coopReport(c!, finalizeShift(c!).highlights)).toEqual(rep);
+        for (const x of rep.seats) expect(x.worked, x.name).toBeGreaterThan(0);
+        expect(rep.seats.some((x) => (x.stats.respN ?? 0) > 0)).toBe(true);
+        if (sec.lends.some((r) => r.state === 'accepted'))
+          expect(rep.moments!.some((m) => m.k === 'lend')).toBe(true);
+        expect(rep.moments!.filter((m) => m.k === 'good' || m.k === 'bad')).toHaveLength(
+          ra.highlights.length,
+        );
+        expect(rep.moments!.map((m) => m.t)).toEqual([...rep.moments!.map((m) => m.t)].sort((x, y) => x - y));
+        const sum = roomSummary({ ...ra, coop: rep })!;
+        expect(parseRoomSummary(JSON.parse(JSON.stringify(sum)))).toEqual(sum);
         expect(rep.desks!.map((d) => d.desk)).toEqual(desks);
         expect(rep.desks![2].seats).toEqual([]);
         expect(rep.seats.map((x) => x.desk)).toEqual([desks[0], desks[1]]);
