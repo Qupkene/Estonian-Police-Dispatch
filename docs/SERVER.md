@@ -125,7 +125,8 @@ Errors: `{ "error": "<code>", "message": "<Estonian text>" }` with a fitting sta
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
 | GET | /api/health | | `{ ok: true, version: "<sha or dev>", accounts: true }` |
-| GET | /api/me | | `{ user: { id, name, created, admin? } \| null }` (`admin: true` only for an admin) |
+| GET | /api/me | | `{ user: { id, name, created, avatar, admin? } \| null }` (`admin: true` only for an admin) |
+| PUT | /api/me/avatar | `{ avatar }` | `{ user }`; the profile picture (see 4.1); 400 `invalid_avatar`, 401 when not logged in |
 | POST | /api/register | `{ name, password }` | `{ user }`; 400 invalid, 409 name taken, 429 too many |
 | POST | /api/login | `{ name, password }` | `{ user }`; 401 wrong, 403 `account_disabled` (blocked, right password), 429 too many |
 | POST | /api/logout | | `{ ok: true }` |
@@ -210,6 +211,10 @@ Accounts and sessions:
   refreshed at most once an hour while the player is active. Session files live in `EPD_DATA/sessions`.
   Guests never get a session cookie; an unknown or expired cookie is cleared. A new session id is issued
   on every login and register.
+- Profile picture (2.35.0, schema step 13, `users.avatar`, default `''`): `face:<10 hex>` is a portrait of the game's
+  pool (`src/data/faces.ts`), `draw:<1 to 10 digits>` the seed of a drawn dispatcher, `''` the drawing of the name.
+  The server checks only the form; a face the client does not know is drawn from the name. Rooms show it: a player
+  and a result row carry `avatar` when it is set, as the account has it now.
 - Session generation (schema step 10, `users.sess_gen`, default 0): a session remembers the generation it was
   made in (`gen`, absent for 0, so every older session file stays valid). An admin's password reset, "log out
   everywhere" or block raises it, and every older session of that account ends at its next request. A blocked
@@ -349,8 +354,8 @@ docs/MULTIPLAYER.md):
   second seat. A full room (4) answers 409 `room_full`, a running one 409 `room_started` to anyone not already in it; a
   room between two rounds takes new players (they are in the next round).
 - The room (`room`): `{ code, mode, state, round, last, v, host, me, max, options: { regionId, sector, difficulty,
-  hours, slot }, seed, day, created, started, players: [{ id, name, seat, host, ready, online, left, done, role }],
-  results: [{ id, name, score, grade, incidents, arrests, xp, at, rank }] }`. `role` is the co-op desk the player
+  hours, slot }, seed, day, created, started, players: [{ id, name, avatar?, seat, host, ready, online, left, done, role }],
+  results: [{ id, name, avatar?, score, grade, incidents, arrests, xp, at, rank }] }`. `role` is the co-op desk the player
   picked, or the seat's default (`dispatch`, `calls`, `radio`, `dispatch` for seats 0 to 3). A `sector` room adds
   `options.desks` and each player's `desk`: the one they picked if the room still has it, else
   `desks[seat % desks.length]`. `seed` and `day` (the start day in Tallinn) are `null`

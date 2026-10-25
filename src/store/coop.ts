@@ -80,6 +80,8 @@ interface CoopUi {
   engine: RoomEngine;
   /** The game server's signed result of the shift (2.34.0): the report sends it with the room result. */
   signed: string | null;
+  /** Profile pictures by seat (2.35.0), from the room: the co-op panel and the report show them. */
+  avatars: Record<number, string>;
 }
 
 export const useCoop = create<CoopUi>()(() => ({
@@ -95,6 +97,7 @@ export const useCoop = create<CoopUi>()(() => ({
   error: null,
   engine: '',
   signed: null,
+  avatars: {},
 }));
 
 type ResultListener = (cmd: LogCmd, r: CmdResult) => void;
@@ -811,12 +814,17 @@ let session: Session | null = null;
  * Into a co-op room's shift (also a rejoin after a reload): on the game server when the room says so, else the
  * latest snapshot plus the log.
  */
-export async function startCoop(code: string, shift: RoomShift, engine: RoomEngine = ''): Promise<void> {
+export async function startCoop(
+  code: string,
+  shift: RoomShift,
+  engine: RoomEngine = '',
+  avatars: Record<number, string> = {},
+): Promise<void> {
   stopCoop();
   if (engine === 'server') {
     const s = new ServerSession(code);
     session = s;
-    resetUi(code, engine);
+    resetUi(code, engine, avatars);
     const sim = await s.start();
     if (session !== s) return;
     useGame.getState().resumeShift(sim);
@@ -825,7 +833,7 @@ export async function startCoop(code: string, shift: RoomShift, engine: RoomEngi
   }
   const s = new CoopSession(code, shift);
   session = s;
-  resetUi(code, engine);
+  resetUi(code, engine, avatars);
   const sim = await s.load();
   if (session !== s) return;
   useGame.getState().resumeShift(sim);
@@ -834,7 +842,7 @@ export async function startCoop(code: string, shift: RoomShift, engine: RoomEngi
   s.start();
 }
 
-function resetUi(code: string, engine: RoomEngine): void {
+function resetUi(code: string, engine: RoomEngine, avatars: Record<number, string>): void {
   useCoop.setState({
     code,
     seat: -1,
@@ -848,6 +856,7 @@ function resetUi(code: string, engine: RoomEngine): void {
     error: null,
     engine,
     signed: null,
+    avatars,
   });
 }
 

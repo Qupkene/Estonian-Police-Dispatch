@@ -70,6 +70,8 @@ export interface AccountUser {
   created: number;
   /** An admin's account: the menu shows the way to the admin panel (/admin/). */
   admin?: boolean;
+  /** Profiilipilt (2.35.0, src/gen/faceSearch.ts): 'face:<id>' or 'draw:<seed>'; missing or '' for the name's drawing. */
+  avatar?: string;
 }
 
 export type Backend = 'unknown' | 'online' | 'offline';
@@ -124,6 +126,8 @@ interface AccountStore {
   /** "Delete all data": like decline, and also ends a server session this tab is not syncing with. */
   forget: () => Promise<void>;
   deleteAccount: (password: string) => Promise<boolean>;
+  /** Save the profile picture (2.35.0); false when the server refused or did not answer. */
+  setAvatar: (avatar: string) => Promise<boolean>;
   clearError: () => void;
   setIntent: (intent: AccountStore['intent']) => void;
 }
@@ -821,6 +825,20 @@ export const useAccount = create<AccountStore>()((set, get) => ({
     }
   },
 
+  setAvatar: async (avatar) => {
+    if (!get().user) return false;
+    try {
+      const r = await request<{ user?: unknown }>('PUT', '/me/avatar', { avatar });
+      if (!isUser(r.user)) return false;
+      const fresh = r.user;
+      // The same account still: only the picture changes (never the space or the sync).
+      set((st) => (st.user && Number(st.user.id) === Number(fresh.id) ? { user: { ...st.user, avatar: fresh.avatar ?? avatar } } : {}));
+      return true;
+    } catch (e) {
+      set({ error: toAccountError(e) });
+      return false;
+    }
+  },
   deleteAccount: async (password) => {
     set({ busy: true, error: null });
     try {

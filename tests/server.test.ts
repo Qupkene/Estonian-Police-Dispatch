@@ -1460,6 +1460,35 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       expect(names(await third.post('/api/rooms/join', { code: r.code }))).toEqual(['Kaido', 'Marko']);
     });
 
+    it('keeps a profile picture on the account and shows it in the room (2.35.0)', async () => {
+      const me = client();
+      const other = client();
+      expect((await register(me, 'Pildike')).json.user).not.toHaveProperty('avatar');
+      await register(other, 'Teine');
+      for (const avatar of ['face:XYZ', 'face:abc', 'draw:-1', 'draw:12345678901', 'http://x', 7, null])
+        expect((await me.put('/api/me/avatar', { body: { avatar } })).json, JSON.stringify(avatar)).toMatchObject({ error: 'invalid_avatar', field: 'avatar' });
+      expect((await client().put('/api/me/avatar', { body: { avatar: '' } })).status).toBe(401);
+      const set = await me.put('/api/me/avatar', { body: { avatar: 'face:0a1b2c3d4e' } });
+      expect(set.status, JSON.stringify(set.json)).toBe(200);
+      expect(set.json.user).toMatchObject({ name: 'Pildike', avatar: 'face:0a1b2c3d4e' });
+      expect((await me.get('/api/me')).json.user.avatar).toBe('face:0a1b2c3d4e');
+      const r = (await me.post('/api/rooms', OPTS)).json.room;
+      const joined = await other.post('/api/rooms/join', { code: r.code });
+      const seats = joined.json.room.players.map((p: Json) => [p.name, p.avatar]);
+      expect(seats).toEqual([['Pildike', 'face:0a1b2c3d4e'], ['Teine', undefined]]);
+      // And on the results board, as the player has it now.
+      await other.post(`/api/rooms/${r.code}/ready`, { ready: true });
+      expect((await me.post(`/api/rooms/${r.code}/start`)).json.room.state).toBe('running');
+      const res = await me.post(`/api/rooms/${r.code}/result`, RESULT);
+      expect(res.json.room.results.map((x: Json) => [x.name, x.avatar])).toEqual([['Pildike', 'face:0a1b2c3d4e']]);
+      expect((await me.put('/api/me/avatar', { body: { avatar: 'draw:42' } })).json.user.avatar).toBe('draw:42');
+      expect((await other.get(`/api/rooms/${r.code}`)).json.room.results[0].avatar).toBe('draw:42');
+      expect((await me.put('/api/me/avatar', { body: { avatar: '' } })).json.user).not.toHaveProperty('avatar');
+      expect((await other.get(`/api/rooms/${r.code}`)).json.room.results[0]).not.toHaveProperty('avatar');
+      await me.post(`/api/rooms/${r.code}/leave`);
+      await other.post(`/api/rooms/${r.code}/leave`);
+    });
+
     it('puts Bob in a room he hosts, for the account deletion below', async () => {
       const r = (await bob.post('/api/rooms', OPTS)).json.room;
       bobRoom = r.code;

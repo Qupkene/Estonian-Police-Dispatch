@@ -11,6 +11,7 @@ import {
 } from '@/net/rooms';
 import { displayRoomCode } from '@/sim/room';
 import { hhmm } from '@/sim/time';
+import { PlayerAvatar } from '@/ui/components';
 
 const GRADES = ['S', 'A', 'B', 'C', 'D', 'F'];
 
@@ -125,15 +126,18 @@ function ResultRow({ row, mine }: { row: RoomResult; mine: boolean }) {
     <tr className={`vk-mp__row${mine ? ' is-me' : ''}`} aria-current={mine ? 'true' : undefined}>
       <td className="is-num">{row.rank}</td>
       <td className="vk-mp__who">
-        <span className="vk-mp__name">
-          {row.name}
-          {mine && <span className="vk-mp__you"> ({t('account.lb.you')})</span>}
-        </span>
-        <span className="vk-mp__meta">
-          {row.incidents === 1
-            ? t('rooms.board.incidents.one')
-            : t('rooms.board.incidents', { n: row.incidents })}{' '}
-          · <span className="vk-mono">{hhmm(row.at)}</span>
+        <PlayerAvatar avatar={row.avatar} name={row.name} size={30} className="vk-mp__pic" />
+        <span className="vk-mp__whoText">
+          <span className="vk-mp__name">
+            {row.name}
+            {mine && <span className="vk-mp__you"> ({t('account.lb.you')})</span>}
+          </span>
+          <span className="vk-mp__meta">
+            {row.incidents === 1
+              ? t('rooms.board.incidents.one')
+              : t('rooms.board.incidents', { n: row.incidents })}{' '}
+            · <span className="vk-mono">{hhmm(row.at)}</span>
+          </span>
         </span>
       </td>
       <td>
@@ -152,12 +156,15 @@ function WaitRow({ p, mine, kind }: { p: RoomPlayer; mine: boolean; kind: 'playi
         ·
       </td>
       <td className="vk-mp__who">
-        <span className="vk-mp__name">
-          {p.name}
-          {mine && <span className="vk-mp__you"> ({t('account.lb.you')})</span>}
-        </span>
-        <span className="vk-mp__meta">
-          {kind === 'left' ? t('rooms.p.left') : p.online ? t('rooms.p.playing') : t('rooms.p.offline')}
+        <PlayerAvatar avatar={p.avatar} name={p.name} size={30} className="vk-mp__pic" />
+        <span className="vk-mp__whoText">
+          <span className="vk-mp__name">
+            {p.name}
+            {mine && <span className="vk-mp__you"> ({t('account.lb.you')})</span>}
+          </span>
+          <span className="vk-mp__meta">
+            {kind === 'left' ? t('rooms.p.left') : p.online ? t('rooms.p.playing') : t('rooms.p.offline')}
+          </span>
         </span>
       </td>
       <td>

@@ -29,6 +29,7 @@ function epd_routes(): array
         ['GET', '#^/api/health$#', epd_route_health(...)],
         ['GET', '#^/api/me$#', epd_route_me(...)],
         ['DELETE', '#^/api/me$#', epd_route_delete_me(...)],
+        ['PUT', '#^/api/me/avatar$#', epd_route_avatar(...)],
         ['POST', '#^/api/register$#', epd_route_register(...)],
         ['POST', '#^/api/login$#', epd_route_login(...)],
         ['POST', '#^/api/logout$#', epd_route_logout(...)],

@@ -3872,6 +3872,13 @@ td.gm-table__task .muted {
   white-space: nowrap;
   color: var(--text-0);
 }
+.gm-coop__pic {
+  margin-right: 6px;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: -4px;
+  background: var(--bg-3);
+}
 .gm-coop__you {
   color: var(--text-3);
 }

@@ -53,7 +53,7 @@ import { defaultDesks } from '@/sim/desks';
 import { sectorById } from '@/sim/sectors';
 import { startCoop } from '@/store/coop';
 import type { Difficulty, RegionId } from '@/sim/types';
-import { Button, Modal, Segmented, Select, Spinner } from '@/ui/components';
+import { Button, Modal, PlayerAvatar, Segmented, Select, Spinner } from '@/ui/components';
 import { ShellPage, useToast } from './shell/ShellPage';
 import { regionSummary } from './shell/helpers';
 import { lobbyFocus } from './shell/lobbyNav';
@@ -711,7 +711,7 @@ function RoomView({
     if (!shift) return;
     if (coop) {
       // A shared shift: the room's latest snapshot and log (the first time, or back after a reload).
-      startCoop(room.code, shift, room.engine)
+      startCoop(room.code, shift, room.engine, Object.fromEntries(room.players.map((p) => [p.seat, p.avatar ?? ''])))
         .then(() => sfx.play('dispatch'))
         .catch((e: unknown) => {
           sfx.play('error');
@@ -1211,6 +1211,7 @@ function Seats({
             <>
               <span className="vk-mp__seatWho">
                 <span className={`vk-mp__dot${p.online ? ' is-on' : ''}`} aria-hidden="true" />
+                <PlayerAvatar avatar={p.avatar} name={p.name} size={30} className="vk-mp__pic" />
                 <span className="vk-mp__seatName">{p.name}</span>
                 {p.host && <span className="vk-mp__tag">{t('rooms.badge.host')}</span>}
                 {p.id === room.me && <span className="vk-dim">({t('rooms.badge.you')})</span>}

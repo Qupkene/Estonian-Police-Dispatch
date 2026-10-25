@@ -309,6 +309,11 @@ function epd_migrations(): array
             )',
             'CREATE INDEX room_bans_user ON room_bans (user_id)',
         ],
+        // Profiilipilt (auth.php epd_route_avatar, 2.35.0): '' for the drawn avatar of the name, 'face:<id>' for a photo of
+        // the game's face pool (public/faces), 'draw:<seed>' for another drawing.
+        13 => [
+            "ALTER TABLE users ADD COLUMN avatar TEXT NOT NULL DEFAULT ''",
+        ],
     ];
 }
 

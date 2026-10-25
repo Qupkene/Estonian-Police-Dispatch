@@ -510,6 +510,19 @@ button.vk-acct__who:hover .vk-acct__name {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+/* Profiilipilt (2.35.0): the picture beside the name and the state, spanning both lines. */
+.vk-acct__who:has(.vk-acct__pic) {
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 9px;
+  align-items: center;
+}
+.vk-acct__pic {
+  grid-row: span 2;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--vk-panel-2);
+  box-shadow: 0 0 0 1px var(--vk-line);
+}
 .vk-acct__name {
   overflow: hidden;
   font-size: 13px;
@@ -1869,4 +1882,122 @@ a.vk-acct__item {
 .vk-table th.is-num {
   font-family: var(--vk-font-display);
   font-size: 10px;
+}
+
+/* ── Profiilipilt: the picker (ProfilePicker.tsx, 2.35.0) ───────────────────── */
+
+.vk-prof {
+  display: grid;
+  gap: 14px;
+}
+.vk-prof__me {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.vk-prof__me strong {
+  font-size: 16px;
+  color: var(--vk-text-0);
+}
+.vk-prof__me p {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+.vk-prof__big {
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--vk-panel-2);
+  box-shadow:
+    0 0 0 2px var(--vk-acc),
+    0 6px 18px rgb(0 0 0 / 0.25);
+}
+.vk-prof__chips {
+  display: grid;
+  gap: 7px;
+}
+.vk-prof__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.vk-prof__row .vk-label {
+  min-width: 74px;
+}
+.vk-prof__chip {
+  padding: 4px 10px;
+  border: 1px solid var(--vk-line);
+  border-radius: 999px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-1);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.vk-prof__chip:hover {
+  border-color: var(--vk-acc);
+}
+.vk-prof__chip.is-on {
+  border-color: var(--vk-acc);
+  background: color-mix(in oklch, var(--vk-acc) 18%, var(--vk-panel-2));
+  color: var(--vk-text-0);
+}
+.vk-prof__count {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--vk-text-2);
+}
+.vk-prof__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 8px;
+  max-height: 46vh;
+  margin: 0;
+  padding: 2px;
+  overflow-y: auto;
+  list-style: none;
+}
+.vk-prof__face {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: var(--vk-panel-2);
+  overflow: hidden;
+  cursor: pointer;
+  aspect-ratio: 1;
+}
+.vk-prof__face img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.vk-prof__face:hover,
+.vk-prof__face:focus-visible {
+  border-color: color-mix(in oklch, var(--vk-acc) 60%, transparent);
+}
+.vk-prof__face.is-on {
+  border-color: var(--vk-acc);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--vk-acc) 35%, transparent);
+}
+.vk-prof__draw {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.vk-prof__draw img {
+  border-radius: 50%;
+  background: var(--vk-panel-2);
+}
+.vk-prof__drawActions {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.vk-prof__drawActions p {
+  margin: 0;
+  font-size: 12.5px;
 }
