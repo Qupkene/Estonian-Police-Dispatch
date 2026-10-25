@@ -586,7 +586,8 @@ function areaLocation(
   return undefined;
 }
 
-const COORD_WORD = 'Kaardipunkt';
+/** The word of an address that is only a map point (no street or place nearby). */
+export const COORD_WORD = 'Kaardipunkt';
 
 function coordText(c: LngLat): string {
   return `${COORD_WORD} ${c[1].toFixed(5)}, ${c[0].toFixed(5)}`;

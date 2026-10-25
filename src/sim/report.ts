@@ -9,6 +9,7 @@ import { FUEL_PER_KM, OVERTIME_PER_HOUR } from '@/data/economy';
 import { dayInfo } from './calendar';
 import { falloutLines } from './fallout';
 import { helpGivenCount, helpSector } from './colleagues';
+import { crisisReport } from './crisis';
 import { tplOf } from './internal';
 import { PLACE_KIND_LABEL } from './radio';
 import { falloutPoints } from './scoring';
@@ -626,6 +627,8 @@ export function buildReport(s: SimState): ShiftReport {
     ...(s.fallout?.length ? { fallout: falloutLines(s) } : {}),
     ...(s.flags.custom ? { custom: true } : {}),
   };
+  const crisis = crisisReport(s);
+  if (crisis) report.crisis = crisis;
   return report;
 }
 
