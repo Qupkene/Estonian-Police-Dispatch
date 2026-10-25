@@ -141,7 +141,7 @@ export const useGame = create<GameStore>()((set, get) => ({
     const report = finalizeShift(sim);
     report.shiftKey = shiftKeyOf(sim);
     if (sim.coop) {
-      report.coop = coopReport(sim);
+      report.coop = coopReport(sim, report.highlights);
       loopHooks.coopStop?.();
     }
     if (sim.flags) sim.flags[REPORTED_FLAG] = true;

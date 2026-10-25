@@ -2,6 +2,24 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.36.0 (2026-10-25)
+
+- **Ühine raport:** koostöövahetuse lõpus on kõigil mängijatel sama raport.
+  - **Auhinnad:** Päeva kangelane (kõige rohkem tööd), Kiireim käsi (esimene ekipaaž kõige kiiremini teele), Abivalmis naaber (laenas ekipaaže ja aitas naabreid; rollide koostöös Abivalmis kolleeg), Raudne närv (kõige rohkem kõige kiireloomulisemaid sündmusi) ja naljaga Tigu (kõige aeglasem saatja).
+  - Iga mängija kaart tema profiilipildiga: kõned, sündmused, saatmised, keskmine aeg esimese ekipaažini, laenud ja abi.
+  - **Vahetuse tähtsamad hetked** ajajoonena: laenatud ekipaažid, üle võetud lauad, üle antud jälitused, lahkumised ja tagasitulekud ning vahetuse parimad ja halvimad sündmused koos mängijatega, kes nendega tegelesid.
+  - Nupp **"Jaga pildina"** teeb raportist pildi sõpradele saatmiseks: telefonis avaneb jagamismenüü, arvutis laaditakse pilt alla.
+- **Ruumi ajalugu:** lobbys on näha ruumi varasemad voorud, mitu vahetust olete koos mänginud ja kes on kõige sagedamini päeva kangelane olnud. Iga vooru saab avada ja selle ühist raportit või võistluse tulemusi uuesti vaadata.
+- **Varasemad mängud:** mitmikmängu menüüs on kõik sinu viimase 30 päeva voorud, ka teistest ruumidest.
+- Kui keegi oma konto kustutab, kaob tema nimi ka teiste ajaloost. Vooru raport jääb teistele alles.
+
+<details>
+<summary>English</summary>
+
+The joint report of a co-op shift and the room history (point 12 of the owner's list, docs/MULTIPLAYER.md section 14). Awards come from the seats' counters (`src/sim/joint.ts`); each player gets a card with their profile picture; the timeline joins the moments between the seats (`CoopState.moments`: lends, take-overs, pursuit hand-overs, leaving and coming back) with the report's highlights and the seats that worked on each (`CoopState.touch`); "Jaga pildina" draws a 1200 × 675 PNG and shares or downloads it. A co-op round keeps the joint report its first counted result brought (`summary`, or `sum` in a game server round's signed result; `room_reports`, schema step 14, at most 32 kB), and `GET /api/rooms/history` answers the player's rounds of the last 30 days with everybody's results and the joint report: the lobby shows the room's own, the multiplayer menu all of them. A deleted account's name leaves the kept joint reports.
+
+</details>
+
 ## 2.35.0 (2026-10-25)
 
 - **Oma profiilipilt:** kontomenüüs on uus valik "Profiilipilt". Pildi saab valida mängu 1393 fotoportree seast, kirjutades otsingusse, millist nägu tahad, näiteks „naine 30 blond“, „vana mees habemega“ või „kiilas 50ndad“. Sama saab teha nuppudega: sugu, vanus, juuksed, habe ja kiilas. Kui täpselt sellist vanust ei ole, näidatakse lähimaid.

@@ -30,6 +30,7 @@ import { colleagueName, deskCallsign, HANDOVER_REPLIES, helpSector, newColleague
 import { haversineKm } from './geo';
 import { closeByColleague, colleagueAnswer, openIncidentIds } from './incidents';
 import { addTimeline, pushRadio } from './internal';
+import { addMoment } from './moments';
 import { nearestStreetName, onStreet } from './pursuit';
 import { phrase } from './radio';
 import { mainStation, sectorAt, sectorById, sectorOf, sectorsOf } from './sectors';
@@ -404,6 +405,8 @@ function blankStats(): SeatStats {
     handover: 0,
     takeover: 0,
     took: 0,
+    respSum: 0,
+    respN: 0,
   };
 }
 
@@ -575,6 +578,7 @@ export function takeDesk(s: SimState, c: CoopState, seat: number, desk: string):
   const by = ((sec.takenBy ??= {})[desk] ??= []);
   if (!by.includes(seat)) by.push(seat);
   statsFor(c, seat).took = (statsFor(c, seat).took ?? 0) + 1;
+  addMoment(c, { t: Math.round(s.now), k: 'take', seat, desk, to: mine });
   remapDesks(s, sec);
   const name = deskName(desk);
   for (const id of openIncidentIds(s))
@@ -601,6 +605,8 @@ export function giveDesk(s: SimState, c: CoopState, desk: string, seat: number, 
     return { ok: false, denied: true, reason: NOT_YOURS };
   delete sec.merged[desk];
   remapDesks(s, sec);
+  // A player coming back is on the timeline already (`back`).
+  if (!back) addMoment(c, { t: Math.round(s.now), k: 'give', seat, desk });
   const name = deskName(desk);
   const who = c.seats.find((y) => y.seat === seat)?.name ?? '';
   const sector = sectorById(desk);
@@ -776,6 +782,14 @@ export function answerDeskHandover(
   statsFor(c, seat).handover++;
   const taker = deskHolders(c, offer.desk)[0];
   if (taker) statsFor(c, taker.seat).takeover++;
+  addMoment(c, {
+    t: Math.round(s.now),
+    k: 'handover',
+    seat,
+    other: taker?.seat ?? -1,
+    desk: was,
+    to: offer.desk,
+  });
   // The crews already on it now help the neighbour's incident.
   for (const id of inc.assigned)
     if (sec.crew[id] === undefined && sec.unitDesk[id] === was) sec.crew[id] = seat;
@@ -926,6 +940,15 @@ function doLend(s: SimState, c: CoopState, req: LendRequest, answering: number):
   } else sec.crew[u.id] = req.seat;
   if (borrower >= 0) statsFor(c, borrower).borrowed++;
   const lenderDesk = req.kind === 'ask' ? req.to : req.from;
+  addMoment(c, {
+    t: Math.round(s.now),
+    k: 'lend',
+    seat: lender,
+    other: borrower,
+    desk: lenderDesk,
+    to: req.kind === 'ask' ? req.from : req.to,
+    unit: u.callsign,
+  });
   addTimeline(
     s,
     inc,

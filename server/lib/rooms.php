@@ -60,6 +60,10 @@ const EPD_ROOM_KEEP_MS = 30 * 86400 * 1000;
 /** New rooms per IP and hour. */
 const EPD_ROOM_CREATE_LIMIT = 20;
 const EPD_ROOM_CREATE_WINDOW = 3600;
+/** Rounds the history answers with (GET /api/rooms/history). */
+const EPD_ROOM_HISTORY = 30;
+/** The largest joint report a round keeps (bytes of JSON). */
+const EPD_ROOM_SUMMARY_MAX = 32768;
 /** Unknown or malformed codes per IP in 10 minutes (guessing codes). */
 const EPD_ROOM_MISS_LIMIT = 30;
 const EPD_ROOM_MISS_WINDOW = 600;
@@ -631,6 +635,36 @@ function epd_rooms_forget_user(PDO $db, int $userId): void
     // The user's commands and uploaded snapshots go too (the host was asked for a fresh snapshot above).
     $db->prepare('DELETE FROM room_commands WHERE user_id = ?')->execute([$userId]);
     $db->prepare('DELETE FROM room_snapshots WHERE user_id = ?')->execute([$userId]);
+    epd_room_reports_forget($db, $userId);
+}
+
+/**
+ * A deleted account's name leaves the joint reports (2.36.0): the rounds stay in the others' history, the seat without
+ * a name. Inside the caller's transaction, while the account still exists.
+ */
+function epd_room_reports_forget(PDO $db, int $userId): void
+{
+    $stmt = $db->prepare('SELECT name FROM users WHERE id = ?');
+    $stmt->execute([$userId]);
+    $name = $stmt->fetchColumn();
+    if (!is_string($name) || $name === '') {
+        return;
+    }
+    $rows = $db->prepare('SELECT room_id, round, summary FROM room_reports WHERE instr(summary, ?) > 0');
+    $rows->execute(['"name":' . epd_json($name)]);
+    $update = $db->prepare('UPDATE room_reports SET summary = ? WHERE room_id = ? AND round = ?');
+    foreach ($rows->fetchAll() as $row) {
+        $summary = json_decode((string) $row['summary'], true);
+        if (!is_array($summary) || !is_array($summary['coop']['seats'] ?? null)) {
+            continue;
+        }
+        foreach ($summary['coop']['seats'] as $i => $seat) {
+            if (is_array($seat) && ($seat['name'] ?? null) === $name) {
+                $summary['coop']['seats'][$i]['name'] = '';
+            }
+        }
+        $update->execute([epd_json($summary), $row['room_id'], $row['round']]);
+    }
 }
 
 /**
@@ -640,7 +674,7 @@ function epd_rooms_forget_user(PDO $db, int $userId): void
 function epd_rooms_sweep(PDO $db, int $now): void
 {
     $old = $now - EPD_ROOM_KEEP_MS;
-    foreach (['room_commands', 'room_snapshots', 'room_results', 'room_round_results', 'room_bans', 'room_players'] as $table) {
+    foreach (['room_commands', 'room_snapshots', 'room_results', 'room_round_results', 'room_reports', 'room_bans', 'room_players'] as $table) {
         $db->prepare("DELETE FROM $table WHERE room_id IN (SELECT id FROM rooms WHERE updated < ?)")->execute([$old]);
     }
     $db->prepare('DELETE FROM rooms WHERE updated < ?')->execute([$old]);
@@ -1142,13 +1176,15 @@ function epd_route_room_result(string $code): ApiReply
     ];
     $seed = array_key_exists('seed', $body) ? epd_number_field($body, 'seed', 0, 4294967295) : null;
     $signed = $body['signed'] ?? null;
+    // Co-op: the joint report of the round (2.36.0); a game server round's comes with its signed result.
+    $summary = $body['summary'] ?? null;
     // A shift with no incidents gets a flat grade from the sim; it says nothing about the player.
     if ($row['incidents'] < 1) {
         epd_fail(400, 'empty_shift', 'Sündmusteta vahetus edetabelisse ei lähe.', [], ['field' => 'incidents']);
     }
     $db = epd_db();
     $now = epd_room_now_ms();
-    [$clean, $counted] = epd_room_tx($db, static function (PDO $db) use ($code, $userId, $row, $seed, $signed, $now): array {
+    [$clean, $counted] = epd_room_tx($db, static function (PDO $db) use ($code, $userId, $row, $seed, $signed, $summary, $now): array {
         [$room, $member] = epd_room_for_member($db, $code, $userId, $now);
         if ($seed !== null && $seed !== (int) $room['seed']) {
             epd_fail(409, 'round_over', 'See voor on juba läbi.');
@@ -1156,6 +1192,7 @@ function epd_route_room_result(string $code): ApiReply
         if (epd_coop_is_coop($room) && epd_mp_engine($room) === 'server' && $room['state'] !== 'lobby') {
             // The game server ran the shift: its signed result counts, whatever numbers the client sent.
             $row = epd_mp_signed_result($signed, $room, (int) $member['seat']);
+            $summary = $row['summary'];
             if ($row['incidents'] < 1) {
                 epd_fail(400, 'empty_shift', 'Sündmusteta vahetus edetabelisse ei lähe.', [], ['field' => 'incidents']);
             }
@@ -1179,6 +1216,12 @@ function epd_route_room_result(string $code): ApiReply
         );
         $insert->execute([$room['id'], $userId, $row['score'], $row['grade'], $row['incidents'], $row['arrests'], $row['xp'], $now]);
         $counted = $insert->rowCount() === 1;
+        $kept = $counted && epd_coop_is_coop($room) ? epd_room_summary_json($summary) : null;
+        if ($kept !== null) {
+            // The round's first joint report stays (every client's is the same shift's).
+            $db->prepare('INSERT OR IGNORE INTO room_reports (room_id, round, summary, at) VALUES (?, ?, ?, ?)')
+                ->execute([$room['id'], max(1, (int) ($room['round'] ?? 1)), $kept, $now]);
+        }
         if ($counted) {
             epd_room_bump($db, (int) $room['id'], $now, $room['state'] === 'running' ? epd_room_finish_if_done($db, (int) $room['id']) : []);
         }
@@ -1198,6 +1241,64 @@ function epd_route_room_result(string $code): ApiReply
         'rank' => $mine['rank'] ?? null,
         'room' => $room === null ? null : epd_room_public($db, $room, $userId, $now),
     ]);
+}
+
+/**
+ * A joint report as a round keeps it (2.36.0), or null when it is not one: a JSON object of at most
+ * EPD_ROOM_SUMMARY_MAX bytes with `v` 1 and one to four seats. The client reads it field by field again
+ * (src/sim/joint.ts parseRoomSummary); here only its shape and size are checked.
+ */
+function epd_room_summary_json(mixed $summary): ?string
+{
+    if (!is_array($summary) || ($summary['v'] ?? null) !== 1 || !is_array($summary['coop'] ?? null)) {
+        return null;
+    }
+    $seats = $summary['coop']['seats'] ?? null;
+    if (!is_array($seats) || !array_is_list($seats) || $seats === [] || count($seats) > EPD_ROOM_MAX_PLAYERS) {
+        return null;
+    }
+    $json = json_encode($summary, EPD_JSON_FLAGS);
+    return is_string($json) && strlen($json) <= EPD_ROOM_SUMMARY_MAX ? $json : null;
+}
+
+/**
+ * GET /api/rooms/history (2.36.0): the rounds the player sent a result for, newest first, at most EPD_ROOM_HISTORY
+ * and while their rooms are kept. Each with its room's code, the round, its mode and seed, everybody's results (best
+ * first, ranked) and, for a co-op round, its joint report. A round still being played is left out.
+ */
+function epd_route_room_history(): ApiReply
+{
+    $user = epd_require_user();
+    $userId = (int) $user['id'];
+    $db = epd_db();
+    $stmt = $db->prepare(
+        "SELECT x.room_id, x.round, x.at, x.current, m.code, m.mode, m.seed FROM (
+            SELECT room_id, round, at, 0 AS current FROM room_round_results WHERE user_id = ?
+            UNION ALL
+            SELECT r.room_id, rm.round, r.at, 1 AS current FROM room_results r JOIN rooms rm ON rm.id = r.room_id
+            WHERE r.user_id = ? AND rm.state IN ('finished', 'closed')
+        ) x JOIN rooms m ON m.id = x.room_id
+        ORDER BY x.at DESC LIMIT " . EPD_ROOM_HISTORY
+    );
+    $stmt->execute([$userId, $userId]);
+    $report = $db->prepare('SELECT summary FROM room_reports WHERE room_id = ? AND round = ?');
+    $rounds = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $roomId = (int) $row['room_id'];
+        $round = (int) $row['round'];
+        if ((int) $row['current'] === 1) {
+            $data = ['round' => $round, 'mode' => (string) $row['mode'], 'seed' => (int) $row['seed'], 'results' => epd_room_results($db, $roomId)];
+        } else {
+            $data = epd_room_round($db, $roomId, $round);
+        }
+        if ($data === null) {
+            continue;
+        }
+        $report->execute([$roomId, $round]);
+        $summary = json_decode((string) ($report->fetchColumn() ?: 'null'), true);
+        $rounds[] = ['code' => (string) $row['code'], 'at' => (int) $row['at']] + $data + ['summary' => is_array($summary) ? $summary : null];
+    }
+    return epd_reply(['rounds' => $rounds]);
 }
 
 /**

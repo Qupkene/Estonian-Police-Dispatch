@@ -49,6 +49,7 @@ import {
   type DeskState,
 } from './desks';
 import { emit } from './internal';
+import { addMoment, reportMoments, type CoopMoment, type ReportMoment } from './moments';
 import { searchPersons, searchVehicles } from './registry';
 import { hashString } from './rng';
 import { updateShiftScore } from './scoring';
@@ -144,6 +145,12 @@ export interface SeatStats {
   takeover: number;
   /** Sector co-op: desks nobody held that this seat took over (2.34.0; missing in older reports). */
   took?: number;
+  /**
+   * The joint report's "Kiireim käsi" (2.36.0; missing in older reports): game ms from an incident's appearance to
+   * this seat sending its first crew, summed over the incidents it sent the first crew to, and their number.
+   */
+  respSum?: number;
+  respN?: number;
 }
 
 export interface CoopPing {
@@ -175,6 +182,10 @@ export interface CoopState {
   callSeat: Record<string, number>;
   /** Sector co-op: the desks, who owns what, lend requests (src/sim/desks.ts). Missing in role co-op. */
   sec?: DeskState;
+  /** What happened between the seats, for the joint report's timeline (2.36.0, src/sim/moments.ts). */
+  moments?: CoopMoment[];
+  /** Incident id: the seats that worked on it, as a bit mask (2.36.0; the report's per-seat counts). */
+  touch?: Record<string, number>;
 }
 
 /** One command of the server's log. */
@@ -213,6 +224,8 @@ export function emptySeatStats(): SeatStats {
     handover: 0,
     takeover: 0,
     took: 0,
+    respSum: 0,
+    respN: 0,
   };
 }
 
@@ -416,8 +429,36 @@ export function applyCommand(s: SimState, cmd: LogCmd): CmdResult {
     console.warn('[EPD coop] command failed', cmd.k, err);
     r = NOOP;
   }
-  if (seat !== SERVER_SEAT && r.ok) statsOf(c, seat).commands++;
+  if (seat !== SERVER_SEAT && r.ok) {
+    statsOf(c, seat).commands++;
+    const id = workedIncident(s, c, cmd);
+    if (id && s.incidents[id]) (c.touch ??= {})[id] = (c.touch[id] ?? 0) | (1 << seat);
+  }
   return r;
+}
+
+/** The incident a seat's accepted command worked on, if any (the joint report counts them per seat). */
+function workedIncident(s: SimState, c: CoopState, cmd: LogCmd): string | undefined {
+  const a = Array.isArray(cmd.a) ? cmd.a : [];
+  switch (cmd.k) {
+    case 'ack':
+    case 'prio':
+    case 'send':
+    case 'close':
+    case 'agency':
+    case 'pursuit':
+    case 'check':
+    case 'lend':
+      return str(a[0]);
+    case 'endcall':
+      return s.calls.find((x) => x.id === str(a[0]))?.incidentId;
+    case 'reply':
+      return s.radio.find((m) => m.id === str(a[0]))?.incidentId;
+    case 'lendans':
+      return c.sec?.lends.find((r) => r.id === a[0])?.inc;
+    default:
+      return undefined;
+  }
 }
 
 function countDenied(c: CoopState, seat: number): CmdResult {
@@ -532,6 +573,8 @@ function run(s: SimState, c: CoopState, cmd: LogCmd): CmdResult {
       if (!x) return NOOP;
       const was = x.present;
       x.present = cmd.k === 'back';
+      if (was !== x.present)
+        addMoment(c, { t: Math.round(s.now), k: cmd.k, seat: x.seat, ...(x.desk ? { desk: x.desk } : {}) });
       // Sector co-op: an emptied desk is announced (its colleague holds it, anybody may take it over); a player who
       // comes back gets their desk back from whoever took it over.
       if (c.sec && was && !x.present) deskSeatLeft(s, c, x);
@@ -647,6 +690,12 @@ function run(s: SimState, c: CoopState, cmd: LogCmd): CmdResult {
       const r = dispatchUnits(s, id, units);
       const after = s.incidents[id]?.assigned.length ?? before;
       if (r.ok) st().sent += Math.max(0, after - before);
+      if (r.ok && before === 0 && after > 0 && inc.firstDispatchAt === s.now) {
+        // The first crew to it: how long the incident waited (the joint report's "Kiireim käsi").
+        const v = st();
+        v.respSum = (v.respSum ?? 0) + Math.max(0, Math.round(s.now - inc.createdAt));
+        v.respN = (v.respN ?? 0) + 1;
+      }
       if (r.ok && c.sec)
         for (const u of s.incidents[id]?.assigned ?? []) if (!had.has(u)) c.sec.crew[u] = seat;
       return r;
@@ -889,20 +938,51 @@ export function simDigest(s: SimState): string {
 
 // ── Report and XP ────────────────────────────────────────────────────────────
 
+/** One seat in the co-op part of a report. */
+export interface CoopReportSeat {
+  seat: number;
+  name: string;
+  role: CoopRole;
+  desk?: string;
+  present: boolean;
+  stats: SeatStats;
+  /** Incidents the seat worked on (2.36.0; missing in older reports). */
+  worked?: number;
+  /** Of those, the truly most urgent ones (true priority 1): the joint report's "Raudne närv". */
+  p1?: number;
+}
+
 /** The co-op part of a report: who sat where and what each seat did. */
 export interface CoopReport {
   code: string;
   /** Missing in reports from before sector co-op: role co-op. */
   mode?: CoopMode;
-  seats: { seat: number; name: string; role: CoopRole; desk?: string; present: boolean; stats: SeatStats }[];
+  seats: CoopReportSeat[];
   host: number;
   /** Sector co-op: one row per desk (src/sim/desks.ts deskRows). */
   desks?: DeskRow[];
+  /** The joint report's timeline (2.36.0, src/sim/moments.ts reportMoments; missing in older reports). */
+  moments?: ReportMoment[];
 }
 
-export function coopReport(s: SimState): CoopReport | undefined {
+/**
+ * The co-op part of the report of a finished shift. `highlights` (the report's own, src/sim/report.ts) join the
+ * moments between the seats on the timeline, with the seats that worked on each.
+ */
+export function coopReport(s: SimState, highlights?: ShiftReport['highlights']): CoopReport | undefined {
   const c = s.coop;
   if (!c) return undefined;
+  const worked: number[] = [0, 0, 0, 0];
+  const p1: number[] = [0, 0, 0, 0];
+  for (const [id, mask] of Object.entries(c.touch ?? {})) {
+    const inc = s.incidents[id];
+    if (!inc || s.flags[`hidden:${id}`]) continue;
+    for (let n = 0; n < 4; n++) {
+      if (!(mask & (1 << n))) continue;
+      worked[n]++;
+      if (inc.truePriority === 1) p1[n]++;
+    }
+  }
   return {
     code: c.code,
     host: c.host,
@@ -914,7 +994,10 @@ export function coopReport(s: SimState): CoopReport | undefined {
       ...(x.desk ? { desk: x.desk } : {}),
       present: x.present,
       stats: { ...emptySeatStats(), ...c.stats[String(x.seat)] },
+      worked: worked[x.seat] ?? 0,
+      p1: p1[x.seat] ?? 0,
     })),
+    moments: reportMoments(s, highlights),
   };
 }
 

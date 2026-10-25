@@ -1,0 +1,427 @@
+/* Ühine raport (2.36.0, JointReport.tsx): the awards, the players' cards, the timeline and the desks of a co-op
+   shift, on the report and in the history. */
+
+.vk-joint__block {
+  padding: 12px 14px 14px;
+}
+.vk-joint__block + .vk-joint__block {
+  border-top: 1px solid var(--vk-line-2);
+}
+.vk-joint__sub {
+  margin: 0 0 10px;
+  font: 600 11px/1.3 var(--vk-font-display);
+  font-stretch: 112%;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vk-text-1);
+}
+.vk-joint__team {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0;
+  padding: 12px 14px 0;
+  color: var(--vk-text-1);
+}
+.vk-joint__team strong {
+  color: var(--vk-text-0);
+}
+.vk-joint__pic {
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--vk-panel-2);
+  box-shadow: 0 0 0 1px var(--vk-line);
+}
+
+/* Awards: a medal tile each, in the award's own colour. */
+.vk-joint__awards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vk-joint__award {
+  --tone: var(--vk-acc);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'medal name'
+    'medal winner'
+    'why why';
+  align-items: center;
+  gap: 4px 10px;
+  padding: 10px 12px 11px;
+  border: 1px solid color-mix(in oklch, var(--tone) 34%, var(--vk-line));
+  border-radius: 8px;
+  background: linear-gradient(
+    155deg,
+    color-mix(in oklch, var(--tone) 13%, var(--vk-panel-2)),
+    var(--vk-panel-2) 72%
+  );
+}
+.vk-joint__award.is-me {
+  border-color: color-mix(in oklch, var(--tone) 70%, var(--vk-line));
+}
+.vk-joint__medal {
+  grid-area: medal;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  color: var(--tone);
+  background: color-mix(in oklch, var(--tone) 15%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklch, var(--tone) 55%, transparent);
+}
+.vk-joint__awardName {
+  grid-area: name;
+  font: 600 11px/1.2 var(--vk-font-display);
+  font-stretch: 112%;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tone);
+}
+.vk-joint__winner {
+  grid-area: winner;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--vk-text-0);
+}
+.vk-joint__winner strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vk-joint__why {
+  grid-area: why;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--vk-text-2);
+  text-wrap: pretty;
+}
+
+/* A card per player. */
+.vk-joint__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vk-joint__card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--vk-line-2);
+  border-radius: 8px;
+  background: var(--vk-panel-2);
+}
+.vk-joint__card.is-me {
+  border-color: color-mix(in oklch, var(--vk-acc) 45%, var(--vk-line));
+  box-shadow: inset 2px 0 var(--vk-acc);
+}
+.vk-joint__cardHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.vk-joint__cardPic {
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px var(--vk-line);
+}
+.vk-joint__who {
+  display: grid;
+  min-width: 0;
+  line-height: 1.3;
+}
+.vk-joint__name,
+.vk-joint__where {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vk-joint__name {
+  color: var(--vk-text-0);
+}
+.vk-joint__where {
+  font-size: 12.5px;
+  color: var(--vk-text-2);
+}
+.vk-joint__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 10px;
+  margin: 0;
+}
+.vk-joint__stat {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.vk-joint__stat dt {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vk-text-3);
+}
+.vk-joint__stat dd {
+  margin: 0;
+  font-size: 14px;
+  white-space: nowrap;
+  color: var(--vk-text-0);
+}
+.vk-joint__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vk-joint__badge {
+  --tone: var(--vk-acc);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 6px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--tone);
+  background: color-mix(in oklch, var(--tone) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--tone) 38%, transparent);
+}
+
+/* The timeline: the time, a dot on the line, what happened, who. */
+.vk-joint__line {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vk-joint__m {
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px 22px minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 10px;
+  padding: 5px 0;
+}
+.vk-joint__m::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(42px + 10px + 10px);
+  width: 2px;
+  background: var(--vk-line-2);
+}
+.vk-joint__m:first-child::before {
+  top: 50%;
+}
+.vk-joint__m:last-child::before {
+  bottom: 50%;
+}
+.vk-joint__t {
+  padding-top: 3px;
+  font-size: 12px;
+  text-align: right;
+  color: var(--vk-text-2);
+}
+.vk-joint__dot {
+  --tone: var(--vk-text-2);
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: var(--tone);
+  background: var(--vk-panel);
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklch, var(--tone) 60%, transparent);
+}
+.vk-joint__m.is-good .vk-joint__dot {
+  --tone: var(--vk-ok);
+}
+.vk-joint__m.is-bad .vk-joint__dot {
+  --tone: var(--vk-bad);
+}
+.vk-joint__m.is-lend .vk-joint__dot,
+.vk-joint__m.is-handover .vk-joint__dot {
+  --tone: var(--vk-acc);
+}
+.vk-joint__m.is-take .vk-joint__dot,
+.vk-joint__m.is-give .vk-joint__dot {
+  --tone: var(--vk-amb);
+}
+.vk-joint__m.is-edge .vk-joint__dot {
+  width: 10px;
+  height: 10px;
+  margin: 6px;
+  background: var(--vk-text-3);
+  box-shadow: none;
+}
+.vk-joint__mBody {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 2px;
+}
+.vk-joint__mTitle {
+  font-size: 13px;
+  color: var(--vk-text-0);
+  text-wrap: pretty;
+}
+.vk-joint__m.is-good .vk-joint__mTitle,
+.vk-joint__m.is-bad .vk-joint__mTitle {
+  font-weight: 600;
+}
+.vk-joint__m.is-edge .vk-joint__mTitle {
+  color: var(--vk-text-2);
+}
+.vk-joint__mText {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--vk-text-2);
+  text-wrap: pretty;
+}
+.vk-joint__mWho {
+  display: flex;
+  gap: 3px;
+  padding-top: 1px;
+}
+.vk-joint__mWho .vk-joint__pic.is-me {
+  box-shadow: 0 0 0 1.5px var(--vk-acc);
+}
+
+/* The desks' table and the foot. */
+.vk-joint .vk-rep__coop {
+  margin-top: 2px;
+}
+.vk-joint__foot {
+  justify-content: flex-end;
+}
+.vk-joint__footText {
+  flex: 1 1 240px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--vk-text-1);
+}
+.vk-joint__shareMsg {
+  font-size: 12.5px;
+  color: var(--vk-ok);
+}
+.vk-joint__shareMsg.is-bad {
+  color: var(--vk-bad);
+}
+
+@media (max-width: 640px) {
+  .vk-joint__m {
+    grid-template-columns: 40px 22px minmax(0, 1fr);
+  }
+  .vk-joint__m::before {
+    left: calc(40px + 10px + 10px);
+  }
+  .vk-joint__mWho {
+    grid-column: 3;
+  }
+  .vk-joint__foot .vk-btn {
+    flex: 1 1 100%;
+    height: 44px;
+  }
+}
+
+/* Ruumi ajalugu (2.36.0, RoomHistory.tsx): the rounds played to the end, a row each. */
+.vk-hist__sum {
+  margin: 0;
+  padding: 10px 14px 0;
+  font-size: 12.5px;
+  color: var(--vk-text-2);
+  text-wrap: pretty;
+}
+.vk-hist__state {
+  margin: 0;
+  padding: 12px 14px 14px;
+  font-size: 13px;
+  color: var(--vk-text-2);
+}
+.vk-hist__list {
+  display: grid;
+  max-height: 360px;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+}
+.vk-hist__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.vk-hist__row:hover,
+.vk-hist__row:focus-visible {
+  background: var(--vk-raise);
+}
+.vk-hist__main {
+  display: grid;
+  min-width: 0;
+  line-height: 1.3;
+}
+.vk-hist__title {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vk-text-0);
+}
+.vk-hist__meta {
+  font-size: 12px;
+  color: var(--vk-text-3);
+}
+.vk-hist__pics {
+  display: flex;
+}
+.vk-hist__pics .vk-joint__pic + .vk-joint__pic {
+  margin-left: -6px;
+}
+.vk-hist__go {
+  font-size: 12px;
+  color: var(--vk-acc);
+}
+.vk-hist__view {
+  display: grid;
+  gap: 12px;
+}
+.vk-hist__view .vk-panel {
+  box-shadow: none;
+}
+@media (max-width: 640px) {
+  .vk-hist__go {
+    display: none;
+  }
+}

@@ -124,17 +124,6 @@ export default {
   },
 
   // Report
-  'coop.rep.title': { et: 'Meeskonna töö', en: 'Team work' },
-  'coop.rep.meta': { et: 'Iga töölaua tegevus', en: 'What each desk did' },
-  'coop.rep.col.player': { et: 'Mängija', en: 'Player' },
-  'coop.rep.col.role': { et: 'Töölaud', en: 'Desk' },
-  'coop.rep.col.calls': { et: 'Kõned', en: 'Calls' },
-  'coop.rep.col.created': { et: 'Sündmused', en: 'Incidents' },
-  'coop.rep.col.acks': { et: 'Kinnitatud', en: 'Acknowledged' },
-  'coop.rep.col.sent': { et: 'Saadetud', en: 'Sent' },
-  'coop.rep.col.radio': { et: 'Raadio', en: 'Radio' },
-  'coop.rep.col.queries': { et: 'Päringud', en: 'Queries' },
-  'coop.rep.col.pings': { et: 'Sõnumid', en: 'Messages' },
   'coop.rep.xp': {
     et: 'Sinu kogemuspunktid: {xp} (meeskond {team}, oma töö +{own}).',
     en: 'Your experience: {xp} (team {team}, own work +{own}).',

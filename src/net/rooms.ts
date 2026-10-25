@@ -14,6 +14,7 @@ import {
 } from '@/sim/room';
 import { ApiError, request, toApiError } from './api';
 import { isCoopRole, type CoopRole } from '@/sim/coop';
+import { parseRoomSummary, roomSummary, type RoomSummary } from '@/sim/joint';
 import { isObj } from './sync';
 import { parseCustom, type CustomSetup } from '@/sim/custom';
 
@@ -343,9 +344,11 @@ export async function kickPlayer(code: string, seat: number): Promise<Room> {
 /**
  * Body of POST /api/rooms/{code}/result (a co-op player adds their own XP). `seed` is the shift's: the room answers
  * `round_over` when its round is over by then. `signed` is the game server's signed result of a shared shift it ran
- * (the API counts that one, whatever the numbers beside it say).
+ * (the API counts that one, whatever the numbers beside it say, and keeps the joint report it carries). A co-op shift
+ * the browsers ran sends its joint report (`summary`, 2.36.0) for the room's history.
  */
 export function roomResultBody(r: ShiftReport, xp?: number, seed?: number, signed?: string) {
+  const summary = r.coop && !signed ? roomSummary(r) : null;
   return {
     score: Math.max(0, Math.min(100, Math.round(r.score))),
     grade: r.grade,
@@ -354,6 +357,43 @@ export function roomResultBody(r: ShiftReport, xp?: number, seed?: number, signe
     ...(xp !== undefined ? { xp: Math.max(0, Math.min(100000, Math.round(xp))) } : {}),
     ...(seed !== undefined ? { seed } : {}),
     ...(signed ? { signed } : {}),
+    ...(summary ? { summary } : {}),
+  };
+}
+
+/** A round from the player's history (GET /api/rooms/history, 2.36.0). */
+export interface RoomHistoryRound {
+  code: string;
+  round: number;
+  mode: RoomMode;
+  seed: number;
+  /** When the player's result came (unix ms). */
+  at: number;
+  results: RoomResult[];
+  /** A co-op round's joint report, when the room kept one. */
+  summary: RoomSummary | null;
+}
+
+/** The rounds the player sent a result for, newest first (as long as their rooms are kept). */
+export async function fetchRoomHistory(): Promise<RoomHistoryRound[]> {
+  const res = await request<unknown>('GET', '/rooms/history');
+  const list = isObj(res) && Array.isArray(res.rounds) ? res.rounds : [];
+  return list.map(parseHistoryRound).filter((x): x is RoomHistoryRound => !!x);
+}
+
+function parseHistoryRound(v: unknown): RoomHistoryRound | null {
+  if (!isObj(v)) return null;
+  const code = normalizeRoomCode(v.code);
+  const results = parseResults(v.results);
+  if (!code || typeof v.round !== 'number' || v.round < 1 || !results.length) return null;
+  return {
+    code,
+    round: Math.round(v.round),
+    mode: oneOf(v.mode, MODES, 'race'),
+    seed: num(v.seed),
+    at: num(v.at),
+    results,
+    summary: parseRoomSummary(v.summary),
   };
 }
 

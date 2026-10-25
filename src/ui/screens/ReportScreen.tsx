@@ -17,17 +17,18 @@ import {
   type Room,
 } from '@/net/rooms';
 import { ApiError } from '@/net/api';
-import { useLang, useT, useTx } from '@/i18n';
+import { useLang, useT } from '@/i18n';
 import { sfx } from '@/audio/sfx';
 import { ddmmyyyy, hhmm, wall } from '@/sim/time';
 import type { LedgerEntry, Officer, Priority, ShiftReport } from '@/sim/types';
 import type { ReportExtras } from '@/sim/report';
 import { dailyChallenge, dailyDateOf, dailyStartedOf, todayInTallinn } from '@/sim/daily';
 import { displayRoomCode, roomCodeOf } from '@/sim/room';
-import { coopPaidKey, coopXp, type CoopReport, type SeatStats } from '@/sim/coop';
-import { sectorById } from '@/sim/sectors';
+import { coopPaidKey, coopXp } from '@/sim/coop';
+import { roomSummary } from '@/sim/joint';
 import { useCoop } from '@/store/coop';
 import { Button, Modal, PpaLogo, PriorityChip, Spinner } from '@/ui/components';
+import { JointReport } from './shell/JointReport';
 import { Newspaper } from './shell/Newspaper';
 import { DailyBoardModal } from './shell/Daily';
 import { boardCount, ResultsBoard, RoomBoard, useLiveRoom } from './shell/RoomBoard';
@@ -112,6 +113,8 @@ export function ReportScreen() {
   const roomSeed = roomCode && sim ? sim.seed : undefined;
   // Co-op: the same report for everyone; each player's XP is the team's plus a share for their own seat's work.
   const mySeat = useCoop((s) => s.seat);
+  const coopAvatars = useCoop((s) => s.avatars);
+  const joint = useMemo(() => (report ? roomSummary(report) : null), [report]);
   const coopMine = report?.coop?.seats.find((x) => x.seat === mySeat);
   const myXp = report?.coop ? coopXp(report, coopMine?.stats) : undefined;
   // A shared shift the game server ran counts with the result it signed (docs/MULTIPLAYER.md section 12).
@@ -385,13 +388,12 @@ export function ReportScreen() {
             </div>
           </section>
 
-          {report.coop && (
-            <CoopTeam
-              coop={report.coop}
+          {joint && (
+            <JointReport
+              summary={joint}
               me={mySeat}
-              xp={myXp ?? report.xp}
-              team={report.xp}
-              paid={coopPaid.get(report)}
+              avatarOf={(x) => coopAvatars[x.seat]}
+              foot={<CoopXp xp={myXp ?? report.xp} team={report.xp} paid={coopPaid.get(report)} />}
             />
           )}
 
@@ -1158,135 +1160,19 @@ function RoomReportBoard({
   );
 }
 
-/** Co-op: what each desk did in the shared shift, and this player's XP. The same table on every player's report. */
-function CoopTeam({
-  coop,
-  me,
-  xp,
-  team,
-  paid,
-}: {
-  coop: CoopReport;
-  me: number;
-  xp: number;
-  team: number;
-  paid?: 'paid' | 'already' | 'none';
-}) {
+/** Co-op: this player's XP from the shared shift, and whether the career got it (the joint report's foot). */
+function CoopXp({ xp, team, paid }: { xp: number; team: number; paid?: 'paid' | 'already' | 'none' }) {
   const t = useT();
-  const tx = useTx();
-  const sector = coop.mode === 'sector';
-  const cols: (keyof SeatStats)[] = sector
-    ? ['calls', 'created', 'sent', 'lent', 'helped']
-    : ['calls', 'created', 'acks', 'sent', 'radio'];
-  const colKey = (c: keyof SeatStats) =>
-    c === 'lent' || c === 'helped' ? `desk.rep.col.${c}` : `coop.rep.col.${c}`;
   return (
-    <section className="vk-panel" aria-labelledby="vk-rep-coop" data-testid="coop-report">
-      <div className="vk-panel__head">
-        <h2 className="vk-h" id="vk-rep-coop">
-          {t('coop.rep.title')}
-        </h2>
-        <span className="vk-meta">{t('coop.rep.meta')}</span>
-      </div>
-      <div className="vk-rep__coopWrap">
-        <table className="vk-table vk-rep__coop">
-          <caption>{t('coop.rep.title')}</caption>
-          <thead>
-            <tr>
-              <th scope="col">{t('coop.rep.col.player')}</th>
-              <th scope="col">{t('coop.rep.col.role')}</th>
-              {cols.map((c) => (
-                <th key={c} scope="col" className="is-num">
-                  {t(colKey(c))}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {coop.seats.map((x) => (
-              <tr key={x.seat} className={x.seat === me ? 'is-me' : undefined} data-testid="coop-report-row">
-                <th scope="row">
-                  {x.name}
-                  {x.seat === me && <span className="vk-dim"> ({t('rooms.badge.you')})</span>}
-                </th>
-                <td>
-                  {x.desk
-                    ? tx(sectorById(x.desk)?.name ?? { et: x.desk, en: x.desk })
-                    : t(`coop.role.${x.role}`)}
-                </td>
-                {cols.map((c) => (
-                  <td key={c} className="is-num vk-mono">
-                    {x.stats[c] ?? 0}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {coop.desks && <DeskTable coop={coop} me={me} />}
-      <div className="vk-panel__foot">
-        <span data-testid="coop-xp">
-          {t('coop.rep.xp', { xp, team, own: xp - team })}{' '}
-          {paid === 'paid'
-            ? t('coop.rep.career')
-            : paid === 'already'
-              ? t('coop.rep.careerPaid')
-              : paid === 'none'
-                ? t('coop.rep.noCareer')
-                : ''}
-        </span>
-      </div>
-    </section>
-  );
-}
-
-/** Sector co-op: one row per desk, who ran it (a player, or its AI colleague) and what it did. The same everywhere. */
-function DeskTable({ coop, me }: { coop: CoopReport; me: number }) {
-  const t = useT();
-  const tx = useTx();
-  // Calls and crews sent are in the players' table above; here what crossed the borders.
-  const cols = ['incidents', 'closed', 'lent', 'helped', 'handover', 'taken'] as const;
-  const mine = coop.seats.find((x) => x.seat === me)?.desk;
-  return (
-    <div className="vk-rep__coopWrap" data-testid="desk-report">
-      <p className="vk-rep__coopSub" aria-hidden="true">
-        {t('desk.rep.title')} <span className="vk-dim">· {t('desk.rep.meta')}</span>
-      </p>
-      <table className="vk-table vk-rep__coop">
-        <caption>{t('desk.rep.title')}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{t('desk.rep.col.desk')}</th>
-            <th scope="col">{t('desk.rep.col.who')}</th>
-            {cols.map((c) => (
-              <th key={c} scope="col" className="is-num">
-                {t(`desk.rep.col.${c}`)}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {(coop.desks ?? []).map((d) => {
-            const names = coop.seats.filter((x) => d.seats.includes(x.seat)).map((x) => x.name);
-            return (
-              <tr
-                key={d.desk}
-                className={d.desk === mine ? 'is-me' : undefined}
-                data-testid="desk-report-row"
-              >
-                <th scope="row">{tx(sectorById(d.desk)?.name ?? { et: d.desk, en: d.desk })}</th>
-                <td>{names.length ? names.join(', ') : t('desk.colleague', { name: d.colleague })}</td>
-                {cols.map((c) => (
-                  <td key={c} className="is-num vk-mono">
-                    {d[c]}
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <span data-testid="coop-xp">
+      {t('coop.rep.xp', { xp, team, own: xp - team })}{' '}
+      {paid === 'paid'
+        ? t('coop.rep.career')
+        : paid === 'already'
+          ? t('coop.rep.careerPaid')
+          : paid === 'none'
+            ? t('coop.rep.noCareer')
+            : ''}
+    </span>
   );
 }

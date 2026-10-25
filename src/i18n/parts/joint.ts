@@ -1,0 +1,110 @@
+// Ühine raport ja ruumi ajalugu (2.36.0, src/ui/screens/shell/JointReport.tsx, RoomHistory.tsx).
+import type { Dict } from '../index';
+
+export default {
+  'joint.title': { et: 'Ühine raport', en: 'Joint report' },
+  'joint.meta': { et: 'Sama kõigil mängijatel', en: 'The same for every player' },
+  'joint.awards': { et: 'Auhinnad', en: 'Awards' },
+  'joint.players': { et: 'Mängijad', en: 'Players' },
+  'joint.timeline': { et: 'Vahetuse tähtsamad hetked', en: 'Moments of the shift' },
+  'joint.desks': { et: 'Lauad', en: 'Desks' },
+  'joint.you': { et: 'sina', en: 'you' },
+  'joint.deleted': { et: 'Kustutatud konto', en: 'Deleted account' },
+  'joint.colleague': { et: 'kolleeg {name}', en: 'colleague {name}' },
+  'joint.left': { et: 'lahkus', en: 'left' },
+
+  'joint.award.hero': { et: 'Päeva kangelane', en: 'Hero of the day' },
+  'joint.award.hero.why': { et: 'Kõige rohkem tööd: {n} p', en: 'The most work: {n} pts' },
+  'joint.award.fastest': { et: 'Kiireim käsi', en: 'Fastest hand' },
+  'joint.award.fastest.why': {
+    et: 'Esimene ekipaaž teele keskmiselt {time}',
+    en: 'First crew on its way in {time} on average',
+  },
+  'joint.award.helper.sector': { et: 'Abivalmis naaber', en: 'Helpful neighbour' },
+  'joint.award.helper.role': { et: 'Abivalmis kolleeg', en: 'Helpful colleague' },
+  'joint.award.helper.why.sector': {
+    et: 'Laenas ekipaaže ja aitas naabreid: {n} p',
+    en: 'Lent crews and helped the neighbours: {n} pts',
+  },
+  'joint.award.helper.why.role': {
+    et: 'Raadiovastused ja registripäringud: {n}',
+    en: 'Radio answers and registry checks: {n}',
+  },
+  'joint.award.nerve': { et: 'Raudne närv', en: 'Nerves of steel' },
+  'joint.award.nerve.why': {
+    et: 'Kõige kiireloomulisemaid sündmusi: {n}',
+    en: 'The most urgent incidents: {n}',
+  },
+  'joint.award.snail': { et: 'Tigu', en: 'Snail' },
+  'joint.award.snail.why': {
+    et: 'Esimene ekipaaž teele keskmiselt {time}. Järgmine kord kiiremini!',
+    en: 'First crew on its way in {time} on average. Faster next time!',
+  },
+
+  'joint.stat.calls': { et: 'Kõned', en: 'Calls' },
+  'joint.stat.worked': { et: 'Sündmused', en: 'Incidents' },
+  'joint.stat.sent': { et: 'Saatmised', en: 'Crews sent' },
+  'joint.stat.resp': { et: 'Esimene ekipaaž', en: 'First crew' },
+  'joint.stat.resp.hint': {
+    et: 'Keskmine aeg sündmuse tekkimisest esimese ekipaaži saatmiseni',
+    en: 'Average time from an incident appearing to its first crew',
+  },
+  'joint.stat.lent': { et: 'Laenas', en: 'Lent' },
+  'joint.stat.helped': { et: 'Aitas', en: 'Helped' },
+  'joint.stat.radio': { et: 'Raadio', en: 'Radio' },
+  'joint.stat.queries': { et: 'Päringud', en: 'Checks' },
+
+  'joint.m.start': { et: 'Vahetus algas', en: 'The shift began' },
+  'joint.m.end': {
+    et: 'Vahetus lõppes: hinne {grade}, {score}/100 punkti',
+    en: 'The shift ended: grade {grade}, {score}/100 points',
+  },
+  'joint.m.lend': { et: 'Ekipaaž {unit} laenati: {from} → {to}', en: 'Crew {unit} lent: {from} → {to}' },
+  'joint.m.take': { et: '{name} võttis laua {desk} üle', en: '{name} took over the {desk} desk' },
+  'joint.m.give': {
+    et: '{name} andis laua {desk} kolleegile tagasi',
+    en: '{name} handed the {desk} desk back to its colleague',
+  },
+  'joint.m.left': { et: '{name} lahkus vahetusest', en: '{name} left the shift' },
+  'joint.m.back': { et: '{name} tuli tagasi', en: '{name} came back' },
+  'joint.m.handover': { et: 'Jälitus anti üle: {from} → {to}', en: 'Pursuit handed over: {from} → {to}' },
+  'joint.m.good': { et: 'Hästi läinud', en: 'Went well' },
+  'joint.m.bad': { et: 'Läks halvasti', en: 'Went badly' },
+
+  'joint.share': { et: 'Jaga pildina', en: 'Share as a picture' },
+  'joint.share.busy': { et: 'Teen pilti…', en: 'Making the picture…' },
+  'joint.share.saved': { et: 'Pilt on alla laaditud.', en: 'The picture is downloaded.' },
+  'joint.share.failed': {
+    et: 'Pilti ei saanud teha. Proovi uuesti.',
+    en: 'The picture could not be made. Try again.',
+  },
+  'joint.img.title': { et: 'Ühine vahetus', en: 'Shared shift' },
+  'joint.img.team': { et: 'Meeskonna tulemus', en: 'Team result' },
+  'joint.img.incidents': { et: 'Sündmusi: {n}', en: 'Incidents: {n}' },
+  'joint.img.arrests': { et: 'Kinnipidamisi: {n}', en: 'Arrests: {n}' },
+  'joint.img.points': { et: '{n}/100 punkti', en: '{n}/100 points' },
+
+  'history.title': { et: 'Varasemad mängud', en: 'Earlier games' },
+  'history.meta': { et: 'Viimased 30 päeva', en: 'The last 30 days' },
+  'history.room': { et: 'Ruumi ajalugu', en: 'Room history' },
+  'history.empty': {
+    et: 'Siia tulevad mitmikmängud, mille oled lõpuni mänginud. Neid hoitakse 30 päeva.',
+    en: 'Multiplayer games you played to the end come here. They are kept for 30 days.',
+  },
+  'history.error': { et: 'Ajalugu ei saanud laadida.', en: 'The history could not be loaded.' },
+  'history.round': { et: '{code} · voor {n}', en: '{code} · round {n}' },
+  'history.together': { et: 'Koos mängitud: {n} vahetust', en: 'Played together: {n} shifts' },
+  'history.together.one': { et: 'Koos mängitud: 1 vahetus', en: 'Played together: 1 shift' },
+  'history.hero': {
+    et: 'Kõige sagedamini päeva kangelane: {name} ({n})',
+    en: 'Most often hero of the day: {name} ({n})',
+  },
+  'history.place': { et: 'Koht {rank}/{n}', en: 'Place {rank}/{n}' },
+  'history.view': { et: 'Vaata', en: 'View' },
+  'history.close': { et: 'Sulge', en: 'Close' },
+  'history.results': { et: 'Tulemused', en: 'Results' },
+  'history.noReport': {
+    et: 'Selle vooru ühist raportit ei ole: see mängiti enne versiooni 2.36.0.',
+    en: 'This round has no joint report: it was played before version 2.36.0.',
+  },
+} satisfies Dict;

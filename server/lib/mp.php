@@ -148,6 +148,8 @@ function epd_mp_signed_result(mixed $token, array $room, int $seat): array
         'incidents' => max(0, min(100000, (int) $p['incidents'])),
         'arrests' => max(0, min(100000, (int) $p['arrests'])),
         'xp' => max(0, min(100000, $xp)),
+        // The joint report the game server built (2.36.0), for the room's history.
+        'summary' => is_array($p['sum'] ?? null) ? $p['sum'] : null,
     ];
 }
 

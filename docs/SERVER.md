@@ -142,13 +142,14 @@ Errors: `{ "error": "<code>", "message": "<Estonian text>" }` with a fitting sta
 | GET | /api/rooms | | `{ room \| null }` the caller's open room (lobby or running, or between two rounds) |
 | POST | /api/rooms | `{ mode, regionId, sector, desks?, difficulty, hours, slot }` | `{ room }` new room, the caller is host (`desks` for mode `sector`) |
 | POST | /api/rooms/join | `{ code }` | `{ room }`; 404 unknown code, 409 `room_full` / `room_started`, 429 too many wrong codes |
+| GET | /api/rooms/history | | `{ rounds: [{ code, round, mode, seed, at, results, summary }] }` the caller's played rounds, newest first (see below) |
 | GET | /api/rooms/{code}?v= | | `{ v, room }`, or `{ v, unchanged: true }` while `v` still matches (members only, else 404) |
 | PUT | /api/rooms/{code} | `{ mode?, regionId, sector, desks?, difficulty, hours, slot }` | `{ room }` (host, lobby) |
 | POST | /api/rooms/{code}/ready | `{ ready }` | `{ room }` |
 | POST | /api/rooms/{code}/start | | `{ room }` (host; at least 2 players take part, everybody here ready) |
 | POST | /api/rooms/{code}/leave | | `{ ok: true }` |
 | POST | /api/rooms/{code}/kick | `{ seat }` | `{ room }` (host; the player leaves at once and cannot come back with the code) |
-| POST | /api/rooms/{code}/result | `{ score, grade, incidents, arrests, xp?, seed?, signed? }` | `{ ok: true, counted, rank, room }` (the first result counts; 409 `round_over`; a game server room counts `signed` only, else 409 `unsigned`) |
+| POST | /api/rooms/{code}/result | `{ score, grade, incidents, arrests, xp?, seed?, signed?, summary? }` | `{ ok: true, counted, rank, room }` (the first result counts; 409 `round_over`; a game server room counts `signed` only, else 409 `unsigned`; `summary` is a co-op round's joint report) |
 | POST | /api/rooms/{code}/reopen | `{ round?, end? }` | `{ room }` (back after a round: a finished round opens the next one; `end` the host's) |
 | POST | /api/rooms/{code}/role | `{ role }` | `{ room }` (co-op lobby: `calls`, `dispatch` or `radio`) |
 | POST | /api/rooms/{code}/desk | `{ desk }` | `{ room }` (sector room's lobby: one of the room's desks) |
@@ -407,6 +408,16 @@ docs/MULTIPLAYER.md):
   (swept on `POST /api/rooms`). Tables `rooms`, `room_players`, `room_results` (schema step 4); schema step 11
   (additive): `rooms.round` (default 1) and `room_round_results` (room, round, user, mode, seed, score, grade,
   incidents, arrests, xp, at; key room, round and user; it goes with the room and with the account).
+- Joint report and history (2.36.0, docs/MULTIPLAYER.md section 14): a co-op round keeps the joint report the first
+  counted result of it brought (`room_reports`, schema step 14: room, round, summary, at; key room and round; it goes
+  with the room). A lockstep round's comes as the result's `summary` (src/sim/joint.ts roomSummary), a game server
+  round's inside its signed result (`sum`), and a client's `summary` beside a signature is ignored. The API checks only
+  the shape (`v` 1, one to four seats) and the size (at most 32 kB of JSON; anything else is left out without an
+  error); the client reads it back field by field. Race rounds keep none. `GET /api/rooms/history` answers the rounds
+  the caller sent a result for, newest first, at most 30, while their rooms are kept: the current round of a room only
+  once it is `finished` or `closed`, the earlier ones from `room_round_results`. Each has everybody's results (as on the
+  room's board, with `avatar`) and `summary` (null for a race or a round without one). Deleting an account takes its
+  name out of the kept joint reports (the seat stays, nameless).
 - Custom force (2.26.0, `src/sim/custom.ts`): the options may carry `custom: { crews: [[type, station, officer...]...],
   budget?: true }`, at most 40 crews of the known unit types, a station id of the room's prefecture, at most 6 distinct
   officer indices 0..59 (the prefecture's draft pool) per crew, each officer once (400 `invalid_room`, field `custom`).
