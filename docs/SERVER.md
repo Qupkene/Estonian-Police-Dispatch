@@ -99,8 +99,9 @@ Relay VPS: Caddy site `politsei.eu` (and `www.politsei.eu` redirecting to it) �
 ## 3. HTTP routes (inside the container)
 
 - `/api/*` → PHP, `/app/server/api/index.php` (the router reads the path itself).
-- `/mp/*` → the game server at `127.0.0.1:8790`: `GET /mp/health`, WebSocket `/mp/ws`. Not compressed,
-  `no-store`; 502 while it is down (the client retries).
+- `/mp/*` → the game server at `127.0.0.1:8790`: `GET /mp/health`, WebSocket `/mp/ws`, `POST /mp/kick` (only a
+  notice signed with the shared secret counts, section 4.1). Not compressed, `no-store`; 502 while it is down (the
+  client retries).
 - `/tiles/*` → static files from `/srv/tiles` with HTTP range support (PMTiles reads byte ranges).
   No `encode` on this route: range replies must be `206` with `Content-Length`, `Accept-Ranges: bytes`
   and a stable `ETag`/`Last-Modified`. `*.bin` (map data, section 2.1) is served as
@@ -145,7 +146,8 @@ Errors: `{ "error": "<code>", "message": "<Estonian text>" }` with a fitting sta
 | POST | /api/rooms/{code}/ready | `{ ready }` | `{ room }` |
 | POST | /api/rooms/{code}/start | | `{ room }` (host; at least 2 players take part, everybody here ready) |
 | POST | /api/rooms/{code}/leave | | `{ ok: true }` |
-| POST | /api/rooms/{code}/result | `{ score, grade, incidents, arrests, xp?, seed? }` | `{ ok: true, counted, rank, room }` (the first result counts; 409 `round_over`) |
+| POST | /api/rooms/{code}/kick | `{ seat }` | `{ room }` (host; the player leaves at once and cannot come back with the code) |
+| POST | /api/rooms/{code}/result | `{ score, grade, incidents, arrests, xp?, seed?, signed? }` | `{ ok: true, counted, rank, room }` (the first result counts; 409 `round_over`; a game server room counts `signed` only, else 409 `unsigned`) |
 | POST | /api/rooms/{code}/reopen | `{ round?, end? }` | `{ room }` (back after a round: a finished round opens the next one; `end` the host's) |
 | POST | /api/rooms/{code}/role | `{ role }` | `{ room }` (co-op lobby: `calls`, `dispatch` or `radio`) |
 | POST | /api/rooms/{code}/desk | `{ desk }` | `{ room }` (sector room's lobby: one of the room's desks) |
@@ -388,6 +390,13 @@ docs/MULTIPLAYER.md):
   roles, desks and drafts stay. Counts as a poll (`seen`).
 - `GET /api/rooms` also answers a room between two rounds (`finished`) the caller is still in when its round started in
   the last 12 hours; an open room comes first.
+- `kick` (2.34.0, docs/MULTIPLAYER.md section 12) `{ seat }`: the host removes the player in that seat (403 `not_host`
+  for the others, 400 `invalid_room` `field: seat` for a seat that is not 0..3, 404 `player_not_found` when nobody is
+  in it, 409 `kick_self` for the host's own seat, 409 `room_closed`). The player leaves as with `leave` (from a lobby
+  the seat is freed, from a running round they stay on the board as `left`, a lockstep shift sequences `left [seat]`)
+  and goes into `room_bans` (schema step 12: room, user, at; it goes with the room and with the account). From then
+  on every route of that room answers them 403 `kicked` ("Ruumi looja eemaldas sind sellest ruumist."), `join` too.
+  A running game server room is told with a signed `POST /mp/kick` (below).
 - Time rules, applied on every read and write: a lobby nobody polled for 30 minutes becomes `closed`, a running
   room is `finished` 12 hours after its start. Rooms nobody changed for 30 days (`updated`) are deleted with their rows
   (swept on `POST /api/rooms`). Tables `rooms`, `room_players`, `room_results` (schema step 4); schema step 11
@@ -427,8 +436,8 @@ design and protocol in docs/MULTIPLAYER.md section 4):
   `prio [id, 1..4]`, `send [id, [id x 1..12]]`, `recall [id]`, `close [id, word, word?]`, `agency [id, word]`,
   `pursuit [id, word]`, `reply [id, word]`, `break [id, 0|1]`, `check [id, ref, ref]`, `answer [id]`, `ask [id,
   word]`, `interp [id]`, `endcall [id, word, 0..4, word or '']`, `q [word, text <= 64]`, `ping [text <= 140]`,
-  `speed [0..4]`, `end []`, and for sector rooms `lend [id, id]` (an incident and a crew) and `lendans [1..1000000,
-  0|1]` (a lend request's id and the answer). Ids match `[A-Za-z0-9_-]{1,40}`, words `[a-z_]{1,24}`, refs are a person id or a
+  `speed [0..4]`, `end []`, and for sector rooms `lend [id, id]` (an incident and a crew), `lendans [1..1000000,
+  0|1]` (a lend request's id and the answer), `take [id]` and `give [id]` (a desk to take over or hand back, 2.34.0). Ids match `[A-Za-z0-9_-]{1,40}`, words `[a-z_]{1,24}`, refs are a person id or a
   plate (letters, digits, space, `_.-`, at most 40), texts have no control characters. `speed` and `end` are the
   host's (403 `not_host`). The meaning and the role permissions are checked by every client's sim, identically.
   Batches per player: a bucket of 4, refilled at 2 a second (429 `rate_limited`, `Retry-After: 1`). At most
@@ -461,6 +470,17 @@ design and protocol in docs/MULTIPLAYER.md section 4):
   room: { code, mode, seed, day, options, started, setup: [hostSeat, rows] } }`; the secret is
   `EPD_DATA/mp/secret` (64 hex digits, mode 0600, created on first use). 409 `not_server_room` for a race room or a
   lockstep room, 409 `not_running`, 409 `left_room`, 404 for strangers. A ticket counts as being here (`seen`).
+- Signed results (2.34.0): at the end the game server hands every player `res`, a token signed like a ticket with
+  `{ v: 1, kind: 'result', code, seed, started, score, grade, incidents, arrests, xp: [[seat, xp], ...] }`, built
+  from the exact final state the way every client builds its report. `result` of a running or finished game server
+  room counts only with it as `signed`: the room, seed and start must be the room's and the caller's seat must have
+  an XP row, else 409 `unsigned`. The token's numbers replace the body's.
+- Removing a player from a running game server room: after the transaction PHP posts `{ kick: token }` to
+  `EPD_MP_URL/mp/kick`, the token signed like a ticket with `{ v: 1, kind: 'kick', code, seat, user, exp (now + 60
+  s) }`. The game server closes the seat's connections with code 4403, sequences `left [seat]` at once and never lets
+  the seat in again (kept in its saved room). Best effort: if the game server does not answer, the player's own
+  client ends the shift at its next room poll (403 `kicked`) and the seat leaves a minute later. A ticket is never a
+  kick and a kick never a ticket (`kind`).
 - Tables (schema step 5, additive): `room_commands` (index `(room_id, id)`), `room_snapshots`; columns `rooms.turn_ms`,
   `input_delay`, `host_seat`, `cmd_count`, `ref_hashes`, `snap_req`; `room_players.role`, `away`, `hash_turn`,
   `hash`, `resync`, `cmd_tokens`, `cmd_at`; `room_results.xp`. Every new column has a default. Schema step 6

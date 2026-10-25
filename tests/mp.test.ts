@@ -3,16 +3,20 @@
  * every client holds a copy built from the patches. The tests drive a room with fake connections: the copies stay
  * equal to the server's shadow for a whole shift, commands take effect at the next piece with their result sent back
  * to the issuer, malformed and forbidden ones are refused, a seat that stays away leaves and the host's role moves,
- * nobody connected stops the clock, and a saved room continues where it was.
+ * nobody connected stops the clock, and a saved room continues where it was. Since 2.34.0: a seat the host removed
+ * is closed at once and never let in again, and the end comes with the result signed the way every report builds it.
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { applyPatch, diffInto, jsonClone, type PatchOp } from '@/sim/patch';
 import { pendingRadio, queue, recommendUnits } from '@/sim/selectors';
-import { simDigest, TURN_PIECES } from '@/sim/coop';
+import { finalizeShift } from '@/sim/engine';
+import { coopReport, coopXp, PLAYER_KINDS, simDigest, TURN_PIECES } from '@/sim/coop';
+import { roomResultBody } from '@/net/rooms';
 import type { SimState } from '@/sim/types';
 import { AWAY_MS, MpRoom, PIECE_MS, type Peer } from '../server/mp/room';
-import { signTicket, verifyTicket, type TicketRoom } from '../server/mp/ticket';
-import { validCommand } from '../server/mp/validate';
+import { signTicket, verifyKick, verifyTicket, type TicketRoom } from '../server/mp/ticket';
+import { COMMAND_SHAPES, validCommand } from '../server/mp/validate';
 
 const ROOM: TicketRoom = {
   code: 'K7M2QX',
@@ -266,6 +270,72 @@ describe('game server room', () => {
     expect(t.r.emptySince).not.toBeNull();
   });
 
+  it('closes a seat the host removed at once and never lets it in again, after a restart too', () => {
+    const t = room();
+    const host = new FakePeer(0, 11);
+    const calls = new FakePeer(1, 12);
+    t.r.join(host, t.now());
+    t.r.join(calls, t.now());
+    t.tick(3);
+    t.r.kick(1, t.now());
+    expect(calls.closed).toEqual({ code: 4403, reason: 'kicked' });
+    // The seat leaves at the next piece: its role passes on, no minute's grace.
+    t.tick();
+    expect(t.r.sim.coop!.seats.find((s) => s.seat === 1)?.present).toBe(false);
+    expect(host.sim().coop!.seats.find((s) => s.seat === 1)?.present).toBe(false);
+    const again = new FakePeer(1, 12);
+    t.r.join(again, t.now());
+    expect(again.closed).toEqual({ code: 4403, reason: 'kicked' });
+    expect(again.msgs).toEqual([]);
+    const back = new MpRoom(ROOM, JSON.parse(JSON.stringify(t.r.save())), t.now());
+    const after = new FakePeer(1, 12);
+    back.join(after, t.now());
+    expect(after.closed?.code).toBe(4403);
+  });
+
+  it('signs the result at the end the way every player’s report builds it', () => {
+    const secret = 'c'.repeat(64);
+    const t = room();
+    t.r.signer = (p) => signTicket(p, secret);
+    const host = new FakePeer(0, 11);
+    const calls = new FakePeer(1, 12);
+    t.r.join(host, t.now());
+    t.r.join(calls, t.now());
+    expect(t.r.signedResult()).toBeNull();
+    t.r.command(host, 1, 'speed', [3], t.now());
+    t.tick(TURN_PIECES * 40);
+    t.r.command(host, 2, 'end', [], t.now());
+    t.tick();
+    const full = host.msgs.find((m) => m.t === 'full')!;
+    expect(typeof full.res).toBe('string');
+    expect(calls.msgs.find((m) => m.t === 'full')!.res).toBe(full.res);
+    const token = full.res as string;
+    const p = JSON.parse(Buffer.from(token.slice(0, token.indexOf('.')), 'base64url').toString('utf8'));
+    // What the browser does with the same final state (src/store/game.ts endShift, ReportScreen).
+    const copy = host.sim();
+    copy.ended = true;
+    const report = finalizeShift(copy);
+    const coop = coopReport(copy)!;
+    const team = roomResultBody(report);
+    expect(p).toEqual({
+      v: 1,
+      kind: 'result',
+      code: ROOM.code,
+      seed: ROOM.seed,
+      started: ROOM.started,
+      score: team.score,
+      grade: team.grade,
+      incidents: team.incidents,
+      arrests: team.arrests,
+      xp: coop.seats.map((x) => [x.seat, Math.round(coopXp(report, x.stats))]),
+    });
+    expect(signTicket(p, secret)).toBe(token);
+    // Back after the end: the same result again.
+    const late = new FakePeer(1, 12);
+    t.r.join(late, t.now());
+    expect(late.msgs[0]).toMatchObject({ t: 'hello', res: token });
+  });
+
   it('continues a saved room where it was', () => {
     const t = room();
     const host = new FakePeer(0, 11);
@@ -326,6 +396,31 @@ describe('tickets and command shapes', () => {
     // The first WebSocket message ({t:'auth', ticket}) stays under the game server's 16 KiB frame limit.
     expect(JSON.stringify({ t: 'auth', ticket: tk }).length).toBeLessThan(16384);
     expect(verifyTicket(tk, secret)?.room.options).toMatchObject({ custom: { crews } });
+  });
+
+  it('accepts a signed kick from the PHP API, never a ticket in its place', () => {
+    const kick = { v: 1, kind: 'kick', code: ROOM.code, seat: 1, user: 5, exp: Date.now() + 60_000 };
+    const tk = signTicket(kick, secret);
+    expect(verifyKick(tk, secret)).toEqual({ code: ROOM.code, seat: 1, user: 5 });
+    expect(verifyKick(tk, secret, kick.exp + 1)).toBeNull();
+    expect(verifyKick(tk, 'b'.repeat(64))).toBeNull();
+    expect(verifyKick(signTicket(payload, secret), secret)).toBeNull();
+    expect(verifyTicket(tk, secret)).toBeNull();
+  });
+
+  it('takes the same command kinds as the PHP log and the sim', () => {
+    const php = readFileSync('server/lib/coop.php', 'utf8');
+    const block = php.slice(
+      php.indexOf('const EPD_COOP_KINDS = ['),
+      php.indexOf('];', php.indexOf('const EPD_COOP_KINDS = [')),
+    );
+    const phpKinds = [...block.matchAll(/'([a-z]+)' => \[/g)].map((m) => m[1]).sort();
+    expect(Object.keys(COMMAND_SHAPES).sort()).toEqual(phpKinds);
+    expect([...PLAYER_KINDS].sort()).toEqual(phpKinds);
+    expect(validCommand('take', ['pohja-lasnamae'])).toEqual({ k: 'take', a: ['pohja-lasnamae'] });
+    expect(validCommand('give', ['pohja-lasnamae'])).not.toBeNull();
+    for (const a of [[], [3], ['pohja lasnamae'], ['a', 'b']])
+      expect(validCommand('take', a), JSON.stringify(a)).toBeNull();
   });
 
   it('lets in the command shapes the PHP log takes, and nothing else', () => {

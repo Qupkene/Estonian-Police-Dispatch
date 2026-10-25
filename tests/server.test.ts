@@ -22,7 +22,7 @@ import {
 } from 'node:fs';
 import { createServer } from 'node:net';
 import { createServer as createHttpServer } from 'node:http';
-import { verifyTicket } from '../server/mp/ticket';
+import { signTicket, verifyKick, verifyTicket } from '../server/mp/ticket';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -1429,6 +1429,37 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       expect(r.json.error).toBe('rate_limited');
     });
 
+    it('lets the host remove a player, who cannot come back with the code (2.34.0)', async () => {
+      const host = client();
+      const guest = client();
+      const third = client();
+      for (const [c, name] of [
+        [host, 'Kaido'],
+        [guest, 'Liisa'],
+        [third, 'Marko'],
+      ] as const)
+        expect((await register(c, name)).status).toBe(200);
+      const r = (await host.post('/api/rooms', OPTS)).json.room;
+      await guest.post('/api/rooms/join', { code: r.code });
+      await guest.post(`/api/rooms/${r.code}/ready`, { ready: true });
+      // Only the host removes, never themselves, and only somebody who is there.
+      expect((await guest.post(`/api/rooms/${r.code}/kick`, { seat: 0 })).json.error).toBe('not_host');
+      expect((await host.post(`/api/rooms/${r.code}/kick`, { seat: 0 })).json.error).toBe('kick_self');
+      expect((await host.post(`/api/rooms/${r.code}/kick`, { seat: 2 })).json.error).toBe('player_not_found');
+      expect((await host.post(`/api/rooms/${r.code}/kick`, { seat: '1' })).json).toMatchObject({ error: 'invalid_room', field: 'seat' });
+      const out = await host.post(`/api/rooms/${r.code}/kick`, { seat: 1 });
+      expect(out.status).toBe(200);
+      expect(names(out)).toEqual(['Kaido']);
+      // The removed player hears it at the next poll, and the code no longer lets them in.
+      for (const res of [await guest.get(`/api/rooms/${r.code}`), await guest.post('/api/rooms/join', { code: r.code })]) {
+        expect(res.status).toBe(403);
+        expect(res.json.error).toBe('kicked');
+      }
+      expect((await guest.get('/api/rooms')).json).toEqual({ room: null });
+      // Their seat is free for somebody else.
+      expect(names(await third.post('/api/rooms/join', { code: r.code }))).toEqual(['Kaido', 'Marko']);
+    });
+
     it('puts Bob in a room he hosts, for the account deletion below', async () => {
       const r = (await bob.post('/api/rooms', OPTS)).json.room;
       bobRoom = r.code;
@@ -1867,6 +1898,32 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
         ['lend', 1, ['i3', 'u12']],
         ['lendans', 1, [4, 1]],
       ]);
+    });
+
+    it('takes desk take-overs into the log, and the host removes a player from the running shift (2.34.0)', async () => {
+      const ok = await pille.post(`/api/rooms/${code}/cmd`, { cmds: [{ k: 'take', a: ['pohja-lasnamae'] }, { k: 'give', a: ['pohja-lasnamae'] }] }, at(6000));
+      expect(ok.status).toBe(200);
+      for (const a of [[], ['pohja lasnamae'], [3]])
+        expect((await pille.post(`/api/rooms/${code}/cmd`, { cmds: [{ k: 'take', a }] }, at(6100))).json.error, JSON.stringify(a)).toBe('invalid_command');
+      expect((await rasmus.post(`/api/rooms/${code}/kick`, { seat: 0 }, at(6200))).json.error).toBe('not_host');
+      const kicked = await pille.post(`/api/rooms/${code}/kick`, { seat: 1 }, at(6500));
+      expect(kicked.status, JSON.stringify(kicked.json)).toBe(200);
+      expect(kicked.json.room.state).toBe('running');
+      expect(kicked.json.room.players.find((p: Json) => p.seat === 1)).toMatchObject({ name: 'Rasmus', left: true });
+      // The shared shift hears it at once: the seat leaves and its desk goes to the colleague.
+      const log = await pille.get(`/api/rooms/${code}/log?after=0`, at(7000));
+      expect(log.json.cmds.at(-1)).toMatchObject({ s: -1, k: 'left', a: [1] });
+      // The removed player is out for good: no log, no commands, no ticket, no result, no way back in.
+      for (const r of [
+        await rasmus.get(`/api/rooms/${code}/log?after=0`, at(7100)),
+        await rasmus.get(`/api/rooms/${code}`, at(7200)),
+        await rasmus.post('/api/rooms/join', { code }, at(7300)),
+        await rasmus.post(`/api/rooms/${code}/cmd`, { cmds: [{ k: 'ping', a: ['tere'] }] }, at(7400)),
+        await rasmus.post(`/api/rooms/${code}/result`, { score: 50, grade: 'C', incidents: 3, arrests: 0 }, at(7500)),
+      ]) {
+        expect(r.status).toBe(403);
+        expect(r.json.error).toBe('kicked');
+      }
     });
 
     it('keeps desks out of the other modes', async () => {
@@ -3073,6 +3130,8 @@ describe.skipIf(!HAS_PHP)('game server rooms (mp.php, docs/MULTIPLAYER.md sectio
   let down: PhpServer;
   let health: ReturnType<typeof createHttpServer>;
   let healthHits = 0;
+  /** Kick notices the stand-in game server received (POST /mp/kick bodies). */
+  const kicks: unknown[] = [];
   const OPTS = { mode: 'role', regionId: 'pohja', sector: '', difficulty: 'normal', hours: 2, slot: 'evening' };
 
   const register = (c: Client, name: string) => c.post('/api/register', { name, password: 'salajane-123' });
@@ -3098,6 +3157,16 @@ describe.skipIf(!HAS_PHP)('game server rooms (mp.php, docs/MULTIPLAYER.md sectio
     const port = await freePort();
     // A stand-in for the game server's health check: it sees the secret once PHP has written it.
     health = createHttpServer((req, res) => {
+      if (req.method === 'POST' && req.url === '/mp/kick') {
+        let body = '';
+        req.on('data', (c: Buffer) => (body += c.toString()));
+        req.on('end', () => {
+          kicks.push(JSON.parse(body).kick);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end('{"ok":true,"found":true}');
+        });
+        return;
+      }
       healthHits++;
       const secret = existsSync(join(root, 'up', 'mp', 'secret'));
       res.writeHead(req.url === '/mp/health' ? 200 : 404, { 'Content-Type': 'application/json' });
@@ -3170,10 +3239,53 @@ describe.skipIf(!HAS_PHP)('game server rooms (mp.php, docs/MULTIPLAYER.md sectio
     expect(log.json.cmds[0]).toMatchObject({ k: 'setup', a: [0, [[0, 'dispatch', 'Liis'], [1, 'calls', 'Andres']]] });
   });
 
+  /** The result the game server signs at the end of a room's shift (server/mp/room.ts signedResult). */
+  const signedResult = (secret: string, room: Json, code: string, extra: Record<string, unknown> = {}) =>
+    signTicket(
+      { v: 1, kind: 'result', code, seed: room.seed, started: room.started, score: 64, grade: 'C', incidents: 9, arrests: 2, xp: [[0, 310], [1, 280]], ...extra },
+      secret,
+    );
+
+  it('counts a server room’s result only as the game server signed it (2.34.0)', async () => {
+    const { a, b, code, room } = await started(up, 'role', ['Hele', 'Kalev']);
+    const secret = readFileSync(join(root, 'up', 'mp', 'secret'), 'utf8').trim();
+    const CLAIM = { score: 100, grade: 'S', incidents: 40, arrests: 9, xp: 5000, seed: room.seed };
+    // Without the signature, with a forged one, or with one of another shift: refused.
+    expect((await a.post(`/api/rooms/${code}/result`, CLAIM)).json.error).toBe('unsigned');
+    expect((await a.post(`/api/rooms/${code}/result`, { ...CLAIM, signed: signedResult('f'.repeat(64), room, code) })).json.error).toBe('unsigned');
+    for (const extra of [{ seed: room.seed + 1 }, { started: room.started + 1 }, { code: 'ZZZZZZ' }, { kind: 'kick' }, { xp: [[3, 10]] }])
+      expect((await a.post(`/api/rooms/${code}/result`, { ...CLAIM, signed: signedResult(secret, room, code, extra) })).json.error, JSON.stringify(extra)).toBe('unsigned');
+    // The signed numbers count, whatever the body says; each seat gets its own XP.
+    const ok = await a.post(`/api/rooms/${code}/result`, { ...CLAIM, signed: signedResult(secret, room, code) });
+    expect(ok.status, JSON.stringify(ok.json)).toBe(200);
+    expect(ok.json.room.results).toEqual([expect.objectContaining({ name: 'Hele', score: 64, grade: 'C', incidents: 9, arrests: 2, xp: 310 })]);
+    expect((await b.post(`/api/rooms/${code}/result`, { ...CLAIM, signed: signedResult(secret, room, code) })).json.room.results.find((r: Json) => r.name === 'Kalev')).toMatchObject({ score: 64, xp: 280 });
+  });
+
+  it('removes a player from a running server room and tells the game server (2.34.0)', async () => {
+    const { a, b, code, room } = await started(up, 'role', ['Signe', 'Tarmo']);
+    const secret = readFileSync(join(root, 'up', 'mp', 'secret'), 'utf8').trim();
+    kicks.length = 0;
+    const out = await a.post(`/api/rooms/${code}/kick`, { seat: 1 });
+    expect(out.status, JSON.stringify(out.json)).toBe(200);
+    // The game server got a signed notice for exactly that seat (it closes the connection and lets the seat leave).
+    expect(kicks).toHaveLength(1);
+    expect(verifyKick(kicks[0], secret)).toMatchObject({ code, seat: 1 });
+    expect(verifyKick(kicks[0], 'f'.repeat(64))).toBeNull();
+    // A kick is no ticket, and a ticket no kick.
+    expect(verifyTicket(kicks[0], secret)).toBeNull();
+    expect(verifyKick((await a.post(`/api/rooms/${code}/ticket`)).json.ticket, secret)).toBeNull();
+    // No ticket for the removed player: they cannot connect again.
+    const t = await b.post(`/api/rooms/${code}/ticket`);
+    expect(t.status).toBe(403);
+    expect(t.json.error).toBe('kicked');
+    expect(room.engine).toBe('server');
+  });
+
   it('plays the next round of a room on the game server as a new shift', async () => {
     const { a, b, code, room } = await started(up, 'role', ['Merike', 'Jüri']);
     const secret = readFileSync(join(root, 'up', 'mp', 'secret'), 'utf8').trim();
-    const RESULT = { score: 70, grade: 'B', incidents: 6, arrests: 1, xp: 200 };
+    const RESULT = { score: 70, grade: 'B', incidents: 6, arrests: 1, xp: 200, signed: signedResult(secret, room, code) };
     for (const c of [a, b]) expect((await c.post(`/api/rooms/${code}/result`, { ...RESULT, seed: room.seed })).status).toBe(200);
     // The guest comes back first; the next round is decided at its own start (the game server is asked again).
     const back = await b.post(`/api/rooms/${code}/reopen`, { round: 1 });

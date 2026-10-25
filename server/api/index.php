@@ -48,6 +48,7 @@ function epd_routes(): array
         ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/custom$#', epd_route_room_custom(...)],
         ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/start$#', epd_route_room_start(...)],
         ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/leave$#', epd_route_room_leave(...)],
+        ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/kick$#', epd_route_room_kick(...)],
         ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/result$#', epd_route_room_result(...)],
         ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/reopen$#', epd_route_room_reopen(...)],
         ['POST', '#^/api/rooms/([A-Za-z0-9]{6})/role$#', epd_route_coop_role(...)],

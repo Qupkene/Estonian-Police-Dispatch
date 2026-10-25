@@ -98,6 +98,25 @@ export default {
     et: 'Kõned / saadetud ekipaažid / laenatud ekipaažid',
     en: 'Calls / crews sent / crews lent',
   },
+  // Taking over a desk nobody holds (docs/MULTIPLAYER.md section 12)
+  'desk.free.row': {
+    et: '{desk}: lauas pole kedagi, kolleeg {name} hoiab seda.',
+    en: '{desk}: nobody at the desk, colleague {name} holds it.',
+  },
+  'desk.take': { et: 'Võta üle', en: 'Take over' },
+  'desk.take.title': {
+    et: 'Võta laud {desk} enda kätte: selle sündmused, ekipaažid ja 112 kõned on siis sinu omad',
+    en: 'Take the {desk} desk: its events, crews and 112 calls are then yours',
+  },
+  'desk.taken.row': {
+    et: '{desk}: sinu käes. Omanik saab selle tagasi, kui naaseb.',
+    en: '{desk}: yours now. Its player gets it back on return.',
+  },
+  'desk.give': { et: 'Anna tagasi', en: 'Hand back' },
+  'desk.give.title': {
+    et: 'Anna laud {desk} kolleeg {name} kätte',
+    en: 'Hand the {desk} desk to colleague {name}',
+  },
   'desk.board.neighbours': { et: 'Naabrid', en: 'Neighbours' },
   'desk.board.neighboursTitle': {
     et: 'Näita naaberlaudade ekipaaže',

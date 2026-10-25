@@ -37,12 +37,16 @@ import {
 import {
   addableDesks,
   callDesk,
+  COLLEAGUE_ANSWER_MS,
   connected,
   defaultDesks,
   deskHolders,
+  deskRows,
+  freeDesks,
   heldDesks,
   incidentDesk,
   LEND_TURNS,
+  msgDesk,
   removableDesk,
   unitDesk,
   validDesks,
@@ -408,6 +412,114 @@ describe('sector co-op commands', () => {
     const before = sec.taken['louna-tartumaa'];
     for (let i = 0; i < 300; i++) runTurn(s, []);
     expect(sec.taken['louna-tartumaa']).toBe(before);
+  });
+
+  it('lets a player take over a desk nobody holds and gives it back when its player returns', () => {
+    const s = tartu();
+    const twin = JSON.parse(JSON.stringify(s)) as SimState;
+    const both = (c: LogCmd) => [applyCommand(s, c), applyCommand(twin, { ...c })][0];
+    const theirs = s.unitOrder.filter((id) => unitDesk(s, s.units[id]) === 'louna-tartumaa');
+    expect(theirs.length).toBeGreaterThan(0);
+    // Nothing to take while the neighbour is there.
+    expect(freeDesks(s.coop!, 0)).toEqual([]);
+    expect(both(cmd(0, 'take', ['louna-tartumaa'])).ok).toBe(false);
+    both({ id: ++nextId, t: 0, s: SERVER_SEAT, k: 'left', a: [1] });
+    const notice = s.radio.at(-1)!;
+    expect(notice.kind).toBe('system');
+    expect(notice.text.et).toContain('Ivo');
+    expect(notice.text.et).toContain('üle võtta');
+    expect(freeDesks(s.coop!, 0)).toEqual(['louna-tartumaa']);
+    // The away seat cannot take anything; the present one takes the empty desk.
+    expect(both(cmd(1, 'take', ['louna-tartumaa'])).ok).toBe(false);
+    expect(both(cmd(0, 'take', ['louna-tartu'])).ok).toBe(false);
+    expect(both(cmd(0, 'take', ['louna-tartumaa'])).ok).toBe(true);
+    expect(s.radio.at(-1)!.text.et).toContain('Hanna võttis laua');
+    expect(freeDesks(s.coop!, 0)).toEqual([]);
+    for (const id of theirs) expect(unitDesk(s, s.units[id])).toBe('louna-tartu');
+    expect(heldDesks(s.coop!)).toEqual(['louna-tartu', 'louna-tartumaa']);
+    expect(s.coop!.stats['0'].took).toBe(1);
+    // Its events, crews and 112 calls are Hanna's now; its colleague takes nothing back.
+    const taken = s.coop!.sec!.taken['louna-tartumaa'] ?? 0;
+    let sent = false;
+    for (let i = 0; i < 900; i++) {
+      runTurn(s, []);
+      runTurn(twin, []);
+      const inc = queue(s).find(
+        (x) =>
+          s.coop!.sec!.homeInc?.[x.id] === 'louna-tartumaa' &&
+          x.state !== 'closed' &&
+          !x.assigned.length &&
+          !s.flags[`hidden:${x.id}`],
+      );
+      const crew = theirs.map((id) => s.units[id]).find((u) => u.status === 'available' && !u.incidentId);
+      if (!sent && inc && crew) {
+        if (inc.state === 'incoming') both(cmd(0, 'ack', [inc.id]));
+        expect(incidentDesk(s, inc)).toBe('louna-tartu');
+        expect(both(cmd(0, 'send', [inc.id, [crew.id]])).ok).toBe(true);
+        sent = true;
+      }
+      for (const call of s.calls) if (!call.endedAt) expect(callDesk(s, call)).toBe('louna-tartu');
+      if (sent && i > 300) break;
+    }
+    expect(sent).toBe(true);
+    expect(s.coop!.sec!.taken['louna-tartumaa'] ?? 0).toBe(taken);
+    expect(simDigest(twin)).toBe(simDigest(s));
+    const report = coopReport(s)!;
+    expect(report.desks!.find((d) => d.desk === 'louna-tartumaa')!.takenBy).toEqual([0]);
+    // Ivo is back: his desk, its crews and the open events it brought along are his again.
+    const moved = Object.entries(s.coop!.sec!.homeInc ?? {})
+      .filter(([id, d]) => d === 'louna-tartumaa' && s.incidents[id]?.state !== 'closed')
+      .map(([id]) => id);
+    expect(moved.length).toBeGreaterThan(0);
+    both({ id: ++nextId, t: 0, s: SERVER_SEAT, k: 'back', a: [1] });
+    expect(s.radio.at(-1)!.text.et).toContain('Ivo on tagasi');
+    expect(s.coop!.sec!.merged).toEqual({});
+    for (const id of theirs) expect(unitDesk(s, s.units[id])).toBe('louna-tartumaa');
+    for (const id of moved) expect(incidentDesk(s, s.incidents[id]), id).toBe('louna-tartumaa');
+    expect(simDigest(twin)).toBe(simDigest(s));
+  });
+
+  it('hands a taken desk back to its colleague on request', () => {
+    const s = tartu();
+    applyCommand(s, { id: ++nextId, t: 0, s: SERVER_SEAT, k: 'left', a: [1] });
+    expect(applyCommand(s, cmd(0, 'take', ['louna-tartumaa'])).ok).toBe(true);
+    expect(applyCommand(s, cmd(0, 'give', ['louna-tartu'])).ok).toBe(false);
+    expect(applyCommand(s, cmd(0, 'give', ['louna-tartumaa'])).ok).toBe(true);
+    expect(s.radio.at(-1)!.text.et).toContain('kolleeg');
+    expect(heldDesks(s.coop!)).toEqual(['louna-tartu']);
+    expect(freeDesks(s.coop!, 0)).toEqual(['louna-tartumaa']);
+    for (const id of s.unitOrder) expect(unitDesk(s, s.units[id])).not.toBe(undefined);
+    expect(deskRows(s).find((d) => d.desk === 'louna-tartumaa')!.takenBy).toEqual([0]);
+  });
+
+  it('has the colleague of an emptied desk answer its crews on the events they already work', () => {
+    const s = tartu();
+    // Ivo sends a crew to every event of his desk for a while, then leaves.
+    for (let i = 0; i < 400; i++) {
+      runTurn(s, []);
+      for (const inc of queue(s)) {
+        if (incidentDesk(s, inc) !== 'louna-tartumaa' || inc.assigned.length || s.flags[`hidden:${inc.id}`])
+          continue;
+        if (inc.state === 'incoming') applyCommand(s, cmd(1, 'ack', [inc.id]));
+        const crew = freeUnit(s, 'louna-tartumaa');
+        if (crew) applyCommand(s, cmd(1, 'send', [inc.id, [crew.id]]));
+      }
+    }
+    applyCommand(s, { id: ++nextId, t: 0, s: SERVER_SEAT, k: 'left', a: [1] });
+    const left = s.now;
+    let answered = 0;
+    for (let i = 0; i < 900; i++) {
+      runTurn(s, []);
+      for (const m of s.radio) {
+        if (m.t < left || !['choice', 'agency', 'query'].includes(m.kind) || !m.replies?.length) continue;
+        if (msgDesk(s, m) !== 'louna-tartumaa' || m.answered) continue;
+        if (m.expiresAt !== undefined && m.expiresAt < s.now) continue;
+        // Nobody holds the desk: no crew waits much longer than the colleague's pause.
+        expect(s.now - m.t, m.id).toBeLessThan(COLLEAGUE_ANSWER_MS + 60_000);
+      }
+      answered = Object.keys(s.coop!.sec!.answered ?? {}).length;
+    }
+    expect(answered).toBeGreaterThan(0);
   });
 
   it('counts a crew that reaches a neighbour’s incident as help for its seat', () => {

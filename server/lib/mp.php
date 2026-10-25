@@ -11,7 +11,9 @@ declare(strict_types=1);
  *
  * The two services share a secret in EPD_DATA/mp/secret (created here on first use). A member of a running server
  * room gets a ticket signed with it: who they are, their seat and the room's shift. The game server believes nothing
- * else a client says about itself.
+ * else a client says about itself. The same secret signs the other way too (2.34.0): the game server hands every
+ * player the shift's result signed, and a server room's result counts only with that signature (the client cannot
+ * send another score); a removed player's seat is closed with a signed `POST /mp/kick`.
  *
  * Loaded at the end of coop.php.
  */
@@ -85,6 +87,94 @@ function epd_mp_engine(array $room): string
 function epd_mp_b64url(string $bytes): string
 {
     return rtrim(strtr(base64_encode($bytes), '+/', '-_'), '=');
+}
+
+function epd_mp_b64url_decode(string $text): string|false
+{
+    $raw = strtr($text, '-_', '+/');
+    return base64_decode($raw . str_repeat('=', (4 - strlen($raw) % 4) % 4), true);
+}
+
+/** The payload of a token signed with the shared secret, or null when the signature does not hold. */
+function epd_mp_verify(mixed $token): ?array
+{
+    if (!is_string($token) || strlen($token) > 8192) {
+        return null;
+    }
+    $dot = strpos($token, '.');
+    if ($dot === false || $dot === 0) {
+        return null;
+    }
+    $body = substr($token, 0, $dot);
+    $want = epd_mp_b64url(hash_hmac('sha256', $body, epd_mp_secret(), true));
+    if (!hash_equals($want, substr($token, $dot + 1))) {
+        return null;
+    }
+    $json = epd_mp_b64url_decode($body);
+    $payload = $json === false ? null : json_decode($json, true);
+    return is_array($payload) ? $payload : null;
+}
+
+/**
+ * A server room's result as the game server signed it (server/mp/room.ts `signedResult`): the team's score, grade,
+ * incidents and arrests and the caller's seat's XP. 409 `unsigned` when the token is missing, forged or of another
+ * shift (another room, round or start).
+ *
+ * @param array<string, mixed> $room
+ * @return array{score: int, grade: string, incidents: int, arrests: int, xp: int}
+ */
+function epd_mp_signed_result(mixed $token, array $room, int $seat): array
+{
+    $p = epd_mp_verify($token);
+    $ok = is_array($p) && ($p['v'] ?? null) === 1 && ($p['kind'] ?? null) === 'result'
+        && ($p['code'] ?? null) === (string) $room['code'] && ($p['seed'] ?? null) === (int) $room['seed']
+        && ($p['started'] ?? null) === (int) $room['started']
+        && is_int($p['score'] ?? null) && is_string($p['grade'] ?? null) && in_array($p['grade'], EPD_GRADES, true)
+        && is_int($p['incidents'] ?? null) && is_int($p['arrests'] ?? null) && is_array($p['xp'] ?? null);
+    $xp = null;
+    if ($ok) {
+        foreach ($p['xp'] as $row) {
+            if (is_array($row) && ($row[0] ?? null) === $seat && is_int($row[1] ?? null)) {
+                $xp = $row[1];
+            }
+        }
+    }
+    if (!$ok || $xp === null) {
+        epd_fail(409, 'unsigned', 'Tulemust ei saanud mänguserverilt kinnitada. Värskenda leht ja proovi uuesti.');
+    }
+    return [
+        'score' => max(0, min(100, (int) $p['score'])),
+        'grade' => (string) $p['grade'],
+        'incidents' => max(0, min(100000, (int) $p['incidents'])),
+        'arrests' => max(0, min(100000, (int) $p['arrests'])),
+        'xp' => max(0, min(100000, $xp)),
+    ];
+}
+
+/**
+ * Tell the game server that the host removed a player (rooms.php epd_route_room_kick): it closes the seat's
+ * connection and the seat leaves the shift at once. Best effort: when the game server does not answer, the player's
+ * own client ends the shift at its next room poll (403 `kicked`) and the seat leaves a minute later.
+ */
+function epd_mp_kick(string $code, int $seat, int $userId, int $now): bool
+{
+    if (!epd_mp_enabled()) {
+        return false;
+    }
+    $token = epd_mp_sign(
+        ['v' => 1, 'kind' => 'kick', 'code' => $code, 'seat' => $seat, 'user' => $userId, 'exp' => $now + EPD_MP_TICKET_MS],
+        epd_mp_secret(),
+    );
+    $ctx = stream_context_create(['http' => [
+        'method' => 'POST',
+        'header' => "Content-Type: application/json\r\n",
+        'content' => epd_json(['kick' => $token]),
+        'timeout' => EPD_MP_HEALTH_TIMEOUT_S,
+        'ignore_errors' => true,
+    ]]);
+    $body = @file_get_contents(epd_mp_url() . '/mp/kick', false, $ctx);
+    $json = is_string($body) ? json_decode($body, true) : null;
+    return is_array($json) && ($json['ok'] ?? false) === true;
 }
 
 /** Sign a ticket payload: base64url(json).base64url(hmac-sha256 of the first part). */

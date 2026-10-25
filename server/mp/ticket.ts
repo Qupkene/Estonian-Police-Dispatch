@@ -83,8 +83,8 @@ function parseRoom(v: unknown): TicketRoom | null {
   return { code, mode, seed, day, options: v.options, started, setup: [setup[0], rows] };
 }
 
-/** The ticket if its signature holds and it has not expired, else null. */
-export function verifyTicket(token: unknown, secret: string | null, now = Date.now()): Ticket | null {
+/** The payload of a token signed with the shared secret, or null when the signature does not hold. */
+function verifySigned(token: unknown, secret: string | null): Record<string, unknown> | null {
   if (!secret || typeof token !== 'string' || token.length > 16000) return null;
   const dot = token.indexOf('.');
   if (dot <= 0) return null;
@@ -92,13 +92,30 @@ export function verifyTicket(token: unknown, secret: string | null, now = Date.n
   const mac = Buffer.from(token.slice(dot + 1), 'base64url');
   const want = createHmac('sha256', secret).update(body).digest();
   if (mac.length !== want.length || !timingSafeEqual(mac, want)) return null;
-  let p: unknown;
   try {
-    p = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    const p: unknown = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    return isObj(p) ? p : null;
   } catch {
     return null;
   }
-  if (!isObj(p) || p.v !== 1 || typeof p.exp !== 'number' || p.exp < now) return null;
+}
+
+/** A kick from the PHP API (server/lib/mp.php epd_mp_kick): the room, the seat and the account, if it holds. */
+export function verifyKick(
+  token: unknown,
+  secret: string | null,
+  now = Date.now(),
+): { code: string; seat: number; user: number } | null {
+  const p = verifySigned(token, secret);
+  if (!p || p.v !== 1 || p.kind !== 'kick' || typeof p.exp !== 'number' || p.exp < now) return null;
+  if (typeof p.code !== 'string' || typeof p.seat !== 'number' || typeof p.user !== 'number') return null;
+  return { code: p.code, seat: p.seat, user: p.user };
+}
+
+/** The ticket if its signature holds and it has not expired, else null. */
+export function verifyTicket(token: unknown, secret: string | null, now = Date.now()): Ticket | null {
+  const p = verifySigned(token, secret);
+  if (!p || p.v !== 1 || p.kind !== undefined || typeof p.exp !== 'number' || p.exp < now) return null;
   if (typeof p.code !== 'string' || typeof p.user !== 'number' || typeof p.seat !== 'number') return null;
   const room = parseRoom(p.room);
   if (!room || room.code !== p.code) return null;

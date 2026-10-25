@@ -74,6 +74,9 @@ const EPD_COOP_KINDS = [
     // Sector co-op: lend a crew across a border [incident, unit], and the other desk's answer [request, yes].
     'lend' => ['id', 'id'],
     'lendans' => ['num', 'bit'],
+    // Sector co-op: take over a desk nobody holds [desk], hand it back to its colleague [desk].
+    'take' => ['id'],
+    'give' => ['id'],
 ];
 
 function epd_coop_is_coop(array $room): bool

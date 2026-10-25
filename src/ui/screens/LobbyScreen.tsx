@@ -9,6 +9,7 @@ import {
   fetchMyRoom,
   isHost,
   joinRoom,
+  kickPlayer,
   leaveRoom,
   meIn,
   myResult,
@@ -642,8 +643,11 @@ function RoomView({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gone, setGone] = useState(false);
+  const [kicked, setKicked] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  /** The player the host is about to remove (docs/MULTIPLAYER.md section 12). */
+  const [confirmKick, setConfirmKick] = useState<{ seat: number; name: string } | null>(null);
   const pollerRef = useRef<RoomPoller | null>(null);
   const seenLobby = useRef(initial.state === 'lobby');
   /** The round (its seed) this view sent the player into, so each round starts by itself only once. */
@@ -663,6 +667,7 @@ function RoomView({
         setError(null);
       },
       onError: (e, isGone) => {
+        if (e.code === 'kicked') setKicked(true);
         if (isGone) setGone(true);
         else setError(t(roomErrorKey(e)));
       },
@@ -775,6 +780,18 @@ function RoomView({
     onLeft();
   };
 
+  /** The host removes a player: out of the room at once, and the code no longer lets them in. */
+  const kick = () => {
+    const who = confirmKick;
+    setConfirmKick(null);
+    if (!who) return;
+    void act(async () => {
+      const r = await kickPlayer(room.code, who.seat);
+      toast(t('rooms.kick.done', { name: who.name }), 'info');
+      return r;
+    });
+  };
+
   /** The host ends a round that waits for somebody: the room opens for the next one at once. */
   const endRound = () => {
     setConfirmEnd(false);
@@ -794,7 +811,7 @@ function RoomView({
     return (
       <Notice
         title={t('rooms.room')}
-        text={t('rooms.gone')}
+        text={t(kicked ? 'rooms.kicked' : 'rooms.gone')}
         action={
           <button type="button" className="vk-btn vk-btn--primary" onClick={onLeft}>
             {t('rooms.new')}
@@ -940,7 +957,11 @@ function RoomView({
                 {present(room).length}/{room.max}
               </span>
             </div>
-            <Seats room={room} />
+            <Seats
+              room={room}
+              onKick={host ? (seat, name) => setConfirmKick({ seat, name }) : undefined}
+              busy={busy}
+            />
             {room.mode === 'role' && (
               <RolePicker room={room} busy={busy} onPick={(role) => void act(async () => void (await setRoomRole(room.code, role)))} />
             )}
@@ -1107,6 +1128,31 @@ function RoomView({
         </VkLayer>
       )}
 
+      {confirmKick && (
+        <VkLayer>
+          <Modal
+            open
+            onClose={() => setConfirmKick(null)}
+            title={t('rooms.kick.title')}
+            width={460}
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => setConfirmKick(null)}>
+                  {t('rooms.kick.no')}
+                </Button>
+                <Button variant="danger" onClick={kick} data-testid="kick-yes">
+                  {t('rooms.kick.yes')}
+                </Button>
+              </>
+            }
+          >
+            <div className="vk-dialog">
+              <p>{t('rooms.kick.confirm', { name: confirmKick.name })}</p>
+            </div>
+          </Modal>
+        </VkLayer>
+      )}
+
       {confirmLeave && (
         <VkLayer>
           <Modal
@@ -1135,8 +1181,19 @@ function RoomView({
   );
 }
 
-/** The four seats: who sits there, host and ready marks, and whether they are still connected. */
-function Seats({ room }: { room: Room }) {
+/**
+ * The four seats: who sits there, host and ready marks, and whether they are still connected. The host gets a button
+ * to remove each of the others (`onKick`).
+ */
+function Seats({
+  room,
+  onKick,
+  busy,
+}: {
+  room: Room;
+  onKick?: (seat: number, name: string) => void;
+  busy?: boolean;
+}) {
   const t = useT();
   const tx = useTx();
   const seats = Array.from(
@@ -1176,6 +1233,18 @@ function Seats({ room }: { room: Room }) {
               <span className={`vk-mp__ready${p.ready ? ' is-ready' : ''}`}>
                 {!p.online ? t('rooms.p.offline') : p.ready ? t('rooms.p.ready') : t('rooms.p.waiting')}
               </span>
+              {onKick && p.id !== room.me && (
+                <button
+                  type="button"
+                  className="vk-btn vk-btn--ghost vk-mp__kick"
+                  onClick={() => onKick(p.seat, p.name)}
+                  disabled={busy}
+                  aria-label={t('rooms.kick.aria', { name: p.name })}
+                  data-testid="seat-kick"
+                >
+                  {t('rooms.kick')}
+                </button>
+              )}
             </>
           ) : (
             <span className="vk-mp__seatWho vk-dim">{t('rooms.seat.free')}</span>

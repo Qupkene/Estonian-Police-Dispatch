@@ -76,6 +76,10 @@ interface CoopUi {
   /** How many resyncs this session did (shown in the status line; tests read it). */
   resyncs: number;
   error: string | null;
+  /** 'server' while the game server runs the shift (section 9), '' in lockstep. Kept after the shift for the report. */
+  engine: RoomEngine;
+  /** The game server's signed result of the shift (2.34.0): the report sends it with the room result. */
+  signed: string | null;
 }
 
 export const useCoop = create<CoopUi>()(() => ({
@@ -89,6 +93,8 @@ export const useCoop = create<CoopUi>()(() => ({
   pingsSeen: 0,
   resyncs: 0,
   error: null,
+  engine: '',
+  signed: null,
 }));
 
 type ResultListener = (cmd: LogCmd, r: CmdResult) => void;
@@ -252,7 +258,8 @@ class CoopSession implements Session {
       if (this.stopped) return;
       const err = toApiError(e);
       this.failures++;
-      if (err.status === 404 || err.status === 401) {
+      // 403 `kicked`: the host removed this player (docs/MULTIPLAYER.md section 12).
+      if (err.status === 404 || err.status === 401 || err.status === 403) {
         setUi({ status: 'gone', error: err.code });
         this.stop();
         return;
@@ -499,13 +506,14 @@ const MAX_PENDING_EVENTS = 60;
 /** Close codes of the game server (server/mp/main.ts): the session ends for good. */
 const FINAL_CLOSE: Record<number, string> = {
   4001: 'replaced',
+  4403: 'kicked',
   4410: 'room_replaced',
 };
 
 type ServerMsg =
-  | { t: 'hello'; v: number; seat: number; state: SimState }
+  | { t: 'hello'; v: number; seat: number; state: SimState; res?: string | null }
   | { t: 'p'; v: number; ops: PatchOp[]; ev?: GameEvent[] }
-  | { t: 'full'; v: number; state: SimState; ev?: GameEvent[] }
+  | { t: 'full'; v: number; state: SimState; ev?: GameEvent[]; res?: string | null }
   | { t: 'ack'; key: number; id: number; r: CmdResult };
 
 /** Replace the contents of the running shift's object in place (the map and the panels keep their reference). */
@@ -585,7 +593,8 @@ class ServerSession implements Session {
     } catch (e) {
       if (this.stopped) return;
       const err = toApiError(e);
-      if (err.status === 404 || err.status === 401 || err.status === 409) return this.end('gone', err.code);
+      if (err.status === 404 || err.status === 401 || err.status === 403 || err.status === 409)
+        return this.end('gone', err.code);
       return this.retry(err.code);
     }
     if (this.stopped) return;
@@ -657,7 +666,7 @@ class ServerSession implements Session {
           return this.end('ended', 'round_over');
       } catch (e) {
         const err = toApiError(e);
-        if (err.status === 404 || err.status === 401) return this.end('gone', err.code);
+        if (err.status === 404 || err.status === 401 || err.status === 403) return this.end('gone', err.code);
       }
       this.presence();
     }, PRESENCE_MS);
@@ -681,6 +690,7 @@ class ServerSession implements Session {
         this.seat = msg.seat;
         this.attempt = 0;
         setUi({ seat: msg.seat, status: state.ended ? 'ended' : 'live', error: null });
+        if (msg.res) setUi({ signed: msg.res });
         this.mirrorHost(state);
         if (this.first) {
           this.first.resolve(state);
@@ -717,6 +727,8 @@ class ServerSession implements Session {
         const sim = this.current();
         if (!sim || !msg.state?.coop) return;
         this.seq = msg.v;
+        // The signed result first: the report this state ends in sends it.
+        if (msg.res) setUi({ signed: msg.res });
         msg.state.events = sim.events;
         replaceInPlace(sim, msg.state);
         this.events(sim, msg.ev);
@@ -804,7 +816,7 @@ export async function startCoop(code: string, shift: RoomShift, engine: RoomEngi
   if (engine === 'server') {
     const s = new ServerSession(code);
     session = s;
-    resetUi(code);
+    resetUi(code, engine);
     const sim = await s.start();
     if (session !== s) return;
     useGame.getState().resumeShift(sim);
@@ -813,7 +825,7 @@ export async function startCoop(code: string, shift: RoomShift, engine: RoomEngi
   }
   const s = new CoopSession(code, shift);
   session = s;
-  resetUi(code);
+  resetUi(code, engine);
   const sim = await s.load();
   if (session !== s) return;
   useGame.getState().resumeShift(sim);
@@ -822,7 +834,7 @@ export async function startCoop(code: string, shift: RoomShift, engine: RoomEngi
   s.start();
 }
 
-function resetUi(code: string): void {
+function resetUi(code: string, engine: RoomEngine): void {
   useCoop.setState({
     code,
     seat: -1,
@@ -834,6 +846,8 @@ function resetUi(code: string): void {
     pingsSeen: 0,
     resyncs: 0,
     error: null,
+    engine,
+    signed: null,
   });
 }
 

@@ -5,6 +5,7 @@ import { Button, Empty, Icon, Kbd, PriorityChip, Tabs } from '@/ui/components';
 import type { Agency, Incident, SimState } from '@/sim/types';
 import { acknowledge, closeIncident, selectIncident, sendBackup } from './actions';
 import { deskCan, useCan, useMyDesk, usePending } from '@/store/coop';
+import { desksTakenInto } from '@/sim/desks';
 import { deskName, NeighbourRows } from './DeskParts';
 import { activeBackup, recentClosed, selAgeMin, selPendingRadio, selQueue, selSlaMin } from './data';
 import { ageText, countdown, helpSectorId, matchesQueueFilter, slaTone, type QueueFilter } from './format';
@@ -91,7 +92,16 @@ export function EventQueue() {
       {desk !== null && (
         <div className={`gm-queue__desk${desk ? '' : ' is-away'}`} data-testid="my-desk">
           <Icon name="users" size={12} />
-          <span>{desk ? t('desk.queue.mine', { desk: tx(deskName(desk)) }) : t('desk.queue.away')}</span>
+          <span>
+            {desk
+              ? t('desk.queue.mine', {
+                  // A desk taken over runs under this one (docs/MULTIPLAYER.md section 12).
+                  desk: [desk, ...(sim.coop?.sec ? desksTakenInto(sim.coop.sec, desk) : [])]
+                    .map((d) => tx(deskName(d)))
+                    .join(' + '),
+                })
+              : t('desk.queue.away')}
+          </span>
         </div>
       )}
       <Tabs<QueueFilter>

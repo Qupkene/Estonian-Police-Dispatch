@@ -143,6 +143,21 @@ export default {
     en: 'Your result has not reached the room yet. If you leave, your row stays on the board marked "left" and the result can no longer be sent.',
   },
   'rooms.leave.no': { et: 'Jää ruumi', en: 'Stay' },
+  // Removing a player (docs/MULTIPLAYER.md section 12)
+  'rooms.kick': { et: 'Eemalda', en: 'Remove' },
+  'rooms.kick.aria': { et: 'Eemalda {name} ruumist', en: 'Remove {name} from the room' },
+  'rooms.kick.title': { et: 'Eemalda mängija', en: 'Remove a player' },
+  'rooms.kick.confirm': {
+    et: '{name} eemaldatakse ruumist kohe, ka käimasolevast vahetusest, ega saa sama koodiga tagasi tulla. Kas eemaldada?',
+    en: '{name} leaves the room at once, the running shift too, and cannot come back with the code. Remove them?',
+  },
+  'rooms.kick.yes': { et: 'Jah, eemalda', en: 'Yes, remove' },
+  'rooms.kick.no': { et: 'Tühista', en: 'Cancel' },
+  'rooms.kick.done': { et: '{name} eemaldati ruumist.', en: '{name} was removed from the room.' },
+  'rooms.kicked': {
+    et: 'Ruumi looja eemaldas sind sellest ruumist.',
+    en: 'The room’s host removed you from this room.',
+  },
   'rooms.block.too_few': {
     et: 'Alustamiseks on vaja vähemalt kahte mängijat. Saada kood edasi.',
     en: 'You need at least two players to start. Pass the code on.',
@@ -313,6 +328,22 @@ export default {
     en: 'A shift without incidents does not go on the room board.',
   },
   'rooms.err.left_room': { et: 'Sa lahkusid sellest ruumist.', en: 'You left this room.' },
+  'rooms.err.kicked': {
+    et: 'Ruumi looja eemaldas sind sellest ruumist.',
+    en: 'The room’s host removed you from this room.',
+  },
+  'rooms.err.unsigned': {
+    et: 'Tulemust ei saanud mänguserverilt kinnitada. Värskenda leht ja proovi uuesti.',
+    en: 'The game server could not confirm the result. Reload the page and try again.',
+  },
+  'rooms.err.player_not_found': {
+    et: 'Selles kohas ei ole enam mängijat.',
+    en: 'Nobody sits there any more.',
+  },
+  'rooms.err.kick_self': {
+    et: 'Iseennast ei saa eemaldada, lahku ruumist.',
+    en: 'You cannot remove yourself; leave the room instead.',
+  },
   'rooms.err.mp_unavailable': {
     et: 'Mänguserver ei vasta. Proovi hetke pärast uuesti.',
     en: 'The game server does not answer. Try again in a moment.',
