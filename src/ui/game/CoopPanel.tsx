@@ -13,7 +13,7 @@ import { hhmm } from '@/sim/time';
 import { kickPlayer, roomErrorKey } from '@/net/rooms';
 import { useT, useTx } from '@/i18n';
 import { deskName, LendRequests } from './DeskParts';
-import { Button, Icon, IconButton, Modal } from '@/ui/components';
+import { Button, Icon, IconButton, Modal, PlayerAvatar } from '@/ui/components';
 
 const STATUS_TONE: Record<CoopStatus, 'ok' | 'warn' | 'danger' | 'info'> = {
   connecting: 'info',
@@ -42,6 +42,7 @@ export function CoopPanel() {
   const resyncs = useCoop((s) => s.resyncs);
   const error = useCoop((s) => s.error);
   const isHost = useCoop((s) => s.isHost);
+  const avatars = useCoop((s) => s.avatars);
   const [open, setOpen] = useState(true);
   const [text, setText] = useState('');
   const [kick, setKick] = useState<{ seat: number; name: string } | null>(null);
@@ -133,6 +134,7 @@ export function CoopPanel() {
                 >
                   <span className={`gm-coop__dot${x.present ? ' is-on' : ''}`} aria-hidden="true" />
                   <span className="gm-coop__name">
+                    <PlayerAvatar avatar={avatars[x.seat]} name={x.name} size={18} className="gm-coop__pic" />
                     {x.name}
                     {x.seat === seat && <span className="gm-coop__you"> ({t('rooms.badge.you')})</span>}
                     {x.seat === c.host && <span className="gm-coop__host">{t('rooms.badge.host')}</span>}

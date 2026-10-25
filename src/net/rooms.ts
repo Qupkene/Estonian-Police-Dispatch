@@ -37,11 +37,15 @@ export interface RoomPlayer {
   desk?: string;
   /** Kohandatud mäng (race and sector rooms): the force the player drafted for themselves or their desk. */
   custom?: CustomSetup;
+  /** Profiilipilt (2.35.0, src/gen/faceSearch.ts): 'face:<id>' or 'draw:<seed>'; missing for the name's drawing. */
+  avatar?: string;
 }
 
 export interface RoomResult {
   id: number;
   name: string;
+  /** Profiilipilt (2.35.0): as on the player; missing for the name's drawing. */
+  avatar?: string;
   score: number;
   grade: string;
   incidents: number;
@@ -138,6 +142,7 @@ function parsePlayer(v: unknown): RoomPlayer | null {
     done: v.done === true,
     ...(isCoopRole(v.role) ? { role: v.role } : {}),
     ...(typeof v.desk === 'string' && v.desk ? { desk: v.desk } : {}),
+    ...(typeof v.avatar === 'string' && v.avatar ? { avatar: v.avatar } : {}),
   };
 }
 
@@ -147,6 +152,7 @@ function parseResult(v: unknown, i: number): RoomResult | null {
   return {
     id: v.id,
     name: str(v.name, '?'),
+    ...(typeof v.avatar === 'string' && v.avatar ? { avatar: v.avatar } : {}),
     score: num(v.score),
     grade: str(v.grade),
     incidents: num(v.incidents),

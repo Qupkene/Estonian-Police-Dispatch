@@ -711,3 +711,21 @@ rooms), `tests/mp.test.ts`, `tests/coop-sectors.test.ts`, `e2e/coop-sectors.spec
 - The colleague answers decisions with the option that scores best; a player's answer might be worse or better, as in
   single player.
 - A taken-over desk's map area is not drawn as the player's own (its events and crews are).
+
+## 13. Profile pictures (2.35.0)
+
+The owner's wish: a player picks the picture the others see, by writing what they want ("saad otsida nägusid
+kirjutades omadusi").
+
+- The account menu's "Profiilipilt" opens the picker (`src/ui/screens/shell/ProfilePicker.tsx`). A photo comes from the
+  game's portraits (`src/data/faces.ts`, the same 1393 faces the registry uses), found by writing in Estonian or
+  English ("naine 30 blond", "vana mees habemega", "kiilas 50ndad", "woman 30s red") or with chips for sex, age, hair,
+  beard and baldness. `src/gen/faceSearch.ts` turns the text into a filter (a number is an age give or take 4,
+  "30ndad" a decade, "40-55" a range; unknown words change nothing) and sorts the fitting faces by age; when nobody has
+  the asked age, the nearest ages are shown. Or a drawing of a dispatcher in uniform (`playerDrawing`), a new one per
+  click, or the drawing of the name, which everybody has until they choose.
+- Stored on the account (`users.avatar`, `PUT /api/me/avatar`, docs/SERVER.md 4.1) as `face:<id>`, `draw:<seed>` or
+  `''`. Room players and result rows carry it; the client draws it with `PlayerAvatar` (`src/ui/components/Avatar.tsx`)
+  in the account chip, the lobby seats, the co-op panel and the room's results board, and a co-op shift keeps the
+  avatars of its seats from the start (`CoopUi.avatars`).
+- A player may pick a face that is also someone in the game's registry; the photos are synthetic faces, nobody real.

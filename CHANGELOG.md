@@ -2,6 +2,19 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.35.0 (2026-10-25)
+
+- **Oma profiilipilt:** kontomenüüs on uus valik "Profiilipilt". Pildi saab valida mängu 1393 fotoportree seast, kirjutades otsingusse, millist nägu tahad, näiteks „naine 30 blond“, „vana mees habemega“ või „kiilas 50ndad“. Sama saab teha nuppudega: sugu, vanus, juuksed, habe ja kiilas. Kui täpselt sellist vanust ei ole, näidatakse lähimaid.
+- Foto asemel võib valida joonistatud dispetšeri vormiriietuses: "Uus joonistus" annab iga kord uue, "Nime järgi" toob tagasi vaikimisi pildi.
+- Pilt salvestub kontole. Teised mängijad näevad seda ruumi lobbys, ühisvahetuse koostööpaneelil ja ruumi tulemuste tabelis. Kes pilti ei vali, saab oma nime järgi joonistuse.
+
+<details>
+<summary>English</summary>
+
+A profile picture for the account (docs/MULTIPLAYER.md section 13). The account menu's "Profiilipilt" finds faces among the game's 1393 portraits by writing what one wants in Estonian or English (`src/gen/faceSearch.ts`: sex, an age give or take 4, decades, ranges, hair colour, beard, baldness; the nearest ages when none fit) or with chips, or offers a drawn dispatcher in uniform. It is stored on the account (`users.avatar`, schema step 13; `PUT /api/me/avatar` with `face:<id>`, `draw:<seed>` or empty) and shown next to the name in the account chip, the lobby seats, the co-op panel and the room's results board (room players and result rows carry `avatar` when one is set). Without one, everybody gets the drawing of their name.
+
+</details>
+
 ## 2.34.0 (2026-10-25)
 
 - **Mängija eemaldamine:** ruumi looja saab mängija ruumist eemaldada nii lobbys ("Eemalda") kui ka käimasolevas ühisvahetuses (koostööpaneeli nupp). Enne küsitakse kinnitust. Eemaldatud mängija näeb kohe teadet ega pääse sama koodiga tagasi. Tema laud või roll läheb teistele.

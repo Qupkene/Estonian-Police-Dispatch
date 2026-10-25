@@ -258,6 +258,13 @@
   gap: 6px 8px;
   min-width: 0;
 }
+.vk-mp__pic {
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--vk-panel-2);
+  box-shadow: 0 0 0 1px var(--vk-line);
+}
 .vk-mp__seatName {
   overflow: hidden;
   color: var(--vk-text-0);
@@ -324,9 +331,19 @@
 }
 .vk-mp__who {
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
   padding-top: 4px !important;
   padding-bottom: 4px !important;
   line-height: 1.3;
+}
+.vk-mp__whoText {
+  display: grid;
+  min-width: 0;
+}
+.vk-mp__row.is-left .vk-mp__pic {
+  opacity: 0.55;
 }
 .vk-mp__name {
   color: var(--vk-text-0);

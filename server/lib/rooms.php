@@ -248,7 +248,7 @@ function epd_room_by_id(PDO $db, int $id): ?array
 function epd_room_players(PDO $db, int $roomId): array
 {
     $stmt = $db->prepare(
-        'SELECT p.user_id, p.seat, p.ready, p.joined, p.seen, p.left_at, p.role, p.desk, p.custom, u.name
+        'SELECT p.user_id, p.seat, p.ready, p.joined, p.seen, p.left_at, p.role, p.desk, p.custom, u.name, u.avatar
          FROM room_players p JOIN users u ON u.id = p.user_id
          WHERE p.room_id = ? ORDER BY p.seat'
     );
@@ -363,12 +363,12 @@ function epd_room_lobby_heir(array $room, array $here, int $now): ?int
 /**
  * Results of a room, best first, each with its place (1 + the number of strictly higher scores).
  *
- * @return list<array{id: int, name: string, score: int, grade: string, incidents: int, arrests: int, xp: int, at: int, rank: int}>
+ * @return list<array{id: int, name: string, avatar?: string, score: int, grade: string, incidents: int, arrests: int, xp: int, at: int, rank: int}>
  */
 function epd_room_results(PDO $db, int $roomId): array
 {
     $stmt = $db->prepare(
-        'SELECT r.user_id, u.name, r.score, r.grade, r.incidents, r.arrests, r.xp, r.at,
+        'SELECT r.user_id, u.name, u.avatar, r.score, r.grade, r.incidents, r.arrests, r.xp, r.at,
                 RANK() OVER (ORDER BY r.score DESC) AS rank
          FROM room_results r JOIN users u ON u.id = r.user_id
          WHERE r.room_id = ?
@@ -379,14 +379,14 @@ function epd_room_results(PDO $db, int $roomId): array
 }
 
 /**
- * A result row as the API shows it.
+ * A result row as the API shows it (the profile picture only when the player chose one, 2.35.0).
  *
  * @param array<string, mixed> $r
- * @return array{id: int, name: string, score: int, grade: string, incidents: int, arrests: int, xp: int, at: int, rank: int}
+ * @return array{id: int, name: string, avatar?: string, score: int, grade: string, incidents: int, arrests: int, xp: int, at: int, rank: int}
  */
 function epd_room_result_out(array $r): array
 {
-    return [
+    $out = [
         'id' => (int) $r['user_id'],
         'name' => (string) $r['name'],
         'score' => (int) $r['score'],
@@ -397,6 +397,10 @@ function epd_room_result_out(array $r): array
         'at' => (int) $r['at'],
         'rank' => (int) $r['rank'],
     ];
+    if ((string) ($r['avatar'] ?? '') !== '') {
+        $out['avatar'] = (string) $r['avatar'];
+    }
+    return $out;
 }
 
 /**
@@ -408,7 +412,7 @@ function epd_room_result_out(array $r): array
 function epd_room_round(PDO $db, int $roomId, int $round): ?array
 {
     $stmt = $db->prepare(
-        'SELECT r.user_id, u.name, r.mode, r.seed, r.score, r.grade, r.incidents, r.arrests, r.xp, r.at,
+        'SELECT r.user_id, u.name, u.avatar, r.mode, r.seed, r.score, r.grade, r.incidents, r.arrests, r.xp, r.at,
                 RANK() OVER (ORDER BY r.score DESC) AS rank
          FROM room_round_results r JOIN users u ON u.id = r.user_id
          WHERE r.room_id = ? AND r.round = ?
@@ -482,6 +486,10 @@ function epd_room_public(PDO $db, array $room, int $userId, int $now): array
         if ((string) $room['mode'] === 'sector') {
             // Sector co-op: the desk chosen in the lobby, or the seat's default.
             $list[count($list) - 1]['desk'] = epd_coop_desk_of($room, $p);
+        }
+        // Profiilipilt (2.35.0): shown next to the name.
+        if ((string) ($p['avatar'] ?? '') !== '') {
+            $list[count($list) - 1]['avatar'] = (string) $p['avatar'];
         }
         // Kohandatud mäng: the force the player drafted.
         $draft = epd_room_custom_out(['custom' => (string) ($p['custom'] ?? '')]);

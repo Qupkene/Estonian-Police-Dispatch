@@ -163,14 +163,25 @@ function epd_find_user_by_key(PDO $db, string $nameKey): ?array
 }
 
 /**
- * What the API reveals about a user.
+ * What the API reveals about a user. `avatar` is the profile picture (2.35.0), only when the player chose one:
+ * 'face:<id>' or 'draw:<seed>' (without it, the drawing of the name).
  *
  * @param array<string, mixed> $row
- * @return array{id: int, name: string, created: int}
+ * @return array{id: int, name: string, created: int, avatar?: string}
  */
 function epd_public_user(array $row): array
 {
-    return ['id' => (int) $row['id'], 'name' => (string) $row['name'], 'created' => (int) $row['created']];
+    $user = ['id' => (int) $row['id'], 'name' => (string) $row['name'], 'created' => (int) $row['created']];
+    if ((string) ($row['avatar'] ?? '') !== '') {
+        $user['avatar'] = (string) $row['avatar'];
+    }
+    return $user;
+}
+
+/** A profile picture as stored: '' (the name's drawing), 'face:<10 hex>' (the face pool) or 'draw:<seed>'. */
+function epd_valid_avatar(mixed $v): bool
+{
+    return is_string($v) && ($v === '' || preg_match('/^(face:[0-9a-f]{10}|draw:[0-9]{1,10})$/', $v) === 1);
 }
 
 /** Trimmed, NFC-normalised name ('' when not a string), so "õ" typed as o + tilde still matches. */
@@ -371,6 +382,26 @@ function epd_route_register(): ApiReply
     $id = (int) $db->lastInsertId();
     epd_session_login($id);
     return epd_reply(['user' => ['id' => $id, 'name' => $name, 'created' => $now]]);
+}
+
+/**
+ * PUT /api/me/avatar `{ avatar }`: the signed-in player's profile picture (2.35.0), shown to the other players in a
+ * room and on its results board. 400 `invalid_avatar` for anything but '', 'face:<10 hex>' or 'draw:<seed>' (the
+ * client falls back to the drawing for a face the game no longer has).
+ */
+function epd_route_avatar(): ApiReply
+{
+    $user = epd_require_user();
+    $avatar = epd_json_body()['avatar'] ?? null;
+    if (!epd_valid_avatar($avatar)) {
+        epd_fail(400, 'invalid_avatar', 'Vigane profiilipilt.', [], ['field' => 'avatar']);
+    }
+    $db = epd_db();
+    $db->prepare('UPDATE users SET avatar = ? WHERE id = ?')->execute([$avatar, (int) $user['id']]);
+    $row = $db->prepare('SELECT * FROM users WHERE id = ?');
+    $row->execute([(int) $user['id']]);
+    $fresh = $row->fetch();
+    return epd_reply(['user' => epd_public_user(is_array($fresh) ? $fresh : $user) + (($user['role'] ?? '') === 'admin' ? ['admin' => true] : [])]);
 }
 
 function epd_route_login(): ApiReply

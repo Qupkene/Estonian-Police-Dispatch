@@ -1,12 +1,14 @@
-// The signed-in account in the shell's top bar: name, cloud save state and when it last succeeded, sign out
-// (confirmed, optionally removing the account's data from this browser), and account deletion in its menu.
+// The signed-in account in the shell's top bar: profile picture, name, cloud save state and when it last succeeded,
+// sign out (confirmed, optionally removing the account's data from this browser), and in its menu the profile
+// picture (ProfilePicker, 2.35.0) and account deletion.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useAccount } from '@/net/account';
 import { useGame } from '@/store/game';
 import { useLang, useT } from '@/i18n';
 import { hhmm } from '@/sim/time';
-import { Button, Modal, TextField } from '@/ui/components';
+import { Button, Modal, PlayerAvatar, TextField } from '@/ui/components';
 import { accountErrorText, cloudKey } from './accountText';
+import { ProfilePicker } from './ProfilePicker';
 import { VkLayer } from './VkLayer';
 
 const fmtDate = (ms: number) => {
@@ -31,6 +33,7 @@ export function AccountChip() {
   const [open, setOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [picture, setPicture] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -81,6 +84,7 @@ export function AccountChip() {
         title={t('account.chip.menu')}
         onClick={() => setOpen((o) => !o)}
       >
+        {user && <PlayerAvatar avatar={user.avatar} name={user.name} size={26} className="vk-acct__pic" />}
         <span className="vk-acct__name sh-acct__name">{name}</span>
         <span className="vk-acct__state">{status}</span>
       </button>
@@ -98,6 +102,20 @@ export function AccountChip() {
             <span className="vk-acct__state">{status}</span>
             {lost && <span className="vk-acct__lost">{t('account.lost')}</span>}
           </div>
+          {user && (
+            <button
+              type="button"
+              role="menuitem"
+              className="vk-acct__item"
+              onClick={() => {
+                setOpen(false);
+                setPicture(true);
+              }}
+              data-testid="chip-picture"
+            >
+              {t('account.chip.picture')}
+            </button>
+          )}
           {user?.admin && (
             <a role="menuitem" className="vk-acct__item" href="/admin/">
               {t('account.chip.admin')}
@@ -125,6 +143,11 @@ export function AccountChip() {
       {confirmDelete && (
         <VkLayer>
           <DeleteAccount open name={name} onClose={() => setConfirmDelete(false)} />
+        </VkLayer>
+      )}
+      {picture && (
+        <VkLayer>
+          <ProfilePicker onClose={() => setPicture(false)} />
         </VkLayer>
       )}
       {confirmLogout && (

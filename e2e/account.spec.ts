@@ -322,6 +322,36 @@ test('"Delete all data" signs out: the reload neither stays signed in nor pulls 
   expect((await (await page.request.get('/api/save')).json()).career?.profile?.name).toBe('Mari Pilv');
 });
 
+test('a profile picture found by writing what one wants stays with the account (2.35.0)', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await boot(page);
+  await register(page, `pic_${Date.now().toString(36)}`);
+  const pic = page.locator('.vk-acct__pic').first();
+  await expect(pic).toHaveAttribute('data-avatar', 'default');
+  await page.locator('.vk-acct__who').first().click();
+  await page.getByTestId('chip-picture').click();
+  const picker = page.getByTestId('profile-picker');
+  await picker.getByRole('radio', { name: 'Foto' }).click();
+  await page.getByTestId('profile-search').fill('naine blond');
+  await expect(page.getByTestId('profile-count')).toContainText('Leidsin');
+  const first = page.getByTestId('profile-faces').locator('button').first();
+  const id = await first.getAttribute('data-face');
+  await first.click();
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  if (process.env.MP_SHOTS) await page.screenshot({ path: `${process.env.MP_SHOTS}/profile-picker.png` });
+  await page.getByTestId('profile-save').click();
+  await expect(picker).toHaveCount(0);
+  await expect(pic).toHaveAttribute('data-avatar', `face:${id}`);
+  // Another device (a reload) gets it from the account.
+  await page.reload();
+  await page.keyboard.press('Space');
+  await page.getByRole('button', { name: 'Jätka', exact: true }).click({ timeout: 20_000 });
+  await expect.poll(() => screen(page), { timeout: 20_000 }).toBe('menu');
+  await expect(page.locator('.vk-acct__pic').first()).toHaveAttribute('data-avatar', `face:${id}`, { timeout: 20_000 });
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
 test('the 2024 easter egg still works with the API online', async ({ page }) => {
   await boot(page);
   await openClassic(page);
