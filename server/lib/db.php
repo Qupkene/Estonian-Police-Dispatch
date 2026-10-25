@@ -298,6 +298,17 @@ function epd_migrations(): array
             )",
             'CREATE INDEX room_round_results_user ON room_round_results (user_id)',
         ],
+        // Mitmikmängust eemaldamine (rooms.php epd_route_room_kick, docs/MULTIPLAYER.md section 12): the host removes a
+        // player, who cannot come back to that room with its code.
+        12 => [
+            'CREATE TABLE room_bans (
+                room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                at INTEGER NOT NULL,
+                PRIMARY KEY (room_id, user_id)
+            )',
+            'CREATE INDEX room_bans_user ON room_bans (user_id)',
+        ],
     ];
 }
 

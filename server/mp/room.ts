@@ -6,12 +6,19 @@
  *
  * Seats: a seat whose last connection closed a minute ago leaves the shift (`left`: its desk or role passes on, as
  * in the lockstep rooms), coming back is `back`, and the host's role (speed, ending early) passes to the lowest seat
- * still connected when the host's seat leaves. Nobody connected: the clock stops until somebody returns.
+ * still connected when the host's seat leaves. Nobody connected: the clock stops until somebody returns. A seat the
+ * host removed (`kick`, from the PHP API) leaves at once and cannot connect again.
+ *
+ * The end (2.34.0): with the exact final state every player also gets the shift's result signed with the shared
+ * secret (`res`): the team's score, grade, incidents and arrests and every seat's XP, built the way every client's
+ * report builds them. The PHP API counts a server room's result only with it.
  */
 import type { WebSocket } from 'ws';
-import { createShift, drainEvents } from '@/sim/engine';
+import { createShift, drainEvents, finalizeShift } from '@/sim/engine';
 import {
   applyCommand,
+  coopReport,
+  coopXp,
   initCoop,
   livePiece,
   SERVER_SEAT,
@@ -21,7 +28,7 @@ import {
 } from '@/sim/coop';
 import { diffInto, jsonClone, type PatchOp } from '@/sim/patch';
 import { markRoom, roomDesks, roomShiftOptions, teamName, type RoomShift } from '@/sim/room';
-import { parseOptions } from '@/net/rooms';
+import { parseOptions, roomResultBody } from '@/net/rooms';
 import type { GameEvent, SimState } from '@/sim/types';
 import type { TicketRoom } from './ticket';
 import { validCommand } from './validate';
@@ -73,7 +80,12 @@ export interface SavedRoom {
   piece: number;
   seq: number;
   cmdCount: number;
+  /** Seats the host removed (missing in rooms saved before 2.34.0). */
+  kicked?: number[];
 }
+
+/** Signs a payload with the shared secret (server/mp/ticket.ts signTicket), or null while there is no secret. */
+export type Signer = (payload: object) => string | null;
 
 const SKIP = new Set(['events']);
 
@@ -99,6 +111,12 @@ export class MpRoom {
   /** When the last peer left (null while somebody is connected). */
   emptySince: number | null;
   private endSent: boolean;
+  /** Seats the host removed: closed at once, never let in again. */
+  private kicked = new Set<number>();
+  /** Signs the result at the end (main.ts sets it; without it no result is signed). */
+  signer: Signer | null = null;
+  /** The signed result once the shift is over (undefined until then). */
+  private result: string | null | undefined;
 
   constructor(room: TicketRoom, saved?: SavedRoom, now = Date.now()) {
     this.code = room.code;
@@ -111,6 +129,7 @@ export class MpRoom {
       this.seq = saved.seq;
       this.cmdCount = saved.cmdCount;
       this.endSent = !!this.sim.ended;
+      for (const seat of saved.kicked ?? []) this.kicked.add(seat);
       // Everybody reconnects after a restart: their seats count as away from now.
       for (const s of this.sim.coop?.seats ?? []) if (s.present) this.awaySince.set(s.seat, now);
     } else {
@@ -144,6 +163,10 @@ export class MpRoom {
 
   /** A player connects (or reconnects): the whole state, then patches. An older connection of the seat is closed. */
   join(peer: Peer, now = Date.now()): void {
+    if (this.kicked.has(peer.seat)) {
+      peer.close(4403, 'kicked');
+      return;
+    }
     for (const p of this.peers) {
       if (p.seat === peer.seat) {
         this.peers.delete(p);
@@ -162,8 +185,64 @@ export class MpRoom {
         seat: peer.seat,
         now,
         state: this.shadow,
+        // Back after the end: the signed result again (the report may not have sent it yet).
+        ...(this.sim.ended ? { res: this.signedResult() } : {}),
       }),
     );
+  }
+
+  /**
+   * The host removed a seat (the PHP API's signed POST /mp/kick): its connection closes with 4403, it leaves the
+   * shift at the next piece (its desk or role passes on) and it is never let in again.
+   */
+  kick(seat: number, now = Date.now()): void {
+    this.kicked.add(seat);
+    for (const p of [...this.peers]) {
+      if (p.seat !== seat) continue;
+      this.peers.delete(p);
+      p.close(4403, 'kicked');
+    }
+    this.awaySince.delete(seat);
+    const s = this.sim.coop?.seats.find((x) => x.seat === seat);
+    if (s?.present && !this.queue.some((q) => q.cmd.k === 'left' && q.cmd.a[0] === seat))
+      this.system('left', [seat]);
+    if (!this.peers.size) this.emptySince ??= now;
+  }
+
+  /**
+   * The shift's result signed for the PHP API (server/lib/mp.php epd_mp_signed_result): the report every client builds
+   * from the exact final state (finalizeShift on the same JSON copy the `full` message carries), the team's numbers
+   * and every seat's XP. Null without a signer or before the end.
+   */
+  signedResult(): string | null {
+    if (!this.sim.ended || !this.signer) return null;
+    if (this.result !== undefined) return this.result;
+    try {
+      const copy = jsonClone({ ...this.sim, events: [] }) as unknown as SimState;
+      copy.ended = true;
+      const report = finalizeShift(copy);
+      const team = roomResultBody(report);
+      const xp = (coopReport(copy)?.seats ?? []).map((x) => [
+        x.seat,
+        Math.max(0, Math.min(100000, Math.round(coopXp(report, x.stats)))),
+      ]);
+      this.result = this.signer({
+        v: 1,
+        kind: 'result',
+        code: this.room.code,
+        seed: this.room.seed,
+        started: this.room.started,
+        score: team.score,
+        grade: team.grade,
+        incidents: team.incidents,
+        arrests: team.arrests,
+        xp,
+      });
+    } catch (err) {
+      console.error(`[mp ${this.code}] result failed`, err);
+      this.result = null;
+    }
+    return this.result;
   }
 
   leave(peer: Peer, now = Date.now()): void {
@@ -257,7 +336,9 @@ export class MpRoom {
       // The end: the exact state (no display slack), so every report is built from the same numbers.
       this.endSent = true;
       this.shadow = jsonClone({ ...this.sim, events: undefined }) as unknown as Record<string, unknown>;
-      this.broadcast(JSON.stringify({ t: 'full', v: ++this.seq, state: this.shadow, ev }));
+      this.broadcast(
+        JSON.stringify({ t: 'full', v: ++this.seq, state: this.shadow, ev, res: this.signedResult() }),
+      );
     } else {
       const ops: PatchOp[] = [];
       this.shadow = diffInto(this.shadow, this.sim, [], ops, SKIP) as Record<string, unknown>;
@@ -286,6 +367,7 @@ export class MpRoom {
       piece: this.piece,
       seq: this.seq,
       cmdCount: this.cmdCount,
+      kicked: [...this.kicked],
     };
   }
 }

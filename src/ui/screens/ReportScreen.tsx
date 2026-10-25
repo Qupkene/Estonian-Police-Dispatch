@@ -12,6 +12,7 @@ import {
   participants,
   roomErrorKey,
   roundOfShift,
+  signedResultShift,
   submitRoomResultOnce,
   type Room,
 } from '@/net/rooms';
@@ -113,7 +114,22 @@ export function ReportScreen() {
   const mySeat = useCoop((s) => s.seat);
   const coopMine = report?.coop?.seats.find((x) => x.seat === mySeat);
   const myXp = report?.coop ? coopXp(report, coopMine?.stats) : undefined;
-  const roomSend = useRoomSubmit(report, roomCode, myXp, roomSeed);
+  // A shared shift the game server ran counts with the result it signed (docs/MULTIPLAYER.md section 12).
+  const engine = useCoop((s) => s.engine);
+  const signedToken = useCoop((s) => s.signed);
+  const signedFor = signedResultShift(signedToken);
+  const signed =
+    signedToken && signedFor && signedFor.code === roomCode && signedFor.seed === roomSeed
+      ? signedToken
+      : undefined;
+  const roomSend = useRoomSubmit(
+    report,
+    roomCode,
+    myXp,
+    roomSeed,
+    !!report?.coop && engine === 'server',
+    signed,
+  );
   useEffect(() => {
     if (!report?.coop || !roomCode || myXp === undefined || coopPaid.has(report)) return;
     try {
@@ -890,16 +906,34 @@ type RoomSend =
   | { status: 'done'; counted: boolean; rank: number | null; room: Room | null }
   | { status: 'error'; key: string; retry: boolean };
 
+/** How long a server room's report waits for the game server's signed result before sending without it (ms). */
+const SIGNED_WAIT_MS = 15_000;
+
 /**
  * Sends a room run's result once (accounts only) and keeps the answer for the result line and the board. `seed` is
- * the shift's: the room refuses a result of a round it has already left behind (`round_over`).
+ * the shift's: the room refuses a result of a round it has already left behind (`round_over`). A shared shift the
+ * game server ran (`needsSigned`) waits a moment for the server's signed result and sends it along.
  */
-function useRoomSubmit(report: ShiftReport | null, code: string | null, xp?: number, seed?: number) {
+function useRoomSubmit(
+  report: ShiftReport | null,
+  code: string | null,
+  xp?: number,
+  seed?: number,
+  needsSigned = false,
+  signed?: string,
+) {
   const user = useAccount((s) => s.user);
   const gameUser = useGame((s) => s.user);
   const loggedIn = !!user && gameUser?.method === 'account';
   const [state, setState] = useState<RoomSend>({ status: 'idle' });
   const [attempt, setAttempt] = useState(0);
+  const [waited, setWaited] = useState(false);
+  useEffect(() => {
+    if (!needsSigned || signed) return;
+    const timer = setTimeout(() => setWaited(true), SIGNED_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [needsSigned, signed]);
+  const hold = needsSigned && !signed && !waited;
   useEffect(() => {
     if (!report || !code) return;
     if (!loggedIn) {
@@ -908,7 +942,8 @@ function useRoomSubmit(report: ShiftReport | null, code: string | null, xp?: num
     }
     let alive = true;
     setState({ status: 'sending' });
-    submitRoomResultOnce(report, code, xp, seed)
+    if (hold) return;
+    submitRoomResultOnce(report, code, xp, seed, signed)
       .then((r) => alive && setState({ status: 'done', ...r }))
       .catch((e: unknown) => {
         if (!alive) return;
@@ -919,7 +954,7 @@ function useRoomSubmit(report: ShiftReport | null, code: string | null, xp?: num
     return () => {
       alive = false;
     };
-  }, [report, code, loggedIn, attempt, seed]);
+  }, [report, code, loggedIn, attempt, seed, hold]);
   return { state, retry: () => setAttempt((n) => n + 1) };
 }
 

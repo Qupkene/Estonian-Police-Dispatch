@@ -296,6 +296,19 @@
 .vk-mp__ready.is-ready {
   color: var(--vk-ok);
 }
+/* The host's "Eemalda" next to another player (docs/MULTIPLAYER.md section 12). */
+.vk-mp__kick.vk-btn {
+  flex: none;
+  min-height: 28px;
+  padding: 0 9px;
+  font-size: 12px;
+  color: var(--vk-text-2);
+}
+.vk-mp__kick.vk-btn:hover:not(:disabled),
+.vk-mp__kick.vk-btn:focus-visible {
+  border-color: var(--vk-bad);
+  color: var(--vk-bad);
+}
 .vk-mp__status {
   display: grid;
   gap: 8px;

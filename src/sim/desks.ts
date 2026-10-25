@@ -15,21 +15,26 @@
  * - Desks nobody holds (never taken, or the player left): run by the existing AI colleague logic. Their colleague
  *   takes their calls and incidents back (closed as `colleague`, out of the counts), asks the players' desks for help
  *   now and then (src/sim/colleagues.ts with `ColleagueState.area` = the held desks), never uses a player's crew and
- *   lends its own idle crews when asked. They do not fall to a neighbour: a player keeps exactly one desk's work.
+ *   lends its own idle crews when asked. It also answers its desk's crews on events they already work (2.34.0): the
+ *   best option of a decision, the agency they ask for, the true registry answer, the backup they need.
+ * - Taking over (2.34.0): a player may take a desk nobody holds (`take`). Its crews and open events then run under
+ *   the player's own desk (`merged`), so every list, line and permission treats them as theirs; `give` hands it
+ *   back to the colleague, and the desk's own player coming back gets it back at once.
  *
  * Never imported by single player: everything is reached through `s.coop.sec`, which only a sector room has.
  */
 import { REGIONS } from '@/data/regions';
 import { COLLEAGUES } from '@/data/sectors';
-import { dispatchUnits } from './commands';
+import { dispatchUnits, replyRadio } from './commands';
 import { colleagueName, deskCallsign, HANDOVER_REPLIES, helpSector, newColleagueState } from './colleagues';
 import { haversineKm } from './geo';
-import { closeByColleague, openIncidentIds } from './incidents';
+import { closeByColleague, colleagueAnswer, openIncidentIds } from './incidents';
 import { addTimeline, pushRadio } from './internal';
 import { nearestStreetName, onStreet } from './pursuit';
 import { phrase } from './radio';
 import { mainStation, sectorAt, sectorById, sectorOf, sectorsOf } from './sectors';
 import { MIN } from './time';
+import { typeFits, unitPosAt } from './units';
 import type { CoopSeat, CoopState, SeatStats } from './coop';
 import type {
   ActiveCall,
@@ -41,6 +46,7 @@ import type {
   SimState,
   Text,
   Unit,
+  UnitNeed,
 } from './types';
 
 const T = (et: string, en: string): Text => ({ et, en });
@@ -92,6 +98,18 @@ export interface DeskState {
   handover: Record<string, { msg: string; desk: string }>;
   /** Incidents the AI colleague of a desk nobody held took back, per desk. */
   taken: Record<string, number>;
+  /**
+   * Desks a player took over (2.34.0): desk id, the desk it runs under now. Missing in shifts from before, as are the
+   * three below.
+   */
+  merged?: Record<string, string>;
+  /** Crews and open incidents a take-over moved: id, the desk they belong to without it. */
+  homeUnit?: Record<string, string>;
+  homeInc?: Record<string, string>;
+  /** Seats that took each desk over during the shift (the report). */
+  takenBy?: Record<string, number[]>;
+  /** Radio messages the colleague of a desk nobody holds has dealt with. */
+  answered?: Record<string, 1>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -244,9 +262,17 @@ export function deskHolders(c: Pick<CoopState, 'seats'>, desk: string): CoopSeat
   return c.seats.filter((x) => x.present && x.desk === desk);
 }
 
-/** Desks with at least one player present. */
+/** Desks with at least one player present, their own or one that took them over. */
 export function heldDesks(c: Pick<CoopState, 'seats' | 'sec'>): string[] {
-  return (c.sec?.desks ?? []).filter((d) => deskHolders(c, d).length > 0);
+  const sec = c.sec;
+  return (sec?.desks ?? []).filter((d) => deskHolders(c, runningDesk(sec!, d)).length > 0);
+}
+
+/** The desk a desk's work runs under: itself, or the desk of the player who took it over. */
+export function runningDesk(sec: Pick<DeskState, 'merged'>, desk: string): string {
+  let d = desk;
+  for (let i = 0; i < MAX_DESKS && sec.merged?.[d]; i++) d = sec.merged[d];
+  return d;
 }
 
 /** A seat's desk while it is present ('' when away or not a sector room). */
@@ -267,7 +293,7 @@ export function unitDesk(
   if (u.onCall) return '';
   const region = regionOfState(s);
   const own = sectorById(sectorAt(region, u.pos))?.id ?? '';
-  return sec.desks.includes(own) ? own : nearestDesk(region, sec.desks, u.pos);
+  return runningDesk(sec, sec.desks.includes(own) ? own : nearestDesk(region, sec.desks, u.pos));
 }
 
 /**
@@ -298,8 +324,13 @@ export function incidentDesk(
     const own = sectorOf(region, inc.location);
     d = sec.desks.includes(own) ? own : nearestDesk(region, sec.desks, inc.location.coord);
   }
-  if (store) sec.incDesk[inc.id] = d;
-  return d;
+  // A desk a player took over: the event is theirs, and goes back with the desk.
+  const run = runningDesk(sec, d);
+  if (store) {
+    sec.incDesk[inc.id] = run;
+    if (run !== d) (sec.homeInc ??= {})[inc.id] = d;
+  }
+  return run;
 }
 
 /** The desk of a 112 call: its incident's. */
@@ -372,6 +403,7 @@ function blankStats(): SeatStats {
     helped: 0,
     handover: 0,
     takeover: 0,
+    took: 0,
   };
 }
 
@@ -400,6 +432,7 @@ export function updateDesks(s: SimState): void {
     if (inc) incidentDesk(s, inc, true);
   }
   takeBack(s, c, sec);
+  colleagueRuns(s, c, sec);
   countHelp(s, c, sec);
   offerDeskHandovers(s, c, sec);
 }
@@ -423,6 +456,187 @@ function takeBack(s: SimState, c: CoopState, sec: DeskState): void {
       ),
     );
   }
+}
+
+/** Game time the colleague of a desk nobody holds lets a crew's question wait before answering it for the desk. */
+export const COLLEAGUE_ANSWER_MS = 90 * 1000;
+/** Radio messages older than this (game time) are not looked at again. */
+const COLLEAGUE_LOOKBACK_MS = 30 * MIN;
+
+/**
+ * The colleague of a desk nobody holds works the events its crews are already on: a crew's decision, agency request,
+ * registry query or backup call that waited COLLEAGUE_ANSWER_MS gets what a careful dispatcher would give it
+ * (incidents.colleagueAnswer). A player who takes the desk over or comes back before then answers it themselves.
+ */
+function colleagueRuns(s: SimState, c: CoopState, sec: DeskState): void {
+  for (let i = s.radio.length - 1; i >= 0; i--) {
+    const msg = s.radio[i];
+    if (s.now - msg.t > COLLEAGUE_LOOKBACK_MS) break;
+    if (msg.answered || sec.answered?.[msg.id] || s.now - msg.t < COLLEAGUE_ANSWER_MS) continue;
+    if (msg.kind !== 'choice' && msg.kind !== 'agency' && msg.kind !== 'query' && msg.kind !== 'backup')
+      continue;
+    if (msg.expiresAt !== undefined && msg.expiresAt < s.now) continue;
+    const d = msgDesk(s, msg);
+    if (!d || deskHolders(c, d).length) continue;
+    (sec.answered ??= {})[msg.id] = 1;
+    const a = colleagueAnswer(s, msg);
+    if (!a) continue;
+    if ('reply' in a) replyRadio(s, msg.id, a.reply);
+    else sendColleagueBackup(s, sec, d, a.inc, a.need);
+  }
+  const done = sec.answered;
+  if (done && Object.keys(done).length > 400) {
+    const keep = new Set(s.radio.map((m) => m.id));
+    for (const id of Object.keys(done)) if (!keep.has(id)) delete done[id];
+  }
+}
+
+/** The colleague sends the backup a crew of its desk asked for: its nearest free crews of the right kind. */
+function sendColleagueBackup(s: SimState, sec: DeskState, desk: string, inc: Incident, need: UnitNeed): void {
+  const free: { u: Unit; km: number }[] = [];
+  for (const id of s.unitOrder) {
+    const u = s.units[id];
+    if (!u || u.onCall || sec.unitDesk[id] !== desk || !lendable(u) || !typeFits(need.type, u.type)) continue;
+    free.push({ u, km: haversineKm(unitPosAt(u, s.now).pos, inc.location.coord) });
+  }
+  free.sort((x, y) => x.km - y.km || (x.u.id < y.u.id ? -1 : 1));
+  const pick = free.slice(0, Math.max(1, need.count)).map((x) => x.u.id);
+  if (pick.length) dispatchUnits(s, inc.id, pick);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Taking over a desk nobody holds (2.34.0)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Desks a seat could take over now: the room's desks nobody holds and nobody took over (its own desk never).
+ * Empty for a seat that is away or outside a sector room.
+ */
+export function freeDesks(c: Pick<CoopState, 'seats' | 'sec'>, seat: number): string[] {
+  const sec = c.sec;
+  const mine = seatDesk(c, seat);
+  if (!sec || !mine) return [];
+  return sec.desks.filter((d) => d !== mine && !sec.merged?.[d] && !deskHolders(c, d).length);
+}
+
+/** Desks running under a desk because a player took them over. */
+export function desksTakenInto(sec: Pick<DeskState, 'desks' | 'merged'>, desk: string): string[] {
+  return sec.desks.filter((d) => d !== desk && sec.merged?.[d] !== undefined && runningDesk(sec, d) === desk);
+}
+
+/**
+ * After a take-over or a hand-back: every crew and every open event runs under the desk its own desk runs under
+ * now. What a take-over moved remembers its own desk (homeUnit, homeInc) and goes back with it.
+ */
+function remapDesks(s: SimState, sec: DeskState): void {
+  const homeUnit = (sec.homeUnit ??= {});
+  const homeInc = (sec.homeInc ??= {});
+  for (const id of s.unitOrder) {
+    const own = homeUnit[id] ?? sec.unitDesk[id];
+    if (!own) continue;
+    const run = runningDesk(sec, own);
+    sec.unitDesk[id] = run;
+    if (run !== own) homeUnit[id] = own;
+    else delete homeUnit[id];
+  }
+  for (const id of openIncidentIds(s)) {
+    const own = homeInc[id] ?? sec.incDesk[id];
+    if (own === undefined) continue;
+    const run = runningDesk(sec, own);
+    sec.incDesk[id] = run;
+    if (run !== own) homeInc[id] = own;
+    else delete homeInc[id];
+  }
+  // Requests between a desk and the one that took it over make no sense any more.
+  for (const req of sec.lends)
+    if (req.state === 'open' && runningDesk(sec, req.from) === runningDesk(sec, req.to))
+      req.state = 'expired';
+}
+
+function deskNotice(s: SimState, text: Text): void {
+  pushRadio(s, { from: 'JK', to: 'JK', text, level: 'routine', kind: 'system' });
+}
+
+/**
+ * `take [desk]`: a player takes over a desk nobody holds. Its crews and open events run under the player's own desk
+ * from now on, its 112 calls ring there, and its colleague stops taking its events back.
+ */
+export function takeDesk(s: SimState, c: CoopState, seat: number, desk: string): LendResult {
+  const sec = c.sec;
+  const x = c.seats.find((y) => y.seat === seat);
+  const mine = seatDesk(c, seat);
+  if (!sec || !x || !mine || !sec.desks.includes(desk)) return { ok: false };
+  if (!freeDesks(c, seat).includes(desk))
+    return {
+      ok: false,
+      reason: T('Seda lauda ei saa praegu üle võtta.', 'That desk cannot be taken over now.'),
+    };
+  (sec.merged ??= {})[desk] = mine;
+  const by = ((sec.takenBy ??= {})[desk] ??= []);
+  if (!by.includes(seat)) by.push(seat);
+  statsFor(c, seat).took = (statsFor(c, seat).took ?? 0) + 1;
+  remapDesks(s, sec);
+  const name = deskName(desk);
+  for (const id of openIncidentIds(s))
+    if (sec.homeInc?.[id] === desk && s.incidents[id] && !s.flags[`hidden:${id}`])
+      addTimeline(
+        s,
+        s.incidents[id],
+        'dispatch',
+        T(`${x.name} võttis laua ${name.et} üle.`, `${x.name} took over the ${name.en} desk.`),
+      );
+  deskNotice(s, T(`${x.name} võttis laua ${name.et} üle.`, `${x.name} took over the ${name.en} desk.`));
+  syncDeskSeats(s);
+  return { ok: true };
+}
+
+/**
+ * A desk goes back: `give [desk]` by the player it runs under (to its colleague), or its own player is back (`back`).
+ * Its crews and the open events of its sector return to it.
+ */
+export function giveDesk(s: SimState, c: CoopState, desk: string, seat: number, back = false): LendResult {
+  const sec = c.sec;
+  if (!sec?.merged?.[desk]) return { ok: false };
+  if (!back && runningDesk(sec, desk) !== seatDesk(c, seat))
+    return { ok: false, denied: true, reason: NOT_YOURS };
+  delete sec.merged[desk];
+  remapDesks(s, sec);
+  const name = deskName(desk);
+  const who = c.seats.find((y) => y.seat === seat)?.name ?? '';
+  const sector = sectorById(desk);
+  const colleague = sector ? colleagueName(sector) : '';
+  deskNotice(
+    s,
+    back
+      ? T(`${who} on tagasi: laud ${name.et} on jälle tema käes.`, `${who} is back at the ${name.en} desk.`)
+      : T(
+          `${who} andis laua ${name.et} kolleeg ${colleague} kätte.`,
+          `${who} handed the ${name.en} desk to colleague ${colleague}.`,
+        ),
+  );
+  syncDeskSeats(s);
+  return { ok: true };
+}
+
+/** A seat left (`left`): when its desk is now empty, everybody hears that its colleague holds it and it can be taken. */
+export function deskSeatLeft(s: SimState, c: CoopState, x: CoopSeat): void {
+  const sec = c.sec;
+  if (!sec || !x.desk || deskHolders(c, x.desk).length) return;
+  const name = deskName(x.desk);
+  const sector = sectorById(x.desk);
+  const colleague = sector ? colleagueName(sector) : '';
+  deskNotice(
+    s,
+    T(
+      `${x.name} ei ole enam ühenduses. Laud ${name.et} on kolleeg ${colleague} käes; selle saab üle võtta.`,
+      `${x.name} is no longer connected. Colleague ${colleague} holds the ${name.en} desk; it can be taken over.`,
+    ),
+  );
+}
+
+/** A seat is back (`back`): its own desk, if somebody took it over meanwhile, is its own again. */
+export function deskSeatBack(s: SimState, c: CoopState, x: CoopSeat): void {
+  if (c.sec && x.desk && c.sec.merged?.[x.desk]) giveDesk(s, c, x.desk, x.seat, true);
 }
 
 function countHelp(s: SimState, c: CoopState, sec: DeskState): void {
@@ -462,7 +676,8 @@ function offerDeskHandovers(s: SimState, c: CoopState, sec: DeskState): void {
     const inc = s.incidents[id];
     const p = inc?.pursuit;
     if (!inc || !p || p.ended || inc.state === 'closed' || sec.handover[inc.id]) continue;
-    const into = sectorAt(region, p.suspectPos);
+    const area = sectorAt(region, p.suspectPos);
+    const into = sec.desks.includes(area) ? runningDesk(sec, area) : area;
     const from = incidentDesk(s, inc, true);
     if (
       into === from ||
@@ -540,6 +755,7 @@ export function answerDeskHandover(
   }
   const was = incidentDesk(s, inc);
   sec.incDesk[inc.id] = offer.desk;
+  if (sec.homeInc) delete sec.homeInc[inc.id];
   pushRadio(s, {
     from: deskCallsign(sector),
     to: 'JK',
@@ -761,6 +977,8 @@ export interface DeskRow {
   handover: number;
   /** Incidents the colleague took back while nobody held the desk. */
   taken: number;
+  /** Seats that took the desk over during the shift (2.34.0). */
+  takenBy: number[];
 }
 
 export function deskRows(s: SimState): DeskRow[] {
@@ -794,6 +1012,7 @@ export function deskRows(s: SimState): DeskRow[] {
       helped: sum('helped'),
       handover: sum('handover'),
       taken: sec.taken[desk] ?? 0,
+      takenBy: [...(sec.takenBy?.[desk] ?? [])],
     };
   });
 }
@@ -805,5 +1024,9 @@ export function deskDigest(sec: DeskState): string {
     .sort()
     .map((k) => `${k}=${sec.taken[k]}`)
     .join(',');
-  return `D${sec.desks.join(',')}|${sec.seen}|${sec.lendSeq}|${lends}|${Object.keys(sec.helped).length}|${Object.keys(sec.handover).length}|${taken}`;
+  const merged = Object.keys(sec.merged ?? {})
+    .sort()
+    .map((k) => `${k}>${sec.merged![k]}`)
+    .join(',');
+  return `D${sec.desks.join(',')}|${sec.seen}|${sec.lendSeq}|${lends}|${Object.keys(sec.helped).length}|${Object.keys(sec.handover).length}|${taken}|${merged}|${Object.keys(sec.answered ?? {}).length}`;
 }

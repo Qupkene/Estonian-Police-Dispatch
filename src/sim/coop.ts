@@ -33,12 +33,16 @@ import {
   defaultDesk,
   deskDigest,
   deskRows,
+  deskSeatBack,
+  deskSeatLeft,
+  giveDesk,
   incidentDesk,
   initDesks,
   msgDesk,
   requestLend,
   seatDesk,
   syncDeskSeats,
+  takeDesk,
   tickLends,
   unitDesk,
   type DeskRow,
@@ -138,6 +142,8 @@ export interface SeatStats {
   /** Sector co-op: pursuits handed over to a neighbour's desk, and taken over from one. */
   handover: number;
   takeover: number;
+  /** Sector co-op: desks nobody held that this seat took over (2.34.0; missing in older reports). */
+  took?: number;
 }
 
 export interface CoopPing {
@@ -206,6 +212,7 @@ export function emptySeatStats(): SeatStats {
     helped: 0,
     handover: 0,
     takeover: 0,
+    took: 0,
   };
 }
 
@@ -287,6 +294,8 @@ export const COMMAND_ROLE: Record<string, Need> = {
   check: 'radio',
   lend: 'dispatch',
   lendans: 'dispatch',
+  take: 'dispatch',
+  give: 'dispatch',
   q: 'any',
   ping: 'any',
   speed: 'host',
@@ -471,6 +480,7 @@ function deskAllows(s: SimState, c: CoopState, cmd: LogCmd): boolean {
       const d = msgDesk(s, msg);
       return d === '' || own(d);
     }
+    // Taking a free desk over and handing one back: takeDesk and giveDesk check who may.
     default:
       return true;
   }
@@ -520,7 +530,12 @@ function run(s: SimState, c: CoopState, cmd: LogCmd): CmdResult {
     case 'back': {
       const x = typeof a[0] === 'number' ? seatOf(c, a[0]) : undefined;
       if (!x) return NOOP;
+      const was = x.present;
       x.present = cmd.k === 'back';
+      // Sector co-op: an emptied desk is announced (its colleague holds it, anybody may take it over); a player who
+      // comes back gets their desk back from whoever took it over.
+      if (c.sec && was && !x.present) deskSeatLeft(s, c, x);
+      if (c.sec && x.present) deskSeatBack(s, c, x);
       syncDeskSeats(s);
       return { ok: true };
     }
@@ -698,6 +713,15 @@ function run(s: SimState, c: CoopState, cmd: LogCmd): CmdResult {
       if (!c.sec || typeof a[0] !== 'number') return NOOP;
       return answerLend(s, c, seat, a[0], a[1] === 1 || a[1] === true);
     }
+    // ── Sektorid: a desk nobody holds (2.34.0) ──
+    case 'take': {
+      if (!c.sec) return NOOP;
+      return takeDesk(s, c, seat, str(a[0]));
+    }
+    case 'give': {
+      if (!c.sec) return NOOP;
+      return giveDesk(s, c, str(a[0]), seat);
+    }
     default:
       return NOOP;
   }
@@ -851,7 +875,7 @@ export function simDigest(s: SimState): string {
       const v = c.stats[k];
       parts.push(
         `${k}:${v.calls}.${v.created}.${v.callsClosed}.${v.acks}.${v.sent}.${v.radio}.${v.closed}.${v.queries}.${v.pings}.${v.commands}.${v.denied}` +
-          (c.sec ? `.${v.lent}.${v.borrowed}.${v.helped}.${v.handover}.${v.takeover}` : ''),
+          (c.sec ? `.${v.lent}.${v.borrowed}.${v.helped}.${v.handover}.${v.takeover}.${v.took ?? 0}` : ''),
       );
     }
     if (c.sec) parts.push(deskDigest(c.sec));
@@ -908,7 +932,8 @@ export function seatWork(v: SeatStats): number {
     (v.lent ?? 0) * 2 +
     (v.helped ?? 0) * 3 +
     (v.handover ?? 0) +
-    (v.takeover ?? 0) * 2
+    (v.takeover ?? 0) * 2 +
+    (v.took ?? 0) * 3
   );
 }
 

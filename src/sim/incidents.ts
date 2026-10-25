@@ -74,6 +74,7 @@ import type {
   Text,
   TransportBeat,
   Unit,
+  UnitNeed,
 } from './types';
 
 const T = (et: string, en: string): Text => ({ et, en });
@@ -922,6 +923,38 @@ function choiceTimeout(s: SimState, inc: Incident, spec: ChoiceBeat, b: BeatStat
         x: opt.label,
       }),
     );
+}
+
+/**
+ * What a careful dispatcher answers to a crew's message that waits for a reply (the AI colleague of a sector desk
+ * nobody holds, src/sim/desks.ts): the best option of a decision, the request of an agency, the true answer of a
+ * registry query. A backup call gives the crews it needs instead (`need`). Null for anything else.
+ */
+export function colleagueAnswer(
+  s: SimState,
+  msg: RadioMsg,
+): { reply: string } | { need: UnitNeed; inc: Incident } | null {
+  const inc = msg.incidentId ? s.incidents[msg.incidentId] : undefined;
+  if (!inc || inc.state === 'closed') return null;
+  const b = inc.beats.find((x) => x.radioId === msg.id);
+  const spec = b ? tplOf(inc)?.beats?.[b.index] : undefined;
+  if (!b || !spec || b.status !== 'active') return null;
+  switch (spec.kind) {
+    case 'choice': {
+      const best = spec.options.find((o) => isBestChoice(spec, o.id)) ?? spec.options[0];
+      return best ? { reply: best.id } : null;
+    }
+    case 'agency':
+      return { reply: 'request' };
+    case 'query': {
+      const subj = querySubjectOf(s, inc, spec);
+      return { reply: subj ? expectedReply(s, subj, queryCtx(inc, spec)) : 'notfound' };
+    }
+    case 'backup':
+      return { need: spec.need, inc };
+    default:
+      return null;
+  }
 }
 
 /** Player answered a radio message with replies. Returns true if it was handled. */

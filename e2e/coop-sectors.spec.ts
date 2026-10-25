@@ -7,7 +7,10 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
  * neighbour's events and crews are dimmed. The host asks the guest for a crew on one of its events, the guest
  * accepts it in the co-op panel, the crew goes. Both clients keep the same digest; the host ends the shift and the
  * two reports match, with the per-desk table.
- * MP_SHOTS=<dir> saves screenshots (the lobby's desk choice, both desks in game, the lend request, the report).
+ * Then (2.34.0, section 12): a host removes a third player from the lobby, and in the shared shift removes the guest,
+ * whose game says so at once; the guest's desk is free, the host takes it over from the co-op panel.
+ * MP_SHOTS=<dir> saves screenshots (the lobby's desk choice, both desks in game, the lend request, the report, the
+ * take-over).
  */
 
 type Hash = { turn: number; hash: string };
@@ -350,5 +353,77 @@ test.describe.serial('sector co-op', () => {
     expect(guest.errors, guest.errors.join('\n')).toEqual([]);
     await host.ctx.close();
     await guest.ctx.close();
+  });
+
+  test('the host removes players, and takes over the desk of the one removed from the shift', async ({
+    browser,
+  }) => {
+    const host = await register(browser, `kesk2_${STAMP}`);
+    const guest = await register(browser, `lasna2_${STAMP}`);
+    const third = await register(browser, `kolmas_${STAMP}`);
+    await openRooms(host.page);
+    await host.page
+      .getByRole('radiogroup', { name: 'Režiim' })
+      .getByRole('radio', { name: /Sektorid/ })
+      .click();
+    await host.page.getByRole('button', { name: 'Loo ruum' }).click();
+    const code = ((await host.page.getByTestId('room-code').textContent()) ?? '').replace(/\s/g, '');
+    for (const p of [guest.page, third.page]) {
+      await openRooms(p);
+      await p.getByLabel('Ruumi kood').fill(code);
+      await p.getByRole('button', { name: 'Liitu', exact: true }).click();
+      await expect(p.getByTestId('room-code')).toBeVisible({ timeout: 10_000 });
+    }
+    await expect(host.page.getByTestId('seat-kick')).toHaveCount(2, { timeout: 10_000 });
+    // The lobby: the host removes the third player, who is told so and cannot come back with the code.
+    await host.page.getByTestId('seat-kick').last().click();
+    await host.page.getByTestId('kick-yes').click();
+    await expect(third.page.getByText('Ruumi looja eemaldas sind sellest ruumist.')).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(host.page.getByTestId('seat-kick')).toHaveCount(1, { timeout: 10_000 });
+    await third.page.getByRole('button', { name: 'Uus ruum' }).click();
+    await third.page.getByLabel('Ruumi kood').fill(code);
+    await third.page.getByRole('button', { name: 'Liitu', exact: true }).click();
+    await expect(third.page.getByText('Ruumi looja eemaldas sind sellest ruumist.')).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await guest.page.getByRole('button', { name: 'Olen valmis' }).click();
+    await expect(host.page.getByTestId('room-block')).toContainText('Kõik on valmis', { timeout: 10_000 });
+    await host.page.getByRole('button', { name: 'Alusta vahetust' }).click();
+    for (const p of [host.page, guest.page]) {
+      await expect.poll(() => screen(p), { timeout: 30_000 }).toBe('game');
+      await expect(p.getByTestId('coop-status')).toHaveText('Ühendatud', { timeout: 30_000 });
+    }
+    // The shift: the host removes the guest from the co-op panel; the guest's game says so at once.
+    await host.page.getByTestId('coop-kick').click();
+    await host.page.getByTestId('coop-kick-yes').click();
+    await expect(guest.page.getByTestId('coop-kicked')).toBeVisible({ timeout: 15_000 });
+    // Lasnamäe has nobody now: its colleague holds it, and the host can take it over.
+    const take = host.page.getByTestId('desk-take-row');
+    await expect(take).toContainText('Lasnamäe', { timeout: 15_000 });
+    await shot(host.page, 'desk-free');
+    await host.page.getByTestId('desk-take').click();
+    await expect(host.page.getByTestId('desk-give-row')).toContainText('Lasnamäe: sinu käes', {
+      timeout: 10_000,
+    });
+    await expect(host.page.getByTestId('desk-take-row')).toHaveCount(0);
+    const merged = await host.page.evaluate(
+      () =>
+        (
+          (window as unknown as EpdWindow).__epd.game.getState().sim?.coop?.sec as {
+            merged?: Record<string, string>;
+          }
+        )?.merged,
+    );
+    expect(merged).toEqual({ 'pohja-lasnamae': 'pohja-kesklinn' });
+    await shot(host.page, 'desk-taken');
+    // The removed guest leaves the shift.
+    await guest.page.getByRole('button', { name: 'Välju vahetusest' }).click();
+    await expect.poll(() => screen(guest.page), { timeout: 10_000 }).not.toBe('game');
+
+    for (const r of [host, guest, third]) expect(r.errors, r.errors.join('\n')).toEqual([]);
+    for (const r of [host, guest, third]) await r.ctx.close();
   });
 });

@@ -14,7 +14,8 @@ simulation (section 4 chooses how) and mode (b) on top of it; section 7 describe
 mode (a) on the same lockstep core; section 8 describes it. Since 2.21.0 the co-op shifts run on a game server
 (section 9): a click takes effect in about a tenth of a second instead of two or three, and the lockstep core is the
 fallback when the game server is not there. A room plays round after round: after a game everybody carries on in the
-same lobby (section 11). Careers and polish are next (section 6).
+same lobby (section 11). Since 2.34.0 the host can remove a player, a desk nobody holds can be taken over, and the game
+server signs the result of the shifts it runs (section 12). Careers and polish are next (section 6).
 
 Code: `server/lib/rooms.php` (routes in `server/api/index.php`, schema step 4 in `server/lib/db.php`),
 `src/net/rooms.ts`, `src/sim/room.ts`, `src/ui/screens/LobbyScreen.tsx`, `src/ui/screens/shell/RoomBoard.tsx`,
@@ -436,6 +437,8 @@ nobody picked and a player who leaves (`left`, or offline for 60 s) are the same
   colleague's sector nearest the call. The colleagues never use a player's crew. Asked for one of their own free
   crews, they lend it at once; a player's offer to them is declined.
 - `back` gives the desk to its player again; what the colleague took stays closed.
+- Since 2.34.0 (section 12) the colleague also works the events of its desk that already have crews, and a player
+  may take the desk over.
 
 ### 8.5 Report and XP
 
@@ -448,8 +451,9 @@ crews lent and help. XP as for role co-op (section 7.4), once per career and rou
 
 - The neighbours of the chosen desks are checked in the client only; a modified client could store a list of
   sectors that do not touch, which still plays (ownership does not need them to touch).
-- A desk whose player leaves keeps its incidents that have crews; nobody can work them until the crews finish or
-  the player comes back.
+- A desk whose player leaves keeps its incidents that have crews. Until 2.34.0 nobody could work them until the crews
+  finished or the player came back; now its colleague answers its crews and a player may take the desk over
+  (section 12).
 - On-call assets are shared and can be sent by any desk; the first desk to send one wins (the log orders it).
 - Lending covers free crews only: a crew on its way to its own desk's job is not offered, it has to be recalled
   first.
@@ -507,7 +511,8 @@ The ticket (`POST /api/rooms/{code}/ticket`, docs/SERVER.md) is signed with a se
 their seat and the room's shift, and expires after a minute. The game server believes nothing else a client says.
 The socket gets the ticket as its first message (never in the URL, so it is not in any access log), within 10 s.
 The game server listens on 127.0.0.1 only; the public way in is Caddy's `/mp/*`. Results are still posted by the
-clients, but they are now built from the server's exact final state.
+clients, built from the server's exact final state, and since 2.34.0 they count only with the result the game server
+signed (section 12.3), so a modified client cannot send another score.
 
 ### 9.3 Restarts and failures
 
@@ -631,11 +636,78 @@ second and third role co-op round on the game server).
 ### 11.4 Limits
 
 - A player who never comes back and never leaves keeps one of the four seats; the start and the end of a round do not
-  wait for them, but a fifth player cannot join while all four seats are taken. There is no way for the host to remove
-  a player.
+  wait for them, but a fifth player cannot join while all four seats are taken. Since 2.34.0 the host can remove them
+  (section 12.1).
 - A co-op player who is away at the start keeps a seat in the shared shift; on the game server the desk or role is
   held by nobody for up to a minute (the seat's grace to connect) before the others take it over, as for a player who
   loses the connection.
 - The admin panel shows a room's rounds (the current one's results and every earlier one's, newest first) and can
   close a room between rounds; earlier rounds' results are kept while the room is kept, and go with the room (30 days
   after its last change) or with a player's account.
+
+## 12. Removing a player, taking over a desk, signed results (2.34.0)
+
+The owner's list (October 2026), points 1, 2 and 4: the host can remove a player; the desk of a player who left does
+not stay stuck, it goes to the AI colleague or to a neighbour; a shift the game server runs is scored by the server,
+not by what the clients say. The owner plays mostly sector co-op ("mul on kesklinn ja sul Lasnamäe"), so the desk part
+is built for it.
+
+Code: `epd_route_room_kick` and `epd_room_banned` in `server/lib/rooms.php` (schema step 12, `room_bans`),
+`epd_mp_kick` and `epd_mp_signed_result` in `server/lib/mp.php`, `MpRoom.kick` and `MpRoom.signedResult` in
+`server/mp/room.ts`, `POST /mp/kick` in `server/mp/main.ts`, `verifyKick` in `server/mp/ticket.ts`; `takeDesk`,
+`giveDesk`, `runningDesk`, `freeDesks`, `colleagueRuns` in `src/sim/desks.ts` and `colleagueAnswer` in
+`src/sim/incidents.ts`; the commands `take` and `give` in `src/sim/coop.ts`; `kickPlayer` and `signedResultShift` in
+`src/net/rooms.ts`; the lobby's "Eemalda" (`src/ui/screens/LobbyScreen.tsx`), the co-op panel's remove button, free
+desks and the removed player's notice (`src/ui/game/CoopPanel.tsx`), the signed result on the report
+(`src/ui/screens/ReportScreen.tsx`). Tests: `tests/server.test.ts` (the lobby, a running sector room, the game server
+rooms), `tests/mp.test.ts`, `tests/coop-sectors.test.ts`, `e2e/coop-sectors.spec.ts`.
+
+### 12.1 Removing a player
+
+- In the lobby the host sees "Eemalda" next to each other player; in a running co-op shift the co-op panel has a remove
+  button on each other seat. Both ask first ("ei saa sama koodiga tagasi tulla").
+- `POST /api/rooms/{code}/kick { seat }` (host only, never the host's own seat) removes the player the way leaving
+  does and bans them from the room (`room_bans`): every route of the room answers them 403 `kicked`, joining with the
+  code too. A lobby frees the seat; a running round keeps them on its board as having left; the next round drops them.
+- A lockstep shift sequences `left [seat]` at once, so the desk or role passes on as for a player who left. A shift on
+  the game server gets a notice signed with the shared secret (`POST /mp/kick`): the game server closes the seat's
+  connection with 4403, the seat leaves at the next piece and is never let in again. If the notice does not arrive,
+  the player's own client stops at its next room poll and the seat leaves a minute later.
+- The removed player's game says "Ruumi looja eemaldas sind sellest ruumist. Sinu laud läks kolleegile." with a way
+  out; their lobby view says it too.
+
+### 12.2 A desk nobody holds
+
+- Its colleague (section 8.4) now also works the events its crews are already on. A crew's question that waited 90 s
+  of game time (`COLLEAGUE_ANSWER_MS`) gets what a careful dispatcher answers: the best option of a decision, the
+  agency asked for, the true registry answer, and for a backup call the desk's nearest free crews of the right kind.
+  Each message is dealt with once (`DeskState.answered`). A player who comes back or takes over before then answers
+  it themselves.
+- Everybody hears when a desk empties: a radio notice says whose desk it was, that its colleague holds it and that it
+  can be taken over.
+- Taking over (`take [desk]`): any present player may take a desk nobody holds and nobody took. The desk then runs under
+  the player's own desk (`DeskState.merged`): its crews and its open events move there (remembering their own desk in
+  `homeUnit` and `homeInc`), new events of its sector and its 112 calls go there, the colleague stops taking its events
+  back, and every list, filter, line and permission treats them as the player's, with no change to the screens. A
+  notice and the events' timelines say who took it.
+- Back (`give [desk]`, or its own player comes back with `back`): the crews and the open events it brought along return
+  to it; a returning player finds their desk as it is now. A desk that was taken over during the shift shows who took
+  it in the report (`DeskRow.takenBy`), and the taker's seat counts it (`took`, 3 XP points each in `seatWork`).
+- Not a fall to a neighbour by itself (section 8.4 still holds): nobody suddenly runs two queues without asking.
+
+### 12.3 The game server signs the result
+
+- At the end the `full` message carries `res`: the shift's result signed with the shared secret, built on the server
+  exactly as each browser builds its report (`finalizeShift` on the same JSON copy, `coopReport`, `coopXp` per seat).
+  A rejoin after the end gets it again in `hello`. The client keeps it with the session and the report sends it with
+  the room result (waiting up to 15 s for it).
+- PHP counts a game server room's result only with a valid token of that room, round and start; its numbers replace the
+  client's. Without it, 409 `unsigned`. Race rooms and lockstep rooms post as before (their shifts run in the
+  browsers).
+
+### 12.4 Limits
+
+- A removed player's account is not blocked anywhere else: they can make or join other rooms.
+- The colleague answers decisions with the option that scores best; a player's answer might be worse or better, as in
+  single player.
+- A taken-over desk's map area is not drawn as the player's own (its events and crews are).

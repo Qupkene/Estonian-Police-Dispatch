@@ -2,6 +2,21 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.34.0 (2026-10-25)
+
+- **Mängija eemaldamine:** ruumi looja saab mängija ruumist eemaldada nii lobbys ("Eemalda") kui ka käimasolevas ühisvahetuses (koostööpaneeli nupp). Enne küsitakse kinnitust. Eemaldatud mängija näeb kohe teadet ega pääse sama koodiga tagasi. Tema laud või roll läheb teistele.
+- **Laud ei jää enam kinni:** kui sektorite koostöös jääb laud tühjaks, kuulevad kõik raadiost, kelle laud see oli ja et kolleeg hoiab seda nüüd.
+  - AI-kolleeg tegeleb nüüd ka pooleli sündmustega: vastab ekipaaži küsimusele poolteise minuti pärast, valib parima otsuse, kutsub vajaliku ameti, annab õige registrivastuse ja saadab abijõud.
+  - Laua saab koostööpaneelilt üle võtta ("Võta üle"): selle sündmused, ekipaažid ja 112 kõned on siis sinu omad. Nupuga "Anna tagasi" läheb laud kolleegile tagasi. Kui omanik naaseb, saab ta oma laua kohe tagasi.
+- **Server kinnitab tulemused:** kui ühisvahetus käib mänguserveris, arvutab server tulemuse ise ja allkirjastab selle. Ruumi tabelisse läheb ainult serveri kinnitatud tulemus, nii et kliendist ei saa skoori võltsida.
+
+<details>
+<summary>English</summary>
+
+Points 1, 2 and 4 of the owner's multiplayer list (docs/MULTIPLAYER.md section 12). The host removes a player with `POST /api/rooms/{code}/kick` (lobby "Eemalda", the co-op panel in a running shift): the player leaves as with leaving, is banned from the room (`room_bans`, schema step 12; 403 `kicked` on every route, joining too), a lockstep shift sequences `left` at once and a game server shift gets a signed `POST /mp/kick` that closes the seat (4403) and keeps it out. A sector desk nobody holds is announced on the radio; its AI colleague now also answers its crews on events they already work (the best decision, the agency, the true registry answer, the backup, after 90 s of game time), and any player may take it over (`take`): its crews and open events run under their desk (`DeskState.merged`) until they hand it back (`give`) or its own player returns. The game server signs each shift's result at the end (`res` in `full` and `hello`, built like every client's report) and the API counts a game server room's result only with that signature (409 `unsigned` otherwise).
+
+</details>
+
 ## 2.33.1 (2026-10-25)
 
 - **Kuulsused näevad välja nagu päriselt:** kõigil 300 tuntud inimesel on registrikaardil avalikkusest tuntud juuksed, juuksevärv, habe, kehaehitus ja nahatoon, ning foto valitakse nende järgi. Näiteks Tanel Padaril on nüüd lühikesed pruunid juuksed ja kõrrehabe nii kaardil kui pildil.

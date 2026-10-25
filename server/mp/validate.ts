@@ -30,6 +30,8 @@ export const COMMAND_SHAPES: Record<string, Shape[]> = {
   end: [],
   lend: ['id', 'id'],
   lendans: ['num', 'bit'],
+  take: ['id'],
+  give: ['id'],
 };
 
 const ID = /^[A-Za-z0-9_-]{1,40}$/;

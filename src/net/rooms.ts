@@ -327,10 +327,19 @@ export async function leaveRoom(code: string): Promise<void> {
 }
 
 /**
- * Body of POST /api/rooms/{code}/result (a co-op player adds their own XP). `seed` is the shift's: the room answers
- * `round_over` when its round is over by then.
+ * The host removes the player in a seat (docs/MULTIPLAYER.md section 12): they are out of the room at once, also
+ * from a running round, and cannot come back with the code.
  */
-export function roomResultBody(r: ShiftReport, xp?: number, seed?: number) {
+export async function kickPlayer(code: string, seat: number): Promise<Room> {
+  return roomOf(await request<unknown>('POST', path(code, '/kick'), { seat }));
+}
+
+/**
+ * Body of POST /api/rooms/{code}/result (a co-op player adds their own XP). `seed` is the shift's: the room answers
+ * `round_over` when its round is over by then. `signed` is the game server's signed result of a shared shift it ran
+ * (the API counts that one, whatever the numbers beside it say).
+ */
+export function roomResultBody(r: ShiftReport, xp?: number, seed?: number, signed?: string) {
   return {
     score: Math.max(0, Math.min(100, Math.round(r.score))),
     grade: r.grade,
@@ -338,7 +347,24 @@ export function roomResultBody(r: ShiftReport, xp?: number, seed?: number) {
     arrests: r.stats?.arrests ?? 0,
     ...(xp !== undefined ? { xp: Math.max(0, Math.min(100000, Math.round(xp))) } : {}),
     ...(seed !== undefined ? { seed } : {}),
+    ...(signed ? { signed } : {}),
   };
+}
+
+/**
+ * Which shift a game server's signed result is of (its room code and seed), read without checking the signature:
+ * the report uses it to match the result to its own shift, the API checks it.
+ */
+export function signedResultShift(token: string | null | undefined): { code: string; seed: number } | null {
+  if (typeof token !== 'string' || !token.includes('.')) return null;
+  try {
+    const body = token.slice(0, token.indexOf('.')).replace(/-/g, '+').replace(/_/g, '/');
+    const p = JSON.parse(atob(body + '='.repeat((4 - (body.length % 4)) % 4))) as unknown;
+    if (!isObj(p) || typeof p.code !== 'string' || typeof p.seed !== 'number') return null;
+    return { code: p.code, seed: p.seed };
+  } catch {
+    return null;
+  }
 }
 
 export interface RoomResultReply {
@@ -356,14 +382,17 @@ export function submitRoomResultOnce(
   code: string,
   xp?: number,
   seed?: number,
+  signed?: string,
 ): Promise<RoomResultReply> {
   let p = submitted.get(report);
   if (!p) {
-    p = request<unknown>('POST', path(code, '/result'), roomResultBody(report, xp, seed)).then((res) => {
-      const o = isObj(res) ? res : {};
-      const rank = num(o.rank);
-      return { counted: o.counted !== false, rank: rank > 0 ? rank : null, room: parseRoom(o.room) };
-    });
+    p = request<unknown>('POST', path(code, '/result'), roomResultBody(report, xp, seed, signed)).then(
+      (res) => {
+        const o = isObj(res) ? res : {};
+        const rank = num(o.rank);
+        return { counted: o.counted !== false, rank: rank > 0 ? rank : null, room: parseRoom(o.room) };
+      },
+    );
     p.catch(() => submitted.delete(report));
     submitted.set(report, p);
   }
@@ -396,6 +425,10 @@ export function roomErrorKey(e: unknown): string {
     'officer_taken',
     'not_custom',
     'round_over',
+    'kicked',
+    'unsigned',
+    'player_not_found',
+    'kick_self',
     'network',
     'timeout',
   ];
@@ -474,7 +507,8 @@ export class RoomPoller {
     } catch (e) {
       if (this.stopped) return;
       const err = toApiError(e);
-      const gone = err.status === 404 || err.status === 401;
+      // 403 `kicked`: the host removed this player; the room is gone for them as well.
+      const gone = err.status === 404 || err.status === 401 || err.status === 403;
       this.failures++;
       this.opts.onError?.(err, gone);
       if (gone) {

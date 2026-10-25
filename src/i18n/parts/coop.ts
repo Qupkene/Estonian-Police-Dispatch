@@ -78,6 +78,11 @@ export default {
   'coop.status.ended': { et: 'Vahetus lõppenud', en: 'Shift over' },
   'coop.status.gone': { et: 'Ruumi ei ole', en: 'Room gone' },
   'coop.status.resyncs': { et: 'Olek taastatud {n} korda', en: 'State resynced {n} times' },
+  'coop.kicked': {
+    et: 'Ruumi looja eemaldas sind sellest ruumist. Sinu laud läks kolleegile.',
+    en: 'The room’s host removed you from this room. Your desk went to a colleague.',
+  },
+  'coop.kicked.leave': { et: 'Välju vahetusest', en: 'Leave the shift' },
   'coop.seat.away': { et: 'Eemal', en: 'Away' },
   'coop.seat.countsTitle': {
     et: 'Kõned / saadetud ekipaažid / raadiovastused',

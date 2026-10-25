@@ -15,6 +15,9 @@ declare(strict_types=1);
  * A room plays round after round (docs/MULTIPLAYER.md section 11): once a round is over, the first member who comes
  * back opens the lobby again (POST /reopen) with the same players, a new seed and the round's results kept as the
  * room's last round; the host picks the options (the mode too) and starts the next one.
+ *
+ * The host may remove a player (POST /kick, section 12): from the lobby or from a running round. The player is out at
+ * once (a shared shift hears `left`, the game server closes their connection) and cannot come back with the code.
  */
 
 require_once __DIR__ . '/http.php';
@@ -251,6 +254,19 @@ function epd_room_players(PDO $db, int $roomId): array
     );
     $stmt->execute([$roomId]);
     return $stmt->fetchAll();
+}
+
+/** Has the host removed $userId from this room (POST /kick)? */
+function epd_room_banned(PDO $db, int $roomId, int $userId): bool
+{
+    $stmt = $db->prepare('SELECT 1 FROM room_bans WHERE room_id = ? AND user_id = ?');
+    $stmt->execute([$roomId, $userId]);
+    return $stmt->fetchColumn() !== false;
+}
+
+function epd_room_kicked(): never
+{
+    epd_fail(403, 'kicked', 'Ruumi looja eemaldas sind sellest ruumist.');
 }
 
 /** @return array<string, mixed>|null */
@@ -616,7 +632,7 @@ function epd_rooms_forget_user(PDO $db, int $userId): void
 function epd_rooms_sweep(PDO $db, int $now): void
 {
     $old = $now - EPD_ROOM_KEEP_MS;
-    foreach (['room_commands', 'room_snapshots', 'room_results', 'room_round_results', 'room_players'] as $table) {
+    foreach (['room_commands', 'room_snapshots', 'room_results', 'room_round_results', 'room_bans', 'room_players'] as $table) {
         $db->prepare("DELETE FROM $table WHERE room_id IN (SELECT id FROM rooms WHERE updated < ?)")->execute([$old]);
     }
     $db->prepare('DELETE FROM rooms WHERE updated < ?')->execute([$old]);
@@ -640,6 +656,9 @@ function epd_room_for_member(PDO $db, string $rawCode, int $userId, int $now): a
 {
     $code = epd_room_clean_code($rawCode);
     $room = $code === null ? null : epd_room_by_code($db, $code);
+    if ($room !== null && epd_room_banned($db, (int) $room['id'], $userId)) {
+        epd_room_kicked();
+    }
     $member = $room === null ? null : epd_room_member($db, (int) $room['id'], $userId);
     if ($room === null || $member === null) {
         epd_fail(404, 'room_not_found', 'Sellise koodiga ruumi ei ole.');
@@ -734,6 +753,9 @@ function epd_route_room_join(): ApiReply
         epd_fail(404, 'room_not_found', 'Sellise koodiga ruumi ei ole.');
     }
     $now = epd_room_now_ms();
+    if (epd_room_banned($db, (int) $room['id'], $userId)) {
+        epd_room_kicked();
+    }
     epd_room_tx($db, static function (PDO $db) use ($room, $userId, $now): void {
         $room = epd_room_refresh($db, epd_room_by_id($db, (int) $room['id']) ?? $room, $now);
         $roomId = (int) $room['id'];
@@ -1041,10 +1063,62 @@ function epd_route_room_leave(string $code): ApiReply
 }
 
 /**
- * POST /api/rooms/{code}/result `{ score, grade, incidents, arrests, xp?, seed? }`: a player's result of the room's
- * shift, the first one counts. In co-op every player sends the team's result with their own XP. The room is finished
- * once every player taking part has sent one. `seed` is the shift's: a result of a round that is already over (the
- * room has moved on to the next one) answers 409 `round_over` and counts nowhere.
+ * POST /api/rooms/{code}/kick `{ seat }`: the host removes the player in that seat, from the lobby or from a running
+ * round. The player leaves as with the button (a shared shift hears `left`: their desk or role passes on) and cannot
+ * come back to this room with its code. On the game server the player's connection closes at once.
+ */
+function epd_route_room_kick(string $code): ApiReply
+{
+    $user = epd_require_user();
+    $userId = (int) $user['id'];
+    $seat = epd_json_body()['seat'] ?? null;
+    if (!is_int($seat) || $seat < 0 || $seat >= EPD_ROOM_MAX_PLAYERS) {
+        epd_room_invalid('seat');
+    }
+    $db = epd_db();
+    $now = epd_room_now_ms();
+    [$clean, $kick] = epd_room_tx($db, static function (PDO $db) use ($code, $userId, $seat, $now): array {
+        [$room] = epd_room_for_member($db, $code, $userId, $now);
+        if ((int) ($room['host_id'] ?? 0) !== $userId) {
+            epd_fail(403, 'not_host', 'Mängijat saab eemaldada ainult ruumi looja.');
+        }
+        if (!in_array($room['state'], ['lobby', 'running', 'finished'], true)) {
+            epd_fail(409, 'room_closed', 'See ruum on suletud.');
+        }
+        $target = null;
+        foreach (epd_room_players($db, (int) $room['id']) as $p) {
+            if ((int) $p['seat'] === $seat && $p['left_at'] === null) {
+                $target = $p;
+            }
+        }
+        if ($target === null) {
+            epd_fail(404, 'player_not_found', 'Selles kohas ei ole mängijat.');
+        }
+        if ((int) $target['user_id'] === $userId) {
+            epd_fail(409, 'kick_self', 'Iseennast ei saa eemaldada, lahku ruumist.');
+        }
+        $db->prepare('INSERT OR IGNORE INTO room_bans (room_id, user_id, at) VALUES (?, ?, ?)')
+            ->execute([$room['id'], (int) $target['user_id'], $now]);
+        epd_room_remove($db, $room, (int) $target['user_id'], $now);
+        // The game server hears of it after the transaction (a network call must not hold the write lock).
+        $kick = $room['state'] === 'running' && epd_mp_engine($room) === 'server'
+            ? ['code' => (string) $room['code'], 'seat' => $seat, 'user' => (int) $target['user_id']]
+            : null;
+        return [(string) $room['code'], $kick];
+    });
+    if ($kick !== null) {
+        epd_mp_kick($kick['code'], $kick['seat'], $kick['user'], $now);
+    }
+    return epd_room_reply($db, $clean, $userId, $now);
+}
+
+/**
+ * POST /api/rooms/{code}/result `{ score, grade, incidents, arrests, xp?, seed?, signed? }`: a player's result of the
+ * room's shift, the first one counts. In co-op every player sends the team's result with their own XP. The room is
+ * finished once every player taking part has sent one. `seed` is the shift's: a result of a round that is already over
+ * (the room has moved on to the next one) answers 409 `round_over` and counts nowhere. A shared shift that ran on the
+ * game server counts only with the result the game server signed (`signed`, mp.php): its numbers replace the body's,
+ * and without it the answer is 409 `unsigned`.
  */
 function epd_route_room_result(string $code): ApiReply
 {
@@ -1059,16 +1133,24 @@ function epd_route_room_result(string $code): ApiReply
         'xp' => array_key_exists('xp', $body) ? epd_number_field($body, 'xp', 0, 100000) : 0,
     ];
     $seed = array_key_exists('seed', $body) ? epd_number_field($body, 'seed', 0, 4294967295) : null;
+    $signed = $body['signed'] ?? null;
     // A shift with no incidents gets a flat grade from the sim; it says nothing about the player.
     if ($row['incidents'] < 1) {
         epd_fail(400, 'empty_shift', 'Sündmusteta vahetus edetabelisse ei lähe.', [], ['field' => 'incidents']);
     }
     $db = epd_db();
     $now = epd_room_now_ms();
-    [$clean, $counted] = epd_room_tx($db, static function (PDO $db) use ($code, $userId, $row, $seed, $now): array {
+    [$clean, $counted] = epd_room_tx($db, static function (PDO $db) use ($code, $userId, $row, $seed, $signed, $now): array {
         [$room, $member] = epd_room_for_member($db, $code, $userId, $now);
         if ($seed !== null && $seed !== (int) $room['seed']) {
             epd_fail(409, 'round_over', 'See voor on juba läbi.');
+        }
+        if (epd_coop_is_coop($room) && epd_mp_engine($room) === 'server' && $room['state'] !== 'lobby') {
+            // The game server ran the shift: its signed result counts, whatever numbers the client sent.
+            $row = epd_mp_signed_result($signed, $room, (int) $member['seat']);
+            if ($row['incidents'] < 1) {
+                epd_fail(400, 'empty_shift', 'Sündmusteta vahetus edetabelisse ei lähe.', [], ['field' => 'incidents']);
+            }
         }
         if ($room['state'] === 'lobby') {
             epd_fail(409, 'not_started', 'Selle ruumi vahetus ei ole veel alanud.');

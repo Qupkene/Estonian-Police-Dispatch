@@ -1,6 +1,7 @@
 /**
  * EPD mänguserver (docs/MULTIPLAYER.md section 9): runs the shared shifts of the co-op rooms. A small Node service
- * next to the PHP API: HTTP `GET /mp/health` and a WebSocket at `/mp/ws`. A client connects, sends its entry ticket
+ * next to the PHP API: HTTP `GET /mp/health`, `POST /mp/kick` (the PHP API's signed notice that the host removed a
+ * player) and a WebSocket at `/mp/ws`. A client connects, sends its entry ticket
  * (from `POST /api/rooms/{code}/ticket`), gets the room's whole state and then a patch every piece; its commands go
  * up the same socket and take effect at the next piece, about a tenth of a second after the click.
  *
@@ -13,7 +14,7 @@ import { join } from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { MpRoom, PIECE_MS, socketPeer, type Peer, type SavedRoom } from './room';
-import { SecretFile, verifyTicket } from './ticket';
+import { SecretFile, signTicket, verifyKick, verifyTicket } from './ticket';
 
 const PORT = Number(process.env.EPD_MP_PORT ?? 8790);
 const HOST = process.env.EPD_MP_HOST ?? '127.0.0.1';
@@ -29,6 +30,15 @@ const HEARTBEAT_MS = 15_000;
 
 const secret = new SecretFile(DIR);
 const rooms = new Map<string, MpRoom>();
+
+/** A room of this server: signs its result with the shared secret at the end. */
+function withSigner(r: MpRoom): MpRoom {
+  r.signer = (payload) => {
+    const key = secret.get();
+    return key ? signTicket(payload, key) : null;
+  };
+  return r;
+}
 
 function log(msg: string): void {
   console.log(`${new Date().toISOString()} ${msg}`);
@@ -69,7 +79,7 @@ function loadRooms(): void {
       }
       const saved = JSON.parse(gunzipSync(readFileSync(file)).toString('utf8')) as SavedRoom;
       if (saved?.v !== 1 || !saved.room || !saved.sim?.coop) throw new Error('not a saved room');
-      const r = new MpRoom(saved.room, saved, now);
+      const r = withSigner(new MpRoom(saved.room, saved, now));
       rooms.set(r.code, r);
       log(`room ${r.code} restored`);
     } catch (err) {
@@ -119,6 +129,32 @@ const http = createServer((req, res) => {
   if (req.method === 'GET' && url === '/mp/health') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify({ ok: true, rooms: rooms.size, secret: secret.get() !== null }));
+    return;
+  }
+  if (req.method === 'POST' && url === '/mp/kick') {
+    // The PHP API's signed notice (server/lib/mp.php epd_mp_kick): a removed player's seat leaves now.
+    let body = '';
+    req.setEncoding('utf8');
+    req.on('data', (chunk: string) => {
+      body += chunk;
+      if (body.length > 16384) req.destroy();
+    });
+    req.on('end', () => {
+      let token: unknown = null;
+      try {
+        token = (JSON.parse(body) as { kick?: unknown }).kick;
+      } catch {
+        /* answered below */
+      }
+      const kick = verifyKick(token, secret.get());
+      const room = kick ? rooms.get(kick.code) : undefined;
+      if (kick && room) {
+        room.kick(kick.seat);
+        log(`room ${kick.code}: seat ${kick.seat} removed by the host`);
+      }
+      res.writeHead(kick ? 200 : 403, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(kick ? { ok: true, found: !!room } : { ok: false, error: 'bad_kick' }));
+    });
     return;
   }
   res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -175,7 +211,7 @@ function connection(ws: Live): void {
       }
       if (!r) {
         try {
-          r = new MpRoom(ticket.room);
+          r = withSigner(new MpRoom(ticket.room));
         } catch (err) {
           log(`room ${ticket.code} could not start: ${String(err)}`);
           ws.close(4500, 'room_failed');
