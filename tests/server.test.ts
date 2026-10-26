@@ -1646,6 +1646,177 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
     });
   });
 
+  describe('friends, presence and invitations (2.40.0, docs/MULTIPLAYER.md section 18)', () => {
+    const ROOM = { mode: 'role', regionId: 'pohja', sector: '', difficulty: 'normal', hours: 2, slot: 'evening' };
+    const SETUP = { seed: 31, regionId: 'pohja', difficulty: 'normal', start: Date.UTC(2026, 9, 24, 16, 0), hours: 3 };
+    const RESULT = { score: 77, grade: 'B', closed: 9, arrests: 1, p1: null, crisis: null };
+    let liis: Client;
+    let mart: Client;
+    let nora: Client;
+    let liisId = 0;
+    let martId = 0;
+    let noraId = 0;
+
+    it('asks by user name; the other accepts, or asking back makes friends', async () => {
+      liis = client();
+      mart = client();
+      nora = client();
+      liisId = (await register(liis, 'Liis.K')).json.user.id;
+      martId = (await register(mart, 'Mart.S')).json.user.id;
+      noraId = (await register(nora, 'Nora_V')).json.user.id;
+      expect((await client().get('/api/friends')).status).toBe(401);
+      expect((await client().post('/api/friends', { name: 'Mart.S' })).status).toBe(401);
+      expect((await liis.post('/api/friends', { name: 'nobody-here' })).json.error).toBe('friend_not_found');
+      expect((await liis.post('/api/friends', { name: 'liis.k' })).json.error).toBe('friend_self');
+      // Any case of the name finds the player.
+      const asked = await liis.post('/api/friends', { name: 'mart.s' });
+      expect(asked.status).toBe(200);
+      expect(asked.json.state).toBe('asked');
+      expect(asked.json.asked).toEqual([{ id: martId, name: 'Mart.S', since: expect.any(Number) }]);
+      expect(asked.json.friends).toEqual([]);
+      // Asking again changes nothing.
+      expect((await liis.post('/api/friends', { name: 'Mart.S' })).json.asked).toHaveLength(1);
+      const theirs = (await mart.get('/api/friends')).json;
+      expect(theirs.asking).toEqual([{ id: liisId, name: 'Liis.K', since: expect.any(Number) }]);
+      expect((await nora.post(`/api/friends/${liisId}/accept`)).json.error).toBe('request_not_found');
+      const accepted = await mart.post(`/api/friends/${liisId}/accept`);
+      expect(accepted.json.friends.map((f: Json) => f.name)).toEqual(['Liis.K']);
+      expect(accepted.json.asking).toEqual([]);
+      expect((await liis.get('/api/friends')).json.friends.map((f: Json) => [f.name, f.online])).toEqual([['Mart.S', false]]);
+      // Nora asks Liis, and Liis asking Nora back makes them friends.
+      expect((await nora.post('/api/friends', { name: 'Liis.K' })).json.state).toBe('asked');
+      const back = await liis.post('/api/friends', { name: 'Nora_V' });
+      expect(back.json.state).toBe('friends');
+      expect(back.json.friends.map((f: Json) => f.name).sort()).toEqual(['Mart.S', 'Nora_V']);
+    });
+
+    it('shows friends only whether they are online now and what they do, in a room its code', async () => {
+      expect((await liis.post('/api/presence', { what: 'dancing' })).json).toMatchObject({ error: 'invalid_presence' });
+      const p = await mart.post('/api/presence', { what: 'menu' });
+      expect(p.status).toBe(200);
+      expect(p.json).toEqual({ invites: [], asking: 0, online: 0 });
+      const list = (await liis.get('/api/friends')).json.friends;
+      expect(list[0]).toMatchObject({ name: 'Mart.S', online: true, what: 'menu' });
+      expect(list[0].room).toBeUndefined();
+      expect(list[1]).toMatchObject({ name: 'Nora_V', online: false });
+      expect(list[1].what).toBeUndefined();
+      // In a room: the room and whether it takes players.
+      const room = (await mart.post('/api/rooms', ROOM)).json.room;
+      await mart.post('/api/presence', { what: 'room', room: room.code });
+      const inRoom = (await liis.get('/api/friends')).json.friends.find((f: Json) => f.name === 'Mart.S');
+      expect(inRoom).toMatchObject({ what: 'room', room: { code: room.code, mode: 'role', state: 'lobby', players: 1, max: 4 } });
+      // Online is "seen in the last 150 s": later, offline, and what they did is not told.
+      const later = { headers: { 'X-EPD-Test-Now': String(Date.now() + 10 * 60_000) } };
+      const away = (await liis.get('/api/friends', later)).json.friends.find((f: Json) => f.name === 'Mart.S');
+      expect(away).toMatchObject({ online: false });
+      expect(away.what).toBeUndefined();
+      // Not a friend: nothing at all.
+      const stranger = client();
+      await register(stranger, 'Olev.T');
+      expect((await stranger.get('/api/friends')).json).toEqual({ friends: [], asked: [], asking: [] });
+      // Liis's own presence counts as one friend online for Mart.
+      await liis.post('/api/presence', { what: 'shift' });
+      expect((await mart.post('/api/presence', { what: 'room', room: room.code })).json.online).toBe(1);
+    });
+
+    it('invites friends to the room one is in, and they find it with their next presence call', async () => {
+      const room = (await mart.get('/api/rooms')).json.room;
+      const stranger = client();
+      const strangerId = (await register(stranger, 'Peep.U')).json.user.id;
+      for (const [patch, field] of [
+        [{ kind: 'party' }, 'kind'],
+        [{ code: 'bad' }, 'code'],
+        [{ to: [] }, 'to'],
+        [{ to: ['x'] }, 'to'],
+        [{ to: Array.from({ length: 11 }, (_, i) => i + 1) }, 'to'],
+      ] as const) {
+        const r = await mart.post('/api/invites', { kind: 'room', code: room.code, to: [liisId], ...patch });
+        expect(r.json, field).toMatchObject({ error: 'invalid_invite', field });
+      }
+      // Only to a room one is in.
+      expect((await nora.post('/api/invites', { kind: 'room', code: room.code, to: [liisId] })).json.error).toBe('room_not_found');
+      // Friends only: the stranger is left out.
+      const sent = await mart.post('/api/invites', { kind: 'room', code: room.code, to: [liisId, strangerId] });
+      expect(sent.json).toEqual({ sent: 1 });
+      expect((await mart.post('/api/invites', { kind: 'room', code: room.code, to: [liisId] })).json.sent).toBe(1);
+      expect((await stranger.post('/api/presence', {})).json.invites).toEqual([]);
+      const got = (await liis.post('/api/presence', { what: 'menu' })).json.invites;
+      // Sent twice, waiting once.
+      expect(got).toHaveLength(1);
+      expect(got[0]).toMatchObject({
+        kind: 'room',
+        code: room.code,
+        from: { id: martId, name: 'Mart.S' },
+        room: { mode: 'role', players: 1, max: 4, regionId: 'pohja' },
+      });
+      // Joining with the code: the invitation is no longer shown (Liis is in the room).
+      expect((await liis.post('/api/rooms/join', { code: room.code })).status).toBe(200);
+      expect((await liis.post('/api/presence', { what: 'room', room: room.code })).json.invites).toEqual([]);
+      // Another's invitation cannot be put away; one's own can (Nora and Mart become friends first).
+      await nora.post('/api/friends', { name: 'Mart.S' });
+      await mart.post(`/api/friends/${noraId}/accept`);
+      expect((await mart.post('/api/invites', { kind: 'room', code: room.code, to: [noraId] })).json.sent).toBe(1);
+      const forNora = (await nora.post('/api/presence', {})).json.invites[0];
+      await liis.post(`/api/invites/${forNora.id}/done`);
+      expect((await nora.post('/api/presence', {})).json.invites).toHaveLength(1);
+      expect((await nora.post(`/api/invites/${forNora.id}/done`)).json).toEqual({ ok: true });
+      expect((await nora.post('/api/presence', {})).json.invites).toEqual([]);
+      // A room that started takes nobody: no invitations to it.
+      await liis.post(`/api/rooms/${room.code}/leave`);
+      await mart.post(`/api/rooms/${room.code}/leave`);
+      expect((await mart.post('/api/invites', { kind: 'room', code: room.code, to: [liisId] })).json.error).toBe('room_not_found');
+    });
+
+    it('sends a challenge to friends', async () => {
+      const ch = (await nora.post('/api/challenges', { setup: SETUP, result: RESULT })).json.challenge;
+      expect((await nora.post('/api/invites', { kind: 'challenge', code: 'ZZZZZZ', to: [liisId] })).json.error).toBe('challenge_not_found');
+      // Both are Nora's friends now; a stranger would be left out.
+      expect((await nora.post('/api/invites', { kind: 'challenge', code: ch.code, to: [liisId, martId] })).json.sent).toBe(2);
+      const got = (await liis.post('/api/presence', {})).json.invites;
+      expect(got).toEqual([
+        {
+          id: expect.any(Number),
+          kind: 'challenge',
+          code: ch.code,
+          at: expect.any(Number),
+          from: { id: noraId, name: 'Nora_V' },
+          challenge: { regionId: 'pohja', score: 77 },
+        },
+      ]);
+      // A challenge invitation waits a week, a room's half an hour.
+      const week = { headers: { 'X-EPD-Test-Now': String(Date.now() + 8 * 86_400_000) } };
+      expect((await liis.post('/api/presence', {}, week)).json.invites).toEqual([]);
+      // Opened: put away.
+      await liis.post(`/api/invites/${got[0].id}/done`);
+      expect((await liis.post('/api/presence', {})).json.invites).toEqual([]);
+    });
+
+    it('counts friend requests waiting; ending a friendship ends its invitations; a deleted account leaves nothing', async () => {
+      const quinn = client();
+      await register(quinn, 'Quinn.W');
+      await quinn.post('/api/friends', { name: 'Liis.K' });
+      expect((await liis.post('/api/presence', {})).json.asking).toBe(1);
+      // Declining a request is removing it.
+      const quinnId = (await liis.get('/api/friends')).json.asking[0].id;
+      expect((await liis.del(`/api/friends/${quinnId}`)).json.asking).toEqual([]);
+      expect((await quinn.get('/api/friends')).json.asked).toEqual([]);
+      // Unfriending takes the invitations between them along.
+      const ch = (await nora.post('/api/challenges', { setup: { ...SETUP, seed: 32 }, result: RESULT })).json.challenge;
+      await nora.post('/api/invites', { kind: 'challenge', code: ch.code, to: [liisId] });
+      expect((await liis.post('/api/presence', {})).json.invites).toHaveLength(1);
+      const after = await liis.del(`/api/friends/${noraId}`);
+      expect(after.json.friends.map((f: Json) => f.name)).toEqual(['Mart.S']);
+      expect((await liis.post('/api/presence', {})).json.invites).toEqual([]);
+      expect((await nora.post('/api/invites', { kind: 'challenge', code: ch.code, to: [liisId] })).json.sent).toBe(0);
+      // Mart deletes his account: Liis's list loses him, and his rows are gone.
+      expect((await mart.del('/api/me', { password: 'salajane-123' })).status).toBe(200);
+      expect((await liis.get('/api/friends')).json.friends).toEqual([]);
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM friends WHERE user_id = ${martId} OR friend_id = ${martId}`))).toEqual([[0]]);
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM presence WHERE user_id = ${martId}`))).toEqual([[0]]);
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM invites WHERE from_id = ${martId} OR to_id = ${martId}`))).toEqual([[0]]);
+    });
+  });
+
   describe('co-op lockstep (role rooms)', () => {
     const OPTS = { mode: 'role', regionId: 'pohja', sector: '', difficulty: 'normal', hours: 2, slot: 'evening' };
     const T0 = Date.UTC(2026, 9, 20, 17, 0, 0);

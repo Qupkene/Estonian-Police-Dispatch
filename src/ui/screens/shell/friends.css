@@ -1,0 +1,260 @@
+/* Sõbrad (2.40.0): the friends panel of the multiplayer screen, the picker of a challenge sent to friends and the
+   notice of an invitation or a friend request (bottom right of the out-of-game screens). Tokens from vk.css. */
+
+.vk-fr__add {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px 4px;
+}
+.vk-fr__addRow {
+  display: flex;
+  gap: 8px;
+}
+.vk-fr__input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--vk-line);
+  border-radius: 5px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-0);
+  font: 500 14px/1 var(--vk-font-text);
+}
+.vk-fr__input::placeholder {
+  color: var(--vk-text-3);
+}
+.vk-fr__input:focus-visible {
+  outline: 2px solid var(--vk-acc);
+  outline-offset: 1px;
+}
+.vk-fr__addRow .vk-btn {
+  height: 36px;
+}
+.vk-fr__add .vk-fr__note {
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+}
+.vk-fr__err {
+  margin: 8px 14px 0;
+}
+.vk-fr__state,
+.vk-fr__empty {
+  margin: 0;
+  padding: 12px 14px 14px;
+  font-size: 13px;
+  color: var(--vk-text-2);
+  text-wrap: pretty;
+}
+.vk-fr__state {
+  display: flex;
+  justify-content: center;
+}
+.vk-fr__group {
+  padding: 10px 0 2px;
+}
+.vk-fr__group + .vk-fr__group {
+  border-top: 1px solid var(--vk-line-2);
+}
+.vk-fr__groupHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0 14px 4px;
+}
+.vk-fr__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vk-fr__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 50px;
+  padding: 6px 14px;
+}
+.vk-fr__row + .vk-fr__row {
+  border-top: 1px solid var(--vk-line-2);
+}
+.vk-fr__row--inv {
+  background: color-mix(in oklch, var(--vk-amb) 7%, transparent);
+  box-shadow: inset 2px 0 var(--vk-amb);
+}
+.vk-fr__who {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+/* The picture with the online dot on its corner. */
+.vk-fr__pic {
+  position: relative;
+  display: grid;
+  flex: none;
+}
+.vk-fr__dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  box-shadow: 0 0 0 2px var(--vk-panel);
+}
+.vk-fr__row:not(.is-on) .vk-fr__pic img {
+  opacity: 0.6;
+  filter: grayscale(0.6);
+}
+.vk-fr__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.vk-fr__name {
+  overflow: hidden;
+  color: var(--vk-text-0);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vk-fr__what {
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--vk-text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vk-fr__row.is-on .vk-fr__what {
+  color: var(--vk-text-1);
+}
+.vk-fr__btn {
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+.vk-fr__remove {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-color: transparent;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--vk-text-3);
+}
+.vk-fr__remove:hover {
+  color: var(--vk-bad);
+}
+.vk-fr__tag {
+  flex: none;
+  font: 600 10.5px/1 var(--vk-font-display);
+  font-stretch: 112%;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vk-text-3);
+}
+.vk-fr__tag.is-ok {
+  color: var(--vk-ok);
+}
+.vk-fr__hint {
+  padding-top: 8px;
+}
+
+/* A challenge sent to friends, inside the challenge panel. */
+.vk-fr--pick {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--vk-line-2);
+}
+.vk-fr--pick .vk-fr__groupHead,
+.vk-fr--pick .vk-fr__row,
+.vk-fr--pick .vk-fr__empty {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* ── The notice ───────────────────────────────────────────────────────────── */
+
+.vk-frn {
+  position: fixed;
+  right: 20px;
+  bottom: 48px;
+  z-index: 70;
+  display: flex;
+  gap: 12px;
+  width: min(380px, calc(100vw - 32px));
+  padding: 14px 16px;
+  border: 1px solid var(--vk-line);
+  border-left: 3px solid var(--vk-amb);
+  border-radius: 6px;
+  background: var(--vk-panel);
+  box-shadow: var(--vk-shadow);
+  color: var(--vk-text-0);
+  animation: vk-frn-in 0.22s ease both;
+}
+.vk-frn[data-kind='ask'] {
+  border-left-color: var(--vk-acc);
+}
+@keyframes vk-frn-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vk-frn {
+    animation: none;
+  }
+}
+.vk-frn__pic {
+  margin-top: 2px;
+}
+.vk-frn__body {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+}
+.vk-frn__kind {
+  color: var(--vk-amb);
+}
+.vk-frn[data-kind='ask'] .vk-frn__kind {
+  color: var(--vk-acc);
+}
+.vk-frn__title {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.3;
+  text-wrap: pretty;
+}
+.vk-frn__line {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--vk-text-2);
+}
+.vk-frn__line.is-bad {
+  color: var(--vk-bad);
+}
+.vk-frn__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.vk-frn__more {
+  margin-left: auto;
+  font-size: 12px;
+}
+@media (max-width: 1099px) {
+  .vk-frn {
+    right: 16px;
+    left: 16px;
+    bottom: 16px;
+    width: auto;
+  }
+}

@@ -19,6 +19,7 @@ import { startCrisisNow } from './sim/crisis';
 import { simDigest } from './sim/coop';
 import { coopDebug, useCoop } from './store/coop';
 import { recordFrame, useReplay } from './store/replay';
+import { pokePresence, useFriends } from './store/friends';
 
 // Console handle for power users, filmmakers and end-to-end tests (single-player game, nothing secret).
 // Set synchronously from the entry chunk (MapLibre and the in-shift screen load later, see app/App.tsx).
@@ -33,6 +34,8 @@ import { recordFrame, useReplay } from './store/replay';
   coop: { state: useCoop, debug: coopDebug, digest: simDigest },
   // Kordus (src/store/replay.ts): the report's replay and the viewer.
   replay: useReplay,
+  // Sõbrad (src/store/friends.ts): the list and what waits; poke says it is here at once (tests need not wait).
+  friends: { state: useFriends, poke: pokePresence },
 };
 
 createRoot(document.getElementById('root')!).render(

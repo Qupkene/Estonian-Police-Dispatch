@@ -2,6 +2,24 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.40.0 (2026-10-26)
+
+- **Sõbrad:** mitmikmängu menüüs on uus plokk **"Sõbrad"**. Sõbra saab lisada tema kasutajanime järgi; tema näeb sõbrakutset ja võtab selle vastu.
+  - Sõprade nimekirjas on näha, kes on **võrgus** ja mida ta teeb: menüüs, vahetuses, ruumis (koos ruumi koodi ja mängijate arvuga) või ruumi vahetuses.
+  - Kui sõber on ruumis, mis ootab mängijaid, saab nupuga **"Liitu"** otse tema lobbysse.
+  - Sõbrakutseid saab vastu võtta või keelduda, enda saadetud kutse tagasi võtta ja sõbra nimekirjast eemaldada.
+- **Kutse otse ruumi:** ruumi lobbys on plokk **"Kutsu sõpru"**. Kutsutud sõbra menüüsse tuleb teade ("Liis kutsub sind oma ruumi") ja nupuga **"Liitu ruumiga"** on ta ühe klikiga lobbys. Kutse kehtib 30 minutit.
+- **Väljakutse sõbrale:** vaba vahetuse raportis saab valmis väljakutse saata otse sõbrale. Tema menüüsse tuleb teade ja **"Vaata"** avab väljakutse.
+- Teade tuleb ka uue sõbrakutse kohta. **"Hiljem"** paneb teate ära, kutse jääb sõprade plokki alles. Vahetuse ajal teateid ei tule, need ootavad menüüs.
+- Menüü real "Mitmikmäng" on näha, mitu sõpra on võrgus ja mitu kutset ootab.
+
+<details>
+<summary>English</summary>
+
+Friends (point 14 of the owner's list, docs/MULTIPLAYER.md section 18, docs/SERVER.md). Accounts add each other by user name (`POST /api/friends`; asking someone who already asked you accepts; requests can be declined or taken back, friendships ended), at most 100 per account. A signed-in client tells the server what it does (`POST /api/presence`: the menu, a shift or a room with its code) every 20 seconds out of a shift, every minute in one, every 100 seconds while hidden and at once on a change; friends see who is online (seen within 150 s) and what they do, and can join a friend's room that takes players from the list. In a room's lobby friends can be invited (`POST /api/invites`, 30 minutes, only while the room takes players), and a challenge from a free shift's report can be sent to friends (7 days). The presence answer brings the invitations and the count of requests; the out-of-game screens show a notice with one-click answers ("Liitu ruumiga" joins and opens the lobby, "Vaata" opens the challenge, "Võta vastu" accepts a request, "Hiljem" puts it away per account in this browser), and the menu's Mitmikmäng row counts friends online and what waits. Tables `friends`, `presence` and `invites` (schema step 17); deleting an account removes its friendships, presence and invitations.
+
+</details>
+
 ## 2.39.0 (2026-10-26)
 
 - **Kordus:** vahetuse raportis on uus kaart **"Kordus"**. Sellel on pilt kogu vahetuse sõitudest kaardil (sinised sireeniga sõidud, punased jälitused, sündmused täppidena) ja nupp **"Vaata kordust"**.

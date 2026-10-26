@@ -58,10 +58,12 @@ import type { Difficulty, RegionId } from '@/sim/types';
 import { Button, Modal, PlayerAvatar, Segmented, Select, Spinner } from '@/ui/components';
 import { ShellPage, useToast } from './shell/ShellPage';
 import { regionSummary } from './shell/helpers';
-import { lobbyFocus } from './shell/lobbyNav';
+import { lobbyFocus, useLobbyNav } from './shell/lobbyNav';
 import { boardCount, ResultsBoard, RoomBoard } from './shell/RoomBoard';
 import { RoomHistory } from './shell/RoomHistory';
 import { ChallengeList } from './shell/Challenge';
+import { FriendsPanel } from './shell/Friends';
+import { useFriends } from '@/store/friends';
 import { VkLayer } from './shell/VkLayer';
 import { DeskOptions, DeskPicker, DeskSummary, deskOfPlayer, desksOf, withDesks } from './shell/LobbyDesks';
 import { CustomEditor } from './custom/CustomEditor';
@@ -109,12 +111,14 @@ export function LobbyScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+  /** Each opening of the lobby (a friend's invitation taken while it is open, too) loads its room again. */
+  const opened = useLobbyNav((s) => s.n);
 
   useEffect(() => {
     void useAccount.getState().init();
   }, []);
 
-  // The room to show: the one the lobby was opened for (a report's), else the player's open room.
+  // The room to show: the one the lobby was opened for (a report's, an invitation's), else the player's open room.
   useEffect(() => {
     if (!loggedIn || backend !== 'online') {
       setLoading(backend === 'unknown');
@@ -131,7 +135,14 @@ export function LobbyScreen() {
     return () => {
       alive = false;
     };
-  }, [loggedIn, backend]);
+  }, [loggedIn, backend, opened]);
+
+  // Friends see the room the player is in (the presence call, src/store/friends.ts).
+  const shown = !loading && room && room.state !== 'closed' ? room.code : null;
+  useEffect(() => {
+    useFriends.getState().setLobbyRoom(shown);
+    return () => useFriends.getState().setLobbyRoom(null);
+  }, [shown]);
 
   const subtitle = room
     ? t('rooms.sub.room', { code: displayRoomCode(room.code), state: t(`rooms.state.${room.state}`) })
@@ -345,6 +356,7 @@ function NoRoom({
             )}
           </form>
         </section>
+        <FriendsPanel onRoom={onRoom} />
         <RoomHistory />
         <ChallengeList />
         <section className="vk-panel" aria-labelledby="vk-mp-how">
@@ -1057,6 +1069,7 @@ function RoomView({
             </div>
           </section>
         ) : null}
+        {room.state === 'lobby' && <FriendsPanel room={room} />}
         {room.state === 'lobby' && room.last && (
           <section className="vk-panel vk-mp__last" aria-labelledby="vk-mp-last" data-testid="room-last">
             <div className="vk-panel__head vk-mp__boardHead">

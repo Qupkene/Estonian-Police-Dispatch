@@ -160,6 +160,13 @@ Errors: `{ "error": "<code>", "message": "<Estonian text>" }` with a fitting sta
 | GET | /api/rooms/{code}/log?after=&h=&ack= | | `{ state, turn, now, started, turnMs, delay, seat, host, isHost, resync, snapReq, snap, more, cmds: [{ id, t, s, k, a }] }` |
 | PUT | /api/rooms/{code}/snapshot?turn=&cmd= | gzip bytes | `{ ok: true, turn, cmd, size }` (host; at most 2 MB) |
 | GET | /api/rooms/{code}/snapshot | | `application/gzip`, headers `X-EPD-Turn`, `X-EPD-Cmd`; 404 `no_snapshot` |
+| GET | /api/friends | | `{ friends, asked, asking }` the caller's friends (online first) and the requests either way (see below) |
+| POST | /api/friends | `{ name }` | `{ state, friends, asked, asking }`; `state` `asked` or `friends`; 404 `friend_not_found`, 400 `friend_self`, 409 `friends_full`, 429 too many |
+| POST | /api/friends/{id}/accept | | `{ friends, asked, asking }`; 404 `request_not_found` |
+| DELETE | /api/friends/{id} | | `{ friends, asked, asking }` (ends a friendship, declines or takes back a request) |
+| POST | /api/presence | `{ what, room? }` | `{ invites, asking, online }`; `what` is `menu`, `shift` or `room` |
+| POST | /api/invites | `{ kind, code, to }` | `{ sent }`; `kind` `room` or `challenge`, `to` 1 to 10 friends' ids |
+| POST | /api/invites/{id}/done | | `{ ok: true }` (taken up or put away) |
 | POST | /api/deploy-hook | GitHub webhook | 202 `{ queued: sha }` or 200 `{ ignored: reason }` |
 | POST | /api/tts | `{ text, voice, speed? }` | `audio/wav` (Estonian radio speech, TartuNLP Neurokõne, cached); 400 invalid, 429 too many, 503 `tts_unavailable` |
 | * | /api/admin/* | | the admin panel's API, admins only (section 4.2) |
@@ -366,6 +373,33 @@ design in docs/CHALLENGE.md, 2.38.0):
   `scripts/og-challenge.mjs`). An unknown code gets the page unchanged; 503 `unavailable` without the page.
   `X-Robots-Tag: noindex`, `Cache-Control: no-cache`.
 - Deleting an account deletes the challenges it sent (with their boards) and its runs on the others'.
+
+Friends, Sõbrad (`server/lib/friends.php`, client `src/net/friends.ts`, `src/store/friends.ts`; design in
+docs/MULTIPLAYER.md section 18, 2.40.0). Every route needs an account (401 `auth_required`).
+
+- Tables (schema step 17): `friends` (user_id asked friend_id, `state` `asked` or `friends`, created, accepted; one row
+  per pair, whoever asked), `presence` (user_id, seen, what, room) and `invites` (from_id, to_id, kind, code, created,
+  done).
+- `POST /api/friends` `{ name }` finds the player by user name, case-insensitive (404 `friend_not_found` also for a
+  blocked account; 400 `friend_self`). Asking someone who asked you accepts (`state: 'friends'`); asking again changes
+  nothing. At most 100 friends and requests per account (409 `friends_full`, either side), 30 requests an hour (429
+  `rate_limited`).
+- The list: `friends` `[{ id, name, avatar?, online, since, what?, room? }]`, online first, then by name; `what` and
+  `room` (`{ code, mode, state, players, max }`, not for a closed room) only while online. `asked` (the caller's
+  requests) and `asking` (to the caller) `[{ id, name, avatar?, since }]`.
+- `POST /api/presence` `{ what, room? }`: online is seen within 150 s; a call within 5 s of the last with the same
+  `what` and `room` writes nothing. 400 `invalid_presence` for another `what`. Answers the invitations waiting
+  (`invites`, newest first, at most 10), the number of requests waiting (`asking`) and of friends online (`online`).
+- An invitation: `{ id, kind, code, at, from: { id, name, avatar? }, room?: { mode, players, max, regionId },
+  challenge?: { regionId, score } }` (`score` the sender's on the board, or null). A room invitation shows only while
+  the room takes players (not running or closed) and the invited player is not in it, for 30 minutes; a challenge's
+  for 7 days, while the challenge lasts.
+- `POST /api/invites` `{ kind, code, to }`: friends only (others in `to` are left out); `room` needs the caller in that
+  room, not running (404 `room_not_found`, 409 `room_started`); `challenge` a valid one (404 `challenge_not_found`).
+  One still waiting for the same friend is renewed. 60 an hour (429 `rate_limited`); invitations older than 7 days go
+  on the way. 400 `invalid_invite` with `field`.
+- Ending a friendship deletes the invitations between the two; deleting an account deletes its friendships, requests,
+  presence and invitations either way.
 
 Multiplayer rooms, Mitmikmäng (`server/lib/rooms.php`, client `src/net/rooms.ts`, `src/sim/room.ts`; design in
 docs/MULTIPLAYER.md):
