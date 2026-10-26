@@ -5,7 +5,6 @@
 // account. Styles in friends.css.
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useAccount } from '@/net/account';
-import { toApiError } from '@/net/api';
 import {
   canJoin,
   friendErrorKey,
@@ -447,7 +446,11 @@ function inviteLine(t: ReturnType<typeof useT>, inv: Invite): string {
     : t('friends.inv.challengeLineNoScore', { region });
 }
 
-/** Take an invitation up: into the room's lobby, or the challenge opens. Throws when the room cannot be joined. */
+/**
+ * Take an invitation up: into the room's lobby, or the challenge opens. Throws when the room cannot be joined; the
+ * invitation then stays with the reason shown (the server leaves out a room that started or closed on its next
+ * answer, and the player can put it away).
+ */
 async function takeInvite(inv: Invite, onRoom?: (r: Room) => void): Promise<void> {
   const store = useFriends.getState();
   if (inv.kind === 'challenge') {
@@ -458,17 +461,10 @@ async function takeInvite(inv: Invite, onRoom?: (r: Room) => void): Promise<void
     if (screen !== 'menu' && screen !== 'lobby') useGame.getState().setScreen('menu');
     return;
   }
-  try {
-    const room = await joinRoom(inv.code);
-    store.done(inv.id);
-    if (onRoom) onRoom(room);
-    else openLobby(room.code);
-  } catch (e) {
-    // The room does not take the player (gone, started, full): the invitation is of no use any more.
-    const err = toApiError(e);
-    if (err.status >= 400 && err.status < 500 && err.code !== 'rate_limited') store.done(inv.id);
-    throw e;
-  }
+  const room = await joinRoom(inv.code);
+  store.done(inv.id);
+  if (onRoom) onRoom(room);
+  else openLobby(room.code);
 }
 
 function InviteRow({ inv, onJoin }: { inv: Invite; onJoin?: (r: Room) => void }) {
@@ -629,9 +625,12 @@ export function FriendsGate() {
     };
   }, [on, userId]);
 
-  // What the player does changed: friends see it at once.
+  // What the player does changed: friends see it at once (the loop's start says the first).
   const doing = screen === 'game' ? 'game' : screen === 'lobby' && lobbyRoom ? `room:${lobbyRoom}` : 'menu';
+  const said = useRef(doing);
   useEffect(() => {
+    if (said.current === doing) return;
+    said.current = doing;
     loop.current?.now();
   }, [doing]);
 
