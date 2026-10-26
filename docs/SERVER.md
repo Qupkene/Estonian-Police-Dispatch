@@ -99,6 +99,7 @@ Relay VPS: Caddy site `politsei.eu` (and `www.politsei.eu` redirecting to it) �
 ## 3. HTTP routes (inside the container)
 
 - `/api/*` → PHP, `/app/server/api/index.php` (the router reads the path itself).
+- `/v/*` → the same router: a challenge link's page (section 4.1, Challenge links), `X-Robots-Tag: noindex`.
 - `/mp/*` → the game server at `127.0.0.1:8790`: `GET /mp/health`, WebSocket `/mp/ws`, `POST /mp/kick` (only a
   notice signed with the shared secret counts, section 4.1). Not compressed, `no-store`; 502 while it is down (the
   client retries).
@@ -110,6 +111,8 @@ Relay VPS: Caddy site `politsei.eu` (and `www.politsei.eu` redirecting to it) �
 - `/admin` → 308 to `/admin/`; `/admin/*` → static from `/app/www/admin` (the admin panel, section 4.2):
   `no-store` (its hashed `/admin/assets/*` a year, immutable), `X-Robots-Tag: noindex, nofollow`, a missing file
   is 404, never the game's index. The service worker leaves `/admin` and `/admin/*` alone.
+- `/og-image.png`, `/og/*` (the challenges' link pictures), `/icons/*`, `/screenshots/*`: files from `/app/www`, a day of
+  caching, a missing file is 404.
 - everything else → static from `/app/www`, unknown paths fall back to `/index.html`.
   `index.html` and `sw.js` get `Cache-Control: no-cache`, `/assets/*` get one-year immutable caching.
 
@@ -335,6 +338,34 @@ Daily challenge, Päeva väljakutse (`server/lib/daily.php`, client `src/sim/dai
 - Deleting an account deletes its daily rows too.
 - `EPD_TEST_CLOCK=1` lets `X-EPD-Test-Now: <unix ms>` set the clock of the day rules, but only under PHP's
   built-in server (`tests/server.test.ts`); FrankenPHP ignores it.
+
+Challenge links, Väljakutse lingiga (`server/lib/challenges.php`, client `src/net/challenges.ts`, `src/sim/challenge.ts`;
+design in docs/CHALLENGE.md, 2.38.0):
+
+- A challenge is a free shift's setup and its sender's result under a code (6 characters of the rooms' alphabet).
+  Tables `challenges` (code, user, setup JSON, version, created) and `challenge_results` (challenge, user, score,
+  grade, closed, arrests, p1 in tenths of a minute or null, crisis or null, at; one row per player), schema step 16.
+  Kept 90 days (swept when a new one is sent).
+- `POST /api/challenges` (account; 401, 409 `user_mismatch` as for scores): `setup` `{ seed 0..2^32-1, regionId,
+  difficulty, start (unix ms 2020..2100), hours 0.25..12 (two decimals), weather?, crisis? (0 < c <= 1) }`,
+  `result` `{ score 0..100, grade, closed, arrests (0..5000), p1 (0..600 or null), crisis (0..100 or null) }`,
+  `version` (`x.y.z`, else kept as ''). Invalid fields give 400 `invalid_challenge` with `field`. The same shift sent
+  again by the same player answers the same challenge; otherwise 30 new ones an hour per account (429
+  `rate_limited`). Answers `{ challenge }`.
+- `GET /api/challenges/<code>`: public (a guest opens a link), any case; 404 `challenge_not_found` for an unknown or
+  expired code. `{ challenge: { code, by: { name, avatar? }, setup, version, created, players, results, me } }`:
+  the top 50 runs by points, ties to the earlier run, each `{ name, avatar?, score, grade, closed, arrests, p1,
+  crisis, at, rank, me?, sender? }` (rank 1 + the players with strictly more points); `me` the caller's run.
+- `POST /api/challenges/<code>/result` (account) `{ result }`: the first run of a player counts (`counted: true`),
+  every later one answers `counted: false` and changes nothing. `{ counted, rank, players, challenge }`.
+- `GET /api/challenges` (account): the challenges the player sent or played, newest first, at most 30, each with
+  its first 3 runs and `me`.
+- `GET /v/<code>` (Caddy hands `/v/*` to the same router): the built frontend's `index.html` (`EPD_WWW`, default
+  `/app/www`) with the challenge's `og:` and `twitter:` tags, `description`, `robots noindex` and the title ("Mari: 87
+  punkti, Lõuna, reede öö. Kas teed paremini?"), the picture `/og/challenge-<region>.png` (static, made by
+  `scripts/og-challenge.mjs`). An unknown code gets the page unchanged; 503 `unavailable` without the page.
+  `X-Robots-Tag: noindex`, `Cache-Control: no-cache`.
+- Deleting an account deletes the challenges it sent (with their boards) and its runs on the others'.
 
 Multiplayer rooms, Mitmikmäng (`server/lib/rooms.php`, client `src/net/rooms.ts`, `src/sim/room.ts`; design in
 docs/MULTIPLAYER.md):

@@ -13,6 +13,7 @@ import {
   type ShiftSetup,
 } from '@/sim/challenge';
 import { acknowledge, answerCall, dispatchUnits, endCall } from '@/sim/commands';
+import { challengeCodeFromPath, challengeUrl, parseChallenge, parseChallengeReply } from '@/net/challenges';
 import { markDaily } from '@/sim/daily';
 import { createShift, finalizeShift, step } from '@/sim/engine';
 import { queue, recommendUnits } from '@/sim/selectors';
@@ -115,6 +116,49 @@ describe('challenge: the setup', () => {
     expect(callsOf(theirs)).toEqual(a);
     expect(Object.values(mine.incidents).some((i) => i.unitHistory.length > 0)).toBe(true);
     expect(Object.values(theirs.incidents).every((i) => i.unitHistory.length === 0)).toBe(true);
+  });
+});
+
+describe('challenge: the link and the API answers (src/net/challenges.ts)', () => {
+  it('reads a code from a link and builds the link', () => {
+    expect(challengeCodeFromPath('/v/K7M2QX')).toBe('K7M2QX');
+    expect(challengeCodeFromPath('/v/k7m2qx/')).toBe('K7M2QX');
+    for (const p of ['/', '/v/', '/v/K7M2Q', '/v/K7M2QXX', '/v/K0M2QX', '/x/K7M2QX']) expect(challengeCodeFromPath(p), p).toBeNull();
+    expect(challengeUrl('K7M2QX', 'https://politsei.eu')).toBe('https://politsei.eu/v/K7M2QX');
+  });
+
+  it('parses a challenge field by field and drops what does not fit', () => {
+    const raw = {
+      code: 'K7M2QX',
+      by: { name: 'Mari.V', avatar: 'face:0123456789' },
+      setup: { seed: 7, regionId: 'louna', difficulty: 'veteran', start: 1_792_000_000_000, hours: 4, weather: 'rain', crisis: 0.15 },
+      version: '2.38.0',
+      created: 5,
+      players: 2,
+      results: [
+        { name: 'Tõnu.K', score: 91, grade: 'S', closed: 9, arrests: 1, p1: null, crisis: null, at: 6, rank: 1 },
+        { name: 'Mari.V', score: 87, grade: 'A', closed: 14, arrests: 3, p1: 6.4, crisis: 71, at: 5, rank: 2, sender: true },
+        'nonsense',
+      ],
+      me: null,
+    };
+    const ch = parseChallenge(raw)!;
+    expect(ch.setup).toEqual(raw.setup);
+    expect(ch.by).toEqual({ name: 'Mari.V', avatar: 'face:0123456789' });
+    expect(ch.results).toHaveLength(2);
+    expect(ch.results[1]).toMatchObject({ sender: true, p1: 6.4, crisis: 71 });
+    expect(ch.results[0]).toMatchObject({ p1: null, crisis: null });
+    expect(parseChallenge({ ...raw, setup: { ...raw.setup, regionId: 'mars' } })).toBeNull();
+    expect(parseChallenge({ ...raw, code: 'bad' })).toBeNull();
+    const { weather: _w, crisis: _c, ...plain } = raw.setup;
+    void _w;
+    void _c;
+    expect(parseChallenge({ ...raw, setup: { ...plain, weather: 'tornado' } })!.setup).toEqual(plain);
+    expect(parseChallengeReply({ counted: false, rank: 2, players: 3, challenge: raw })).toMatchObject({
+      counted: false,
+      rank: 2,
+      players: 3,
+    });
   });
 });
 

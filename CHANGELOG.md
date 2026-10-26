@@ -2,6 +2,24 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.38.0 (2026-10-26)
+
+- **Väljakutse lingiga:** vaba vahetuse raportis on nupp **"Saada väljakutse"**. See teeb lingi, mille saad sõbrale saata (telefonis avaneb jagamismenüü, arvutis kopeeritakse link).
+  - Sõnumirakenduses näeb link välja nagu kaart: kes kutsub, mitu punkti, milline prefektuur ja vahetus, näiteks „Mari: 87 punkti, Lõuna, reede öö. Kas teed paremini?“, ja pildil on prefektuur Eesti kaardil.
+  - Lingi avaja näeb väljakutset: kes saatis, milline vahetus, tema tulemus ja kõigi teiste tulemused. **"Võta väljakutse vastu"** käivitab täpselt sama vahetuse: kõned tulevad samal ajal ja samas kohas, mida iganes sa teed.
+  - Pärast vahetust on raportis tulemused kõrvuti: punktid, lahendatud sündmused, kinnipidamised, keskmine aeg kõige kiireloomulisemate väljakutseteni ja suurõnnetus. Näha on ka, kumb tegi paremini, ja väljakutse tabel.
+  - Tabelisse läheb iga konto esimene katse, järgmised on harjutus. Külalisena saab mängida ja võrrelda, aga tabelisse tulemus ei lähe. Väljakutse tulemused ei lähe üldisesse edetabelisse.
+  - Sama linki saab edasi jagada: kõik, kes seda mängivad, on ühes tabelis. Väljakutse kehtib 90 päeva.
+- **Mitmikmängu menüüs** on uus plokk "Väljakutsed": sinu saadetud ja mängitud väljakutsed koos tulemustega.
+- Vaba vahetuse kõned tulevad nüüd kindla graafiku järgi, nagu päeva väljakutses ja ruumides, et sama vahetust saaks täpselt korrata.
+
+<details>
+<summary>English</summary>
+
+Challenge links (point 11 of the owner's list, docs/CHALLENGE.md). A free shift started from the briefing is now a fixed-schedule shift, so its setup (`ShiftReport.setup`: seed, prefecture, difficulty, start, hours, the briefing's weather and the crisis chance) plays the same calls for anybody. "Saada väljakutse" in its report stores the setup and the result on the server (`POST /api/challenges`, `challenges` and `challenge_results`, schema step 16) and gives a link, `/v/<code>`; Caddy hands `/v/*` to PHP, which answers the game's `index.html` with the challenge's `og:` and `twitter:` tags (who, how many points, the shift) and a static per-prefecture picture (`public/og/challenge-<region>.png`, `scripts/og-challenge.mjs`), so messengers show a preview without anybody uploading a picture. Opening the link boots the game and, in the menu, opens the challenge; taking it starts the same shift marked `flags.challenge`, and its report compares the two results side by side and posts the run once (`POST /api/challenges/<code>/result`: an account's first run counts). Challenge runs never reach the normal leaderboard. The multiplayer menu lists the player's challenges (`GET /api/challenges`). Deleting an account deletes its challenges and runs.
+
+</details>
+
 ## 2.37.0 (2026-10-26)
 
 - **Suurõnnetus:** harva tuleb vahetuse keskel suurõnnetus, mis koosneb mitmest väljakutsest korraga ühes kohas. Häirekeskus kuulutab selle raadios välja ja avaneb briifing joonistusega: mis juhtus, kus ja millised ülesanded on kohe ning hiljem.

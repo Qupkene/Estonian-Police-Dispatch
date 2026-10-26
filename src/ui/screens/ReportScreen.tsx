@@ -30,6 +30,7 @@ import { useCoop } from '@/store/coop';
 import { Button, Modal, PpaLogo, PriorityChip, Spinner } from '@/ui/components';
 import { JointReport } from './shell/JointReport';
 import { CrisisReportPanel } from './shell/CrisisReport';
+import { ChallengeReportPanel, ChallengeSendPanel } from './shell/Challenge';
 import { Newspaper } from './shell/Newspaper';
 import { DailyBoardModal } from './shell/Daily';
 import { boardCount, ResultsBoard, RoomBoard, useLiveRoom } from './shell/RoomBoard';
@@ -383,11 +384,18 @@ export function ReportScreen() {
                 <DailyLine report={report} run={dailyRun} />
               ) : roomCode ? (
                 <RoomLine code={roomCode} send={roomSend} />
-              ) : (
+              ) : report.challenge ? null : (
                 <RankLine report={report} />
               )}
             </div>
           </section>
+
+          {/* Väljakutse (docs/CHALLENGE.md): a challenge run's comparison, or sending this shift as one. */}
+          {report.challenge ? (
+            <ChallengeReportPanel report={report} code={report.challenge} />
+          ) : report.setup && !dailyRun && !roomCode ? (
+            <ChallengeSendPanel report={report} />
+          ) : null}
 
           {report.crisis && (
             <CrisisReportPanel

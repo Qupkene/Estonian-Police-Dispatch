@@ -22,16 +22,20 @@ const RANKED: GameMode[] = ['free', 'career'];
  * ending a shift at once.
  */
 export function unrankedReason(
-  report: Pick<ShiftReport, 'mode' | 'custom'> & { stats?: { incidents?: number } },
-): 'mode' | 'custom' | 'empty' | null {
+  report: Pick<ShiftReport, 'mode' | 'custom' | 'challenge'> & { stats?: { incidents?: number } },
+): 'mode' | 'custom' | 'challenge' | 'empty' | null {
   if (!RANKED.includes(report.mode)) return 'mode';
   // A drafted force is a different game: never compared with the prefecture's own (src/sim/custom.ts).
   if (report.custom) return 'custom';
+  // A challenge run plays known calls: it goes on the challenge's own board (docs/CHALLENGE.md), never here.
+  if (report.challenge) return 'challenge';
   if (!report.stats?.incidents) return 'empty';
   return null;
 }
 
-export function isRanked(report: Pick<ShiftReport, 'mode' | 'custom'> & { stats?: { incidents?: number } }): boolean {
+export function isRanked(
+  report: Pick<ShiftReport, 'mode' | 'custom' | 'challenge'> & { stats?: { incidents?: number } },
+): boolean {
   return unrankedReason(report) === null;
 }
 
