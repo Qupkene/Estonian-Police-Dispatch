@@ -39,6 +39,8 @@ const screen = (page: Page) => page.evaluate(() => (window as unknown as EpdWind
 const clock = (page: Page) => page.locator('.rp-clock__time').innerText();
 
 test('a shift plays back on the map from its report: timeline, pause, jumps, an incident and a crew followed', async ({ page }) => {
+  // The map draws in software on a runner: every step of the viewer takes its time.
+  test.setTimeout(180_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e)));
 
@@ -62,9 +64,12 @@ test('a shift plays back on the map from its report: timeline, pause, jumps, an 
     }),
   );
   await expect.poll(() => screen(page), { timeout: 20_000 }).toBe('game');
+  // The game loop's first frames start the recording (it first looks for one kept from before a reload).
+  await page.waitForTimeout(2000);
 
-  // Two and a half hours in a few seconds: 20 game seconds a frame (the game loop records every frame), a dispatcher
-  // every third, a car that does not stop for a patrol half an hour in.
+  // Two and a half hours in a few seconds: 20 game seconds a step, each recorded as the game loop records a frame (not
+  // paced by frames, which a runner drawing the map in software gives few of), a dispatcher every third step, a car
+  // that does not stop for a patrol half an hour in.
   const played = await page.evaluate(
     () =>
       new Promise<number>((resolve) => {
@@ -75,12 +80,7 @@ test('a shift plays back on the map from its report: timeline, pause, jumps, an 
         const s = g.sim as Any;
         let n = 0;
         let chased = false;
-        const tick = () => {
-          if (s.now > s.startTime + 150 * 60_000) {
-            g.bump();
-            resolve(s.incidentOrder.length);
-            return;
-          }
+        const one = () => {
           if (!chased && s.now > s.startTime + 30 * 60_000) {
             chased = true;
             const pat = Object.values(s.units as Record<string, Any>).find((u) => u.type === 'patrol' && u.status === 'available' && !u.move);
@@ -104,9 +104,21 @@ test('a shift plays back on the map from its report: timeline, pause, jumps, an 
               }
             }
           }
-          requestAnimationFrame(tick);
+          e.engine.record(s);
         };
-        requestAnimationFrame(tick);
+        // In slices, so the page keeps breathing.
+        const slice = () => {
+          for (let i = 0; i < 30; i++) {
+            if (s.now > s.startTime + 150 * 60_000) {
+              g.bump();
+              resolve(s.incidentOrder.length);
+              return;
+            }
+            one();
+          }
+          setTimeout(slice, 0);
+        };
+        slice();
       }),
   );
   expect(played).toBeGreaterThan(5);
