@@ -14,6 +14,7 @@ require_once dirname(__DIR__) . '/lib/saves.php';
 require_once dirname(__DIR__) . '/lib/scores.php';
 require_once dirname(__DIR__) . '/lib/daily.php';
 require_once dirname(__DIR__) . '/lib/rooms.php';
+require_once dirname(__DIR__) . '/lib/challenges.php';
 require_once dirname(__DIR__) . '/lib/hook.php';
 require_once dirname(__DIR__) . '/lib/tts.php';
 require_once dirname(__DIR__) . '/lib/admin.php';
@@ -60,6 +61,12 @@ function epd_routes(): array
         ['GET', '#^/api/rooms/([A-Za-z0-9]{6})/log$#', epd_route_coop_log(...)],
         ['PUT', '#^/api/rooms/([A-Za-z0-9]{6})/snapshot$#', epd_route_coop_snapshot_put(...)],
         ['GET', '#^/api/rooms/([A-Za-z0-9]{6})/snapshot$#', epd_route_coop_snapshot_get(...)],
+        // Väljakutse lingiga (server/lib/challenges.php, 2.38.0): the API, and the link's page with its preview.
+        ['GET', '#^/api/challenges$#', epd_route_challenge_mine(...)],
+        ['POST', '#^/api/challenges$#', epd_route_challenge_create(...)],
+        ['GET', '#^/api/challenges/([A-Za-z0-9]{6})$#', epd_route_challenge_get(...)],
+        ['POST', '#^/api/challenges/([A-Za-z0-9]{6})/result$#', epd_route_challenge_result(...)],
+        ['GET', '#^/v/([A-Za-z0-9]{6})$#', epd_route_challenge_page(...)],
         // Admin panel (server/lib/admin.php): admins only, unlocked with the password again.
         ['GET', '#^/api/admin/me$#', epd_route_admin_me(...)],
         ['POST', '#^/api/admin/unlock$#', epd_route_admin_unlock(...)],

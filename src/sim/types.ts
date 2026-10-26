@@ -1213,6 +1213,10 @@ export interface ShiftReport {
     /** The major incident the page leads with (2.37.0): its drawing is the photo when it has one. */
     crisis?: string;
   };
+  /** Väljakutse (2.38.0, src/sim/challenge.ts): the setup of a shift another player can play the same. */
+  setup?: import('./challenge').ShiftSetup;
+  /** A challenge run: the challenge's code. */
+  challenge?: string;
   /** `${seed}:${startTime}` of the shift (set by the game store), so one shift is paid out only once. */
   shiftKey?: string;
   /** A co-op room shift: the seats, their roles and what each did (src/sim/coop.ts). */

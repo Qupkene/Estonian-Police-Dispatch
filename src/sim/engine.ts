@@ -10,6 +10,7 @@ import { updateCalls } from './calls';
 import { expandCustom } from './custom';
 import { initColleagues, updateColleagues } from './colleagues';
 import { initCrisis, settleCrisis, updateCrisis } from './crisis';
+import { SETUP_CRISIS, SETUP_WX } from './challenge';
 import { updateDesks } from './desks';
 import { settleFallout, updateFallout } from './fallout';
 import { emit, regionOf } from './internal';
@@ -139,6 +140,9 @@ export function createShift(opts: NewShiftOptions): SimState {
   // Spike strips are standard PPA kit; only career makes them an upgrade to buy.
   if (opts.mode !== 'career') s.flags['upg:spikes'] = true;
   if (opts.weather) s.flags['wx:locked'] = true;
+  // What a challenge of this shift needs to play it again (src/sim/challenge.ts).
+  if (opts.weather) s.flags[SETUP_WX] = opts.weather;
+  if (opts.crisis && opts.crisis > 0) s.flags[SETUP_CRISIS] = opts.crisis;
 
   try {
     s.weather = initialWeather(rWeather, opts.start, opts.weather, opts.regionId);
