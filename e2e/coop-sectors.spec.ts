@@ -359,6 +359,21 @@ test.describe.serial('sector co-op', () => {
     expect(download.suggestedFilename()).toMatch(/^epd-uhine-raport-[A-Z0-9]{6}\.png$/);
     expect(statSync(await download.path()).size).toBeGreaterThan(20_000);
     if (SHOTS) await download.saveAs(`${SHOTS}/joint-picture.png`);
+    // Kordus (2.39.0): each client recorded the shared shift; the report offers it, with both desks' crews, and a
+    // moment of the joint timeline opens it there.
+    for (const p of [host.page, guest.page]) await expect(p.getByTestId('replay-card')).toBeVisible({ timeout: 15_000 });
+    const recorded = await host.page.evaluate(() => {
+      const r = (window as unknown as { __epd: { replay: { getState: () => { last: { units: { desk?: string }[]; coop?: string } | null } } } })
+        .__epd.replay.getState().last;
+      return { coop: r?.coop, desks: [...new Set(r?.units.map((u) => u.desk ?? '') ?? [])].sort() };
+    });
+    expect(recorded.coop).toBe('sector');
+    expect(recorded.desks).toEqual(expect.arrayContaining(['pohja-kesklinn', 'pohja-lasnamae']));
+    await host.page.locator('.vk-joint__watch').first().click();
+    await expect(host.page.getByTestId('replay')).toBeVisible({ timeout: 20_000 });
+    await shot(host.page, 'replay-coop');
+    await host.page.keyboard.press('Escape');
+    await expect(host.page.getByTestId('replay')).toBeHidden();
 
     expect(host.errors, host.errors.join('\n')).toEqual([]);
     expect(guest.errors, guest.errors.join('\n')).toEqual([]);

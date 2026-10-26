@@ -15,7 +15,8 @@ mode (a) on the same lockstep core; section 8 describes it. Since 2.21.0 the co-
 (section 9): a click takes effect in about a tenth of a second instead of two or three, and the lockstep core is the
 fallback when the game server is not there. A room plays round after round: after a game everybody carries on in the
 same lobby (section 11). Since 2.34.0 the host can remove a player, a desk nobody holds can be taken over, and the game
-server signs the result of the shifts it runs (section 12). Careers and polish are next (section 6).
+server signs the result of the shifts it runs (section 12). Every client records the shift it plays, and the report and
+the history replay it on the map (section 17). Careers and polish are next (section 6).
 
 Code: `server/lib/rooms.php` (routes in `server/api/index.php`, schema step 4 in `server/lib/db.php`),
 `src/net/rooms.ts`, `src/sim/room.ts`, `src/ui/screens/LobbyScreen.tsx`, `src/ui/screens/shell/RoomBoard.tsx`,
@@ -825,3 +826,18 @@ free shift: the same calls whatever either player does) and the report compares 
 account's first run goes on the challenge's board. The design, the API and the link's preview are in docs/CHALLENGE.md
 and docs/SERVER.md (4.1, Challenge links). The multiplayer menu lists the player's challenges ("Väljakutsed"), sent
 and played.
+
+## 17. Kordus in a room (2.39.0)
+
+The owner's list, point 13 ("Kordus: vahetuse lõpus saab ajajoonelt vaadata, mis kaardil juhtus"). The replay itself
+is docs/REPLAY.md; this is what a room adds.
+
+- Every client records the shared shift as it draws it (on the game server from the patches, in lockstep from its own
+  steps), so every player has the replay of the whole prefecture, every desk's crews and incidents, on their device.
+- The replay knows the room: its code, co-op's kind and seats, each crew's and incident's desk (a desk taken over: the
+  desk it belongs to without it). The crew card names the desk and its player; the timeline colours the crews sent by
+  the seat that sent them, when one seat sent crews in that frame (an AI colleague's are left uncoloured).
+- The joint report's timeline opens the replay at each moment; the history ("Varasemad mängud", "Ruumi ajalugu")
+  offers the replay of a round played on this device (found by the room's code and the shift's seed), its timeline's
+  moments too.
+- A race's racers each have the replay of their own shift.

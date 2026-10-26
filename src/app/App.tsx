@@ -15,6 +15,7 @@ import { CareerScreen } from '@/ui/screens/CareerScreen';
 import { LobbyScreen } from '@/ui/screens/LobbyScreen';
 import { CustomScreen } from '@/ui/screens/custom/CustomScreen';
 import { ChallengeGate, takeChallengeLink } from '@/ui/screens/shell/Challenge';
+import { ReplayLayer } from '@/ui/replay/ReplayLayer';
 import { AudioBridge } from '@/audio/AudioBridge';
 import { AppBoundary, isChunkError, QuietBoundary } from './AppBoundary';
 import './app.css';
@@ -123,6 +124,9 @@ export function App() {
       </AppBoundary>
       <QuietBoundary>
         <ChallengeGate />
+      </QuietBoundary>
+      <QuietBoundary>
+        <ReplayLayer />
       </QuietBoundary>
     </>
   );

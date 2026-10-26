@@ -2,6 +2,26 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.39.0 (2026-10-26)
+
+- **Kordus:** vahetuse raportis on uus kaart **"Kordus"**. Sellel on pilt kogu vahetuse sõitudest kaardil (sinised sireeniga sõidud, punased jälitused, sündmused täppidena) ja nupp **"Vaata kordust"**.
+  - Kordus näitab vahetust mängu enda kaardil kiirendatult: ekipaažid sõidavad teid mööda, sündmused tekivad ja lõpevad, kiirabi ja päästjad sõidavad kohale, põgeneja sõidab oma jäljega.
+  - **Ajajoonel** on kõned (värv kiireloomulisuse järgi, vastamata kõne tühjana), saatmised, jälitused, raporti olulised hetked ja suurõnnetus ning all lahtiste sündmuste hulk. Klõps viib sinna hetke ja näitab sündmust, lohistades saab kerida.
+  - **Juhtimine:** esita ja peata, eelmine ja järgmine sündmus, kiirus 1, 3, 10 või 30 mänguminutit sekundis. Jälituse ajal kordus aeglustub (saab välja lülitada).
+  - **Ekipaažid:** nimekiri koos olekuga. Valitud ekipaaži kaamera jälgib ja kaardil on näha selle päev: olekud ajajoonel ja sündmused, kus ta käis.
+  - **Sündmuse kaart:** millal tuli kõne, millal saadeti, millal jõuti kohale ja millal lõpetati, kuidas lõppes ja millised ekipaažid seal käisid.
+  - Paremal üleval jooksevad viimased sündmused: kõned, saatmised, kohalejõudmised ja jälitused.
+- Raporti olulistel hetkedel on nupp, mis avab korduse just selle sündmuse juures.
+- **Mitmikmängus** salvestab iga mängija kogu ühise vahetuse. Ühise raporti ajajoonelt saab iga hetke korduses avada ja ekipaaži kaardil on näha, kelle laua oma see on. Ruumi ajaloos saab vaadata nende mängude kordusi, mida mängisid sellest seadmest.
+- Kordus salvestatakse sinu seadmesse mängu ajal, mitte salvestusfaili, ja see ei mõjuta mängu. Alles jääb 12 viimast kordust.
+
+<details>
+<summary>English</summary>
+
+Kordus, the shift replayed on the map (point 13 of the owner's list, docs/REPLAY.md and docs/MULTIPLAYER.md section 17). The shift cannot be re-simulated from its seed (a tab's steps follow real time), so it is recorded while it runs: every frame `observe` (`src/sim/replay.ts`) keeps each crew's status changes (at its `statusSince`) and movements (the engine's path and times), when each incident showed, changed state and closed, the calls, the pursued vehicle's track, searches, agencies, the weather and the crisis; at the end the incidents' results, the crews' desks and kilometres, a room's seats, and the timeline's marks (calls, crews sent, pursuits, the crisis, the report's highlights). Nothing of it is in the simulation state, saves or digest. A busy eight-hour prefecture shift is about 170 KB; the tests compare the replay with the running shift (95 % of positions within 3 m, every status and state exact). `src/store/replay.ts` records from the game loop, keeps the recording in IndexedDB every 30 s and on hide (a reload goes on with it, cut back to an older save), finishes it with the report and keeps the last 12 per identity; an account's replays leave the device with its cache. `src/sim/replayFrame.ts` builds a `SimState`-shaped frame for any moment, which the game's own `MapView` draws (roads, agencies, pursuits, searches), and the viewer (`src/ui/replay/`, a lazy chunk) adds the timeline, play, pause, scrub, previous and next event, four speeds, slowing down in pursuits, the crews list with a followed crew's card, the incident card and the feed. The report's card draws the shift as a long exposure on the menus' map; highlights, the joint report's moments and the room history open the replay.
+
+</details>
+
 ## 2.38.0 (2026-10-26)
 
 - **Väljakutse lingiga:** vaba vahetuse raportis on nupp **"Saada väljakutse"**. See teeb lingi, mille saad sõbrale saata (telefonis avaneb jagamismenüü, arvutis kopeeritakse link).

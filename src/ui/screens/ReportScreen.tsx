@@ -27,11 +27,13 @@ import { displayRoomCode, roomCodeOf } from '@/sim/room';
 import { coopPaidKey, coopXp } from '@/sim/coop';
 import { roomSummary } from '@/sim/joint';
 import { useCoop } from '@/store/coop';
-import { Button, Modal, PpaLogo, PriorityChip, Spinner } from '@/ui/components';
+import { useReplay } from '@/store/replay';
+import { Button, Icon, Modal, PpaLogo, PriorityChip, Spinner } from '@/ui/components';
 import { JointReport } from './shell/JointReport';
 import { CrisisReportPanel } from './shell/CrisisReport';
 import { ChallengeReportPanel, ChallengeSendPanel } from './shell/Challenge';
 import { Newspaper } from './shell/Newspaper';
+import { ReplayCard } from './shell/ReplayCard';
 import { DailyBoardModal } from './shell/Daily';
 import { boardCount, ResultsBoard, RoomBoard, useLiveRoom } from './shell/RoomBoard';
 import { openLobby } from './shell/lobbyNav';
@@ -71,6 +73,10 @@ export function ReportScreen() {
   const careerProfile = useCareer((s) => s.profile);
   const clearInbox = useCareer((s) => s.clearInbox);
   const [, rerender] = useState(0);
+  // Kordus (src/store/replay.ts): the shift's replay, once its recording is finished.
+  const lastReplay = useReplay((s) => s.last);
+  const showReplay = useReplay((s) => s.show);
+  const replay = lastReplay && report && lastReplay.key === report.shiftKey ? lastReplay : null;
 
   useEffect(() => {
     if (!report || report.mode !== 'career' || applied.has(report)) return;
@@ -362,6 +368,8 @@ export function ReportScreen() {
         ))}
       </dl>
 
+      {replay && <ReplayCard rep={replay} onOpen={() => showReplay({ rep: replay })} />}
+
       <div className="vk-rep">
         <div className="vk-rep__col">
           {/* ── Result: the early end and the leaderboard or the daily challenge ── */}
@@ -410,6 +418,7 @@ export function ReportScreen() {
               me={mySeat}
               avatarOf={(x) => coopAvatars[x.seat]}
               foot={<CoopXp xp={myXp ?? report.xp} team={report.xp} paid={coopPaid.get(report)} />}
+              onMoment={replay ? (at) => showReplay({ rep: replay, at: Math.max(replay.from, at - 30_000) }) : undefined}
             />
           )}
 
@@ -509,6 +518,17 @@ export function ReportScreen() {
                         <MonoNumbers text={h.text[lang] || h.text.et} />
                       </span>
                     </div>
+                    {replay?.incidents.some((x) => x.id === h.incidentId && x.shown !== undefined) && (
+                      <button
+                        type="button"
+                        className="vk-rwatch"
+                        onClick={() => showReplay({ rep: replay, inc: h.incidentId })}
+                        aria-label={t('replay.hl.watch')}
+                        title={t('replay.hl.watch')}
+                      >
+                        <Icon name="play" size={12} />
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
