@@ -841,3 +841,47 @@ is docs/REPLAY.md; this is what a room adds.
   offers the replay of a round played on this device (found by the room's code and the shift's seed), its timeline's
   moments too.
 - A race's racers each have the replay of their own shift.
+
+## 18. Sõbrad (2.40.0)
+
+The owner's list, point 14 ("Sõbralist kasutajanime järgi ja näha, kes on parasjagu võrgus. Kutse otse ruumi: menüüsse
+tuleb teade ja ühe klikiga oled lobbys. Ka väljakutse saab sõbrale otse saata."). Accounts only. The API is in
+docs/SERVER.md (4.1, Friends); the client is `src/net/friends.ts`, `src/store/friends.ts` and
+`src/ui/screens/shell/Friends.tsx`.
+
+### 18.1 Friends
+
+- A player asks another by their user name ("Lisa sõber" on the multiplayer screen). The other sees the request in the
+  menu's notice and in the panel's "Sõbrakutsed", and accepts or declines it; asking someone who already asked you
+  makes you friends at once. Either may end the friendship (the panel's ×, with a confirmation); a request can be taken
+  back while it waits.
+- At most 100 friends and requests per account, 30 requests an hour.
+
+### 18.2 Who is online
+
+- A signed-in client says what it does (the menu, a shift, a room with its code) every 20 seconds out of a shift, every
+  minute in one and every 100 seconds while the page is hidden; at once when that changes. Online means seen within
+  150 seconds. The call answers what waits for the player, so it is also how invitations arrive.
+- Only friends see it, and only now: online or not, what they do, and the room they are in (its code, mode, state and
+  players). There is no "last seen".
+- The panel lists friends online first: a dot on the picture, what they do ("Menüüs", "Vahetuses", "Ruumis K7M 2QX ·
+  2/4", "Ruumi vahetuses"). A friend's room that takes players (a lobby, or between two rounds, not full) has "Liitu":
+  one click and the player is in that lobby.
+
+### 18.3 Invitations
+
+- In a room's lobby, "Kutsu sõpru" lists the friends with "Kutsu" each (the ones in the room already are marked). An
+  invitation to a room holds 30 minutes and only while the room takes players; the friend sees it only while they are
+  not in that room.
+- A challenge's link panel in a free shift's report has "Saada sõbrale": the challenge goes to the friend as an
+  invitation, good for 7 days (or until the challenge expires).
+- The invited player's out-of-game screens (not the shift: it waits for the menu) show a notice with the sender's
+  picture: "Liis kutsub sind oma ruumi · Rollid · Põhja · 2/4 mängijat" with "Liitu ruumiga", which joins the room and
+  opens its lobby (also while the lobby shows another room), or "Mart saatis sulle väljakutse" with "Vaata", which
+  opens the challenge. "Hiljem" puts the notice away (remembered in this browser per account); the invitation stays in
+  the panel's "Kutsed" until it is taken up, declined (×) or runs out. A friend request comes as the same notice, with
+  "Võta vastu".
+- The menu's Mitmikmäng row says how many friends are online and how many invitations and requests wait (a count at its
+  end).
+- At most 60 invitations an hour and 10 friends per call; one still waiting for the same friend is renewed, not sent
+  twice. Ending a friendship removes the invitations between the two.

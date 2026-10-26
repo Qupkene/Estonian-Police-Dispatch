@@ -18,6 +18,7 @@ import { useCareer } from '@/store/career';
 import { useSettings } from '@/store/settings';
 import { useAccount } from '@/net/account';
 import { fetchMyRoom, type Room } from '@/net/rooms';
+import { useFriends } from '@/store/friends';
 import { useLang, useT, useTx } from '@/i18n';
 import { displayRoomCode } from '@/sim/room';
 import { sectorById } from '@/sim/sectors';
@@ -70,6 +71,8 @@ interface Row {
   desc: string;
   mono?: boolean;
   mark?: 'mine' | 'challenge';
+  /** Things waiting behind the row (friends' invitations and requests), as a count at its end. */
+  badge?: number;
   /** A row that opens a panel elsewhere (the daily challenge's): whether it is open, and its id. */
   expanded?: boolean;
   controls?: string;
@@ -148,6 +151,18 @@ export function MenuScreen() {
       alive = false;
     };
   }, [signedIn, accountUser?.id]);
+
+  // Sõbrad (2.40.0): who is online and what waits (invitations, friend requests), from the presence call.
+  const friendsOnline = useFriends((s) => s.online);
+  const waiting = useFriends((s) => s.invites.length + s.asking);
+  const friendsLine = [
+    waiting ? (waiting === 1 ? t('friends.menu.waiting.one') : t('friends.menu.waiting', { n: waiting })) : '',
+    !openRoom && friendsOnline
+      ? friendsOnline === 1
+        ? t('friends.menu.online.one')
+        : t('friends.menu.online', { n: friendsOnline })
+      : '',
+  ].filter(Boolean);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -270,13 +285,21 @@ export function MenuScreen() {
     {
       id: 'multi',
       title: t('rooms.title'),
-      desc: openRoom
-        ? t('rooms.menu.rowIn', {
-            code: displayRoomCode(openRoom.code),
-            state: t(`rooms.state.${openRoom.state}`),
-          })
-        : t('rooms.menu.row'),
+      desc: [
+        openRoom
+          ? t('rooms.menu.rowIn', {
+              code: displayRoomCode(openRoom.code),
+              state: t(`rooms.state.${openRoom.state}`),
+            })
+          : friendsLine.length
+            ? ''
+            : t('rooms.menu.row'),
+        ...friendsLine,
+      ]
+        .filter(Boolean)
+        .join(' · '),
       mark: openRoom ? 'mine' : undefined,
+      badge: waiting || undefined,
       run: () => openLobby(),
     },
     {
@@ -559,6 +582,7 @@ function ServicePanel({
           <span className={`vk-row__desc${r.mono ? ' vk-mono' : ''}`}>{r.desc}</span>
         </span>
         <span className="vk-row__end" aria-hidden="true">
+          {r.badge ? <span className="vk-count vk-row__badge">{r.badge}</span> : null}
           {r.mark === 'mine' && <span className="vk-row__mine" />}
           {r.mark === 'challenge' && (
             <svg className="vk-mark" width="14" height="14" viewBox="0 0 14 14">

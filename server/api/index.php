@@ -15,6 +15,7 @@ require_once dirname(__DIR__) . '/lib/scores.php';
 require_once dirname(__DIR__) . '/lib/daily.php';
 require_once dirname(__DIR__) . '/lib/rooms.php';
 require_once dirname(__DIR__) . '/lib/challenges.php';
+require_once dirname(__DIR__) . '/lib/friends.php';
 require_once dirname(__DIR__) . '/lib/hook.php';
 require_once dirname(__DIR__) . '/lib/tts.php';
 require_once dirname(__DIR__) . '/lib/admin.php';
@@ -67,6 +68,13 @@ function epd_routes(): array
         ['GET', '#^/api/challenges/([A-Za-z0-9]{6})$#', epd_route_challenge_get(...)],
         ['POST', '#^/api/challenges/([A-Za-z0-9]{6})/result$#', epd_route_challenge_result(...)],
         ['GET', '#^/v/([A-Za-z0-9]{6})$#', epd_route_challenge_page(...)],
+        ['GET', '#^/api/friends$#', epd_route_friends_get(...)],
+        ['POST', '#^/api/friends$#', epd_route_friends_add(...)],
+        ['POST', '#^/api/friends/([0-9]{1,12})/accept$#', epd_route_friends_accept(...)],
+        ['DELETE', '#^/api/friends/([0-9]{1,12})$#', epd_route_friends_remove(...)],
+        ['POST', '#^/api/presence$#', epd_route_presence(...)],
+        ['POST', '#^/api/invites$#', epd_route_invites_send(...)],
+        ['POST', '#^/api/invites/([0-9]{1,12})/done$#', epd_route_invite_done(...)],
         // Admin panel (server/lib/admin.php): admins only, unlocked with the password again.
         ['GET', '#^/api/admin/me$#', epd_route_admin_me(...)],
         ['POST', '#^/api/admin/unlock$#', epd_route_admin_unlock(...)],

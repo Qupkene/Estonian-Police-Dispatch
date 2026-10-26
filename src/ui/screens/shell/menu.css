@@ -183,6 +183,11 @@
   height: 9px;
   background: var(--vk-acc);
 }
+/* Friends' invitations and requests waiting (2.40.0). */
+.vk-row__badge {
+  background: var(--vk-amb);
+  color: var(--vk-on-acc);
+}
 .vk-row .vk-row__enter {
   display: none;
   height: 20px;

@@ -2,7 +2,6 @@
 // the comparison in a challenge run's report and the player's challenges in the multiplayer menu. Styles in
 // challenge.css.
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { create } from 'zustand';
 import { useGame } from '@/store/game';
 import { useAccount } from '@/net/account';
 import {
@@ -32,15 +31,14 @@ import type { ShiftReport } from '@/sim/types';
 import { Button, Modal, PlayerAvatar, Spinner } from '@/ui/components';
 import { regionSummary, VERSION } from './helpers';
 import { VkLayer } from './VkLayer';
+import { FriendPicker } from './Friends';
+import { useChallengeLink } from './challengeLink';
 import './challenge.css';
 
 // ── The link (/v/<code>) ─────────────────────────────────────────────────────
 
-/** A challenge link the game was opened with: remembered until the player has seen it. */
-export const useChallengeLink = create<{ code: string | null; set: (code: string | null) => void }>()((set) => ({
-  code: null,
-  set: (code) => set({ code }),
-}));
+/** The challenge waiting to be shown (a link's, or one a friend sent): challengeLink.ts. */
+export { useChallengeLink };
 
 /** Read a challenge link from the address once (the address goes back to the game's own). */
 export function takeChallengeLink(): void {
@@ -400,6 +398,7 @@ export function ChallengeSendPanel({ report }: { report: ShiftReport }) {
           <p className="vk-chal__ready">{t('challenge.send.ready')}</p>
           <p className="vk-chal__preview">„{text}“</p>
           <LinkBox ch={state.ch} text={text} />
+          <FriendPicker kind="challenge" code={state.ch.code} />
         </>
       ) : (
         <div className="vk-chal__send">

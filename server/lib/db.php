@@ -357,6 +357,36 @@ function epd_migrations(): array
             )',
             'CREATE INDEX challenge_results_user ON challenge_results (user_id)',
         ],
+        // Sõbrad (friends.php, 2.40.0, docs/MULTIPLAYER.md section 18): friendships ('asked' until the other accepts,
+        // then 'friends'), when each player was last here and what they did, and invitations to a room or a challenge.
+        17 => [
+            "CREATE TABLE friends (
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                friend_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                state TEXT NOT NULL DEFAULT 'asked',
+                created INTEGER NOT NULL,
+                accepted INTEGER,
+                PRIMARY KEY (user_id, friend_id)
+            )",
+            'CREATE INDEX friends_friend ON friends (friend_id)',
+            "CREATE TABLE presence (
+                user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                seen INTEGER NOT NULL,
+                what TEXT NOT NULL DEFAULT '',
+                room TEXT NOT NULL DEFAULT ''
+            )",
+            'CREATE TABLE invites (
+                id INTEGER PRIMARY KEY,
+                from_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                to_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                kind TEXT NOT NULL,
+                code TEXT NOT NULL,
+                created INTEGER NOT NULL,
+                done INTEGER
+            )',
+            'CREATE INDEX invites_to ON invites (to_id, created)',
+            'CREATE INDEX invites_from ON invites (from_id)',
+        ],
     ];
 }
 
