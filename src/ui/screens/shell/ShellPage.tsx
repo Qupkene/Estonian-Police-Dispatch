@@ -115,7 +115,8 @@ export function useEnter(fn?: () => void) {
       if (e.key !== 'Enter' || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       const el = e.target as HTMLElement | null;
       if (el && el !== document.body && !el.classList.contains('vk-page__main')) return;
-      if (document.querySelector('.ui-modal')) return;
+      // A dialog over the page (a modal, the replay) has the keys.
+      if (document.querySelector('.ui-modal, [aria-modal="true"]')) return;
       e.preventDefault();
       fn();
     };

@@ -1,0 +1,1058 @@
+/* Kordus (ReplayScreen.tsx, Timeline.tsx, 2.39.0): the replay viewer, a dialog over the whole page on the Valvekaart
+   tokens (vk.css; VkLayer puts it in a .vk box). The map is the game's own (map.css); status and priority colours are
+   the CAD's (--st-*, --p1..--p4 in ui/styles/tokens.css). Prefix: rp-. */
+
+.rp {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--vk-chrome);
+  color: var(--vk-text-1);
+  font-family: var(--vk-font-text);
+  font-size: 13px;
+}
+.rp-mono {
+  font-family: var(--vk-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.rp-dim {
+  color: var(--vk-text-2);
+}
+.rp h2,
+.rp h3,
+.rp h4,
+.rp p {
+  margin: 0;
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+.rp-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 6px 10px 6px 16px;
+  border-bottom: 1px solid var(--vk-line);
+  background: var(--vk-panel);
+}
+.rp-top__title {
+  display: grid;
+  min-width: 0;
+}
+.rp-top__kicker {
+  color: var(--vk-amb);
+  font-family: var(--vk-font-display);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.rp-top h2 {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--vk-text-0);
+  font-family: var(--vk-font-display);
+  font-size: 17px;
+  font-weight: 700;
+}
+.rp-top__when {
+  color: var(--vk-text-2);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.rp-top__who {
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--vk-text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rp-iconBtn {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--vk-line);
+  border-radius: 6px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-1);
+  cursor: pointer;
+}
+.rp-iconBtn:hover {
+  background: var(--vk-raise);
+  color: var(--vk-text-0);
+}
+.rp-iconBtn.is-on {
+  border-color: var(--vk-acc);
+  color: var(--vk-acc);
+}
+.rp-iconBtn:focus-visible,
+.rp button:focus-visible,
+.rp-tl__track:focus-visible {
+  outline: 2px solid var(--vk-acc);
+  outline-offset: 1px;
+}
+
+/* ── Body: the map and the side panel ───────────────────────────────────── */
+.rp-body {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}
+.rp-body.has-panel {
+  grid-template-columns: minmax(0, 1fr) 330px;
+}
+.rp-map {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.rp-map > .epdm {
+  position: absolute;
+  inset: 0;
+}
+
+/* The clock, top centre */
+.rp-clock {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 6;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 14px 5px;
+  transform: translateX(-50%);
+  border: 1px solid var(--vk-line);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--vk-panel) 88%, transparent);
+  box-shadow: var(--vk-shadow);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.rp-clock__time {
+  color: var(--vk-text-0);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+.rp-clock__sec {
+  margin-left: 2px;
+  color: var(--vk-text-2);
+  font-size: 15px;
+}
+.rp-clock__speed {
+  color: var(--vk-text-2);
+  font-size: 12px;
+}
+.rp-clock__slow {
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--p1, #ff3b4e) 22%, transparent);
+  color: var(--vk-text-0);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+/* The feed, top left */
+.rp-feed {
+  position: absolute;
+  top: 58px;
+  left: 10px;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  width: min(380px, calc(100% - 80px));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rp-feed__item {
+  opacity: calc(1 - var(--i) * 0.16);
+  animation: rp-in 260ms ease-out both;
+}
+.rp-feed__item button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 9px;
+  border: 1px solid var(--vk-line-2);
+  border-left: 3px solid var(--vk-line);
+  border-radius: 5px;
+  background: color-mix(in oklab, var(--vk-panel) 90%, transparent);
+  color: var(--vk-text-1);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+.rp-feed__item button:disabled {
+  cursor: default;
+}
+.rp-feed__item.is-call button,
+.rp-feed__item.is-card button {
+  border-left-color: var(--vk-acc);
+}
+.rp-feed__item.is-missed button,
+.rp-feed__item.is-pursuit button,
+.rp-feed__item.is-crisis button {
+  border-left-color: var(--p1, #ff3b4e);
+}
+.rp-feed__item.is-send button {
+  border-left-color: var(--st-enroute, #3d8bff);
+}
+.rp-feed__item.is-arrive button {
+  border-left-color: var(--st-onscene, #f59e0b);
+}
+.rp-feed__item.is-closed button,
+.rp-feed__item.is-pursuitEnd button {
+  border-left-color: var(--vk-ok);
+}
+.rp-feed__t {
+  flex: none;
+  color: var(--vk-text-2);
+  font-size: 11.5px;
+}
+.rp-feed__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rp-feed__text b {
+  color: var(--vk-text-0);
+  font-weight: 600;
+}
+@keyframes rp-in {
+  from {
+    transform: translateY(-4px);
+    opacity: 0;
+  }
+}
+
+.rp-note {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  z-index: 6;
+  max-width: min(520px, calc(100% - 40px));
+  padding: 6px 12px;
+  transform: translateX(-50%);
+  border-left: 3px solid var(--vk-amb);
+  border-radius: 4px;
+  background: var(--vk-panel);
+  color: var(--vk-text-1);
+  font-size: 12.5px;
+}
+
+/* The incident picked, bottom left */
+.rp-inc {
+  position: absolute;
+  left: 10px;
+  bottom: 12px;
+  z-index: 7;
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100% - 80px));
+  padding: 12px 12px 12px 14px;
+  border: 1px solid var(--vk-line);
+  border-radius: 8px;
+  background: var(--vk-panel);
+  box-shadow: var(--vk-shadow);
+  animation: rp-in 200ms ease-out both;
+}
+.rp-inc__head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+.rp-inc__head h3 {
+  color: var(--vk-text-0);
+  font-family: var(--vk-font-display);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.rp-inc__head p {
+  margin-top: 2px;
+  font-size: 12px;
+}
+.rp-inc__head .rp-iconBtn {
+  width: 30px;
+  height: 30px;
+}
+.rp-inc__steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rp-inc__steps li {
+  display: grid;
+  gap: 1px;
+  padding: 5px 7px;
+  border-radius: 4px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-3);
+  font-size: 11px;
+}
+.rp-inc__steps li b {
+  color: var(--vk-text-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+.rp-inc__steps li.is-done {
+  background: color-mix(in oklab, var(--vk-acc) 14%, var(--vk-panel-2));
+  color: var(--vk-text-1);
+}
+.rp-inc__steps li.is-done b {
+  color: var(--vk-text-0);
+}
+.rp-inc__steps li.is-none {
+  opacity: 0.55;
+}
+.rp-inc__result {
+  color: var(--vk-text-1);
+  font-weight: 600;
+}
+.rp-inc__crews h4,
+.rp-crewCard h4 {
+  margin-bottom: 6px;
+  color: var(--vk-text-3);
+  font-family: var(--vk-font-display);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.rp-inc__crews ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 5px;
+  border: 1px solid var(--vk-line);
+  border-radius: 999px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-1);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.rp-chip.is-on {
+  border-color: var(--st-onscene, #f59e0b);
+  color: var(--vk-text-0);
+}
+.rp-chip:hover {
+  background: var(--vk-raise);
+}
+.rp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--vk-line);
+  border-radius: 6px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-0);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rp-btn:hover {
+  background: var(--vk-raise);
+}
+
+/* Priorities and statuses */
+.rp-prio {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--pc, var(--p3));
+  color: var(--ink-on-bright, #10151c);
+  font-family: var(--vk-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+.rp-p1 {
+  --pc: var(--p1, #ff3b4e);
+}
+.rp-p2 {
+  --pc: var(--p2, #ff9a1f);
+}
+.rp-p3 {
+  --pc: var(--p3, #f2d40c);
+}
+.rp-p4 {
+  --pc: var(--p4, #4da3ff);
+}
+.rp-st {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--vk-text-1);
+  white-space: nowrap;
+}
+.rp-st i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sc, var(--st-available));
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--sc, var(--st-available)) 25%, transparent);
+}
+.rp-st--available {
+  --sc: var(--st-available, #22c55e);
+}
+.rp-st--enroute {
+  --sc: var(--st-enroute, #3d8bff);
+}
+.rp-st--onscene {
+  --sc: var(--st-onscene, #f59e0b);
+}
+.rp-st--transport {
+  --sc: var(--st-transport, #a855f7);
+}
+.rp-st--busy {
+  --sc: var(--st-busy, #94a3b8);
+}
+.rp-st--break {
+  --sc: var(--st-break, #14b8a6);
+}
+.rp-st--offduty {
+  --sc: var(--st-offduty, #475569);
+}
+.rp-st--emergency {
+  --sc: var(--st-emergency, #ff2d55);
+}
+.rp-glyph {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--vk-raise);
+  color: var(--vk-text-0);
+}
+.rp-glyph svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ── Side panel ─────────────────────────────────────────────────────────── */
+.rp-side {
+  min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--vk-line);
+  background: var(--vk-panel);
+  overscroll-behavior: contain;
+}
+.rp-side__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 8px;
+  background: var(--vk-panel);
+}
+.rp-side__head h3 {
+  color: var(--vk-text-0);
+  font-family: var(--vk-font-display);
+  font-size: 14px;
+  font-weight: 700;
+}
+.rp-side__hint,
+.rp-side__empty {
+  padding: 0 14px 8px;
+  color: var(--vk-text-3);
+  font-size: 12px;
+}
+.rp-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--vk-text-2);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.rp-check input {
+  accent-color: var(--vk-acc);
+}
+.rp-crews__list {
+  margin: 0;
+  padding: 0 6px 12px;
+  list-style: none;
+}
+.rp-crew {
+  display: grid;
+  grid-template-columns: 22px 64px minmax(0, 1fr);
+  grid-template-areas:
+    'g cs st'
+    'g inc inc';
+  align-items: center;
+  gap: 1px 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--vk-text-1);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.rp-crew:hover {
+  background: var(--vk-raise);
+}
+.rp-crew .rp-glyph {
+  grid-area: g;
+}
+.rp-crew__cs {
+  grid-area: cs;
+  color: var(--vk-text-0);
+  font-weight: 600;
+}
+.rp-crew .rp-st {
+  grid-area: st;
+  font-size: 12px;
+}
+.rp-crew__inc {
+  grid-area: inc;
+  overflow: hidden;
+  color: var(--vk-text-2);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rp-crew__inc:empty {
+  display: none;
+}
+
+/* The crew followed */
+.rp-crewCard {
+  display: grid;
+  gap: 14px;
+  padding: 10px 14px 16px;
+}
+.rp-link {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 4px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--vk-acc);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.rp-crewCard__head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+.rp-crewCard__head .rp-glyph {
+  width: 34px;
+  height: 34px;
+}
+.rp-crewCard__head .rp-glyph svg {
+  width: 20px;
+  height: 20px;
+}
+.rp-crewCard__head h3 {
+  color: var(--vk-text-0);
+  font-size: 18px;
+  font-weight: 700;
+}
+.rp-crewCard__head p {
+  font-size: 12px;
+}
+.rp-follow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  border: 1px solid var(--vk-line);
+  border-radius: 6px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-1);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rp-follow.is-on {
+  border-color: var(--vk-acc);
+  background: color-mix(in oklab, var(--vk-acc) 16%, var(--vk-panel-2));
+  color: var(--vk-text-0);
+}
+.rp-crewCard__inc {
+  margin-top: 4px;
+  color: var(--vk-text-1);
+  font-size: 12.5px;
+}
+.rp-bar {
+  position: relative;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--vk-panel-2);
+  cursor: pointer;
+}
+.rp-bar__seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 1px;
+  background: var(--sc);
+  opacity: 0.85;
+}
+.rp-bar__seg.rp-st--available,
+.rp-bar__seg.rp-st--offduty {
+  opacity: 0.28;
+}
+.rp-bar__now {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--vk-text-0);
+}
+.rp-crewCard__sum {
+  margin-top: 6px;
+  font-size: 12px;
+}
+.rp-crewCard__jobs ol {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rp-crewCard__jobs button {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--vk-text-1);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.rp-crewCard__jobs button:hover {
+  background: var(--vk-raise);
+}
+.rp-crewCard__jobs li.is-now button {
+  background: color-mix(in oklab, var(--st-onscene, #f59e0b) 16%, transparent);
+  color: var(--vk-text-0);
+}
+.rp-crewCard__jobs li.is-past {
+  opacity: 0.7;
+}
+.rp-crewCard__job {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Bottom: controls and the timeline ──────────────────────────────────── */
+.rp-bottom {
+  display: grid;
+  gap: 6px;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--vk-line);
+  background: var(--vk-panel);
+}
+.rp-ctl {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+.rp-play {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--vk-acc);
+  color: var(--vk-on-acc);
+  cursor: pointer;
+  box-shadow: 0 0 0 4px var(--vk-on-acc-soft);
+}
+.rp-play:hover {
+  background: var(--vk-acc-hover);
+}
+.rp-speed {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--vk-line);
+  border-radius: 6px;
+}
+.rp-speed__btn {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-left: 1px solid var(--vk-line);
+  background: var(--vk-panel-2);
+  color: var(--vk-text-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+.rp-speed__btn:first-child {
+  border-left: 0;
+}
+.rp-speed__btn.is-on {
+  background: color-mix(in oklab, var(--vk-acc) 22%, var(--vk-panel-2));
+  color: var(--vk-text-0);
+  font-weight: 600;
+}
+.rp-ctl__keys {
+  margin-left: auto;
+  color: var(--vk-text-3);
+  font-size: 11.5px;
+}
+
+/* The timeline */
+.rp-tl {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  align-items: start;
+}
+.rp-tl__labels {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rp-tl__label {
+  display: flex;
+  align-items: center;
+  padding-right: 10px;
+  color: var(--vk-text-3);
+  font-family: var(--vk-font-display);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.rp-tl__track {
+  position: relative;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+.rp-tl__svg {
+  display: block;
+  overflow: visible;
+}
+.rp-tl__sep {
+  stroke: var(--vk-line-2);
+  stroke-width: 1;
+}
+.rp-tl__hour {
+  stroke: var(--vk-line-2);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+.rp-tl__axis {
+  fill: var(--vk-text-3);
+  font-family: var(--vk-font-mono);
+  font-size: 10.5px;
+}
+.rp-tl__load {
+  fill: color-mix(in oklab, var(--vk-acc) 28%, transparent);
+  stroke: color-mix(in oklab, var(--vk-acc) 70%, transparent);
+  stroke-width: 1;
+}
+.rp-tl__call {
+  fill: var(--pc, var(--p3));
+}
+.rp-tl__call.is-miss {
+  fill: transparent;
+  stroke: var(--p1, #ff3b4e);
+  stroke-width: 1.2;
+}
+.rp-tl__send {
+  fill: var(--st-enroute, #3d8bff);
+}
+.rp-tl__send.rp-seat-0 {
+  fill: var(--st-enroute, #3d8bff);
+}
+.rp-tl__send.rp-seat-1 {
+  fill: var(--st-onscene, #f59e0b);
+}
+.rp-tl__send.rp-seat-2 {
+  fill: var(--st-break, #14b8a6);
+}
+.rp-tl__send.rp-seat-3 {
+  fill: var(--st-transport, #a855f7);
+}
+.rp-tl__pursuit {
+  fill: var(--p1, #ff3b4e);
+  opacity: 0.9;
+}
+.rp-tl__moment.is-good {
+  fill: var(--vk-ok);
+}
+.rp-tl__moment.is-bad {
+  fill: var(--vk-bad);
+}
+.rp-tl__moment.is-crisis {
+  fill: var(--vk-amb);
+}
+.rp-tl .is-sel {
+  stroke: var(--vk-text-0);
+  stroke-width: 1.6;
+}
+.rp-tl__crisis rect {
+  fill: color-mix(in oklab, var(--vk-amb) 14%, transparent);
+}
+.rp-tl__crisis text {
+  fill: var(--vk-amb);
+  font-family: var(--vk-font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.rp-tl__planEnd {
+  stroke: var(--vk-text-3);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 3;
+}
+.rp-tl__hatchBg {
+  fill: color-mix(in oklab, var(--vk-chrome) 70%, transparent);
+}
+.rp-tl__hatch {
+  stroke: var(--vk-line);
+  stroke-width: 2;
+}
+.rp-tl__gap text {
+  fill: var(--vk-text-3);
+  font-size: 11px;
+}
+.rp-tl__head,
+.rp-tl__hover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: calc(100% - 18px);
+  pointer-events: none;
+}
+.rp-tl__head {
+  width: 2px;
+  margin-left: -1px;
+  background: var(--vk-text-0);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--vk-chrome) 60%, transparent);
+  will-change: transform;
+}
+.rp-tl__knob {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--vk-chrome);
+  border-radius: 50%;
+  background: var(--vk-text-0);
+}
+.rp-tl__hover {
+  width: 1px;
+  background: color-mix(in oklab, var(--vk-text-0) 35%, transparent);
+}
+.rp-tl__tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  z-index: 3;
+  max-width: 300px;
+  padding: 6px 10px;
+  border: 1px solid var(--vk-line);
+  border-radius: 6px;
+  background: var(--vk-raise);
+  box-shadow: var(--vk-shadow);
+  color: var(--vk-text-0);
+  font-size: 12px;
+  line-height: 1.35;
+  pointer-events: none;
+}
+.rp-tl__tip b {
+  margin-right: 4px;
+  color: var(--vk-text-2);
+  font-weight: 600;
+}
+
+/* The crew followed, on the map while the panel is closed */
+.rp-chipBar {
+  position: absolute;
+  right: 10px;
+  bottom: 12px;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 20px);
+  padding: 5px;
+  border: 1px solid var(--vk-line);
+  border-radius: 10px;
+  background: var(--vk-panel);
+  box-shadow: var(--vk-shadow);
+}
+.rp-chipBar__main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 8px 0 4px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--vk-text-1);
+  font: inherit;
+  cursor: pointer;
+}
+.rp-chipBar__main:hover {
+  background: var(--vk-raise);
+}
+.rp-chipBar__cs {
+  color: var(--vk-text-0);
+  font-weight: 700;
+}
+.rp-chipBar__inc {
+  overflow: hidden;
+  color: var(--vk-text-2);
+  font-family: var(--vk-font-mono);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rp-chipBar .rp-iconBtn {
+  width: 34px;
+  height: 34px;
+}
+
+/* ── Narrow screens: the side panel over the map ────────────────────────── */
+@media (max-width: 980px) {
+  .rp-body.has-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rp-side {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 8;
+    width: min(340px, 88vw);
+    box-shadow: var(--vk-shadow);
+  }
+  .rp-ctl__keys {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .rp-top__who {
+    display: none;
+  }
+  .rp-top {
+    min-height: 48px;
+    padding: 4px 8px 4px 12px;
+  }
+  .rp-top h2 {
+    font-size: 15px;
+  }
+  .rp-bottom {
+    gap: 4px;
+    padding: 6px 8px 8px;
+  }
+  .rp-ctl {
+    gap: 6px;
+  }
+  .rp-play {
+    width: 40px;
+    height: 40px;
+  }
+  .rp-speed__btn {
+    min-height: 30px;
+    padding: 0 7px;
+    font-size: 11px;
+  }
+  .rp-check span {
+    font-size: 11.5px;
+  }
+  .rp-chipBar {
+    left: 10px;
+    right: 10px;
+  }
+  .rp-inc {
+    bottom: 62px;
+  }
+  .rp-clock__time {
+    font-size: 22px;
+  }
+  .rp-feed {
+    top: 54px;
+  }
+  .rp-feed__item:nth-child(n + 4) {
+    display: none;
+  }
+  .rp-tl {
+    grid-template-columns: 0 minmax(0, 1fr);
+  }
+  .rp-tl__labels {
+    visibility: hidden;
+  }
+  .rp-inc {
+    width: calc(100% - 20px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rp-feed__item,
+  .rp-inc {
+    animation: none;
+  }
+}

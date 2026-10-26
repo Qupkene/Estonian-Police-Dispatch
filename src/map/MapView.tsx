@@ -31,6 +31,12 @@ export interface MapViewProps {
   cinematic?: boolean;
   /** Sector co-op: units and incidents of the neighbouring desks, drawn dimmed. Read every frame. */
   dimmed?: (kind: 'unit' | 'incident', id: string) => boolean;
+  /**
+   * Following the selected unit, when the parent decides it (the replay): the toolbar's button and a drag of the map
+   * then ask `onFollowChange`. Missing: the map keeps the choice itself.
+   */
+  follow?: boolean;
+  onFollowChange?: (on: boolean) => void;
 }
 
 export function MapView(p: MapViewProps) {
@@ -43,7 +49,17 @@ export function MapView(p: MapViewProps) {
   const [glError, setGlError] = useState(false);
   /** Tactical fallback in force and why (tiles failed, or the street map file is not on the server). */
   const [fallback, setFallback] = useState<FallbackReason | null>(null);
-  const [follow, setFollow] = useState(false);
+  const [ownFollow, setOwnFollow] = useState(false);
+  const follow = p.follow ?? ownFollow;
+  const setFollow = (v: boolean | ((f: boolean) => boolean)) => {
+    const cur = propsRef.current;
+    const was = cur.follow ?? followRef.current;
+    const next = typeof v === 'function' ? v(was) : v;
+    if (cur.follow !== undefined) cur.onFollowChange?.(next);
+    else setOwnFollow(next);
+  };
+  const followRef = useRef(follow);
+  followRef.current = follow;
   const [heat, setHeat] = useState(false);
   const [tilt, setTilt] = useState(false);
   /** Layer picked in the toolbar, applied immediately (the parent may echo it back via styleKey). */

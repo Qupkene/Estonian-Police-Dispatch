@@ -17,6 +17,7 @@ import {
   storageSet,
   upgradeSave,
 } from './migrate';
+import { finishReplay, keepRecording, leaveRecording, recordFrame } from './replay';
 
 export type Screen =
   | 'boot'
@@ -147,11 +148,14 @@ export const useGame = create<GameStore>()((set, get) => ({
     }
     if (sim.flags) sim.flags[REPORTED_FLAG] = true;
     clearAutosave();
+    // Kordus (src/store/replay.ts): the recording ends and becomes the report's replay.
+    void finishReplay(sim, report.shiftKey, report);
     set({ report, screen: 'report' });
     return report;
   },
   quitShift: () => {
     stopLoop();
+    leaveRecording();
     if (get().sim?.coop) loopHooks.coopStop?.();
     set({ sim: null, screen: 'menu', mapFocus: null });
   },
@@ -256,6 +260,12 @@ function frame(ts: number) {
   }
   const events = Array.isArray(sim.events) ? drainEvents(sim) : [];
   if (events.length) listeners.forEach((l) => l(events));
+  // Kordus: what changed on the map this frame (src/store/replay.ts; it never touches the shift).
+  try {
+    recordFrame(sim, shiftKeyOf(sim));
+  } catch (err) {
+    console.warn('[EPD] replay frame failed', err);
+  }
   // Paused or over: nothing moves, so no re-render (UI commands bump on their own, the end of the
   // shift arrives as a 'shift_end' event).
   sinceBump += dtReal;
@@ -267,6 +277,7 @@ function frame(ts: number) {
   if (sinceSave > 30_000) {
     sinceSave = 0;
     saveNow({ periodic: true });
+    keepRecording();
   }
 }
 
@@ -498,6 +509,7 @@ export function saveNow(opts: AutosaveOptions = {}): boolean {
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const onLeave = () => {
     saveNow({ unload: true });
+    keepRecording();
   };
   window.addEventListener('beforeunload', onLeave);
   window.addEventListener('pagehide', onLeave);

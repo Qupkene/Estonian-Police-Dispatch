@@ -1,0 +1,203 @@
+/* Kordus (ReplayCard.tsx, 2.39.0): the report's replay card, its long-exposure picture of the shift on the duty map's
+   colours (vk.css), and the replay buttons of the highlights and the history. */
+.vk-rcard {
+  display: grid;
+  grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  padding: 14px;
+}
+.vk-rcard__pic {
+  position: relative;
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--vk-line);
+  border-radius: 8px;
+  background: var(--vk-sea);
+  cursor: pointer;
+}
+.vk-rcard__pic:hover .vk-rcard__playIcon,
+.vk-rcard__pic:focus-visible .vk-rcard__playIcon {
+  transform: translate(-50%, -50%) scale(1.08);
+  background: var(--vk-acc);
+  color: var(--vk-on-acc);
+}
+.vk-rcard__playIcon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border: 2px solid color-mix(in oklab, var(--vk-text-0) 70%, transparent);
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--vk-chrome) 70%, transparent);
+  color: var(--vk-text-0);
+  transform: translate(-50%, -50%);
+  transition:
+    transform 160ms ease,
+    background 160ms ease;
+  backdrop-filter: blur(3px);
+}
+.vk-rcard__body {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.vk-rcard__text {
+  margin: 0;
+  color: var(--vk-text-1);
+  line-height: 1.5;
+}
+.vk-rcard__counts {
+  margin: 0;
+  color: var(--vk-text-2);
+  font-size: 12.5px;
+}
+.vk-rcard__go {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+/* The picture */
+.vk-rthumb {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.vk-rthumb__sea {
+  fill: var(--vk-sea);
+}
+.vk-rthumb__nb {
+  fill: var(--vk-nb);
+}
+.vk-rthumb__land {
+  fill: var(--vk-land);
+}
+.vk-rthumb__coast {
+  fill: none;
+  stroke: var(--vk-coast);
+  stroke-width: 0.7;
+  opacity: 0.6;
+}
+.vk-rthumb__road {
+  fill: none;
+  stroke: var(--vk-road);
+  stroke-width: 0.8;
+  opacity: 0.55;
+}
+.vk-rthumb__road.is-local {
+  stroke-width: 0.45;
+  opacity: 0.4;
+}
+.vk-rthumb__light path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.vk-rthumb__calm {
+  stroke: oklch(0.8 0.08 232 / 0.3);
+  stroke-width: 0.9;
+}
+.vk-rthumb__carry {
+  stroke: oklch(0.72 0.17 305 / 0.55);
+  stroke-width: 1.1;
+}
+.vk-rthumb__glow {
+  stroke: oklch(0.78 0.14 240 / 0.18);
+  stroke-width: 4.5;
+}
+.vk-rthumb__run {
+  stroke: oklch(0.92 0.07 230 / 0.85);
+  stroke-width: 1.2;
+}
+.vk-rthumb__chase,
+.vk-rthumb__track {
+  stroke: oklch(0.68 0.22 25 / 0.95);
+  stroke-width: 1.8;
+}
+.vk-rthumb__track {
+  stroke-dasharray: 3 2;
+}
+.vk-rthumb__inc {
+  fill: var(--p3, #f2d40c);
+  stroke: var(--vk-sea);
+  stroke-width: 0.8;
+}
+.vk-rthumb__inc.is-p1 {
+  fill: var(--p1, #ff3b4e);
+}
+.vk-rthumb__inc.is-p2 {
+  fill: var(--p2, #ff9a1f);
+}
+.vk-rthumb__inc.is-p4 {
+  fill: var(--p4, #4da3ff);
+}
+.vk-rthumb__crisis {
+  fill: none;
+  stroke: var(--vk-amb);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+:root[data-theme='light'] .vk-rthumb__calm {
+  stroke: oklch(0.45 0.08 245 / 0.25);
+}
+:root[data-theme='light'] .vk-rthumb__glow {
+  stroke: oklch(0.55 0.14 245 / 0.16);
+}
+:root[data-theme='light'] .vk-rthumb__run {
+  stroke: oklch(0.42 0.14 250 / 0.85);
+}
+
+/* A highlight's and a history round's button into the replay */
+.vk-rwatch {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid var(--vk-line);
+  border-radius: 50%;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-1);
+  cursor: pointer;
+}
+.vk-rwatch:hover,
+.vk-rwatch:focus-visible {
+  border-color: var(--vk-acc);
+  color: var(--vk-acc);
+}
+
+@media (max-width: 760px) {
+  .vk-rcard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.vk-hist__replay {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--vk-acc);
+  border-radius: 4px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-1);
+}
+.vk-hist__replay .vk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.vk-joint__watch {
+  width: 24px;
+  height: 24px;
+}

@@ -25,6 +25,7 @@ import {
   type BackupEntry,
 } from './migrate';
 import { META_VERSION, metaJson, parseMeta, SLOTS, type Meta, type Slot, type SlotMeta } from '@/net/sync';
+import { forgetReplays } from './replay';
 
 // ── Stores bound to the active namespace ────────────────────────────────────
 
@@ -183,10 +184,11 @@ function spaceKeys(id: number): string[] {
 /**
  * Remove an account's cache from this browser (sign-out on a shared computer, a deleted account). Slots in
  * `keep` stay with their marker entries: they hold changes the server does not have yet, which the next
- * sign-in uploads. Everything else goes, backups included.
+ * sign-in uploads. Everything else goes, backups and the replays kept on this device (src/store/replay.ts) included.
  */
 export function clearAccountSpace(id: number, keep: readonly Slot[] = []): void {
   if (id === activeSpace()) return; // never under the stores' feet
+  void forgetReplays(spacePrefix(id)).catch(() => {});
   const stay = new Set(keep.map((slot) => spaceKey(slot, id)));
   if (keep.length) stay.add(metaKey(id));
   for (const k of spaceKeys(id)) if (!stay.has(k)) storageRemove(k);

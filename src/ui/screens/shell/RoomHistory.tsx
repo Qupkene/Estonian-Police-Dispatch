@@ -8,10 +8,13 @@ import { fetchRoomHistory, type RoomHistoryRound } from '@/net/rooms';
 import { useT } from '@/i18n';
 import { coopAwards } from '@/sim/joint';
 import { displayRoomCode } from '@/sim/room';
-import { Modal, PlayerAvatar, Spinner } from '@/ui/components';
+import type { ShiftReplay } from '@/sim/replay';
+import { findRoomReplay, useReplay } from '@/store/replay';
+import { Icon, Modal, PlayerAvatar, Spinner } from '@/ui/components';
 import { JointReport } from './JointReport';
 import { ResultsBoard } from './RoomBoard';
 import { VkLayer } from './VkLayer';
+import './replayCard.css';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 /** "25.10 21:14" in the player's own time. */
@@ -161,6 +164,24 @@ function RoundView({
   const t = useT();
   const byName = new Map(r.results.map((x) => [x.name, x.avatar]));
   const mySeat = r.summary?.coop.seats.find((x) => x.name === me?.name)?.seat ?? -1;
+  // Kordus (2.39.0): the round's replay, when this device played it.
+  const [replay, setReplay] = useState<ShiftReplay | null>(null);
+  const showReplay = useReplay((s) => s.show);
+  useEffect(() => {
+    let alive = true;
+    findRoomReplay(r.code, r.seed)
+      .then((x) => alive && setReplay(x))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [r.code, r.seed]);
+  /** The replay goes over everything: the dialog closes first, so its keys do not answer too. */
+  const watch = (at?: number) => {
+    if (!replay) return;
+    onClose();
+    showReplay({ rep: replay, ...(at !== undefined ? { at: Math.max(replay.from, at - 30_000) } : {}) });
+  };
   return (
     <VkLayer>
       <Modal
@@ -170,8 +191,23 @@ function RoundView({
         width={760}
       >
         <div className="vk-hist__view" data-testid="history-view">
+          {replay && (
+            <p className="vk-hist__replay">
+              <span>{t('replay.hist.hint')}</span>
+              <button type="button" className="vk-btn vk-btn--primary" onClick={() => watch()} data-testid="history-replay">
+                <Icon name="play" size={14} />
+                <span>{t('replay.card.watch')}</span>
+              </button>
+            </p>
+          )}
           {r.summary ? (
-            <JointReport summary={r.summary} me={mySeat} avatarOf={(x) => byName.get(x.name)} team />
+            <JointReport
+              summary={r.summary}
+              me={mySeat}
+              avatarOf={(x) => byName.get(x.name)}
+              team
+              onMoment={replay ? (at) => watch(at) : undefined}
+            />
           ) : (
             <>
               {r.mode !== 'race' && <p className="vk-msg">{t('history.noReport')}</p>}

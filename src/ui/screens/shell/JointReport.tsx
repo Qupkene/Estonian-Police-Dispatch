@@ -15,6 +15,7 @@ import { AWARD_ICON, AWARD_TONE } from './jointArt';
 import { shareJointPicture } from './jointShare';
 import './report.css';
 import './joint.css';
+import './replayCard.css';
 
 /** "42 s", "4 min 7 s": a response time in game ms (the same in both languages). */
 export function respText(ms: number): string {
@@ -69,9 +70,11 @@ export interface JointReportProps {
   team?: boolean;
   /** At the foot, before the share button: the report's XP line. */
   foot?: ReactNode;
+  /** Kordus (2.39.0): this device has the shift's replay, and a moment of the timeline opens it there. */
+  onMoment?: (t: number) => void;
 }
 
-export function JointReport({ summary, me, avatarOf, team = false, foot }: JointReportProps) {
+export function JointReport({ summary, me, avatarOf, team = false, foot, onMoment }: JointReportProps) {
   const t = useT();
   const lang = useLang();
   const coop = summary.coop;
@@ -152,7 +155,7 @@ export function JointReport({ summary, me, avatarOf, team = false, foot }: Joint
           ))}
         </ul>
       </div>
-      <Timeline summary={summary} me={me} avatar={avatar} />
+      <Timeline summary={summary} me={me} avatar={avatar} onMoment={onMoment} />
       {coop.desks && coop.desks.length > 0 && <DeskTable summary={summary} me={me} />}
       <div className="vk-panel__foot vk-joint__foot">
         <span className="vk-joint__footText">{foot}</span>
@@ -367,10 +370,12 @@ function Timeline({
   summary,
   me,
   avatar,
+  onMoment,
 }: {
   summary: RoomSummary;
   me: number;
   avatar: (x: CoopReportSeat) => string | undefined;
+  onMoment?: (t: number) => void;
 }) {
   const t = useT();
   const tx = useTx();
@@ -419,6 +424,17 @@ function Timeline({
                     ) : null;
                   })}
                 </span>
+              )}
+              {onMoment && (
+                <button
+                  type="button"
+                  className="vk-rwatch vk-joint__watch"
+                  onClick={() => onMoment(m.t)}
+                  aria-label={t('replay.moment.watch')}
+                  title={t('replay.moment.watch')}
+                >
+                  <Icon name="play" size={11} />
+                </button>
               )}
             </li>
           );
