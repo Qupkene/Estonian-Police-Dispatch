@@ -1038,8 +1038,8 @@ export const MALL: CrisisScenario = {
       'Major incident! {place}, {address}: the shopping centre has received a bomb threat and the building is being evacuated. Police are needed for the evacuation, the cordon and traffic control.',
     ),
     escalate: T(
-      'pommiähvarduse ülesanne on ilma ekipaažita, olukord keskuse juures halveneb',
-      'a bomb threat task has no crew and the situation at the centre is getting worse',
+      'Pommiähvarduse ülesanne on endiselt ekipaažita, olukord keskuse juures halveneb.',
+      'A bomb threat task still has no crew and the situation at the centre is getting worse.',
     ),
     end: T(
       '{place}, {address}: hoone on kontrollitud ja suurõnnetuse tööd on lõpetatud. Aitäh kõigile.',

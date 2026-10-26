@@ -791,3 +791,28 @@ A tie goes to the seat that worked on more incidents. An award nobody earned is 
 - A lockstep round's joint report is the first client's; another client could send a different one (as with its
   result). A game server round's is the server's.
 - The history has only the rounds the player sent a result for: a round left before its end is not in it.
+
+## 15. Suurõnnetus in a room (2.37.0)
+
+The owner's list, point 9 ("Suurõnnetus kõigile korraga: näiteks bussiõnnetus, metsatulekahju või laulupidu. Kõik
+lauad peavad koostööd tegema ja ressursse jagama."). The crisis itself is docs/CRISIS.md; this is what a room adds.
+
+Code: `src/sim/crisis.ts`, `src/data/crises/`, the commands `lead` and `cdec` in `src/sim/coop.ts`, `RoomOptions.crisis`
+and `roomCrisisChance` in `src/sim/room.ts`, `src/ui/game/CrisisPanel.tsx`; `crisis` in `server/lib/rooms.php` (schema
+step 15) and the shapes in `server/mp/validate.ts` and `server/lib/coop.php`. Tests: `tests/crisis.test.ts` (a whole
+co-op crisis in lockstep), `tests/server.test.ts`, `tests/rooms.test.ts`.
+
+- **The lobby's choice** (`crisis`): "Juhus" (default: 35 % in a co-op room, 20 % in a race), "Kindlasti", "Ei". Every
+  client and the game server build the same shift from the seed, so the crisis comes at the same time and place for
+  everyone; a race's racers each get the same one in their own shift. Options without the field (a fixture, a caller
+  from before) mean none; the API always names it.
+- **Command**: in co-op the staff has no commander when it breaks out. `lead []` takes it when nobody holds it; the
+  host may take it over. Only the commander's `cdec [decision, option]` counts; a decision nobody makes in 10 minutes
+  falls to the staff's default. A commander who leaves gives the command up (`left` frees it).
+- **Desks**: every desk may send its own crews straight to a crisis task, whichever desk's area it lies in (no lend
+  request); a crisis task stays in every desk's own queue. Acknowledging, priorities, recalls and lends keep the desk
+  rules.
+- **Determinism**: the crisis is in the digest (`crisisDigest`); it uses its own random stream, so it never moves
+  another draw.
+- **The joint report**: the timeline gets its moments (it broke out, a task escalated, who took command, each decision,
+  how it ended with its result); the shift report has the crisis panel, with who commanded.

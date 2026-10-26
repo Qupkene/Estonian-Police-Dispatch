@@ -8,6 +8,7 @@
  * client and on the game server.
  */
 import { CRISES, crisisById } from '@/data/crises';
+import { zoneFor } from '@/gen/address';
 import { haversineKm, destination } from './geo';
 import { closeByColleague, escalateIncident } from './incidents';
 import { addTimeline, emit, publishIncident, pushRadio, regionOf } from './internal';
@@ -44,8 +45,13 @@ export interface CrisisTaskSpec {
   atMin?: number;
   /** Minutes it may wait for its first crew before the crisis escalates. */
   deadlineMin: number;
-  /** Placed this many km off the crisis point, in a direction of its own (missing: on the spot). */
+  /** Placed this many km off the crisis point (or off `near`), in a direction of its own (missing: on the spot). */
   offsetKm?: [number, number];
+  /**
+   * Placed from another task's spot instead of the crisis point (the cordon round a plane's wreckage, not round the
+   * airport's terminal). That task opens first; if it has not, the crisis point.
+   */
+  near?: string;
   /** The kind of place it is at (the relatives' point at the nearest school); found within PLACE_KM, else the offset. */
   place?: PlaceKind;
   /** The follow-up (an id of the scenario's `followUps`) that opens when this task escalates. */
@@ -226,6 +232,8 @@ function candidates(
   w: number;
 }[] {
   const desks = areaOf(s);
+  // Only where the police have a station: the mainland and the big islands, not Ruhnu or Kihnu.
+  const policed = new Set(region.stations.map((st) => st.zone ?? zoneFor(region, st.coord)));
   const out: {
     coord: LngLat;
     address: string;
@@ -237,7 +245,7 @@ function candidates(
   }[] = [];
   for (const p of region.places) {
     const rank = sc.places.indexOf(p.kind);
-    if (rank < 0 || (p.zone && p.zone !== 'mainland')) continue;
+    if (rank < 0 || !policed.has(p.zone ?? zoneFor(region, p.coord))) continue;
     const loc = { coord: p.coord, city: p.city, district: p.district };
     if (desks.length && !inArea(s, region, loc)) continue;
     // The scenario's first kind of place is its likeliest.
@@ -293,8 +301,8 @@ function weighted<T extends { w: number }>(r: Rng, list: T[]): T | undefined {
 
 /**
  * Decide at the start of a shift whether a crisis comes (`chance`, NewShiftOptions.crisis), which and when: between
- * 20 % and 50 % of the shift, at a place of the area, the same for every client of the seed. Never in an island-only
- * area, nor when no scenario fits the area and the month.
+ * 20 % and 50 % of the shift, at a place of the area, the same for every client of the seed. Never on a small island
+ * without a police station, nor when no scenario fits the area, the month and the time of day.
  */
 export function initCrisis(s: SimState, chance: number | undefined): void {
   if (!(chance && chance > 0)) return;
@@ -439,19 +447,27 @@ function breakOut(s: SimState, c: CrisisState, sc: CrisisScenario): void {
   }
 }
 
-/** Where a task is: on the spot, at the nearest place of its kind, or off the crisis point; always in the area. */
+/**
+ * Where a task is: on the spot (or at the spot of the task it is `near`), at the nearest place of its kind, or off
+ * the crisis point (or that spot); always in the area.
+ */
 function taskLocation(s: SimState, c: CrisisState, spec: CrisisTaskSpec): IncidentLocation {
   const region = regionOf(s);
   const center = locationFromCoord(s, c.center);
-  const atCenter: IncidentLocation = {
-    ...center,
-    address: c.address,
-    ...(c.placeName ? { placeName: c.placeName } : {}),
-  };
+  const nearId = spec.near ? c.tasks.find((t) => t.id === spec.near)?.incidentId : undefined;
+  const nearLoc = nearId ? s.incidents[nearId]?.location : undefined;
+  const atCenter: IncidentLocation = nearLoc
+    ? { ...nearLoc }
+    : {
+        ...center,
+        address: c.address,
+        ...(c.placeName ? { placeName: c.placeName } : {}),
+      };
   const ok = (loc: IncidentLocation) => !areaOf(s).length || inArea(s, region, loc);
   if (spec.place) {
+    const zone = center.zone ?? zoneFor(region, c.center);
     const near = region.places
-      .filter((p) => p.kind === spec.place && (!p.zone || p.zone === 'mainland'))
+      .filter((p) => p.kind === spec.place && (p.zone ?? zoneFor(region, p.coord)) === zone)
       .map((p) => ({ p, km: haversineKm(p.coord, c.center) }))
       .filter((x) => x.km <= PLACE_KM)
       .sort((a, b) => a.km - b.km)[0];
@@ -463,20 +479,26 @@ function taskLocation(s: SimState, c: CrisisState, spec: CrisisTaskSpec): Incide
         district: near.p.district,
         placeName: near.p.name,
         placeKind: near.p.kind,
-        zone: near.p.zone ?? 'mainland',
+        zone: near.p.zone ?? zone,
       };
       if (ok(loc)) return loc;
     }
   }
   if (!spec.offsetKm) return atCenter;
   const [lo, hi] = spec.offsetKm;
+  const from = atCenter.coord;
   for (let k = 0; k < 4; k++) {
-    const coord = withRng(c, (r) => destination(c.center, r.range(lo, hi), r.range(0, 360)));
+    const coord = withRng(c, (r) => destination(from, r.range(lo, hi), r.range(0, 360)));
     const loc = locationFromCoord(s, coord);
     if (!ok(loc) || (loc.zone ?? 'mainland') !== (center.zone ?? 'mainland')) continue;
-    // Off a road with no address (a highway between villages): its own spot on the map, the crisis's address.
+    // Off a road with no address (a highway between villages, a forest): its own spot on the map, the address of
+    // the spot it is placed from.
     return loc.address.includes(COORD_WORD)
-      ? { ...loc, address: c.address, ...(c.placeName ? { placeName: c.placeName } : {}) }
+      ? {
+          ...loc,
+          address: atCenter.address,
+          ...(atCenter.placeName ? { placeName: atCenter.placeName } : {}),
+        }
       : loc;
   }
   return atCenter;
@@ -621,6 +643,17 @@ function end(s: SimState, c: CrisisState, sc: CrisisScenario): void {
   if (!s.ended) hk(s, fill(sc.radio.end, c), 'routine');
   emit(s, { type: 'crisis_end', text: sc.title });
   if (s.coop) addMoment(s.coop, { t: Math.round(s.now), k: 'cend', seat: -1, crisis: sc.id, n: c.result });
+}
+
+/**
+ * The shift is over (finalizeShift): a crisis still running is settled where it stands, with its result and no end
+ * time (the report says it was not resolved).
+ */
+export function settleCrisis(s: SimState): void {
+  const c = s.crisis;
+  if (!c || c.phase !== 'on') return;
+  c.phase = 'over';
+  c.result = crisisResult(s, c);
 }
 
 /** The crisis's result: its tasks' average score (a task the neighbours took counts HELPED_SCORE), less the levels. */

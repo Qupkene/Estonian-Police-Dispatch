@@ -18,8 +18,20 @@ import {
   startCrisisNow,
   taskSpec,
 } from '@/sim/crisis';
+import {
+  beginTurn,
+  initCoop,
+  INPUT_DELAY,
+  runTurn,
+  SERVER_SEAT,
+  simDigest,
+  stepPiece,
+  TURN_PIECES,
+  type LogCmd,
+} from '@/sim/coop';
 import { createShift, drainEvents, finalizeShift, step } from '@/sim/engine';
-import { recommendUnits } from '@/sim/selectors';
+import { roomShiftOptions, type RoomShift } from '@/sim/room';
+import { queue, recommendUnits } from '@/sim/selectors';
 import { MIN, tallinnTime, wall } from '@/sim/time';
 import type { SimState } from '@/sim/types';
 
@@ -214,6 +226,116 @@ describe('crisis: a run', () => {
   });
 });
 
+describe('crisis: co-op', () => {
+  it('keeps the clients hash-equal through a crisis: command, decisions, a commander who leaves', { timeout: 120_000 }, () => {
+    const shift: RoomShift = {
+      code: 'K7M2QX',
+      seed: 31337,
+      day: '2026-10-20',
+      options: { regionId: 'pohja', sector: '', difficulty: 'normal', hours: 4, slot: 'evening', crisis: 'on' },
+    };
+    const client = () => {
+      const s = createShift(roomShiftOptions(shift, 'Meeskond'));
+      s.flags.room = shift.code;
+      initCoop(s, shift.code);
+      return s;
+    };
+    const a = client();
+    const b = client();
+    expect(a.crisis, 'the room asked for one').toBeDefined();
+    const log: LogCmd[] = [
+      {
+        id: 1,
+        t: 0,
+        s: SERVER_SEAT,
+        k: 'setup',
+        a: [
+          0,
+          [
+            [0, 'dispatch', 'Hanna'],
+            [1, 'calls', 'Ivo'],
+            [2, 'radio', 'Jaan'],
+          ],
+        ],
+      },
+    ];
+    let id = 1;
+    const issued = new Set<string>();
+    const once = (key: string, turn: number, seat: number, k: string, args: unknown[]) => {
+      if (issued.has(key)) return;
+      issued.add(key);
+      log.push({ id: ++id, t: turn + INPUT_DELAY, s: seat, k, a: args });
+    };
+    const sc = crisisById(a.crisis!.id)!;
+    const leads: number[] = [];
+    for (let turn = 0; turn < 30_000 && !a.ended; turn++) {
+      const c = a.crisis!;
+      if (c.phase === 'on') {
+        if (leads[leads.length - 1] !== c.lead) leads.push(c.lead);
+        // Ivo takes command; Jaan tries too and may not decide.
+        once('lead:1', turn, 1, 'lead', []);
+        if (c.lead === 1) {
+          once('lead:2', turn, 2, 'lead', []);
+          const d = sc.decisions.find((x) => c.asked[x.id] !== undefined);
+          if (d) once('cdec:wrong', turn, 2, 'cdec', [d.id, d.defaultOption]);
+        }
+        // The commander takes the last option of every decision (not the staff's default).
+        for (const d of sc.decisions)
+          if (c.asked[d.id] !== undefined && c.decisions[d.id] === undefined && c.lead >= 0)
+            once(`cdec:${d.id}`, turn, c.lead, 'cdec', [d.id, d.options[d.options.length - 1].id]);
+        // Both decided: Ivo leaves, Jaan takes the free command, then the host takes it over.
+        if (sc.decisions.every((d) => c.decisions[d.id] !== undefined)) {
+          once('left:1', turn, SERVER_SEAT, 'left', [1]);
+          if (c.lead === -1) once('lead:2b', turn, 2, 'lead', []);
+          if (c.lead === 2) once('lead:0', turn, 0, 'lead', []);
+        }
+        // The dispatcher sends the best crews to every crisis task that has none.
+        for (const inc of queue(a)) {
+          if (!crisisTaskOf(inc) || inc.state !== 'queued' || inc.assigned.length) continue;
+          const ids = recommendUnits(a, inc.id)
+            .filter((r) => r.fit === 'ideal' || r.fit === 'need' || r.fit === 'weak')
+            .slice(0, 3)
+            .map((r) => r.unit.id);
+          if (ids.length) once(`send:${inc.id}:${turn >> 3}`, turn, 0, 'send', [inc.id, ids]);
+        }
+      }
+      const cmds = log.filter((x) => x.t === turn);
+      runTurn(a, cmds);
+      const plan = beginTurn(b, cmds);
+      for (let i = 0; i < TURN_PIECES; i++) stepPiece(b, plan, i);
+      if (turn % 10 === 0) expect(simDigest(b), `turn ${turn}`).toBe(simDigest(a));
+    }
+    expect(simDigest(b)).toBe(simDigest(a));
+    expect(finalizeShift(b).crisis).toEqual(finalizeShift(a).crisis);
+    // Resolved within the shift.
+    const c = a.crisis!;
+    expect(c.phase).toBe('over');
+    expect(c.endedAt, 'resolved before the shift ended').toBeDefined();
+    expect(c.result).toBeDefined();
+    expect(b.crisis).toEqual(a.crisis);
+    // Nobody, Ivo, nobody when he left, Jaan, the host: Jaan's first try and his decision were refused.
+    expect(leads).toEqual([-1, 1, -1, 2, 0]);
+    for (const d of sc.decisions) {
+      expect(c.decisions[d.id], d.id).toBe(d.options[d.options.length - 1].id);
+      expect(c.defaulted?.[d.id]).toBeUndefined();
+    }
+    const kinds = a.coop!.moments!.map((m) => m.k);
+    for (const k of ['crisis', 'clead', 'cdec', 'cend']) expect(kinds, k).toContain(k);
+    expect(a.coop!.moments!.filter((m) => m.k === 'cdec').every((m) => m.seat === 1)).toBe(true);
+  });
+
+  it('settles a crisis the shift ends on: over, with its result, not resolved', () => {
+    const s = shift({ crisis: 1 });
+    step(s, s.crisis!.due - s.now + MIN);
+    expect(s.crisis!.phase).toBe('on');
+    const report = finalizeShift(s);
+    expect(s.crisis!.phase).toBe('over');
+    expect(s.crisis!.endedAt).toBeUndefined();
+    expect(report.crisis).toMatchObject({ id: s.crisis!.id, result: s.crisis!.result });
+    expect(report.crisis!.endedAt).toBeUndefined();
+  });
+});
+
 describe('crisis: data', () => {
   it('keeps its task templates apart from the spawner, with unique ids and specs that hang together', () => {
     const spawning = new Set(TEMPLATES.map((t) => t.id));
@@ -249,6 +371,19 @@ describe('crisis: data', () => {
         expect(sc.hours[0], sc.id).toBeLessThan(sc.hours[1]);
       }
       for (const m of sc.months ?? []) expect(m >= 1 && m <= 12, `${sc.id}: month ${m}`).toBe(true);
+      // A task placed near another opens after it: the spot it is placed from is on the map by then.
+      sc.tasks.forEach((t, i) => {
+        if (!t.near) return;
+        const j = sc.tasks.findIndex((x) => x.id === t.near);
+        expect(j, `${sc.id}/${t.id} near ${t.near}`).toBeGreaterThanOrEqual(0);
+        expect(j, `${sc.id}/${t.id} opens after ${t.near}`).toBeLessThan(i);
+        expect(sc.tasks[j].atMin ?? 0).toBeLessThanOrEqual(t.atMin ?? 0);
+      });
+      for (const f of sc.followUps)
+        if (f.near) expect(sc.tasks.some((x) => x.id === f.near), `${sc.id}/${f.id} near ${f.near}`).toBe(true);
+      // Häirekeskus says the escalation as a sentence of its own (some radio phrases put it after a full stop).
+      expect(sc.radio.escalate.et, sc.id).toMatch(/^[A-ZÕÄÖÜŠŽ].*\.$/);
+      expect(sc.radio.escalate.en, sc.id).toMatch(/^[A-Z].*\.$/);
     }
   });
 });

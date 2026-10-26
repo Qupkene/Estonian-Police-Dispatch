@@ -9,6 +9,7 @@ import { Marker, type Map as MlMap } from 'maplibre-gl';
 import type { Incident, Lang, LngLat, SimState, Unit } from '@/sim/types';
 import { TEMPLATE_BY_ID } from '@/data/incidents';
 import { withScenario } from '@/sim/scenario';
+import { crisisTaskOf } from '@/sim/crisis';
 import { t } from '@/i18n';
 import { AGENCY_GLYPHS, SIREN_GLYPH, SUSPECT_GLYPH, UNIT_GLYPHS } from './glyphs';
 import { isHidden, isMoving, type IncCoordFn, type PosFn, type SuspectPosFn } from './overlays';
@@ -313,7 +314,8 @@ export class IncidentMarkers {
           (sel ? ' is-sel' : '') +
           (backup ? ' is-backup' : '') +
           (pursuit ? ' is-pursuit' : '') +
-          (dim ? ' is-dim' : '');
+          (dim ? ' is-dim' : '') +
+          (crisisTaskOf(inc) && !closed ? ' is-crisis' : '');
         rec.code.textContent = inc.code;
         const title = inc.title?.[c.lang] || inc.title?.et || inc.code;
         const state = t(`map.incState.${inc.state}`, c.lang);

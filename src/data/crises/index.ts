@@ -5,9 +5,11 @@
 import type { CrisisScenario } from '@/sim/crisis';
 import type { IncidentTemplate } from '@/sim/types';
 import { BUS } from './bus';
+import { FOREST } from './forest';
 import { MALL } from './mall';
+import { PLANE } from './plane';
 
-export const CRISES: CrisisScenario[] = [BUS, MALL];
+export const CRISES: CrisisScenario[] = [BUS, PLANE, FOREST, MALL];
 
 const BY_ID = new Map(CRISES.map((c) => [c.id, c]));
 

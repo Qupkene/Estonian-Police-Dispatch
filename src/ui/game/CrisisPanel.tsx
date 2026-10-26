@@ -1,7 +1,7 @@
 // Suurõnnetus in the CAD (docs/CRISIS.md, 2.37.0): the bar over the map, the briefing when it breaks out, the staff
 // panel (the right panel's "Staap" tab), and the note on a crisis task's queue card and incident. Styles in game.css.
 import { useEffect, useRef, useState } from 'react';
-import { onGameEvents, useGame } from '@/store/game';
+import { shiftKeyOf, useGame } from '@/store/game';
 import { deskOfTarget, useCoop } from '@/store/coop';
 import { useT, useTx } from '@/i18n';
 import { crisisById } from '@/data/crises';
@@ -91,31 +91,38 @@ export function CrisisBar() {
 
 // ── The briefing when it breaks out ──────────────────────────────────────────
 
-/** Opens at the outbreak; in single player the shift waits while the player reads it. */
+/** Crises whose briefing was shown (shift and outbreak time): once each, also after the CAD screen mounts again. */
+const briefed = new Set<string>();
+
+/**
+ * Opens when a crisis is on and its briefing was not shown yet: at the outbreak, and on a shift resumed or joined while
+ * one runs. In single player the shift waits while the player reads it.
+ */
 export function CrisisBrief() {
   const t = useT();
   const tx = useTx();
   const [open, setOpen] = useState(false);
   const pausedHere = useRef(false);
   const sim = useGame((s) => s.sim);
+  const key = useGame((s) => {
+    const c = crisisOn(s.sim);
+    return s.sim && c?.phase === 'on' && c.at !== undefined ? `${shiftKeyOf(s.sim)}:${c.at}` : '';
+  });
   const c = crisisOn(sim);
   const commands = useCommands(c);
   const coop = !!sim?.coop;
 
-  useEffect(
-    () =>
-      onGameEvents((events) => {
-        if (!events.some((e) => e.type === 'crisis_start')) return;
-        setOpen(true);
-        const g = useGame.getState();
-        // A co-op shift goes on for the others: the briefing never pauses it.
-        if (!g.sim?.coop && g.speedIndex > 0) {
-          g.togglePause();
-          pausedHere.current = true;
-        }
-      }),
-    [],
-  );
+  useEffect(() => {
+    if (!key || briefed.has(key)) return;
+    briefed.add(key);
+    setOpen(true);
+    const g = useGame.getState();
+    // A co-op shift goes on for the others: the briefing never pauses it.
+    if (!g.sim?.coop && g.speedIndex > 0) {
+      g.togglePause();
+      pausedHere.current = true;
+    }
+  }, [key]);
 
   const close = (toStaff: boolean) => {
     setOpen(false);

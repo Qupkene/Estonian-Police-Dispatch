@@ -949,8 +949,8 @@ export const BUS: CrisisScenario = {
       'Major incident! {address}: a bus is off the road with many casualties. Ambulances and rescue are on their way; the police are needed for several tasks.',
     ),
     escalate: T(
-      'suurõnnetuse ülesanne on ilma ekipaažita, olukord halveneb',
-      'a major incident task has no crew and the situation is getting worse',
+      'Suurõnnetuse ülesanne on endiselt ekipaažita, olukord halveneb.',
+      'A major incident task still has no crew and the situation is getting worse.',
     ),
     end: T(
       'Suurõnnetuse tööd {address} on lõpetatud. Aitäh kõigile.',

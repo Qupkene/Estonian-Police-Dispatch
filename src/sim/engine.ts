@@ -9,7 +9,7 @@ import { dayInfo } from './calendar';
 import { updateCalls } from './calls';
 import { expandCustom } from './custom';
 import { initColleagues, updateColleagues } from './colleagues';
-import { initCrisis, updateCrisis } from './crisis';
+import { initCrisis, settleCrisis, updateCrisis } from './crisis';
 import { updateDesks } from './desks';
 import { settleFallout, updateFallout } from './fallout';
 import { emit, regionOf } from './internal';
@@ -599,6 +599,7 @@ export function drainEvents(s: SimState): GameEvent[] {
 
 export function finalizeShift(s: SimState): ShiftReport {
   settleFallout(s);
+  settleCrisis(s);
   updateShiftScore(s);
   try {
     return buildReport(s);

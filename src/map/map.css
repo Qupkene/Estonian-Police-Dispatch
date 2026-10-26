@@ -369,6 +369,16 @@
     transform: rotate(360deg);
   }
 }
+/* A major incident's task (src/sim/crisis.ts): a slowly turning dashed red ring round its marker. */
+.epdm-inc.is-crisis::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border: 2px dashed var(--p1, #ff3b4e);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: epdm-spin 9s linear infinite;
+}
 
 /* Zoom-dependent density (class set on .epdm root by the controller). */
 .epdm-zlo .epdm-unit:not(.is-sel):not(.is-hl):not(.epdm-st-emergency) .epdm-unit__label,
@@ -1133,6 +1143,7 @@
 }
 
 /* Reduced motion (OS setting or the in-game setting → .epdm--rm): static rings instead of pulses. */
+.epdm--rm .epdm-inc.is-crisis::after,
 .epdm--rm .epdm-unit__ring,
 .epdm--rm .epdm-inc__pulse,
 .epdm--rm .epdm-unit__halo,
@@ -1166,6 +1177,7 @@
   transition: none;
 }
 @media (prefers-reduced-motion: reduce) {
+  .epdm-inc.is-crisis::after,
   .epdm-unit__ring,
   .epdm-inc__pulse,
   .epdm-unit__halo,
