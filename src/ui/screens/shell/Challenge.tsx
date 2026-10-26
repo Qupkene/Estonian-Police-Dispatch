@@ -251,7 +251,8 @@ export function ChallengeModal({
   }, [code, reload, account?.id]);
 
   const sender = ch?.results.find((r) => r.sender) ?? null;
-  const own = !!ch && !!account && ch.by.name.toLocaleLowerCase('et') === account.name.toLocaleLowerCase('et');
+  // The server marks the caller's run and the sender's: on one row, the challenge is the player's own.
+  const own = !!(sender?.me || ch?.me?.sender);
   const shareText = useShareText(ch, sender, ch?.by.name ?? '');
 
   return (
