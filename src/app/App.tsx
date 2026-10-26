@@ -14,6 +14,7 @@ import { LegacyScreen } from '@/ui/screens/LegacyScreen';
 import { CareerScreen } from '@/ui/screens/CareerScreen';
 import { LobbyScreen } from '@/ui/screens/LobbyScreen';
 import { CustomScreen } from '@/ui/screens/custom/CustomScreen';
+import { ChallengeGate, takeChallengeLink } from '@/ui/screens/shell/Challenge';
 import { AudioBridge } from '@/audio/AudioBridge';
 import { AppBoundary, isChunkError, QuietBoundary } from './AppBoundary';
 import './app.css';
@@ -61,6 +62,9 @@ function reloadOnceIfStale(err: unknown): Promise<never> {
 }
 
 const GameScreen = lazy(() => loadGameScreen().then((m) => ({ default: m.GameScreen }), reloadOnceIfStale));
+
+// A challenge link (/v/<code>, docs/CHALLENGE.md): remembered, and the address goes back to the game's own.
+takeChallengeLink();
 
 const SCREENS = {
   boot: BootScreen,
@@ -117,6 +121,9 @@ export function App() {
           <Screen />
         </Suspense>
       </AppBoundary>
+      <QuietBoundary>
+        <ChallengeGate />
+      </QuietBoundary>
     </>
   );
 }

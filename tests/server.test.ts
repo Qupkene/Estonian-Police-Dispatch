@@ -257,10 +257,19 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
   beforeAll(async () => {
     dataDir = mkdtempSync(join(tmpdir(), 'epd-server-test-'));
     writeFileSync(join(dataDir, 'not-a-dir'), 'x');
+    // The built frontend's page, for a challenge link's preview (EPD_WWW, server/lib/challenges.php).
+    mkdirSync(join(dataDir, 'www'));
+    copyFileSync(join(ROOT, 'index.html'), join(dataDir, 'www', 'index.html'));
     [main, untrusted, broken] = await Promise.all([
       // The test runner plays the relay: X-Forwarded-For from 127.0.0.1 is trusted.
       // EPD_TEST_CLOCK: X-EPD-Test-Now sets the clock of the daily challenge's day rules.
-      startPhp({ EPD_DATA: dataDir, EPD_TRUSTED_PROXY: '127.0.0.1', EPD_FAST_HASH: '1', EPD_TEST_CLOCK: '1' }),
+      startPhp({
+        EPD_DATA: dataDir,
+        EPD_TRUSTED_PROXY: '127.0.0.1',
+        EPD_FAST_HASH: '1',
+        EPD_TEST_CLOCK: '1',
+        EPD_WWW: join(dataDir, 'www'),
+      }),
       // Same data, but the relay is somebody else: X-Forwarded-For must be ignored.
       startPhp({ EPD_DATA: dataDir, EPD_TRUSTED_PROXY: '10.99.0.1', EPD_FAST_HASH: '1' }),
       // Data directory cannot be created: every request fails with a clean 500.
@@ -1503,6 +1512,137 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       expect((await bob.post(`/api/rooms/${r.code}/start`)).json.room.state).toBe('running');
       expect((await bob.post(`/api/rooms/${r.code}/result`, RESULT)).json.counted).toBe(true);
       expect(JSON.parse(sql(`SELECT COUNT(*) FROM room_players WHERE user_id = ${bobId}`))).toEqual([[1]]);
+    });
+  });
+
+  describe('challenges (2.38.0, docs/CHALLENGE.md)', () => {
+    const SETUP = {
+      seed: 777001,
+      regionId: 'louna',
+      difficulty: 'veteran',
+      start: Date.UTC(2026, 9, 23, 16, 0),
+      hours: 4,
+      weather: 'rain',
+      crisis: 0.15,
+    };
+    const RESULT = { score: 87, grade: 'A', closed: 14, arrests: 3, p1: 6.4, crisis: 71 };
+    let mari: Client;
+    let tonu: Client;
+    let code = '';
+
+    it('sends a challenge with the sender as its first row, the same shift again answering the same', async () => {
+      mari = client();
+      tonu = client();
+      expect((await register(mari, 'Mari.V')).status).toBe(200);
+      expect((await register(tonu, 'Tõnu.K')).status).toBe(200);
+      // A guest has no name to send it with.
+      expect((await client().post('/api/challenges', { setup: SETUP, result: RESULT, version: '2.38.0' })).status).toBe(401);
+      const r = await mari.post('/api/challenges', { setup: SETUP, result: RESULT, version: '2.38.0' });
+      expect(r.status, JSON.stringify(r.json)).toBe(200);
+      const ch = r.json.challenge;
+      code = ch.code;
+      expect(code).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
+      expect(ch).toMatchObject({ by: { name: 'Mari.V' }, setup: SETUP, version: '2.38.0', players: 1 });
+      expect(ch.results).toEqual([
+        { name: 'Mari.V', score: 87, grade: 'A', closed: 14, arrests: 3, p1: 6.4, crisis: 71, at: ch.created, rank: 1, me: true, sender: true },
+      ]);
+      expect(ch.me).toMatchObject({ rank: 1, me: true });
+      const again = await mari.post('/api/challenges', { setup: SETUP, result: { ...RESULT, score: 99 }, version: '2.38.0' });
+      expect(again.json.challenge.code).toBe(code);
+      expect(again.json.challenge.results[0].score).toBe(87);
+    });
+
+    it('checks the setup and the result field by field', async () => {
+      const cases: [Record<string, unknown>, string][] = [
+        [{ setup: { ...SETUP, seed: -1 } }, 'seed'],
+        [{ setup: { ...SETUP, seed: 2 ** 32 } }, 'seed'],
+        [{ setup: { ...SETUP, regionId: 'mars' } }, 'regionId'],
+        [{ setup: { ...SETUP, difficulty: 'easy' } }, 'difficulty'],
+        [{ setup: { ...SETUP, start: 5 } }, 'start'],
+        [{ setup: { ...SETUP, hours: 13 } }, 'hours'],
+        [{ setup: { ...SETUP, hours: 4.001 } }, 'hours'],
+        [{ setup: { ...SETUP, weather: 'tornado' } }, 'weather'],
+        [{ setup: { ...SETUP, crisis: 0 } }, 'crisis'],
+        [{ setup: 'x' }, 'setup'],
+        [{ result: { ...RESULT, score: 101 } }, 'score'],
+        [{ result: { ...RESULT, grade: 'Z' } }, 'grade'],
+        [{ result: { ...RESULT, closed: -1 } }, 'closed'],
+        [{ result: { ...RESULT, p1: 700 } }, 'p1'],
+        [{ result: { ...RESULT, crisis: 12.5 } }, 'crisis'],
+      ];
+      for (const [patch, field] of cases) {
+        const r = await tonu.post('/api/challenges', { setup: SETUP, result: RESULT, ...patch });
+        expect(r.status, field).toBe(400);
+        expect(r.json, field).toMatchObject({ error: 'invalid_challenge', field });
+      }
+    });
+
+    it("opens to anybody, counts an account's first run and ranks the board", async () => {
+      const guest = await client().get(`/api/challenges/${code.toLowerCase()}`);
+      expect(guest.status).toBe(200);
+      expect(guest.json.challenge).toMatchObject({ code, players: 1, me: null });
+      expect(guest.json.challenge.results[0].me).toBeUndefined();
+      expect((await client().get('/api/challenges/ZZZZZZ')).json.error).toBe('challenge_not_found');
+      expect((await client().post(`/api/challenges/${code}/result`, { result: RESULT })).status).toBe(401);
+      const first = await tonu.post(`/api/challenges/${code}/result`, { result: { ...RESULT, score: 91, grade: 'S', p1: null, crisis: null } });
+      expect(first.status, JSON.stringify(first.json)).toBe(200);
+      expect(first.json).toMatchObject({ counted: true, rank: 1, players: 2 });
+      expect(first.json.challenge.results.map((x: Json) => [x.name, x.rank, x.p1, x.crisis])).toEqual([
+        ['Tõnu.K', 1, null, null],
+        ['Mari.V', 2, 6.4, 71],
+      ]);
+      // A replay is practice: it changes nothing.
+      const replay = await tonu.post(`/api/challenges/${code}/result`, { result: { ...RESULT, score: 20 } });
+      expect(replay.json).toMatchObject({ counted: false, rank: 1, players: 2 });
+      expect((await mari.post(`/api/challenges/${code}/result`, { result: { ...RESULT, score: 100 } })).json.counted).toBe(false);
+      // Each sees their own row; the sender's is marked.
+      const seen = (await tonu.get(`/api/challenges/${code}`)).json.challenge;
+      expect(seen.me).toMatchObject({ name: 'Tõnu.K', rank: 1, me: true });
+      expect(seen.results.find((x: Json) => x.name === 'Mari.V').sender).toBe(true);
+    });
+
+    it("lists the player's challenges, sent and played", async () => {
+      const mine = (await tonu.get('/api/challenges')).json.challenges;
+      expect(mine.map((x: Json) => x.code)).toEqual([code]);
+      expect(mine[0]).toMatchObject({ players: 2, me: { rank: 1 } });
+      expect((await mari.get('/api/challenges')).json.challenges[0].code).toBe(code);
+      expect((await client().get('/api/challenges')).status).toBe(401);
+    });
+
+    it('serves the link as the game with its preview tags; an unknown code as the game alone', async () => {
+      const page = await client().get(`/v/${code}`);
+      expect(page.status).toBe(200);
+      expect(page.headers.get('content-type')).toMatch(/^text\/html/);
+      expect(page.headers.get('x-robots-tag')).toBe('noindex');
+      const meta = (key: string) =>
+        page.text.match(new RegExp(`<meta (?:property|name)="${key}" content="([^"]*)"`))?.[1];
+      // 2026-10-23 16:00 UTC is a Friday, 19:00 in Tallinn: a night shift.
+      expect(meta('og:title')).toBe('Mari.V: 87 punkti, Lõuna, reede öö. Kas teed paremini?');
+      expect(meta('og:description')).toContain('Lõuna prefektuur, reede öö 19:00-23:00, raskus Veteran.');
+      expect(meta('og:image')).toBe('https://politsei.eu/og/challenge-louna.png');
+      expect(meta('og:url')).toBe(`https://politsei.eu/v/${code}`);
+      expect(meta('twitter:title')).toBe(meta('og:title'));
+      expect(meta('robots')).toBe('noindex');
+      expect(page.text).toContain('<title>Mari.V: 87 punkti, Lõuna, reede öö. Kas teed paremini? · EPD</title>');
+      // Still the game: its scripts and root are there.
+      expect(page.text).toContain('<div id="root">');
+      const plain = await client().get('/v/ZZZZZZ');
+      expect(plain.status).toBe(200);
+      expect(plain.text).toBe(readFileSync(join(ROOT, 'index.html'), 'utf8'));
+    });
+
+    it('goes with the account: its challenges with their boards, its rows on the others', async () => {
+      const kati = client();
+      expect((await register(kati, 'Kati.P')).status).toBe(200);
+      const own = (await kati.post('/api/challenges', { setup: { ...SETUP, seed: 5 }, result: RESULT })).json.challenge.code;
+      expect((await tonu.post(`/api/challenges/${own}/result`, { result: RESULT })).json.counted).toBe(true);
+      expect((await kati.post(`/api/challenges/${code}/result`, { result: RESULT })).json.counted).toBe(true);
+      expect((await kati.del('/api/me', { password: 'salajane-123' })).status).toBe(200);
+      expect((await client().get(`/api/challenges/${own}`)).status).toBe(404);
+      const left = (await client().get(`/api/challenges/${code}`)).json.challenge;
+      expect(left.players).toBe(2);
+      expect(left.results.map((x: Json) => x.name)).not.toContain('Kati.P');
+      expect(JSON.parse(sql(`SELECT COUNT(*) FROM challenge_results WHERE challenge_id NOT IN (SELECT id FROM challenges)`))).toEqual([[0]]);
     });
   });
 

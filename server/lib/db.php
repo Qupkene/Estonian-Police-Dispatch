@@ -331,6 +331,32 @@ function epd_migrations(): array
         15 => [
             "ALTER TABLE rooms ADD COLUMN crisis TEXT NOT NULL DEFAULT 'random'",
         ],
+        // Väljakutse lingiga (challenges.php, 2.38.0, docs/CHALLENGE.md): a free shift's setup under a code, and the runs
+        // of it (the sender's first, then each player's first).
+        16 => [
+            'CREATE TABLE challenges (
+                id INTEGER PRIMARY KEY,
+                code TEXT NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                setup TEXT NOT NULL,
+                version TEXT NOT NULL DEFAULT \'\',
+                created INTEGER NOT NULL
+            )',
+            'CREATE INDEX challenges_user ON challenges (user_id, created)',
+            'CREATE TABLE challenge_results (
+                challenge_id INTEGER NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                score INTEGER NOT NULL,
+                grade TEXT NOT NULL,
+                closed INTEGER NOT NULL,
+                arrests INTEGER NOT NULL,
+                p1 INTEGER,
+                crisis INTEGER,
+                at INTEGER NOT NULL,
+                PRIMARY KEY (challenge_id, user_id)
+            )',
+            'CREATE INDEX challenge_results_user ON challenge_results (user_id)',
+        ],
     ];
 }
 

@@ -11,6 +11,7 @@ import { falloutLines } from './fallout';
 import { helpGivenCount, helpSector } from './colleagues';
 import { crisisById } from '@/data/crises';
 import { crisisReport, crisisResult, taskSpec } from './crisis';
+import { challengeCodeOf, setupOf } from './challenge';
 import { tplOf } from './internal';
 import { PLACE_KIND_LABEL } from './radio';
 import { falloutPoints } from './scoring';
@@ -630,6 +631,11 @@ export function buildReport(s: SimState): ShiftReport {
   };
   const crisis = crisisReport(s);
   if (crisis) report.crisis = crisis;
+  // Väljakutse (src/sim/challenge.ts): a shift another player can play the same, or a challenge run.
+  const setup = setupOf(s);
+  if (setup) report.setup = setup;
+  const challenge = challengeCodeOf(s);
+  if (challenge) report.challenge = challenge;
   return report;
 }
 

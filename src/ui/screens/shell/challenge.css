@@ -1,0 +1,226 @@
+/* Väljakutse lingiga (Challenge.tsx, 2.38.0): the challenge dialog (portalled with VkLayer), the report's panels and
+   the multiplayer menu's list, on the Valvekaart frame (vk.css). */
+.vk-chal {
+  display: grid;
+  gap: 12px;
+}
+.vk-chal__state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 14px 0;
+  color: var(--vk-text-2);
+}
+.vk-chal__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.vk-chal__head .ui-player {
+  border-radius: 50%;
+}
+.vk-chal__from {
+  margin: 0;
+  font-family: var(--vk-font-display);
+  font-size: 18px;
+  color: var(--vk-text-0);
+}
+.vk-chal__theirs {
+  margin: 2px 0 0;
+  color: var(--vk-text-1);
+}
+.vk-chal__shift {
+  border: 1px solid var(--vk-line-2);
+  border-radius: 5px;
+  background: var(--vk-panel-2);
+}
+.vk-chal__shift dd {
+  margin: 0;
+  text-align: right;
+  color: var(--vk-text-1);
+}
+.vk-chal__shift strong {
+  color: var(--vk-text-0);
+}
+.vk-chal__about {
+  margin: 0;
+  color: var(--vk-text-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.vk-chal__note {
+  margin: 0;
+  padding: 7px 10px;
+  border-left: 3px solid var(--vk-amb);
+  background: var(--vk-panel-2);
+  color: var(--vk-text-1);
+  font-size: 12.5px;
+}
+.vk-chal__boardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+.vk-chal__board {
+  width: 100%;
+}
+.vk-chal__board tr.is-me td {
+  background: var(--vk-raise);
+  color: var(--vk-text-0);
+  font-weight: 600;
+}
+.vk-chal__who {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.vk-chal__who .ui-player {
+  border-radius: 50%;
+}
+
+/* The link and its buttons */
+.vk-chal__link {
+  display: grid;
+  gap: 6px;
+}
+.vk-chal__link input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--vk-line);
+  border-radius: 4px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-0);
+  font-family: var(--vk-font-mono);
+  font-size: 13px;
+}
+.vk-chal__link input:focus-visible {
+  outline: 2px solid var(--vk-acc);
+  outline-offset: 1px;
+}
+.vk-chal__linkBtns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* The report's panels */
+.vk-chal__body {
+  display: grid;
+  gap: 10px;
+  padding: 12px 16px 16px;
+}
+.vk-chal__send {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.vk-chal__ready {
+  margin: 0;
+  color: var(--vk-text-1);
+}
+.vk-chal__preview {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 5px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-0);
+  font-style: italic;
+}
+.vk-chal__verdict {
+  margin: 0;
+  font-family: var(--vk-font-display);
+  font-size: 17px;
+  color: var(--vk-text-0);
+}
+.vk-chal__verdict.is-win {
+  color: var(--vk-ok);
+}
+.vk-chal__verdict.is-lose {
+  color: var(--vk-amb);
+}
+.vk-chal__vs {
+  width: 100%;
+}
+.vk-chal__vs th[scope='row'] {
+  color: var(--vk-text-2);
+  font-weight: 500;
+  text-align: left;
+}
+.vk-chal__vs td.is-best {
+  color: var(--vk-ok);
+  font-weight: 700;
+}
+.vk-chal__pass {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--vk-line-2);
+}
+
+/* The multiplayer menu's list */
+.vk-chal__list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vk-chal__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--vk-line-2);
+  border-radius: 5px;
+  background: var(--vk-panel-2);
+  color: var(--vk-text-0);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.vk-chal__item:hover {
+  border-color: var(--vk-line);
+  background: var(--vk-raise);
+}
+.vk-chal__item:focus-visible {
+  outline: 2px solid var(--vk-acc);
+  outline-offset: 1px;
+}
+.vk-chal__item .ui-player {
+  border-radius: 50%;
+}
+.vk-chal__itemText {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.vk-chal__itemText > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vk-chal__itemText .vk-dim {
+  font-size: 12px;
+}
+.vk-chal__itemScore {
+  flex: none;
+  color: var(--vk-text-1);
+}
+/* The comparison's heads are a name and its lines read as text: not the board's small capitals. */
+.vk-chal__vs thead th,
+.vk-chal__vs th[scope='row'] {
+  font-family: var(--vk-font-text);
+  font-size: 13px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.vk-chal__vs thead th {
+  color: var(--vk-text-0);
+  font-weight: 600;
+}

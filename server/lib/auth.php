@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/http.php';
 require_once __DIR__ . '/db.php';
-// Account deletion clears the user's room seats (epd_rooms_forget_user); rooms.php only defines functions.
+// Account deletion clears the user's room seats (epd_rooms_forget_user) and challenges (epd_challenges_forget); both
+// files only define functions and constants.
 require_once __DIR__ . '/rooms.php';
+require_once __DIR__ . '/challenges.php';
 
 const EPD_SESSION_NAME = 'EPDSESS';
 /** Idle expiry of a session: 30 days. */
@@ -274,6 +276,8 @@ function epd_delete_user(PDO $db, int $userId): void
     epd_transaction($db, static function (PDO $db) use ($userId): void {
         // Rooms first: the host's role passes on and rooms nobody is left in close (server/lib/rooms.php).
         epd_rooms_forget_user($db, $userId);
+        // The challenges the user sent go with their boards, and the user's runs of others' (challenges.php).
+        epd_challenges_forget($db, $userId);
         // Explicit deletes as well as ON DELETE CASCADE, so nothing is left even without foreign keys.
         $tables = [
             'DELETE FROM saves WHERE user_id = ?',

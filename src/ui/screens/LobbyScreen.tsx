@@ -61,6 +61,7 @@ import { regionSummary } from './shell/helpers';
 import { lobbyFocus } from './shell/lobbyNav';
 import { boardCount, ResultsBoard, RoomBoard } from './shell/RoomBoard';
 import { RoomHistory } from './shell/RoomHistory';
+import { ChallengeList } from './shell/Challenge';
 import { VkLayer } from './shell/VkLayer';
 import { DeskOptions, DeskPicker, DeskSummary, deskOfPlayer, desksOf, withDesks } from './shell/LobbyDesks';
 import { CustomEditor } from './custom/CustomEditor';
@@ -345,6 +346,7 @@ function NoRoom({
           </form>
         </section>
         <RoomHistory />
+        <ChallengeList />
         <section className="vk-panel" aria-labelledby="vk-mp-how">
           <div className="vk-panel__head">
             <h2 className="vk-h" id="vk-mp-how">

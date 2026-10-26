@@ -348,7 +348,7 @@ describe('Caddyfile', () => {
 
   it('serves robots, sitemap and images as real files with a cache lifetime, before the SPA fallback', () => {
     expect(caddy).toMatch(/@seo path \/robots\.txt \/sitemap\.xml/);
-    expect(caddy).toMatch(/@pildid path \/og-image\.png \/icons\/\* \/screenshots\/\*/);
+    expect(caddy).toMatch(/@pildid path \/og-image\.png \/og\/\* \/icons\/\* \/screenshots\/\*/);
     const seo = block('handle @seo {');
     const images = block('handle @pildid {');
     expect(seo).toContain('Cache-Control "public, max-age=3600"');
@@ -360,6 +360,14 @@ describe('Caddyfile', () => {
     expect(caddy.indexOf('handle @seo {')).toBeLessThan(
       caddy.indexOf('try_files {path} {path}index.html /index.html'),
     );
+  });
+
+  it('hands a challenge link to PHP for its preview tags, noindex (2.38.0)', () => {
+    const page = block('handle /v/* {');
+    expect(page).toContain('header X-Robots-Tag "noindex"');
+    expect(page).toContain('rewrite * /api/index.php');
+    expect(page).toContain('php');
+    expect(caddy.indexOf('handle /v/* {')).toBeLessThan(caddy.indexOf('try_files {path} {path}index.html /index.html'));
   });
 
   it("serves the admin panel as its own page: noindex, never cached, never the game's index", () => {

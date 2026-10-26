@@ -9,9 +9,10 @@
 #
 # Teed (docs/SERVER.md, punkt 3):
 #   /api/*    PHP, /app/server/api/index.php (ruuter loeb REQUEST_URI-st algse tee)
+#   /v/*      väljakutse link (2.38.0): PHP annab mängu index.html-i väljakutse eelvaate siltidega
 #   /mp/*     mänguserver politsei-mp 127.0.0.1:8790 (/mp/health ja WebSocket /mp/ws), maas olles 502
 #   /tiles/*  /srv/tiles failid, Range päringud (PMTiles)
-#   robots.txt, sitemap.xml, og-image.png, /icons/*, /screenshots/*: /app/www failid, puuduv annab 404
+#   robots.txt, sitemap.xml, og-image.png, /og/*, /icons/*, /screenshots/*: /app/www failid, puuduv annab 404
 #   /admin/*  admini paneel, /app/www/admin (oma leht, mitte mängu index.html), puuduv fail annab 404
 #   muu       /app/www, tundmatu tee annab /index.html
 
@@ -73,6 +74,15 @@
 		}
 		header ?Cache-Control "no-store"
 		# Kasutajapõhised vastused ei kuulu otsingutulemustesse (robots.txt keelab ka roomamise).
+		header X-Robots-Tag "noindex"
+		root * /app/server
+		rewrite * /api/index.php
+		php
+	}
+
+	# Väljakutse link /v/<kood> (docs/CHALLENGE.md): sama ruuter kui API. Vastus on mängu index.html, milles og: ja
+	# twitter: sildid näitavad, kes keda välja kutsub (sõnumirakenduse eelvaade). Otsingumootoritele keelatud.
+	handle /v/* {
 		header X-Robots-Tag "noindex"
 		root * /app/server
 		rewrite * /api/index.php
@@ -146,7 +156,7 @@
 
 	# Jagamispilt, ikoonid ja manifesti ekraanipildid: ööpäev vahemälus (nimes pole räsi, uus pilt
 	# jõuab kohale päevaga). Puuduv fail annab 404, mitte index.html-i.
-	@pildid path /og-image.png /icons/* /screenshots/*
+	@pildid path /og-image.png /og/* /icons/* /screenshots/*
 	handle @pildid {
 		root * /app/www
 		header Cache-Control "public, max-age=86400"

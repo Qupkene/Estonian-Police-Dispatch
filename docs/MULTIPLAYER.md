@@ -816,3 +816,12 @@ co-op crisis in lockstep), `tests/server.test.ts`, `tests/rooms.test.ts`.
   another draw.
 - **The joint report**: the timeline gets its moments (it broke out, a task escalated, who took command, each decision,
   how it ended with its result); the shift report has the crisis panel, with who commanded.
+
+## 16. Väljakutse lingiga (2.38.0)
+
+The owner's list, point 11 ("Väljakutse sõbrale: saadad lingi oma vahetusele"). Not a room: a free shift's report
+sends the shift as a link (`https://politsei.eu/v/<code>`), whoever opens it plays the same shift (a fixed-schedule
+free shift: the same calls whatever either player does) and the report compares the two results side by side; every
+account's first run goes on the challenge's board. The design, the API and the link's preview are in docs/CHALLENGE.md
+and docs/SERVER.md (4.1, Challenge links). The multiplayer menu lists the player's challenges ("Väljakutsed"), sent
+and played.

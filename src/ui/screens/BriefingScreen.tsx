@@ -230,6 +230,8 @@ export function BriefingScreen() {
         : {}),
       ...(custom ? { custom, ...(customArea.length ? { sectors: customArea } : {}) } : {}),
       ...(crisis > 0 ? { crisis } : {}),
+      // A free shift keeps its calls whatever the player does, so a friend can play it the same (docs/CHALLENGE.md).
+      ...(mode === 'free' && !custom ? { fixedSchedule: true } : {}),
     };
     setBriefing({
       mode,
