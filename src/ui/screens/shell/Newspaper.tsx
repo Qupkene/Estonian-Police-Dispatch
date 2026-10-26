@@ -3,6 +3,8 @@ import { useMemo, useState } from 'react';
 import type { Lang, ShiftReport, Text } from '@/sim/types';
 import { useT } from '@/i18n';
 import { drawingForPaper, drawingSrc } from './paper/drawings';
+import { crisisById } from '@/data/crises';
+import { crisisArt } from '@/ui/game/crisis/art';
 import './newspaper.css';
 
 export function Newspaper({
@@ -28,6 +30,9 @@ export function Newspaper({
   // Offline before the drawing was ever loaded (it is not precached): the old sketch instead.
   const [failed, setFailed] = useState<string | null>(null);
   const photo = drawing && failed !== drawing.id ? drawing : undefined;
+  // A page that leads with a major incident shows the owner's drawing of it (2.37.0).
+  const crisisSrc = paper.crisis && failed !== paper.crisis ? crisisArt(paper.crisis) : undefined;
+  const crisisTitle = paper.crisis ? crisisById(paper.crisis)?.title : undefined;
   const own = paper.stories ?? [];
   const stories: { title: Text; body: Text; byline?: string }[] = extra
     ? [...own.slice(0, 1), extra, ...own.slice(1, 3)]
@@ -52,8 +57,15 @@ export function Newspaper({
       <p className="sh-paper__deck">{paper.sub[lang] || paper.sub.et}</p>
       <div className="sh-paper__body">
         <figure className="sh-paper__photo">
-          <div className={`sh-paper__halftone${photo ? ' is-drawing' : ''}`}>
-            {photo ? (
+          <div className={`sh-paper__halftone${photo || crisisSrc ? ' is-drawing' : ''}`}>
+            {crisisSrc ? (
+              <img
+                src={crisisSrc}
+                alt={crisisTitle ? crisisTitle[lang] || crisisTitle.et : ''}
+                decoding="async"
+                onError={() => setFailed(paper.crisis!)}
+              />
+            ) : photo ? (
               <img
                 {...drawingSrc(photo)}
                 sizes="(max-width: 600px) 92vw, (max-width: 1100px) 46vw, 320px"
@@ -80,7 +92,12 @@ export function Newspaper({
             )}
           </div>
           <figcaption>
-            {photo ? (
+            {crisisSrc && crisisTitle ? (
+              <>
+                <span aria-hidden="true">{crisisTitle[lang] || crisisTitle.et}. </span>
+                {t('shell.paper.credit')}
+              </>
+            ) : photo ? (
               <>
                 {/* The image's alt already says this: a screen reader hears it once, then the credit. */}
                 <span aria-hidden="true">{photo.alt[lang] || photo.alt.et}. </span>

@@ -71,7 +71,7 @@ export function CrisisBar() {
   return (
     <button
       type="button"
-      className={`gm-crisisbar gm-crisisbar--l${c.level}${asks ? ' has-decision' : ''}`}
+      className={`gm-crisisbar gm-crisisbar--l${c.level}`}
       onClick={() => useGame.getState().setRightTab('crisis')}
       title={t('game.crisis.barTitle')}
       data-testid="crisis-bar"
@@ -124,14 +124,15 @@ export function CrisisBrief() {
     }
   }, [key]);
 
-  const close = (toStaff: boolean) => {
+  // Closing opens the staff: the tasks and the decisions are there.
+  const close = () => {
     setOpen(false);
     const g = useGame.getState();
     if (pausedHere.current) {
       pausedHere.current = false;
       if (g.sim && g.speedIndex === 0) g.togglePause();
     }
-    if (toStaff) g.setRightTab('crisis');
+    g.setRightTab('crisis');
   };
 
   if (!open || !sim || !c) return null;
@@ -142,7 +143,7 @@ export function CrisisBrief() {
   return (
     <Modal
       open
-      onClose={() => close(true)}
+      onClose={close}
       title={t('game.crisis.briefTitle')}
       icon="alert"
       tone="danger"
@@ -154,7 +155,7 @@ export function CrisisBrief() {
               {t('game.crisis.take')}
             </Button>
           )}
-          <Button variant="primary" icon="list" onClick={() => close(true)} data-testid="crisis-brief-go">
+          <Button variant="primary" icon="list" onClick={close} data-testid="crisis-brief-go">
             {t('game.crisis.toStaff')}
           </Button>
         </>

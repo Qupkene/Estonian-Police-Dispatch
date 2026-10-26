@@ -9,7 +9,8 @@ import { FUEL_PER_KM, OVERTIME_PER_HOUR } from '@/data/economy';
 import { dayInfo } from './calendar';
 import { falloutLines } from './fallout';
 import { helpGivenCount, helpSector } from './colleagues';
-import { crisisReport } from './crisis';
+import { crisisById } from '@/data/crises';
+import { crisisReport, crisisResult, taskSpec } from './crisis';
 import { tplOf } from './internal';
 import { PLACE_KIND_LABEL } from './radio';
 import { falloutPoints } from './scoring';
@@ -751,6 +752,13 @@ function buildNewspaper(
     }
   }
 
+  // A major incident (src/sim/crisis.ts) leads the page, with its drawing for the photo.
+  const crisis = crisisPress(s, loc);
+  if (crisis) {
+    headline = crisis.headline;
+    lead = undefined;
+  }
+
   const region = { pohja: 'Põhja', ida: 'Ida', louna: 'Lõuna', laane: 'Lääne' }[s.regionId];
   // English uses the same names as the rest of the UI ("North Prefecture").
   const regionEn = { pohja: 'North', ida: 'East', louna: 'South', laane: 'West' }[s.regionId];
@@ -765,6 +773,7 @@ function buildNewspaper(
   const storyIncs = ranked.filter((i) => i !== lead && i.closedBy !== 'duplicate').slice(0, 4);
   if (lead) storyIncs.unshift(lead);
   const stories = storyIncs.slice(0, 4).map((i) => pressStory(s, i));
+  if (crisis) stories.unshift(crisis.story);
   // A wrong registry answer that came out makes the paper (src/sim/fallout.ts).
   const fo = s.fallout ?? [];
   if (fo.some((f) => f.kind === 'unfounded_detention' && f.complained)) {
@@ -806,7 +815,58 @@ function buildNewspaper(
     });
   }
   // What the front page is about, most telling first: the photo goes by it (src/ui/screens/shell/paper/drawings.ts).
-  const topics: string[] = lead ? [...(lead.pursuit ? ['pursuit'] : []), lead.category] : [holiday ? 'holiday' : n >= 35 ? 'busy' : 'quiet'];
+  const topics: string[] = crisis
+    ? ['major']
+    : lead
+      ? [...(lead.pursuit ? ['pursuit'] : []), lead.category]
+      : [holiday ? 'holiday' : n >= 35 ? 'busy' : 'quiet'];
   if (o.night) topics.push('night');
-  return { masthead, date, headline, sub, stories: stories.slice(0, 4), topics };
+  return { masthead, date, headline, sub, stories: stories.slice(0, 4), topics, ...(crisis ? { crisis: crisis.id } : {}) };
+}
+
+const CRISIS_LEVEL: Text[] = [
+  T('kontrolli all', 'under control'),
+  T('pingeline', 'tense'),
+  T('kriitiline', 'critical'),
+  T('väga kriitiline', 'very critical'),
+];
+
+/** The front page's lead when a major incident broke out in the shift: its headline and its story. */
+function crisisPress(
+  s: SimState,
+  loc: (i: Incident) => Text,
+): { id: string; headline: Text; story: { title: Text; body: Text } } | undefined {
+  const c = s.crisis;
+  const sc = c && c.at !== undefined ? crisisById(c.id) : undefined;
+  if (!c || !sc || c.at === undefined) return undefined;
+  const first = c.tasks.map((t) => (t.incidentId ? s.incidents[t.incidentId] : undefined)).find((i) => !!i);
+  const l = first ? loc(first) : T(c.address, c.address);
+  const result = c.result ?? crisisResult(s, c);
+  const done = c.endedAt !== undefined;
+  const what = !done
+    ? T('tööd jätkuvad ka pärast vahetuse lõppu', 'work goes on after the shift')
+    : result >= 70 && c.level === 0
+      ? T('politsei sai olukorra kiiresti kontrolli alla', 'police quickly brought it under control')
+      : result >= 45
+        ? T('päästjad ja politsei töötasid tunde', 'rescuers and police worked for hours')
+        : T('abi jõudis kohale hilinemisega', 'help arrived late');
+  const mins = done ? Math.round((c.endedAt! - c.at) / MIN) : undefined;
+  const names = c.tasks.map((t) => taskSpec(sc, t.id)?.name).filter((x): x is Text => !!x);
+  const list = (k: 'et' | 'en') => names.map((x) => x[k].charAt(0).toLowerCase() + x[k].slice(1)).join(', ');
+  const h = c.helped;
+  return {
+    id: sc.id,
+    headline: T(`${sc.title.et} ${l.et}: ${what.et}`, `${sc.title.en} in ${l.en}: ${what.en}`),
+    story: {
+      title: sc.title,
+      body: T(
+        `${c.address}: politsei, pääste ja kiirabi töötasid suurõnnetusel ${mins !== undefined ? `${mins} minutit` : 'vahetuse lõpuni'}. Politsei ülesanded olid ${list('et')}.` +
+          (h ? ` Naaberüksused võtsid üle ${h} ${h === 1 ? 'ülesande' : 'ülesannet'}.` : '') +
+          (c.level ? ` Halvimal hetkel oli olukord ${CRISIS_LEVEL[c.level].et}.` : ''),
+        `${c.address}: police, rescue and ambulance crews worked at the major incident ${mins !== undefined ? `for ${mins} minutes` : 'until the end of the shift'}. The police tasks were ${list('en')}.` +
+          (h ? ` Neighbouring units took over ${h} ${h === 1 ? 'task' : 'tasks'}.` : '') +
+          (c.level ? ` At its worst the situation was ${CRISIS_LEVEL[c.level].en}.` : ''),
+      ),
+    },
+  };
 }

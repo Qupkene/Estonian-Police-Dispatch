@@ -36,8 +36,8 @@ desks, run at the same time as the everyday calls, and get worse when they wait.
    (or a desk nobody holds owns it), the AI colleague of the next desk takes it over (closed by the colleague, half the
    points). Without help asked, nobody comes.
 7. **It ends** when every task is closed. Häirekeskus radios the end; the report shows the crisis: its drawing, the
-   result (the tasks' outcomes, the level reached, the time to contain it), the decisions, who commanded, and the
-   joint report's timeline gets its moments. A crisis still running when the shift ends is settled where it stands
+   result (the tasks' outcomes, the level reached, the time to contain it), the decisions, who commanded; the
+   newspaper leads with it and prints its drawing, and the joint report's timeline gets its moments. A crisis still running when the shift ends is settled where it stands
    (`settleCrisis`): its result, "not resolved".
 
 ## 2. Scenarios (2.37.0)

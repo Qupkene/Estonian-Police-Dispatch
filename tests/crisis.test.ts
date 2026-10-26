@@ -213,6 +213,14 @@ describe('crisis: a run', () => {
     const report = finalizeShift(s);
     expect(report.crisis).toMatchObject({ id: c.id, level: 0, result: c.result });
     expect(report.crisis!.tasks.length).toBe(c.tasks.length);
+    // It leads the newspaper: the headline, the first story, the drawing for the photo.
+    const sc = crisisById(c.id)!;
+    expect(report.newspaper.crisis).toBe(c.id);
+    expect(report.newspaper.headline.et.startsWith(sc.title.et)).toBe(true);
+    expect(report.newspaper.headline.en.startsWith(sc.title.en)).toBe(true);
+    expect(report.newspaper.stories[0].title).toEqual(sc.title);
+    expect(report.newspaper.stories[0].body.et).toContain(c.address);
+    expect(report.newspaper.topics?.[0]).toBe('major');
     expect(crisisDigest(c)).toContain(`C${c.id}|over|0|0|`);
     expect(() => JSON.parse(JSON.stringify(s))).not.toThrow();
   });
@@ -333,6 +341,7 @@ describe('crisis: co-op', () => {
     expect(s.crisis!.endedAt).toBeUndefined();
     expect(report.crisis).toMatchObject({ id: s.crisis!.id, result: s.crisis!.result });
     expect(report.crisis!.endedAt).toBeUndefined();
+    expect(report.newspaper.headline.et).toContain('tööd jätkuvad');
   });
 });
 

@@ -1210,6 +1210,8 @@ export interface ShiftReport {
     /** What the page is about, most telling first: the lead's 'pursuit' and category, else 'holiday', 'busy' or
      * 'quiet'; then 'night'. Picks the photo; older reports have none. */
     topics?: string[];
+    /** The major incident the page leads with (2.37.0): its drawing is the photo when it has one. */
+    crisis?: string;
   };
   /** `${seed}:${startTime}` of the shift (set by the game store), so one shift is paid out only once. */
   shiftKey?: string;
