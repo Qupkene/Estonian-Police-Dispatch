@@ -17,6 +17,7 @@ import { TEMPLATES_ESCALATING } from './escalating';
 import { TEMPLATES_STORIES } from './stories';
 import { TEMPLATES_REGIONAL } from './regional';
 import { TEMPLATES_CELEBRITY } from './celebrity';
+import { CRISIS_TEMPLATES } from '../crises';
 
 export const TEMPLATES: IncidentTemplate[] = [
   ...TEMPLATES_VIOLENCE,
@@ -39,4 +40,10 @@ export const TEMPLATES: IncidentTemplate[] = [
   ...TEMPLATES_CELEBRITY,
 ];
 
-export const TEMPLATE_BY_ID: Record<string, IncidentTemplate> = Object.fromEntries(TEMPLATES.map((t) => [t.id, t]));
+/**
+ * Every template by id: the ones that spawn, and the crises' task templates (src/data/crises, weight 0), which only a
+ * crisis opens (src/sim/crisis.ts) and which never take part in the spawner's draw (it reads TEMPLATES).
+ */
+export const TEMPLATE_BY_ID: Record<string, IncidentTemplate> = Object.fromEntries(
+  [...TEMPLATES, ...CRISIS_TEMPLATES].map((t) => [t.id, t]),
+);

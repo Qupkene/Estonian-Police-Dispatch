@@ -14,6 +14,7 @@ import { useSettings } from './store/settings';
 import { step } from './sim/engine';
 import * as cmd from './sim/commands';
 import * as sel from './sim/selectors';
+import { startCrisisNow } from './sim/crisis';
 import { simDigest } from './sim/coop';
 import { coopDebug, useCoop } from './store/coop';
 
@@ -23,7 +24,8 @@ import { coopDebug, useCoop } from './store/coop';
   game: useGame,
   career: useCareer,
   settings: useSettings,
-  engine: { step, cmd, sel },
+  // startCrisisNow: a major incident now (docs/CRISIS.md), as the director's panel does.
+  engine: { step, cmd, sel, crisis: { start: startCrisisNow } },
   // Co-op room shifts: the session's state, the log position and the state digest (tests compare clients).
   coop: { state: useCoop, debug: coopDebug, digest: simDigest },
 };

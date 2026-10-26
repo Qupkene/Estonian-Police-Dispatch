@@ -326,6 +326,11 @@ function epd_migrations(): array
                 PRIMARY KEY (room_id, round)
             )',
         ],
+        // Suurõnnetus (rooms.php epd_room_options, 2.37.0, docs/CRISIS.md): whether the room's shift may have a crisis,
+        // 'random' (its chance), 'on' (always) or 'off' (never).
+        15 => [
+            "ALTER TABLE rooms ADD COLUMN crisis TEXT NOT NULL DEFAULT 'random'",
+        ],
     ];
 }
 

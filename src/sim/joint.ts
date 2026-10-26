@@ -144,6 +144,11 @@ const MOMENT_KINDS: (CoopMomentKind | IncidentMoment['k'])[] = [
   'left',
   'back',
   'handover',
+  'crisis',
+  'cesc',
+  'clead',
+  'cdec',
+  'cend',
   'good',
   'bad',
 ];
@@ -276,6 +281,14 @@ function readMoment(v: unknown): ReportMoment | null {
   if (desk) m.desk = desk;
   if (to) m.to = to;
   if (unit) m.unit = unit;
+  // A crisis moment (2.37.0): its scenario, task, decision and result.
+  const crisis = str(v.crisis, 24);
+  const task = str(v.task, 24);
+  const option = str(v.option, 49);
+  if (crisis && /^[a-z]+$/.test(crisis)) m.crisis = crisis;
+  if (task && /^[a-z_]+$/.test(task)) m.task = task;
+  if (option && /^[a-z_]+:[a-z_]+$/.test(option)) m.option = option;
+  if (typeof v.n === 'number') m.n = int(v.n, 0, 100);
   return m;
 }
 

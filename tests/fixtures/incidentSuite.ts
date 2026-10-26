@@ -131,8 +131,12 @@ function play(t: IncidentTemplate, seed: number, list: IncidentTemplate[]): { s:
   return { s, incId };
 }
 
-/** Registers the template validity, 112 call, headless play and escalation checks for `list` under `label`. */
-export function incidentSuite(label: string, list: IncidentTemplate[]): void {
+/**
+ * Registers the template validity, 112 call, headless play and escalation checks for `list` under `label`. With
+ * `spawns: false` the templates are a crisis's tasks (src/data/crises): weight 0, only a crisis opens them.
+ */
+export function incidentSuite(label: string, list: IncidentTemplate[], opts: { spawns?: boolean } = {}): void {
+  const spawns = opts.spawns ?? true;
   // ───────────────────────────────────────────────────────────────────────────
   // Static validity
   // ───────────────────────────────────────────────────────────────────────────
@@ -144,8 +148,10 @@ export function incidentSuite(label: string, list: IncidentTemplate[]): void {
           expect(nonEmpty(t.title)).toBe(true);
           expect(t.code.trim().length).toBeGreaterThan(0);
           expect([1, 2, 3, 4]).toContain(t.priority);
-          expect(t.weight).toBeGreaterThan(0);
-          expect(t.weight).toBeLessThanOrEqual(3);
+          if (spawns) {
+            expect(t.weight).toBeGreaterThan(0);
+            expect(t.weight).toBeLessThanOrEqual(3);
+          } else expect(t.weight, `${t.id}: a crisis task never spawns by itself`).toBe(0);
           expect(t.places.length).toBeGreaterThan(0);
           for (const p of t.places) expect(PLACE_KINDS.has(p), `${t.id} place ${p}`).toBe(true);
           for (const r of t.regions ?? []) expect(Object.keys(REGIONS), `${t.id} region ${r}`).toContain(r);
@@ -419,7 +425,11 @@ export function incidentSuite(label: string, list: IncidentTemplate[]): void {
   // Escalation: slow dispatch makes it worse, a unit on scene in time prevents it
   // ───────────────────────────────────────────────────────────────────────────
 
-  describe(`${label}: escalation paths`, () => {
+  // A set without any escalation (a crisis's tasks escalate through the crisis) registers no empty block.
+  const escalating = list.some(
+    (t) => t.escalation || (t.beats ?? []).some((b) => b.kind === 'backup' && b.failEffects.escalate),
+  );
+  (escalating ? describe : describe.skip)(`${label}: escalation paths`, () => {
     const withEscalation = list.filter((t) => t.escalation);
 
     for (const t of withEscalation) {

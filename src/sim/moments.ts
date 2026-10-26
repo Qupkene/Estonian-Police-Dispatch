@@ -10,7 +10,19 @@ import type { ShiftReport, SimState, Text } from './types';
 /** Moments a shift keeps (the oldest go first). */
 export const MAX_MOMENTS = 40;
 
-export type CoopMomentKind = 'lend' | 'take' | 'give' | 'left' | 'back' | 'handover';
+export type CoopMomentKind =
+  | 'lend'
+  | 'take'
+  | 'give'
+  | 'left'
+  | 'back'
+  | 'handover'
+  // Suurõnnetus (2.37.0, src/sim/crisis.ts): it broke out, a task escalated it, a player took command, a decision, the end.
+  | 'crisis'
+  | 'cesc'
+  | 'clead'
+  | 'cdec'
+  | 'cend';
 
 export interface CoopMoment {
   /** Game time. */
@@ -29,6 +41,11 @@ export interface CoopMoment {
   to?: string;
   /** A lent crew's call sign. */
   unit?: string;
+  /** A crisis moment: the scenario, its task (an escalation), the decision and option (`road:close`), the result. */
+  crisis?: string;
+  task?: string;
+  option?: string;
+  n?: number;
 }
 
 /** Record a moment of the shift. */
@@ -53,7 +70,8 @@ export type ReportMoment = CoopMoment | IncidentMoment;
 /** Moments between the seats a report keeps, besides the highlights (lends between two players go first). */
 const REPORT_MOMENTS = 16;
 
-const weight = (m: CoopMoment): number => (m.k !== 'lend' ? 2 : m.seat >= 0 && (m.other ?? -1) >= 0 ? 1 : 0);
+const weight = (m: CoopMoment): number =>
+  m.crisis ? 3 : m.k !== 'lend' ? 2 : m.seat >= 0 && (m.other ?? -1) >= 0 ? 1 : 0;
 
 /** The seats of a bit mask, lowest first. */
 export const maskSeats = (mask: number): number[] => [0, 1, 2, 3].filter((n) => mask & (1 << n));

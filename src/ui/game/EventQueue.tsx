@@ -10,6 +10,8 @@ import { deskName, NeighbourRows } from './DeskParts';
 import { activeBackup, recentClosed, selAgeMin, selPendingRadio, selQueue, selSlaMin } from './data';
 import { ageText, countdown, helpSectorId, matchesQueueFilter, slaTone, type QueueFilter } from './format';
 import { HelpTag, SourceTag, StatusDot, useSim } from './bits';
+import { CrisisTag } from './CrisisPanel';
+import { crisisTaskOf } from '@/sim/crisis';
 import { MenuButton, type MenuItem } from './Menu';
 import { useGameUi } from './uiStore';
 
@@ -65,8 +67,10 @@ export function EventQueue() {
   if (!sim) return null;
   // Sector co-op: this desk's own queue; the neighbours' events in their own section below (src/sim/desks.ts).
   const queueAll = selQueue(sim);
-  const all = desk === null ? queueAll : queueAll.filter((i) => deskCan(sim, { incident: i }));
-  const neighbours = desk === null ? [] : queueAll.filter((i) => !deskCan(sim, { incident: i }));
+  // A crisis task is every desk's to send crews to (docs/CRISIS.md): it stays in each desk's own queue.
+  const own = (i: Incident) => deskCan(sim, { incident: i }) || !!crisisTaskOf(i);
+  const all = desk === null ? queueAll : queueAll.filter(own);
+  const neighbours = desk === null ? [] : queueAll.filter((i) => !own(i));
   const list = all.filter((i) => matchesQueueFilter(i, filter));
   const counts: Record<QueueFilter, number> = {
     all: all.length,
@@ -242,6 +246,11 @@ function QueueCard({ sim, inc, selected, cursor, pendingCount }: { sim: SimState
       {helpSectorId(inc) !== null && (
         <div className="gm-card__help">
           <HelpTag inc={inc} />
+        </div>
+      )}
+      {crisisTaskOf(inc) && (
+        <div className="gm-card__help">
+          <CrisisTag sim={sim} inc={inc} />
         </div>
       )}
       <div className="gm-card__row gm-card__row--meta">

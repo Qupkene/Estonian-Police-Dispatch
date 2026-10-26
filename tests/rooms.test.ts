@@ -237,6 +237,7 @@ describe('room answers', () => {
       difficulty: 'normal',
       hours: 3,
       slot: 'evening',
+      crisis: 'random',
     });
     expect(odd.players).toEqual([]);
     expect(odd.max).toBe(4);

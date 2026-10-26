@@ -25,6 +25,7 @@ import { RadioPanel } from './RadioPanel';
 import { Toasts, useToastFeed } from './Toasts';
 import { PauseMenu, ShiftEndModal } from './Modals';
 import { CoopPanel } from './CoopPanel';
+import { CrisisBar, CrisisBrief, CrisisPanel, crisisOn } from './CrisisPanel';
 import { useHotkeys } from './useHotkeys';
 import { useGameUi, type MobileTab } from './uiStore';
 import { VERSION } from '@/ui/screens/shell/helpers';
@@ -90,6 +91,7 @@ export function GameScreen() {
       <div className="gm-scrim" onClick={() => setUi({ drawerOpen: false })} aria-hidden="true" />
       <main className="gm-map">
         <MapHost />
+        <CrisisBar />
         <PlacingHint />
         {/* The game's version, small in the map's lower left corner (the menus show it in their footer). */}
         <span className="gm-ver" title={t('game.version')}>
@@ -120,6 +122,7 @@ export function GameScreen() {
       <Toasts />
       {sim.coop && <CoopPanel />}
       <CallTaker />
+      <CrisisBrief />
       <ShiftEndModal />
       <PauseMenu />
     </div>
@@ -230,7 +233,15 @@ function SidePanel() {
   const bulletins = useGame((s) => s.sim?.bulletins.length ?? 0);
   const seen = useGameUi((s) => s.bulletinsSeen);
   const setUi = useGameUi((s) => s.set);
-  const active: RightTab = tab === 'director' && !director ? 'incident' : tab;
+  // Suurõnnetus (docs/CRISIS.md): the staff's tab once it broke out, marked while a decision waits or a task escalated.
+  const crisisKey = useGame((s) => {
+    const c = crisisOn(s.sim);
+    if (!c) return '';
+    const waits = Object.keys(c.asked).some((d) => c.decisions[d] === undefined);
+    return `${c.phase === 'over' ? 'o' : 'r'}${waits ? 'w' : '-'}`;
+  });
+  const crisis = crisisKey ? { over: crisisKey[0] === 'o', waits: crisisKey[1] === 'w' } : null;
+  const active: RightTab = (tab === 'director' && !director) || (tab === 'crisis' && !crisis) ? 'incident' : tab;
 
   useEffect(() => {
     if (active === 'bulletins' && bulletins !== seen) setUi({ bulletinsSeen: bulletins });
@@ -243,6 +254,13 @@ function SidePanel() {
     { id: 'stats', label: t('game.tab.stats'), icon: 'stats' },
     { id: 'bulletins', label: t('game.tab.bulletins'), icon: 'newspaper', badge: active !== 'bulletins' && bulletins > seen ? bulletins - seen : undefined },
   ];
+  if (crisis)
+    tabs.splice(1, 0, {
+      id: 'crisis',
+      label: t('game.crisis.tab'),
+      icon: 'alert',
+      badge: active !== 'crisis' && !crisis.over && crisis.waits ? '!' : undefined,
+    });
   if (director) tabs.push({ id: 'director', label: t('game.tab.director'), icon: 'film' });
 
   return (
@@ -255,6 +273,7 @@ function SidePanel() {
         {active === 'stats' && <StatsPanel />}
         {active === 'bulletins' && <BulletinsPanel />}
         {active === 'director' && <DirectorPanel />}
+        {active === 'crisis' && <CrisisPanel />}
       </div>
     </div>
   );

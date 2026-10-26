@@ -74,6 +74,9 @@ function handleEvents(events: GameEvent[]) {
   if (has('pursuit_start')) sfx.play('pursuit');
   if (has('achievement')) sfx.play('achievement');
   if (has('shift_end')) sfx.play('resolved');
+  if (has('crisis_escalated')) sfx.play('escalated');
+  if (has('crisis_decision')) sfx.play('backup');
+  if (has('crisis_end')) sfx.play('resolved');
   if (has('unit_arrived')) sfx.play('radioOut', { gain: 0.4 });
 
   if (has('radio') || has('radio_emergency')) {

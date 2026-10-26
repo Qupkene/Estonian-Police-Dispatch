@@ -11,6 +11,8 @@ import { HelpTag, RadioReplies, RoleNote, Section, SourceTag, useSim } from './b
 import { useCan, useDeskCan, useMyDesk } from '@/store/coop';
 import { DeskNote, LendAskBlock, LendOfferBlock } from './DeskParts';
 import { RejectMenu } from './EventQueue';
+import { CrisisNote } from './CrisisPanel';
+import { crisisTaskOf } from '@/sim/crisis';
 import {
   AgencyBlock,
   AssignedBlock,
@@ -61,7 +63,11 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
   // co-op only the incident's own desk (src/sim/desks.ts), the others can offer a crew.
   const ownDesk = useDeskCan({ incident: inc });
   const sectorRoom = useMyDesk() !== null;
-  const canDispatch = useCan('dispatch') && ownDesk;
+  const mayDispatch = useCan('dispatch');
+  const canDispatch = mayDispatch && ownDesk;
+  // A crisis task (docs/CRISIS.md): every desk may send its own crews straight to it, no lend request.
+  const crisisTask = !!crisisTaskOf(inc);
+  const canSend = mayDispatch && (ownDesk || crisisTask);
 
   return (
     <div className={`gm-inc gm-inc--p${inc.priority}${closed ? ' is-closed' : ''}`}>
@@ -134,7 +140,8 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
       <div className="gm-inc__body">
         {closed && <OutcomeBlock inc={inc} />}
         {!closed && <HelpNote inc={inc} />}
-        {!ownDesk && <DeskNote sim={sim} inc={inc} />}
+        <CrisisNote sim={sim} inc={inc} />
+        {!ownDesk && !crisisTask && <DeskNote sim={sim} inc={inc} />}
 
         {backup && (
           <div className="gm-backup" role="alert">
@@ -198,10 +205,10 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
         </Section>
 
         {!closed && <NeedsBlock sim={sim} inc={inc} />}
-        {!closed && canDispatch && <RecommendBlock sim={sim} inc={inc} />}
+        {!closed && canSend && <RecommendBlock sim={sim} inc={inc} />}
         {!closed && sectorRoom && ownDesk && !incoming && <LendAskBlock sim={sim} inc={inc} />}
-        {!closed && sectorRoom && !ownDesk && <LendOfferBlock sim={sim} inc={inc} />}
-        {!closed && !canDispatch && <RoleNote role="dispatch" />}
+        {!closed && sectorRoom && !ownDesk && !crisisTask && <LendOfferBlock sim={sim} inc={inc} />}
+        {!closed && !canSend && <RoleNote role="dispatch" />}
         {(inc.assigned.length > 0 || !closed) && <AssignedBlock sim={sim} inc={inc} readOnly={!canDispatch} />}
         <AgencyBlock sim={sim} inc={inc} readOnly={!canDispatch} />
         <PersonsBlock sim={sim} inc={inc} tpl={tpl} />

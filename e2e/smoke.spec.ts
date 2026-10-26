@@ -134,6 +134,50 @@ test('a requested ambulance drives to the scene on the map and opens its inciden
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
+test('a major incident: the choice, the briefing, the staff, a decision and a task (2.37.0)', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await bootAndLegacyLogin(page);
+  const epd = <T = unknown>(body: string) => page.evaluate(`(() => { const e = window.__epd; ${body} })()`) as Promise<T>;
+  // The free shift's briefing offers the choice: its chance, always, never.
+  if (!(await page.getByRole('button', { name: /Kiirmäng/ }).first().isVisible()))
+    await page.getByRole('button', { name: /Üksikmäng/ }).first().click();
+  await page.getByRole('button', { name: /Kiirmäng/ }).first().click();
+  await expect.poll(() => screen(page)).toBe('briefing');
+  const choice = page.getByRole('radiogroup', { name: 'Suurõnnetus' });
+  await expect(choice.getByRole('radio')).toHaveCount(3);
+  await choice.getByRole('radio', { name: /^Kindlasti/ }).click();
+  await expect(choice.getByRole('radio', { name: /^Kindlasti/ })).toHaveAttribute('aria-checked', 'true');
+  // A paused shift of its own; the bus crash started by hand, as the director's panel does.
+  await epd(
+    `e.game.getState().startShift({ seed: 2026, regionId: 'pohja', mode: 'free', difficulty: 'normal',
+       start: Date.UTC(2026, 9, 16, 11, 0), hours: 8, playerName: 'Test' });
+     e.game.getState().setSpeed(0);`,
+  );
+  await expect.poll(() => screen(page), { timeout: 20_000 }).toBe('game');
+  expect(await epd(`const g = e.game.getState(); const ok = e.engine.crisis.start(g.sim, 'bus'); g.bump(); return ok;`)).toBe(true);
+  const brief = page.getByTestId('crisis-brief');
+  await expect(brief).toBeVisible({ timeout: 10_000 });
+  await expect(brief).toContainText('Bussiõnnetus maanteel');
+  await expect(brief.locator('img')).toBeVisible();
+  await page.getByTestId('crisis-brief-go').click();
+  await expect(page.getByTestId('crisis-panel')).toBeVisible();
+  await expect(page.getByTestId('crisis-bar')).toContainText('Suurõnnetus');
+  // Its first tasks are in the queue, each marked.
+  await expect(page.locator('.gm-ctag')).toHaveCount(3);
+  // The staff asks its first decision three minutes in: the commander keeps a lane open.
+  await epd(`const g = e.game.getState(); e.engine.step(g.sim, 4 * 60000); g.bump();`);
+  const lane = page.getByTestId('crisis-option-road-lane');
+  await expect(lane).toBeVisible({ timeout: 10_000 });
+  await lane.click();
+  await expect.poll(() => epd(`return e.game.getState().sim.crisis.decisions.road ?? null`)).toBe('lane');
+  await expect(page.getByTestId('crisis-panel')).toContainText('Jäta üks rada');
+  // A task opens its incident, with the crisis's note on it.
+  await page.getByTestId('crisis-task-scene').locator('button').click();
+  await expect(page.locator('.gm-cnote')).toContainText('Suurõnnetuse ülesanne');
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
 test('original versions are bundled', async ({ request }) => {
   for (const f of ['politseimang-2024.html', 'politseimang-2025.html']) {
     const res = await request.get(`/legacy/${f}`);

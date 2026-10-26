@@ -32,6 +32,9 @@ export const COMMAND_SHAPES: Record<string, Shape[]> = {
   lendans: ['num', 'bit'],
   take: ['id'],
   give: ['id'],
+  // Suurõnnetus (2.37.0): take command of the staff, and a decision [decision, option].
+  lead: [],
+  cdec: ['word', 'word'],
 };
 
 const ID = /^[A-Za-z0-9_-]{1,40}$/;

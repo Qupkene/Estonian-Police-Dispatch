@@ -346,7 +346,9 @@ docs/MULTIPLAYER.md):
   minutes, then 429 `rate_limited` (`rate_events`, bucket `room_miss`).
 - `POST /api/rooms`: `mode` `race` (default), `role` (role co-op) or `sector` (sector co-op),
   `regionId`, `sector` (`''` for the whole prefecture, else `<regionId>-<name>`), `difficulty`, `hours` (2, 3, 4
-  or 6, an integer), `slot` (`morning | afternoon | evening | night`); a `sector` room also needs `desks`: a list
+  or 6, an integer), `slot` (`morning | afternoon | evening | night`), `crisis` (`random | on | off`, default `random`:
+  a major incident by the room's chance, always or never, docs/CRISIS.md; `rooms.crisis`, schema step 15, default
+  `random` for the rooms made before it); a `sector` room also needs `desks`: a list
   of 2 to 4 distinct sector ids of the prefecture (`<regionId>-<name>`; that they neighbour each other is the
   client's check), and its `sector` becomes the first desk. Invalid fields give 400 `invalid_room` with
   `field`. 20 new rooms per IP and hour (`room_create`), else 429. The server draws the seed and the code.
@@ -355,7 +357,7 @@ docs/MULTIPLAYER.md):
   second seat. A full room (4) answers 409 `room_full`, a running one 409 `room_started` to anyone not already in it; a
   room between two rounds takes new players (they are in the next round).
 - The room (`room`): `{ code, mode, state, round, last, v, host, me, max, options: { regionId, sector, difficulty,
-  hours, slot }, seed, day, created, started, players: [{ id, name, avatar?, seat, host, ready, online, left, done, role }],
+  hours, slot, crisis }, seed, day, created, started, players: [{ id, name, avatar?, seat, host, ready, online, left, done, role }],
   results: [{ id, name, avatar?, score, grade, incidents, arrests, xp, at, rank }] }`. `role` is the co-op desk the player
   picked, or the seat's default (`dispatch`, `calls`, `radio`, `dispatch` for seats 0 to 3). A `sector` room adds
   `options.desks` and each player's `desk`: the one they picked if the room still has it, else
@@ -453,7 +455,9 @@ design and protocol in docs/MULTIPLAYER.md section 4):
   `pursuit [id, word]`, `reply [id, word]`, `break [id, 0|1]`, `check [id, ref, ref]`, `answer [id]`, `ask [id,
   word]`, `interp [id]`, `endcall [id, word, 0..4, word or '']`, `q [word, text <= 64]`, `ping [text <= 140]`,
   `speed [0..4]`, `end []`, and for sector rooms `lend [id, id]` (an incident and a crew), `lendans [1..1000000,
-  0|1]` (a lend request's id and the answer), `take [id]` and `give [id]` (a desk to take over or hand back, 2.34.0). Ids match `[A-Za-z0-9_-]{1,40}`, words `[a-z_]{1,24}`, refs are a person id or a
+  0|1]` (a lend request's id and the answer), `take [id]` and `give [id]` (a desk to take over or hand back, 2.34.0), and
+  for a major incident (2.37.0, docs/CRISIS.md) `lead []` (take the staff's command) and `cdec [word, word]` (the
+  commander's decision and option). Ids match `[A-Za-z0-9_-]{1,40}`, words `[a-z_]{1,24}`, refs are a person id or a
   plate (letters, digits, space, `_.-`, at most 40), texts have no control characters. `speed` and `end` are the
   host's (403 `not_host`). The meaning and the role permissions are checked by every client's sim, identically.
   Batches per player: a bucket of 4, refilled at 2 a second (429 `rate_limited`, `Retry-After: 1`). At most

@@ -64,6 +64,10 @@ export default {
   'rooms.opt.hours': { et: 'Pikkus', en: 'Length' },
   'rooms.opt.hoursN': { et: '{n} h', en: '{n} h' },
   'rooms.opt.slot': { et: 'Aeg', en: 'Time' },
+  'rooms.opt.crisis': { et: 'Suurõnnetus', en: 'Major crisis' },
+  'rooms.opt.crisis.random': { et: 'Juhus {p} %', en: 'Chance {p}%' },
+  'rooms.opt.crisis.on': { et: 'Kindlasti', en: 'Always' },
+  'rooms.opt.crisis.off': { et: 'Ei', en: 'Never' },
   'rooms.opt.hint': {
     et: 'Ilm ja täpne algusaeg tulevad ruumi seemnest: kõigil sama.',
     en: 'The weather and the exact start come from the room seed: the same for everyone.',

@@ -1050,7 +1050,11 @@ export interface GameEvent {
     | 'bulletin'
     | 'shift_end'
     | 'achievement'
-    | 'complaint';
+    | 'complaint'
+    | 'crisis_start'
+    | 'crisis_decision'
+    | 'crisis_escalated'
+    | 'crisis_end';
   incidentId?: string;
   unitId?: string;
   text?: Text;
@@ -1104,6 +1108,11 @@ export interface NewShiftOptions {
    * the shift is marked `flags.custom` (never ranked).
    */
   custom?: import('./custom').CustomSetup;
+  /**
+   * Suurõnnetus (src/sim/crisis.ts, docs/CRISIS.md): the chance (0..1) that the shift has a crisis. Missing: none,
+   * as in every shift before 2.37.0.
+   */
+  crisis?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1201,6 +1210,8 @@ export interface ShiftReport {
     /** What the page is about, most telling first: the lead's 'pursuit' and category, else 'holiday', 'busy' or
      * 'quiet'; then 'night'. Picks the photo; older reports have none. */
     topics?: string[];
+    /** The major incident the page leads with (2.37.0): its drawing is the photo when it has one. */
+    crisis?: string;
   };
   /** `${seed}:${startTime}` of the shift (set by the game store), so one shift is paid out only once. */
   shiftKey?: string;
@@ -1210,6 +1221,8 @@ export interface ShiftReport {
   fallout?: FalloutLine[];
   /** A custom game (src/sim/custom.ts): the player drafted the force, so it is never ranked. */
   custom?: boolean;
+  /** The shift's crisis (src/sim/crisis.ts, 2.37.0). Missing without one, and in older reports. */
+  crisis?: import('./crisis').CrisisReport;
 }
 
 /** One wrong registry answer in the shift report. */
@@ -1278,6 +1291,8 @@ export interface SimState {
    * truth comes out later. Missing in every older save (nothing pending).
    */
   fallout?: Fallout[];
+  /** Suurõnnetus (src/sim/crisis.ts, 2.37.0): the shift's crisis, scheduled or running. Missing without one. */
+  crisis?: import('./crisis').CrisisState;
 }
 
 /** Kinds of consequence a wrong registry answer has (src/sim/fallout.ts). */

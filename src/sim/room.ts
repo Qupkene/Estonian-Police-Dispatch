@@ -7,6 +7,7 @@
  * A room run is an ordinary free shift whose `flags.room` holds the room code; the report posts it to
  * /api/rooms/{code}/result instead of /api/score. Pure functions: no store, no network.
  */
+import { choiceChance, CRISIS_CHOICES, type CrisisChoice } from './crisis';
 import { fillDesks, type CustomSetup } from './custom';
 import { parseDate, SLOT_HOURS, type DailySlot } from './daily';
 import { Rng } from './rng';
@@ -20,6 +21,11 @@ export type RoomMode = 'race' | 'sector' | 'role';
 export const ROOM_HOURS = [2, 3, 4, 6] as const;
 export const ROOM_SLOTS: RoomSlot[] = ['morning', 'afternoon', 'evening', 'night'];
 export const ROOM_DIFFICULTIES: Difficulty[] = ['cadet', 'normal', 'veteran', 'realistic'];
+/** Suurõnnetus (2.37.0, docs/CRISIS.md): its chance, always, never. */
+export type RoomCrisis = CrisisChoice;
+export const ROOM_CRISIS: RoomCrisis[] = CRISIS_CHOICES;
+/** A room's chance of a crisis when the host leaves it to chance: a shared shift's higher than a race's. */
+export const ROOM_CRISIS_CHANCE = { coop: 0.35, race: 0.2 } as const;
 export const ROOM_MAX_PLAYERS = 4;
 /** Modes a room can be created with: the competition, role co-op and sector co-op. */
 export const OPEN_ROOM_MODES: RoomMode[] = ['race', 'role', 'sector'];
@@ -39,6 +45,11 @@ export interface RoomOptions {
   slot: RoomSlot;
   /** A custom force (src/sim/custom.ts) the host drafted. Missing: the prefecture's own roster. */
   custom?: CustomSetup;
+  /**
+   * Suurõnnetus (2.37.0). The API always names it (its rooms default to 'random', src/net/rooms.ts parseOptions);
+   * missing means none, so a shift built from options made without it stays as it was.
+   */
+  crisis?: RoomCrisis;
 }
 
 export const DEFAULT_ROOM_OPTIONS: RoomOptions = {
@@ -96,7 +107,14 @@ export function roomShiftOptions(shift: RoomShift, playerName: string, own?: Cus
     ...(roomDesks(shift).length ? { sectors: roomDesks(shift) } : o.sector ? { sectors: [o.sector] } : {}),
     ...(force?.crews.length ? { custom: force } : {}),
     fixedSchedule: true,
+    ...(roomCrisisChance(o.crisis, shift.mode) ? { crisis: roomCrisisChance(o.crisis, shift.mode) } : {}),
   };
+}
+
+/** The chance of a crisis in a room's shift (docs/CRISIS.md section 6): always, never, or the mode's own chance. */
+export function roomCrisisChance(crisis: RoomCrisis | undefined, mode: RoomMode | undefined): number {
+  if (!crisis) return 0;
+  return choiceChance(crisis, isCoopMode(mode ?? 'race') ? ROOM_CRISIS_CHANCE.coop : ROOM_CRISIS_CHANCE.race);
 }
 
 /**

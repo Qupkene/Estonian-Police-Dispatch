@@ -17,6 +17,7 @@ import { REGIONS } from '@/data/regions';
 import { rankOf, rosterFromCareer } from '@/sim/career';
 import { storyOrder } from '@/sim/story';
 import { nightCoverFor } from '@/sim/colleagues';
+import { choiceChance, crisisChance, type CrisisChoice } from '@/sim/crisis';
 import { expandCustom } from '@/sim/custom';
 import { areaStations, neighbourSectors, sectorById } from '@/sim/sectors';
 import { dayInfo, weekdayFactor } from '@/sim/calendar';
@@ -100,6 +101,7 @@ export function BriefingScreen() {
   );
   const [datePreset, setDatePreset] = useState<DatePreset>('today');
   const [weather, setWeather] = useState<WeatherPick>('auto');
+  const [crisisPick, setCrisisPick] = useState<CrisisChoice>(briefing.crisisChoice ?? 'random');
   const [seed] = useState(() => Date.now() >>> 0);
   const [error, setError] = useState<string | null>(null);
 
@@ -198,6 +200,15 @@ export function BriefingScreen() {
   );
   const storyLineText = storyOrderText ? storyOrderText[lang] || storyOrderText.et : null;
 
+  // A major crisis (docs/CRISIS.md section 6): a career shift's own small chance, a free shift's choice; never in
+  // the director, which starts one by hand.
+  const freeCrisis = crisisChance('free', difficulty, hours);
+  const crisis = career
+    ? crisisChance('career', difficulty, hours)
+    : mode === 'free'
+      ? choiceChance(crisisPick, freeCrisis)
+      : 0;
+
   const begin = () => {
     setError(null);
     const opts: NewShiftOptions = {
@@ -218,6 +229,7 @@ export function BriefingScreen() {
           }
         : {}),
       ...(custom ? { custom, ...(customArea.length ? { sectors: customArea } : {}) } : {}),
+      ...(crisis > 0 ? { crisis } : {}),
     };
     setBriefing({
       mode,
@@ -227,6 +239,7 @@ export function BriefingScreen() {
       hours,
       weather: opts.weather,
       shiftKind: SHIFT_PRESETS[shift].kind,
+      crisisChoice: crisisPick,
     });
     try {
       useGame.getState().startShift(opts);
@@ -479,6 +492,7 @@ export function BriefingScreen() {
             autoForecast={autoForecast}
             load={load}
             holiday={holiday}
+            {...(mode === 'free' ? { crisis: { value: crisisPick, onChange: setCrisisPick, chance: freeCrisis } } : {})}
           />
           {mode === 'director' && <p className="vk-msg vk-brief__note">{t('shell.brief.director.note')}</p>}
 

@@ -9,6 +9,7 @@ import { dayInfo } from './calendar';
 import { updateCalls } from './calls';
 import { expandCustom } from './custom';
 import { initColleagues, updateColleagues } from './colleagues';
+import { initCrisis, settleCrisis, updateCrisis } from './crisis';
 import { updateDesks } from './desks';
 import { settleFallout, updateFallout } from './fallout';
 import { emit, regionOf } from './internal';
@@ -158,6 +159,8 @@ export function createShift(opts: NewShiftOptions): SimState {
   if (opts.mode === 'career') initCareerLoad(s);
   // Sector shift: the neighbouring desks' AI colleagues and a career night's cover (their own stream).
   initColleagues(s, opts);
+  // Suurõnnetus (docs/CRISIS.md): whether, which and when, on a stream of its own.
+  initCrisis(s, opts.crisis);
   populateRegistry(s, rReg, region);
   addLegends(s);
   addBulletins(s, rMisc, region);
@@ -537,6 +540,14 @@ function substep(s: SimState, h: number): void {
   updateSpawner(s);
   updateUnits(s, h);
   updateIncidents(s, h);
+  // A crisis (src/sim/crisis.ts): it breaks out, opens its tasks, escalates, ends.
+  if (s.crisis) {
+    try {
+      updateCrisis(s);
+    } catch (err) {
+      console.warn('[EPD] updateCrisis failed', err);
+    }
+  }
   updateFallout(s);
   try {
     updateColleagues(s);
@@ -588,6 +599,7 @@ export function drainEvents(s: SimState): GameEvent[] {
 
 export function finalizeShift(s: SimState): ShiftReport {
   settleFallout(s);
+  settleCrisis(s);
   updateShiftScore(s);
   try {
     return buildReport(s);

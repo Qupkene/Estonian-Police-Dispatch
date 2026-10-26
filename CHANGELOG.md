@@ -2,6 +2,28 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.37.0 (2026-10-26)
+
+- **Suurõnnetus:** harva tuleb vahetuse keskel suurõnnetus, mis koosneb mitmest väljakutsest korraga ühes kohas. Häirekeskus kuulutab selle raadios välja ja avaneb briifing joonistusega: mis juhtus, kus ja millised ülesanded on kohe ning hiljem.
+  - **Neli stsenaariumi:** bussiõnnetus maanteel, lennuõnnetus lennuvälja lähedal, metsapõleng (aprillist septembrini) ja kaubanduskeskuse evakueerimine pommiähvarduse tõttu (kella 10 ja 21 vahel).
+  - **Staap:** paremal on uus vahekaart "Staap". Seal on olukord (kontrolli all, pingeline, kriitiline), ülesanded koos ekipaažide ja tähtaegadega ning staabi otsused, näiteks kas sulgeda maantee täielikult või jätta üks rada. Kui keegi 10 minuti jooksul ei otsusta, valib staap ise.
+  - **Kiirus loeb:** kui ülesanne ootab ekipaaži üle tähtaja, olukord halveneb, väljakutse muutub kiireloomuliseks ja tuleb uus ülesanne (näiteks ahelkokkupõrge ummikus või uudistajad lindi taga). Kui palusid naabritelt abi, võtavad nemad liiga kaua oodanud ülesande üle, aga punkte saab vähem.
+  - Kaardi kohal on suurõnnetuse riba, järjekorra kaartidel ja kaardil on ülesanded märgitud ning vahetuse raportis on suurõnnetuse tulemus koos ülesannete ja otsustega.
+  - Homne ajaleht kirjutab suurõnnetusest esikülje loo ja pilt on sama joonistus.
+- **Vabas vahetuses** saab briifingus valida: juhuslik (vaikimisi), kindlasti või ei. Karjääris tuleb suurõnnetus juhuslikult ja harva.
+- **Mitmikmängus** valib ruumi looja lobbys, kas suurõnnetus tuleb juhuslikult, kindlasti või üldse mitte.
+  - Ühisvahetuses võtab üks mängija juhtimise ("Võta juhtimine") ja teeb otsused. Ruumi looja võib juhtimise üle võtta.
+  - Iga laud võib saata oma ekipaaže suurõnnetuse ülesannetele, ka siis, kui ülesanne on naabri alal.
+  - Ühises raportis on suurõnnetuse hetked: puhkemine, halvenemine, juhtimine, otsused ja lõpp.
+- Režissööri režiimis saab suurõnnetuse ise käivitada.
+
+<details>
+<summary>English</summary>
+
+Suurõnnetus, a major incident for several desks at once (point 9 of the owner's list, docs/CRISIS.md and docs/MULTIPLAYER.md section 15). A shift that allows one schedules it from its seed on its own random stream (`epd-crisis:<seed>`): one of four scenarios (`src/data/crises/`: a bus off the highway, a plane crash near an airport, a forest fire in April to September, a shopping centre evacuation between 10:00 and 21:00), between 20 % and 50 % of the shift, at a place of the area (the mainland, Saaremaa or Hiiumaa; near a border between held desks in a sector room). Its tasks are ordinary incidents of weight-0 templates, opened at their times and places (`near` places one from another task's spot); a task without a crew past its deadline raises the level and opens its follow-up; two staff decisions change the tasks' success and deadlines and whether the neighbours take over late tasks; a decision nobody makes in 10 minutes falls to its default; the result (the tasks' average less the levels) goes into the shift report, and a crisis the shift ends on is settled there. The CAD gets the briefing with the owner's drawing, the staff tab, the bar over the map, the notes on the queue cards and incidents and a ring on the map. Free shifts choose in the briefing (random, always, never), careers get a small chance, rooms choose in the lobby (`crisis`, schema step 15, default `random`); in co-op `lead []` takes command (the host may take it over), `cdec [decision, option]` is the commander's, every desk may send its own crews to a crisis task, the crisis is in the digest and its moments go into the joint report. The newspaper leads with it, the drawing as its photo (`newspaper.crisis`). The director's panel and `__epd.engine.crisis.start` start one by hand.
+
+</details>
+
 ## 2.36.0 (2026-10-25)
 
 - **Ühine raport:** koostöövahetuse lõpus on kõigil mängijatel sama raport.

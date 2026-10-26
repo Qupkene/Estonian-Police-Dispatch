@@ -1021,6 +1021,9 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
         [{ custom: { crews: [['patrol', 'louna-tartu', '1']] } }, 'custom'],
         [{ custom: { crews: [['patrol', 'louna-tartu', 1, 2, 3, 4, 5, 6, 7]] } }, 'custom'],
         [{ custom: { crews: Array.from({ length: 41 }, () => ['patrol', 'louna-tartu']) } }, 'custom'],
+        // Suurõnnetus (2.37.0): its chance, always or never.
+        [{ crisis: 'maybe' }, 'crisis'],
+        [{ crisis: 1 }, 'crisis'],
       ];
       for (const [patch, field] of cases) {
         const r = await hanna.post('/api/rooms', { ...OPTS, ...patch });
@@ -1050,7 +1053,7 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
         day: null,
         started: null,
         results: [],
-        options: { regionId: 'louna', sector: '', difficulty: 'normal', hours: 3, slot: 'evening' },
+        options: { regionId: 'louna', sector: '', difficulty: 'normal', hours: 3, slot: 'evening', crisis: 'random' },
       });
       expect(room.host).toBe(room.me);
       expect(room.players).toEqual([
@@ -1339,6 +1342,9 @@ describe.skipIf(!HAS_PHP)('PHP API server', { timeout: 60_000 }, () => {
       expect(role.json.room.players.map((p: Json) => p.role)).toEqual(['dispatch', 'calls', 'radio', 'dispatch']);
       // Without `mode` the room keeps its own.
       expect((await hanna.put(`/api/rooms/${code}`, { body: { ...OPTS, mode: undefined, hours: 4 }, ...at(t + 400) })).json.room).toMatchObject({ mode: 'role', options: { hours: 4 } });
+      // The crisis choice (2.37.0) is kept with the options, and a body without it means 'random'.
+      expect((await put(hanna, { ...OPTS, mode: undefined, hours: 4, crisis: 'off' }, t + 450)).json.room.options).toMatchObject({ hours: 4, crisis: 'off' });
+      expect((await put(hanna, { ...OPTS, mode: undefined, hours: 4 }, t + 500)).json.room.options.crisis).toBe('random');
     });
 
     it('hands a lobby to the earliest player here once its host has been away for five minutes', async () => {
@@ -3352,7 +3358,7 @@ describe.skipIf(!HAS_PHP)('game server rooms (mp.php, docs/MULTIPLAYER.md sectio
       seed: room.seed,
       day: room.day,
       started: room.started,
-      options: { regionId: 'pohja', sector: '', difficulty: 'normal', hours: 2, slot: 'evening' },
+      options: { regionId: 'pohja', sector: '', difficulty: 'normal', hours: 2, slot: 'evening', crisis: 'random' },
       setup: [0, [[0, 'dispatch', 'Mari'], [1, 'calls', 'Tõnu']]],
     });
     expect(ticketA!.exp - Date.now()).toBeGreaterThan(50_000);

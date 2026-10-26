@@ -37,10 +37,12 @@ import {
   normalizeRoomCode,
   isCoopMode,
   OPEN_ROOM_MODES,
+  ROOM_CRISIS,
   ROOM_DIFFICULTIES,
   ROOM_HOURS,
   ROOM_SLOTS,
   roomCodeOf,
+  roomCrisisChance,
   roomShiftOptions,
   roomStart,
   type RoomMode,
@@ -510,6 +512,20 @@ function OptionsForm({
         />,
       )}
       {row(
+        t('rooms.opt.crisis'),
+        <Segmented<NonNullable<RoomOptions['crisis']>>
+          size="sm"
+          label={t('rooms.opt.crisis')}
+          value={value.crisis ?? 'random'}
+          onChange={(crisis) => onChange({ ...value, crisis })}
+          options={ROOM_CRISIS.map((c) => ({
+            value: c,
+            label: t(`rooms.opt.crisis.${c}`, { p: Math.round(roomCrisisChance(c, mode) * 100) }),
+            disabled,
+          }))}
+        />,
+      )}
+      {row(
         t('custom.room.force'),
         <div className="vk-mp__force">
           <Segmented<'standard' | 'custom'>
@@ -608,6 +624,14 @@ function OptionsSummary({ o, room }: { o: RoomOptions; room?: Room }) {
       <div>
         <dt>{t('rooms.opt.slot')}</dt>
         <dd>{t(`daily.slot.${o.slot}`)}</dd>
+      </div>
+      <div>
+        <dt>{t('rooms.opt.crisis')}</dt>
+        <dd data-testid="room-crisis">
+          {t(`rooms.opt.crisis.${o.crisis ?? 'random'}`, {
+            p: Math.round(roomCrisisChance(o.crisis ?? 'random', room?.mode) * 100),
+          })}
+        </dd>
       </div>
       {o.custom && (
         <div>

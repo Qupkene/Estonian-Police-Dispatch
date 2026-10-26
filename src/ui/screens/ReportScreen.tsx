@@ -29,6 +29,7 @@ import { roomSummary } from '@/sim/joint';
 import { useCoop } from '@/store/coop';
 import { Button, Modal, PpaLogo, PriorityChip, Spinner } from '@/ui/components';
 import { JointReport } from './shell/JointReport';
+import { CrisisReportPanel } from './shell/CrisisReport';
 import { Newspaper } from './shell/Newspaper';
 import { DailyBoardModal } from './shell/Daily';
 import { boardCount, ResultsBoard, RoomBoard, useLiveRoom } from './shell/RoomBoard';
@@ -387,6 +388,13 @@ export function ReportScreen() {
               )}
             </div>
           </section>
+
+          {report.crisis && (
+            <CrisisReportPanel
+              crisis={report.crisis}
+              lead={report.coop?.seats.find((x) => x.seat === report.crisis!.lead)?.name}
+            />
+          )}
 
           {joint && (
             <JointReport
