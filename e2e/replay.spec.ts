@@ -40,7 +40,7 @@ const clock = (page: Page) => page.locator('.rp-clock__time').innerText();
 
 test('a shift plays back on the map from its report: timeline, pause, jumps, an incident and a crew followed', async ({ page }) => {
   // The map draws in software on a runner: every step of the viewer takes its time.
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e)));
 
@@ -148,7 +148,9 @@ test('a shift plays back on the map from its report: timeline, pause, jumps, an 
   await expect(tl.locator('.rp-tl__pursuit')).not.toHaveCount(0);
   const t0 = await clock(page);
   await expect.poll(() => clock(page), { timeout: 10_000 }).not.toBe(t0);
-  await expect(page.getByTestId('replay-feed')).toBeVisible();
+  // The feed shows once the playback reaches the shift's first event. A frame moves the replay at most 100 ms, so on
+  // a runner drawing the map in software the playback runs slower than real time: give it the time to get there.
+  await expect(page.getByTestId('replay-feed')).toBeVisible({ timeout: 60_000 });
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/replay-playing.png` });
 
   // Space pauses: the clock stands.
