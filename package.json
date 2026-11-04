@@ -15,7 +15,8 @@
     "e2e": "playwright test",
     "format": "prettier --write .",
     "dev:api": "php -S 127.0.0.1:8787 server/dev-router.php",
-    "dev:mp": "vite build -c vite.mp.config.ts && node dist-mp/mp.mjs"
+    "dev:mp": "vite build -c vite.mp.config.ts && node dist-mp/mp.mjs",
+    "gen:dutymap": "node scripts/duty-map-base.mjs"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",

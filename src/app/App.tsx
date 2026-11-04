@@ -89,7 +89,8 @@ export function App() {
   const colorblind = useSettings((s) => s.colorblind);
   const uiScale = useSettings((s) => s.uiScale);
   const lang = useSettings((s) => s.lang);
-  const booted = screen !== 'boot';
+  // Past the start and the sign-in: the player is in the menus, where a shift is a click away.
+  const inside = screen !== 'boot' && screen !== 'login';
 
   useEffect(() => {
     const el = document.documentElement;
@@ -100,9 +101,10 @@ export function App() {
     (el.style as CSSStyleDeclaration & { zoom?: string }).zoom = uiScale === 1 ? '' : String(uiScale);
   }, [theme, colorblind, uiScale, lang]);
 
-  // Once past the boot screen, fetch the in-shift chunk while the player is still in the menus.
+  // Once in the menus, fetch the in-shift chunk while the player is still choosing (the start and the sign-in page
+  // do without it and its map engine, so they load and settle sooner).
   useEffect(() => {
-    if (!booted) return;
+    if (!inside) return;
     const preload = () => void loadGameScreen().catch(() => {});
     if (typeof requestIdleCallback === 'function') {
       const id = requestIdleCallback(preload, { timeout: 4000 });
@@ -110,7 +112,7 @@ export function App() {
     }
     const id = setTimeout(preload, 1500);
     return () => clearTimeout(id);
-  }, [booted]);
+  }, [inside]);
 
   const Screen = SCREENS[screen];
   return (

@@ -7,17 +7,37 @@ export const DAY = 24 * HOUR;
 
 const TZ = 'Europe/Tallinn';
 
-const partsFmt = new Intl.DateTimeFormat('en-GB', {
-  timeZone: TZ,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  weekday: 'short',
-  hourCycle: 'h23',
-});
+/** The browser's time zone data, made on first use: it costs tens of milliseconds on a slow phone. */
+let partsFmt: Intl.DateTimeFormat | null = null;
+const fmt = () =>
+  (partsFmt ??= new Intl.DateTimeFormat('en-GB', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    weekday: 'short',
+    hourCycle: 'h23',
+  }));
+
+/** Ms of the last Sunday of `month` (0-based) in `year`, 01:00 UTC: when the EU's summer time starts or ends. */
+function lastSunday(year: number, month: number): number {
+  const last = Date.UTC(year, month + 1, 0, 1);
+  return last - new Date(last).getUTCDay() * DAY;
+}
+
+/**
+ * Europe/Tallinn's offset (hours) by the EU rule it has kept since 2002: +3 from the last Sunday of March to the last
+ * Sunday of October (01:00 UTC both), else +2. Null outside 2002-2037, where the time zone data decides
+ * (tests/time.test.ts checks every hour of the span against it).
+ */
+function tallinnOffset(t: number): 2 | 3 | null {
+  const year = new Date(t).getUTCFullYear();
+  if (year < 2002 || year > 2037) return null;
+  return t >= lastSunday(year, 2) && t < lastSunday(year, 9) ? 3 : 2;
+}
 
 export interface WallTime {
   year: number;
@@ -32,8 +52,26 @@ export interface WallTime {
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export function wall(t: number): WallTime {
+  const off = tallinnOffset(t);
+  if (off !== null) {
+    const d = new Date(t + off * HOUR);
+    return {
+      year: d.getUTCFullYear(),
+      month: d.getUTCMonth() + 1,
+      day: d.getUTCDate(),
+      hour: d.getUTCHours(),
+      minute: d.getUTCMinutes(),
+      second: d.getUTCSeconds(),
+      weekday: (d.getUTCDay() + 6) % 7,
+    };
+  }
+  return wallByZoneData(t);
+}
+
+/** Wall time from the browser's time zone data (and the reference for the rule above). */
+export function wallByZoneData(t: number): WallTime {
   const p: Record<string, string> = {};
-  for (const part of partsFmt.formatToParts(new Date(t))) p[part.type] = part.value;
+  for (const part of fmt().formatToParts(new Date(t))) p[part.type] = part.value;
   return {
     year: +p.year,
     month: +p.month,

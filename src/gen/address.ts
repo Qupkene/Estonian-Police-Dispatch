@@ -52,14 +52,17 @@ function cleanSettlementName(raw: string): string {
     .trim();
 }
 
-const SETTLEMENTS: Settlement[] = (settlementsJson as unknown as [string, string, string, number, number][])
-  .filter((r) => r[2] !== '')
-  .map((r) => ({
-    name: cleanSettlementName(r[0]),
-    type: r[1] as SettlementType,
-    county: r[2],
-    coord: [r[3], r[4]],
-  }));
+// The settlements, counties and districts are read on first use (an address), not when the game loads.
+let settlements: Settlement[] | null = null;
+const SETTLEMENTS = (): Settlement[] =>
+  (settlements ??= (settlementsJson as unknown as [string, string, string, number, number][])
+    .filter((r) => r[2] !== '')
+    .map((r) => ({
+      name: cleanSettlementName(r[0]),
+      type: r[1] as SettlementType,
+      county: r[2],
+      coord: [r[3], r[4]],
+    })));
 
 function toArea(f: Feature, name: string): Area {
   const g = f.geometry;
@@ -76,16 +79,20 @@ function toArea(f: Feature, name: string): Area {
   return { name, polys, bbox: [x0, y0, x1, y1] };
 }
 
-const COUNTIES: Area[] = (countiesJson as unknown as { features: Feature[] }).features.map((f) =>
-  toArea(f, String(f.properties.name)),
-);
+let counties: Area[] | null = null;
+const COUNTIES = (): Area[] =>
+  (counties ??= (countiesJson as unknown as { features: Feature[] }).features.map((f) =>
+    toArea(f, String(f.properties.name)),
+  ));
 
 /** District polygons are named in the genitive ("Kesklinna", "Põhja-Tallinna"). */
 const DISTRICT_NAME: Record<string, string> = { Kesklinna: 'Kesklinn', 'Põhja-Tallinna': 'Põhja-Tallinn' };
-const DISTRICTS: Area[] = (districtsJson as unknown as { features: Feature[] }).features.map((f) => {
-  const n = String(f.properties.name);
-  return toArea(f, DISTRICT_NAME[n] ?? n);
-});
+let districts: Area[] | null = null;
+const DISTRICTS = (): Area[] =>
+  (districts ??= (districtsJson as unknown as { features: Feature[] }).features.map((f) => {
+    const n = String(f.properties.name);
+    return toArea(f, DISTRICT_NAME[n] ?? n);
+  }));
 
 function inRing(p: LngLat, ring: Ring): boolean {
   let inside = false;
@@ -106,12 +113,12 @@ function inArea(p: LngLat, a: Area): boolean {
 
 /** County ("Harju maakond") containing the point, or undefined outside Estonia. */
 export function countyAt(p: LngLat): string | undefined {
-  return COUNTIES.find((c) => inArea(p, c))?.name;
+  return COUNTIES().find((c) => inArea(p, c))?.name;
 }
 
 /** Tallinn / Kohtla-Järve district containing the point. */
 export function districtAt(p: LngLat): string | undefined {
-  return DISTRICTS.find((d) => inArea(p, d))?.name;
+  return DISTRICTS().find((d) => inArea(p, d))?.name;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -196,7 +203,7 @@ function nearestTown(p: LngLat, maxKm: number, exclude?: string): string | undef
     }
   };
   for (const t of BIG_TOWNS) consider(t.name, t.coord);
-  for (const s of SETTLEMENTS) if (s.type === 'linn') consider(s.name, s.coord);
+  for (const s of SETTLEMENTS()) if (s.type === 'linn') consider(s.name, s.coord);
   return best;
 }
 
@@ -274,7 +281,7 @@ const SETTLEMENT_POP: Partial<Record<SettlementType, number>> = { linn: 8000, al
 function regionCache(region: RegionDef): RegionCache {
   let c = caches.get(region);
   if (c) return c;
-  const local = SETTLEMENTS.filter((s) => inRegion(region, s.county, s.coord));
+  const local = SETTLEMENTS().filter((s) => inRegion(region, s.county, s.coord));
   const rural = local.filter(
     (s) =>
       (s.type === 'küla' || s.type === 'alevik' || s.type === 'alev') && !isTownArtifact(s, region.towns),
@@ -501,7 +508,7 @@ function townLocation(rng: Rng, region: RegionDef, placeKind: PlaceKind): Incide
   const c = regionCache(region);
   if (!c.towns.length) {
     const coord = jitter(region.center, 1, rng.next(), rng.next());
-    const s = nearestSettlement(SETTLEMENTS, coord);
+    const s = nearestSettlement(SETTLEMENTS(), coord);
     return {
       address: s ? `${settlementLabel(s)}, ${s.county}` : region.hqCity || region.name.et,
       coord,
@@ -799,7 +806,7 @@ export interface HomeAddress {
 export function townRuShare(region: RegionDef, city: string): number {
   const t = region.towns.find((x) => x.name === city);
   if (t) return t.ruShare;
-  const s = SETTLEMENTS.find((x) => x.name === city && region.counties.includes(x.county));
+  const s = SETTLEMENTS().find((x) => x.name === city && region.counties.includes(x.county));
   return s ? countyRu(s.county) : regionCache(region).avgRuShare;
 }
 

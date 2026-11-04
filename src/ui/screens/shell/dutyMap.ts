@@ -14,6 +14,7 @@ import { SECTORS } from '@/data/sectors';
 import { mainStation, sectorById, sectorOutlines } from '@/sim/sectors';
 import type { LngLat, RegionId } from '@/sim/types';
 import { lest97, regionOfCounty } from './helpers';
+import prebuiltLayers from './dutyMapBase.json';
 
 export type XY = [number, number];
 type Ring = LngLat[];
@@ -56,6 +57,12 @@ export const STRIP_VIEW: MapView = {
   tol: 0.6,
   minArea: 3,
 };
+
+/** The sign-in page: the whole country moved left (view px), out from under the panel in the right half. */
+export const LOGIN_VIEW: MapView = { ...DESKTOP_VIEW, at: [DESKTOP_VIEW.at[0] - 300, DESKTOP_VIEW.at[1]] };
+
+/** The views the start, the sign-in and the menus draw: their heavy layers come prebuilt (dutyMapBase.json). */
+export const STANDARD_VIEWS: readonly MapView[] = [DESKTOP_VIEW, STRIP_VIEW, LOGIN_VIEW];
 
 /** Room to leave around a fitted view (px): one number for every side, or each side on its own. */
 export type ViewPad = number | { top: number; right: number; bottom: number; left: number };
@@ -747,13 +754,33 @@ function vertexPx(view: MapView): (id: number) => XY {
   return f;
 }
 
-const baseCache = new Map<string, BaseMap>();
+/**
+ * The layers of a view that come out of polygon work: the land, the prefectures and the county lines from the
+ * counties' topology, the coast told from the land border, the neighbours, the lakes and the roads outside the
+ * neighbours. Most of a second on a slow phone, so the standard views (STANDARD_VIEWS) carry them prebuilt in
+ * dutyMapBase.json (`npm run gen:dutymap`; tests/duty-map.test.ts checks they are what this code builds), and the
+ * start, the sign-in and the menus draw their map without building it.
+ */
+export type HeavyLayers = Pick<
+  BaseMap,
+  | 'land'
+  | 'coast'
+  | 'border'
+  | 'neighbours'
+  | 'neighbourCoast'
+  | 'lakes'
+  | 'prefectures'
+  | 'prefLines'
+  | 'countyLines'
+  | 'roadsMain'
+  | 'roadsLocal'
+>;
 
-/** Every static layer of the view, built on first use and cached. */
-export function baseMap(view: MapView): BaseMap {
-  const key = viewKey(view);
-  const hit = baseCache.get(key);
-  if (hit) return hit;
+/** The prebuilt heavy layers by viewKey. */
+export const PREBUILT_LAYERS = prebuiltLayers as unknown as Readonly<Record<string, HeavyLayers>>;
+
+/** The heavy layers of a view, built (what dutyMapBase.json holds for the standard views). */
+export function heavyLayers(view: MapView): HeavyLayers {
   const t = topo();
   const V = vertexPx(view);
   const P = (ll: LngLat) => project(view, ll);
@@ -781,23 +808,6 @@ export function baseMap(view: MapView): BaseMap {
         if (part.length > 1) d += pathData(simplifyLine(part, tol), false);
     return d;
   };
-
-  // Graticule: meridians are straight in L-EST97, parallels gently curved.
-  const meridians: BaseMap['meridians'] = [];
-  const parallels: BaseMap['parallels'] = [];
-  let graticule = '';
-  for (let lon = 18; lon <= 32; lon++) {
-    const a = P([lon, 61.5]);
-    const b = P([lon, 55.8]);
-    meridians.push({ lon, a, b });
-    for (const part of clipLine([a, b], rect)) graticule += pathData(part, false);
-  }
-  for (let lat = 56.5; lat <= 61; lat += 0.5) {
-    const pts: XY[] = [];
-    for (let lon = 16; lon <= 34.001; lon += 0.25) pts.push(P([lon, lat]));
-    parallels.push({ lat, pts });
-    for (const part of clipLine(pts, rect)) graticule += pathData(simplifyLine(part, 0.5), false);
-  }
 
   // Neighbours: their polygons plus the land beyond the box they were cut to; the outline leaves out the cut.
   const nbRings: Ring[] = [];
@@ -865,21 +875,7 @@ export function baseMap(view: MapView): BaseMap {
     countyLines[id] = lines(chain(inner[id]), view.tol + 0.15);
   }
 
-  const allTowns = REGION_IDS.flatMap((id) => REGIONS[id]?.towns ?? []);
-  const towns: MapTown[] = [];
-  for (const tw of TOWNS) {
-    const town = allTowns.find((x) => x.name === tw.name);
-    if (!town) continue;
-    const [x, y] = project(view, town.coord);
-    if (x >= 0 && y >= 0 && x <= view.width && y <= view.height)
-      towns.push({ name: tw.name, x, y, size: tw.size });
-  }
-
-  const base: BaseMap = {
-    view,
-    graticule,
-    meridians,
-    parallels,
+  return {
     land: polys(outline(countySet(() => true))),
     coast: lines(outerRuns(false)),
     border: lines(outerRuns(true)),
@@ -903,6 +899,52 @@ export function baseMap(view: MapView): BaseMap {
       roads((k) => k === 'Road'),
       view.tol + 0.25,
     ),
+  };
+}
+
+const baseCache = new Map<string, BaseMap>();
+
+/** Every static layer of the view, built on first use (the heavy ones prebuilt for the standard views) and cached. */
+export function baseMap(view: MapView): BaseMap {
+  const key = viewKey(view);
+  const hit = baseCache.get(key);
+  if (hit) return hit;
+  const P = (ll: LngLat) => project(view, ll);
+  const rect: Rect = [-10, -10, view.width + 10, view.height + 10];
+
+  // Graticule: meridians are straight in L-EST97, parallels gently curved.
+  const meridians: BaseMap['meridians'] = [];
+  const parallels: BaseMap['parallels'] = [];
+  let graticule = '';
+  for (let lon = 18; lon <= 32; lon++) {
+    const a = P([lon, 61.5]);
+    const b = P([lon, 55.8]);
+    meridians.push({ lon, a, b });
+    for (const part of clipLine([a, b], rect)) graticule += pathData(part, false);
+  }
+  for (let lat = 56.5; lat <= 61; lat += 0.5) {
+    const pts: XY[] = [];
+    for (let lon = 16; lon <= 34.001; lon += 0.25) pts.push(P([lon, lat]));
+    parallels.push({ lat, pts });
+    for (const part of clipLine(pts, rect)) graticule += pathData(simplifyLine(part, 0.5), false);
+  }
+
+  const allTowns = REGION_IDS.flatMap((id) => REGIONS[id]?.towns ?? []);
+  const towns: MapTown[] = [];
+  for (const tw of TOWNS) {
+    const town = allTowns.find((x) => x.name === tw.name);
+    if (!town) continue;
+    const [x, y] = P(town.coord);
+    if (x >= 0 && y >= 0 && x <= view.width && y <= view.height)
+      towns.push({ name: tw.name, x, y, size: tw.size });
+  }
+
+  const base: BaseMap = {
+    view,
+    graticule,
+    meridians,
+    parallels,
+    ...(PREBUILT_LAYERS[key] ?? heavyLayers(view)),
     towns,
     regionLabels: REGION_IDS.map((id) => {
       const [x, y] = fromKm(view, REGION_AT[id]);
