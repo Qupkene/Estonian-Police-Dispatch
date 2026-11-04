@@ -243,12 +243,17 @@ export function BriefingScreen() {
       shiftKind: SHIFT_PRESETS[shift].kind,
       crisisChoice: crisisPick,
     });
-    try {
-      useGame.getState().startShift(opts);
-      sfx.play('dispatch');
-    } catch (e) {
+    const fail = (e: unknown) => {
       sfx.play('error');
       setError(t('shell.brief.startError', { err: e instanceof Error ? e.message : String(e) }));
+    };
+    try {
+      useGame
+        .getState()
+        .startShift(opts)
+        .then(() => sfx.play('dispatch'), fail);
+    } catch (e) {
+      fail(e);
     }
   };
 

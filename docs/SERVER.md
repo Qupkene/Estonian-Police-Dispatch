@@ -111,9 +111,13 @@ Relay VPS: Caddy site `politsei.eu` (and `www.politsei.eu` redirecting to it) �
 - `/admin` → 308 to `/admin/`; `/admin/*` → static from `/app/www/admin` (the admin panel, section 4.2):
   `no-store` (its hashed `/admin/assets/*` a year, immutable), `X-Robots-Tag: noindex, nofollow`, a missing file
   is 404, never the game's index. The service worker leaves `/admin` and `/admin/*` alone.
-- `/og-image.png`, `/og/*` (the challenges' link pictures), `/icons/*`, `/screenshots/*`: files from `/app/www`, a day of
-  caching, a missing file is 404.
-- everything else → static from `/app/www`, unknown paths fall back to `/index.html`.
+- `/og-image.png`, `/og/*` (the challenges' link pictures), `/screenshots/*`: files from `/app/www`, a day of caching, a
+  missing file is 404.
+- `/brand/*` (the logos, docs/PERMISSIONS.md), `/favicon.svg`, `/favicon.ico`, `/icons/*`: files from `/app/www`, 30
+  days of caching (every page loads them; PageSpeed counts a shorter lifetime as waste), a missing file is 404.
+- everything else → static from `/app/www`. A path ending in a file extension is a file: there, or 404 (an AI agent's
+  `/.well-known/ard.json`, a typo, an old file), never the game's page; `/llms.txt` (public/llms.txt) describes the site
+  for language models. Other unknown paths fall back to `/index.html`.
   `index.html` and `sw.js` get `Cache-Control: no-cache`, `/assets/*` get one-year immutable caching.
 
 ## 4. API

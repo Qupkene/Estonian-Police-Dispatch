@@ -7,7 +7,8 @@ Mis on tehtud:
 - `public/icons/`: PNG ikoonid (32, 192, 512, maskable 512 ja apple-touch-icon 180) ning `public/favicon.ico` (16, 32, 48) failist `public/favicon.svg` (EPD ikoon, sinimustvalge kilp, `src/ui/components/Emblem.tsx`). Maskable ja Apple ikoonil on tume taust ja kilp jääb keskmise 80 % ringi sisse. `public/screenshots/`: manifesti ekraanipildid (WebP, 1600 × 900).
 - `public/manifest.webmanifest`: id, kirjeldus, kategooriad, PNG ja maskable ikoonid ning laiad ekraanipildid, nii näitab Chrome rikkalikumat paigaldusakent.
 - `public/robots.txt` keelab `/api/` ja `/tiles/`, `public/sitemap.xml` sisaldab mängu ja kahte vana versiooni. Uue avaliku lehe lisamisel pane see sitemapi ja uuenda `lastmod`.
-- Caddyfile: `/api/*` vastustel on `X-Robots-Tag: noindex`; robots, sitemap ja pildid tulevad päris failidena koos vahemäluajaga, puuduv fail annab 404, mitte `index.html`-i.
+- Caddyfile: `/api/*` vastustel on `X-Robots-Tag: noindex`; robots, sitemap ja pildid tulevad päris failidena koos vahemäluajaga, puuduv fail annab 404, mitte `index.html`-i. Logod, favicon ja ikoonid on 30 päeva vahemälus. Faililaiendiga tee (näiteks `/.well-known/ard.json`) on alati fail või 404, mitte mängu leht.
+- `public/llms.txt` ([llmstxt.org](https://llmstxt.org/)): saidi kirjeldus ja lehed keelemudelitele ning AI-agentidele (PageSpeedi "Agentic Browsing"). `tests/seo.test.ts` kontrollib, et sellel on pealkiri ja lingid ning et lingitud lehed on olemas. Uue avaliku lehe lisamisel lisa see ka siia.
 - Kontroll: `npx vitest run tests/seo.test.ts`.
 
 Tutvustavad lehed (2.22.0):
@@ -16,7 +17,7 @@ Tutvustavad lehed (2.22.0):
 - Märksõnad, mille järgi lehed on kirjutatud: politsei mäng, politseimäng, politsei mängud, politsei simulaator, 112 mäng, häirekeskuse mäng, dispetšeri mäng, politsei mäng sõpradega, tasuta mäng brauseris; inglise keeles police dispatch game, police dispatcher simulator.
 - Igal lehel on oma pealkiri, kirjeldus, canonical, Open Graph, JSON-LD (WebPage, BreadcrumbList, `politseimang` ja `en` lehel ka FAQPage) ning `politseimang` ja `en` vahel hreflang. Avalehe JSON-LD viitab lehtedele (`subjectOf`).
 - Pildid: `SHOTS=1 npm run e2e -- screenshots` teeb `docs/screenshots/*.png` (README, 1600 × 900 ja `phone-*.png` 390 × 844 x2). Saidi WebP koopiad `public/screenshots/` (`game`, `call`, `menu` 1600 × 900 ning `phone-menu`, `phone-game`, `phone-call` 780 × 1688) tehakse neist, näiteks Pillow'ga kvaliteediga 80. Lehed näitavad telefonis telefoni pilti (`<picture>`), manifestis on mõlemad (wide ja narrow).
-- Caddy: kaust ilma kaldkriipsuta suunatakse 301-ga kaldkriipsuga aadressile ja `kaust/` annab `kaust/index.html`-i. Tundmatu tee annab endiselt mängu (`index.html`).
+- Caddy: kaust ilma kaldkriipsuta suunatakse 301-ga kaldkriipsuga aadressile ja `kaust/` annab `kaust/index.html`-i. Tundmatu laiendita tee annab endiselt mängu (`index.html`).
 - Mängu menüü jaluses ja laadimislehel on lingid lehtedele, nii leiab Google need ka ilma saidikaardita.
 
 Omaniku valikulised sammud:

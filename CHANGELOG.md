@@ -2,6 +2,20 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.40.2 (2026-11-04)
+
+- **Veel kiirem algus:** sündmuste kataloog (umbes 2 MB vahetuse sündmusi) laaditakse alles pärast sisselogimist, menüüs taustal. Avaleht laadib ja käivitab umbes 40 % vähem JavaScripti ja telefon on avamisel vähem hõivatud: kohalikus PageSpeedi mõõtmises langes blokeeritud aeg (TBT) 310-720 ms pealt 160-190 ms peale.
+- Laadimisekraani riba pulseerib nüüd sujuvalt ega koorma protsessorit.
+- **AI-agentidele:** saidil on `llms.txt` mängu ja lehtede kirjeldusega. Puuduv fail (näiteks `/.well-known/ard.json`) annab nüüd korrektse 404, mitte mängu lehe.
+- Logod, favicon ja ikoonid jäävad brauseri vahemällu 30 päevaks.
+
+<details>
+<summary>English</summary>
+
+PageSpeed, second round (the live report: mobile 79 with TBT 900 ms, Agentic Browsing 2/4). The incident catalogue (`src/data/incidents`, about 2 MB) leaves the start: the simulation reads its templates from a registry (`src/sim/templates.ts`) that the catalogue fills as it loads; `startShift` and `resumeShift` wait for it when needed (synchronous once it is there, and `startShift` takes a `prepare` callback for the room, challenge and daily marks before the clock runs), co-op and the replay load it first, the menus fetch it in idle time, and the game server and the tests import it outright. The start's JavaScript falls from about 5.1 to 3.1 MB; locally Lighthouse 13 mobile went from 82-90 (TBT 310-720 ms) to 92-97 (TBT 160-190 ms). The splash's loader animates opacity only (composited). `public/llms.txt` describes the site; the server answers a missing file with a file extension with 404 instead of the game's page (Agentic Browsing's llms.txt and ARD checks, and no soft 404s), and gives the logos, the favicon and the icons 30 days of caching.
+
+</details>
+
 ## 2.40.1 (2026-11-04)
 
 - **Kiirem algus:** mäng avaneb eriti telefonis kiiremini ja sujuvamalt.

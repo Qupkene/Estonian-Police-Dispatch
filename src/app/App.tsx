@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { useGame } from '@/store/game';
 import { useSettings } from '@/store/settings';
+import { loadTemplates } from '@/sim/templates';
 import { useT } from '@/i18n';
 import { PpaLogo } from '@/ui/components';
 import { BootScreen } from '@/ui/screens/BootScreen';
@@ -139,6 +140,7 @@ export function App() {
     if (!inside) return;
     const preload = () => {
       void loadGameScreen().catch(() => {});
+      void loadTemplates().catch(() => {});
       for (const load of Object.values(PAGES)) void load().catch(() => {});
     };
     if (typeof requestIdleCallback === 'function') {

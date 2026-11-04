@@ -1,0 +1,17 @@
+# EPD · Eesti Politsei Dispetšer
+
+> Tasuta politseimäng eesti keeles: ole dispetšer päris Eesti kaardil, võta vastu 112-kõned, saada patrullid välja ja kontrolli inimesi andmebaasist. Mängi brauseris üksi või koos sõpradega. Mitteametlik fännimäng, ei ole Politsei- ja Piirivalveameti (PPA) toode ega ametiga seotud.
+
+EPD (Estonian Police Dispatch) is a free, unofficial police dispatch simulator on the real map of Estonia, in Estonian and English. The player answers 112 emergency calls, sets each incident's priority, sends patrol crews and other units, checks people and vehicles in the registry, and runs a career across the four prefectures. It plays in the browser alone, or with up to three friends in a multiplayer room (a race on the same shift, or one shared shift with the desks split). It is a fan project, not a product of the Police and Border Guard Board (PPA) or connected to it; in a real emergency call 112.
+
+## Lehed / Pages
+
+- [Mäng / The game](https://politsei.eu/): the game itself, a web app that needs JavaScript
+- [Politseimängust](https://politsei.eu/politseimang/): what the game is, its modes and the real Estonian map (Estonian)
+- [Juhend](https://politsei.eu/juhend/): how to play: taking a 112 call, choosing the priority, sending a patrol, the registry and the radio (Estonian)
+- [Mitmikmäng](https://politsei.eu/mitmikmang/): playing with friends: a race on the same shift or one shared shift (Estonian)
+- [Police Dispatch Game](https://politsei.eu/en/): an overview of the game in English
+
+## Optional
+
+- [Sitemap](https://politsei.eu/sitemap.xml): every public page

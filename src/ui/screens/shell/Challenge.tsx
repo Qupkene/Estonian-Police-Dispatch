@@ -85,10 +85,9 @@ function useShiftLine(setup: ShiftSetup) {
 /** Start a challenge run: the same shift, marked with the challenge's code. */
 function startChallenge(ch: Challenge): void {
   const g = useGame.getState();
-  g.startShift(challengeShiftOptions(ch.setup, g.user?.name ?? 'Dispetšer'));
-  const sim = useGame.getState().sim;
-  if (sim) markChallenge(sim, ch.code);
-  sfx.play('dispatch');
+  void g
+    .startShift(challengeShiftOptions(ch.setup, g.user?.name ?? 'Dispetšer'), (sim) => markChallenge(sim, ch.code))
+    .then(() => sfx.play('dispatch'));
 }
 
 /** The text that goes with the link: who, how many points, where and when. */

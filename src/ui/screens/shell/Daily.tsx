@@ -130,14 +130,17 @@ export function useDaily(saved: SimState | null) {
       resumeShift(resumable);
       return;
     }
-    try {
-      useGame.getState().startShift(dailyShiftOptions(today, gameUser?.name ?? 'Dispetšer'));
-      const sim = useGame.getState().sim;
-      if (sim) markDaily(sim, today);
-      sfx.play('dispatch');
-    } catch (e) {
+    const fail = (e: unknown) => {
       sfx.play('error');
       setError(t('daily.startError', { err: e instanceof Error ? e.message : String(e) }));
+    };
+    try {
+      useGame
+        .getState()
+        .startShift(dailyShiftOptions(today, gameUser?.name ?? 'Dispetšer'), (sim) => markDaily(sim, today))
+        .then(() => sfx.play('dispatch'), fail);
+    } catch (e) {
+      fail(e);
     }
   };
 

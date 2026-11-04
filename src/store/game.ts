@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createShift, drainEvents, finalizeShift, step } from '@/sim/engine';
+import { loadTemplates, templatesLoaded } from '@/sim/templates';
 import { REGION_IDS } from '@/data/regions';
 import { CALL_SPEED, coopReport, effectiveSpeed, TURN_SPEEDS } from '@/sim/coop';
 import type { CrisisChoice } from '@/sim/crisis';
@@ -78,8 +79,13 @@ interface GameStore {
   login: (u: LoginUser) => void;
   logout: () => void;
   setBriefing: (b: Partial<GameStore['briefing']>) => void;
-  startShift: (opts: NewShiftOptions) => void;
-  resumeShift: (sim: SimState) => void;
+  /**
+   * A new shift. `prepare` marks it (a room's, a challenge's, the day's) before its clock runs. Synchronous once the
+   * incident catalogue is loaded (src/sim/templates.ts); before that the shift starts when it has come.
+   */
+  startShift: (opts: NewShiftOptions, prepare?: (sim: SimState) => void) => Promise<SimState>;
+  /** Back into a saved or shared shift; as startShift, once the incident catalogue is loaded. */
+  resumeShift: (sim: SimState) => Promise<void>;
   endShift: () => ShiftReport | null;
   quitShift: () => void;
   select: (sel: Selection, tab?: RightTab) => void;
@@ -113,24 +119,29 @@ export const useGame = create<GameStore>()((set, get) => ({
   login: (user) => set({ user, screen: 'menu' }),
   logout: () => set({ user: null, screen: 'login' }),
   setBriefing: (b) => set({ briefing: { ...get().briefing, ...b } }),
-  startShift: (opts) => {
+  startShift: (opts, prepare) => {
+    if (!templatesLoaded()) return loadTemplates().then(() => get().startShift(opts, prepare));
     const sim = createShift(opts);
+    prepare?.(sim);
     // mapFocus: null, or the new shift's map would fly to the last shift's focus point on mount.
     set({ sim, report: null, screen: 'game', selection: {}, rightTab: 'incident', speedIndex: 1, tick: 0, realtime: opts.mode === 'director', mapFocus: null });
     startLoop();
+    return Promise.resolve(sim);
   },
   resumeShift: (sim) => {
+    if (!templatesLoaded()) return loadTemplates().then(() => get().resumeShift(sim));
     set({ sim, report: null, screen: 'game', selection: {}, speedIndex: 0, tick: 0, mapFocus: null });
     if (sim.ended) {
       // The clock ran out before the report was opened (reload, crash, Save & quit): report straight away.
       // If that fails the shift stays on screen with its end dialog, so the player can try again.
       try {
-        if (get().endShift()) return;
+        if (get().endShift()) return Promise.resolve();
       } catch (err) {
         console.error('[EPD] endShift failed', err);
       }
     }
     startLoop();
+    return Promise.resolve();
   },
   endShift: () => {
     const { sim, report: done } = get();

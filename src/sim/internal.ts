@@ -7,8 +7,8 @@
  * (e.g. in tests).
  */
 import { REGIONS } from '@/data/regions';
-import { TEMPLATE_BY_ID, TEMPLATES } from '@/data/incidents';
 import { publishIncidentImpl } from './incidents';
+import { templateList, templateMap } from './templates';
 import { moveUnitToImpl } from './units';
 import { stripLawRefsText } from './radioText';
 import { withScenario } from './scenario';
@@ -18,18 +18,21 @@ export function regionOf(s: SimState): RegionDef {
   return REGIONS[s.regionId];
 }
 
+// The templates come from the catalogue loaded before the first shift (src/sim/templates.ts): asked for earlier, these
+// throw rather than answer as if an incident had none.
+
 /** The incident's template, as its scenario tells it (see sim/scenario.ts). */
 export function tplOf(inc: Incident): IncidentTemplate | undefined {
-  return withScenario(TEMPLATE_BY_ID[inc.templateId], inc.scenarioId);
+  return withScenario(templateMap()[inc.templateId], inc.scenarioId);
 }
 
 export function templateById(id: string): IncidentTemplate | undefined {
-  return TEMPLATE_BY_ID[id];
+  return templateMap()[id];
 }
 
 /** All incident templates (content). */
 export function allTemplates(): IncidentTemplate[] {
-  return TEMPLATES;
+  return templateList();
 }
 
 export function addTimeline(s: SimState, inc: Incident, kind: TimelineEntry['kind'], text: Text): void {
