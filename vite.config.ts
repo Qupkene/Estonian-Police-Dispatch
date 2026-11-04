@@ -66,6 +66,26 @@ function serviceWorkerManifest(): Plugin {
   };
 }
 
+/**
+ * The entry's stylesheets do not hold up the first paint: index.html preloads them (`data-epd-css`) and src/main.tsx
+ * applies them before the app renders. The loading splash in index.html carries its own styles, so it paints as soon as
+ * the page itself has arrived (PageSpeed: no render-blocking request) and nothing shows unstyled.
+ */
+export function preloadEntryStyles(html: string): string {
+  return html.replace(
+    /<link rel="stylesheet"( crossorigin)? href="([^"]+\.css)">/g,
+    (_m, cors: string | undefined, href: string) => `<link rel="preload" as="style"${cors ?? ''} href="${href}" data-epd-css>`,
+  );
+}
+
+function nonBlockingStyles(): Plugin {
+  return {
+    name: 'epd-non-blocking-styles',
+    apply: 'build',
+    transformIndexHtml: { order: 'post', handler: preloadEntryStyles },
+  };
+}
+
 const devProxy = {
   '/api': process.env.EPD_API_URL ?? 'http://127.0.0.1:8787',
   '/mp': { target: process.env.EPD_MP_URL ?? 'http://127.0.0.1:8790', ws: true },
@@ -75,7 +95,7 @@ const devProxy = {
 // Set BASE_PATH=/Estonian-Police-Dispatch/ for a plain github.io project page.
 export default defineConfig({
   base: process.env.BASE_PATH ?? '/',
-  plugins: [react(), serviceWorkerManifest()],
+  plugins: [react(), serviceWorkerManifest(), nonBlockingStyles()],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },

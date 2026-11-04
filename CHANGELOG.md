@@ -2,6 +2,22 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.40.1 (2026-11-04)
+
+- **Kiirem algus:** mäng avaneb eriti telefonis kiiremini ja sujuvamalt.
+  - Käivitusekraan ei hüple enam: logi read on algusest paigas ja ilmuvad järjest, riba täitub sujuvalt.
+  - Menüüde Eesti kaart on ette arvutatud, telefon ei pea seda enam iga kord nullist ehitama.
+  - Kaardimootor ja mänguekraan laaditakse alles pärast sisselogimist. Karjääri, mitmikmängu, raporti, seadete ja teiste lehtede kood tuleb siis, kui neid esimest korda vaja on (menüüs juba eelnevalt taustal).
+  - Laadimisekraan ilmub kohe, see ei oota enam stiililehte.
+- PageSpeedi mõõtmisel tõusis kohalik tulemus arvutis 91-94-lt 100-le ja telefonis 64-66-lt 88-91-le. Ligipääsetavus, head tavad ja SEO on 100.
+
+<details>
+<summary>English</summary>
+
+PageSpeed (the owner's report on politsei.eu, reproduced with Lighthouse on the same build: desktop 91-94 to 100, mobile 64-66 to 88-91). The boot log lays every line out from the first frame and fills its bar by CSS (CLS 0.19 to 0.007, no React render per animation frame; on a phone the panel sits at the top, so the footer's new wrap when the web fonts arrive moves nothing). The duty map's heavy layers of the start, sign-in and menu views are prebuilt in `dutyMapBase.json` (`npm run gen:dutymap`, a test checks the file is what the code builds), removing most of a second of polygon work on a slow phone. The in-shift chunk loads past the sign-in, and the pages other than the start, the sign-in and the menu are lazy chunks with their own styles (the entry stylesheet halves) that the menu fetches in idle time. The entry stylesheets are preloaded and applied before the app renders, so the splash in `index.html` paints with no render-blocking request. Tallinn wall time comes from the EU summer time rule for 2002-2037 (checked against the time zone data every hour of the span), so the start builds no Intl time zone formatter; the address generator builds its tables on first use.
+
+</details>
+
 ## 2.40.0 (2026-10-26)
 
 - **Sõbrad:** mitmikmängu menüüs on uus plokk **"Sõbrad"**. Sõbra saab lisada tema kasutajanime järgi; tema näeb sõbrakutset ja võtab selle vastu.

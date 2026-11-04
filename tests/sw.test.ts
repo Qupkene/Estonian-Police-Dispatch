@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { precacheList, stampServiceWorker } from '../vite.config';
+import { precacheList, preloadEntryStyles, stampServiceWorker } from '../vite.config';
 import { offlineMapUrls } from '@/pwa';
 
 const ORIGIN = 'https://politsei.eu';
@@ -265,6 +265,16 @@ describe('build stamping', () => {
     expect(out).toContain(`const VERSION = '2.0.0-abc';`);
     expect(out).toContain(`const PRECACHE = ["assets/a.js"];`);
     expect(() => stampServiceWorker('const X = 1;', 'v', [])).toThrow();
+  });
+
+  it('turns the entry stylesheets into preloads the app applies, so the splash paints without waiting for them', () => {
+    const html =
+      '<head><link rel="stylesheet" crossorigin href="/assets/components-A.css">\n' +
+      '<link rel="stylesheet" href="/assets/index-B.css"><link rel="icon" href="/favicon.svg"></head>';
+    expect(preloadEntryStyles(html)).toBe(
+      '<head><link rel="preload" as="style" crossorigin href="/assets/components-A.css" data-epd-css>\n' +
+        '<link rel="preload" as="style" href="/assets/index-B.css" data-epd-css><link rel="icon" href="/favicon.svg"></head>',
+    );
   });
 
   it('the page also hands the worker the map files a menu-only visit never fetched', () => {

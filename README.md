@@ -150,7 +150,7 @@ server/
   mp/         Node game server (WebSocket) for shared co-op shifts
 deploy/       home server and relay setup and auto-update scripts
 docs/         design, multiplayer, server, SEO, deployment, sectors, story
-scripts/      map data, landing pages, version check
+scripts/      map data, landing pages, the menus' prebuilt map (npm run gen:dutymap), version check
 tests/ e2e/   Vitest and Playwright
 ```
 
