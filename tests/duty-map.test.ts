@@ -9,16 +9,20 @@ import {
   DESKTOP_VIEW,
   dutyOverlay,
   fitView,
+  heavyLayers,
   pathData,
+  PREBUILT_LAYERS,
   project,
   sectorShape,
   simplifyLine,
   spotsIn,
+  STANDARD_VIEWS,
   STRIP_VIEW,
   textWidth,
   type DutyInput,
   type PlacedText,
   type XY,
+  viewKey,
 } from '@/ui/screens/shell/dutyMap';
 
 const names = {
@@ -157,6 +161,21 @@ describe('base layers', () => {
     const latvia = project(DESKTOP_VIEW, [25.2, 58.2]);
     for (const [x, y] of border) expect(x > narva[0] - 60 || y > latvia[1], `${x},${y}`).toBe(true);
     expect(base.border.length).toBeLessThan(base.coast.length / 3);
+  });
+
+  it('has the standard views prebuilt as this code builds them (else: npm run gen:dutymap)', () => {
+    expect(STANDARD_VIEWS).toEqual(expect.arrayContaining([DESKTOP_VIEW, STRIP_VIEW]));
+    for (const view of STANDARD_VIEWS) {
+      const pre = PREBUILT_LAYERS[viewKey(view)];
+      expect(pre, viewKey(view)).toBeDefined();
+      expect(heavyLayers(view)).toEqual(pre);
+      // The menus' map takes them from there.
+      expect(baseMap(view).land).toBe(pre.land);
+    }
+    // Any other view is built.
+    const other = fitView([[24.5, 59.2], [25.2, 59.6]], 600, 400);
+    expect(PREBUILT_LAYERS[viewKey(other)]).toBeUndefined();
+    expect(baseMap(other).land.length).toBeGreaterThan(100);
   });
 
   it('places the county towns inside the view, and the strip has its own scale', () => {

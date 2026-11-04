@@ -6,14 +6,6 @@ import { PpaLogo } from '@/ui/components';
 import { BootScreen } from '@/ui/screens/BootScreen';
 import { LoginScreen } from '@/ui/screens/LoginScreen';
 import { MenuScreen } from '@/ui/screens/MenuScreen';
-import { BriefingScreen } from '@/ui/screens/BriefingScreen';
-import { ReportScreen } from '@/ui/screens/ReportScreen';
-import { SettingsScreen } from '@/ui/screens/SettingsScreen';
-import { CreditsScreen } from '@/ui/screens/CreditsScreen';
-import { LegacyScreen } from '@/ui/screens/LegacyScreen';
-import { CareerScreen } from '@/ui/screens/CareerScreen';
-import { LobbyScreen } from '@/ui/screens/LobbyScreen';
-import { CustomScreen } from '@/ui/screens/custom/CustomScreen';
 import { ChallengeGate, takeChallengeLink } from '@/ui/screens/shell/Challenge';
 import { FriendsGate } from '@/ui/screens/shell/Friends';
 import { ReplayLayer } from '@/ui/replay/ReplayLayer';
@@ -65,6 +57,46 @@ function reloadOnceIfStale(err: unknown): Promise<never> {
 
 const GameScreen = lazy(() => loadGameScreen().then((m) => ({ default: m.GameScreen }), reloadOnceIfStale));
 
+// ── The other pages past the menu, loaded on demand ──────────────────────────
+// The start, the sign-in and the menu are in the entry chunk; the other pages, and their styles, come when first
+// opened (and in idle time from the menu on, so a click rarely waits). The service worker precaches them too.
+
+/** A chunk loaded once; a failed load is tried again on the next call. */
+function chunk<M>(load: () => Promise<M>): () => Promise<M> {
+  let p: Promise<M> | null = null;
+  return () =>
+    (p ??= load().catch((err: unknown) => {
+      p = null;
+      throw err;
+    }));
+}
+
+const PAGES = {
+  briefing: chunk(() => import('@/ui/screens/BriefingScreen')),
+  report: chunk(() => import('@/ui/screens/ReportScreen')),
+  settings: chunk(() => import('@/ui/screens/SettingsScreen')),
+  credits: chunk(() => import('@/ui/screens/CreditsScreen')),
+  legacy: chunk(() => import('@/ui/screens/LegacyScreen')),
+  career: chunk(() => import('@/ui/screens/CareerScreen')),
+  lobby: chunk(() => import('@/ui/screens/LobbyScreen')),
+  custom: chunk(() => import('@/ui/screens/custom/CustomScreen')),
+};
+
+const BriefingScreen = lazy(() =>
+  PAGES.briefing().then((m) => ({ default: m.BriefingScreen }), reloadOnceIfStale),
+);
+const ReportScreen = lazy(() => PAGES.report().then((m) => ({ default: m.ReportScreen }), reloadOnceIfStale));
+const SettingsScreen = lazy(() =>
+  PAGES.settings().then((m) => ({ default: m.SettingsScreen }), reloadOnceIfStale),
+);
+const CreditsScreen = lazy(() =>
+  PAGES.credits().then((m) => ({ default: m.CreditsScreen }), reloadOnceIfStale),
+);
+const LegacyScreen = lazy(() => PAGES.legacy().then((m) => ({ default: m.LegacyScreen }), reloadOnceIfStale));
+const CareerScreen = lazy(() => PAGES.career().then((m) => ({ default: m.CareerScreen }), reloadOnceIfStale));
+const LobbyScreen = lazy(() => PAGES.lobby().then((m) => ({ default: m.LobbyScreen }), reloadOnceIfStale));
+const CustomScreen = lazy(() => PAGES.custom().then((m) => ({ default: m.CustomScreen }), reloadOnceIfStale));
+
 // A challenge link (/v/<code>, docs/CHALLENGE.md): remembered, and the address goes back to the game's own.
 takeChallengeLink();
 
@@ -89,7 +121,8 @@ export function App() {
   const colorblind = useSettings((s) => s.colorblind);
   const uiScale = useSettings((s) => s.uiScale);
   const lang = useSettings((s) => s.lang);
-  const booted = screen !== 'boot';
+  // Past the start and the sign-in: the player is in the menus, where a shift is a click away.
+  const inside = screen !== 'boot' && screen !== 'login';
 
   useEffect(() => {
     const el = document.documentElement;
@@ -100,17 +133,21 @@ export function App() {
     (el.style as CSSStyleDeclaration & { zoom?: string }).zoom = uiScale === 1 ? '' : String(uiScale);
   }, [theme, colorblind, uiScale, lang]);
 
-  // Once past the boot screen, fetch the in-shift chunk while the player is still in the menus.
+  // Once in the menus, fetch the in-shift chunk and the other pages while the player is still choosing (the start and
+  // the sign-in page do without them and the map engine, so they load and settle sooner).
   useEffect(() => {
-    if (!booted) return;
-    const preload = () => void loadGameScreen().catch(() => {});
+    if (!inside) return;
+    const preload = () => {
+      void loadGameScreen().catch(() => {});
+      for (const load of Object.values(PAGES)) void load().catch(() => {});
+    };
     if (typeof requestIdleCallback === 'function') {
       const id = requestIdleCallback(preload, { timeout: 4000 });
       return () => cancelIdleCallback(id);
     }
     const id = setTimeout(preload, 1500);
     return () => clearTimeout(id);
-  }, [booted]);
+  }, [inside]);
 
   const Screen = SCREENS[screen];
   return (

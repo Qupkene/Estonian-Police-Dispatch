@@ -1,5 +1,7 @@
 // Fake CAD workstation boot log, then the sign-in. Skippable with any key or click. On the Valvekaart frame: the
 // duty map (empty, built here so the sign-in has it at once), the log in a panel over it. Owned by ui-shell.
+// Every line of the log is laid out from the first frame and shown in turn, and the bar fills by CSS, so the boot
+// moves nothing on the page and renders only when a line comes (PageSpeed: no layout shifts, no render per frame).
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGame } from '@/store/game';
 import { useT } from '@/i18n';
@@ -38,8 +40,6 @@ export function BootScreen() {
     ],
     [online],
   );
-  const [shown, setShown] = useState(0);
-  const [progress, setProgress] = useState(0);
   const done = useRef(false);
   const started = useRef(performance.now());
 
@@ -51,19 +51,8 @@ export function BootScreen() {
 
   useEffect(() => {
     if (sfx.isUnlocked()) sfx.play('boot');
-    const step = (TOTAL_MS - 500) / lines.length;
     // Timings are relative to the first mount so re-running the effect (Strict Mode / fast refresh) never restarts the log.
     const elapsed = performance.now() - started.current;
-    const timers = lines.map((_, i) =>
-      setTimeout(() => setShown((s) => Math.max(s, i + 1)), Math.max(0, 120 + i * step - elapsed)),
-    );
-    let raf = 0;
-    const tick = () => {
-      const p = Math.min(1, (performance.now() - started.current) / TOTAL_MS);
-      setProgress(p);
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
     const end = setTimeout(finish, Math.max(0, TOTAL_MS + 250 - elapsed));
     const skip = (e: Event) => {
       if (
@@ -76,16 +65,13 @@ export function BootScreen() {
     window.addEventListener('keydown', skip);
     window.addEventListener('pointerdown', skip);
     return () => {
-      timers.forEach(clearTimeout);
       clearTimeout(end);
-      cancelAnimationFrame(raf);
       window.removeEventListener('keydown', skip);
       window.removeEventListener('pointerdown', skip);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines]);
+  }, []);
 
-  const pct = Math.round(progress * 100);
   return (
     <div className="vk vk-boot">
       <ShellTopBar account={false} />
@@ -105,41 +91,70 @@ export function BootScreen() {
             <span className="vk-meta">v{VERSION} · Europe/Tallinn</span>
           </div>
           <ShellIdent />
-          <ol className="vk-boot__log">
-            {lines.slice(0, shown).map((l, i) => (
-              <li key={l.key} className="vk-boot__line">
-                <span className="vk-boot__ts">{(0.12 + i * 0.26).toFixed(3).padStart(6, '0')}</span>
-                <span className="vk-boot__text">
-                  {t(l.key, { v: VERSION })}
-                  {l.detail && <span className="vk-boot__detail"> {l.detail}</span>}
-                </span>
-                {l.status === 'ok' && <span className="vk-boot__st is-ok">{t('shell.boot.ok')}</span>}
-                {l.status === 'offline' && (
-                  <span className="vk-boot__st is-off" title={t('shell.boot.offlineNote')}>
-                    {t('shell.boot.offline')}
-                  </span>
-                )}
-              </li>
-            ))}
-            {shown < lines.length && <li className="vk-boot__cursor" aria-hidden="true" />}
-          </ol>
-          <div className="vk-boot__foot">
-            <div
-              className="vk-boot__bar"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={pct}
-              aria-label={t('shell.boot.aria')}
-            >
-              <span style={{ width: `${progress * 100}%` }} />
-            </div>
-            <span className="vk-boot__pct">{pct}%</span>
-            <span className="vk-boot__skip">{t('shell.boot.skip')}</span>
-          </div>
+          <BootLog lines={lines} started={started.current} />
         </section>
       </main>
       <ShellFooter />
     </div>
+  );
+}
+
+/** The log and its bar: the only part of the screen that renders again as the lines come. */
+function BootLog({ lines, started }: { lines: BootLine[]; started: number }) {
+  const t = useT();
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const step = (TOTAL_MS - 500) / lines.length;
+    const elapsed = performance.now() - started;
+    const timers = lines.map((_, i) =>
+      setTimeout(() => setShown((s) => Math.max(s, i + 1)), Math.max(0, 120 + i * step - elapsed)),
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [lines, started]);
+
+  // The figure follows the log (a step per line); the bar itself fills smoothly by CSS over the whole boot.
+  const pct =
+    shown >= lines.length
+      ? 100
+      : Math.round(((120 + shown * ((TOTAL_MS - 500) / lines.length)) / TOTAL_MS) * 100);
+  return (
+    <>
+      <ol className="vk-boot__log">
+        {lines.map((l, i) => (
+          <li
+            key={l.key}
+            className={`vk-boot__line${i < shown ? '' : ' is-off'}`}
+            aria-hidden={i < shown ? undefined : true}
+          >
+            {i === shown && <span className="vk-boot__cursor" aria-hidden="true" />}
+            <span className="vk-boot__ts">{(0.12 + i * 0.26).toFixed(3).padStart(6, '0')}</span>
+            <span className="vk-boot__text">
+              {t(l.key, { v: VERSION })}
+              {l.detail && <span className="vk-boot__detail"> {l.detail}</span>}
+            </span>
+            {l.status === 'ok' && <span className="vk-boot__st is-ok">{t('shell.boot.ok')}</span>}
+            {l.status === 'offline' && (
+              <span className="vk-boot__st is-off" title={t('shell.boot.offlineNote')}>
+                {t('shell.boot.offline')}
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+      <div className="vk-boot__foot">
+        <div
+          className="vk-boot__bar"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={pct}
+          aria-label={t('shell.boot.aria')}
+        >
+          <span style={{ animationDuration: `${TOTAL_MS}ms` }} />
+        </div>
+        <span className="vk-boot__pct">{pct}%</span>
+        <span className="vk-boot__skip">{t('shell.boot.skip')}</span>
+      </div>
+    </>
   );
 }

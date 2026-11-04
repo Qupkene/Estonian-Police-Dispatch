@@ -13,7 +13,7 @@ import { sfx } from '@/audio/sfx';
 import { BrandLogo, Button, Icon, IconButton, PpaLogo, Spinner, Tabs, TextField, type Brand } from '@/ui/components';
 import { useToast } from './shell/ShellPage';
 import { DutyMap, NO_DUTY } from './shell/DutyMap';
-import { DESKTOP_VIEW, type MapView } from './shell/dutyMap';
+import { LOGIN_VIEW } from './shell/dutyMap';
 import { ShellFooter, ShellIdent, ShellTopBar, STACKED, useMedia } from './shell/ShellFrame';
 import { VkLayer } from './shell/VkLayer';
 import { accountErrorText } from './shell/accountText';
@@ -31,9 +31,6 @@ import './shell/vk.css';
 import './shell/login.css';
 
 type Method = 'idcard' | 'mobiilid' | 'smartid' | 'legacy';
-
-/** The whole-country map moved left (view px), out from under the panel in the right half. */
-const LOGIN_VIEW: MapView = { ...DESKTOP_VIEW, at: [DESKTOP_VIEW.at[0] - 300, DESKTOP_VIEW.at[1]] };
 
 export function LoginScreen() {
   const t = useT();

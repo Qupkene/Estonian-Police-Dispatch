@@ -38,10 +38,33 @@ import { pokePresence, useFriends } from './store/friends';
   friends: { state: useFriends, poke: pokePresence },
 };
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+/**
+ * The entry's stylesheets, which index.html only preloads (vite.config.ts nonBlockingStyles: the splash paints without
+ * them), applied in their order; resolves once each has loaded or failed. Nothing to do in development.
+ */
+function applyStyles(): Promise<unknown> {
+  const pre = document.querySelectorAll<HTMLLinkElement>('link[rel="preload"][as="style"][data-epd-css]');
+  return Promise.all(
+    Array.from(pre, (p) => {
+      const sheet = document.createElement('link');
+      sheet.rel = 'stylesheet';
+      if (p.crossOrigin !== null) sheet.crossOrigin = p.crossOrigin;
+      sheet.href = p.href;
+      const done = new Promise<void>((resolve) => {
+        sheet.onload = sheet.onerror = () => resolve();
+      });
+      p.after(sheet);
+      return done;
+    }),
+  );
+}
+
+void applyStyles().then(() =>
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  ),
 );
 
 registerSW();
