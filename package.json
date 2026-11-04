@@ -1,7 +1,7 @@
 {
   "name": "estonian-police-dispatch",
   "private": true,
-  "version": "2.40.1",
+  "version": "2.40.2",
   "description": "EPD: Eesti politsei juhtimiskeskuse simulaator / Estonian Police Dispatch simulator",
   "type": "module",
   "scripts": {
@@ -33,7 +33,7 @@
   "devDependencies": {
     "@mapbox/vector-tile": "^3.0.0",
     "@maplibre/maplibre-gl-style-spec": "^26.4.4",
-    "@playwright/test": "1.56.1",
+    "@playwright/test": "1.64.1",
     "@testing-library/react": "^16.3.3",
     "@types/geojson": "^7946.0.16",
     "@types/node": "^26.6.5",

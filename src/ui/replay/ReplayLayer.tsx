@@ -1,12 +1,16 @@
 // Kordus (2.39.0, docs/REPLAY.md): the replay opens over whatever screen asked for it (the report, the history). The
-// viewer and the map are their own chunk, loaded when the first replay opens.
+// viewer and the map are their own chunk, loaded when the first replay opens, with the incident catalogue (a replay
+// from the history may come before any shift of this visit).
 import { lazy, Suspense } from 'react';
 import { useT } from '@/i18n';
+import { loadTemplates } from '@/sim/templates';
 import { useReplay } from '@/store/replay';
 import { Spinner } from '@/ui/components';
 import { VkLayer } from '@/ui/screens/shell/VkLayer';
 
-const ReplayScreen = lazy(() => import('./ReplayScreen').then((m) => ({ default: m.ReplayScreen })));
+const ReplayScreen = lazy(() =>
+  Promise.all([import('./ReplayScreen'), loadTemplates()]).then(([m]) => ({ default: m.ReplayScreen })),
+);
 
 export function ReplayLayer() {
   const open = useReplay((s) => s.open);

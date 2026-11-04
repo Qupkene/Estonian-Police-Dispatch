@@ -14,6 +14,8 @@ import { join } from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { MpRoom, PIECE_MS, socketPeer, type Peer, type SavedRoom } from './room';
+// The incident catalogue registers itself for the simulation as it loads (src/sim/templates.ts).
+import '@/data/incidents';
 import { SecretFile, signTicket, verifyKick, verifyTicket } from './ticket';
 
 const PORT = Number(process.env.EPD_MP_PORT ?? 8790);

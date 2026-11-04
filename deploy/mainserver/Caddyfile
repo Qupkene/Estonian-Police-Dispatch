@@ -12,9 +12,11 @@
 #   /v/*      väljakutse link (2.38.0): PHP annab mängu index.html-i väljakutse eelvaate siltidega
 #   /mp/*     mänguserver politsei-mp 127.0.0.1:8790 (/mp/health ja WebSocket /mp/ws), maas olles 502
 #   /tiles/*  /srv/tiles failid, Range päringud (PMTiles)
-#   robots.txt, sitemap.xml, og-image.png, /og/*, /icons/*, /screenshots/*: /app/www failid, puuduv annab 404
+#   robots.txt, sitemap.xml, og-image.png, /og/*, /screenshots/*: /app/www failid, puuduv annab 404
+#   /brand/*, /favicon.svg, /favicon.ico, /icons/*: logod ja ikoonid, 30 päeva vahemälus, puuduv annab 404
 #   /admin/*  admini paneel, /app/www/admin (oma leht, mitte mängu index.html), puuduv fail annab 404
-#   muu       /app/www, tundmatu tee annab /index.html
+#   muu       /app/www; puuduv fail (tee lõpus laiend, nt /llms.txt, /.well-known/ard.json) annab 404,
+#             muu tundmatu tee annab /index.html
 
 {
 	auto_https off
@@ -154,12 +156,21 @@
 		file_server
 	}
 
-	# Jagamispilt, ikoonid ja manifesti ekraanipildid: ööpäev vahemälus (nimes pole räsi, uus pilt
+	# Jagamispilt ja manifesti ekraanipildid: ööpäev vahemälus (nimes pole räsi, uus pilt
 	# jõuab kohale päevaga). Puuduv fail annab 404, mitte index.html-i.
-	@pildid path /og-image.png /og/* /icons/* /screenshots/*
+	@pildid path /og-image.png /og/* /screenshots/*
 	handle @pildid {
 		root * /app/www
 		header Cache-Control "public, max-age=86400"
+		file_server
+	}
+
+	# Logod (docs/PERMISSIONS.md), favicon ja ikoonid: iga lehe avamisel vajalikud ja muutuvad harva, seega 30 päeva
+	# vahemälus (PageSpeed loeb lühema aja raiskamiseks). Puuduv fail annab 404, mitte index.html-i.
+	@ikoonid path /brand/* /favicon.svg /favicon.ico /icons/*
+	handle @ikoonid {
+		root * /app/www
+		header Cache-Control "public, max-age=2592000"
 		file_server
 	}
 
@@ -176,7 +187,13 @@
 			file {path}/index.html
 		}
 		redir @kaust {path}/ 301
-		try_files {path} {path}index.html /index.html
+		# Tee, mille lõpus on faililaiend, on fail: olemas või 404 (AI-agendi /.well-known/ard.json, trükiviga, vana
+		# fail), mitte mängu index.html (PageSpeed loeks selle vigaseks failiks). Laiendita tee viib mängu nagu enne.
+		@leht {
+			not path_regexp \.[A-Za-z0-9]+$
+			file {path} {path}index.html /index.html
+		}
+		rewrite @leht {file_match.relative}
 		file_server
 	}
 

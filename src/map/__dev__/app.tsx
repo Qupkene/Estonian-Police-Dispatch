@@ -6,6 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import '@/ui/styles/global.css';
 import { App } from '@/app/App';
 import { useGame } from '@/store/game';
+import '@/data/incidents';
 import type { RegionId } from '@/sim/types';
 
 const q = new URLSearchParams(location.search);

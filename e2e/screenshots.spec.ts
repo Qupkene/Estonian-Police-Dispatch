@@ -35,9 +35,9 @@ async function startNight(page: Page) {
 async function nightShift(page: Page) {
   await epd(
     page,
-    `e.game.getState().startShift({ seed: 2026, regionId: 'pohja', mode: 'free', difficulty: 'normal',
-       start: Date.UTC(2026, 9, 16, 19, 0), hours: 8, playerName: 'Ott Koppel' });
-     e.game.getState().setSpeed(0);`,
+    `return e.game.getState().startShift({ seed: 2026, regionId: 'pohja', mode: 'free', difficulty: 'normal',
+       start: Date.UTC(2026, 9, 16, 19, 0), hours: 8, playerName: 'Ott Koppel' })
+     .then(() => e.game.getState().setSpeed(0));`,
   );
   await expect.poll(() => epd(page, 'return e.game.getState().screen')).toBe('game');
 }
@@ -85,9 +85,9 @@ test('capture README screenshots', async ({ page }) => {
   // A Friday night in Tallinn, 22:00.
   await epd(
     page,
-    `e.game.getState().startShift({ seed: 2026, regionId: 'pohja', mode: 'free', difficulty: 'normal',
-       start: Date.UTC(2026, 9, 16, 19, 0), hours: 8, playerName: 'Ott Koppel' });
-     e.game.getState().setSpeed(0);`,
+    `return e.game.getState().startShift({ seed: 2026, regionId: 'pohja', mode: 'free', difficulty: 'normal',
+       start: Date.UTC(2026, 9, 16, 19, 0), hours: 8, playerName: 'Ott Koppel' })
+     .then(() => e.game.getState().setSpeed(0));`,
   );
   await expect.poll(() => epd(page, 'return e.game.getState().screen')).toBe('game');
   await play(page, 75);

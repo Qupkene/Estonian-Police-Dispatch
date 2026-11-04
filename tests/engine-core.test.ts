@@ -66,10 +66,12 @@ async function loadFixtureEngine(): Promise<Eng> {
     REGION_IDS: ['pohja'],
     regionForCounty: () => 'pohja',
   }));
-  vi.doMock('@/data/incidents', () => ({
-    TEMPLATES: FIXTURE_TEMPLATES,
-    TEMPLATE_BY_ID: Object.fromEntries(FIXTURE_TEMPLATES.map((t) => [t.id, t])),
-  }));
+  vi.doMock('@/data/incidents', async () => {
+    const TEMPLATE_BY_ID = Object.fromEntries(FIXTURE_TEMPLATES.map((t) => [t.id, t]));
+    // As the real catalogue does as it loads: the simulation reads its templates from the registry.
+    (await import('@/sim/templates')).registerTemplates(FIXTURE_TEMPLATES, TEMPLATE_BY_ID);
+    return { TEMPLATES: FIXTURE_TEMPLATES, TEMPLATE_BY_ID };
+  });
   vi.doMock('@/gen/person', () => f.personModule);
   vi.doMock('@/gen/address', () => f.addressModule);
   vi.doMock('@/gen/vehicle', () => f.vehicleModule);
@@ -82,6 +84,7 @@ async function loadFixtureEngine(): Promise<Eng> {
   vi.doMock('@/sim/search', () => f.searchModule);
   vi.doMock('@/sim/sun', () => f.sunModule);
   vi.doMock('@/sim/report', () => f.reportModule);
+  await import('@/data/incidents');
   return loadModules();
 }
 

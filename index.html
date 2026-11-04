@@ -95,9 +95,10 @@
       .epd-splash h1 span{display:block;margin-bottom:6px;color:#f0f3f6;font-size:clamp(64px,15vw,104px);font-weight:800;line-height:.95;letter-spacing:.06em}
       .epd-splash p.epd-splash__lead{margin:16px auto 0;max-width:30em;font-size:16px;text-wrap:balance}
       .epd-splash p.epd-splash__load{margin-top:28px;color:#9aa7b4;font-size:13px;letter-spacing:.04em}
-      .epd-splash__load::before{content:"";display:block;width:180px;height:2px;margin:0 auto 12px;background:linear-gradient(#5cb8f0,#5cb8f0) 0 0/40% 100% no-repeat #2a323d;animation:epd-load 1.3s ease-in-out infinite}
-      @keyframes epd-load{from{background-position:-70% 0}to{background-position:170% 0}}
-      @media (prefers-reduced-motion:reduce){.epd-splash__load::before{animation:none;background-position:50% 0}}
+      .epd-splash__load::before{content:"";display:block;width:180px;height:2px;margin:0 auto 12px;background:#5cb8f0;animation:epd-load 1.1s ease-in-out infinite alternate}
+      /* Opacity only: the compositor runs it while the game's script loads (PageSpeed: no non-composited animation). */
+      @keyframes epd-load{from{opacity:.2}to{opacity:1}}
+      @media (prefers-reduced-motion:reduce){.epd-splash__load::before{animation:none;opacity:.6}}
       .epd-splash p.epd-splash__note{margin-top:24px;color:#9aa7b4;font-size:12px}
       .epd-splash__note span{white-space:nowrap}
       .epd-splash__links{margin-top:20px;font-size:14px}

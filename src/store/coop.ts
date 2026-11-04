@@ -14,6 +14,7 @@
  */
 import { create } from 'zustand';
 import { createShift } from '@/sim/engine';
+import { loadTemplates } from '@/sim/templates';
 import {
   roleHolders as rolesHolders,
   beginTurn,
@@ -820,6 +821,8 @@ export async function startCoop(
   engine: RoomEngine = '',
   avatars: Record<number, string> = {},
 ): Promise<void> {
+  // The shared shift runs the simulation here too (lockstep, or drawing the game server's): its incidents first.
+  await loadTemplates();
   stopCoop();
   if (engine === 'server') {
     const s = new ServerSession(code);

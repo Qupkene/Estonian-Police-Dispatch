@@ -341,6 +341,8 @@ describe('Caddyfile', () => {
     expect(start, opener).toBeGreaterThan(-1);
     return caddy.slice(start, caddy.indexOf('\n\t}', start));
   };
+  // The game's page for a path that is not a file: the last handle's fallback.
+  const FALLBACK = 'file {path} {path}index.html /index.html';
 
   it('marks API responses noindex', () => {
     expect(block('handle /api/* {')).toMatch(/header X-Robots-Tag "noindex"/);
@@ -348,18 +350,29 @@ describe('Caddyfile', () => {
 
   it('serves robots, sitemap and images as real files with a cache lifetime, before the SPA fallback', () => {
     expect(caddy).toMatch(/@seo path \/robots\.txt \/sitemap\.xml/);
-    expect(caddy).toMatch(/@pildid path \/og-image\.png \/og\/\* \/icons\/\* \/screenshots\/\*/);
+    expect(caddy).toMatch(/@pildid path \/og-image\.png \/og\/\* \/screenshots\/\*/);
+    // The logos, the favicon and the icons every page loads: 30 days (PageSpeed: efficient cache lifetimes).
+    expect(caddy).toMatch(/@ikoonid path \/brand\/\* \/favicon\.svg \/favicon\.ico \/icons\/\*/);
     const seo = block('handle @seo {');
     const images = block('handle @pildid {');
+    const icons = block('handle @ikoonid {');
     expect(seo).toContain('Cache-Control "public, max-age=3600"');
     expect(images).toContain('Cache-Control "public, max-age=86400"');
-    for (const b of [seo, images]) {
+    expect(icons).toContain('Cache-Control "public, max-age=2592000"');
+    for (const b of [seo, images, icons]) {
       expect(b).toContain('file_server');
       expect(b).not.toContain('try_files');
+      expect(b).not.toContain('index.html');
+      expect(caddy.indexOf(b)).toBeLessThan(caddy.indexOf(FALLBACK));
     }
-    expect(caddy.indexOf('handle @seo {')).toBeLessThan(
-      caddy.indexOf('try_files {path} {path}index.html /index.html'),
-    );
+  });
+
+  it('answers a missing file with 404, never the game: only a path without a file extension falls back to it', () => {
+    const fallback = block('@leht {');
+    expect(fallback).toContain('not path_regexp \\.[A-Za-z0-9]+$');
+    expect(fallback).toContain(FALLBACK);
+    expect(caddy).toMatch(/rewrite @leht \{file_match\.relative\}/);
+    expect(caddy).not.toContain('try_files');
   });
 
   it('hands a challenge link to PHP for its preview tags, noindex (2.38.0)', () => {
@@ -367,7 +380,7 @@ describe('Caddyfile', () => {
     expect(page).toContain('header X-Robots-Tag "noindex"');
     expect(page).toContain('rewrite * /api/index.php');
     expect(page).toContain('php');
-    expect(caddy.indexOf('handle /v/* {')).toBeLessThan(caddy.indexOf('try_files {path} {path}index.html /index.html'));
+    expect(caddy.indexOf('handle /v/* {')).toBeLessThan(caddy.indexOf(FALLBACK));
   });
 
   it("serves the admin panel as its own page: noindex, never cached, never the game's index", () => {
@@ -378,9 +391,26 @@ describe('Caddyfile', () => {
     expect(admin).toContain('file_server');
     expect(admin).not.toContain('/index.html');
     expect(caddy).toMatch(/redir \/admin \/admin\/ 308/);
-    expect(caddy.indexOf('handle /admin/* {')).toBeLessThan(
-      caddy.indexOf('try_files {path} {path}index.html /index.html'),
-    );
+    expect(caddy.indexOf('handle /admin/* {')).toBeLessThan(caddy.indexOf(FALLBACK));
+  });
+});
+
+describe('llms.txt', () => {
+  const txt = read('public/llms.txt');
+
+  it('follows what Lighthouse checks: an H1, links, and more than a line', () => {
+    expect(txt).toMatch(/^\s*#\s+.+/m);
+    expect(txt).toMatch(/\[.+\]\(.+\)/);
+    expect(txt.length).toBeGreaterThan(50);
+  });
+
+  it('links only pages the site has', () => {
+    const links = [...txt.matchAll(/\]\((https:\/\/politsei\.eu\/[^)]*)\)/g)].map((m) => new URL(m[1]).pathname);
+    expect(links.length).toBeGreaterThan(3);
+    for (const path of links) {
+      const file = path === '/' ? 'index.html' : path.endsWith('/') ? `public${path}index.html` : `public${path}`;
+      expect(existsSync(root(file)), path).toBe(true);
+    }
   });
 });
 
@@ -390,6 +420,7 @@ describe('owner rules', () => {
     const files = [
       'index.html',
       'public/robots.txt',
+      'public/llms.txt',
       'public/sitemap.xml',
       'public/manifest.webmanifest',
       'public/og-image.svg',

@@ -98,9 +98,9 @@ test('a requested ambulance drives to the scene on the map and opens its inciden
   await bootAndLegacyLogin(page);
   const epd = <T = unknown>(body: string) => page.evaluate(`(() => { const e = window.__epd; ${body} })()`) as Promise<T>;
   await epd(
-    `e.game.getState().startShift({ seed: 2026, regionId: 'pohja', mode: 'free', difficulty: 'normal',
-       start: Date.UTC(2026, 9, 16, 11, 0), hours: 8, playerName: 'Test' });
-     e.game.getState().setSpeed(0);`,
+    `return e.game.getState().startShift({ seed: 2026, regionId: 'pohja', mode: 'free', difficulty: 'normal',
+       start: Date.UTC(2026, 9, 16, 11, 0), hours: 8, playerName: 'Test' })
+     .then(() => e.game.getState().setSpeed(0));`,
   );
   await expect.poll(() => screen(page), { timeout: 20_000 }).toBe('game');
   await expect(page.locator('.maplibregl-canvas').first()).toBeVisible({ timeout: 20_000 });
@@ -150,9 +150,9 @@ test('a major incident: the choice, the briefing, the staff, a decision and a ta
   await expect(choice.getByRole('radio', { name: /^Kindlasti/ })).toHaveAttribute('aria-checked', 'true');
   // A paused shift of its own; the bus crash started by hand, as the director's panel does.
   await epd(
-    `e.game.getState().startShift({ seed: 2026, regionId: 'pohja', mode: 'free', difficulty: 'normal',
-       start: Date.UTC(2026, 9, 16, 11, 0), hours: 8, playerName: 'Test' });
-     e.game.getState().setSpeed(0);`,
+    `return e.game.getState().startShift({ seed: 2026, regionId: 'pohja', mode: 'free', difficulty: 'normal',
+       start: Date.UTC(2026, 9, 16, 11, 0), hours: 8, playerName: 'Test' })
+     .then(() => e.game.getState().setSpeed(0));`,
   );
   await expect.poll(() => screen(page), { timeout: 20_000 }).toBe('game');
   expect(await epd(`const g = e.game.getState(); const ok = e.engine.crisis.start(g.sim, 'bus'); g.bump(); return ok;`)).toBe(true);

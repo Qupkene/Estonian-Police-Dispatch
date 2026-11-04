@@ -18,6 +18,7 @@ import { TEMPLATES_STORIES } from './stories';
 import { TEMPLATES_REGIONAL } from './regional';
 import { TEMPLATES_CELEBRITY } from './celebrity';
 import { CRISIS_TEMPLATES } from '../crises';
+import { registerTemplates } from '@/sim/templates';
 
 export const TEMPLATES: IncidentTemplate[] = [
   ...TEMPLATES_VIOLENCE,
@@ -47,3 +48,7 @@ export const TEMPLATES: IncidentTemplate[] = [
 export const TEMPLATE_BY_ID: Record<string, IncidentTemplate> = Object.fromEntries(
   [...TEMPLATES, ...CRISIS_TEMPLATES].map((t) => [t.id, t]),
 );
+
+// Loaded for the first shift (src/sim/templates.ts loadTemplates), or imported outright by the game server, the
+// in-shift screen and the tests: from here on the simulation reads the catalogue.
+registerTemplates(TEMPLATES, TEMPLATE_BY_ID);

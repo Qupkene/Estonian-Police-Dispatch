@@ -66,6 +66,7 @@ src/
   sim/                            pure engine, NO DOM / React imports
     types.ts rng.ts geo.ts time.ts text.ts                              (core, done)
     engine.ts       createShift, step, finalizeShift                    (engine-core)
+    templates.ts    the incident catalogue's registry: data/incidents loads before the first shift (engine-core)
     spawner.ts      Poisson spawning, template pick, incident creation  (engine-core)
     units.ts        roster→units, movement, patrol wander, ETA          (engine-core)
     incidents.ts    lifecycle, beats, outcomes                          (engine-core)

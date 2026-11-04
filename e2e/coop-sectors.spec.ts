@@ -317,9 +317,11 @@ test.describe.serial('sector co-op', () => {
     await host.page.locator('.gm-top__menu').click();
     await host.page.getByRole('button', { name: 'Lõpeta vahetus kõigile' }).click();
     await host.page.getByRole('button', { name: 'Jah, lõpeta vahetus' }).click();
+    // The click returns once the page has run it: building the report of a shared shift takes a while on a runner
+    // that also draws two maps in software, so the click and the report get a minute each.
     for (const p of [host.page, guest.page]) {
-      await p.getByRole('button', { name: 'Vaata vahetuse aruannet' }).click({ timeout: 20_000 });
-      await expect.poll(() => screen(p), { timeout: 20_000 }).toBe('report');
+      await p.getByRole('button', { name: 'Vaata vahetuse aruannet' }).click({ timeout: 60_000 });
+      await expect.poll(() => screen(p), { timeout: 60_000 }).toBe('report');
     }
     const reports = await Promise.all(
       [host.page, guest.page].map((p) =>

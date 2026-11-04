@@ -763,15 +763,18 @@ function RoomView({
       resumeShift(saved);
       return;
     }
-    try {
-      // Kohandatud mäng: a race player commands the force they drafted.
-      useGame.getState().startShift(roomShiftOptions(shift, gameUser?.name ?? 'Dispetšer', me?.custom));
-      const sim = useGame.getState().sim;
-      if (sim) markRoom(sim, room.code);
-      sfx.play('dispatch');
-    } catch (e) {
+    const fail = (e: unknown) => {
       sfx.play('error');
       setError(e instanceof Error ? e.message : String(e));
+    };
+    try {
+      // Kohandatud mäng: a race player commands the force they drafted.
+      useGame
+        .getState()
+        .startShift(roomShiftOptions(shift, gameUser?.name ?? 'Dispetšer', me?.custom), (sim) => markRoom(sim, room.code))
+        .then(() => sfx.play('dispatch'), fail);
+    } catch (e) {
+      fail(e);
     }
   };
 
