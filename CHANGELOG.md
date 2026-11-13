@@ -2,6 +2,21 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.41.0 (2026-11-13)
+
+- **Valvekaamerad:** osa sündmusi toimub valvekaamera vaateväljas. Sündmuse kaardil on siis nupp, mis avab kaardi kohal otsepildi: näed tänavat, kus sündmus toimub, patrulli saabumist vilkuritega, ametnikke autost väljumas, kaklust, põgenejat, kinnipidamist ja kiirabi.
+  - Pilt joonistatakse mängu enda seisust ja mängu enda tänavakaardilt: majad ja teed on päris kohast, inimesed ja sõidukid on sündmuse omad (registri värv ja tüüp), ekipaažid on need, kelle sa saatsid.
+  - Pilt näeb välja nagu valvekaamera oma: lainurk, madal lahutus, müra, kell nurgas, öösel must-valge infrapunapilt, vihmaga piisad kupli peal.
+  - Kaamera on avalikes kohtades (tanklad, pangad, kaubanduskeskused, jaamad, kesklinna tänavad) sagedamini kui elamurajoonis; metsas ja külas kaameraid pole. Siseruumis toimuvast näitab kaamera ainult ust.
+  - Politsei-, kiirabi- ja päästeautod on märgistatud nagu päris Eesti omad.
+
+<details>
+<summary>English</summary>
+
+Kaamerad, live surveillance cameras (docs/CCTV.md). An incident at a place with a camera (`src/cctv/coverage.ts`, by kind of place and a stable hash of the spot) gets a camera button on its card; the window over the map shows the street live. The picture is a small three.js scene (a lazy chunk, 640x360 at about 12 frames a second) built from the game's own state: the street from the zoom 15 tiles of the street map (`tiles.ts`; a made-up street of the place's kind when the map is not there), the incident's people and vehicles from the registry (`cast.ts`), the crews actually sent. The director (`director.ts`) plays each change of the incident at a natural pace in real seconds, whatever the game's speed: a patrol car drives up with its blue lights, officers get out and take their posts, a fight stops, somebody runs, an arrest is walked to the car, the ambulance comes; opening a camera in the middle settles the stage first. People are one CC0 base body dressed per person (`render/human.ts`, "Male Base Mesh" by orange-juice-games), vehicles are shaped from cross-sections at real sizes with the Estonian services' markings (`render/carbody.ts`, `cars.ts`), house fronts are painted by building kind (`render/facades.ts`). Two screen passes make it a camera's picture: lens bulge, softness and colour fringes, rain on the dome, then stream blocks, grain, infrared black and white at night, scan lines and the burned-in clock with the mark `EPD v<version>`. New runtime dependency: three.js.
+
+</details>
+
 ## 2.40.2 (2026-11-04)
 
 - **Veel kiirem algus:** sündmuste kataloog (umbes 2 MB vahetuse sündmusi) laaditakse alles pärast sisselogimist, menüüs taustal. Avaleht laadib ja käivitab umbes 40 % vähem JavaScripti ja telefon on avamisel vähem hõivatud: kohalikus PageSpeedi mõõtmises langes blokeeritud aeg (TBT) 310-720 ms pealt 160-190 ms peale.
