@@ -15,12 +15,16 @@ import {
   CylinderGeometry,
   Color,
   DirectionalLight,
+  DoubleSide,
   Fog,
+  FrontSide,
+  Group,
   HemisphereLight,
   LineBasicMaterial,
   LineSegments,
   Mesh,
   MeshBasicMaterial,
+  MeshDepthMaterial,
   PCFShadowMap,
   PMREMGenerator,
   PerspectiveCamera,
@@ -31,11 +35,16 @@ import {
   SphereGeometry,
   SpotLight,
   WebGLRenderer,
-  type WebGLRenderTarget,
+  type Camera,
+  type Material,
+  type Object3D,
+  type Texture,
+  type WebGLCubeRenderTarget,
 } from 'three';
 import type { Env } from '../env';
+import { lookOfCrew } from '../figure';
 import { hash01, hash32, wobble } from '../math';
-import type { Site } from '../types';
+import type { ParkedCar, Site } from '../types';
 import type { Frame } from '../stage';
 import { BEACON_COLOR, CarKit, CarMesh } from './cars';
 import { HumanMesh, seedOfLook, type HumanBase } from './human';
@@ -62,6 +71,135 @@ export interface Osd {
 const LAMP_LIGHTS = 6;
 const BEACON_LIGHTS = 3;
 const SMOKE_PUFFS = 26;
+/** Drops of rain in a shower and in a storm, flakes of snow. */
+const RAIN_DROPS = 300;
+const STORM_DROPS = 620;
+const SNOW_FLAKES = 520;
+/** Glints of street lamps and lit windows in what paint and glass reflect. */
+const LAMP_GLINTS = 9;
+
+/**
+ * The light as it is applied, rounded to steps finer than the eye follows between two readings: the light is only
+ * worked out again when this changes (the session reads the hour every 2 real seconds, and most readings change
+ * nothing that shows).
+ */
+function lightKey(env: Env): string {
+  return [env.weather, env.rain, env.snowing, env.lamps, Math.round(env.night * 50), Math.round(env.sunAlt * 2), Math.round(env.sunAz / 2), Math.round(env.fog * 50)].join('|');
+}
+
+/**
+ * What the reflection in paint and glass depends on, in coarse steps: it is soft and small in the picture, and
+ * rendering it again is the costly part of a change of light.
+ */
+function reflectionKey(env: Env): string {
+  return [env.weather, env.lamps, Math.round(env.night * 10), Math.round(env.sunAlt / 3), Math.round(env.sunAz / 10), Math.round(env.fog * 10)].join('|');
+}
+
+/**
+ * Where each drop and flake falls and how fast, worked out once per page from the hash (plain numbers, shared by
+ * every view): x and z in the box of air (-0.5..0.5), speed and phase (0..1). Rain uses the first STORM_DROPS.
+ */
+let dropTable: { rain: Float32Array; snow: Float32Array } | null = null;
+function drops(): { rain: Float32Array; snow: Float32Array } {
+  if (dropTable) return dropTable;
+  const rain = new Float32Array(STORM_DROPS * 4);
+  for (let i = 0; i < STORM_DROPS; i++) {
+    rain[i * 4] = hash01('rx', i) - 0.5;
+    rain[i * 4 + 1] = hash01('rz', i) - 0.5;
+    rain[i * 4 + 2] = hash01('rs', i);
+    rain[i * 4 + 3] = hash01('ry', i);
+  }
+  const snow = new Float32Array(SNOW_FLAKES * 4);
+  for (let i = 0; i < SNOW_FLAKES; i++) {
+    snow[i * 4] = hash01('sx', i) - 0.5;
+    snow[i * 4 + 1] = hash01('sz', i) - 0.5;
+    snow[i * 4 + 2] = hash01('ss', i);
+    snow[i * 4 + 3] = hash01('sy', i);
+  }
+  return (dropTable = { rain, snow });
+}
+
+/** Let the page breathe between two pieces of work (the game's clock, the map and the queue keep running). */
+const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+/** `p`, but no longer than `ms`: what is not ready by then is finished when it is first drawn. */
+const atMost = (p: Promise<unknown>, ms: number) => Promise.race([p, new Promise<void>((resolve) => setTimeout(resolve, ms))]);
+
+/** The face size of the reflection's cube: blurred as it is (sigma 0.035 rad), 64 texels a face are plenty. */
+const REFLECTION_SIZE = 64;
+const REFLECTION_SIGMA = 0.035;
+
+/** What KeptPmrem reaches inside three's PMREMGenerator (r187); checked before use. */
+interface PmremInside {
+  _cubeSize: number;
+  _renderCube?: unknown;
+  _boxMesh?: Mesh;
+  _cubeCamera?: Object3D;
+  _blurMaterial?: Material | null;
+  _ggxMaterial?: Material | null;
+  _integrationMaterial?: Material | null;
+}
+
+/**
+ * three's PMREMGenerator, kept small and kept in one place. It renders the reflection into a cube of
+ * REFLECTION_SIZE (three's own minimum is 256: 16 times the pixels, for a picture this soft), and it makes its render
+ * target once and hands the same one back from every fromScene, so that a change of light renders the reflection
+ * again into the same texture: nothing is allocated and every material keeps the program it was compiled with.
+ * It overrides three's internal _setSize and _allocateTarget: should a later three.js rename them, fromScene simply
+ * works as three's own again (bigger, a new target each time, which reflect() then disposes of).
+ */
+class KeptPmrem extends PMREMGenerator {
+  private kept: WebGLCubeRenderTarget | null = null;
+
+  _setSize(): void {
+    (this as unknown as PmremInside)._cubeSize = REFLECTION_SIZE;
+  }
+
+  _allocateTarget(): WebGLCubeRenderTarget {
+    const fresh = (PMREMGenerator.prototype as unknown as { _allocateTarget(this: PMREMGenerator): WebGLCubeRenderTarget })._allocateTarget;
+    return (this.kept ??= fresh.call(this));
+  }
+
+  /**
+   * Make the generator's own shaders and its target without drawing anything, so that their programs can be compiled
+   * in parallel while the page runs on (three makes them on the first fromScene and compiles them there, which holds
+   * the page for seconds on a slow device). `scene` is drawn into the cube once, so its own programs must be ready.
+   * Returns the target (its pixels not yet worked out: reflect() renders into it) and what to compile the shaders
+   * on; null when this three.js is not the one this was written for.
+   */
+  prepare(scene: Scene): { target: WebGLCubeRenderTarget; mesh: Mesh; camera: Camera; materials: Material[] } | null {
+    const inside = this as unknown as PmremInside;
+    if (typeof inside._renderCube !== 'function' || !inside._boxMesh || !inside._cubeCamera?.children[0]) return null;
+    let target: WebGLCubeRenderTarget;
+    // An own property over the prototype's for the length of one call: the passes are made, not drawn.
+    inside._renderCube = () => undefined;
+    try {
+      target = this.fromScene(scene, REFLECTION_SIGMA);
+    } finally {
+      delete inside._renderCube;
+    }
+    const materials = [inside._blurMaterial, inside._ggxMaterial, inside._integrationMaterial].filter((m): m is Material => !!m);
+    return { target, mesh: inside._boxMesh, camera: inside._cubeCamera.children[0] as Camera, materials };
+  }
+}
+
+/**
+ * A stand-in for a mesh as the shadow pass draws it: the mesh itself as far as three's program choice reads it (its
+ * kind, its geometry), with a depth material in place of its own and no children.
+ */
+function shadowProxy(o: Mesh, material: Material): Object3D {
+  const p = Object.create(o) as Mesh;
+  Object.defineProperty(p, 'material', { value: material });
+  Object.defineProperty(p, 'children', { value: [] });
+  return p;
+}
+
+/** Which depth program the shadow pass gives a mesh (three's WebGLShadowMap.getDepthMaterial reads these). */
+function shadowKey(o: Mesh, m: Material & { map?: Texture | null; alphaMap?: Texture | null; displacementMap?: Texture | null }): string {
+  const g = o.geometry;
+  const flags = o as Mesh & { isInstancedMesh?: boolean; isSkinnedMesh?: boolean; isBatchedMesh?: boolean };
+  return [flags.isInstancedMesh, flags.isSkinnedMesh, flags.isBatchedMesh, !!g.morphAttributes.position, !!m.map, m.map?.channel, !!m.alphaMap, m.alphaTest > 0, !!m.displacementMap, m.side].join('|');
+}
 
 /** Can this browser draw the camera at all? */
 export function canRender(): boolean {
@@ -82,6 +220,8 @@ export class CameraView {
   private camera = new PerspectiveCamera(45, FRAME_W / FRAME_H, 0.4, 700);
   private post: Post;
   private world: World | null = null;
+  /** The parked cars of the street as drawn (empty until a scene is set): the director is told of them. */
+  parked: readonly ParkedCar[] = [];
   private site: Site | null = null;
   private env: Env | null = null;
   private palette = new Palette();
@@ -113,7 +253,10 @@ export class CameraView {
     glow: glareTexture(),
   };
   private drops = dropsTexture(11);
-  /** The sky all round: a dome painted for the hour and the weather (repainted when they change). */
+  /** The haze: one object for the view's life, recoloured when the light changes (a new one recompiles every material). */
+  private fog = new Fog(0xc9cdcf, 60, 620);
+  private background = new Color(0xc9cdcf);
+  /** The sky all round: a dome painted for the hour and the weather (repainted in place when they change). */
   private skyTex: CanvasTexture | null = null;
   private skyMat = new MeshBasicMaterial({ fog: false, depthWrite: false, side: BackSide });
   private skyDome: Mesh;
@@ -128,9 +271,46 @@ export class CameraView {
   private blobMat = new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false });
   private smokeMat = new MeshBasicMaterial({ color: 0x2a2a2c, transparent: true, opacity: 0.5, depthWrite: false });
   private look: PostLook | null = null;
-  /** What paint and glass reflect: the sky of the hour, the sun, the lamps. */
-  private pmrem: PMREMGenerator;
-  private reflection: WebGLRenderTarget | null = null;
+  /** The light applied last (lightKey), and the reflection rendered last (reflectionKey). */
+  private litKey = '';
+  private reflKey = '';
+  /** The reflection waits for the next frame or prepare(): its first render must not compile anything blocking. */
+  private reflDue: { sky: Color; env: Env; dir: [number, number, number] } | null = null;
+  /**
+   * What paint and glass reflect: a small scene of its own (a dome that pales to the horizon, the sun, the lamps),
+   * made once and recoloured in place, so that its materials keep their compiled programs.
+   */
+  private pmrem: KeptPmrem;
+  private reflection: WebGLCubeRenderTarget | null = null;
+  private refl = new Scene();
+  private reflGeo = new SphereGeometry(60, 24, 14);
+  private reflMat = new MeshBasicMaterial({ vertexColors: true, side: BackSide });
+  private sunGlintMat = new MeshBasicMaterial({ side: BackSide });
+  private lampGlintMat = new MeshBasicMaterial({ side: BackSide });
+  private sunGlint: Mesh;
+  private lampGlints: Mesh[] = [];
+  /**
+   * Out of sight for the view's life: a car's parts (CarKit.standIns) and a constable, so that the programs of
+   * whatever arrives later (a car's paint, lamps, flares and painting; a skinned body) are compiled before the
+   * picture goes live and stay compiled while the real ones come and go. Never drawn, so nothing of theirs is
+   * uploaded.
+   */
+  private warm = new Group();
+  /** An empty object: compiling it only sets the renderer's lights up (see setLayout). */
+  private nothing = new Group();
+  private warmCar: Object3D[] | null = null;
+  private warmPerson: HumanMesh | null = null;
+  /** The depth materials that stand in for the shadow pass's own while its programs compile (kept so that they stay). */
+  private shadowMats = new Map<string, MeshDepthMaterial>();
+  /**
+   * Which lights the shaders are built for (how many lamp lights are on, whether the sun casts shadows): a change
+   * rebuilds the program of every lit material. Once the view is prepared, a change is compiled in the background
+   * and switched to when ready; until then the picture goes on with the lights as they were.
+   */
+  private layout = '';
+  private wantLayout = '';
+  private ready = false;
+  private disposed = false;
   private seed = 1;
   private lost = false;
 
@@ -138,12 +318,16 @@ export class CameraView {
     this.renderer = new WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'low-power', stencil: false });
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(FRAME_W, FRAME_H, false);
+    // Asking for the compile logs makes every compile wait for the driver: only while developing.
+    this.renderer.debug.checkShaderErrors = import.meta.env.DEV;
     // The counts of a whole frame (scene and screen passes), read by the harness against the budget.
     this.renderer.info.autoReset = false;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
     this.post = new Post(this.renderer, FRAME_W, FRAME_H, this.drops);
-    this.pmrem = new PMREMGenerator(this.renderer);
+    this.pmrem = new KeptPmrem(this.renderer);
+    this.scene.fog = this.fog;
+    this.scene.background = this.background;
     this.scene.add(this.hemi, this.fill, this.sun, this.sun.target, this.irLamp);
     this.sun.shadow.mapSize.set(1024, 1024);
     this.sun.shadow.bias = -0.0006;
@@ -174,6 +358,26 @@ export class CameraView {
     this.skyDome.renderOrder = 10;
     this.skyDome.frustumCulled = false;
     this.scene.add(this.skyDome);
+    // The reflection's scene: the dome's colours are written by reflect(), the glints placed and lit there.
+    this.reflGeo.setAttribute('color', new BufferAttribute(new Float32Array(this.reflGeo.getAttribute('position').count * 3), 3));
+    this.refl.add(new Mesh(this.reflGeo, this.reflMat));
+    this.sunGlint = new Mesh(this.blobGeo, this.sunGlintMat);
+    this.refl.add(this.sunGlint);
+    for (let i = 0; i < LAMP_GLINTS; i++) {
+      const m = new Mesh(this.blobGeo, this.lampGlintMat);
+      this.lampGlints.push(m);
+      this.refl.add(m);
+    }
+    // Smoke puffs exist from the start, hidden: a fire later in the story then draws with a compiled program.
+    for (let i = 0; i < SMOKE_PUFFS; i++) {
+      const m = new Mesh(this.blobGeo, this.smokeMat);
+      m.renderOrder = 3;
+      m.visible = false;
+      this.smoke.push(m);
+      this.scene.add(m);
+    }
+    this.warm.visible = false;
+    this.scene.add(this.warm);
     canvas.addEventListener('webglcontextlost', this.onLost);
   }
 
@@ -204,6 +408,7 @@ export class CameraView {
     this.env = env;
     this.seed = site.seed;
     this.world = buildWorld(site, env, this.sheets, this.carKit.materials());
+    this.parked = this.world.parked;
     this.scene.add(this.world.group);
     const town = site.street.buildings.length > 14;
     const tex = skylineTexture(town, site.seed);
@@ -233,13 +438,17 @@ export class CameraView {
     this.aim(0);
   }
 
-  /** The hour or the weather changed: light, sky, lamps and the camera's own look. The street stays as built. */
+  /**
+   * The hour or the weather may have changed: light, sky, lamps and the camera's own look. The street stays as built.
+   * Nothing is done while the light, in the steps the eye follows (lightKey), is what was applied last.
+   */
   setEnv(env: Env) {
     if (!this.site) return;
     const rebuilt = !this.env || Math.abs(this.env.snow - env.snow) > 0.3 || this.env.rain !== env.rain || this.env.season !== env.season;
     if (rebuilt) return this.setScene(this.site, env);
+    // The wind is read every frame (rain, snow, the pole's shake); the rest only when it shows.
     this.env = env;
-    this.applyLight(env);
+    if (lightKey(env) !== this.litKey) this.applyLight(env);
   }
 
   private applyLight(env: Env) {
@@ -249,9 +458,11 @@ export class CameraView {
     const overcast = !clear;
     const up = Math.max(0, env.sunAlt);
     const day = Math.min(1, up / 12);
+    this.litKey = lightKey(env);
     const sky = this.paintSky(env);
-    const far = 620 - 500 * env.fog;
-    this.scene.fog = new Fog(sky.getHex(), env.fog > 0.5 ? 12 : 60, far);
+    this.fog.color.copy(sky);
+    this.fog.near = env.fog > 0.5 ? 12 : 60;
+    this.fog.far = 620 - 500 * env.fog;
 
     this.hemi.color.set(overcast ? 0xcfd4da : 0xbfd6f0);
     this.hemi.groundColor.set(0x57564e);
@@ -272,7 +483,6 @@ export class CameraView {
     this.sun.intensity = night > 0.5 ? 0.14 * night : (overcast ? 1.3 : 6.2) * low * (1 - night);
     if (night > 0.5) this.sun.color.set(0x9db4e0);
     const shadows = clear && env.sunAlt > 3;
-    this.sun.castShadow = shadows;
     if (shadows) {
       const s = this.sun.shadow.camera;
       s.left = -60;
@@ -293,12 +503,12 @@ export class CameraView {
     const lit = env.lamps ? Math.max(0.25, night) : 0;
     const order = world.lamps.slice().sort((a, b) => Math.hypot(a.x - c[0], a.z + c[1]) - Math.hypot(b.x - c[0], b.z + c[1]));
     const led = hash01('led', this.seed) < 0.55;
+    // A lamp that is off leaves the shaders altogether (it costs every pixel otherwise); the farthest two of the
+    // six nearest lamps only paint their pools.
+    const spots = this.lampLights.map((_, i) => !!order[i] && lit > 0 && i < LAMP_LIGHTS - 2);
     this.lampLights.forEach((l, i) => {
       const lamp = order[i];
       const pool = this.pools[i];
-      // A lamp that is off leaves the shaders altogether (it costs every pixel otherwise); the farthest two of the
-      // six nearest lamps only paint their pools.
-      l.visible = !!lamp && lit > 0 && i < LAMP_LIGHTS - 2;
       if (!lamp || !lit) {
         l.intensity = 0;
         pool.visible = false;
@@ -317,8 +527,14 @@ export class CameraView {
       m.color.copy(l.color);
       m.opacity = 0.2 * lit;
     });
+    this.setLayout(spots, shadows);
 
-    this.reflect(sky, env, dir);
+    const rk = reflectionKey(env);
+    if (rk !== this.reflKey) {
+      this.reflKey = rk;
+      this.reflDue = { sky, env, dir };
+    }
+    this.scene.environmentIntensity = 0.5 + 0.5 * (1 - night);
     this.buildWeather(env);
     this.look = this.lookFor(env);
     this.post.setLook(this.look);
@@ -364,11 +580,14 @@ export class CameraView {
       sunColour: '#ffd2a0',
       stars: clear && night > 0.7 && !town ? 0.8 : clear && night > 0.7 ? 0.3 : 0,
     };
+    // Painted again into the same canvas and texture (uploaded again in place).
+    const first = !this.skyTex;
     this.skyTex = skyTexture(look, this.seed, this.skyTex ?? undefined);
-    this.skyTex.needsUpdate = true;
-    this.skyMat.map = this.skyTex;
-    this.skyMat.needsUpdate = true;
-    this.scene.background = horizon;
+    if (first) {
+      this.skyMat.map = this.skyTex;
+      this.skyMat.needsUpdate = true;
+    }
+    this.background.copy(horizon);
     if (this.skylineMat) {
       // Far away and in the haze: a little lighter than the ground, darker than the sky behind it.
       const c = horizon.clone().lerp(new Color(night > 0.5 ? 0x050608 : 0x3e4648), clear ? 0.5 : 0.32);
@@ -380,10 +599,8 @@ export class CameraView {
 
   /** The surroundings as paint and glass mirror them: a sky that pales to the horizon, dark ground, the sun or the lamps. */
   private reflect(sky: Color, env: Env, sunDir: [number, number, number]) {
-    const s = new Scene();
-    const geo = new SphereGeometry(60, 24, 14);
-    const pos = geo.getAttribute('position');
-    const col = new Float32Array(pos.count * 3);
+    const pos = this.reflGeo.getAttribute('position');
+    const col = this.reflGeo.getAttribute('color') as BufferAttribute;
     const night = env.night;
     const horizon = sky.clone().lerp(new Color(0xffffff), 0.35 * (1 - night)).multiplyScalar(1.15);
     const zenith = sky.clone().multiplyScalar(night > 0.5 ? 0.6 : 0.85);
@@ -393,38 +610,296 @@ export class CameraView {
       const up = pos.getY(i) / 60;
       if (up >= 0) c.copy(horizon).lerp(zenith, Math.pow(up, 0.55));
       else c.copy(horizon).lerp(ground, Math.min(1, -up * 6));
-      col[i * 3] = c.r;
-      col[i * 3 + 1] = c.g;
-      col[i * 3 + 2] = c.b;
+      col.setXYZ(i, c.r, c.g, c.b);
     }
-    geo.setAttribute('color', new BufferAttribute(col, 3));
-    const dome = new Mesh(geo, new MeshBasicMaterial({ vertexColors: true, side: BackSide }));
-    s.add(dome);
-    const glints: Mesh[] = [];
-    const glint = (x: number, y: number, z: number, size: number, color: Color) => {
-      const m = new Mesh(this.blobGeo, new MeshBasicMaterial({ color, side: BackSide }));
+    col.needsUpdate = true;
+    const place = (m: Mesh, x: number, y: number, z: number, size: number) => {
       m.position.set(x * 50, y * 50, z * 50);
       m.scale.setScalar(size);
       m.lookAt(0, 0, 0);
-      s.add(m);
-      glints.push(m);
     };
-    if (night < 0.5 && env.weather === 'clear' && env.sunAlt > 2) glint(sunDir[0], sunDir[1], sunDir[2], 5, new Color(30, 28, 24));
-    if (env.lamps) {
-      // Street lamps and lit windows, low round the horizon.
-      for (let i = 0; i < 9; i++) {
-        const a = (i / 9) * Math.PI * 2 + hash01('gl', this.seed, i);
-        glint(Math.cos(a) * 0.93, 0.18 + 0.2 * hash01('gh', this.seed, i), Math.sin(a) * 0.93, 2.2, new Color(9, 7.5, 5).multiplyScalar(0.4 + night));
+    this.sunGlint.visible = night < 0.5 && env.weather === 'clear' && env.sunAlt > 2;
+    if (this.sunGlint.visible) {
+      place(this.sunGlint, sunDir[0], sunDir[1], sunDir[2], 5);
+      this.sunGlintMat.color.setRGB(30, 28, 24);
+    }
+    // Street lamps and lit windows, low round the horizon.
+    this.lampGlintMat.color.setRGB(9, 7.5, 5).multiplyScalar(0.4 + night);
+    this.lampGlints.forEach((m, i) => {
+      m.visible = env.lamps;
+      const a = (i / LAMP_GLINTS) * Math.PI * 2 + hash01('gl', this.seed, i);
+      place(m, Math.cos(a) * 0.93, 0.18 + 0.2 * hash01('gh', this.seed, i), Math.sin(a) * 0.93, 2.2);
+    });
+    const made = this.pmrem.fromScene(this.refl, REFLECTION_SIGMA);
+    if (this.reflection && this.reflection !== made) this.reflection.dispose();
+    this.reflection = made;
+    this.scene.environment = made.texture;
+  }
+
+  /** Render the reflection if the light changed since it was rendered last. */
+  private flushReflection() {
+    const due = this.reflDue;
+    if (!due) return;
+    this.reflDue = null;
+    this.reflect(due.sky, due.env, due.dir);
+  }
+
+  /**
+   * Switch the lamp lights (`spots`, which are on) and the sun's shadows. While the number of lights the shaders are
+   * built for stays the same, at once; else, once prepared, the programs for the new lights are compiled in the
+   * background first (the lights are set for the moment of the compile and set back), and the switch is made when
+   * they are ready. A lamp coming on at dusk then costs no frame.
+   */
+  private setLayout(spots: boolean[], shadow: boolean) {
+    const key = `${spots.filter(Boolean).length}|${shadow}`;
+    const apply = () => {
+      this.lampLights.forEach((l, i) => (l.visible = spots[i]));
+      this.sun.castShadow = shadow;
+      this.layout = key;
+    };
+    const switchNow = () => {
+      apply();
+      // Three draws a frame's shadows before it sets the lights up for that frame: set them up now.
+      if (this.ready) this.renderer.compile(this.nothing, this.camera, this.scene);
+    };
+    if (key === this.wantLayout && key !== this.layout && this.ready) return;
+    this.wantLayout = key;
+    if (key === this.layout || !this.ready) return switchNow();
+    const was = this.lampLights.map((l) => l.visible);
+    const wasShadow = this.sun.castShadow;
+    const before = this.layout;
+    const stale = () => this.disposed || this.lost || this.wantLayout !== key;
+    // The new lights are set for each piece of the compile and set back after it: the frames in between are drawn
+    // with the lights as they were.
+    const enter = () => apply();
+    const leave = () => {
+      this.lampLights.forEach((l, i) => (l.visible = was[i]));
+      this.sun.castShadow = wasShadow;
+      this.layout = before;
+    };
+    void this.compileScene(stale, enter, leave)
+      .then((waits) => Promise.all(waits))
+      .then(() => this.gpuDone(20000))
+      .then(() => this.touchPrograms(() => this.disposed || this.wantLayout !== key))
+      .then(() => {
+        if (!this.disposed && this.wantLayout === key) switchNow();
+      });
+  }
+
+  /**
+   * A program's first use asks the graphics process for its uniforms and attributes, and that question waits for all
+   * the work queued before it. Asked for every program once its link is done (gpuDone), two to a task, it costs
+   * little, and the first frame that draws with them waits on nothing: the driver finishes them in its own process
+   * while the page runs on. Stops when `stop` says so.
+   */
+  private async touchPrograms(stop: () => boolean) {
+    const programs = (this.renderer.info.programs ?? []) as { getUniforms(): unknown; getAttributes(): unknown }[];
+    for (let i = 0; i < programs.length; i++) {
+      if (stop()) return;
+      programs[i].getUniforms();
+      programs[i].getAttributes();
+      if (i % 2 === 1) await nextTask();
+    }
+  }
+
+  /**
+   * Resolves once the graphics process has done everything asked of it so far (the links of the programs, the
+   * uploads), or after `maxMs`, without holding the page: a fence, polled between tasks. Where the browser has no
+   * KHR_parallel_shader_compile (a software renderer, many phones) three's compileAsync resolves at once and the
+   * links would be waited for, page held, at the first draw; the graphics process works on them on its own
+   * meanwhile, and the fence says when it is through.
+   */
+  private gpuDone(maxMs: number): Promise<void> {
+    const gl = this.renderer.getContext() as WebGL2RenderingContext;
+    const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    if (!sync) return Promise.resolve();
+    gl.flush();
+    const until = performance.now() + maxMs;
+    return new Promise<void>((resolve) => {
+      const poll = () => {
+        const over = this.disposed || this.lost || performance.now() > until;
+        if (over || gl.getSyncParameter(sync, gl.SYNC_STATUS) === gl.SIGNALED) {
+          if (!this.disposed) gl.deleteSync(sync);
+          resolve();
+          return;
+        }
+        setTimeout(poll, 16);
+      };
+      setTimeout(poll, 16);
+    });
+  }
+
+  /**
+   * Compile every program the street needs, for the frame's target: the scene's materials (also of what is hidden:
+   * the stand-ins and the constable, the smoke) and, when the sun casts shadows, the depth programs of the shadow
+   * pass. A few materials to a task, so that no task holds the page long (making a program takes the page tens of
+   * milliseconds on a slow device). `enter` and `leave` are called round each piece (the lights to compile for, and
+   * back). Resolves to what to wait for; stops when `stop` says so.
+   */
+  private async compileScene(stop: () => boolean, enter?: () => void, leave?: () => void): Promise<Promise<unknown>[]> {
+    const r = this.renderer;
+    // One object for each material (compiling it compiles its children too, which costs nothing twice).
+    const seen = new Set<Material>();
+    const objects: Object3D[] = [];
+    this.scene.traverse((o) => {
+      const m = (o as Mesh).material as Material | Material[] | undefined;
+      if (!m) return;
+      const list = ([] as Material[]).concat(m).filter((x) => !seen.has(x));
+      if (!list.length) return;
+      list.forEach((x) => seen.add(x));
+      objects.push(o);
+    });
+    const waits: Promise<unknown>[] = [];
+    const PER_TASK = 3;
+    for (let i = 0; i <= objects.length; i += PER_TASK) {
+      if (stop()) return waits;
+      enter?.();
+      // The target is part of a program's identity (the colour space it writes): the street is drawn into the frame.
+      r.setRenderTarget(this.post.frame);
+      for (const o of objects.slice(i, i + PER_TASK)) waits.push(r.compileAsync(o, this.camera, this.scene));
+      if (i + PER_TASK > objects.length && this.sun.castShadow) waits.push(...this.compileShadows());
+      r.setRenderTarget(null);
+      if (leave) {
+        leave();
+        // compile() left the renderer's lights set up for the lights compiled for, and three draws a frame's shadows
+        // before it sets them up again: set them up for the lights as they are, or the shadow pass would ask for
+        // programs of its own, compiled on the spot.
+        r.compile(this.nothing, this.camera, this.scene);
+      }
+      await nextTask();
+    }
+    return waits;
+  }
+
+  /**
+   * The shadow pass draws each mesh that casts a shadow with a depth material of three's own, of a few kinds (plain,
+   * instanced, skinned, cut out by a texture). compile() does not reach them, so each kind is compiled here on a
+   * stand-in with a depth material set up as three sets up its own, in the light of the scene but without its fog
+   * and reflection, as the shadow pass draws.
+   */
+  private compileShadows(): Promise<unknown>[] {
+    const r = this.renderer;
+    const kinds = new Map<string, Object3D>();
+    this.scene.traverse((o) => {
+      const mesh = o as Mesh;
+      if (!mesh.isMesh || !mesh.castShadow || Array.isArray(mesh.material)) return;
+      const m = mesh.material as Material & { map?: Texture | null; alphaMap?: Texture | null; displacementMap?: Texture | null; displacementScale?: number };
+      const key = shadowKey(mesh, m);
+      if (kinds.has(key)) return;
+      let d = this.shadowMats.get(key);
+      if (!d) {
+        d = new MeshDepthMaterial();
+        d.map = m.map ?? null;
+        d.alphaMap = m.alphaMap ?? null;
+        d.alphaTest = m.alphaTest;
+        d.displacementMap = m.displacementMap ?? null;
+        d.displacementScale = m.displacementScale ?? 1;
+        d.side = m.side === FrontSide ? BackSide : m.side === BackSide ? FrontSide : DoubleSide;
+        this.shadowMats.set(key, d);
+      }
+      kinds.set(key, shadowProxy(mesh, d));
+    });
+    const fog = this.scene.fog;
+    const environment = this.scene.environment;
+    this.scene.fog = null;
+    this.scene.environment = null;
+    try {
+      return [...kinds.values()].map((p) => r.compileAsync(p, this.camera, this.scene));
+    } finally {
+      this.scene.fog = fog;
+      this.scene.environment = environment;
+    }
+  }
+
+  /**
+   * Get the first frames onto the graphics card without holding the page (docs/CCTV.md section 9). The first frame's
+   * people and vehicles are staged and the warm car and constable made; the textures are uploaded one to a task; then
+   * every program the first frames draw with (the reflection's scene and passes, the street with its shadows, the
+   * screen passes) is compiled while the page runs on, the reflection is rendered, and the first frame (`first`,
+   * with the texts `osd`) is drawn once and waited for: a graphics driver finishes a program only when it is first
+   * drawn with (on a software renderer that is most of the cost), and the page must not wait for that. Waits at most
+   * `budgetMs` in all: what is not ready by then is finished when it is first drawn. Stops early when `signal` is
+   * aborted or the context is lost.
+   */
+  async prepare(first: Frame | null, osd: Osd, signal?: AbortSignal, budgetMs = 10000): Promise<void> {
+    const r = this.renderer;
+    const stop = () => this.lost || this.disposed || !!signal?.aborted;
+    if (!this.site || stop()) return;
+    const until = performance.now() + budgetMs;
+    const left = () => Math.max(0, until - performance.now());
+    if (first) this.stage(first);
+    this.makeWarm();
+    for (const t of this.textures()) {
+      r.initTexture(t);
+      await nextTask();
+      if (stop()) return;
+    }
+    // The reflection first: its scene is drawn into the cube while the generator's passes are made (not drawn).
+    r.setRenderTarget(this.post.frame);
+    await atMost(r.compileAsync(this.refl, this.camera), left());
+    await this.gpuDone(left());
+    if (stop()) return;
+    const pm = this.pmrem.prepare(this.refl);
+    const waits: Promise<unknown>[] = [];
+    if (pm) {
+      this.reflection = pm.target;
+      this.scene.environment = pm.target.texture;
+      r.setRenderTarget(this.post.frame);
+      for (const m of pm.materials) {
+        pm.mesh.material = m;
+        waits.push(r.compileAsync(pm.mesh, pm.camera));
       }
     }
-    const old = this.reflection;
-    this.reflection = this.pmrem.fromScene(s, 0.035);
-    this.scene.environment = this.reflection.texture;
-    this.scene.environmentIntensity = 0.5 + 0.5 * (1 - night);
-    old?.dispose();
-    geo.dispose();
-    (dome.material as MeshBasicMaterial).dispose();
-    for (const m of glints) (m.material as MeshBasicMaterial).dispose();
+    await nextTask();
+    if (stop()) return;
+    // The street's programs depend on the reflection's size and on the lights, both settled by now.
+    waits.push(...(await this.compileScene(stop)));
+    if (stop()) return;
+    waits.push(this.post.compile());
+    await atMost(Promise.all(waits), left());
+    if (stop()) return;
+    await this.gpuDone(left());
+    await this.touchPrograms(stop);
+    if (stop()) return;
+    this.flushReflection();
+    if (first) this.render(first, osd);
+    await this.gpuDone(left());
+    this.ready = true;
+  }
+
+  /** The warm car and constable (see `warm`), once per view. */
+  private makeWarm() {
+    if (!this.warmCar) {
+      this.warmCar = this.carKit.standIns();
+      this.warm.add(...this.warmCar);
+    }
+    if (!this.warmPerson && this.humans && this.env) {
+      const look = lookOfCrew('police', 1, 'M', { season: this.env.season, temp: 10 });
+      this.warmPerson = new HumanMesh(look, 1, this.humans);
+      this.warm.add(this.warmPerson.group);
+    }
+  }
+
+  /** Every texture the street draws with (not the stand-ins' and the constable's: they are never drawn). */
+  private textures(): Texture[] {
+    const skip = new Set<Material>();
+    this.warm.traverse((o) => {
+      const m = (o as Mesh).material;
+      if (m) for (const x of ([] as Material[]).concat(m)) skip.add(x);
+    });
+    const out = new Set<Texture>();
+    this.scene.traverse((o) => {
+      const m = (o as Mesh).material;
+      if (!m) return;
+      for (const x of ([] as Material[]).concat(m)) {
+        if (skip.has(x)) continue;
+        for (const v of Object.values(x)) {
+          const t = v as Texture | null;
+          if (t?.isTexture && !(t as Texture & { isRenderTargetTexture?: boolean }).isRenderTargetTexture) out.add(t);
+        }
+      }
+    });
+    return [...out];
   }
 
   /** How this camera's picture looks in this light: each camera differs a little (the seed), night changes a lot. */
@@ -454,35 +929,37 @@ export class CameraView {
     };
   }
 
-  /** Make the rain or the snow for this weather (none for null), after taking away the old. */
+  /**
+   * The rain or the snow for this weather (none for null). The buffers stay while the number of drops stays the
+   * same: a change of light only sets the streaks' opacity.
+   */
   private buildWeather(env: Env | null) {
-    if (this.rain) {
+    const rainN = env?.rain ? (env.weather === 'storm' ? STORM_DROPS : RAIN_DROPS) : 0;
+    if (this.rain && this.rain.geometry.getAttribute('position').count !== rainN * 2) {
       this.scene.remove(this.rain);
       this.rain.geometry.dispose();
       (this.rain.material as LineBasicMaterial).dispose();
       this.rain = null;
     }
-    if (this.snow) {
+    if (this.snow && !env?.snowing) {
       this.scene.remove(this.snow);
       this.snow.geometry.dispose();
       (this.snow.material as PointsMaterial).dispose();
       this.snow = null;
     }
     if (!env) return;
-    if (env.rain) {
-      const n = env.weather === 'storm' ? 620 : 300;
+    if (rainN && !this.rain) {
       const g = new BufferGeometry();
-      g.setAttribute('position', new BufferAttribute(new Float32Array(n * 6), 3));
-      // In the dark only the streaks near a light show; the night picture's gain would turn all of them into a curtain.
-      const opacity = 0.3 * (1 - 0.6 * env.night);
-      this.rain = new LineSegments(g, new LineBasicMaterial({ color: 0xc9d2dc, transparent: true, opacity, depthWrite: false }));
+      g.setAttribute('position', new BufferAttribute(new Float32Array(rainN * 6), 3));
+      this.rain = new LineSegments(g, new LineBasicMaterial({ color: 0xc9d2dc, transparent: true, depthWrite: false }));
       this.rain.frustumCulled = false;
       this.scene.add(this.rain);
     }
-    if (env.snowing) {
-      const n = 520;
+    // In the dark only the streaks near a light show; the night picture's gain would turn all of them into a curtain.
+    if (this.rain) (this.rain.material as LineBasicMaterial).opacity = 0.3 * (1 - 0.6 * env.night);
+    if (env.snowing && !this.snow) {
       const g = new BufferGeometry();
-      g.setAttribute('position', new BufferAttribute(new Float32Array(n * 3), 3));
+      g.setAttribute('position', new BufferAttribute(new Float32Array(SNOW_FLAKES * 3), 3));
       this.snow = new Points(g, new PointsMaterial({ color: 0xf4f6f8, size: 2, sizeAttenuation: false, transparent: true, opacity: 0.85, depthWrite: false }));
       this.snow.frustumCulled = false;
       this.scene.add(this.snow);
@@ -498,14 +975,16 @@ export class CameraView {
     const wind = Math.min(9, env.wind) * 0.12;
     const cx = site.camera.pos[0];
     const cz = -site.camera.pos[1];
+    const k = drops();
     if (this.rain) {
       const a = this.rain.geometry.getAttribute('position') as BufferAttribute;
       const n = a.count / 2;
+      const d = k.rain;
       for (let i = 0; i < n; i++) {
-        const x = c[0] + (hash01('rx', i) - 0.5) * 46;
-        const z = -c[1] + (hash01('rz', i) - 0.5) * 46;
-        const speed = 15 + hash01('rs', i) * 6;
-        let y = 16 - ((t * speed + hash01('ry', i) * 16) % 16);
+        const x = c[0] + d[i * 4] * 46;
+        const z = -c[1] + d[i * 4 + 1] * 46;
+        const speed = 15 + d[i * 4 + 2] * 6;
+        let y = 16 - ((t * speed + d[i * 4 + 3] * 16) % 16);
         // Not right in front of the lens, where a drop would be a bar across the picture.
         if (Math.hypot(x - cx, z - cz) < 7) y = -5;
         a.setXYZ(i * 2, x + wind * (16 - y), y, z);
@@ -515,11 +994,12 @@ export class CameraView {
     }
     if (this.snow) {
       const a = this.snow.geometry.getAttribute('position') as BufferAttribute;
+      const d = k.snow;
       for (let i = 0; i < a.count; i++) {
-        const speed = 1.1 + hash01('ss', i) * 0.9;
-        const y = 14 - ((t * speed + hash01('sy', i) * 14) % 14);
-        const x = c[0] + (hash01('sx', i) - 0.5) * 50 + Math.sin(t * 0.8 + i) * 0.5 + wind * 6 * (14 - y) * 0.2;
-        const z = -c[1] + (hash01('sz', i) - 0.5) * 50 + Math.cos(t * 0.6 + i * 1.7) * 0.5;
+        const speed = 1.1 + d[i * 4 + 2] * 0.9;
+        const y = 14 - ((t * speed + d[i * 4 + 3] * 14) % 14);
+        const x = c[0] + d[i * 4] * 50 + Math.sin(t * 0.8 + i) * 0.5 + wind * 6 * (14 - y) * 0.2;
+        const z = -c[1] + d[i * 4 + 1] * 50 + Math.cos(t * 0.6 + i * 1.7) * 0.5;
         a.setXYZ(i, x, y, z);
       }
       a.needsUpdate = true;
@@ -542,12 +1022,6 @@ export class CameraView {
       for (const m of this.smoke) m.visible = false;
       return;
     }
-    while (this.smoke.length < SMOKE_PUFFS) {
-      const m = new Mesh(this.blobGeo, this.smokeMat);
-      m.renderOrder = 3;
-      this.smoke.push(m);
-      this.scene.add(m);
-    }
     const wind = Math.min(8, this.env?.wind ?? 3);
     this.smoke.forEach((m, i) => {
       // Each puff rises, drifts with the wind and grows; its age comes from the clock.
@@ -564,6 +1038,25 @@ export class CameraView {
   render(f: Frame, osd: Osd, zoom = 1, panX = 0, panY = 0) {
     this.renderer.info.reset();
     if (!this.site || !this.world || !this.env || this.lost) return;
+    this.flushReflection();
+    this.stage(f);
+    this.weather(f.t);
+    this.aim(f.t);
+    this.drawSmoke(f);
+    this.post.setText({ topLeft: osd.name, topRight: osd.clock, bottomLeft: osd.note, bottomRight: osd.mark, rec: osd.rec });
+    this.post.setZoom(zoom, panX, panY);
+    this.renderer.setRenderTarget(this.post.frame);
+    this.skyDome.position.copy(this.camera.position);
+    this.renderer.render(this.scene, this.camera);
+    // A torn line now and then, more often on a poor camera at night.
+    const n = hash32('tear', this.seed, Math.floor(f.t * 12.5));
+    const tear = n % 97 < (this.look && this.look.blocks > 0.5 ? 3 : 1) ? ((n >>> 8) % 100) / 100 - 0.5 : 0;
+    this.post.render(tear, ((n >>> 16) % 100) / 100);
+  }
+
+  /** Put the frame's people and vehicles on the street: the new ones are made, the gone ones taken away. */
+  private stage(f: Frame) {
+    if (!this.env) return;
     const dark = this.env.lamps ? Math.max(this.env.night, 0.3) : 0;
     const seen = new Set<string>();
     for (const p of f.people) {
@@ -621,18 +1114,6 @@ export class CameraView {
       m.dispose();
       this.cars.delete(id);
     }
-    this.weather(f.t);
-    this.aim(f.t);
-    this.drawSmoke(f);
-    this.post.setText({ topLeft: osd.name, topRight: osd.clock, bottomLeft: osd.note, bottomRight: osd.mark, rec: osd.rec });
-    this.post.setZoom(zoom, panX, panY);
-    this.renderer.setRenderTarget(this.post.frame);
-    this.skyDome.position.copy(this.camera.position);
-    this.renderer.render(this.scene, this.camera);
-    // A torn line now and then, more often on a poor camera at night.
-    const n = hash32('tear', this.seed, Math.floor(f.t * 12.5));
-    const tear = n % 97 < (this.look && this.look.blocks > 0.5 ? 3 : 1) ? ((n >>> 8) % 100) / 100 - 0.5 : 0;
-    this.post.render(tear, ((n >>> 16) % 100) / 100);
   }
 
   private clearScene() {
@@ -671,8 +1152,14 @@ export class CameraView {
    * listener off it), and the renderer then gives its context up.
    */
   dispose() {
+    this.disposed = true;
     this.canvas.removeEventListener('webglcontextlost', this.onLost);
     this.clearScene();
+    this.warmPerson?.dispose();
+    this.warmCar = null;
+    this.warmPerson = null;
+    for (const m of this.shadowMats.values()) m.dispose();
+    this.shadowMats.clear();
     this.carKit.dispose();
     this.buildWeather(null);
     this.palette.dispose();
@@ -687,6 +1174,8 @@ export class CameraView {
     this.skyTex?.dispose();
     this.skyMat.dispose();
     this.skyDome.geometry.dispose();
+    this.reflGeo.dispose();
+    for (const m of [this.reflMat, this.sunGlintMat, this.lampGlintMat]) m.dispose();
     const sh = this.sheets;
     for (const t of [sh.atlas.map, sh.atlas.lit, sh.asphalt, sh.paving, sh.grass, sh.setts, sh.decals, sh.glow]) t.dispose();
     this.blobGeo.dispose();

@@ -39,7 +39,7 @@ import {
 } from './math';
 import { clearLine, insideBuilding, onDrive, pavement } from './site';
 import type { AgencySit, CarFrame, Frame, PersonFrame, Situation, Smoke, UnitSit } from './stage';
-import type { RoadClass, Site } from './types';
+import type { ParkedCar, RoadClass, Site } from './types';
 import { CAR_SIZE, hasBeacons, lookOfAgency, lookOfAnyCar, lookOfUnit, type CarLook, type CarSize } from './vehicle';
 
 export type Phase = 'open' | 'seen' | 'contact' | 'closing' | 'after';
@@ -333,7 +333,7 @@ export class Director {
   private walkT = 0;
   private serial = 0;
 
-  constructor(site: Site, cast: Cast, opts: { night: boolean; quiet?: boolean; wet?: boolean }) {
+  constructor(site: Site, cast: Cast, opts: { night: boolean; quiet?: boolean; wet?: boolean; parked?: readonly ParkedCar[] }) {
     this.site = site;
     this.cast = cast;
     this.night = opts.night;

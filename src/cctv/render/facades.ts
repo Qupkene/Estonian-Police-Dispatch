@@ -1411,9 +1411,61 @@ export interface Atlas {
   lit: Texture;
 }
 
-export function makeAtlas(seed: number): Atlas {
+/**
+ * The side of the sheet as the graphics card gets it. It is painted at SIZE (the painters' measures are in pixels of
+ * a CELL) and scaled down by an area average: a cell of 64 texels still shows every window bar and sill at the
+ * picture's 640x360, even at the 4x zoom, and the sheet takes less than half the memory (5.6 MB with its mipmaps
+ * against 12.5).
+ */
+const OUT = 1024;
+
+/** The sheets as painted for a seed: plain pixels, kept for the page so that a later camera only uploads them. */
+const painted = new Map<number, { map: Uint8Array; lit: HTMLCanvasElement }>();
+
+/**
+ * `src` (RGBA, `n` x `n`) scaled down to `out` x `out` by the average over each new texel's area, alpha averaged
+ * like the colours (as the card's own mipmaps do).
+ */
+function shrink(src: Uint8ClampedArray, n: number, out: number): Uint8Array {
+  if (out === n) return new Uint8Array(src.buffer.slice(0));
+  const k = n / out;
+  // Per new column (and row): the source pixels it covers and how much of each.
+  const spans: { i: number; w: number }[][] = [];
+  for (let o = 0; o < out; o++) {
+    const a = o * k;
+    const b = a + k;
+    const span: { i: number; w: number }[] = [];
+    for (let i = Math.floor(a); i < Math.min(n, Math.ceil(b)); i++) span.push({ i, w: (Math.min(b, i + 1) - Math.max(a, i)) / k });
+    spans.push(span);
+  }
+  const dst = new Uint8Array(out * out * 4);
+  const acc = new Float64Array(4);
+  for (let oy = 0; oy < out; oy++) {
+    const rows = spans[oy];
+    for (let ox = 0; ox < out; ox++) {
+      const cols = spans[ox];
+      acc.fill(0);
+      for (const r of rows) {
+        for (const c of cols) {
+          const w = r.w * c.w;
+          const j = (r.i * n + c.i) * 4;
+          acc[0] += src[j] * w;
+          acc[1] += src[j + 1] * w;
+          acc[2] += src[j + 2] * w;
+          acc[3] += src[j + 3] * w;
+        }
+      }
+      const d = (oy * out + ox) * 4;
+      for (let ch = 0; ch < 4; ch++) dst[d + ch] = Math.round(acc[ch]);
+    }
+  }
+  return dst;
+}
+
+/** Paint the sheets for `seed` (a few hundred milliseconds of canvas work): once per page. */
+function paint(seed: number): { map: Uint8Array; lit: HTMLCanvasElement } {
   const [cg, g] = sheet(SIZE, SIZE);
-  const [, m] = sheet(SIZE, SIZE);
+  const [cm, m] = sheet(SIZE, SIZE);
   // The night sheet at half the size: lights are soft.
   const [cl, l] = sheet(SIZE / 2, SIZE / 2);
   g.fillStyle = '#ffffff';
@@ -1429,12 +1481,31 @@ export function makeAtlas(seed: number): Atlas {
   misc(p);
   cutouts(g, rand(seed ^ 0x51ed270b));
 
-  const img = g.getImageData(0, 0, SIZE, SIZE);
+  const data = g.getImageData(0, 0, SIZE, SIZE).data;
   const mask = m.getImageData(0, 0, SIZE, CUT_ROW * CELL).data;
-  const data = img.data;
   // Walls: alpha 255 takes the building's colour, 128 keeps the painted one. Cut-outs keep the alpha they were drawn with.
   for (let i = 0; i < mask.length; i += 4) data[i + 3] = 128 + (mask[i] >> 1);
-  const map = new DataTexture(new Uint8Array(data.buffer), SIZE, SIZE, RGBAFormat, UnsignedByteType);
+  cg.width = 0;
+  cm.width = 0;
+  // The night sheet goes down in the same ratio (it is opaque: the canvas's own smoothing is right for it).
+  const [litOut, lo] = sheet(OUT / 2, OUT / 2);
+  lo.imageSmoothingQuality = 'high';
+  lo.drawImage(cl, 0, 0, OUT / 2, OUT / 2);
+  cl.width = 0;
+  return { map: shrink(data, SIZE, OUT), lit: litOut };
+}
+
+/**
+ * The sheet and its night twin as textures of their own (each view uploads and disposes of its own), made from the
+ * pixels painted once per page.
+ */
+export function makeAtlas(seed: number): Atlas {
+  let px = painted.get(seed);
+  if (!px) {
+    px = paint(seed);
+    painted.set(seed, px);
+  }
+  const map = new DataTexture(px.map, OUT, OUT, RGBAFormat, UnsignedByteType);
   map.colorSpace = SRGBColorSpace;
   map.wrapS = ClampToEdgeWrapping;
   map.wrapT = ClampToEdgeWrapping;
@@ -1443,8 +1514,7 @@ export function makeAtlas(seed: number): Atlas {
   map.generateMipmaps = true;
   map.anisotropy = 1;
   map.needsUpdate = true;
-  cg.width = 0;
-  const lit = new CanvasTexture(cl);
+  const lit = new CanvasTexture(px.lit);
   lit.flipY = false;
   lit.colorSpace = SRGBColorSpace;
   lit.wrapS = ClampToEdgeWrapping;

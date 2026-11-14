@@ -172,4 +172,24 @@ export interface Site {
   doorBuilding: number;
   camera: CameraPose;
   lamps: Lamp[];
+  /**
+   * The stretch of the drive line the camera sees, in metres along the line (as `drive.at`): around the scene's own
+   * point, for as long both ways as the road's centre line is in the picture and not behind a house. Not set when
+   * the camera does not see the road at the scene. Vehicles that stop inside it stop in the picture.
+   */
+  seen?: { from: number; to: number };
+}
+
+/**
+ * A car that stands parked in the street for the whole scene. The renderer decides which places are filled and draws
+ * them (src/cctv/render/world.ts); the director is told (its `parked` option) and treats each as solid: no vehicle
+ * stops in one, nobody stands in one or walks through one.
+ */
+export interface ParkedCar {
+  /** The middle of the car on the ground. */
+  pos: V2;
+  /** The way its nose points (radians, as yawOf of its direction). */
+  yaw: number;
+  length: number;
+  width: number;
 }

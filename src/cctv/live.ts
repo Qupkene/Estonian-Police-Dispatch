@@ -6,8 +6,10 @@
  *
  * `openCamera` checks that the browser can draw, loads the body model and the street around the incident (the map's
  * own street file when it is there, a made-up street of the kind of place when not), creates the view on the
- * window's canvas and starts a session. The handle it returns is all the window needs. The window gives the open
- * a deadline through `signal`: whatever is still loading then is let go.
+ * window's canvas, starts a session and has the view prepare the first frame (its textures uploaded, its programs
+ * compiled in parallel while the game runs on), so that 'live' means the first picture can be drawn at once. The
+ * handle it returns is all the window needs. The window gives the open a deadline through `signal`: whatever is
+ * still loading then is let go.
  */
 import { streetTilesUrl } from '@/map/streetStyle';
 import { knownStreetProbe, openedStreetArchive } from '@/map/streetTiles';
@@ -50,6 +52,11 @@ export interface OpenOptions {
 
 /** The street around the incident takes at most this long to read; then the made-up street is used. */
 const STREET_TIMEOUT_MS = 6000;
+/**
+ * How long an opening may take in all before it goes live with whatever is not ready yet (finished when first
+ * drawn): inside the window's own deadline (CameraWindow's CONNECT_DEADLINE_MS, 20 s), with room to spare.
+ */
+const OPEN_BUDGET_MS = 14000;
 
 /** The map's street file, opened once per page; the map's own archive when it has already opened it. */
 let ownArchive: { url: string; archive: PMTiles } | null = null;
@@ -125,6 +132,7 @@ function releaseShared(humans: HumanBase) {
  * failed or `signal` was aborted (then nothing is left behind).
  */
 export async function openCamera(canvas: HTMLCanvasElement, o: OpenOptions): Promise<CameraHandle | null> {
+  const started = performance.now();
   drawable ??= canRender();
   if (!drawable) return null;
   const [humans, street] = await Promise.all([untilAborted(loadHumanBase(), o.signal), streetOf(o.incident, o.signal)]);
@@ -136,8 +144,11 @@ export async function openCamera(canvas: HTMLCanvasElement, o: OpenOptions): Pro
     // The incident may have moved on while the street loaded: build from the game as it is now.
     const inc = o.sim.incidents[o.incident.id] ?? o.incident;
     session = new CameraSession(view, o.sim, inc, o.camera, street, o.version);
+    await view.prepare(session.stage(o.sim), session.osd(), o.signal, Math.max(1500, OPEN_BUDGET_MS - (performance.now() - started)));
+    if (o.signal.aborted) throw aborted();
   } catch (e) {
     view.dispose();
+    releaseShared(humans);
     throw e;
   }
   let disposed = false;
