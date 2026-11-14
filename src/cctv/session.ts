@@ -17,8 +17,9 @@ import { makeStreet } from './procedural';
 import type { Osd } from './render/view';
 import { buildSite } from './site';
 import { situationOf } from './situation';
-import type { Frame } from './stage';
+import type { Frame, Situation } from './stage';
 import type { ParkedCar, Site, StreetData } from './types';
+import { lookOfAgency, lookOfUnit, type CarLook } from './vehicle';
 
 /** What a session needs of the picture: render/view.ts CameraView. */
 export interface SessionView {
@@ -27,6 +28,8 @@ export interface SessionView {
   readonly parked?: readonly ParkedCar[];
   setEnv(env: Env): void;
   render(frame: Frame, osd: Osd, zoom?: number, panX?: number, panY?: number): void;
+  /** The vehicles on their way to the scene, told whenever the list changes (the view paints them ahead). */
+  expect?(looks: readonly CarLook[]): void;
 }
 
 export type SessionState = 'live' | 'ended';
@@ -46,6 +49,21 @@ const PACE_WINDOW_S = 0.5;
 /** The measured pace (game seconds per nominal game second) is kept within these, against a clock that jumps. */
 const PACE_MIN = 0.05;
 const PACE_MAX = 1.5;
+/**
+ * The situation as the director is to play it before the game clock's pace has been measured once: a unit or a
+ * service about to arrive ('near') is held back as still on its way. Its eta is real seconds worked out from the
+ * speed, and until the first window the speed is the nominal one: on a slow device the car would be planned to
+ * arrive (and its crew to get out) well before the game says it is on scene. Half a second later it drives in on
+ * the measured speed.
+ */
+function heldBack(sit: Situation): Situation {
+  return {
+    ...sit,
+    units: sit.units.map((u) => (u.state === 'near' ? { ...u, state: 'coming', eta: 0 } : u)),
+    agencies: sit.agencies.map((a) => (a.state === 'near' ? { ...a, state: 'coming', eta: 0 } : a)),
+  };
+}
+
 /**
  * Real seconds of empty street shown once the incident is closed and its story has played out ('after'); then the
  * feed ends and the window lets its graphics go (a camera left open must not draw an empty street all shift).
@@ -80,6 +98,8 @@ export class CameraSession {
   private paceReal = 0;
   private paceSpeed = 0;
   private paceNow: number | null = null;
+  /** The vehicles on their way, as last told to the view (see expect). */
+  private comingKey = '';
   private last: Frame | null = null;
   private lastClock = '';
   private realT = 0;
@@ -155,7 +175,7 @@ export class CameraSession {
     if (this.last) return this.last;
     const incident = sim.incidents[this.incidentId];
     if (!incident) return null;
-    this.director.update(situationOf(sim, incident, this.lastSpeed, false), 0);
+    this.play(situationOf(sim, incident, this.lastSpeed, false), 0);
     this.last = this.director.frame();
     this.lastClock = `${ddmmyyyy(sim.now)} ${hhmm(sim.now)}`;
     return this.last;
@@ -207,7 +227,7 @@ export class CameraSession {
     this.lastSpeed = this.follow(sim, speed, paused, dt);
     // The first update settles the stage as the game stands, also when the camera is opened in a paused game.
     const first = !this.last;
-    this.director.update(situationOf(sim, incident, this.lastSpeed, paused && !first), step);
+    this.play(situationOf(sim, incident, this.lastSpeed, paused && !first), step);
     this.realT += step;
     this.envAge += step;
     if (this.envAge >= ENV_EVERY_S) {
@@ -222,6 +242,22 @@ export class CameraSession {
       this.afterT += step;
       if (this.afterT >= AFTER_HOLD_S) this.status = 'ended';
     }
+  }
+
+  /** Step the director by `step` real seconds in this situation, and tell the view which vehicles are on their way. */
+  private play(sit: Situation, step: number) {
+    this.director.update(this.paced ? sit : heldBack(sit), step);
+    if (!this.view.expect) return;
+    const looks: CarLook[] = [];
+    for (const u of sit.units) if (u.state === 'coming' || u.state === 'near') looks.push(lookOfUnit(u.type, u.model));
+    for (const a of sit.agencies) {
+      const look = a.state === 'coming' || a.state === 'near' ? lookOfAgency(a.agency) : null;
+      if (look) looks.push(look);
+    }
+    const key = JSON.stringify(looks);
+    if (key === this.comingKey) return;
+    this.comingKey = key;
+    if (looks.length) this.view.expect(looks);
   }
 
   /** Draw the last frame again (a zoom or a pan while the game stands). */

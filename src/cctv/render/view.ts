@@ -45,7 +45,8 @@ import type { Env } from '../env';
 import { lookOfCrew } from '../figure';
 import { hash01, hash32, wobble } from '../math';
 import type { ParkedCar, Site } from '../types';
-import type { Frame } from '../stage';
+import type { Frame, PropFrame } from '../stage';
+import type { CarLook } from '../vehicle';
 import { BEACON_COLOR, CarKit, CarMesh } from './cars';
 import { HumanMesh, seedOfLook, type HumanBase } from './human';
 import { FigureMesh, Palette } from './people';
@@ -122,6 +123,24 @@ function drops(): { rain: Float32Array; snow: Float32Array } {
 
 /** Let the page breathe between two pieces of work (the game's clock, the map and the queue keep running). */
 const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+/** A moment the page has nothing else to do (between the game's frames), or a second from now at the latest. */
+const idleTask = () =>
+  new Promise<void>((resolve) => {
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(() => resolve(), { timeout: 1000 });
+    else setTimeout(resolve, 0);
+  });
+
+/**
+ * One of each thing props.ts lays in the street, for the stand-ins (see CameraView.warm): they are all drawn with
+ * one material, as is a weapon in a hand, but the program is chosen by the geometry's attributes too.
+ */
+const WARM_PROPS: PropFrame[] = [
+  { id: 'w:stretcher', kind: 'stretcher', pos: [0, 0], yaw: 0 },
+  { id: 'w:sheet', kind: 'sheet', pos: [0, 0], yaw: 0 },
+  { id: 'w:hose', kind: 'hose', pos: [0, 0], yaw: 0, line: [[0, 0], [1, 0], [2, 1]] },
+  { id: 'w:knife', kind: 'knife', pos: [0, 0], yaw: 0 },
+];
 
 /** `p`, but no longer than `ms`: what is not ready by then is finished when it is first drawn. */
 const atMost = (p: Promise<unknown>, ms: number) => Promise.race([p, new Promise<void>((resolve) => setTimeout(resolve, ms))]);
@@ -293,16 +312,23 @@ export class CameraView {
   private sunGlint: Mesh;
   private lampGlints: Mesh[] = [];
   /**
-   * Out of sight for the view's life: a car's parts (CarKit.standIns) and a constable, so that the programs of
-   * whatever arrives later (a car's paint, lamps, flares and painting; a skinned body) are compiled before the
-   * picture goes live and stay compiled while the real ones come and go. Never drawn, so nothing of theirs is
-   * uploaded.
+   * Out of sight for the view's life: a car's parts (CarKit.standIns), a constable with a knife in his hand and one
+   * of each prop, so that the programs of whatever arrives later (a car's paint, lamps, flares and painting; a
+   * skinned body; a weapon, a stretcher, a sheet, a hose) are compiled before the picture goes live and stay
+   * compiled while the real ones come and go. Never drawn, so nothing of theirs is uploaded.
    */
   private warm = new Group();
   /** An empty object: compiling it only sets the renderer's lights up (see setLayout). */
   private nothing = new Group();
   private warmCar: Object3D[] | null = null;
   private warmPerson: HumanMesh | null = null;
+  private warmProps: PropsMesh | null = null;
+  /**
+   * The vehicles on their way here (expect): their paintings are painted and uploaded ahead of their first frame,
+   * in prepare() or, once live, when the page is idle, one to a task (a painting is a long piece of work).
+   */
+  private expected: CarLook[] = [];
+  private painting = false;
   /** The depth materials that stand in for the shadow pass's own while its programs compile (kept so that they stay). */
   private shadowMats = new Map<string, MeshDepthMaterial>();
   /**
@@ -691,17 +717,20 @@ export class CameraView {
 
   /**
    * A program's first use asks the graphics process for its uniforms and attributes, and that question waits for all
-   * the work queued before it. Asked for every program once its link is done (gpuDone), two to a task, it costs
-   * little, and the first frame that draws with them waits on nothing: the driver finishes them in its own process
-   * while the page runs on. Stops when `stop` says so.
+   * the work queued before it. Asked for every program once its link is done (gpuDone), one to a task, it costs
+   * the page little at a time, and the first frame that draws with them waits on nothing: the driver finishes them
+   * in its own process while the page runs on. Stops when `stop` says so (checked before each program, so it never
+   * overruns by more than one). Not needed where the browser compiles in parallel (KHR_parallel_shader_compile):
+   * there three's compileAsync has already waited, without holding the page, for each program to be done.
    */
   private async touchPrograms(stop: () => boolean) {
+    if (this.renderer.extensions.has('KHR_parallel_shader_compile')) return;
     const programs = (this.renderer.info.programs ?? []) as { getUniforms(): unknown; getAttributes(): unknown }[];
-    for (let i = 0; i < programs.length; i++) {
+    for (const p of programs.slice()) {
       if (stop()) return;
-      programs[i].getUniforms();
-      programs[i].getAttributes();
-      if (i % 2 === 1) await nextTask();
+      p.getUniforms();
+      p.getAttributes();
+      await nextTask();
     }
   }
 
@@ -821,22 +850,34 @@ export class CameraView {
    * screen passes) is compiled while the page runs on, the reflection is rendered, and the first frame (`first`,
    * with the texts `osd`) is drawn once and waited for: a graphics driver finishes a program only when it is first
    * drawn with (on a software renderer that is most of the cost), and the page must not wait for that. Waits at most
-   * `budgetMs` in all: what is not ready by then is finished when it is first drawn. Stops early when `signal` is
-   * aborted or the context is lost.
+   * `budgetMs` in all, every step included: what is not ready by then is finished when it is first drawn (no step
+   * starts once the budget is spent, and each is one short task). Last, with what is left of it, the paintings of the
+   * vehicles on their way (expect). Stops early when `signal` is aborted or the context is lost.
    */
   async prepare(first: Frame | null, osd: Osd, signal?: AbortSignal, budgetMs = 10000): Promise<void> {
-    const r = this.renderer;
     const stop = () => this.lost || this.disposed || !!signal?.aborted;
     if (!this.site || stop()) return;
     const until = performance.now() + budgetMs;
     const left = () => Math.max(0, until - performance.now());
+    const out = () => stop() || left() <= 0;
+    await this.warmUp(first, osd, out, left);
+    if (stop()) return;
+    this.ready = true;
+    // Whatever was expected and not painted yet is painted when the page is idle.
+    this.paintLater();
+  }
+
+  /** prepare()'s steps; it returns as soon as `stop` says so (the budget spent, the view gone). */
+  private async warmUp(first: Frame | null, osd: Osd, stop: () => boolean, left: () => number) {
+    const r = this.renderer;
     if (first) this.stage(first);
     this.makeWarm();
     for (const t of this.textures()) {
+      if (stop()) return;
       r.initTexture(t);
       await nextTask();
-      if (stop()) return;
     }
+    if (stop()) return;
     // The reflection first: its scene is drawn into the cube while the generator's passes are made (not drawn).
     r.setRenderTarget(this.post.frame);
     await atMost(r.compileAsync(this.refl, this.camera), left());
@@ -866,8 +907,35 @@ export class CameraView {
     if (stop()) return;
     this.flushReflection();
     if (first) this.render(first, osd);
+    await this.paintExpected(stop);
     await this.gpuDone(left());
-    this.ready = true;
+  }
+
+  /**
+   * The vehicles on their way to the scene (the session's list of the incident's units and services not here yet):
+   * their paintings are painted and uploaded before they drive into the picture, not in the frame they first show.
+   */
+  expect(looks: readonly CarLook[]) {
+    for (const look of looks) if (!this.expected.some((l) => JSON.stringify(l) === JSON.stringify(look))) this.expected.push(look);
+    if (this.ready) this.paintLater();
+  }
+
+  /** Paint and upload the expected vehicles' paintings, one to a task, until there are none or `stop` says so. */
+  private async paintExpected(stop: () => boolean, between: () => Promise<void> = nextTask) {
+    while (this.expected.length && !stop()) {
+      const look = this.expected.shift()!;
+      for (const t of this.carKit.prime(look)) this.renderer.initTexture(t);
+      await between();
+    }
+  }
+
+  /** paintExpected when the page is idle, once at a time. */
+  private paintLater() {
+    if (this.painting || !this.expected.length) return;
+    this.painting = true;
+    void idleTask()
+      .then(() => this.paintExpected(() => this.disposed || this.lost, idleTask))
+      .finally(() => (this.painting = false));
   }
 
   /** The warm car and constable (see `warm`), once per view. */
@@ -879,7 +947,13 @@ export class CameraView {
     if (!this.warmPerson && this.humans && this.env) {
       const look = lookOfCrew('police', 1, 'M', { season: this.env.season, temp: 10 });
       this.warmPerson = new HumanMesh(look, 1, this.humans);
+      this.warmPerson.setHeld('knife');
       this.warm.add(this.warmPerson.group);
+    }
+    if (!this.warmProps) {
+      this.warmProps = new PropsMesh();
+      this.warmProps.update(WARM_PROPS);
+      this.warm.add(this.warmProps.group);
     }
   }
 
@@ -1149,6 +1223,9 @@ export class CameraView {
       m.dispose();
     }
     this.cars.clear();
+    // The shadow pass's stand-in materials hold the textures of the street they were made for.
+    for (const m of this.shadowMats.values()) m.dispose();
+    this.shadowMats.clear();
   }
 
   /**
@@ -1161,10 +1238,11 @@ export class CameraView {
     this.canvas.removeEventListener('webglcontextlost', this.onLost);
     this.clearScene();
     this.warmPerson?.dispose();
+    this.warmProps?.dispose();
     this.warmCar = null;
     this.warmPerson = null;
-    for (const m of this.shadowMats.values()) m.dispose();
-    this.shadowMats.clear();
+    this.warmProps = null;
+    this.expected = [];
     this.carKit.dispose();
     this.props.dispose();
     this.buildWeather(null);

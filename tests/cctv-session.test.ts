@@ -181,6 +181,51 @@ describe('cctv session: one open camera over a shift', () => {
     expect(cam.speed).toBe(held);
   });
 
+  it("on a slow device, opened as the patrol arrives, the crew gets out only after the game says it is on scene", () => {
+    // The game clock at a third of the nominal speed; the camera opened when the patrol is `away` game seconds out.
+    // Until the pace is measured (half a second) a unit about to arrive is held back, then it is planned on the
+    // measured speed: without that the crew was out 6 s (70 game s) to 11 s (100 game s) early.
+    const open = (share: number, away: number) => {
+      const { s, inc, unit } = fight();
+      expect(dispatchUnits(s, inc.id, [unit.id]).ok).toBe(true);
+      while ((s.units[unit.id].move?.arriveAt ?? 0) - s.now > away * 1000) step(s, 500);
+      const view = new FakeView();
+      const cam = new CameraSession(view, s, inc, CAMERA, null, VERSION, { quiet: true });
+      cam.stage(s);
+      let real = 0;
+      let onScene = Infinity;
+      let out = Infinity;
+      for (let i = 0; i < 2400 && (onScene === Infinity || out === Infinity); i++) {
+        step(s, Math.round(SPEED * DT * 1000 * share));
+        cam.update(s, SPEED, false, DT);
+        real += DT;
+        if (onScene === Infinity && s.units[unit.id].status === 'onscene') onScene = real;
+        if (out === Infinity && view.last.frame.people.some((p) => p.id.startsWith(`o:${unit.id}:`))) out = real;
+      }
+      expect(Number.isFinite(onScene) && Number.isFinite(out)).toBe(true);
+      return out - onScene;
+    };
+    for (const away of [70, 100]) expect(open(1 / 3, away)).toBeGreaterThanOrEqual(0);
+    // At full pace the arrival is as before: the crew out a few seconds after the car stops.
+    const full = open(1, 70);
+    expect(full).toBeGreaterThanOrEqual(0);
+    expect(full).toBeLessThan(8);
+  });
+
+  it('tells the view which vehicles are on their way, once each time the list changes', () => {
+    const { s, inc, unit } = fight();
+    const told: string[][] = [];
+    const view = new FakeView();
+    const cam = new CameraSession(Object.assign(view, { expect: (looks: readonly { livery: string }[]) => told.push(looks.map((l) => l.livery)) }), s, inc, CAMERA, null, VERSION, {
+      quiet: true,
+    });
+    cam.stage(s);
+    expect(told).toHaveLength(0);
+    expect(dispatchUnits(s, inc.id, [unit.id]).ok).toBe(true);
+    play(s, cam, 3);
+    expect(told).toEqual([['police']]);
+  });
+
   it('settles the first frame without drawing it (the view prepares on it), and goes on from it', () => {
     const { s, inc } = fight();
     const view = new FakeView();
