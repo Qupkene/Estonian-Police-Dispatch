@@ -116,6 +116,8 @@ export type Act =
   | 'side'
   /** One knee on the ground behind somebody who kneels, a hand on their shoulder. */
   | 'kneelHold'
+  /** On both knees with the hands behind the back (cuffed where they knelt). */
+  | 'kneelCuffed'
   /** Flat on a stretcher: on the back, arms along the body. */
   | 'onStretcher'
   /** Pushing something at waist height with both hands (a stretcher). */
@@ -291,7 +293,8 @@ const ACTS: Record<Act, Maker> = {
   },
   side: (t, s) => ({ ...REST, hip: 0.2, lean: -0.95, roll: 0.5, bend: 0.3 + 0.02 * wobble(s, t, 0.5), headPitch: 0.25, armL: [-0.5, 0.5, 0.4], armR: [0.7, 0.3, 0.7], legL: [1.0, 0.12, 1.2], legR: [0.5, 0.12, 0.7] }),
   kneelHold: (t, s) => ({ ...kneel(t, s), bend: 0.3, headPitch: 0.3, armR: [1.0, 0.05, 0.25], armL: [0.45, 0.1, 1.2] }),
-  onStretcher: () => ({ ...REST, hip: 0.13, lean: -Math.PI / 2, armL: [0, 0.1, 0.1], armR: [0, 0.1, 0.1], legL: [0, 0.05, 0.03], legR: [0, 0.05, 0.03] }),
+  kneelCuffed: () => ({ ...REST, hip: 0.52, lean: 0.12, headPitch: 0.35, armL: [-0.6, -0.14, 0.35], armR: [-0.6, -0.14, 0.35], legL: [0, 0.1, 1.6], legR: [0, 0.1, 1.6] }),
+  onStretcher: () => ({ ...REST, hip: 0.13, lean: -Math.PI / 2, lift: 0.72, armL: [0, 0.1, 0.1], armR: [0, 0.1, 0.1], legL: [0, 0.05, 0.03], legR: [0, 0.05, 0.03] }),
   push: (t, s) => ({ ...stand(t, s), lean: 0.1, armL: [0.75, 0.05, 0.55], armR: [0.75, 0.05, 0.55] }),
   bar: (t, s) => ({ ...stand(t, s), armL: [0.25, 1.2, 0.15], armR: [0.3, 0.12, 1.75], legL: [0, 0.1, 0.03], legR: [0, 0.1, 0.03] }),
 };

@@ -41,6 +41,7 @@ import { BEACON_COLOR, CarKit, CarMesh } from './cars';
 import { HumanMesh, seedOfLook, type HumanBase } from './human';
 import { FigureMesh, Palette } from './people';
 import { Post, type PostLook } from './post';
+import { PropsMesh } from './props';
 import { makeAtlas } from './facades';
 import { decalTexture, dropsTexture, glareTexture, groundTexture, poolTexture, skylineTexture, skyTexture, type SkyLook } from './textures';
 import { buildWorld, type World, type WorldTextures } from './world';
@@ -92,6 +93,8 @@ export class CameraView {
   private humans: HumanBase | null = null;
   private glow = 0;
   private cars = new Map<string, CarMesh>();
+  /** Things that are neither people nor vehicles (a dropped weapon, a stretcher, a sheet, a hose). */
+  private props = new PropsMesh();
   private hemi = new HemisphereLight(0xffffff, 0x444444, 1);
   private fill = new AmbientLight(0xffffff, 0);
   private sun = new DirectionalLight(0xffffff, 1);
@@ -146,7 +149,7 @@ export class CameraView {
     this.renderer.shadowMap.type = PCFShadowMap;
     this.post = new Post(this.renderer, FRAME_W, FRAME_H, this.drops);
     this.pmrem = new PMREMGenerator(this.renderer);
-    this.scene.add(this.hemi, this.fill, this.sun, this.sun.target, this.irLamp);
+    this.scene.add(this.hemi, this.fill, this.sun, this.sun.target, this.irLamp, this.props.group);
     this.sun.shadow.mapSize.set(1024, 1024);
     this.sun.shadow.bias = -0.0006;
     this.sun.shadow.normalBias = 0.25;
@@ -582,6 +585,7 @@ export class CameraView {
         this.people.set(p.id, e);
       }
       e.mesh.update(p.pos, p.yaw, p.pose, p.scale);
+      e.mesh.setHeld(p.held ?? null);
       e.mesh.group.position.y = 0.11;
       // The dark patch under a body: wider for one lying down.
       const lying = Math.abs(p.pose.lean) > 1;
@@ -597,6 +601,7 @@ export class CameraView {
       this.people.delete(id);
     }
     seen.clear();
+    this.props.update(f.props);
     let bi = 0;
     for (const l of this.beaconLights) l.intensity = 0;
     for (const c of f.cars) {
@@ -677,6 +682,7 @@ export class CameraView {
     this.canvas.removeEventListener('webglcontextlost', this.onLost);
     this.clearScene();
     this.carKit.dispose();
+    this.props.dispose();
     this.buildWeather(null);
     this.palette.dispose();
     this.post.dispose();

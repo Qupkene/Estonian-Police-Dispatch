@@ -10,6 +10,7 @@
  * joints' angles and applied to the skeleton here, whatever way its bones happen to lie.
  */
 import {
+  type Bone,
   BufferAttribute,
   BufferGeometry,
   CanvasTexture,
@@ -17,18 +18,21 @@ import {
   Group,
   LinearFilter,
   Matrix4,
+  Mesh,
   MeshLambertMaterial,
+  type Object3D,
   Quaternion,
   SRGBColorSpace,
-  Vector3,
-  type Bone,
-  type Object3D,
   type SkinnedMesh,
+  Vector3,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import type { Look, Pose } from '../figure';
 import { clamp, hash01, rand, smooth, type V2 } from '../math';
+import type { Held } from '../stage';
+import { MeshBuilder } from './mesh';
+import { weaponInto } from './props';
 import humanUrl from '../assets/human.glb?url';
 
 /** Parts of the body, by the bone a vertex mostly follows. */
@@ -636,6 +640,10 @@ export class HumanMesh {
   private hipX: number;
   /** World turn (in the body's own space) of each bone this frame. */
   private world = new Map<string, Quaternion>();
+  /** What the right hand holds (a weapon), with its own small mesh on the hand's bone. */
+  private held: { kind: Held; mesh: Mesh; material: MeshLambertMaterial } | null = null;
+  /** How big a model unit at the hand is in the figure's own space (the armature has a scale of its own). */
+  private handUnit = 1;
 
   constructor(
     look: Look,
@@ -687,6 +695,33 @@ export class HumanMesh {
     this.root.getWorldQuaternion(rq);
     this.armInv.copy(rq.invert().multiply(q)).invert();
     this.armMatInv.copy(this.root.matrixWorld).invert().multiply(arm.matrixWorld).invert();
+    const hand = this.bones.get('handR');
+    if (hand) this.handUnit = hand.getWorldScale(new Vector3()).x || 1;
+  }
+
+  /** Put a weapon in the right hand, or take it away (null). It lies along the hand, as a blade or a stick is held out. */
+  setHeld(kind: Held | null) {
+    if ((this.held?.kind ?? null) === kind) return;
+    const hand = this.bones.get('handR');
+    if (this.held) {
+      this.held.mesh.removeFromParent();
+      this.held.mesh.geometry.dispose();
+      this.held.material.dispose();
+      this.held = null;
+    }
+    if (!kind || !hand) return;
+    const mb = new MeshBuilder();
+    weaponInto(mb, kind);
+    const material = new MeshLambertMaterial({ vertexColors: true });
+    const mesh = new Mesh(mb.build(), material);
+    // Real metres in the hand's own measure: the figure is scaled to its height, the armature has its own scale.
+    mesh.scale.setScalar(1 / (this.handUnit * this.scale));
+    // The bone runs along its own y: the weapon's length goes that way, its grip in the palm.
+    mesh.rotation.z = Math.PI / 2;
+    mesh.position.y = 0.02 / (this.handUnit * this.scale);
+    mesh.castShadow = true;
+    hand.add(mesh);
+    this.held = { kind, mesh, material };
   }
 
   /** How strongly the bright bands shine (0 by day). */
@@ -763,6 +798,7 @@ export class HumanMesh {
   }
 
   dispose() {
+    this.setHeld(null);
     this.mesh.geometry.dispose();
     this.material.dispose();
     this.texture.dispose();

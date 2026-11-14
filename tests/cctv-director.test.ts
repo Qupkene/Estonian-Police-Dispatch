@@ -1196,8 +1196,9 @@ describe('cctv director: what the reviewers found', () => {
         if (since < 0 && w.d.phase === 'contact') since = i;
       }
       expect(since, tag).toBeGreaterThan(0);
+      // Seven to nine metres off in the open, or behind their own car when it stands within thirteen.
       expect(cops, tag).toBeGreaterThanOrEqual(6.9);
-      expect(far, tag).toBeLessThanOrEqual(9.8);
+      expect(far, tag).toBeLessThanOrEqual(13.5);
     }
   });
 
@@ -1422,11 +1423,16 @@ describe('cctv director: what the films showed', () => {
     const site = siteOf('residential', 2);
     const w = start(site, usual('indoor'));
     arrive(w, 20);
-    const f = w.step(ended('arrest', [unit('P1', 'here')]), 25);
-    const out = f.people.filter((p) => p.id.startsWith('o:P1:'));
-    expect(out.length).toBe(2);
-    const car = f.cars.find((c) => c.id === 'u:P1')!;
-    for (const o of out) expect(dist(o.pos, car.pos)).toBeLessThan(5);
+    // One brings the arrested out; the other, with no part in it, comes out behind them and goes to the car.
+    const seen = new Set<string>();
+    w.step(ended('arrest', [unit('P1', 'here')]), 14, (f) => {
+      for (const p of f.people) if (p.id.startsWith('o:P1:')) seen.add(p.id);
+    });
+    expect(seen.size).toBe(2);
+    // Once the arrested is in the car the crew is in it too: nobody is left standing in the street.
+    const f = w.step(ended('arrest', [unit('P1', 'here')]), 40);
+    expect(f.people.filter((p) => p.id.startsWith('o:P1:') || p.id === 'p:s0')).toEqual([]);
+    expect(f.cars.some((c) => c.id === 'u:P1')).toBe(true);
   });
 
   it('nobody stands on open water: a street along a river, the water just behind the spot', () => {

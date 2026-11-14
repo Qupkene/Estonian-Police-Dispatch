@@ -9,6 +9,7 @@ import { withScenario } from '@/sim/scenario';
 import type { Incident, IncidentTemplate, PersonRole, PlaceKind, SimState } from '@/sim/types';
 import { lookOfPerson, lookOfStranger, type DressFor, type Look } from './figure';
 import { hash32, rand } from './math';
+import type { Held } from './stage';
 import { lookOfAnyCar, lookOfVehicle, type CarLook } from './vehicle';
 
 export type SceneKind =
@@ -67,6 +68,8 @@ export interface Cast {
   mayFlee: boolean;
   /** How grave it is: 1 the worst. */
   priority: number;
+  /** What an armed suspect has in their hand (a 'threat' scene). */
+  weapon?: Held;
   /** A crash of one vehicle: off the road, into a ditch, against an animal. */
   single?: boolean;
   /** A crash with somebody still inside a wreck: they are not seen until the rescuers or the paramedics have them out. */
@@ -358,6 +361,8 @@ export function castOf(sim: Pick<SimState, 'persons' | 'vehicles'>, inc: Inciden
     runs: (kind === 'theft' && r.chance(0.7)) || (kind === 'brawl' && r.chance(0.3)) || (kind === 'disorder' && r.chance(0.12)) || (kind === 'threat' && r.chance(0.2)),
     mayFlee: !gone && (has(tags, 'vehicle_flee') || !!tpl?.beats?.some((b) => b.kind === 'pursuit')),
     priority,
+    // A firearm when the story says so, a knife when it says that, else a knife or something to hit with.
+    weapon: !armed ? undefined : has(tags, 'weapon_firearm', 'weapon_gun', 'firearm') ? 'pistol' : has(tags, 'weapon_knife') ? 'knife' : seed & 8 ? 'bat' : 'knife',
     single,
     trapped,
     gone,
