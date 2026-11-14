@@ -373,8 +373,94 @@ vehicles; no shader compiled after the first second of a scene.
 
 ## 10. Emergency vehicles of Estonia
 
-(Filled in from the research of the vehicle work: the Police and Border Guard Board's markings, the ambulance's and
-the Rescue Board's, with sources.)
+What the models follow, and why. Sources: Government regulation no. 77 of 16.06.2011 on the marking of alarm vehicles
+(version in force since 12.06.2026, read on riigiteataja.ee), dated photos on Wikimedia Commons (2012 to 2025) and a
+Police and Border Guard Board press photo of 2022. Nothing from a photo is copied or traced; the photos decided the
+shapes and proportions. Where the sources leave a question open, the model takes the most plausible reading, marked
+*chosen* below.
+
+**Police (PPA), the current scheme (from about 2018).** The law fixes white as the main colour and blue as the
+contrast, on the doors, the bonnet and the tailgate or rear wall, below the windows at least; reflective blue and
+yellow patterns on the front and sides up to half the body's height and blue and yellow at the rear.
+
+- White body. All four doors blue below the windows down to the sill; the window frames stay as the car has them.
+  The whole top of the bonnet blue to its shut lines, white `POLITSEI` across it, read from in front (not mirrored).
+- `POLITSEI` in white bold capitals about 12 cm tall on the upper half of the front doors, the same on both sides.
+- On a patrol car (Superb 3777, 2023) the lower half of the doors, from door mid-height to the sill, is a band of
+  fluorescent yellow-green blocks on reflective blue, the yellow as wide as the blue between (about 0.27 m), leaning
+  27 degrees with their tops towards the front on both flanks. It runs from the front wheel arch to the rear one:
+  the first block stands on the white front wing just behind the arch, the last runs into the rear wing. Under it,
+  parted by a thin blue line, a row of short yellow and blue steps along the sill, shifted half a block. The band
+  glows a little at night, as reflective film does in the camera's light.
+- A four-digit board number in bold blue on the white front wing, as tall as the `POLITSEI` letters and level with
+  them, ending just before the front door (the model's number is made up); on the rear quarter a phone sign with
+  `112` and `www.POLITSEI.ee` in small blue letters.
+- Mirrors: a compact housing on a black sail at the front corner of the side window, its foot at the belt line;
+  blue on the patrol Škodas (the 2023 photo), white on the ID.4, black on the community Kodiaq and on every van.
+- A low, slim light bar (1.22 x 0.28 x 0.065 m) over the B-pillar on short black feet on the roof rails: a silver
+  clear lens in segments 0.15 m apart over a thin dark grey base, the same from both ends; two small LED heads on a
+  bracket over the front plate. The left and right halves flash in turn. A lit lens shows as a flat flare on its own
+  half of the bar; a wider glow and the blue light thrown on the road and the houses come only with the dark (by day
+  no beacon lights up the street).
+- *Chosen:* the rear of an estate or SUV in this scheme was not in any photo. The model gives the tailgate below the
+  rear screen the contrast blue with `POLITSEI` and the plate, and a band of yellow-green and blue chevrons meeting in
+  the middle along the bumper, as the law allows and as the vans' rear doors show.
+- Community officers' cars (`lookOfUnit('community', ...)`, `marks: 'local'`): the same blue doors and bonnet without
+  the reflective band and without the roof bar; their blue lights are behind the top of the windscreen and in the
+  grille (a 2024 photo of a Kodiaq in Tapa).
+- Vans (Mercedes-Benz Vito 3684 of 2023 as the model for the Transporter and the Sprinter): white; the cab door blue
+  to the sill with `POLITSEI`; the cargo side blue from the windows down to 0.78 m, then a white gap, then from 0.62 m
+  to the sill the yellow-green band on dark navy in two rows split at the moulding; `112` and the web address on the
+  upper rear panel. Bumpers, a moulding along the sill (with a grey trim line on it) and the arches' rims in
+  unpainted black plastic. The rear doors blue: `POLITSEI` large across both in the upper third, the board number on
+  the right door only with `112` and the web address under it, yellow-green chevrons meeting in the middle below
+  them. A light bar at the front and at the back of the roof and LED modules along the roof's edges.
+- Unmarked cars (Škoda Superb liftback, BMW 530d, VW Passat; dark metallic paint, no markings): blue LED heads hidden
+  in the grille, behind the top of the windscreen on the passenger's side, inside the rear screen's upper corners
+  and at the rear reflectors, seen only when they flash; nothing on or above the roof (a 2023 photo of an unmarked
+  Superb in Tallinn).
+- No crest: no photo shows the PPA emblem on a car, and docs/PERMISSIONS.md covers the logo only where it lists it.
+- Older scheme (until about 2018, Octavia II and Superb II): doors blue including the window frames, blue-lens light
+  bar, `INFO 612 3000` on the rear. Not modelled: the game's picture is of 2026.
+
+**Bodies.** Each police model has its own measurements and character (render/carbody.ts `MODELS`): Škoda Octavia IV
+Combi (most stations' patrol car), Superb III Combi and liftback, Kodiaq I (upright tailgate, black cladding),
+VW Tiguan, Scala, ID.4 (short bonnet, sloping tail), Toyota RAV4, Nissan Patrol, VW Amarok (double cab and bed),
+VW Transporter T6.1, Mercedes-Benz Vito (a longer bonnet and a more raked windscreen than the Transporter) and
+Sprinter. `lookOfUnit` picks the body from the unit's vehicle name. The skin has a shoulder crease 8 cm under the
+belt line, the roof falls towards the tail, the nose and tail round off in plan and a car's bumper face leans back;
+the arches hug the tyres (3 cm), the tyres have a rounded shoulder and a 10 cm sidewall, the rims sit 3 cm back.
+Fronts follow the make: a Škoda's low, wide black grille with a thin chrome frame and the badge on the bonnet's lip,
+VW's slim slot, and for cars without a model three neutral fronts picked by the plate, with no brand marks. Paint
+and glass are under a clear coat that mirrors the sky; tyres, bumpers and cladding are rough unpainted plastic.
+
+**Ambulance.** White with red (Tallinn and Tartu; the law allows white or yellow with red), on a high-roof Sprinter
+panel van: a dark grey lower band and bumpers, a red band 0.3 m high at the handles with `TALLINNA KIIRABI` in white
+and the unit's number over the front wing, a red stripe under the roof edge, a red bonnet with `KIIRABI`, a red lamp
+fairing with `KIIRABI` over the windscreen, and at the rear a red band with `17 KIIRABI` under dark door windows.
+The service's roundel is a stand-in (a red ring with a plain yellow cross). Blue lights only: a fairing across the
+front of the roof, two in the grille, and on the rear corners of the box clear blue lenses that flash in turn with
+the front bar. *Chosen:* the green chequer that the 2025 rule
+allows was not seen on any ambulance, so it is not drawn.
+
+**Rescue Board.** The main engine (Scania P): a forward-control crew cab with two doors a side, upright to the
+windscreen and raked 8 degrees above it, its corners chamfered; a black bumper with rectangular headlamps at its
+ends, a dark grille panel with two blue lamps over it and a dark band under the windscreen; the equipment body down
+to 0.6 m with arches cut round the wheels, twin tyres at the back, aluminium roller shutters, `112` on the crew
+door, `PÄÄSTE` over the windscreen and on the fascia, a light bar on the cab roof and blue lamps on the body's upper
+rear corners. Most engines wear the livery of the rule of 2022 (and of the Scania P450 engines of 2025): red all
+over with white and yellow diagonal reflective stripes along the lower half. A third of them (by the plate) still
+wear the old livery of the 2021 photo: the front door white below its window with a stand-in star (a plain gold
+eight-pointed star) and the brigade's name, red and white stripes along the sill and on the bumper's corners.
+*Chosen:* the rear was in no photo; it gets red and yellow stripes low down, `PÄÄSTE` and `112`.
+
+**Number plates.** 520 x 113 mm, white, black characters `123 ABC`, a blue EU band with the stars and `EST` at the
+left; emergency vehicles carry ordinary plates.
+
+**Levels of detail.** A moving vehicle (`CarMesh`) is at most 5 500 triangles: its body (paint, glass and rough
+plastic), one painting laid over it (an atlas per model, livery, plate and front: both sides, the top, the back and
+the front, cached and shared), and one lamp mesh whose lamps glow from an eight-texel state texture. A parked car
+baked through `drawCar(mb, look, f)` is the 'low' level: vertex colours only, at most 2 300 triangles.
 
 ## 11. Assets and licences
 

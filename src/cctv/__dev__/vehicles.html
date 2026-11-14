@@ -1,0 +1,20 @@
+<!doctype html>
+<!--
+  Dev-only: the camera's vehicles on plain asphalt in daylight or at night, without the street and without the
+  camera's faults (not part of the app build). See vehicles.ts for the parameters, e.g.
+  ?car=octavia&view=front  ?set=police  ?car=unmarked&view=side&beacons=1  ?car=octavia&view=cctv&night=1&lamps=1&beacons=1
+-->
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body { margin: 0; background: #222; }
+      canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <canvas id="c" width="960" height="540"></canvas>
+    <pre id="log" style="color:#ccc;font:11px monospace;margin:4px;white-space:pre-wrap"></pre>
+    <script type="module" src="./vehicles.ts"></script>
+  </body>
+</html>

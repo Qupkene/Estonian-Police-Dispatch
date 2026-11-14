@@ -285,8 +285,6 @@ export class Director {
   private readonly width: number;
   private readonly length: number;
   private readonly at: number;
-  /** How far along the drive line the camera hangs. */
-  private readonly camS: number;
   /** Where "inside" is: before the door, or round the corner when no door is in sight. */
   private readonly inPoint: V2;
   private readonly hasDoor: boolean;
@@ -325,6 +323,8 @@ export class Director {
   /** The way the suspect's vehicle made off, once it has. */
   private fleeDir: 1 | -1 | 0 = 0;
   private runner: Body | null = null;
+  /** An officer has run after whoever made off as the police came. */
+  private chased = true;
   private patient: Body | null = null;
   private stopCar: Car | null = null;
   private stopDriver: Body | null = null;
@@ -346,7 +346,6 @@ export class Director {
     this.width = d.width;
     this.length = d.length;
     this.at = d.at;
-    this.camS = nearestOnLine(site.camera.pos, d.pts).s;
     this.u = site.dir;
     const out = sub(site.spot, site.roadSpot);
     this.n = dist(site.spot, site.roadSpot) > 0.2 ? norm(out) : [-site.dir[1] * site.side, site.dir[0] * site.side];
@@ -1737,8 +1736,15 @@ export class Director {
     const cr = o.crew;
     if (!cr) return;
     const car = cr.car;
+    const out = s.inside && s.hidden;
     this.fresh(s);
     s.duty = true;
+    // Out of a door: a step clear of it first, so the officer coming out behind has room.
+    const o2 = this.site.doorOut;
+    if (out && o2) {
+      const p: V2 = [this.inPoint[0] + o2[0] * 0.9, this.inPoint[1] + o2[1] * 0.9];
+      if (!this.wall(p[0], p[1])) s.steps.push(go(p, 'walk'));
+    }
     s.steps.push(act('handsUp', 1 + 0.3 * k), act('cuffed'));
     if (o.wards.length) {
       // The officer already leads one: this one is walked along behind.
@@ -2244,15 +2250,10 @@ export class Director {
    * The place an arriving crew stops at: at its own kerb short of the spot, behind whoever came before with room to
    * pull out; past the spot when there is none before it; at the other kerb when its own is full. Never beyond
    * what blocks the road, and never on a taken place: null when the road has no room left.
-   *
-   * When the camera hangs over the stretch short of the spot, a car stopping seven metres short stands under its
-   * pole, half out of the picture: then the first crew drives up level with the spot. Not before an armed suspect
-   * (they stop short of the weapon) and not at a wreck (its lane is blocked).
    */
   private slot(size: CarSize, fromA: boolean): { s: number; lat: number } | null {
     const back = fromA ? -1 : 1;
-    const under = this.kind !== 'threat' && this.kind !== 'crash' && (this.camS - this.at) * back > 2 && Math.abs(this.camS - this.at) < 32;
-    const first = this.kind === 'crash' && !this.cast.single ? 12 : under ? 4 : 7;
+    const first = this.kind === 'crash' && !this.cast.single ? 12 : 7;
     const block = this.blockS();
     const own = (fromA ? -1 : 1) * this.kerbLat();
     const folk = this.roadFolk();
@@ -2911,6 +2912,17 @@ export class Director {
     b.aboard = false;
     b.scale = 1;
     b.steps.length = 0;
+    // Somebody ran off as the car came and is still in sight: the first officer out runs after them a stretch,
+    // looks after them, and comes back to work. A runner nobody chases reads as a mistake.
+    const runner = cr.police && !this.chased ? this.bodies.find((x) => x.kind === 'cast' && x.leaving && !x.gone && !x.hidden && x.gait === 'run') : null;
+    if (runner) {
+      this.chased = true;
+      const there: V2 = [runner.x, runner.y];
+      const d = Math.max(1, dist(at, there));
+      const to = this.safe(lerp2(at, there, Math.min(1, 14 / d)));
+      this.past(b, cr.car, to, 'run');
+      b.steps.push(act('look', 1.5, there));
+    }
     this.assign(b);
   }
 

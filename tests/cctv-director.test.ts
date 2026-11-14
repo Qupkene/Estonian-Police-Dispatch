@@ -1395,3 +1395,84 @@ describe('cctv director: what the reviewers found', () => {
     expect(least).toBeGreaterThan(0.01);
   });
 });
+
+describe('cctv director: what the films showed', () => {
+  it('an arrest out of a door: the suspect comes out first, the officer holds on from behind, never in the same place', () => {
+    const site = siteOf('residential', 2);
+    const w = start(site, usual('indoor'));
+    arrive(w, 20);
+    let closest = Infinity;
+    let both = 0;
+    w.step(ended('arrest', [unit('P1', 'here')]), 14, (f) => {
+      const s = f.people.find((p) => p.id === 'p:s0');
+      const o = f.people.find((p) => p.id === 'o:P1:0' || p.id === 'o:P1:1');
+      if (s && o && s.scale >= 1 && o.scale >= 1) {
+        both++;
+        closest = Math.min(closest, dist(s.pos, o.pos));
+      }
+    });
+    expect(both).toBeGreaterThan(10);
+    expect(closest).toBeGreaterThan(0.4);
+  });
+
+  it('officers nobody needs for the closing scene come out of the door and wait by their car', () => {
+    const site = siteOf('residential', 2);
+    const w = start(site, usual('indoor'));
+    arrive(w, 20);
+    const f = w.step(ended('arrest', [unit('P1', 'here')]), 25);
+    const out = f.people.filter((p) => p.id.startsWith('o:P1:'));
+    expect(out.length).toBe(2);
+    const car = f.cars.find((c) => c.id === 'u:P1')!;
+    for (const o of out) expect(dist(o.pos, car.pos)).toBeLessThan(5);
+  });
+
+  it('nobody stands on open water: a street along a river, the water just behind the spot', () => {
+    const street: StreetData = {
+      source: 'made',
+      radius: 150,
+      roads: [{ cls: 'residential', pts: [[-120, -6], [120, -6]], width: 7, oneway: 0, walk: true }],
+      buildings: [{ id: 1, ring: box(-40, -30, 40, -16), height: 9, base: 0, area: 1120, roof: 'flat' }],
+      areas: [{ kind: 'water', ring: box(-200, 1.5, 200, 90) }],
+    };
+    const site = buildSite(street, 7)!;
+    expect(site).not.toBeNull();
+    const wet = (p: V2) => p[1] > 1.5 && nearestOnLine(p, street.roads[0].pts).d > 3.5 + 3;
+    for (const kind of KINDS) {
+      const w = start(site, usual(kind));
+      const f = arrive(w, 20);
+      for (const p of f.people) expect(wet(p.pos), `${kind}: ${p.id} on the water at ${p.pos}`).toBe(false);
+    }
+  });
+
+  it('fire: the smoke comes out low enough to be in the picture, and the onlookers stand in a loose knot, not a row', () => {
+    const site = siteOf('residential', 5);
+    expect(site.door).not.toBeNull();
+    const w = start(site, usual('fire'));
+    const f = w.step(NOBODY, 2);
+    expect(f.smoke!.height).toBeLessThan(3.5);
+    const folk = f.people.filter((p) => isCast(p.id)).map((p) => p.pos);
+    expect(folk.length).toBeGreaterThanOrEqual(4);
+    // How far the onlookers stand off the straight line through the outermost two.
+    const [a, b] = [folk[0], folk[folk.length - 1]];
+    const l = dist(a, b) || 1;
+    const off = folk.map((p) => Math.abs((b[0] - a[0]) * (a[1] - p[1]) - (a[0] - p[0]) * (b[1] - a[1])) / l);
+    expect(Math.max(...off)).toBeGreaterThan(0.5);
+  });
+
+  it('thieves who run as the car comes are chased a stretch by the first officer out, who then comes back', () => {
+    const site = siteOf('street', 1);
+    const w = start(site, usual('theft', { runs: true }));
+    w.step(NOBODY, 3);
+    for (let i = 0; i < 70; i++) w.step(sitWith([unit('P1', 'near', { eta: 7 - i * DT })]), DT);
+    const parked = w.d.frame().cars.find((c) => c.id === 'u:P1')!.pos;
+    let far = 0;
+    const f = w.step(sitWith([unit('P1', 'here')]), 40, (fr) => {
+      for (const p of fr.people) if (p.id.startsWith('o:')) far = Math.max(far, dist(p.pos, site.spot));
+    });
+    console.log('FAR', far);
+    expect(far).toBeGreaterThan(9);
+    const back = f.people.filter((p) => p.id.startsWith('o:'));
+    expect(back.length).toBe(2);
+    for (const o of back) expect(dist(o.pos, site.spot)).toBeLessThan(12);
+  });
+});
