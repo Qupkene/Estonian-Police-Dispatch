@@ -5236,11 +5236,14 @@ button.gm-ctask__btn:hover {
   font-weight: 650;
   color: var(--text-0);
 }
-/* The camera's place name gives way first (it is burned into the picture as well); the incident's number keeps
-   its room until the place name is down to the camera's code. */
+/* The camera's place name gives way first (it is burned into the picture as well), then the incident's number;
+   the camera's code never does. */
+.gm-cam__code {
+  flex: none;
+}
 .gm-cam__label {
   flex: 0 1 auto;
-  min-width: 5ch;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -5446,6 +5449,10 @@ button.gm-ctask__btn:hover {
     height: 44px;
   }
   .gm-cam__btn--size {
+    display: none;
+  }
+  /* The bar has room for the camera's code and the incident's number only; the place name is in the picture. */
+  .gm-cam__label {
     display: none;
   }
   .gm-cam__retry {

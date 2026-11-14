@@ -460,7 +460,15 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
         <i className={`gm-cam__lamp is-${live ? (paused ? 'paused' : 'live') : state}`} aria-hidden="true" />
         <Icon name="cctv" size={14} />
         <span className="gm-cam__name mono">
-          <span className="gm-cam__label">{name}</span>
+          {/* The camera's code stays whole; its place name gives way when the bar is narrow. */}
+          {info && name.startsWith(info.id) ? (
+            <>
+              <span className="gm-cam__code">{info.id}</span>
+              <span className="gm-cam__label">&nbsp;{name.slice(info.id.length).trimStart()}</span>
+            </>
+          ) : (
+            <span className="gm-cam__label">{name}</span>
+          )}
           {/* Two incidents can share one camera: the number says whose story the picture tells. */}
           {number && <span className="gm-cam__case">&nbsp;· {number}</span>}
         </span>

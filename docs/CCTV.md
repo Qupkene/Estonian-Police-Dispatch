@@ -433,7 +433,8 @@ so Tab reaches it before the right panel. The window never traps the focus and n
 are at the bottom, the co-op panel top left, the crisis bar top centre, the version bottom left. Its title bar
 carries a lamp (red and blinking while live, amber while the game is paused, blue and pulsing while connecting),
 the camera's name and the incident's number (two incidents can share one camera, and the picture tells the story of
-the one it was opened for), zoom out and in, the size button (corner arrows: about 448 px wide or the native 640 px;
+the one it was opened for; on a narrow bar the camera's place name gives way first, and a phone shows only the
+camera's code and the number), zoom out and in, the size button (corner arrows: about 448 px wide or the native 640 px;
 the picture is always 16:9, drawn at 640x360 and scaled by CSS) and the close button. It is dragged by its title
 bar. The window measures the map area (on a resize of the map or of itself, on the size button, and every 400 ms
 for the 112 card) and sets its own width: never wider than the map leaves beside its tools, never taller than the

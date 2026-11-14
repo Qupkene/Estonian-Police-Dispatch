@@ -28,6 +28,7 @@ import {
   nearestOnLine,
   norm,
   pointAlong,
+  pointInRing,
   rand,
   sliceLine,
   smooth,
@@ -284,6 +285,8 @@ export class Director {
   private readonly width: number;
   private readonly length: number;
   private readonly at: number;
+  /** How far along the drive line the camera hangs. */
+  private readonly camS: number;
   /** Where "inside" is: before the door, or round the corner when no door is in sight. */
   private readonly inPoint: V2;
   private readonly hasDoor: boolean;
@@ -343,6 +346,7 @@ export class Director {
     this.width = d.width;
     this.length = d.length;
     this.at = d.at;
+    this.camS = nearestOnLine(site.camera.pos, d.pts).s;
     this.u = site.dir;
     const out = sub(site.spot, site.roadSpot);
     this.n = dist(site.spot, site.roadSpot) > 0.2 ? norm(out) : [-site.dir[1] * site.side, site.dir[0] * site.side];
@@ -535,7 +539,10 @@ export class Director {
     }
     if (this.over && !this.played) {
       this.overT += dt;
-      if (!this.playing && (this.contact || !this.policeAround() || this.overT > HOLD_S)) this.startPlay(sit);
+      if (!this.playing && (this.contact || !this.policeAround() || this.overT > HOLD_S)) {
+        this.startPlay(sit);
+        this.bringOut();
+      }
       if (this.playing) {
         this.playT += dt;
         if ((this.playT >= this.playMin && !this.bodies.some((b) => b.duty && !b.gone)) || this.playT > 60) {
@@ -988,8 +995,15 @@ export class Director {
     return [s[0] + this.u[0] * du + this.n[0] * dn, s[1] + this.u[1] * du + this.n[1] * dn];
   }
 
+  /** Open water away from any road (a bridge's pavement is over water too): nobody stands there. */
+  private overWater(p: V2): boolean {
+    const st = this.site.street;
+    if (!st.areas.some((a) => a.kind === 'water' && pointInRing(p, a.ring))) return false;
+    return !st.roads.some((r) => nearestOnLine(p, r.pts).d < r.width / 2 + 3);
+  }
+
   private roomAt(p: V2, room: number): boolean {
-    if (this.wall(p[0], p[1])) return false;
+    if (this.wall(p[0], p[1]) || this.overWater(p)) return false;
     if (room > 0 && (this.wall(p[0] + room, p[1]) || this.wall(p[0] - room, p[1]) || this.wall(p[0], p[1] + room) || this.wall(p[0], p[1] - room)))
       return false;
     return true;
@@ -1349,8 +1363,10 @@ export class Director {
     } else {
       // Fire: smoke, and people looking on from a distance.
       const out = this.site.doorOut ?? ([-this.n[0], -this.n[1]] as V2);
-      let src: V2 = this.site.door ? [this.site.door[0] - out[0] * 1.5, this.site.door[1] - out[1] * 1.5] : this.local(0, 2);
-      let height = this.site.door ? 5 : 1;
+      // Out of a window above the door, just before the wall: smoke from inside the house at roof height would
+      // rise out of a street camera's picture at once.
+      let src: V2 = this.site.door ? [this.site.door[0] + out[0] * 0.4, this.site.door[1] + out[1] * 0.4] : this.local(0, 2);
+      let height = this.site.door ? 2.8 : 1;
       if (c.carFire && c.cars[0]) {
         const car = this.kerbCar(c.cars[0].id, c.cars[0].look, 0);
         src = [car.x, car.y];
@@ -1363,8 +1379,10 @@ export class Director {
       const tan: V2 = [-out[1], out[0]];
       const crowd = all;
       crowd.forEach((b, i) => {
-        const off = (i - (crowd.length - 1) / 2) * 1.25;
-        const p = this.offRoad(this.safe([centre[0] + tan[0] * off + out[0] * 0.5 * (i % 2), centre[1] + tan[1] * off + out[1] * 0.5 * (i % 2)]), 1.6, side);
+        // A loose knot, not a row: each a little off their place along the kerb and further back or forward.
+        const off = (i - (crowd.length - 1) / 2) * 1.3 + (hash01(b.seed, 5) - 0.5) * 0.9;
+        const back = (i % 2) * 0.7 + hash01(b.seed, 6) * 1.1;
+        const p = this.offRoad(this.safe([centre[0] + tan[0] * off + out[0] * back, centre[1] + tan[1] * off + out[1] * back]), 1.6, side);
         this.stand(b, p, b.role === 'caller' ? 'phone' : cold ? 'cold' : hash01(b.seed, 4) < 0.5 ? 'point' : 'idle', src);
       });
       this.post(this.offRoad(this.safe([centre[0] - out[0] * 2.6, centre[1] - out[1] * 2.6]), 0.5, side), 'direct', centre);
@@ -1689,6 +1707,31 @@ export class Director {
     this.disperse(folk, 1, true, true);
   }
 
+  /**
+   * Officers still inside once the closing scene is under way (nobody gave them a part in it) come out one after
+   * another and stand by their car: a crew left behind a door would leave the street without anybody to watch.
+   */
+  private bringOut(): void {
+    let k = 0;
+    for (const b of this.officers()) {
+      if (!b.inside || !b.hidden || b.duty || b.steps.length || b.crew?.state !== 'here') continue;
+      this.comeOut(b);
+      b.steps.unshift(wait(2.5 + 1.2 * k++));
+      this.standBy(b);
+    }
+  }
+
+  /** Where an officer holds a suspect from: behind them, on the side away from the car they are walked to. */
+  private holdFrom(at: V2, door: V2, from: V2): V2 {
+    const away = dist(at, door) > 0.2 ? norm(sub(at, door)) : dist(at, from) > 0.2 ? norm(sub(from, at)) : this.n;
+    const side: V2 = [-away[1], away[0]];
+    for (const dir of [away, side, [-side[0], -side[1]] as V2]) {
+      const p: V2 = [at[0] + dir[0] * 0.75, at[1] + dir[1] * 0.75];
+      if (!this.wall(p[0], p[1]) && clearLine(this.site.street, at, p)) return p;
+    }
+    return at;
+  }
+
   /** Cuff a suspect and walk them to the officer's car. */
   private arrest(s: Body, o: Body, k: number): void {
     const cr = o.crew;
@@ -1702,19 +1745,21 @@ export class Director {
       o.wards.push(s);
       return;
     }
+    const inside = o.inside && o.hidden;
     this.fresh(o);
+    // Out of a door one at a time: the suspect first, the officer holding on right behind.
+    if (inside) o.steps.unshift(wait(0.7));
     if (o.post) o.post.by = null;
     o.post = null;
     o.duty = true;
     o.wards = [s];
     const at = this.endOf(s);
     const from = this.endOf(o);
-    const d = Math.max(0.1, dist(from, at));
-    this.route(o, d > 1 ? this.safe(lerp2(at, from, 0.85 / d)) : from, this.cast.kind === 'threat' ? 'run' : 'walk');
+    const door = this.carPoint(car, -0.75, this.kerbSide(car) * (car.size.width / 2 + 0.6));
+    this.route(o, this.holdFrom(at, door, from), this.cast.kind === 'threat' ? 'run' : 'walk');
     o.steps.push(
       act('hold', 1.6, at),
       call(() => {
-        const door = this.carPoint(car, -0.75, this.kerbSide(car) * (car.size.width / 2 + 0.6));
         o.wards.forEach((w, i) => {
           w.steps.length = 0;
           this.setAct(w, 'cuffed');
@@ -2199,10 +2244,15 @@ export class Director {
    * The place an arriving crew stops at: at its own kerb short of the spot, behind whoever came before with room to
    * pull out; past the spot when there is none before it; at the other kerb when its own is full. Never beyond
    * what blocks the road, and never on a taken place: null when the road has no room left.
+   *
+   * When the camera hangs over the stretch short of the spot, a car stopping seven metres short stands under its
+   * pole, half out of the picture: then the first crew drives up level with the spot. Not before an armed suspect
+   * (they stop short of the weapon) and not at a wreck (its lane is blocked).
    */
   private slot(size: CarSize, fromA: boolean): { s: number; lat: number } | null {
-    const first = this.kind === 'crash' && !this.cast.single ? 12 : 7;
     const back = fromA ? -1 : 1;
+    const under = this.kind !== 'threat' && this.kind !== 'crash' && (this.camS - this.at) * back > 2 && Math.abs(this.camS - this.at) < 32;
+    const first = this.kind === 'crash' && !this.cast.single ? 12 : under ? 4 : 7;
     const block = this.blockS();
     const own = (fromA ? -1 : 1) * this.kerbLat();
     const folk = this.roadFolk();
