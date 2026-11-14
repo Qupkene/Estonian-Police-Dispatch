@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { chunkFileName, precacheList, preloadEntryStyles, stampServiceWorker } from '../vite.config';
+import { chunkFileName, licenceEntry, packageOfModule, precacheList, preloadEntryStyles, stampServiceWorker } from '../vite.config';
 import { offlineMapUrls } from '@/pwa';
 
 const ORIGIN = 'https://politsei.eu';
@@ -295,5 +295,33 @@ describe('build stamping', () => {
     expect(urls).toContain(`${ORIGIN}/glyphs/Noto%20Sans%20Regular/256-511.pbf`);
     expect(urls).toHaveLength(10);
     expect(offlineMapUrls('/Estonian-Police-Dispatch/', ORIGIN)[1]).toBe(`${ORIGIN}/Estonian-Police-Dispatch/glyphs/Noto%20Sans%20Regular/0-255.pbf`);
+  });
+});
+
+describe('third-party licences in the build', () => {
+  it('finds the package a module belongs to, scoped and nested ones too', () => {
+    expect(packageOfModule('/repo/node_modules/three/build/three.module.js')).toEqual({ name: 'three', dir: '/repo/node_modules/three' });
+    expect(packageOfModule('/repo/node_modules/@mapbox/vector-tile/index.js?v=1')).toEqual({
+      name: '@mapbox/vector-tile',
+      dir: '/repo/node_modules/@mapbox/vector-tile',
+    });
+    expect(packageOfModule('\0/repo/node_modules/a/node_modules/pbf/index.js')?.dir).toBe('/repo/node_modules/a/node_modules/pbf');
+  });
+
+  it("leaves the game's own files and virtual modules alone", () => {
+    expect(packageOfModule('/repo/src/cctv/live.ts')).toBeNull();
+    expect(packageOfModule('\0vite/modulepreload-polyfill.js')).toBeNull();
+    expect(packageOfModule('/repo/node_modules/.vite/deps/x.js')).toBeNull();
+  });
+
+  it('prints a package with its licence text, or says that it ships none', () => {
+    const withText = licenceEntry({ name: 'three', version: '0.187.0', licence: 'MIT', url: 'https://threejs.org/', texts: ['The MIT License\n'] });
+    expect(withText).toContain('three 0.187.0 (MIT)\nhttps://threejs.org/');
+    expect(withText).toContain('The MIT License');
+    expect(licenceEntry({ name: 'x', version: '1.0.0', licence: 'ISC', url: '', texts: [] })).toContain('ships no licence file');
+  });
+
+  it('is not precached by the service worker', () => {
+    expect(precacheList(['THIRD-PARTY-LICENSES.txt', 'assets/index-abc.js'])).toEqual(['assets/index-abc.js']);
   });
 });

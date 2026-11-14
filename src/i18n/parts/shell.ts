@@ -663,6 +663,7 @@ export default {
   'shell.cred.src.maplibre': { et: 'Vektorkaardi mootor.', en: 'Vector map engine.' },
   'shell.cred.src.three': { et: 'Valvekaamerate pilt (3D).', en: 'The surveillance cameras\' picture (3D).' },
   'shell.cred.src.vtile': { et: 'Valvekaamera tänav kaardifailist.', en: 'The surveillance camera\'s street, read from the map file.' },
+  'shell.cred.licenceTexts': { et: 'Kõigi kaasa pandud teekide ja fontide litsentsitekstid', en: 'Licence texts of all bundled libraries and fonts' },
   'shell.cred.src.body': { et: 'Valvekaamera pildi inimeste keha (3D-mudel).', en: 'The body of the people in the camera picture (3D model).' },
   'shell.cred.src.react': {
     et: 'Liides, olekuhaldus ja ehitus.',
