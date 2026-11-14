@@ -57,6 +57,9 @@ export interface Situation {
   paused: boolean;
 }
 
+/** What somebody may hold in their right hand. */
+export type Held = 'knife' | 'bat' | 'pistol';
+
 export interface PersonFrame {
   id: string;
   look: Look;
@@ -65,6 +68,21 @@ export interface PersonFrame {
   pose: Pose;
   /** 1 normally; smaller while going in at a door. */
   scale: number;
+  /** A weapon in the right hand, while they have one. */
+  held?: Held;
+}
+
+/**
+ * A thing in the street that is neither a person nor a vehicle (render/props.ts draws them, a handful of triangles
+ * each): a weapon somebody dropped, a stretcher, the sheet over somebody who died, a fire hose.
+ */
+export interface PropFrame {
+  id: string;
+  kind: Held | 'stretcher' | 'sheet' | 'hose';
+  pos: V2;
+  yaw: number;
+  /** A hose: the points it lies along on the ground, from the lorry to the nozzle (the last one is held at the waist). */
+  line?: V2[];
 }
 
 export interface CarFrame {
@@ -89,4 +107,6 @@ export interface Frame {
   people: PersonFrame[];
   cars: CarFrame[];
   smoke?: Smoke | null;
+  /** Things lying or standing about (none: the field may be missing). */
+  props?: PropFrame[];
 }

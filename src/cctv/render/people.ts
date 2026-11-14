@@ -6,6 +6,7 @@
 import { BoxGeometry, CapsuleGeometry, Group, Mesh, MeshLambertMaterial, SphereGeometry, type Material } from 'three';
 import type { Look, Pose } from '../figure';
 import type { V2 } from '../math';
+import type { Held } from '../stage';
 
 const capsule = new CapsuleGeometry(1, 1, 2, 6);
 const box = new BoxGeometry(1, 1, 1);
@@ -67,8 +68,14 @@ export class FigureMesh {
   private legL: LimbRig;
   private legR: LimbRig;
   private leg: number;
+  private fore: number;
+  private held: Mesh | null = null;
+  private heldKind: Held | null = null;
 
-  constructor(look: Look, pal: Palette) {
+  constructor(
+    look: Look,
+    private readonly pal: Palette,
+  ) {
     const h = look.height;
     const w = look.build;
     // Proportions of a standing adult.
@@ -82,6 +89,7 @@ export class FigureMesh {
     const upper = h * 0.165;
     const fore = h * 0.16;
     this.leg = leg;
+    this.fore = fore;
 
     const skin = pal.get(look.skin);
     const top = pal.get(look.top, look.bands ? 0.5 : 0);
@@ -176,6 +184,23 @@ export class FigureMesh {
     };
     this.legL = mkLeg(-1);
     this.legR = mkLeg(1);
+  }
+
+  /** Put a weapon in the right hand, or take it away (null): a plain dark stick of its length, hanging from the hand. */
+  setHeld(kind: Held | null) {
+    if (this.heldKind === kind) return;
+    this.heldKind = kind;
+    if (this.held) {
+      this.held.removeFromParent();
+      this.held = null;
+    }
+    if (!kind) return;
+    const long = kind === 'bat' ? 0.8 : kind === 'knife' ? 0.25 : 0.2;
+    const m = new Mesh(box, this.pal.get(kind === 'bat' ? 0x7a5c3a : 0x26272a));
+    m.scale.set(0.04, long, 0.04);
+    m.position.y = -this.fore - long / 2;
+    this.armR.joint.add(m);
+    this.held = m;
   }
 
   /** Stand the figure at a scene position, facing `yaw`, in a pose. `scale` shrinks it (going in at a door). */

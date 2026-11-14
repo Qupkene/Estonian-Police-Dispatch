@@ -18,11 +18,13 @@ import type { Osd } from './render/view';
 import { buildSite } from './site';
 import { situationOf } from './situation';
 import type { Frame } from './stage';
-import type { Site, StreetData } from './types';
+import type { ParkedCar, Site, StreetData } from './types';
 
 /** What a session needs of the picture: render/view.ts CameraView. */
 export interface SessionView {
   setScene(site: Site, env: Env): void;
+  /** The parked cars of the scene just set, if the view draws any. */
+  readonly parked?: readonly ParkedCar[];
   setEnv(env: Env): void;
   render(frame: Frame, osd: Osd, zoom?: number, panX?: number, panY?: number): void;
 }
@@ -35,6 +37,15 @@ export const ENV_EVERY_S = 2;
 const MAX_DT = 0.5;
 /** Game seconds per real second assumed until the game has run once (the slowest co-op turn speed). */
 const FIRST_SPEED = 15;
+/**
+ * Real seconds over which the game clock's own pace is measured. The game plays at most 250 ms of a slow frame, so on
+ * a slow device its clock runs behind the nominal speed: the picture must follow the clock, not the nominal speed,
+ * or the crew is out of the car on camera while the unit list still says en route.
+ */
+const PACE_WINDOW_S = 0.5;
+/** The measured pace (game seconds per nominal game second) is kept within these, against a clock that jumps. */
+const PACE_MIN = 0.05;
+const PACE_MAX = 1.5;
 /**
  * Real seconds of empty street shown once the incident is closed and its story has played out ('after'); then the
  * feed ends and the window lets its graphics go (a camera left open must not draw an empty street all shift).
@@ -62,6 +73,13 @@ export class CameraSession {
   private env: Env;
   private envAge = 0;
   private lastSpeed = FIRST_SPEED;
+  /** The game clock's pace against the nominal speed (1: as fast), and the window it is being measured over. */
+  private pace = 1;
+  private paced = false;
+  private paceGame = 0;
+  private paceReal = 0;
+  private paceSpeed = 0;
+  private paceNow: number | null = null;
   private last: Frame | null = null;
   private lastClock = '';
   private realT = 0;
@@ -90,8 +108,14 @@ export class CameraSession {
     this.site = built.site;
     this.env = envAt(sim.now, incident.location.coord, sim.weather);
     this.cast = castOf(sim, incident, templateOf(sim, incident), { season: this.env.season, temp: sim.weather.tempC });
-    this.director = new Director(this.site, this.cast, { night: this.env.night >= 0.5, quiet: opts.quiet, wet: this.env.rain });
+    // The street first: the director is told which parked cars the view has drawn.
     this.view.setScene(this.site, this.env);
+    this.director = new Director(this.site, this.cast, {
+      night: this.env.night >= 0.5,
+      quiet: opts.quiet,
+      wet: this.env.rain,
+      parked: this.view.parked,
+    });
   }
 
   /**
@@ -117,9 +141,59 @@ export class CameraSession {
     return this.last;
   }
 
+  /** Game seconds per real second the street is played at: the nominal speed at the pace the game clock really keeps. */
+  get speed(): number {
+    return this.lastSpeed;
+  }
+
+  /**
+   * Settle the stage as the game stands, without drawing: the first frame, for the view to prepare its programs and
+   * textures on before the picture goes live (live.ts). The next update goes on from it. Null once ended.
+   */
+  stage(sim: SimState): Frame | null {
+    if (this.status === 'ended') return null;
+    if (this.last) return this.last;
+    const incident = sim.incidents[this.incidentId];
+    if (!incident) return null;
+    this.director.update(situationOf(sim, incident, this.lastSpeed, false), 0);
+    this.last = this.director.frame();
+    this.lastClock = `${ddmmyyyy(sim.now)} ${hhmm(sim.now)}`;
+    return this.last;
+  }
+
+  /**
+   * The speed the street plays at: `speed`, the game's nominal one, times the pace its clock was measured to keep over
+   * the last windows of PACE_WINDOW_S real seconds (sim.now against the real time between camera frames). Nominal
+   * until a first window is measured; the measuring starts again after a pause or a change of speed.
+   */
+  private follow(sim: SimState, speed: number, paused: boolean, dt: number): number {
+    if (paused || !(speed > 0) || !Number.isFinite(speed)) {
+      this.paceNow = null;
+      return this.lastSpeed;
+    }
+    if (this.paceNow !== null && speed === this.paceSpeed && dt > 0 && dt <= 1 && sim.now >= this.paceNow) {
+      this.paceGame += (sim.now - this.paceNow) / 1000;
+      this.paceReal += dt;
+      if (this.paceReal >= PACE_WINDOW_S) {
+        const k = Math.min(PACE_MAX, Math.max(PACE_MIN, this.paceGame / (this.paceReal * speed)));
+        this.pace = this.paced ? this.pace * 0.6 + k * 0.4 : k;
+        this.paced = true;
+        this.paceGame = 0;
+        this.paceReal = 0;
+      }
+    } else {
+      this.paceGame = 0;
+      this.paceReal = 0;
+    }
+    this.paceNow = sim.now;
+    this.paceSpeed = speed;
+    return speed * this.pace;
+  }
+
   /**
    * Follow the game for `dt` real seconds and draw. `speed` is game seconds per real second at the game's current
-   * speed; while `paused` nothing on the street moves (the picture is drawn again as it stands, for a zoom).
+   * nominal speed (see follow); while `paused` nothing on the street moves (the picture is drawn again as it stands,
+   * for a zoom).
    */
   update(sim: SimState, speed: number, paused: boolean, dt: number): void {
     if (this.status === 'ended') return;
@@ -130,7 +204,7 @@ export class CameraSession {
       return;
     }
     const step = paused ? 0 : Math.min(MAX_DT, Math.max(0, dt));
-    if (!paused && speed > 0 && Number.isFinite(speed)) this.lastSpeed = speed;
+    this.lastSpeed = this.follow(sim, speed, paused, dt);
     // The first update settles the stage as the game stands, also when the camera is opened in a paused game.
     const first = !this.last;
     this.director.update(situationOf(sim, incident, this.lastSpeed, paused && !first), step);

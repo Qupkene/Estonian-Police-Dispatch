@@ -1,4 +1,5 @@
 // Credits, data sources and licences. Owned by ui-shell.
+import type { ReactNode } from 'react';
 import { useT } from '@/i18n';
 import { CONTACT } from './shell/ShellFrame';
 import { ShellPage } from './shell/ShellPage';
@@ -176,14 +177,19 @@ export function CreditsScreen() {
         </div>
         <div className="vk-cred__col">
           <SourceTable id="data" title={t('shell.cred.data')} items={DATA} />
-          <SourceTable id="libs" title={t('shell.cred.libs')} items={SOFTWARE} />
+          <SourceTable id="libs" title={t('shell.cred.libs')} items={SOFTWARE}>
+            {/* Written into the build by vite.config.ts (thirdPartyLicences): every bundled package's full text. */}
+            <a href={`${import.meta.env.BASE_URL}THIRD-PARTY-LICENSES.txt`} target="_blank" rel="noopener noreferrer">
+              {t('shell.cred.licenceTexts')}
+            </a>
+          </SourceTable>
         </div>
       </div>
     </ShellPage>
   );
 }
 
-function SourceTable({ id, title, items }: { id: string; title: string; items: Source[] }) {
+function SourceTable({ id, title, items, children }: { id: string; title: string; items: Source[]; children?: ReactNode }) {
   const t = useT();
   return (
     <section className="vk-panel" aria-labelledby={`vk-cred-${id}`}>
@@ -216,6 +222,7 @@ function SourceTable({ id, title, items }: { id: string; title: string; items: S
           ))}
         </tbody>
       </table>
+      {children ? <p className="vk-cred__note">{children}</p> : null}
     </section>
   );
 }

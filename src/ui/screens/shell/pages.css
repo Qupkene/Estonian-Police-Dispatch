@@ -52,6 +52,11 @@
 .vk-cred__contact {
   margin: 0;
 }
+.vk-cred__note {
+  margin: 0;
+  padding: 10px 14px 12px;
+  font-size: 12.5px;
+}
 
 .vk-legcard {
   display: flex;

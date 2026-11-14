@@ -72,12 +72,47 @@ export const yawOfHeading = (deg: number) => (90 - deg) * DEG;
 
 /** FNV-1a over the parts, as an unsigned 32-bit number: the same parts always give the same scene. */
 export function hash32(...parts: (string | number)[]): number {
+  return hashOf(parts);
+}
+
+/** hash32 as a number in [0, 1). */
+export function hash01(...parts: (string | number)[]): number {
+  return hashOf(parts) / 4294967296;
+}
+
+/** The base-36 digits of a whole number, most significant last (hashOf reads them backwards). */
+const DIGITS = new Uint8Array(12);
+
+/**
+ * hash32 of `parts`. A number is hashed as the characters of its base-36 text; a whole one is taken digit by digit
+ * without making that text (the camera hashes a few thousand numbers a frame), with the same result.
+ */
+function hashOf(parts: (string | number)[]): number {
   let h = 0x811c9dc5;
   for (const part of parts) {
-    const s = typeof part === 'number' ? part.toString(36) : part;
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 0x01000193);
+    if (typeof part === 'number' && Number.isSafeInteger(part)) {
+      let n = part;
+      if (n < 0) {
+        h ^= 45; // '-'
+        h = Math.imul(h, 0x01000193);
+        n = -n;
+      }
+      let k = 0;
+      do {
+        DIGITS[k++] = n % 36;
+        n = Math.floor(n / 36);
+      } while (n > 0);
+      while (k > 0) {
+        const d = DIGITS[--k];
+        h ^= d < 10 ? 48 + d : 87 + d;
+        h = Math.imul(h, 0x01000193);
+      }
+    } else {
+      const s = typeof part === 'number' ? part.toString(36) : part;
+      for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 0x01000193);
+      }
     }
     h ^= 0x7c;
     h = Math.imul(h, 0x01000193);
@@ -90,9 +125,6 @@ export function hash32(...parts: (string | number)[]): number {
   h ^= h >>> 16;
   return h >>> 0;
 }
-
-/** hash32 as a number in [0, 1). */
-export const hash01 = (...parts: (string | number)[]) => hash32(...parts) / 4294967296;
 
 export type Rand = (() => number) & {
   /** A number in [lo, hi). */

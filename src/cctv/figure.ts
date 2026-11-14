@@ -105,15 +105,33 @@ export type Act =
   | 'aid'
   | 'cpr'
   | 'lean'
-  | 'direct';
+  | 'direct'
+  /** Bent low at a car door, getting in or out. */
+  | 'duck'
+  /** Both hands on a hose's nozzle at the waist, braced against it. */
+  | 'hose'
+  /** Patting somebody down: hands from their shoulders to their ankles and back. */
+  | 'frisk'
+  /** Rolled onto one side on the ground, propped on an arm: half way up from lying. */
+  | 'side'
+  /** One knee on the ground behind somebody who kneels, a hand on their shoulder. */
+  | 'kneelHold'
+  /** On both knees with the hands behind the back (cuffed where they knelt). */
+  | 'kneelCuffed'
+  /** Flat on a stretcher: on the back, arms along the body. */
+  | 'onStretcher'
+  /** Pushing something at waist height with both hands (a stretcher). */
+  | 'push'
+  /** Standing guard with an arm out to keep people back; the head turns to who comes. */
+  | 'bar';
 
-export type Gait = 'walk' | 'run' | 'stagger' | 'back' | 'escort';
+export type Gait = 'walk' | 'run' | 'stagger' | 'back' | 'escort' | 'shuffle';
 
 /** Acts whose arms are kept while walking (a phone at the ear, hands cuffed behind the back). */
-const UPPER: ReadonlySet<Act> = new Set<Act>(['phone', 'cuffed', 'hold', 'carry', 'cower', 'handsUp', 'aim', 'brandish', 'point', 'cold']);
+const UPPER: ReadonlySet<Act> = new Set<Act>(['phone', 'cuffed', 'hold', 'carry', 'cower', 'handsUp', 'aim', 'brandish', 'point', 'cold', 'fight', 'grapple', 'push', 'hose']);
 
 /** Acts on the ground: the figure does not turn or get moved about while in them. */
-export const DOWN: ReadonlySet<Act> = new Set<Act>(['lie', 'prone', 'sit', 'fall']);
+export const DOWN: ReadonlySet<Act> = new Set<Act>(['lie', 'prone', 'sit', 'fall', 'side', 'onStretcher']);
 
 type Maker = (t: number, seed: number) => Pose;
 
@@ -187,7 +205,12 @@ const ACTS: Record<Act, Maker> = {
     const bounce = 0.02 * pulse(t * 9 + (s % 3));
     const guardL: Limb = [0.95, 0.12, 2.05];
     const guardR: Limb = [0.9, 0.12, 2.1];
-    const base: Pose = { ...REST, hip: 0.94, lean: 0.14, lift: bounce, armL: guardL, armR: guardR, legL: [0.3, 0.08, 0.2], legR: [-0.28, 0.08, 0.14], headPitch: 0.05 };
+    // The lead leg changes every couple of seconds (a quick step, not a slide), and the stance is never quite still.
+    const turn = t / 2.3 + (s % 7) * 0.31;
+    const lead = (Math.floor(turn) % 2 ? -1 : 1) * smooth(clamp((turn % 1) / 0.12, 0, 1)) + (Math.floor(turn) % 2 ? 1 : -1) * (1 - smooth(clamp((turn % 1) / 0.12, 0, 1)));
+    const shift = 0.05 * Math.sin(t * 5.1 + (s % 4));
+    const hop = 0.035 * Math.sin(Math.PI * clamp((turn % 1) / 0.12, 0, 1));
+    const base: Pose = { ...REST, hip: 0.94, lean: 0.14, lift: bounce + hop, armL: guardL, armR: guardR, legL: [0.3 * lead + shift, 0.08, 0.2], legR: [-0.28 * lead - shift, 0.08, 0.14], headPitch: 0.05 };
     if (kind === 0) return { ...base, twist: -0.4 * hit, lean: 0.14 + 0.12 * hit, armR: [0.9 + 0.6 * hit, 0.05, 2.1 - 1.95 * hit] };
     if (kind === 1) return { ...base, twist: 0.35 * hit, lean: 0.14 + 0.1 * hit, armL: [0.95 + 0.55 * hit, 0.05, 2.05 - 1.9 * hit] };
     // Taking a blow: the head and the body go back.
@@ -248,10 +271,32 @@ const ACTS: Record<Act, Maker> = {
   },
   lean: (t, s) => ({ ...stand(t, s), bend: 0.5, hip: 0.97, headPitch: -0.2, armR: [0.9, 0.1, 0.9], armL: [0.2, 0.1, 0.3] }),
   direct: (t, s) => {
-    // Waving traffic past: one arm out, the other beckoning.
-    const b = Math.sin(t * 3.2 + (s % 5));
+    // Waving traffic past: one arm out, the other sweeping it on, about every second and a half.
+    const b = Math.sin(t * 4.2 + (s % 5));
     return { ...stand(t, s), armL: [0.2, 1.35, 0.1], armR: [1.2 + 0.4 * b, 0.3, 0.9 - 0.6 * b] };
   },
+  duck: () => ({ ...REST, hip: 0.62, bend: 0.5, headPitch: 0.25, armL: [0.5, 0.15, 0.9], armR: [0.6, 0.2, 0.9], legL: [1.05, 0.1, 1.5], legR: [0.75, 0.1, 1.35] }),
+  hose: (t, s) => ({
+    ...REST,
+    hip: 0.93,
+    lean: -0.13 + 0.03 * wobble(s, t, 1.3),
+    twist: 0.06 * wobble(s + 3, t, 0.9),
+    armL: [0.55, 0.12, 0.75],
+    armR: [0.1, 0.15, 1.35],
+    legL: [0.34, 0.16, 0.22],
+    legR: [-0.36, 0.16, 0.1],
+  }),
+  frisk: (t) => {
+    // Down the body and up again, once every three seconds.
+    const k = 0.5 - 0.5 * Math.cos((t / 3) * Math.PI * 2);
+    return { ...REST, hip: 1 - 0.5 * k, bend: 0.25 + 0.55 * k, headPitch: 0.3, armL: [1.25 - 0.35 * k, 0.12, 0.35], armR: [1.2 - 0.35 * k, 0.12, 0.3], legL: [0.9 * k, 0.1, 1.5 * k], legR: [0.45 * k, 0.1, 1.2 * k] };
+  },
+  side: (t, s) => ({ ...REST, hip: 0.2, lean: -0.95, roll: 0.5, bend: 0.3 + 0.02 * wobble(s, t, 0.5), headPitch: 0.25, armL: [-0.5, 0.5, 0.4], armR: [0.7, 0.3, 0.7], legL: [1.0, 0.12, 1.2], legR: [0.5, 0.12, 0.7] }),
+  kneelHold: (t, s) => ({ ...kneel(t, s), bend: 0.3, headPitch: 0.3, armR: [1.0, 0.05, 0.25], armL: [0.45, 0.1, 1.2] }),
+  kneelCuffed: () => ({ ...REST, hip: 0.52, lean: 0.12, headPitch: 0.35, armL: [-0.6, -0.14, 0.35], armR: [-0.6, -0.14, 0.35], legL: [0, 0.1, 1.6], legR: [0, 0.1, 1.6] }),
+  onStretcher: () => ({ ...REST, hip: 0.13, lean: -Math.PI / 2, lift: 0.72, armL: [0, 0.1, 0.1], armR: [0, 0.1, 0.1], legL: [0, 0.05, 0.03], legR: [0, 0.05, 0.03] }),
+  push: (t, s) => ({ ...stand(t, s), lean: 0.1, armL: [0.75, 0.05, 0.55], armR: [0.75, 0.05, 0.55] }),
+  bar: (t, s) => ({ ...stand(t, s), armL: [0.25, 1.2, 0.15], armR: [0.3, 0.12, 1.75], legL: [0, 0.1, 0.03], legR: [0, 0.1, 0.03] }),
 };
 
 /** A walking, running or stumbling body at step phase `th` (radians, a full turn every two steps). */
@@ -274,7 +319,8 @@ function gaitPose(gait: Gait, th: number, seed: number, t: number): Pose {
   }
   const drunk = gait === 'stagger';
   const back = gait === 'back';
-  const a = drunk ? 0.38 : back ? 0.32 : 0.5;
+  // Short quick steps on the spot's own few decimetres: fighters, somebody shifting where they stand.
+  const a = gait === 'shuffle' ? 0.24 : drunk ? 0.38 : back ? 0.32 : 0.5;
   const w1 = drunk ? wobble(seed, t, 1.1) : 0;
   const w2 = drunk ? wobble(seed + 5, t, 0.8) : 0;
   return {
@@ -293,9 +339,9 @@ function gaitPose(gait: Gait, th: number, seed: number, t: number): Pose {
 }
 
 /** Metres covered by two steps of a gait, for a person 1.75 m tall. */
-export const STRIDE: Record<Gait, number> = { walk: 1.45, run: 2.5, stagger: 1.05, back: 1.0, escort: 1.3 };
+export const STRIDE: Record<Gait, number> = { walk: 1.45, run: 2.5, stagger: 1.05, back: 1.0, escort: 1.3, shuffle: 0.7 };
 /** Usual speed of a gait, metres a second. */
-export const PACE: Record<Gait, number> = { walk: 1.35, run: 4.6, stagger: 0.75, back: 0.8, escort: 1.1 };
+export const PACE: Record<Gait, number> = { walk: 1.35, run: 4.6, stagger: 0.75, back: 0.8, escort: 1.1, shuffle: 0.6 };
 
 export interface PoseInput {
   act: Act;
@@ -315,6 +361,8 @@ export function poseOf(p: PoseInput): Pose {
   const g = gaitPose(p.gait === 'escort' ? 'walk' : p.gait, p.phase, p.seed, p.t);
   if (!UPPER.has(p.act)) return g;
   const up = ACTS[p.act](p.actT, p.seed);
+  // A fighter stepping about keeps the crouch and the turn of the blow, not only the arms.
+  if (p.act === 'fight' || p.act === 'grapple') return { ...g, hip: Math.min(g.hip, up.hip), twist: up.twist, armL: up.armL, armR: up.armR, headPitch: up.headPitch, lean: up.lean, lift: g.lift + up.lift };
   return { ...g, armL: up.armL, armR: up.armR, headPitch: up.headPitch, lean: g.lean + up.lean * 0.6 };
 }
 
