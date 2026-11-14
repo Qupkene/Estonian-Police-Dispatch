@@ -461,9 +461,20 @@ export default {
   'game.cam.retry': { et: 'Proovi uuesti', en: 'Try again' },
   'game.cam.stale': { et: 'Mäng on uuenenud', en: 'The game was updated' },
   'game.cam.staleHint': {
-    et: 'Kaamera avamiseks lae leht uuesti. Vahetus salvestatakse enne.',
-    en: 'Reload the page to open the camera. Your shift is saved first.',
+    et: 'Kaamera avamiseks lae leht uuesti. Enne laadimist salvestatakse vahetus.',
+    en: 'Reload the page to open the camera. Your shift is saved before the reload.',
   },
+  'game.cam.staleNeeds': { et: 'Kaamera avamiseks tuleb leht uuesti laadida.', en: 'The camera needs a page reload.' },
+  'game.cam.staleLost': {
+    et: 'Seda vahetust ei saa salvestada: laadimine lõpetab selle.',
+    en: 'This shift cannot be saved: reloading ends it.',
+  },
+  'game.cam.staleCoop': {
+    et: 'Ühisvahetus jätkub ruumis: pärast laadimist liitu sellega uuesti.',
+    en: 'The shared shift goes on in the room: rejoin it after the reload.',
+  },
+  'game.cam.reloadSure': { et: 'Vajuta uuesti, kui oled kindel.', en: 'Press again if you are sure.' },
+  'game.cam.reloadAnyway': { et: 'Lae siiski uuesti', en: 'Reload anyway' },
   'game.cam.offline': { et: 'Võrguühendus puudub', en: 'No connection' },
   'game.cam.offlineHint': {
     et: 'Kaamera vajab esimesel avamisel võrguühendust. Kui ühendus on tagasi, lae leht uuesti.',

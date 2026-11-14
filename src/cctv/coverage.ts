@@ -10,9 +10,9 @@ import type { Incident, PlaceKind } from '@/sim/types';
 import { hash01, hash32 } from './math';
 
 export interface CameraInfo {
-  /** The camera's number, "K-214". */
+  /** The camera's inventory number, "K-4821". */
   id: string;
-  /** The number and where the camera hangs: "K-214 · Narva mnt". */
+  /** The number and where the camera hangs: "K-4821 · Narva mnt". */
   name: string;
   /** Seeds the street, where the camera hangs and its lens: the same place, the same picture. */
   seed: number;
@@ -66,6 +66,20 @@ export const CAMERA_CHANCE: Record<PlaceKind, number> = {
 /** Cells per degree: 1/1500 of a degree of longitude and 1/3000 of latitude are both about 37 m in Estonia. */
 const CELLS_LON = 1500;
 const CELLS_LAT = 3000;
+/**
+ * The camera numbers tile the map in blocks of BLOCK_LON by BLOCK_LAT cells (about 3.4 by 3.7 km in Estonia), one
+ * number for each cell of a block: two cells closer than a block in both directions never share a number.
+ */
+const BLOCK_LON = 90;
+const BLOCK_LAT = 100;
+/**
+ * The keys of the rounds that shuffle a cell's place in its block into a number that looks like any inventory
+ * number: per round, what is added to the latitude half for each longitude half, and the other way round.
+ */
+const SHUFFLE = Array.from({ length: 4 }, (_, round) => ({
+  toLat: Array.from({ length: BLOCK_LON }, (_, a) => hash32('camno', round, a) % BLOCK_LAT),
+  toLon: Array.from({ length: BLOCK_LAT }, (_, b) => hash32('camno', round, b, 1) % BLOCK_LON),
+}));
 /** An incident closed without anyone having been sent has nothing to show this long after (game milliseconds). */
 const EMPTY_AFTER_MS = 5 * 60_000;
 
@@ -82,6 +96,23 @@ export function streetOfAddress(address: string): string {
     .trim();
   // The house number closes the address: digits, perhaps a letter, perhaps a second house or a flat ("4/6", "87f-12").
   return first.replace(/\s+\d+\s?[a-zõäöü]?(?:\s?[/-]\s?\d+\s?[a-zõäöü]?)*$/i, '').trim() || first;
+}
+
+/**
+ * The inventory number of the camera in the cell (cx, cy), "K-1000" to "K-9999": the cell's place in its block
+ * (BLOCK_LON x BLOCK_LAT = 9000 places), shuffled by a permutation of those 9000 places. A permutation keeps the
+ * numbers of one block all different, so no two cameras within about three kilometres of each other share one.
+ */
+export function cameraNumber(cx: number, cy: number): string {
+  // Two halves of the place: a in [0, BLOCK_LON), b in [0, BLOCK_LAT). Each round adds a hash of one half to the
+  // other, modulo its range: a step that can be undone, so the whole shuffle is a permutation.
+  let a = ((cx % BLOCK_LON) + BLOCK_LON) % BLOCK_LON;
+  let b = ((cy % BLOCK_LAT) + BLOCK_LAT) % BLOCK_LAT;
+  for (const { toLat, toLon } of SHUFFLE) {
+    b = (b + toLat[a]) % BLOCK_LAT;
+    a = (a + toLon[b]) % BLOCK_LON;
+  }
+  return `K-${1000 + a * BLOCK_LAT + b}`;
 }
 
 function whereOf(location: Incident['location']): string {
@@ -118,6 +149,6 @@ export function cameraOf(
     return null;
   }
   const seed = hash32('site', cx, cy);
-  const id = `K-${100 + (seed % 900)}`;
+  const id = cameraNumber(cx, cy);
   return { id, name: `${id} · ${whereOf(location)}`, seed };
 }
