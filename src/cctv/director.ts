@@ -2387,8 +2387,14 @@ export class Director {
     const round = this.turnsRound(c, want);
     const dir = round ? -c.dir : c.dir;
     // On a road of one lane nobody drives into a vehicle standing in the way: it waits until that one has gone
-    // (a car of the incident for good, a crew for a minute at most).
-    if (this.width < NARROW_M && this.wayCost(c.s, dir) === 2 && (c.kind === 'cast' || c.wait <= 60)) return false;
+    // (a car of the incident for as long as it takes, and that is no time stuck; a crew for a minute at most).
+    if (this.width < NARROW_M && this.wayCost(c.s, dir) === 2) {
+      if (c.kind === 'cast') {
+        c.wait = 0;
+        return false;
+      }
+      if (c.wait <= 60) return false;
+    }
     if (c.wait > 60) return true;
     if (c.due.some((b) => !b.gone && !b.aboard && !b.leaving)) return false;
     const hl = c.size.length / 2;
