@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { precacheList, preloadEntryStyles, stampServiceWorker } from '../vite.config';
+import { chunkFileName, licenceEntry, packageOfModule, precacheList, preloadEntryStyles, stampServiceWorker } from '../vite.config';
 import { offlineMapUrls } from '@/pwa';
 
 const ORIGIN = 'https://politsei.eu';
@@ -260,6 +260,18 @@ describe('build stamping', () => {
     ]);
   });
 
+  it("leaves the surveillance camera's chunk and its body model to the first camera opened", () => {
+    // Kaamerad (docs/CCTV.md section 14): three.js and the renderer must not reach every player at install.
+    const files = ['assets/index-A.js', 'assets/cctv-K1.js', 'assets/human-M2.glb', 'assets/GameScreen-B.js', 'assets/cctvhelp-C.js'];
+    expect(precacheList(files)).toEqual(['assets/GameScreen-B.js', 'assets/cctvhelp-C.js', 'assets/index-A.js']);
+  });
+
+  it('names the camera chunk after what it is, and every other chunk as before', () => {
+    expect(chunkFileName({ facadeModuleId: '/repo/src/cctv/live.ts' })).toBe('assets/cctv-[hash].js');
+    expect(chunkFileName({ facadeModuleId: '/repo/src/ui/game/GameScreen.tsx' })).toBe('assets/[name]-[hash].js');
+    expect(chunkFileName({ facadeModuleId: null })).toBe('assets/[name]-[hash].js');
+  });
+
   it('stamps the version and the list, and refuses a worker whose markers moved', () => {
     const out = stampServiceWorker(SOURCE, '2.0.0-abc', ['assets/a.js']);
     expect(out).toContain(`const VERSION = '2.0.0-abc';`);
@@ -283,5 +295,33 @@ describe('build stamping', () => {
     expect(urls).toContain(`${ORIGIN}/glyphs/Noto%20Sans%20Regular/256-511.pbf`);
     expect(urls).toHaveLength(10);
     expect(offlineMapUrls('/Estonian-Police-Dispatch/', ORIGIN)[1]).toBe(`${ORIGIN}/Estonian-Police-Dispatch/glyphs/Noto%20Sans%20Regular/0-255.pbf`);
+  });
+});
+
+describe('third-party licences in the build', () => {
+  it('finds the package a module belongs to, scoped and nested ones too', () => {
+    expect(packageOfModule('/repo/node_modules/three/build/three.module.js')).toEqual({ name: 'three', dir: '/repo/node_modules/three' });
+    expect(packageOfModule('/repo/node_modules/@mapbox/vector-tile/index.js?v=1')).toEqual({
+      name: '@mapbox/vector-tile',
+      dir: '/repo/node_modules/@mapbox/vector-tile',
+    });
+    expect(packageOfModule('\0/repo/node_modules/a/node_modules/pbf/index.js')?.dir).toBe('/repo/node_modules/a/node_modules/pbf');
+  });
+
+  it("leaves the game's own files and virtual modules alone", () => {
+    expect(packageOfModule('/repo/src/cctv/live.ts')).toBeNull();
+    expect(packageOfModule('\0vite/modulepreload-polyfill.js')).toBeNull();
+    expect(packageOfModule('/repo/node_modules/.vite/deps/x.js')).toBeNull();
+  });
+
+  it('prints a package with its licence text, or says that it ships none', () => {
+    const withText = licenceEntry({ name: 'three', version: '0.187.0', licence: 'MIT', url: 'https://threejs.org/', texts: ['The MIT License\n'] });
+    expect(withText).toContain('three 0.187.0 (MIT)\nhttps://threejs.org/');
+    expect(withText).toContain('The MIT License');
+    expect(licenceEntry({ name: 'x', version: '1.0.0', licence: 'ISC', url: '', texts: [] })).toContain('ships no licence file');
+  });
+
+  it('is not precached by the service worker', () => {
+    expect(precacheList(['THIRD-PARTY-LICENSES.txt', 'assets/index-abc.js'])).toEqual(['assets/index-abc.js']);
   });
 });

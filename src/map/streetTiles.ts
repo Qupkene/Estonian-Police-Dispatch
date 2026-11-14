@@ -26,16 +26,27 @@ export interface ProbeOptions {
 const DEFAULT_TIMEOUT_MS = 8000;
 const results = new Map<string, StreetProbe>();
 const pending = new Map<string, Promise<StreetProbe>>();
+const archives = new Map<string, PMTiles>();
 
 /** Last finished probe result for a URL, if any (lets a new map start on the street style at once). */
 export function knownStreetProbe(url: string): StreetProbe | undefined {
   return results.get(url);
 }
 
+/**
+ * The archive a probe of `url` found usable, already opened (header and root directory read), for other readers of
+ * the same file (the surveillance cameras' street, src/cctv/tiles.ts). Undefined until a probe has said 'ok'; kept
+ * when a later probe fails, as the map goes on using it.
+ */
+export function openedStreetArchive(url: string): PMTiles | undefined {
+  return archives.get(url);
+}
+
 /** Forget cached results (tests). */
 export function resetStreetProbes(): void {
   results.clear();
   pending.clear();
+  archives.clear();
 }
 
 /**
@@ -74,11 +85,13 @@ export function probeStreetTiles(url: string, opts: ProbeOptions = {}): Promise<
     if (running) return running;
     if (results.get(url) === 'ok') return Promise.resolve('ok');
   }
+  let opened: PMTiles | undefined;
   const run = (async (): Promise<StreetProbe> => {
     try {
       const archive = new PMTiles(url);
       const header = await withTimeout(archive.getHeader(), opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
       if (header.tileType !== TileType.Mvt) return 'missing';
+      opened = archive;
       try {
         opts.onArchive?.(archive);
       } catch {
@@ -91,8 +104,12 @@ export function probeStreetTiles(url: string, opts: ProbeOptions = {}): Promise<
   })();
   pending.set(url, run);
   void run.then((r) => {
-    if (pending.get(url) === run) pending.delete(url);
+    // Only the newest probe since the last reset answers: an older one, or one cut off by resetStreetProbes, is ignored.
+    if (pending.get(url) !== run) return;
+    pending.delete(url);
     results.set(url, r);
+    // A failed re-probe leaves the archive an earlier 'ok' opened: the map protocol goes on reading it.
+    if (r === 'ok' && opened) archives.set(url, opened);
   });
   return run;
 }

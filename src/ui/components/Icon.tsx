@@ -78,6 +78,9 @@ export const ICON_NAMES = [
   'gauge',
   'route',
   'timer',
+  'cctv',
+  'expand',
+  'shrink',
 ] as const;
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -523,6 +526,19 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <circle cx="12" cy="13.5" r="7.5" />
       <path d="M12 13.5V9.5M9.5 2.5h5M12 2.5V6M18.2 6.3l1.6-1.6" />
+    </>
+  ),
+  // A surveillance camera on a wall bracket: the housing tilted down at the street, its hood, the arm to the wall.
+  /** Corner arrows out: a larger picture or window. */
+  expand: <path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7" />,
+  /** Corner arrows in: a smaller picture or window. */
+  shrink: <path d="M20 10h-6V4M14 10l7-7M4 14h6v6M10 14l-7 7" />,
+  cctv: (
+    <>
+      <path d="M6 5l12 3.2-1.1 4.2-12-3.2z" />
+      <path d="M18 8.2l2.6.7-1.1 4.2-2.6-.7" />
+      <path d="M10.9 10.8l-1.2 4.4H3.5M3.5 12.2v6.6" />
+      <path d="M8.3 7.9h.01" />
     </>
   ),
 };

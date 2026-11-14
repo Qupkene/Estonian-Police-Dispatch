@@ -13,6 +13,8 @@ import { DeskNote, LendAskBlock, LendOfferBlock } from './DeskParts';
 import { RejectMenu } from './EventQueue';
 import { CrisisNote } from './CrisisPanel';
 import { crisisTaskOf } from '@/sim/crisis';
+import { cameraOf } from '@/cctv/coverage';
+import { toggleCamera, useGameUi } from './uiStore';
 import {
   AgencyBlock,
   AssignedBlock,
@@ -119,6 +121,7 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
             {t('game.inc.showOnMap')}
           </Button>
         </div>
+        <CameraLine inc={inc} now={sim.now} />
         {incoming && !canDispatch && <RoleNote role="dispatch" />}
         {incoming && canDispatch && (
           <div className="gm-inc__ack">
@@ -234,6 +237,38 @@ function HelpNote({ inc }: { inc: Incident }) {
           ? t('game.help.note', { name: `${c.firstName} ${c.lastName}`, sector: tx(sector.name) })
           : t('game.help.noteShort')}
       </p>
+    </div>
+  );
+}
+
+/**
+ * Kaamerad (docs/CCTV.md): the surveillance camera that sees this place, and the button that opens its picture over
+ * the map. Nothing at all when the place has no camera. Watching is open to every desk and role.
+ */
+function CameraLine({ inc, now }: { inc: Incident; now: number }) {
+  const t = useT();
+  const open = useGameUi((s) => s.camera?.incidentId === inc.id);
+  const cam = cameraOf(inc, now);
+  if (!cam) return null;
+  return (
+    <div className="gm-inc__cam">
+      <Icon name="cctv" size={14} />
+      <span className="gm-inc__cam-name">
+        <span>{t('game.cam.title')}</span>
+        <strong className="mono">{cam.name}</strong>
+      </span>
+      <Button
+        size="sm"
+        variant={open ? 'primary' : 'secondary'}
+        icon={open ? 'close' : 'cctv'}
+        kbd="K"
+        aria-pressed={open}
+        title={open ? t('game.cam.close') : t('game.cam.openTitle')}
+        data-camera-toggle={inc.id}
+        onClick={() => toggleCamera(inc.id)}
+      >
+        {open ? t('game.cam.close') : t('game.cam.open')}
+      </Button>
     </div>
   );
 }

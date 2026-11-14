@@ -12,6 +12,7 @@ import { ageText, countdown, helpSectorId, matchesQueueFilter, slaTone, type Que
 import { HelpTag, SourceTag, StatusDot, useSim } from './bits';
 import { CrisisTag } from './CrisisPanel';
 import { crisisTaskOf } from '@/sim/crisis';
+import { cameraOf } from '@/cctv/coverage';
 import { MenuButton, type MenuItem } from './Menu';
 import { useGameUi } from './uiStore';
 
@@ -199,6 +200,8 @@ function QueueCard({ sim, inc, selected, cursor, pendingCount }: { sim: SimState
   const work = inc.onSceneMin > 0 ? Math.min(1, inc.workDone / inc.onSceneMin) : 0;
   const place = inc.location.placeName;
   const area = inc.location.district || inc.location.city;
+  // Kaamerad: a surveillance camera sees this place (pure and cheap: a hash of the place's cell).
+  const cam = cameraOf(inc, sim.now);
 
   const cls = [
     'gm-card',
@@ -270,6 +273,11 @@ function QueueCard({ sim, inc, selected, cursor, pendingCount }: { sim: SimState
           <span className="gm-card__radio" title={t('game.inc.radioPending')}>
             <Icon name="radio" size={11} />
             {pendingCount}
+          </span>
+        )}
+        {cam && (
+          <span className="gm-card__cam" title={t('game.cam.mark', { name: cam.name })} data-camera={cam.id}>
+            <Icon name="cctv" size={12} />
           </span>
         )}
         {pursuit && <span className="gm-card__pursuit">{t('game.pursuit.title')}</span>}

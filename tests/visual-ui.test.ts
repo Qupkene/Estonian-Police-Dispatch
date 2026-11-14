@@ -285,3 +285,48 @@ describe('contrast in both themes (visual-9 and the light palette)', () => {
     for (const src of [GAME, TOOLS]) expect(src).not.toMatch(/^\s+color: var\(--(warn|gold|ok|danger|info|p[1-4]|st-enroute|st-onscene)\);/m);
   });
 });
+
+describe('the surveillance camera window (Kaamerad, docs/CCTV.md section 14)', () => {
+  const PHONE = '(max-width: 899px)';
+
+  it('sits over the map on a desktop, in the corner the other panels leave free', () => {
+    const win = rule(GAME, '.gm-cam');
+    expect(win['grid-area']).toBe('map');
+    expect(win.position).toBe('absolute');
+    expect(win.top).toBe('12px');
+    // Left of the map's tools, never at the bottom where the 112 card and its Answer button are.
+    expect(win.right).toBe('60px');
+    expect(win.bottom).toBeUndefined();
+    expect(win.width).toBe('min(448px, calc(100% - 76px))');
+    expect(rule(GAME, '.gm-cam.is-large').width).toBe('min(640px, calc(100% - 76px))');
+    expect(rule(GAME, '.gm-cam__picture')['aspect-ratio']).toBe('16 / 9');
+    expect(rule(GAME, '.gm-cam__btn').width).toBe('28px');
+  });
+
+  it('docks at the top of the map pane on a phone, on the map tab only, with 44 px controls', () => {
+    const phone = mediaAll(GAME, PHONE);
+    expect(phone).toMatch(/\.gm-cam,[^{]*\{\s*grid-area:\s*main;\s*top:\s*0;\s*left:\s*0;\s*right:\s*0;\s*width:\s*auto/);
+    expect(phone).toMatch(/\.gm:not\(\.gm--m-map\) \.gm-cam\s*\{\s*display:\s*none/);
+    expect(phone).toMatch(/\.gm-cam__btn\s*\{\s*width:\s*44px;\s*height:\s*44px/);
+    expect(phone).toMatch(/\.gm-cam__retry\s*\{\s*min-height:\s*44px/);
+  });
+
+  it('on a phone, a window dragged and enlarged on a wider screen docks too, opaque, and moves the map tools below it', () => {
+    const phone = mediaAll(GAME, PHONE);
+    // Every desktop state of the window is in the docked rule (.is-moved.is-large is the most specific one).
+    const docked = /\.gm-cam,\s*\.gm-cam\.is-large,\s*\.gm-cam\.is-moved,\s*\.gm-cam\.is-moved\.is-large\s*\{([^}]*)\}/.exec(phone);
+    expect(docked).not.toBeNull();
+    expect(docked![1]).toMatch(/grid-area:\s*main/);
+    expect(docked![1]).toMatch(/background:\s*var\(--bg-1\)/);
+    const upright = media(GAME, `${PHONE} and (orientation: portrait)`);
+    expect(upright).toMatch(/\.gm\.gm--m-map:has\(\.gm-cam\) \.epdm-tools\s*\{\s*top:\s*calc\(var\(--gm-cam-h, 0px\) \+ 8px\)/);
+    // On its side the picture is on the left and the map's tools stay beside it.
+    const side = media(GAME, `${PHONE} and (orientation: landscape)`);
+    expect(side).toMatch(/right:\s*auto;\s*width:\s*min\(calc\(100% - 72px\), calc\(55vh \* 16 \/ 9\)\)/);
+  });
+
+  it("keeps still with reduced motion, from the system and from the game's own setting", () => {
+    expect(mediaAll(GAME, '(prefers-reduced-motion: reduce)')).toMatch(/\.gm-cam \*[^{]*\{\s*animation:\s*none !important/);
+    expect(GAME).toMatch(/\.gm--reduced \.gm-cam,\s*\.gm--reduced \.gm-cam \*\s*\{\s*animation:\s*none !important/);
+  });
+});

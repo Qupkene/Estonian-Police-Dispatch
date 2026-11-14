@@ -78,7 +78,8 @@ export default {
   'game.key.units': { et: 'Üksused', en: 'Units' },
   'game.key.radio': { et: 'Raadio: vajab vastust', en: 'Radio: needs reply' },
   'game.key.hud': { et: 'Peida / näita HUD (režissöör)', en: 'Hide / show HUD (director)' },
-  'game.key.esc': { et: 'Tühista valik / ava menüü', en: 'Clear selection / open menu' },
+  'game.key.esc': { et: 'Sulge pealmine paneel või kaamera / tühista valik / ava menüü', en: 'Close the topmost panel or the camera / clear selection / open menu' },
+  'game.key.camera': { et: 'Ava / sulge valitud sündmuse valvekaamera', en: "Open / close the selected event's surveillance camera" },
   'game.key.nav': { et: 'Liigu nimekirjas / vali', en: 'Move in list / select' },
 
   // ── Right panel tabs ──────────────────────────────────────────────────────
@@ -441,6 +442,50 @@ export default {
   'game.end.open': { et: 'Lahendamata', en: 'Unresolved' },
   'game.end.report': { et: 'Vaata vahetuse aruannet', en: 'View shift report' },
   'game.end.failed': { et: 'Aruande koostamine ebaõnnestus', en: 'Could not build the report' },
+
+  // ── Kaamerad: the surveillance camera over the map (docs/CCTV.md) ─────────
+  'game.cam.title': { et: 'Valvekaamera', en: 'Surveillance camera' },
+  'game.cam.open': { et: 'Kaamera', en: 'Camera' },
+  'game.cam.close': { et: 'Sulge kaamera', en: 'Close camera' },
+  'game.cam.openTitle': { et: 'Vaata selle koha valvekaamera otsepilti', en: "Watch this place's surveillance camera live" },
+  'game.cam.mark': { et: 'Valvekaamera: {name}', en: 'Surveillance camera: {name}' },
+  'game.cam.none': { et: 'Selle koha juures valvekaamerat ei ole', en: 'There is no surveillance camera at this place' },
+  'game.cam.pick': { et: 'Vali kõigepealt sündmus, mille kaamerat vaadata', en: 'Select an event first to watch its camera' },
+  'game.cam.window': { et: 'Valvekaamera {name}', en: 'Surveillance camera {name}' },
+  'game.cam.picture': { et: 'Valvekaamera {name} otsepilt', en: 'Live picture of surveillance camera {name}' },
+  'game.cam.connecting': { et: 'Ühendan kaameraga…', en: 'Connecting to the camera…' },
+  'game.cam.live': { et: 'Otsepilt', en: 'Live' },
+  'game.cam.paused': { et: 'Paus', en: 'Paused' },
+  'game.cam.failed': { et: 'Signaal katkes', en: 'Signal lost' },
+  'game.cam.failedHint': { et: 'Kaamerapilti ei õnnestunud laadida.', en: 'The camera picture could not be loaded.' },
+  'game.cam.retry': { et: 'Proovi uuesti', en: 'Try again' },
+  'game.cam.stale': { et: 'Mäng on uuenenud', en: 'The game was updated' },
+  'game.cam.staleHint': {
+    et: 'Kaamera avamiseks lae leht uuesti. Vahetus salvestatakse enne.',
+    en: 'Reload the page to open the camera. Your shift is saved first.',
+  },
+  'game.cam.offline': { et: 'Võrguühendus puudub', en: 'No connection' },
+  'game.cam.offlineHint': {
+    et: 'Kaamera vajab esimesel avamisel võrguühendust. Kui ühendus on tagasi, lae leht uuesti.',
+    en: 'The camera needs a connection the first time it opens. Reload the page once you are back online.',
+  },
+  'game.cam.reload': { et: 'Lae leht uuesti', en: 'Reload the page' },
+  'game.cam.unavailable': { et: 'Pilt pole saadaval', en: 'No picture' },
+  'game.cam.unavailableHint': {
+    et: 'See seade ei suuda kaamerapilti näidata (brauseril puudub WebGL 2).',
+    en: 'This device cannot show the camera picture (the browser has no WebGL 2).',
+  },
+  'game.cam.ended': { et: 'Ülekanne lõppes', en: 'Feed ended' },
+  'game.cam.endedHint': { et: 'Sündmus on lõpetatud ja kõik on lahkunud, kaamera ei näita sealt enam midagi.', en: 'The event is closed and everyone has left: there is nothing more to see.' },
+  'game.cam.bigger': { et: 'Suurem pilt', en: 'Larger picture' },
+  'game.cam.smaller': { et: 'Väiksem pilt', en: 'Smaller picture' },
+  'game.cam.zoomIn': { et: 'Suumi sisse', en: 'Zoom in' },
+  'game.cam.zoomOut': { et: 'Suumi välja', en: 'Zoom out' },
+  'game.cam.zoomHint': {
+    et: 'Hiireratas suumib, lohistamine nihutab, topeltklõps taastab',
+    en: 'Wheel zooms, dragging pans, a double click resets',
+  },
+  'game.cam.drag': { et: 'Lohista akent', en: 'Drag to move the window' },
 
   // ── Director ──────────────────────────────────────────────────────────────
   'game.dir.placeIncident': { et: 'Klõpsa kaardil, kuhu sündmus paigutada', en: 'Click the map to place the event' },
