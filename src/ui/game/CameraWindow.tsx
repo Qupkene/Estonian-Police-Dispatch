@@ -222,6 +222,8 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
     let done = false;
     setState('connecting');
     setPhase('');
+    // The opening's own budget (src/cctv/live.ts) is counted from here, like the deadline.
+    const startedAt = performance.now();
     const deadline = window.setTimeout(() => {
       if (done) return;
       done = true;
@@ -246,7 +248,7 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
           setState('ended');
           return undefined;
         }
-        return m.openCamera(canvas, { sim, incident, camera: info, version: VERSION, signal: ac.signal });
+        return m.openCamera(canvas, { sim, incident, camera: info, version: VERSION, signal: ac.signal, startedAt });
       })
       .then((h) => {
         if (h === undefined) return;

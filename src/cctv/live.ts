@@ -60,11 +60,13 @@ export interface OpenOptions {
 const STREET_TIMEOUT_MS = 6000;
 /**
  * How long an opening may take in all, counted from the window's start (OpenOptions.startedAt), before it goes live
- * with whatever is not ready yet (finished when first drawn). Inside the window's own deadline (CameraWindow's
- * CONNECT_DEADLINE_MS, 45 s) with a wide margin, and inside the 20 s it used to be: every step of the opening checks
- * the budget before it starts and is one short task, so 'live' comes at most a task after it.
+ * with whatever is not ready yet. What is not ready is finished in the first frame, which then holds the whole page
+ * for seconds on a slow device: so the budget is as long as the window's own deadline allows (CameraWindow's
+ * CONNECT_DEADLINE_MS, 45 s, less a wide margin). A fast device never comes near it; a slow one waits a little longer
+ * for the picture and the game goes on meanwhile. Every step of the opening checks the budget before it starts and is
+ * one short task, so 'live' comes at most a task after it.
  */
-const OPEN_BUDGET_MS = 14000;
+const OPEN_BUDGET_MS = 30000;
 /** What the view's own preparing gets at the least, however long the loading took (a frame then compiles less). */
 const PREPARE_MIN_MS = 1500;
 
