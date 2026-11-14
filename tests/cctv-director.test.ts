@@ -1464,13 +1464,17 @@ describe('cctv director: what the films showed', () => {
     const w = start(site, usual('theft', { runs: true }));
     w.step(NOBODY, 3);
     for (let i = 0; i < 70; i++) w.step(sitWith([unit('P1', 'near', { eta: 7 - i * DT })]), DT);
-    const parked = w.d.frame().cars.find((c) => c.id === 'u:P1')!.pos;
-    let far = 0;
+    // Officers walk to a theft; only one who runs after somebody runs.
+    let ran = 0;
+    const last = new Map<string, V2>();
     const f = w.step(sitWith([unit('P1', 'here')]), 40, (fr) => {
-      for (const p of fr.people) if (p.id.startsWith('o:')) far = Math.max(far, dist(p.pos, site.spot));
+      for (const p of fr.people) {
+        const was = last.get(p.id);
+        if (p.id.startsWith('o:') && was && dist(was, p.pos) > PACE.walk * DT * 1.6) ran++;
+        last.set(p.id, p.pos);
+      }
     });
-    expect(far).toBe(-1);
-    expect(far).toBeGreaterThan(9);
+    expect(ran).toBeGreaterThan(10);
     const back = f.people.filter((p) => p.id.startsWith('o:'));
     expect(back.length).toBe(2);
     for (const o of back) expect(dist(o.pos, site.spot)).toBeLessThan(12);

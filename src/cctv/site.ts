@@ -18,6 +18,7 @@ import {
   mul,
   nearestOnLine,
   nearestOnRing,
+  nearestOnSegment,
   norm,
   offsetLine,
   pointAlong,
@@ -194,9 +195,40 @@ function placeCamera(street: StreetData, drive: DriveLine, spot: V2, roadSpot: V
   return pose(p, b >= 0 ? street.buildings[b].height + 1.5 : 9, 'pole');
 }
 
-function placeLamps(street: StreetData, drive: DriveLine, side: 1 | -1): Lamp[] {
+/**
+ * Would something standing at `p` (a pole, a column, a sign) stand in the camera's picture closer than `reach` metres?
+ * Real cameras are aimed past such things; the street is built so that nothing near blocks the view. The test is on
+ * the ground plan: in front of the lens and inside the horizontal field of view, with a margin for the thing's width.
+ */
+export function blocksView(camera: CameraPose, p: V2, reach = 15, margin = 0.9): boolean {
+  const dir = norm(sub(camera.target, camera.pos));
+  const d = sub(p, camera.pos);
+  const ahead = d[0] * dir[0] + d[1] * dir[1];
+  if (ahead < -0.5 || ahead > reach) return false;
+  const half = Math.atan(Math.tan(((camera.fov / 2) * Math.PI) / 180) * (16 / 9));
+  const across = Math.abs(d[0] * dir[1] - d[1] * dir[0]);
+  return across < Math.max(0, ahead) * Math.tan(half) + margin;
+}
+
+function placeLamps(street: StreetData, drive: DriveLine, side: 1 | -1, camera: CameraPose, walk: boolean): Lamp[] {
   const lamps: Lamp[] = [];
   const main = drive.cls === 'trunk' || drive.cls === 'primary' || drive.cls === 'secondary' || drive.cls === 'motorway';
+  // A main road out of town (no pavements) is unlit, but for a lamp or two where another road joins it.
+  const rural = main && !walk;
+  const touches = (q: V2) => nearestOnLine(q, drive.pts).d < drive.width / 2 + 2;
+  const joins: number[] = [];
+  if (rural) {
+    for (const o of street.roads) {
+      if (!CAR_ROADS.has(o.cls) || o.pts.length < 2) continue;
+      const ends = [o.pts[0], o.pts[o.pts.length - 1]];
+      // A road that meets the drive line with one end and leaves it with the other (not a piece of the drive line itself).
+      for (const [q, other] of [[ends[0], ends[1]], [ends[1], ends[0]]]) {
+        if (!touches(q) || touches(other)) continue;
+        const n = nearestOnLine(q, drive.pts);
+        if (n.s > 1 && n.s < drive.length - 1) joins.push(n.s);
+      }
+    }
+  }
   const gap = main ? 34 : 30;
   const height = main ? 8.5 : drive.cls === 'path' || drive.cls === 'pedestrian' ? 4.5 : 6.5;
   // One stands near the incident, the rest at the same spacing both ways; narrow streets have them on one side.
@@ -206,6 +238,11 @@ function placeLamps(street: StreetData, drive: DriveLine, side: 1 | -1): Lamp[] 
     const lampSide = drive.width > 6.2 ? (k % 2 ? 1 : -1) : -side;
     const p = onDrive(drive, s, lampSide * (drive.width / 2 + 0.7));
     if (insideBuilding(street, p.pos) >= 0) continue;
+    if (rural && !joins.some((j) => Math.abs(j - s) < gap / 2)) continue;
+    // A petrol station's forecourt is lit by its canopy, not by street lamps among the pumps.
+    if (street.buildings.some((b) => b.open && b.area > 80 && (pointInRing(p.pos, b.ring) || nearestOnRing(p.pos, b.ring).d < 7))) continue;
+    // Not right in front of the camera's lens, nor across its view of what it watches.
+    if (dist(p.pos, camera.pos) < 4.5 || nearestOnSegment(p.pos, camera.pos, camera.target).d < 1.5 || blocksView(camera, p.pos)) continue;
     lamps.push({ pos: p.pos, height, yaw: yawOf(mul(left(p.dir), -lampSide)) });
   }
   return lamps;
@@ -266,6 +303,7 @@ export function buildSite(street: StreetData, seed: number): Site | null {
   });
 
   const walk = edge + (road.walk ? 1.3 : 1.5);
+  const camera = placeCamera(street, drive, spot, roadSpot, side, doorBuilding, seed);
   return {
     street,
     seed,
@@ -279,8 +317,8 @@ export function buildSite(street: StreetData, seed: number): Site | null {
     door,
     doorOut,
     doorBuilding,
-    camera: placeCamera(street, drive, spot, roadSpot, side, doorBuilding, seed),
-    lamps: placeLamps(street, drive, side),
+    camera,
+    lamps: placeLamps(street, drive, side, camera, road.walk),
   };
 }
 

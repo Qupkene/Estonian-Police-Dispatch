@@ -10,7 +10,9 @@ import {
   BackSide,
   BufferAttribute,
   BufferGeometry,
+  CanvasTexture,
   CircleGeometry,
+  CylinderGeometry,
   Color,
   DirectionalLight,
   Fog,
@@ -27,6 +29,7 @@ import {
   PointsMaterial,
   Scene,
   SphereGeometry,
+  SpotLight,
   WebGLRenderer,
   type WebGLRenderTarget,
 } from 'three';
@@ -38,8 +41,9 @@ import { BEACON_COLOR, CarMesh } from './cars';
 import { HumanMesh, seedOfLook, type HumanBase } from './human';
 import { FigureMesh, Palette } from './people';
 import { Post, type PostLook } from './post';
-import { beamTexture, dropsTexture, glowTexture, poolTexture, windowSheets } from './textures';
-import { buildWorld, type World } from './world';
+import { makeAtlas } from './facades';
+import { beamTexture, decalTexture, dropsTexture, glareTexture, glowTexture, groundTexture, poolTexture, skylineTexture, skyTexture, type SkyLook } from './textures';
+import { buildWorld, type World, type WorldTextures } from './world';
 
 /** The picture's size in pixels: small on purpose. */
 export const FRAME_W = 640;
@@ -87,14 +91,32 @@ export class CameraView {
   private fill = new AmbientLight(0xffffff, 0);
   private sun = new DirectionalLight(0xffffff, 1);
   /** The camera's own infrared lamp: it lights what is near when the picture is black and white. */
-  private irLamp = new PointLight(0xffffff, 0, 60, 1.5);
-  private lampLights: PointLight[] = [];
+  private irLamp = new PointLight(0xffffff, 0, 50, 1.7);
+  /** Street lamps shine down: their light falls on the ground and the lower walls, not on the roofs. */
+  private lampLights: SpotLight[] = [];
   private beaconLights: PointLight[] = [];
   private pools: Mesh[] = [];
   private carTex = { glow: glowTexture(), beam: beamTexture() };
   private poolTex = poolTexture();
-  private sheets = windowSheets(7);
+  /** The street's paintings: made once, shared by every scene this view builds. */
+  private sheets: WorldTextures = {
+    atlas: makeAtlas(7),
+    asphalt: groundTexture('asphalt', 3),
+    paving: groundTexture('paving', 5),
+    grass: groundTexture('grass', 9),
+    setts: groundTexture('setts', 17),
+    decals: decalTexture(13),
+    glow: glareTexture(),
+  };
   private drops = dropsTexture(11);
+  /** The sky all round: a dome painted for the hour and the weather (repainted when they change). */
+  private skyTex: CanvasTexture | null = null;
+  private skyMat = new MeshBasicMaterial({ fog: false, depthWrite: false, side: BackSide });
+  private skyDome: Mesh;
+  /** What stands beyond the map's edge: a far skyline of a town or a line of forest. */
+  private skyline: Mesh | null = null;
+  private skylineMat: MeshBasicMaterial | null = null;
+  private skylineNearMat: MeshBasicMaterial | null = null;
   private rain: LineSegments | null = null;
   private snow: Points | null = null;
   private smoke: Mesh[] = [];
@@ -112,6 +134,8 @@ export class CameraView {
     this.renderer = new WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'low-power', stencil: false });
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(FRAME_W, FRAME_H, false);
+    // The counts of a whole frame (scene and screen passes), read by the harness against the budget.
+    this.renderer.info.autoReset = false;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
     this.post = new Post(this.renderer, FRAME_W, FRAME_H, this.drops);
@@ -121,9 +145,9 @@ export class CameraView {
     this.sun.shadow.bias = -0.0006;
     this.sun.shadow.normalBias = 0.25;
     for (let i = 0; i < LAMP_LIGHTS; i++) {
-      const l = new PointLight(0xffe2b8, 0, 34, 1.8);
+      const l = new SpotLight(0xffe2b8, 0, 34, 1.15, 0.75, 1.7);
       this.lampLights.push(l);
-      this.scene.add(l);
+      this.scene.add(l, l.target);
       // The pool of light under the lamp, painted on the ground.
       const pool = new Mesh(this.blobGeo, new MeshBasicMaterial({ map: this.poolTex, color: 0xffe2b8, transparent: true, depthWrite: false, opacity: 0 }));
       pool.rotation.x = -Math.PI / 2;
@@ -132,10 +156,20 @@ export class CameraView {
       this.scene.add(pool);
     }
     for (let i = 0; i < BEACON_LIGHTS; i++) {
-      const l = new PointLight(BEACON_COLOR, 0, 46, 1.6);
+      // Close and short: the flash lights the car's own surroundings, it does not flood the street.
+      const l = new PointLight(BEACON_COLOR, 0, 12, 1.6);
       this.beaconLights.push(l);
       this.scene.add(l);
     }
+    // The dome: painting u runs round from the east's opposite as SphereGeometry lays it, v from the horizon up.
+    const dome = new SphereGeometry(600, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2 + 0.2);
+    const uv = dome.getAttribute('uv');
+    for (let i = 0; i < uv.count; i++) uv.setY(i, 2 * uv.getY(i) - 1);
+    this.skyDome = new Mesh(dome, this.skyMat);
+    // Drawn after everything solid: only the pixels nothing else covers are painted with sky.
+    this.skyDome.renderOrder = 10;
+    this.skyDome.frustumCulled = false;
+    this.scene.add(this.skyDome);
     canvas.addEventListener('webglcontextlost', this.onLost);
   }
 
@@ -167,6 +201,27 @@ export class CameraView {
     this.seed = site.seed;
     this.world = buildWorld(site, env, this.sheets);
     this.scene.add(this.world.group);
+    const town = site.street.buildings.length > 14;
+    const tex = skylineTexture(town, site.seed);
+    tex.repeat.set(town ? 5 : 7, 1);
+    this.skylineMat = new MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.08, depthWrite: false, side: BackSide });
+    const r = site.street.radius + 110;
+    const band = new CylinderGeometry(r, r, town ? 46 : 30, 48, 1, true);
+    this.skyline = new Mesh(band, this.skylineMat);
+    this.skyline.position.set(site.camera.pos[0], (town ? 46 : 30) / 2 - 3, -site.camera.pos[1]);
+    // A nearer, lower band of the same kind in front of it, turned and less hazy: the distance in two layers that
+    // shift against each other, not one flat card.
+    const nearTex = tex.clone();
+    nearTex.repeat.set(town ? 3 : 4, 1);
+    nearTex.offset.set(0.37, 0);
+    this.skylineNearMat = new MeshBasicMaterial({ map: nearTex, transparent: true, alphaTest: 0.08, depthWrite: false, side: BackSide });
+    const nh = town ? 30 : 22;
+    const near = new Mesh(new CylinderGeometry(r * 0.78, r * 0.78, nh, 48, 1, true), this.skylineNearMat);
+    near.position.y = nh / 2 - 3 - (town ? 46 : 30) / 2;
+    near.rotation.y = 1.3;
+    near.renderOrder = -1;
+    this.skyline.add(near);
+    this.scene.add(this.skyline);
     const cam = site.camera;
     this.camera.fov = cam.fov;
     this.camera.updateProjectionMatrix();
@@ -190,13 +245,7 @@ export class CameraView {
     const overcast = !clear;
     const up = Math.max(0, env.sunAlt);
     const day = Math.min(1, up / 12);
-    // The sky: blue or grey by day, warm at the horizon hour, near black with the town's glow at night.
-    const sky = new Color(overcast ? 0xa9aeb4 : 0x8fb4d9);
-    if (env.sunAlt < 8 && env.sunAlt > -6 && clear) sky.lerp(new Color(0xd9a27a), 0.45 * (1 - Math.abs(env.sunAlt - 1) / 7));
-    sky.multiplyScalar(0.12 + 0.88 * day * (1 - night));
-    sky.lerp(new Color(0x10141c), night * 0.9);
-    sky.lerp(new Color(0xdfe3e6), env.fog * (1 - night) * 0.6);
-    this.scene.background = sky;
+    const sky = this.paintSky(env);
     const far = 620 - 500 * env.fog;
     this.scene.fog = new Fog(sky.getHex(), env.fog > 0.5 ? 12 : 60, far);
 
@@ -204,7 +253,7 @@ export class CameraView {
     this.hemi.groundColor.set(0x57564e);
     this.hemi.intensity = (overcast ? 4.4 : 1.9) * (0.05 + 0.95 * day) * (1 - night * 0.93) + 0.12;
     // What a town's own glow leaves in the shadows at night.
-    this.fill.color.set(0x8fa0c8);
+    this.fill.color.set(0xa3a7ae);
     this.fill.intensity = 0.16 * night;
 
     // The sun (or, at night, a weak moon from the same side): bearing clockwise from north.
@@ -243,14 +292,19 @@ export class CameraView {
     this.lampLights.forEach((l, i) => {
       const lamp = order[i];
       const pool = this.pools[i];
+      // A lamp that is off leaves the shaders altogether (it costs every pixel otherwise); the farthest two of the
+      // six nearest lamps only paint their pools.
+      l.visible = !!lamp && lit > 0 && i < LAMP_LIGHTS - 2;
       if (!lamp || !lit) {
         l.intensity = 0;
         pool.visible = false;
         return;
       }
       l.position.set(lamp.x, lamp.y, lamp.z);
+      l.target.position.set(lamp.x, 0, lamp.z);
+      l.angle = lamp.power < 1 ? 1.3 : 1.12;
       l.color.set(lamp.power < 1 ? 0xffd9a8 : led ? 0xe6edff : 0xffcf8f);
-      l.intensity = 85 * lamp.power * lit;
+      l.intensity = 110 * lamp.power * lit;
       l.distance = lamp.power < 1 ? 14 : 36;
       pool.visible = true;
       pool.position.set(lamp.x, 0.16, lamp.z);
@@ -265,8 +319,59 @@ export class CameraView {
     this.look = this.lookFor(env);
     this.post.setLook(this.look);
     this.irLamp.position.set(site.camera.pos[0], site.camera.height - 0.3, -site.camera.pos[1]);
-    this.irLamp.intensity = this.look.mono ? 150 : 0;
-    this.fill.intensity = (this.look.mono ? 0.16 : 0.3) * night;
+    this.irLamp.intensity = this.look.mono ? 110 : 0;
+    // Fog at night scatters the town's light: a floor of light keeps the outlines readable.
+    this.fill.intensity = ((this.look.mono ? 0.16 : 0.2) + 0.35 * env.fog) * night;
+  }
+
+  /**
+   * Paint the sky for the hour and the weather: deeper at the zenith, paler at the horizon, clouds by the weather,
+   * the low sun's warmth on its side of the sky, the town's glow and a few stars at night. Returns the colour of the
+   * horizon, which the haze and the background take.
+   */
+  private paintSky(env: Env): Color {
+    const night = env.night;
+    const clear = env.weather === 'clear';
+    const dark = env.weather === 'rain' || env.weather === 'storm';
+    const day = Math.min(1, Math.max(0, env.sunAlt + 4) / 14) * (1 - night);
+    const zenith = new Color(clear ? 0x4c7fbf : dark ? 0x6b7279 : 0x8c939a);
+    const horizon = new Color(clear ? 0xbfd2e2 : dark ? 0x979da2 : 0xb6bbbf);
+    const dusk = clear && env.sunAlt < 9 && env.sunAlt > -7 ? 1 - Math.abs(env.sunAlt - 1) / 8 : 0;
+    horizon.lerp(new Color(0xe9b48a), 0.5 * dusk);
+    const town = (this.site?.street.buildings.length ?? 0) > 14;
+    zenith.lerp(new Color(0x05080f), 1 - day);
+    horizon.lerp(new Color(town ? 0x2b2722 : 0x161a22), 1 - day);
+    const fog = new Color(night > 0.5 ? 0x24262a : 0xc9cdcf);
+    zenith.lerp(fog, env.fog * 0.85);
+    horizon.lerp(fog, env.fog * 0.9);
+    const az = (env.sunAz * Math.PI) / 180;
+    const yaw = Math.atan2(Math.cos(az), Math.sin(az));
+    const cover = clear ? 0.12 + 0.2 * hash01('clouds', this.seed) : env.weather === 'cloudy' ? 0.82 : env.weather === 'fog' ? 1 : 0.97;
+    const cloudLight = new Color(clear ? 0xf6f4f0 : dark ? 0x8d9399 : 0xc2c6c9).lerp(new Color(0xf0b890), 0.5 * dusk).lerp(new Color(town ? 0x302a24 : 0x16181d), 1 - day);
+    const cloudDark = new Color(clear ? 0xa6adb6 : dark ? 0x5b6168 : 0x8a9096).lerp(new Color(town ? 0x1c1a17 : 0x0b0d11), 1 - day);
+    const look: SkyLook = {
+      zenith: `#${zenith.getHexString()}`,
+      horizon: `#${horizon.getHexString()}`,
+      cover,
+      cloudLight: `#${cloudLight.getHexString()}`,
+      cloudDark: `#${cloudDark.getHexString()}`,
+      sunU: (((yaw / (Math.PI * 2) + 0.5) % 1) + 1) % 1,
+      sunGlow: dusk,
+      sunColour: '#ffd2a0',
+      stars: clear && night > 0.7 && !town ? 0.8 : clear && night > 0.7 ? 0.3 : 0,
+    };
+    this.skyTex = skyTexture(look, this.seed, this.skyTex ?? undefined);
+    this.skyTex.needsUpdate = true;
+    this.skyMat.map = this.skyTex;
+    this.skyMat.needsUpdate = true;
+    this.scene.background = horizon;
+    if (this.skylineMat) {
+      // Far away and in the haze: a little lighter than the ground, darker than the sky behind it.
+      const c = horizon.clone().lerp(new Color(night > 0.5 ? 0x050608 : 0x3e4648), clear ? 0.5 : 0.32);
+      this.skylineMat.color.copy(c);
+      this.skylineNearMat?.color.copy(horizon.clone().lerp(new Color(night > 0.5 ? 0x040506 : 0x343c3c), clear ? 0.62 : 0.45));
+    }
+    return horizon;
   }
 
   /** The surroundings as paint and glass mirror them: a sky that pales to the horizon, dark ground, the sun or the lamps. */
@@ -332,7 +437,7 @@ export class CameraView {
       trail: 0.06 + 0.3 * night + (env.rain ? 0.05 : 0),
       noise: 0.022 + 0.03 * cheap + 0.06 * night,
       mono,
-      tint: mono ? [0.95, 1, 0.97] : [1 + warm * 0.08, 1, 1 - warm * 0.1 + (night > 0.5 ? 0.04 : 0)],
+      tint: mono ? [0.99, 1, 0.99] : [1 + warm * 0.08, 1, 1 - warm * 0.1],
       gain: 1 + 1.15 * night + (env.sunAlt < 6 && night < 0.5 ? 0.25 : 0),
       lift: 0.018 + 0.02 * cheap + 0.02 * night,
       contrast: 0.94 + 0.12 * hash01('con', s) - 0.05 * env.fog,
@@ -340,7 +445,8 @@ export class CameraView {
       blocks: 0.14 + 0.26 * cheap + 0.22 * night,
       vignette: 0.22 + 0.25 * hash01('vig', s) + 0.2 * night,
       scan: 0.03 + 0.05 * cheap,
-      rain: env.rain ? 0.9 : env.snowing ? 0.35 : 0,
+      // Water drops on the dome when it rains, more in a storm; snow does not sit on a warm dome as drops.
+      rain: env.weather === 'storm' ? 0.6 : env.rain ? 0.4 : 0,
     };
   }
 
@@ -358,10 +464,12 @@ export class CameraView {
       this.snow = null;
     }
     if (env.rain) {
-      const n = env.weather === 'storm' ? 620 : 360;
+      const n = env.weather === 'storm' ? 620 : 300;
       const g = new BufferGeometry();
       g.setAttribute('position', new BufferAttribute(new Float32Array(n * 6), 3));
-      this.rain = new LineSegments(g, new LineBasicMaterial({ color: 0xc9d2dc, transparent: true, opacity: 0.32, depthWrite: false }));
+      // In the dark only the streaks near a light show; the night picture's gain would turn all of them into a curtain.
+      const opacity = 0.3 * (1 - 0.6 * env.night);
+      this.rain = new LineSegments(g, new LineBasicMaterial({ color: 0xc9d2dc, transparent: true, opacity, depthWrite: false }));
       this.rain.frustumCulled = false;
       this.scene.add(this.rain);
     }
@@ -448,6 +556,7 @@ export class CameraView {
 
   /** Draw one frame. */
   render(f: Frame, osd: Osd, zoom = 1, panX = 0, panY = 0) {
+    this.renderer.info.reset();
     if (!this.site || !this.world || !this.env || this.lost) return;
     const dark = this.env.lamps ? Math.max(this.env.night, 0.3) : 0;
     const seen = new Set<string>();
@@ -497,7 +606,7 @@ export class CameraView {
         const cs = Math.cos(c.yaw);
         const sn = Math.sin(c.yaw);
         l.position.set(c.pos[0] + cs * m.bar[0], m.bar[1] + 0.5, -c.pos[1] - sn * m.bar[0]);
-        l.intensity = m.flashing(c.lights, f.t) * (60 + 340 * dark);
+        l.intensity = m.flashing(c.lights, f.t) * (6 + 16 * dark);
       }
     }
     for (const [id, m] of this.cars) {
@@ -512,6 +621,7 @@ export class CameraView {
     this.post.setText({ topLeft: osd.name, topRight: osd.clock, bottomLeft: osd.note, bottomRight: osd.mark, rec: osd.rec });
     this.post.setZoom(zoom, panX, panY);
     this.renderer.setRenderTarget(this.post.frame);
+    this.skyDome.position.copy(this.camera.position);
     this.renderer.render(this.scene, this.camera);
     // A torn line now and then, more often on a poor camera at night.
     const n = hash32('tear', this.seed, Math.floor(f.t * 12.5));
@@ -520,6 +630,17 @@ export class CameraView {
   }
 
   private clearScene() {
+    if (this.skyline) {
+      this.scene.remove(this.skyline);
+      this.skyline.geometry.dispose();
+      for (const child of this.skyline.children) (child as Mesh).geometry.dispose();
+      this.skylineMat?.map?.dispose();
+      this.skylineMat?.dispose();
+      this.skylineNearMat?.map?.dispose();
+      this.skylineNearMat?.dispose();
+      this.skylineNearMat = null;
+      this.skyline = null;
+    }
     if (this.world) {
       this.scene.remove(this.world.group);
       this.world.dispose();
@@ -544,7 +665,12 @@ export class CameraView {
     this.post.dispose();
     this.reflection?.dispose();
     this.pmrem.dispose();
-    for (const t of [this.carTex.glow, this.carTex.beam, this.poolTex, this.sheets.wall, this.sheets.lit, this.drops]) t.dispose();
+    for (const t of [this.carTex.glow, this.carTex.beam, this.poolTex, this.drops]) t.dispose();
+    this.skyTex?.dispose();
+    this.skyMat.dispose();
+    this.skyDome.geometry.dispose();
+    const sh = this.sheets;
+    for (const t of [sh.atlas.map, sh.atlas.lit, sh.asphalt, sh.paving, sh.grass, sh.setts, sh.decals, sh.glow]) t.dispose();
     this.blobGeo.dispose();
     this.blobMat.dispose();
     this.smokeMat.dispose();

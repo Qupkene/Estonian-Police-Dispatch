@@ -5,12 +5,43 @@ import { envAt } from '../env';
 import { lookOfCrew, lookOfStranger, poseOf, type Act, type Gait } from '../figure';
 import { along, left, mul, yawOf } from '../math';
 import { makeStreet } from '../procedural';
+import { makeAtlas } from '../render/facades';
 import { loadHumanBase } from '../render/human';
 import { CameraView, type CarFrame, type Frame, type PersonFrame } from '../render/view';
 import { buildSite, onDrive } from '../site';
 import { lookOfAgency, lookOfAnyCar, lookOfUnit } from '../vehicle';
 
 const q = new URLSearchParams(location.search);
+
+// ?sheet=atlas[&cells=x,y,w,h]: the painted sheet of house fronts itself (alpha over a checker), and its night twin.
+if (q.get('sheet')) {
+  const atlas = makeAtlas(7);
+  const img = atlas.map.image as { data: Uint8Array; width: number; height: number };
+  const [cx, cy, cw, ch] = (q.get('cells') ?? '0,0,16,16').split(',').map(Number);
+  const cell = img.width / 16;
+  const src = document.createElement('canvas');
+  src.width = img.width;
+  src.height = img.height;
+  src.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(img.data), img.width, img.height), 0, 0);
+  const old = document.getElementById('c')!;
+  const c = document.createElement('canvas');
+  c.id = 'c';
+  c.width = 1024;
+  c.height = 576;
+  old.replaceWith(c);
+  const g = c.getContext('2d')!;
+  for (let y = 0; y < 576; y += 8) for (let x = 0; x < 1024; x += 8) {
+    g.fillStyle = (x + y) % 16 ? '#777' : '#999';
+    g.fillRect(x, y, 8, 8);
+  }
+  const k = Math.min(512 / (cw * cell), 576 / (ch * cell));
+  g.drawImage(src, cx * cell, cy * cell, cw * cell, ch * cell, 0, 0, cw * cell * k, ch * cell * k);
+  const lit = atlas.lit.image as HTMLCanvasElement;
+  const lk = lit.width / img.width;
+  g.drawImage(lit, cx * cell * lk, cy * cell * lk, cw * cell * lk, ch * cell * lk, 512, 0, cw * cell * k, ch * cell * k);
+  (window as unknown as { __cctv: unknown }).__cctv = { ready: true, step: () => 0 };
+  await new Promise(() => {});
+}
 const kind = (q.get('kind') ?? 'street') as PlaceKind;
 const seed = Number(q.get('seed') ?? 3);
 const hour = Number(q.get('hour') ?? 14);
@@ -37,11 +68,19 @@ const weather: Weather = { kind: weatherKind, tempC: temp, windMs: Number(q.get(
 const env = envAt(t0, [24.75, 59.44], weather);
 const view = new CameraView(document.getElementById('c') as HTMLCanvasElement);
 view.setScene(site, env);
+// ?hide=decals,cuts,...: leave parts of the picture out, to see what they cost (world mesh names, sky, skyline, shadows).
+for (const name of (q.get('hide') ?? '').split(',').filter(Boolean)) {
+  const v = view as unknown as { scene: { traverse: (f: (o: { name: string; visible: boolean }) => void) => void }; skyDome: { visible: boolean }; skyline: { visible: boolean } | null; renderer: { shadowMap: { enabled: boolean } } };
+  if (name === 'sky') v.skyDome.visible = false;
+  else if (name === 'skyline' && v.skyline) v.skyline.visible = false;
+  else if (name === 'shadows') v.renderer.shadowMap.enabled = false;
+  else v.scene.traverse((o) => { if (o.name === name) o.visible = false; });
+}
 if (!q.get('dolls')) view.setHumans(await loadHumanBase());
 // ?clean=1: the picture without the camera's own faults.
 if (q.get('clean')) {
   const v = view as unknown as { post: { setLook: (l: unknown) => void }; look: Record<string, unknown> };
-  v.post.setLook({ ...v.look, noise: 0, blocks: 0, soft: 0, trail: 0, vignette: 0, scan: 0, barrel: 0, saturation: 1, contrast: 1, lift: 0 });
+  v.post.setLook({ ...v.look, noise: 0, blocks: 0, soft: 0, trail: 0, vignette: 0, scan: 0, barrel: 0, saturation: 1, contrast: 1, lift: 0, rain: 0 });
 }
 const dress = { season: env.season, temp };
 
@@ -55,6 +94,8 @@ function frame(t: number): Frame {
   const cars: CarFrame[] = [];
   const dir = site.dir;
   const n = mul(left(dir), site.side);
+  // ?cast=0: the street alone.
+  if (q.get('cast') === '0') return { t, people, cars, smoke: null };
   // A line of figures along the pavement, one per act.
   ACTS.forEach((act, i) => {
     const row = i % ROWS;
@@ -113,13 +154,33 @@ const api = {
       t += dt;
       draw();
     }
+    const info = (view as unknown as { renderer: { info: { render: { triangles: number; calls: number } } } }).renderer.info.render;
+    log.textContent = `${head} tris=${info.triangles} calls=${info.calls}`;
     return t;
+  },
+  /** Milliseconds a steady frame takes: `frames` frames drawn and waited for (a pixel is read back after each). */
+  time(frames = 20) {
+    const gl = (view as unknown as { renderer: { getContext: () => WebGL2RenderingContext } }).renderer.getContext();
+    const px = new Uint8Array(4);
+    for (let i = 0; i < 4; i++) {
+      t += 0.08;
+      draw();
+    }
+    gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    const t0 = performance.now();
+    for (let i = 0; i < frames; i++) {
+      t += 0.08;
+      draw();
+      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    }
+    return (performance.now() - t0) / frames;
   },
 };
 (window as unknown as { __cctv: typeof api; __view: CameraView; __site: typeof site }).__cctv = api;
 (window as unknown as { __view: CameraView }).__view = view;
 (window as unknown as { __site: typeof site }).__site = site;
-log.textContent = `kind=${kind} seed=${seed} source=${street.source} sun=${env.sunAlt.toFixed(1)} night=${env.night.toFixed(2)} cam=${site.camera.mount} h=${site.camera.height.toFixed(1)} buildings=${street.buildings.length}`;
+const head = `kind=${kind} seed=${seed} source=${street.source} sun=${env.sunAlt.toFixed(1)} night=${env.night.toFixed(2)} cam=${site.camera.mount} h=${site.camera.height.toFixed(1)} buildings=${street.buildings.length}`;
+log.textContent = head;
 if (!q.get('manual')) {
   let last = performance.now();
   const loop = (now: number) => {

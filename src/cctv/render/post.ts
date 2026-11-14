@@ -9,6 +9,7 @@
  */
 import {
   CanvasTexture,
+  HalfFloatType,
   LinearFilter,
   Mesh,
   NearestFilter,
@@ -18,6 +19,7 @@ import {
   SRGBColorSpace,
   Scene,
   ShaderMaterial,
+  UnsignedByteType,
   Vector2,
   Vector3,
   WebGLRenderTarget,
@@ -71,9 +73,10 @@ void main() {
   uv = lens(uv);
   float blur = uSoft;
   if (uRain > 0.0) {
+    // A few small drops on the dome: each bends the picture a little and blurs it, the rest of the frame stays still.
     vec4 d = texture2D(tDrops, vUv);
-    uv += (d.rg - 0.5) * 0.16 * uRain * step(0.02, d.b);
-    blur += d.b * 3.0 * uRain;
+    uv += (d.rg - 0.5) * 0.02 * uRain * step(0.3, d.b);
+    blur += d.b * uRain;
   }
   // Colour fringes grow towards the edges.
   vec2 off = (uv - 0.5) * 0.0045;
@@ -154,6 +157,8 @@ void main() {
   float chroma = uNoise * (1.0 - uMono) * dark;
   c.r += (hash(cpx + uSeed * 17.3) - 0.5) * chroma;
   c.b += (hash(cpx + uSeed * 29.1 + 7.0) - 0.5) * chroma;
+  // A triangular dither of one step of 8 bits: smooth gradients (a lamp's pool, a grey sky) show no contour lines.
+  c += (hash(gl_FragCoord.xy + uSeed * 37.0) + hash(gl_FragCoord.xy * 1.37 + 11.3 + uSeed * 53.0) - 1.0) / 255.0;
   vec4 osd = texture2D(tOsd, vUv);
   c = mix(c, osd.rgb, osd.a);
   gl_FragColor = vec4(c, 1.0);
@@ -203,10 +208,17 @@ export class Post {
     readonly height: number,
     drops: Texture,
   ) {
+    // Half floats between the passes where the browser can draw into them, so the tone curve of the last pass has no
+    // steps to stretch; else colour stored the way a screen stores it, so that dark tones keep their steps in 8 bits.
+    const half = renderer.extensions.has('EXT_color_buffer_float') || renderer.extensions.has('EXT_color_buffer_half_float');
     const target = (depth: boolean) => {
-      const t = new WebGLRenderTarget(width, height, { depthBuffer: depth, magFilter: LinearFilter, minFilter: LinearFilter });
-      // Stored the way a screen stores colour: dark tones keep their steps in 8 bits.
-      t.texture.colorSpace = SRGBColorSpace;
+      const t = new WebGLRenderTarget(width, height, {
+        depthBuffer: depth,
+        magFilter: LinearFilter,
+        minFilter: LinearFilter,
+        type: half ? HalfFloatType : UnsignedByteType,
+      });
+      if (!half) t.texture.colorSpace = SRGBColorSpace;
       return t;
     };
     this.frame = target(true);

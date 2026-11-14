@@ -269,6 +269,115 @@ export class MeshBuilder {
     for (let i = 0; i < pts.length - 1; i++) this.quad(at(r[i], h), at(r[i + 1], h), at(l[i + 1], h), at(l[i], h), color, up);
   }
 
+  /** How many triangles the mesh has so far. */
+  get triangles() {
+    return this.idx.length / 3;
+  }
+
+  /**
+   * A four-cornered face a-b-c-d with one normal given for all of it, seen from both sides when `both` is set: a
+   * card of leaves in a tree's crown, lit as a part of the whole crown and not by the way the card happens to lie.
+   */
+  card(a: P3, b: P3, c: P3, d: P3, normal: P3, color: Color, uvs: readonly [V2, V2, V2, V2], both = true) {
+    const i = this.vertex(a, normal, color, uvs[0][0], uvs[0][1]);
+    this.vertex(b, normal, color, uvs[1][0], uvs[1][1]);
+    this.vertex(c, normal, color, uvs[2][0], uvs[2][1]);
+    this.vertex(d, normal, color, uvs[3][0], uvs[3][1]);
+    this.idx.push(i, i + 1, i + 2, i, i + 2, i + 3);
+    if (both) this.idx.push(i, i + 2, i + 1, i, i + 3, i + 2);
+  }
+
+  /**
+   * A round bar from one point to another (three.js positions), `r0` thick at its start and `r1` at its end: a
+   * post, a tree's trunk or limb, a pipe. Its side is smooth; the ends are left open unless `cap` is set (the far end).
+   */
+  tube(p0: P3, p1: P3, r0: number, r1: number, color: Color, sides = 6, cap = false, color1: Color = color) {
+    const ax = p1[0] - p0[0];
+    const ay = p1[1] - p0[1];
+    const az = p1[2] - p0[2];
+    const al = Math.hypot(ax, ay, az) || 1;
+    const dx = ax / al;
+    const dy = ay / al;
+    const dz = az / al;
+    // Two directions square to the bar.
+    let ux = dy * 0 - dz * 1;
+    let uy = dz * 0 - dx * 0;
+    let uz = dx * 1 - dy * 0;
+    if (Math.abs(dy) > 0.9) {
+      ux = 1;
+      uy = 0;
+      uz = 0;
+      const k = ux * dx;
+      ux -= dx * k;
+      uy -= dy * k;
+      uz -= dz * k;
+    }
+    const ul = Math.hypot(ux, uy, uz) || 1;
+    ux /= ul;
+    uy /= ul;
+    uz /= ul;
+    const wx = dy * uz - dz * uy;
+    const wy = dz * ux - dx * uz;
+    const wz = dx * uy - dy * ux;
+    const base = this.pos.length / 3;
+    for (let i = 0; i <= sides; i++) {
+      const a = (i / sides) * Math.PI * 2;
+      const cs = Math.cos(a);
+      const sn = Math.sin(a);
+      const n: P3 = [ux * cs + wx * sn, uy * cs + wy * sn, uz * cs + wz * sn];
+      this.vertex([p0[0] + n[0] * r0, p0[1] + n[1] * r0, p0[2] + n[2] * r0], n, color, i / sides, 0);
+      this.vertex([p1[0] + n[0] * r1, p1[1] + n[1] * r1, p1[2] + n[2] * r1], n, color1, i / sides, 1);
+    }
+    for (let i = 0; i < sides; i++) {
+      const k = base + i * 2;
+      this.idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3);
+    }
+    if (cap) {
+      const n: P3 = [dx, dy, dz];
+      const centre = this.vertex(p1, n, color1, 0.5, 1);
+      const ring = this.pos.length / 3;
+      for (let i = 0; i < sides; i++) {
+        const a = (i / sides) * Math.PI * 2;
+        const cs = Math.cos(a);
+        const sn = Math.sin(a);
+        this.vertex([p1[0] + (ux * cs + wx * sn) * r1, p1[1] + (uy * cs + wy * sn) * r1, p1[2] + (uz * cs + wz * sn) * r1], n, color1, 0.5, 1);
+      }
+      for (let i = 0; i < sides; i++) this.idx.push(centre, ring + i, ring + ((i + 1) % sides));
+    }
+  }
+
+  /** A footprint pushed up from h0 to h1: its sides and its top (a kerbed slab, a low wall, a planter). */
+  slab(ring: readonly V2[], h0: number, h1: number, side: Color, top: Color = side) {
+    if (ring.length < 3) return;
+    const ccw = ringArea(ring) > 0 ? ring : ring.slice().reverse();
+    for (let i = 0; i < ccw.length; i++) {
+      const a = ccw[i];
+      const b = ccw[(i + 1) % ccw.length];
+      this.quad(at(a, h0), at(b, h0), at(b, h1), at(a, h1), side, [b[1] - a[1], 0, b[0] - a[0]]);
+    }
+    this.flat(ccw, h1, top);
+  }
+
+  /**
+   * A box turned any way: its centre (three.js position), half its size along its own three directions `u`, `v`
+   * and `w` (unit vectors, square to each other).
+   */
+  block(c: P3, u: P3, v: P3, w: P3, hu: number, hv: number, hw: number, color: Color) {
+    const corner = (su: number, sv: number, sw: number): P3 => [
+      c[0] + u[0] * hu * su + v[0] * hv * sv + w[0] * hw * sw,
+      c[1] + u[1] * hu * su + v[1] * hv * sv + w[1] * hw * sw,
+      c[2] + u[2] * hu * su + v[2] * hv * sv + w[2] * hw * sw,
+    ];
+    const face = (n: P3, s: number, a: [number, number, number], b: [number, number, number], cc: [number, number, number], d: [number, number, number]) =>
+      this.quad(corner(...a), corner(...b), corner(...cc), corner(...d), color, [n[0] * s, n[1] * s, n[2] * s]);
+    face(u, 1, [1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1]);
+    face(u, -1, [-1, -1, -1], [-1, 1, -1], [-1, 1, 1], [-1, -1, 1]);
+    face(v, 1, [-1, 1, -1], [1, 1, -1], [1, 1, 1], [-1, 1, 1]);
+    face(v, -1, [-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1]);
+    face(w, 1, [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]);
+    face(w, -1, [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1]);
+  }
+
   build(): BufferGeometry {
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(new Float32Array(this.pos), 3));

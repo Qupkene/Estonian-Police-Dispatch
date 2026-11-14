@@ -2338,10 +2338,14 @@ export class Director {
     return null;
   }
 
-  /** How bad the way is in a direction from a place: 0 open, 1 the road ends, 2 blocked. */
+  /**
+   * How bad the way is in a direction from a place: 0 open, 1 the road ends, 2 blocked (by what blocks the
+   * carriageway, or on a road of one lane by any vehicle standing further along it).
+   */
   private wayCost(s: number, dir: number): number {
     const block = this.blockS();
     if (block !== null && (block - s) * dir > 0.5) return 2;
+    if (this.width < NARROW_M && this.cars.some((o) => o.mode === 'park' && (o.s - s) * dir > 1)) return 2;
     const d = this.site.drive;
     return (dir > 0 ? d.deadB : d.deadA) ? 1 : 0;
   }
@@ -2380,10 +2384,13 @@ export class Director {
    */
   private canPullOut(c: Car, want: 1 | -1 | 0, dt: number): boolean {
     c.wait += dt;
-    if (c.wait > 60) return true;
-    if (c.due.some((b) => !b.gone && !b.aboard && !b.leaving)) return false;
     const round = this.turnsRound(c, want);
     const dir = round ? -c.dir : c.dir;
+    // On a road of one lane nobody drives into a vehicle standing in the way: it waits until that one has gone
+    // (a car of the incident for good, a crew for a minute at most).
+    if (this.width < NARROW_M && this.wayCost(c.s, dir) === 2 && (c.kind === 'cast' || c.wait <= 60)) return false;
+    if (c.wait > 60) return true;
+    if (c.due.some((b) => !b.gone && !b.aboard && !b.leaving)) return false;
     const hl = c.size.length / 2;
     const hw = c.size.width / 2;
     for (const o of this.cars) {

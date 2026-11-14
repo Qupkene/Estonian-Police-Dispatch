@@ -11,7 +11,7 @@ import type { PlaceKind } from '@/sim/types';
 import { rand, rectRing, ringArea, type Rand, type V2 } from './math';
 import { ROAD_WIDTH, type Area, type AreaKind, type Building, type Road, type RoadClass, type RoofKind, type StreetData } from './types';
 
-export type Layout = 'street' | 'oldtown' | 'estate' | 'houses' | 'carpark' | 'fuel' | 'highway' | 'park';
+export type Layout = 'street' | 'oldtown' | 'estate' | 'houses' | 'carpark' | 'shopfront' | 'fuel' | 'highway' | 'park';
 
 const LAYOUT: Partial<Record<PlaceKind, Layout>> = {
   residential: 'estate',
@@ -23,7 +23,7 @@ const LAYOUT: Partial<Record<PlaceKind, Layout>> = {
   church: 'oldtown',
   museum: 'oldtown',
   mall: 'carpark',
-  shop: 'carpark',
+  shop: 'shopfront',
   parking: 'carpark',
   stadium: 'carpark',
   concert: 'carpark',
@@ -147,7 +147,8 @@ function estate(d: Draft) {
 function houses(d: Draft) {
   const { r } = d;
   const y = -5.4;
-  const walk = r.chance(0.5);
+  // A village or a street of private houses has no pavements: a narrow road with grass verges and ditches.
+  const walk = false;
   d.road('residential', [[-150, y + r.range(-4, 4)], [-50, y], [50, y], [150, y + r.range(-6, 6)]], { walk, width: 5.2 });
   const sx = r.chance(0.5) ? r.range(42, 60) : -r.range(42, 60);
   d.road('residential', [[sx, y], [sx + r.range(-4, 4), -150]], { width: 4.8 });
@@ -186,6 +187,36 @@ function carpark(d: Draft, big: boolean) {
   row(d, -140, 140, main - 7, -1, { floors: [2, 5], width: [16, 30], depth: [10, 13], gap: [4, 14] });
 }
 
+/**
+ * A neighbourhood shop on a town street: a single-storey box with a glass front set back behind a row of a dozen
+ * bays, its loading side to the yard; town houses and a small block on either side, flats across the street.
+ */
+function shopfront(d: Draft) {
+  const { r } = d;
+  const cls: RoadClass = r.pick(['tertiary', 'residential', 'secondary'] as const);
+  const w = ROAD_WIDTH[cls];
+  const y = -(w / 2 + 3.2);
+  d.road(cls, [[-150, y + r.range(-3, 3)], [-40, y], [40, y], [150, y + r.range(-3, 3)]], { walk: true });
+  const half = r.range(13, 19);
+  const front = 6.4;
+  const depth = r.range(16, 22);
+  d.box(r.range(-3, 3), front + depth / 2, half * 2, depth, r.range(4.2, 5.4), { metres: true });
+  // The bays in front of the glass, and the paved strip along it.
+  d.area('parking', -half - 2, -0.6, half + 2, front - 1.2);
+  d.area('paved', -half - 2, front - 1.2, half + 2, front);
+  d.area('green', -half - 2, front + depth, half + 2, front + depth + 12);
+  // A side street to the yard on one side.
+  const sx = (r.chance(0.5) ? 1 : -1) * (half + r.range(8, 12));
+  d.road('residential', [[sx, y], [sx + r.range(-3, 3), 70], [sx + r.range(-6, 6), 150]], { walk: true });
+  const north = y + w / 2 + 2.6;
+  const south = y - w / 2 - 2.6;
+  row(d, -140, -half - 4, north, 1, { floors: [2, 5], width: [12, 26], depth: [10, 13], gap: [2, 8], skip: [[sx - 7, sx + 7]] });
+  row(d, half + 4, 140, north, 1, { floors: [2, 5], width: [12, 26], depth: [10, 13], gap: [2, 8], skip: [[sx - 7, sx + 7]] });
+  row(d, -140, 140, south, -1, { floors: [3, 5], width: [16, 34], depth: [10, 13], gap: [0, 8] });
+  row(d, -140, 140, north + 36, 1, { floors: [3, 9], width: [18, 40], depth: [11, 13], gap: [8, 26], skip: [[sx - 8, sx + 8]] });
+  d.area('green', -140, south - 31, 140, south - 17);
+}
+
 function fuel(d: Draft) {
   const { r } = d;
   const main = -19;
@@ -214,8 +245,8 @@ function highway(d: Draft) {
     const sx = r.chance(0.5) ? r.range(50, 80) : -r.range(50, 80);
     d.road('tertiary', [[sx, y], [sx + r.range(-10, 10), 150]], { width: 5.6 });
   }
-  // A bus stop's shelter beside the road.
-  if (r.chance(0.5)) d.box(r.range(-14, 14), y + w / 2 + 3.4, 4.2, 1.8, 2.6, { open: true, metres: true });
+  // A bus stop's shelter on its gravel pull-off beside the road (render/world.ts builds it as one).
+  if (r.chance(0.5)) d.box(r.range(-14, 14), y + w / 2 + 4.2, 3.6, 1.6, 2.5, { open: true, metres: true });
   const far = r.chance(0.5);
   d.area('forest', -160, far ? 34 : 14, 160, 160);
   d.area(far ? 'forest' : 'green', -160, -160, 160, y - w / 2 - (far ? 9 : 28));
@@ -247,7 +278,8 @@ export function makeStreet(kind: PlaceKind, seed: number): StreetData {
   else if (layout === 'oldtown') street(d, true);
   else if (layout === 'estate') estate(d);
   else if (layout === 'houses') houses(d);
-  else if (layout === 'carpark') carpark(d, kind !== 'shop');
+  else if (layout === 'carpark') carpark(d, true);
+  else if (layout === 'shopfront') shopfront(d);
   else if (layout === 'fuel') fuel(d);
   else if (layout === 'highway') highway(d);
   else park(d);
