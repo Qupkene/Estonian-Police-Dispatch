@@ -25,6 +25,7 @@ import { RadioPanel } from './RadioPanel';
 import { Toasts, useToastFeed } from './Toasts';
 import { PauseMenu, ShiftEndModal } from './Modals';
 import { CoopPanel } from './CoopPanel';
+import { CameraWindow } from './CameraWindow';
 import { CrisisBar, CrisisBrief, CrisisPanel, crisisOn } from './CrisisPanel';
 import { useHotkeys } from './useHotkeys';
 import { useGameUi, type MobileTab } from './uiStore';
@@ -51,10 +52,14 @@ export function GameScreen() {
   const simId = sim ? shiftKeyOf(sim) : '';
   useEffect(() => {
     if (!simId) return;
-    setUi({ queueCursor: null, picks: {}, dispatchError: {}, toasts: [], pauseOpen: false, bulletinsSeen: 0, drawerOpen: false });
+    setUi({ queueCursor: null, picks: {}, dispatchError: {}, toasts: [], pauseOpen: false, bulletinsSeen: 0, drawerOpen: false, camera: null });
     stopScene();
     useDirector.getState().reset();
-    return () => stopScene();
+    return () => {
+      stopScene();
+      // The camera belongs to its shift: closed when the shift ends or the screen goes (no WebGL context is left).
+      setUi({ camera: null });
+    };
   }, [simId, setUi]);
 
   if (!sim) {
@@ -121,6 +126,8 @@ export function GameScreen() {
       <MobileNav />
       <Toasts />
       {sim.coop && <CoopPanel />}
+      {/* Kaamerad: the open surveillance camera over the map (its chunk loads on first use). */}
+      <CameraWindow />
       <CallTaker />
       <CrisisBrief />
       <ShiftEndModal />

@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { precacheList, preloadEntryStyles, stampServiceWorker } from '../vite.config';
+import { chunkFileName, precacheList, preloadEntryStyles, stampServiceWorker } from '../vite.config';
 import { offlineMapUrls } from '@/pwa';
 
 const ORIGIN = 'https://politsei.eu';
@@ -258,6 +258,18 @@ describe('build stamping', () => {
       'glyphs/Noto%20Sans%20Regular/0-255.pbf',
       'legacy/politseimang-2025.html',
     ]);
+  });
+
+  it("leaves the surveillance camera's chunk and its body model to the first camera opened", () => {
+    // Kaamerad (docs/CCTV.md section 14): three.js and the renderer must not reach every player at install.
+    const files = ['assets/index-A.js', 'assets/cctv-K1.js', 'assets/human-M2.glb', 'assets/GameScreen-B.js', 'assets/cctvhelp-C.js'];
+    expect(precacheList(files)).toEqual(['assets/GameScreen-B.js', 'assets/cctvhelp-C.js', 'assets/index-A.js']);
+  });
+
+  it('names the camera chunk after what it is, and every other chunk as before', () => {
+    expect(chunkFileName({ facadeModuleId: '/repo/src/cctv/live.ts' })).toBe('assets/cctv-[hash].js');
+    expect(chunkFileName({ facadeModuleId: '/repo/src/ui/game/GameScreen.tsx' })).toBe('assets/[name]-[hash].js');
+    expect(chunkFileName({ facadeModuleId: null })).toBe('assets/[name]-[hash].js');
   });
 
   it('stamps the version and the list, and refuses a worker whose markers moved', () => {

@@ -145,3 +145,15 @@ export const useGameUi = create<GameUi>()((set, get) => ({
     set({ picks: rest });
   },
 }));
+
+/**
+ * Open the camera of an incident, or close it when it is the one open (the card's button and the K key). Opening
+ * another incident's camera closes the one that was open: one camera at a time.
+ */
+export function toggleCamera(incidentId: string, byKey = false) {
+  const ui = useGameUi.getState();
+  if (ui.camera?.incidentId === incidentId) return ui.set({ camera: null });
+  // On a phone the picture is on the map tab: opening a camera from the card goes there.
+  const phone = typeof window !== 'undefined' && window.matchMedia('(max-width: 899px)').matches;
+  ui.set({ camera: { incidentId, byKey }, ...(phone ? { mobileTab: 'map' as const } : {}) });
+}

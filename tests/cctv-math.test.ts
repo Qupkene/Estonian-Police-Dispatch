@@ -40,16 +40,31 @@ import {
 import { haversineKm } from '@/sim/geo';
 import type { LngLat } from '@/sim/types';
 
-const turn = (p: V2, a: number): V2 => [p[0] * Math.cos(a) - p[1] * Math.sin(a), p[0] * Math.sin(a) + p[1] * Math.cos(a)];
+const turn = (p: V2, a: number): V2 => [
+  p[0] * Math.cos(a) - p[1] * Math.sin(a),
+  p[0] * Math.sin(a) + p[1] * Math.cos(a),
+];
 const close = (a: V2, b: V2, digits = 6) => {
   expect(a[0]).toBeCloseTo(b[0], digits);
   expect(a[1]).toBeCloseTo(b[1], digits);
 };
 
 /** A 10 x 6 m rectangle, anticlockwise, its lower left corner at the origin. */
-const RECT: V2[] = [[0, 0], [10, 0], [10, 6], [0, 6]];
+const RECT: V2[] = [
+  [0, 0],
+  [10, 0],
+  [10, 6],
+  [0, 6],
+];
 /** An L-shaped house: a 10 x 4 m wing along x and a 4 x 4 m wing on its west end. 56 m2. */
-const L_HOUSE: V2[] = [[0, 0], [10, 0], [10, 4], [4, 4], [4, 8], [0, 8]];
+const L_HOUSE: V2[] = [
+  [0, 0],
+  [10, 0],
+  [10, 4],
+  [4, 4],
+  [4, 8],
+  [0, 8],
+];
 
 describe('the local frame', () => {
   const origin: LngLat = [24.7536, 59.437];
@@ -63,7 +78,12 @@ describe('the local frame', () => {
   });
 
   it('measures metres as the sim measures kilometres', () => {
-    for (const d of [[0.002, 0], [0, 0.0015], [0.002, -0.001], [-0.0013, 0.0011]] as const) {
+    for (const d of [
+      [0.002, 0],
+      [0, 0.0015],
+      [0.002, -0.001],
+      [-0.0013, 0.0011],
+    ] as const) {
       const p: LngLat = [origin[0] + d[0], origin[1] + d[1]];
       const m = len(f.toLocal(p));
       expect(m).toBeGreaterThan(50);
@@ -73,7 +93,12 @@ describe('the local frame', () => {
   });
 
   it('goes there and back', () => {
-    for (const p of [[120, -80], [-33.3, 12.5], [0, 0]] as V2[]) close(f.toLocal(f.toLngLat(p)), p, 6);
+    for (const p of [
+      [120, -80],
+      [-33.3, 12.5],
+      [0, 0],
+    ] as V2[])
+      close(f.toLocal(f.toLngLat(p)), p, 6);
   });
 
   it('turns a compass heading into a scene yaw', () => {
@@ -107,7 +132,12 @@ describe('rings', () => {
     expect(ringArea(RECT)).toBeCloseTo(60, 9);
     expect(ringArea(RECT.slice().reverse())).toBeCloseTo(-60, 9);
     expect(ringArea(L_HOUSE)).toBeCloseTo(56, 9);
-    expect(ringArea([[0, 0], [5, 5]])).toBe(0);
+    expect(
+      ringArea([
+        [0, 0],
+        [5, 5],
+      ]),
+    ).toBe(0);
     expect(ringArea([])).toBe(0);
   });
 
@@ -125,7 +155,14 @@ describe('rings', () => {
   });
 
   it('a ring without area answers with its first point', () => {
-    close(ringCentroid([[3, 4], [3, 4], [3, 4]]), [3, 4]);
+    close(
+      ringCentroid([
+        [3, 4],
+        [3, 4],
+        [3, 4],
+      ]),
+      [3, 4],
+    );
     close(ringCentroid([]), [0, 0]);
   });
 
@@ -250,7 +287,12 @@ describe('the box around a house', () => {
   });
 
   it('a long thin block has its axis along its length whichever edge comes first', () => {
-    const block: V2[] = [[0, 0], [0, 60], [-12, 60], [-12, 0]];
+    const block: V2[] = [
+      [0, 0],
+      [0, 60],
+      [-12, 60],
+      [-12, 0],
+    ];
     const b = boundingBox(block);
     expect(b.long).toBeCloseTo(60, 9);
     expect(b.short).toBeCloseTo(12, 9);
@@ -258,14 +300,22 @@ describe('the box around a house', () => {
   });
 
   it('a ring without edges still answers', () => {
-    const b = boundingBox([[2, 2], [2, 2], [2, 2]]);
+    const b = boundingBox([
+      [2, 2],
+      [2, 2],
+      [2, 2],
+    ]);
     expect(Number.isFinite(b.long) && Number.isFinite(b.short)).toBe(true);
     expect(boundingBox([]).long).toBeGreaterThan(0);
   });
 });
 
 describe('lines', () => {
-  const BENT: V2[] = [[0, 0], [10, 0], [10, 10]];
+  const BENT: V2[] = [
+    [0, 0],
+    [10, 0],
+    [10, 10],
+  ];
 
   it('pointAlong walks the line and stops at its ends', () => {
     expect(lineLength(BENT)).toBe(20);
@@ -299,18 +349,30 @@ describe('lines', () => {
     close(r[2], [11.5, 10]);
     // Every piece of the moved line runs parallel to its piece of the road, at the asked distance.
     for (let i = 0; i < 2; i++) {
-      close(norm([l[i + 1][0] - l[i][0], l[i + 1][1] - l[i][1]]), norm([BENT[i + 1][0] - BENT[i][0], BENT[i + 1][1] - BENT[i][1]]));
+      close(
+        norm([l[i + 1][0] - l[i][0], l[i + 1][1] - l[i][1]]),
+        norm([BENT[i + 1][0] - BENT[i][0], BENT[i + 1][1] - BENT[i][1]]),
+      );
       expect(nearestOnLine(lerpPt(l[i], l[i + 1]), BENT).d).toBeCloseTo(1, 6);
     }
   });
 
   it('offsetLine keeps a gentle bend at the asked distance and caps the mitre of a hairpin', () => {
-    const gentle: V2[] = [[0, 0], [50, 0], [100, 8], [150, 30]];
+    const gentle: V2[] = [
+      [0, 0],
+      [50, 0],
+      [100, 8],
+      [150, 30],
+    ];
     const moved = offsetLine(gentle, 4);
     expect(moved).toHaveLength(4);
     for (const p of moved) expect(nearestOnLine(p, gentle).d).toBeGreaterThan(3.9);
     for (const p of moved) expect(nearestOnLine(p, gentle).d).toBeLessThan(4.1);
-    const hairpin: V2[] = [[0, 0], [20, 0], [0, 0.5]];
+    const hairpin: V2[] = [
+      [0, 0],
+      [20, 0],
+      [0, 0.5],
+    ];
     const h = offsetLine(hairpin, 2);
     expect(dist(h[1], hairpin[1])).toBeLessThanOrEqual(4 + 1e-9);
     for (const p of h) expect(Number.isFinite(p[0]) && Number.isFinite(p[1])).toBe(true);
@@ -329,16 +391,45 @@ describe('lines', () => {
   });
 
   it('clipLineToCircle keeps what is inside', () => {
-    const out = clipLineToCircle([[0, 0], [30, 0], [100, 0]], [0, 0], 50);
+    const out = clipLineToCircle(
+      [
+        [0, 0],
+        [30, 0],
+        [100, 0],
+      ],
+      [0, 0],
+      50,
+    );
     expect(out).toHaveLength(1);
     close(out[0][0], [0, 0]);
     close(out[0][out[0].length - 1], [50, 0], 4);
-    expect(clipLineToCircle([[-10, 5], [10, 5]], [0, 0], 50)).toEqual([[[-10, 5], [10, 5]]]);
+    expect(
+      clipLineToCircle(
+        [
+          [-10, 5],
+          [10, 5],
+        ],
+        [0, 0],
+        50,
+      ),
+    ).toEqual([
+      [
+        [-10, 5],
+        [10, 5],
+      ],
+    ]);
   });
 
   it('clipLineToCircle finds the chord of a line that only cuts through', () => {
     // Both ends far outside, no vertex inside: the chord at y = 30 of a circle of 50 m is 80 m long.
-    const out = clipLineToCircle([[-100, 30], [100, 30]], [0, 0], 50);
+    const out = clipLineToCircle(
+      [
+        [-100, 30],
+        [100, 30],
+      ],
+      [0, 0],
+      50,
+    );
     expect(out).toHaveLength(1);
     const run = out[0];
     close(run[0], [-40, 30], 4);
@@ -346,15 +437,51 @@ describe('lines', () => {
     expect(lineLength(run)).toBeCloseTo(80, 3);
     for (const p of run) expect(len(p)).toBeLessThanOrEqual(50 + 1e-3);
     // The same about a circle that is not at the origin, on a slanted line.
-    const slanted = clipLineToCircle([[0, -200], [200, 0]], [100, -100], 20);
+    const slanted = clipLineToCircle(
+      [
+        [0, -200],
+        [200, 0],
+      ],
+      [100, -100],
+      20,
+    );
     expect(slanted).toHaveLength(1);
     expect(lineLength(slanted[0])).toBeCloseTo(40, 3);
   });
 
   it('clipLineToCircle leaves out a line that passes by, and keeps both visits of one that comes back', () => {
-    expect(clipLineToCircle([[-100, 60], [100, 60]], [0, 0], 50)).toEqual([]);
-    expect(clipLineToCircle([[60, -100], [60, 100]], [0, 0], 50)).toEqual([]);
-    const twice = clipLineToCircle([[-100, 0], [0, 0], [0, 100], [20, 100], [20, 0], [100, 0]], [0, 0], 50);
+    expect(
+      clipLineToCircle(
+        [
+          [-100, 60],
+          [100, 60],
+        ],
+        [0, 0],
+        50,
+      ),
+    ).toEqual([]);
+    expect(
+      clipLineToCircle(
+        [
+          [60, -100],
+          [60, 100],
+        ],
+        [0, 0],
+        50,
+      ),
+    ).toEqual([]);
+    const twice = clipLineToCircle(
+      [
+        [-100, 0],
+        [0, 0],
+        [0, 100],
+        [20, 100],
+        [20, 0],
+        [100, 0],
+      ],
+      [0, 0],
+      50,
+    );
     expect(twice).toHaveLength(2);
     close(twice[0][0], [-50, 0], 4);
     close(twice[0][twice[0].length - 1], [0, 50], 4);
@@ -369,10 +496,13 @@ function lerpPt(a: V2, b: V2): V2 {
 
 describe('seeded randomness', () => {
   /** How unevenly `counts` are filled when each bucket should hold `want` (chi-square). */
-  const chi2 = (counts: number[], want: number) => counts.reduce((sum, c) => sum + ((c - want) * (c - want)) / want, 0);
+  const chi2 = (counts: number[], want: number) =>
+    counts.reduce((sum, c) => sum + ((c - want) * (c - want)) / want, 0);
 
   it('hash32 is an unsigned 32-bit number and the same every time', () => {
-    for (const parts of [['site', 12345], ['cam', 'street', 37122, 178311], [0], ['']] as (string | number)[][]) {
+    for (const parts of [['site', 12345], ['cam', 'street', 37122, 178311], [0], ['']] as (
+      string | number
+    )[][]) {
       const h = hash32(...parts);
       expect(Number.isInteger(h)).toBe(true);
       expect(h).toBeGreaterThanOrEqual(0);

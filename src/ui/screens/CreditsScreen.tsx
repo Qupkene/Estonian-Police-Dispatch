@@ -49,6 +49,12 @@ const DATA: Source[] = [
     descKey: 'shell.cred.src.faces',
     url: 'https://thispersondoesnotexist.com',
   },
+  {
+    name: 'Male Base Mesh · orange-juice-games',
+    licence: 'CC0 1.0',
+    descKey: 'shell.cred.src.body',
+    url: 'https://github.com/BoQsc/Godot-Male-Base-Mesh',
+  },
 ];
 
 const SOFTWARE: Source[] = [
@@ -93,6 +99,18 @@ const SOFTWARE: Source[] = [
     licence: 'MIT',
     descKey: 'shell.cred.src.react',
     url: 'https://react.dev',
+  },
+  {
+    name: 'three.js',
+    licence: 'MIT',
+    descKey: 'shell.cred.src.three',
+    url: 'https://threejs.org',
+  },
+  {
+    name: 'vector-tile · pbf (Mapbox)',
+    licence: 'BSD-3-Clause',
+    descKey: 'shell.cred.src.vtile',
+    url: 'https://github.com/mapbox/vector-tile-js',
   },
 ];
 

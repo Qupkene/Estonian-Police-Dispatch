@@ -5128,3 +5128,321 @@ button.gm-ctask__btn:hover {
   background: var(--p1-soft);
   color: var(--p1-ink);
 }
+
+/* ───────────────────────────── Kaamerad (2.41.0, CameraWindow.tsx) ───────────────────────────── */
+/* The surveillance camera's picture: a small window over the map, in its upper right corner left of the map's
+   tools (the 112 card is at the bottom, the co-op panel top left, the crisis bar top centre, the version bottom
+   left). It can be dragged by its title bar; the picture is always 16:9, drawn at 640x360 and scaled. */
+.gm-cam {
+  grid-area: map;
+  position: absolute;
+  z-index: 28;
+  top: 12px;
+  right: 60px;
+  width: min(448px, calc(100% - 76px));
+  display: flex;
+  flex-direction: column;
+  background: var(--glass);
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+  animation: gm-cam-in var(--dur-3) var(--ease);
+}
+.gm-cam.is-large {
+  width: min(640px, calc(100% - 76px));
+}
+/* Under the crisis bar while a major incident runs (it sits top centre). */
+.gm:has(.gm-crisisbar) .gm-cam:not(.is-moved) {
+  top: 54px;
+}
+.gm-cam.is-moved {
+  width: min(448px, calc(100% - 16px));
+}
+.gm-cam.is-moved.is-large {
+  width: min(640px, calc(100% - 16px));
+}
+@keyframes gm-cam-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.gm-cam__bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 3px 4px 3px 10px;
+  border-bottom: 1px solid var(--line-2);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.gm-cam__bar:active {
+  cursor: grabbing;
+}
+.gm-cam__bar > .ui-icon {
+  flex: none;
+  color: var(--text-2);
+}
+.gm-cam__lamp {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.gm-cam__lamp.is-live {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 25%, transparent);
+  animation: gm-cam-rec 2s steps(2, jump-none) infinite;
+}
+.gm-cam__lamp.is-paused {
+  background: var(--warn);
+}
+.gm-cam__lamp.is-connecting {
+  background: var(--accent-2);
+  animation: gm-cam-pulse 1.6s var(--ease) infinite;
+}
+.gm-cam__lamp.is-failed {
+  background: var(--danger);
+}
+@keyframes gm-cam-rec {
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes gm-cam-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+.gm-cam__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  color: var(--text-0);
+}
+.gm-cam__tag {
+  flex: none;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--danger-ink);
+}
+.gm-cam__tag.is-paused {
+  color: var(--warn-ink);
+}
+.gm-cam__tools {
+  flex: none;
+  display: flex;
+  gap: 2px;
+}
+.gm-cam__btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-1);
+  cursor: pointer;
+}
+.gm-cam__btn:hover:not(:disabled) {
+  background: var(--bg-3);
+  color: var(--text-0);
+}
+.gm-cam__btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.gm-cam__btn[aria-pressed='true'] {
+  color: var(--accent-2);
+}
+.gm-cam__btn:focus-visible,
+.gm-cam__retry:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: -2px;
+}
+.gm-cam:focus-within {
+  border-color: var(--accent-2);
+}
+.gm-cam__picture {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  /* The picture is a monitor's: dark in both themes. */
+  background: var(--ink-on-bright);
+  overflow: hidden;
+  touch-action: none;
+}
+.gm-cam__picture.is-zoomed {
+  cursor: move;
+}
+.gm-cam__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.gm-cam__canvas[hidden] {
+  display: none;
+}
+.gm-cam__zoom {
+  position: absolute;
+  right: 8px;
+  bottom: 22px;
+  padding: 1px 5px;
+  border-radius: var(--r-sm);
+  background: rgba(0, 0, 0, 0.55);
+  color: #e6e6e6;
+  font-size: 10px;
+  pointer-events: none;
+}
+.gm-cam__note {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--sp-4);
+  text-align: center;
+  color: #c9d0d6;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 3px), var(--ink-on-bright);
+}
+.gm-cam__note strong {
+  font-size: var(--fs-sm);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #eef2f5;
+}
+.gm-cam__note span {
+  max-width: 34ch;
+  color: #9aa4ad;
+}
+.gm-cam__note.is-connecting strong {
+  animation: gm-cam-pulse 1.6s var(--ease) infinite;
+}
+.gm-cam__note.is-failed strong {
+  color: color-mix(in srgb, var(--danger) 70%, white);
+}
+.gm-cam__retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  margin-top: 4px;
+  padding: 0 12px;
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-md);
+  background: var(--bg-2);
+  color: var(--text-0);
+  font: inherit;
+  cursor: pointer;
+}
+.gm-cam__retry:hover {
+  background: var(--bg-3);
+}
+/* The incident card's camera line, under the address. */
+.gm-inc__cam {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 5px 6px 5px 10px;
+  border-radius: var(--r-md);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+}
+.gm-inc__cam > .ui-icon {
+  flex: none;
+  color: var(--text-2);
+}
+.gm-inc__cam-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.gm-inc__cam-name > span {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.gm-inc__cam-name > strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+/* The queue's mark for a place a camera sees. */
+.gm-card__cam {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-2);
+}
+
+/* Phone: docked at the top of the map pane at full width, on the map tab only, controls of 44 px. */
+@media (max-width: 899px) {
+  .gm-cam,
+  .gm-cam.is-large,
+  .gm-cam.is-moved {
+    grid-area: main;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: auto;
+    border-radius: 0;
+    border-width: 0 0 1px;
+    animation: none;
+  }
+  .gm:not(.gm--m-map) .gm-cam {
+    display: none;
+  }
+  .gm-cam__bar {
+    cursor: default;
+    min-height: 48px;
+  }
+  .gm-cam__btn {
+    width: 44px;
+    height: 44px;
+  }
+  .gm-cam__btn--size {
+    display: none;
+  }
+  .gm-cam__retry {
+    min-height: 44px;
+  }
+  .gm-cam__picture {
+    max-height: 42vh;
+  }
+}
+/* Reduced motion (the OS setting or the game's own): no slide, no pulse, no blinking lamp. */
+@media (prefers-reduced-motion: reduce) {
+  .gm-cam,
+  .gm-cam *,
+  .gm-cam__lamp {
+    animation: none !important;
+  }
+}
+.gm--reduced .gm-cam,
+.gm--reduced .gm-cam * {
+  animation: none !important;
+}

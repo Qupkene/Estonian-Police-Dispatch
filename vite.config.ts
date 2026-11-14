@@ -6,11 +6,22 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from '
 import path from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 
+/** The surveillance camera's lazy chunk (src/cctv/live.ts and all it pulls in): assets/cctv-<hash>.js. */
+export const CAMERA_CHUNK = /^assets\/cctv-[^/]+\.js$/;
+
+/** Output names of the build's chunks: the camera's entry gets a name that says what it is. */
+export function chunkFileName(chunk: { facadeModuleId: string | null }): string {
+  const id = chunk.facadeModuleId?.split(path.sep).join('/') ?? '';
+  return /\/src\/cctv\/live\.ts$/.test(id) ? 'assets/cctv-[hash].js' : 'assets/[name]-[hash].js';
+}
+
 /** What the service worker precaches from a build (paths relative to the site root, '/' separators). */
 export function precacheList(files: readonly string[]): string[] {
   const keep = (f: string) =>
-    // Chunks, stylesheets and the MapLibre worker.
-    /^assets\/.+\.(?:js|mjs|css)$/.test(f) ||
+    // Chunks, stylesheets and the MapLibre worker, but not the surveillance camera's chunk (three.js and the
+    // renderer, three quarters of a megabyte): it comes on first use and the runtime cache keeps it. Its body model
+    // (assets/human-*.glb) is no listed kind either.
+    (/^assets\/.+\.(?:js|mjs|css)$/.test(f) && !CAMERA_CHUNK.test(f)) ||
     // Latin fonts only: Estonian needs latin + latin-ext, the browser fetches other subsets on demand.
     /^assets\/.+-latin(?:-ext)?-.+\.woff2$/.test(f) ||
     // Images the bundle references, but not the newspaper's drawings (src/ui/screens/shell/paper): they are big
@@ -109,6 +120,7 @@ export default defineConfig({
     // The entry chunk holds the menus and the simulation; MapLibre and the in-shift screen are a
     // separate chunk (src/app/App.tsx) that loads after the boot screen has painted.
     chunkSizeWarningLimit: 2500,
+    rollupOptions: { output: { chunkFileNames: chunkFileName } },
   },
   test: {
     environment: 'node',

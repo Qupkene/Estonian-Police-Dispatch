@@ -5,7 +5,8 @@ import { useDirector } from '@/ui/tools/directorStore';
 import { acknowledgeNext, dispatchPicked, selectIncident } from './actions';
 import { isTypingTarget } from './format';
 import { visibleQueue } from './EventQueue';
-import { useGameUi } from './uiStore';
+import { cameraOf } from '@/cctv/coverage';
+import { toggleCamera, useGameUi } from './uiStore';
 
 const narrow = () => window.matchMedia('(max-width: 1199px)').matches;
 const mobile = () => window.matchMedia('(max-width: 899px)').matches;
@@ -82,6 +83,16 @@ export function useHotkeys() {
             return handled();
           }
           return;
+        case 'k':
+        case 'K': {
+          // Kaamerad: the selected incident's surveillance camera, open to every role.
+          const id = g.selection.incidentId;
+          const inc = id ? s.incidents[id] : undefined;
+          if (!inc) ui.pushToast({ kind: 'error', title: 'game.cam.pick' });
+          else if (ui.camera?.incidentId !== inc.id && !cameraOf(inc, s.now)) ui.pushToast({ kind: 'error', title: 'game.cam.none' });
+          else toggleCamera(inc.id, true);
+          return handled();
+        }
         case 'F2':
           ui.set({ focusQueueN: ui.focusQueueN + 1, drawerOpen: narrow() && !mobile() ? true : ui.drawerOpen, ...(mobile() ? { mobileTab: 'queue' } : {}) });
           return handled();
@@ -100,6 +111,8 @@ export function useHotkeys() {
           const dir = useDirector.getState();
           if (dir.placing) {
             dir.setPlacing(null);
+          } else if (ui.camera) {
+            ui.set({ camera: null });
           } else if (ui.drawerOpen) {
             ui.set({ drawerOpen: false });
           } else if (g.selection.incidentId || g.selection.unitId || g.selection.personId || g.selection.plate) {

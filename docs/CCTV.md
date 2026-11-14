@@ -43,7 +43,8 @@ Everything lives in `src/cctv/`. The upper half is plain TypeScript with no DOM 
 | `stage.ts` | shared types: `Situation` (what the game says now), `Frame` (where everything is) | |
 | `situation.ts` | `situationOf(sim, incident, speed)`: reads a `Situation` from the simulation | sim |
 | `director.ts` | `Director`: moves the cast as the situation changes; `frame()` | all of the above |
-| `session.ts` | one open camera: loads the street, builds site, cast and director, drives the view | all |
+| `session.ts` | one open camera: builds site, light, cast and director from a street, steps them with the game, drives the view | all but three |
+| `live.ts` | the lazy chunk's entry: `openCamera(canvas, ...)` checks WebGL 2, loads the body model and the street, creates the view and the session, returns a handle | all |
 | `render/view.ts` | `CameraView`: three.js scene, light, weather, people and cars of a frame | three |
 | `render/world.ts`, `facades.ts`, `textures.ts` | the standing street: ground, roads, houses, trees, lamps | three |
 | `render/human.ts` (`people.ts` as fallback) | people: one real body mesh dressed per `Look`, posed by `Pose` | three |
@@ -53,7 +54,9 @@ Everything lives in `src/cctv/`. The upper half is plain TypeScript with no DOM 
 | `assets/human.glb` | the base body (see section 11) | |
 | `__dev__/` | harness pages for looking at pictures without the game (not in the build) | |
 
-The game's UI part is `src/ui/game/CameraWindow.tsx` (the picture over the map) and a block on the incident card.
+The game's UI part is `src/ui/game/CameraWindow.tsx` (the picture over the map) and a line on the incident card
+(section 14). The game's own bundle imports only `coverage.ts` (and types) from here; everything else loads through
+`import('@/cctv/live')` (`tests/cctv-lazy.test.ts`).
 
 ## 3. Conventions
 
@@ -402,3 +405,77 @@ coverage, cast (every template of the catalogue gets a kind and a cast without t
 (per kind: the stage before anyone comes, a patrol arriving, contact, each outcome, opening in the middle, pause,
 nobody inside a building, nobody left behind after `after`).
 `e2e/camera.spec.ts`: a shift with an incident under a camera, the window opens and draws, the patrol arrives.
+
+## 14. The window in the game
+
+**Where the camera shows.** The incident card has a line under the address when `cameraOf(incident)` gives a
+camera: the camera icon, "Valvekaamera" and the camera's name, and a button "Kaamera" with the key chip K (pressed
+and labelled "Sulge kaamera" while this incident's camera is open). A place without a camera has no line at all.
+The queue marks the rows of places with a camera with a small camera icon (its title names the camera). Watching
+is open to every role and desk of a co-op room: nothing is changed by it.
+
+**One camera at a time.** `useGameUi.camera` (`src/ui/game/uiStore.ts`, not persisted, no setting) holds the
+incident whose camera is open. It stays on that incident while the player selects others: that is the point,
+watching one place while working on another. Opening another incident's camera closes the first. A new shift,
+the end of a shift and leaving the game screen close it.
+
+**Keys.** K opens or closes the selected incident's camera (a short note when nothing is selected or the place
+has no camera). Escape closes an open camera before it clears the selection or opens the menu; Escape inside the
+window closes it as well. Opened by K, the focus goes to the window's close button; when the window closes with
+the focus in it, the focus goes back to the card's camera button. The window never traps the focus and never takes
+it from a text field (the hotkeys do not fire while typing).
+
+**The window.** A small window over the map (`.gm-cam`, a sibling of the 112 card and the co-op panel in
+`GameScreen`, grid area `map`), in the upper right corner left of the map's tools: the 112 card and its Answer button
+are at the bottom, the co-op panel top left, the crisis bar top centre, the version bottom left. Its title bar
+carries a lamp (red and blinking while live, amber while the game is paused, blue and pulsing while connecting),
+the camera's name, zoom out and in, the size button (about 448 px wide or the native 640 px; the picture is always
+16:9, drawn at 640x360 and scaled by CSS) and the close button. It is dragged by its title bar and stays inside the
+map area when that changes size. On a phone (899 px and narrower) it is docked at the top of the map pane at full
+width, shown only on the map tab, with 44 px controls and no size button.
+
+**Zoom.** The mouse wheel over the picture zooms 1x to 4x, dragging pans while zoomed, a double click goes back to
+1x; the plus and minus buttons do the same on a touch screen. The view's lens does the zoom (`post.ts setZoom`), so
+the picture stays 640x360.
+
+**States** (`data-state` on the window, for the tests; `data-phase` carries the director's phase):
+
+| State | When | In the picture |
+| --- | --- | --- |
+| `connecting` | the chunk, the body model and the street load | "Ühendan kaameraga...", a quiet pulse, the same 16:9 box (no jump) |
+| `live` | the session runs | the picture |
+| `unavailable` | `canRender()` is false (no WebGL 2) | "Pilt pole saadaval" and why |
+| `failed` | the chunk or the model did not load, the view threw, or the browser took the WebGL context away (`view.dead`) | "Signaal katkes" and "Proovi uuesti" (a new canvas and a new view) |
+| `ended` | the incident is no longer in the simulation | "Ülekanne lõppes" |
+
+The window has its own error boundary: whatever the camera throws ends in `failed` with "Proovi uuesti", never in
+the game's crash screen.
+
+**The loop.** The window runs its own `requestAnimationFrame` loop at 12 frames a second and reads the stores
+directly (`useGame.getState()`: `sim`, `speedIndex`, `realtime`); no React state changes per frame, only when the
+state or the phase changes. Game seconds per real second are `effectiveSpeed(sim, realtime ? 1 : SPEEDS[speedIndex])`
+(the 112 slow-down included); the game is paused when `speedIndex` is 0. Nothing is done while the tab is hidden,
+the window is not shown (the phone's other tabs) or the game is paused (a zoom then draws the standing frame once).
+The session (`session.ts`) reads the situation, steps the director by the real seconds, reads the light again at
+most every 2 real seconds (dusk falls in seconds at the fastest speed), and draws with the burned-in texts: the
+camera's name top left, the game's date and clock top right ("23.10.2026 19:42"), `EPD v<version>` bottom right.
+
+**Disposal.** The view (its WebGL context, geometry, textures, render targets) is disposed when the window closes,
+when another incident's camera opens, when a new shift starts, when the game screen unmounts and when a retry
+starts. A camera closed while it is still connecting leaves nothing behind (the open is aborted and whatever it
+made is disposed).
+
+**Where it comes from.** `live.ts` and everything it imports beyond the game's own bundle (three.js, `render/`,
+the director, the cast, the tile reader with `@mapbox/vector-tile` and `pbf`) build into one chunk,
+`assets/cctv-<hash>.js` (`vite.config.ts chunkFileName`), about three quarters of a megabyte. The body model is
+`assets/human-<hash>.glb`. Neither is in the service worker's precache list (`vite.config.ts precacheList`,
+`CAMERA_CHUNK`): they are fetched the first time a camera is opened, from the game's own server, and then kept by
+the worker's runtime cache of `assets/` (cache first, content-hashed names). The street comes from the archive the
+map has already opened (`src/map/streetTiles.ts openedStreetArchive`); when the map has not opened it yet,
+`live.ts` opens the same file itself, and when the map found no street file it does not ask again: a made-up
+street of the kind of place is used (`procedural.ts`), as on any failure of `readStreet` within 6 seconds.
+
+**Tests.** `tests/cctv-session.test.ts` (the session over a real shift with a fake view), `tests/cctv-lazy.test.ts`
+(the import guard), `tests/sw.test.ts` (the chunk's name, nothing of the camera precached), `tests/visual-ui.test.ts`
+(the window's place, the phone, reduced motion), `e2e/camera.spec.ts` (the card, no chunk before the click, live
+picture, the patrol arriving, size, K and Escape, nothing left behind, the phone).

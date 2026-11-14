@@ -285,3 +285,34 @@ describe('contrast in both themes (visual-9 and the light palette)', () => {
     for (const src of [GAME, TOOLS]) expect(src).not.toMatch(/^\s+color: var\(--(warn|gold|ok|danger|info|p[1-4]|st-enroute|st-onscene)\);/m);
   });
 });
+
+describe('the surveillance camera window (Kaamerad, docs/CCTV.md section 14)', () => {
+  const PHONE = '(max-width: 899px)';
+
+  it('sits over the map on a desktop, in the corner the other panels leave free', () => {
+    const win = rule(GAME, '.gm-cam');
+    expect(win['grid-area']).toBe('map');
+    expect(win.position).toBe('absolute');
+    expect(win.top).toBe('12px');
+    // Left of the map's tools, never at the bottom where the 112 card and its Answer button are.
+    expect(win.right).toBe('60px');
+    expect(win.bottom).toBeUndefined();
+    expect(win.width).toBe('min(448px, calc(100% - 76px))');
+    expect(rule(GAME, '.gm-cam.is-large').width).toBe('min(640px, calc(100% - 76px))');
+    expect(rule(GAME, '.gm-cam__picture')['aspect-ratio']).toBe('16 / 9');
+    expect(rule(GAME, '.gm-cam__btn').width).toBe('28px');
+  });
+
+  it('docks at the top of the map pane on a phone, on the map tab only, with 44 px controls', () => {
+    const phone = mediaAll(GAME, PHONE);
+    expect(phone).toMatch(/\.gm-cam,[^{]*\{\s*grid-area:\s*main;\s*top:\s*0;\s*left:\s*0;\s*right:\s*0;\s*width:\s*auto/);
+    expect(phone).toMatch(/\.gm:not\(\.gm--m-map\) \.gm-cam\s*\{\s*display:\s*none/);
+    expect(phone).toMatch(/\.gm-cam__btn\s*\{\s*width:\s*44px;\s*height:\s*44px/);
+    expect(phone).toMatch(/\.gm-cam__retry\s*\{\s*min-height:\s*44px/);
+  });
+
+  it("keeps still with reduced motion, from the system and from the game's own setting", () => {
+    expect(mediaAll(GAME, '(prefers-reduced-motion: reduce)')).toMatch(/\.gm-cam \*[^{]*\{\s*animation:\s*none !important/);
+    expect(GAME).toMatch(/\.gm--reduced \.gm-cam,\s*\.gm--reduced \.gm-cam \*\s*\{\s*animation:\s*none !important/);
+  });
+});

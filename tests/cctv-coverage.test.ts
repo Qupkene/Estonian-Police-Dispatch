@@ -15,7 +15,12 @@ type Subject = Parameters<typeof cameraOf>[0];
 
 const KINDS = Object.keys(CAMERA_CHANCE) as PlaceKind[];
 
-function at(coord: LngLat, placeKind: PlaceKind, more: Partial<IncidentLocation> = {}, id = 'inc-1'): Subject {
+function at(
+  coord: LngLat,
+  placeKind: PlaceKind,
+  more: Partial<IncidentLocation> = {},
+  id = 'inc-1',
+): Subject {
   return {
     id,
     state: 'queued',
@@ -32,7 +37,10 @@ function spread(n: number, salt: number): LngLat {
 }
 
 /** A coordinate of the given kind of place that has a camera. */
-function watched(kind: PlaceKind, more: Partial<IncidentLocation> = {}): { subject: Subject; camera: CameraInfo } {
+function watched(
+  kind: PlaceKind,
+  more: Partial<IncidentLocation> = {},
+): { subject: Subject; camera: CameraInfo } {
   for (let n = 0; n < 5000; n++) {
     const subject = at(spread(n, 77), kind, more);
     const camera = cameraOf(subject);
@@ -57,9 +65,11 @@ describe('the table of chances', () => {
     const listed = table.flatMap(([, kinds]) => kinds);
     expect(listed.slice().sort()).toEqual(KINDS.slice().sort());
     expect(KINDS).toHaveLength(41);
-    for (const [chance, kinds] of table) for (const kind of kinds) expect(CAMERA_CHANCE[kind], kind).toBe(chance);
+    for (const [chance, kinds] of table)
+      for (const kind of kinds) expect(CAMERA_CHANCE[kind], kind).toBe(chance);
     // Every kind of place a region's curated places use is in the table.
-    for (const id of REGION_IDS) for (const p of REGIONS[id].places) expect(CAMERA_CHANCE[p.kind], p.kind).toBeTypeOf('number');
+    for (const id of REGION_IDS)
+      for (const p of REGIONS[id].places) expect(CAMERA_CHANCE[p.kind], p.kind).toBeTypeOf('number');
   });
 });
 
@@ -71,7 +81,12 @@ describe('a place has a camera or not, for good', () => {
         const a = cameraOf(at(coord, kind));
         expect(cameraOf(at(coord, kind))).toEqual(a);
         // Another incident at the same address, another day, in whatever state: the same camera.
-        expect(cameraOf({ ...at(coord, kind, {}, `inc-${n + 900}`), state: 'onscene', unitHistory: ['u1'] }, 1792771200000 + n * MIN)).toEqual(a);
+        expect(
+          cameraOf(
+            { ...at(coord, kind, {}, `inc-${n + 900}`), state: 'onscene', unitHistory: ['u1'] },
+            1792771200000 + n * MIN,
+          ),
+        ).toEqual(a);
         // A step of a metre stays in the cell (the cell is about 37 m; its middle is the rounded coordinate).
         const cell: LngLat = [Math.round(coord[0] * 1500) / 1500, Math.round(coord[1] * 3000) / 3000];
         const near: LngLat = [cell[0] + 0.00001, cell[1] - 0.000005];
@@ -92,7 +107,9 @@ describe('a place has a camera or not, for good', () => {
     const seed = [...seeds][0];
     expect(Number.isInteger(seed) && seed >= 0 && seed < 2 ** 32).toBe(true);
     // The next cell is another street.
-    const next = cameraOf(at([coord[0] + 1 / 1500, coord[1]], 'gasstation')) ?? cameraOf(at([coord[0] - 1 / 1500, coord[1]], 'gasstation'));
+    const next =
+      cameraOf(at([coord[0] + 1 / 1500, coord[1]], 'gasstation')) ??
+      cameraOf(at([coord[0] - 1 / 1500, coord[1]], 'gasstation'));
     expect(next && next.seed !== seed).toBe(true);
   });
 
@@ -108,7 +125,8 @@ describe('a place has a camera or not, for good', () => {
       }
       expect(cells.size, `${kind}: distinct cells`).toBeGreaterThan(9990);
       const share = hits / 10000;
-      if (Math.abs(share - CAMERA_CHANCE[kind]) > 0.03) off.push(`${kind}: ${share.toFixed(3)} for ${CAMERA_CHANCE[kind]}`);
+      if (Math.abs(share - CAMERA_CHANCE[kind]) > 0.03)
+        off.push(`${kind}: ${share.toFixed(3)} for ${CAMERA_CHANCE[kind]}`);
       if (CAMERA_CHANCE[kind] === 0) expect(hits, kind).toBe(0);
     });
     expect(off, off.join('; ')).toEqual([]);
@@ -139,10 +157,13 @@ describe('a place has a camera or not, for good', () => {
   });
 
   it('is cheap enough to ask for every card on every draw', () => {
-    const subjects = Array.from({ length: 2000 }, (_, n) => at(spread(n, 9), KINDS[n % KINDS.length], { address: `Sõpruse pst ${n}-12` }));
+    const subjects = Array.from({ length: 2000 }, (_, n) =>
+      at(spread(n, 9), KINDS[n % KINDS.length], { address: `Sõpruse pst ${n}-12` }),
+    );
     const t0 = performance.now();
     let found = 0;
-    for (let round = 0; round < 50; round++) for (const s of subjects) if (cameraOf(s, 1792771200000)) found++;
+    for (let round = 0; round < 50; round++)
+      for (const s of subjects) if (cameraOf(s, 1792771200000)) found++;
     const perCall = (performance.now() - t0) / (50 * subjects.length);
     expect(found).toBeGreaterThan(0);
     // A queue of fifty cards sixty times a second is 3000 calls: well under a millisecond of every second's sixteen.
@@ -167,7 +188,8 @@ describe('the number and the name', () => {
   });
 
   it('a street camera is called after the street, without the house number', () => {
-    const name = (address: string, kind: PlaceKind = 'street') => watched(kind, { address }).camera.name.replace(/^K-\d{3} · /, '');
+    const name = (address: string, kind: PlaceKind = 'street') =>
+      watched(kind, { address }).camera.name.replace(/^K-\d{3} · /, '');
     expect(name('Narva mnt 25')).toBe('Narva mnt');
     expect(name('Tartu mnt 87f-12', 'residential')).toBe('Tartu mnt');
     expect(name('Viru väljak 4/6', 'office')).toBe('Viru väljak');
@@ -254,7 +276,12 @@ describe('the number and the name', () => {
       const region = REGIONS[id];
       const addresses = [
         ...region.places.map((p) => p.address),
-        ...region.streets.flatMap((s) => [`${s.name} 1`, `${s.name} ${s.houses[1]}`, `${s.name} ${s.houses[1]}-120`, `${s.name} 7a`]),
+        ...region.streets.flatMap((s) => [
+          `${s.name} 1`,
+          `${s.name} ${s.houses[1]}`,
+          `${s.name} ${s.houses[1]}-120`,
+          `${s.name} 7a`,
+        ]),
       ];
       for (const address of addresses) {
         const street = streetOfAddress(address);
@@ -274,10 +301,23 @@ describe('the number and the name', () => {
 describe('nothing left to see', () => {
   const T0 = tallinnTime(2026, 10, 23, 19, 0);
   const { subject } = watched('street');
-  const closed = (more: Partial<Subject>): Subject => ({ ...subject, state: 'closed', closedAt: T0, ...more });
+  const closed = (more: Partial<Subject>): Subject => ({
+    ...subject,
+    state: 'closed',
+    closedAt: T0,
+    ...more,
+  });
 
   it('an incident closed from the desk with nobody sent loses its camera five game minutes later', () => {
-    for (const closedBy of ['referral', 'phone', 'duplicate', 'prank', 'expired', 'director', 'colleague'] as const) {
+    for (const closedBy of [
+      'referral',
+      'phone',
+      'duplicate',
+      'prank',
+      'expired',
+      'director',
+      'colleague',
+    ] as const) {
       const inc = closed({ closedBy });
       expect(cameraOf(inc, T0), closedBy).not.toBeNull();
       expect(cameraOf(inc, T0 + 5 * MIN), closedBy).not.toBeNull();
@@ -303,8 +343,21 @@ describe('nothing left to see', () => {
 
 describe('a real shift', () => {
   /** Let a shift run with nobody at the desk until it has made `count` incidents. */
-  function incidentsOf(regionId: RegionId, seed: number, count: number): Incident[] {
-    const s = createShift({ seed, regionId, mode: 'free', difficulty: 'realistic', start: tallinnTime(2026, 10, 23, 19, 0), hours: 96, playerName: 'Kaamera' });
+  function incidentsOf(
+    regionId: RegionId,
+    seed: number,
+    count: number,
+    mode: 'free' | 'tutorial' = 'free',
+  ): Incident[] {
+    const s = createShift({
+      seed,
+      regionId,
+      mode,
+      difficulty: 'realistic',
+      start: tallinnTime(2026, 10, 23, 19, 0),
+      hours: 96,
+      playerName: 'Kaamera',
+    });
     for (let n = 0; n < 20000 && s.incidentOrder.length < count && !s.ended; n++) step(s, MIN / 2);
     return s.incidentOrder.map((id) => s.incidents[id]);
   }
@@ -340,10 +393,25 @@ describe('a real shift', () => {
       const where = cam.name.slice(cam.id.length + 3);
       expect(cam.name.slice(0, cam.id.length + 3)).toBe(`${cam.id} · `);
       expect(where.length, inc.location.address).toBeGreaterThan(1);
-      if (!inc.location.placeName) expect(where, inc.location.address).not.toMatch(/\s\d+[a-z]?([/-]\d+[a-z]?)?$/);
+      if (!inc.location.placeName)
+        expect(where, inc.location.address).not.toMatch(/\s\d+[a-z]?([/-]\d+[a-z]?)?$/);
       if (!inc.location.placeName) expect(where, inc.location.address).not.toMatch(/,|km$/);
       expect(cameraOf(inc, inc.createdAt)).toEqual(cam);
     }
     expect(cameras).toBeGreaterThan(10);
+  });
+
+  // docs/CCTV.md section 5 once kept cameras out of "the tutorial's first steps if the tutorial script says so", but
+  // the tutorial has no script of steps: it is a shift like the others, and its cameras teach the button.
+  it('the tutorial shows the cameras of its places like any other shift', () => {
+    const incidents = incidentsOf('pohja', 4107, 40, 'tutorial');
+    expect(incidents.length).toBeGreaterThanOrEqual(40);
+    let cameras = 0;
+    for (const inc of incidents) {
+      const cam = cameraOf(inc, inc.createdAt);
+      expect(cam, inc.location.address).toEqual(cameraOf({ ...inc, unitHistory: [], state: 'queued' }));
+      if (cam) cameras++;
+    }
+    expect(cameras).toBeGreaterThan(3);
   });
 });
