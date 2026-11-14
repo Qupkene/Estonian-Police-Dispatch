@@ -35,7 +35,7 @@ import {
 } from 'three';
 import type { Env } from '../env';
 import { hash01, hash32, wobble } from '../math';
-import type { Site } from '../types';
+import type { ParkedCar, Site } from '../types';
 import type { Frame } from '../stage';
 import { BEACON_COLOR, CarKit, CarMesh } from './cars';
 import { HumanMesh, seedOfLook, type HumanBase } from './human';
@@ -82,6 +82,8 @@ export class CameraView {
   private camera = new PerspectiveCamera(45, FRAME_W / FRAME_H, 0.4, 700);
   private post: Post;
   private world: World | null = null;
+  /** The parked cars of the street as drawn (empty until a scene is set): the director is told of them. */
+  parked: readonly ParkedCar[] = [];
   private site: Site | null = null;
   private env: Env | null = null;
   private palette = new Palette();
@@ -204,6 +206,7 @@ export class CameraView {
     this.env = env;
     this.seed = site.seed;
     this.world = buildWorld(site, env, this.sheets, this.carKit.materials());
+    this.parked = this.world.parked;
     this.scene.add(this.world.group);
     const town = site.street.buildings.length > 14;
     const tex = skylineTexture(town, site.seed);

@@ -44,7 +44,7 @@ import {
   type V2,
 } from '../math';
 import { blocksView } from '../site';
-import { CAR_ROADS, type Building, type Road, type RoadClass, type Site } from '../types';
+import { CAR_ROADS, type Building, type ParkedCar, type Road, type RoadClass, type Site } from '../types';
 import { lookOfAnyCar } from '../vehicle';
 import { drawCar, type CarMaterials } from './cars';
 import {
@@ -154,6 +154,8 @@ export interface WorldLamp {
 export interface World {
   group: Group;
   lamps: WorldLamp[];
+  /** The parked cars as drawn: the director keeps vehicles and people out of them. */
+  parked: ParkedCar[];
   /** Night: light the windows and the lamp heads (0..1). */
   setNight: (k: number, lampsOn: boolean) => void;
   dispose: () => void;
@@ -1397,7 +1399,9 @@ export function buildWorld(site: Site, env: Env, tex: WorldTextures, carMats: Ca
     const inside = ahead > 0 && across < ahead * 0.75 + 3;
     return Math.hypot(d[0], d[1]) + (inside ? 0 : 400);
   };
-  const fill = env.night > 0.5 ? 0.42 : 0.62;
+  // How full the car parks are belongs to the place, not to the hour: the street is built again when the weather
+  // turns, and the cars must stand where they stood (the director was told where they are).
+  const fill = 0.42 + 0.22 * hash01('parkfill', site.seed);
   const masts: V2[] = [];
   /** Young trees on the car parks' islands, planted with the others below. */
   const islandTrees: V2[] = [];
@@ -1509,10 +1513,14 @@ export function buildWorld(site: Site, env: Env, tex: WorldTextures, carMats: Ca
   }
   spots.sort((a, b) => a.score - b.score);
   const capC = surf(0xffffff, 1).lerp(SNOW, 1);
+  const parked: ParkedCar[] = [];
   for (const c of spots.filter((x) => x.score < 85).slice(0, MAX_PARKED)) {
     const look = lookOfAnyCar(c.look);
     const f = { c: Math.cos(c.yaw), s: Math.sin(c.yaw), x: c.p[0], y: c.y, z: -c.p[1] };
     const sp = drawCar(parkedCars, look, f);
+    // The body's own middle: a model's origin is not always halfway between its nose and its tail.
+    const mid = (sp.nose + sp.tail2) / 2;
+    parked.push({ pos: [c.p[0] + Math.cos(c.yaw) * mid, c.p[1] + Math.sin(c.yaw) * mid], yaw: c.yaw, length: sp.nose - sp.tail2, width: sp.half * 2 });
     if (snow > 0.5) {
       // A cap of snow on the roof and the bonnet of a car that has stood out all night.
       const hw = sp.half * 0.82;
@@ -1782,6 +1790,7 @@ export function buildWorld(site: Site, env: Env, tex: WorldTextures, carMats: Ca
   return {
     group,
     lamps,
+    parked,
     setNight: (k, lampsOn) => {
       wallMat.emissiveIntensity = lampsOn ? 0.2 + 0.5 * k : 0;
       headMat.color.setHex(lampsOn ? 0xfff1d6 : 0x55565a);

@@ -18,11 +18,13 @@ import type { Osd } from './render/view';
 import { buildSite } from './site';
 import { situationOf } from './situation';
 import type { Frame } from './stage';
-import type { Site, StreetData } from './types';
+import type { ParkedCar, Site, StreetData } from './types';
 
 /** What a session needs of the picture: render/view.ts CameraView. */
 export interface SessionView {
   setScene(site: Site, env: Env): void;
+  /** The parked cars of the scene just set, if the view draws any. */
+  readonly parked?: readonly ParkedCar[];
   setEnv(env: Env): void;
   render(frame: Frame, osd: Osd, zoom?: number, panX?: number, panY?: number): void;
 }
@@ -90,8 +92,14 @@ export class CameraSession {
     this.site = built.site;
     this.env = envAt(sim.now, incident.location.coord, sim.weather);
     this.cast = castOf(sim, incident, templateOf(sim, incident), { season: this.env.season, temp: sim.weather.tempC });
-    this.director = new Director(this.site, this.cast, { night: this.env.night >= 0.5, quiet: opts.quiet, wet: this.env.rain });
+    // The street first: the director is told which parked cars the view has drawn.
     this.view.setScene(this.site, this.env);
+    this.director = new Director(this.site, this.cast, {
+      night: this.env.night >= 0.5,
+      quiet: opts.quiet,
+      wet: this.env.rain,
+      parked: this.view.parked,
+    });
   }
 
   /**
