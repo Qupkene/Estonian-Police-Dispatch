@@ -196,20 +196,19 @@ test.describe('surveillance camera', () => {
       })
       .toBe(true);
 
-    // K closes it and opens it again (the chunk is there now); Escape closes it.
+    // From the card, K goes to the window first; a second K closes it and gives the focus back to the card.
     await page.locator('.gm-inc__title').click();
+    await page.keyboard.press('k');
+    await expect(page.getByTestId('camera-close')).toBeFocused();
     await page.keyboard.press('k');
     await expect(win(page)).toHaveCount(0);
+    await expect(button).toBeFocused();
     expect(await liveCams(page)).toBe(0);
+    // K opens it again (the chunk is there now), with the focus on its close button; Escape closes it.
     await page.keyboard.press('k');
     await expect(win(page)).toBeVisible();
-    // Opened by key, the focus is on its close button.
     await expect(page.getByTestId('camera-close')).toBeFocused();
     await expect.poll(() => camState(page), { timeout: 60_000, intervals: [500] }).toBe('live');
-    // From the card, K goes to the window first; a second K closes it.
-    await page.locator('.gm-inc__title').click();
-    await page.keyboard.press('k');
-    await expect(page.getByTestId('camera-close')).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(win(page)).toHaveCount(0);
     // Escape closed the camera, not the selection; the focus went back to the card's button.

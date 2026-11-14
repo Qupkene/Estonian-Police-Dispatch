@@ -84,7 +84,7 @@ Põhjalikum juhend: [politsei.eu/juhend](https://politsei.eu/juhend/).
 | <kbd>F2</kbd> · <kbd>F3</kbd> · <kbd>F4</kbd> · <kbd>F6</kbd> | Sündmused · Andmebaas · Üksused · Raadio |
 | <kbd>K</kbd> | Ava või sulge valitud sündmuse valvekaamera |
 | <kbd>H</kbd> | Peida või näita kasutajaliidest |
-| <kbd>Esc</kbd> | Sulge kaamera või aken |
+| <kbd>Esc</kbd> | Sulge pealmine aken (sündmuste sahtel, siis kaamera) |
 
 ### Algsed versioonid
 

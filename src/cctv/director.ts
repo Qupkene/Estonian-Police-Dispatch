@@ -23,6 +23,7 @@ import {
   hash32,
   lerp,
   lerp2,
+  lerpAngle,
   lineLength,
   nearestOnLine,
   norm,
@@ -53,6 +54,9 @@ const OUT_M = 60;
 /** Opening a camera runs the scene forward this long, in steps of this. */
 const SETTLE_S = 90;
 const SETTLE_DT = 0.2;
+/** The scene runs in steps of this, whatever the frame rate: seconds, and the same in microseconds (whole numbers add up exactly). */
+const STEP_S = 0.1;
+const STEP_US = 100_000;
 /** The crews wait this long at most, from the outcome on, for the closing scene before they leave. */
 const HOLD_S = 14;
 /** Roads narrower than this have one lane. */
@@ -138,6 +142,12 @@ interface Body {
   crew: Crew | null;
   /** The cuffed it leads to its car. */
   wards: Body[];
+  /** Where it was a step ago, and whether it was in sight: the picture is drawn between the two. */
+  wx: number;
+  wy: number;
+  wyaw: number;
+  wphase: number;
+  wseen: boolean;
 }
 
 interface Post {
@@ -191,6 +201,11 @@ interface Car {
   y: number;
   yaw: number;
   riders: Body[];
+  /** Where it was a step ago, and whether it was in the picture. */
+  wx: number;
+  wy: number;
+  wyaw: number;
+  wseen: boolean;
 }
 
 interface Crew {
@@ -275,6 +290,8 @@ export class Director {
   private readonly hubs: V2[];
 
   private t = 0;
+  /** Microseconds the scene is ahead of the picture: less than a step. */
+  private ahead = 0;
   private started = false;
   private sit: Situation | null = null;
   private tickNo = 0;
@@ -362,39 +379,77 @@ export class Director {
       for (let i = 0, n = Math.round(SETTLE_S / SETTLE_DT); i < n; i++) this.tick(before, SETTLE_DT);
     }
     if (sit.paused || !(dt > 0)) return;
-    // A long gap (a hidden tab) is not played out in full: the scene picks up where it was.
-    let rest = Math.min(dt, 2);
-    while (rest > 1e-6) {
-      const h = Math.min(rest, 0.1);
-      this.tick(sit, h);
-      rest -= h;
+    // The scene runs in whole steps, so that it does not depend on the frame rate; it keeps up to a step ahead of
+    // the picture, which is drawn between the last two (frame()). A long gap (a hidden tab) is not played out in
+    // full: the scene picks up where it was.
+    this.ahead -= Math.round(Math.min(dt, 2) * 1e6);
+    while (this.ahead < 0) {
+      this.mark();
+      this.tick(sit, STEP_S);
+      this.ahead += STEP_US;
     }
   }
 
-  /** Everything on stage now, for the renderer. */
+  /** Remember where everything is before a step. */
+  private mark(): void {
+    for (const b of this.bodies) {
+      b.wx = b.x;
+      b.wy = b.y;
+      b.wyaw = b.yaw;
+      b.wphase = b.phase;
+      b.wseen = !b.hidden && !b.gone;
+    }
+    for (const c of this.cars) {
+      c.wx = c.x;
+      c.wy = c.y;
+      c.wyaw = c.yaw;
+      c.wseen = c.mode !== 'gone';
+    }
+  }
+
+  /**
+   * Everything on stage now, for the renderer. Between two steps of the scene the picture is drawn between them:
+   * whoever was in sight a step ago is where they were then, moved on by the part of the step that has passed.
+   */
   frame(): Frame {
+    // How far the picture is into the last step (1: at its end), and how many seconds short of it.
+    const k = 1 - this.ahead / STEP_US;
+    const lag = this.ahead / 1e6;
+    const t = k < 1 ? this.t - lag : this.t;
     const people: PersonFrame[] = [];
     for (const b of this.bodies) {
       if (b.hidden || b.gone) continue;
-      let pose: Pose = poseOf({ act: b.act, actT: b.actT, gait: b.gait, phase: b.phase, seed: b.seed, t: this.t });
+      // Somebody put elsewhere at once (out at a door) is not drawn on the way there.
+      const tween = k < 1 && b.wseen && Math.abs(b.x - b.wx) + Math.abs(b.y - b.wy) < 2;
+      const phase = tween ? lerp(b.wphase, b.phase, k) : b.phase;
+      const actT = tween ? Math.max(0, b.actT - lag) : b.actT;
+      let pose: Pose = poseOf({ act: b.act, actT, gait: b.gait, phase, seed: b.seed, t });
       if (b.blend < BLEND_S)
-        pose = mixPose(poseOf({ act: b.pAct, actT: b.pActT, gait: b.pGait, phase: b.pPhase, seed: b.seed, t: this.t }), pose, b.blend / BLEND_S);
-      people.push({ id: b.id, look: b.look, pos: [b.x, b.y], yaw: b.yaw, pose, scale: b.scale });
+        pose = mixPose(poseOf({ act: b.pAct, actT: b.pActT, gait: b.pGait, phase: b.pPhase, seed: b.seed, t }), pose, b.blend / BLEND_S);
+      people.push({
+        id: b.id,
+        look: b.look,
+        pos: tween ? [lerp(b.wx, b.x, k), lerp(b.wy, b.y, k)] : [b.x, b.y],
+        yaw: tween ? lerpAngle(b.wyaw, b.yaw, k) : b.yaw,
+        pose,
+        scale: b.scale,
+      });
     }
     const cars: CarFrame[] = [];
     for (const c of this.cars) {
       if (c.mode === 'gone') continue;
+      const tween = k < 1 && c.wseen && Math.abs(c.x - c.wx) + Math.abs(c.y - c.wy) < 5;
       cars.push({
         id: c.id,
         look: c.look,
-        pos: [c.x, c.y],
-        yaw: c.yaw,
+        pos: tween ? [lerp(c.wx, c.x, k), lerp(c.wy, c.y, k)] : [c.x, c.y],
+        yaw: tween ? lerpAngle(c.wyaw, c.yaw, k) : c.yaw,
         lights: { beacons: c.beacons, lamps: c.lamps, hazard: c.hazard, braking: c.braking },
       });
     }
     const smoke: Smoke | null =
       this.smoke && this.smoke.strength > 0.01 ? { at: this.smoke.at, height: this.smoke.height, strength: this.smoke.strength } : null;
-    return { t: this.t, people, cars, smoke };
+    return { t, people, cars, smoke };
   }
 
   // -------------------------------------------------------------------------- one step
@@ -597,6 +652,11 @@ export class Director {
       post: null,
       crew: null,
       wards: [],
+      wx: at[0],
+      wy: at[1],
+      wyaw: 0,
+      wphase: 0,
+      wseen: false,
     };
     this.bodies.push(b);
     return b;
@@ -2016,6 +2076,10 @@ export class Director {
       y: 0,
       yaw: 0,
       riders: [],
+      wx: 0,
+      wy: 0,
+      wyaw: 0,
+      wseen: false,
     };
     this.cars.push(c);
     return c;
@@ -2142,24 +2206,27 @@ export class Director {
     const block = this.blockS();
     const own = (fromA ? -1 : 1) * this.kerbLat();
     const folk = this.roadFolk();
-    const fits = (s: number, lat: number) =>
-      s >= 3.5 &&
-      s <= this.length - 3.5 &&
-      (block === null || (s - block) * back >= 6) &&
-      !this.taken(null, size, s, lat, ROOM_M) &&
-      !folk.some((p) => p.still && Math.abs(p.s - s) < size.length / 2 + 1 && Math.abs(p.lat - lat) < size.width / 2 + 0.6);
-    for (const lat of own ? [own, -own] : [own]) {
-      for (const side of [back, -back]) {
-        for (let d = first; d <= 70; d++) {
-          const s = this.at + side * d;
-          if (fits(s, lat)) return { s, lat };
+    // With room to pull out forwards; where the road is too short for that, close up behind what stands there.
+    for (const room of [ROOM_M, 1.2]) {
+      const fits = (s: number, lat: number) =>
+        s >= 3.5 &&
+        s <= this.length - 3.5 &&
+        (block === null || (s - block) * back >= 6) &&
+        !this.taken(null, size, s, lat, room) &&
+        !folk.some((p) => p.still && Math.abs(p.s - s) < size.length / 2 + 1 && Math.abs(p.lat - lat) < size.width / 2 + 0.6);
+      for (const lat of own ? [own, -own] : [own]) {
+        for (const side of [back, -back]) {
+          for (let d = first; d <= 70; d++) {
+            const s = this.at + side * d;
+            if (fits(s, lat)) return { s, lat };
+          }
         }
       }
-    }
-    // A road too short for that: nearer the spot.
-    for (let d = first - 1; d >= 4; d--) {
-      const s = this.at + back * d;
-      if (fits(s, own)) return { s, lat: own };
+      // A road too short for that: nearer the spot.
+      for (let d = first - 1; d >= 4; d--) {
+        const s = this.at + back * d;
+        if (fits(s, own)) return { s, lat: own };
+      }
     }
     return null;
   }
@@ -2257,8 +2324,8 @@ export class Director {
 
   /**
    * May a parked vehicle pull out now? Not while those it waits for are on their way to it, somebody stands right
-   * before it, another vehicle is passing or about to, or (on a road of one lane) somebody drives towards it
-   * between it and the end it leaves by. After a minute it goes regardless.
+   * before it, another vehicle is passing or about to, or somebody drives towards it on the way it leaves by.
+   * After a minute it goes regardless.
    */
   private canPullOut(c: Car, want: 1 | -1 | 0, dt: number): boolean {
     c.wait += dt;
@@ -2277,7 +2344,12 @@ export class Director {
         if (gap < 8) return false;
         continue;
       }
-      if (this.width < NARROW_M && o.dir !== dir && (o.s - c.s) * dir > -el - hl - 1) return false;
+      // One that stands behind it, waiting to get on, waits for it to go.
+      if (!round && o.v < 0.3 && o.wait > 0.5 && (c.s - o.s) * dir > el + hl) continue;
+      // Nobody pulls out into the way of one who comes towards it: between vehicles at both kerbs a street has
+      // one lane, a narrow road has one from end to end.
+      const ahead = (o.s - c.s) * dir;
+      if (o.dir !== dir && ahead > -el - hl - 1 && (ahead < 60 || this.width < NARROW_M)) return false;
       const coming = (c.s - o.s) * o.dir > -el - hl;
       if (coming ? gap < 6 + Math.max(o.v, o.vc * 0.8) * (round ? 4.5 : 2.5) : gap < 4) return false;
     }
@@ -2430,6 +2502,7 @@ export class Director {
     }
     if (c.mode !== 'drive') return;
     const d = (c.ts - c.s) * c.dir;
+    const waited = c.wait;
     let want = this.lane(c);
     let vt = c.vc;
     if (c.stop) vt = Math.max(0.9, Math.min(vt, Math.sqrt(2 * c.brake * Math.max(0, d))));
@@ -2467,12 +2540,87 @@ export class Director {
     if (c.yawOff) c.yawOff = Math.abs(c.yawOff) < 1.2 * dt ? 0 : c.yawOff - Math.sign(c.yawOff) * 1.2 * dt;
     // The nose follows the way it goes, as far and as fast as a car swings.
     const steer = move > 1e-4 ? clamp(c.dir * Math.atan2(c.lat - pl, Math.abs(c.s - ps)), -0.3, 0.3) : c.steer;
+    const turned = c.steer;
     c.steer += clamp(steer - c.steer, -1.5 * dt, 1.5 * dt);
     if (!c.stop && (c.s <= 0 || c.s >= this.length)) {
       c.mode = 'gone';
       return;
     }
     this.pose(c);
+    // Whatever the rules above let through: no vehicle moves into somebody or into another vehicle. It stands
+    // where it was instead (for a long while; nobody waits in the road for ever).
+    if (move > 0 && waited < 4 * STUCK_S && this.bumps(c, ps, pl, turned)) {
+      c.s = ps;
+      c.lat = pl;
+      c.steer = turned;
+      c.v = 0;
+      c.wait = waited + dt;
+      this.pose(c);
+    }
+  }
+
+  /** The corners of a vehicle's footprint. */
+  private corners(c: Car): V2[] {
+    const hl = c.size.length / 2;
+    const hw = c.size.width / 2;
+    return [this.carPoint(c, hl, hw), this.carPoint(c, hl, -hw), this.carPoint(c, -hl, -hw), this.carPoint(c, -hl, hw)];
+  }
+
+  /** Do the footprints of two vehicles overlap? (Separating axes of two boxes.) */
+  private overlap(a: Car, b: Car): boolean {
+    if (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) > 16) return false;
+    const p = this.corners(a);
+    const q = this.corners(b);
+    for (const box of [p, q]) {
+      for (let i = 0; i < 2; i++) {
+        const ax = box[i + 1][0] - box[i][0];
+        const ay = box[i + 1][1] - box[i][1];
+        let p0 = Infinity;
+        let p1 = -Infinity;
+        let q0 = Infinity;
+        let q1 = -Infinity;
+        for (const v of p) {
+          const k = v[0] * ax + v[1] * ay;
+          p0 = Math.min(p0, k);
+          p1 = Math.max(p1, k);
+        }
+        for (const v of q) {
+          const k = v[0] * ax + v[1] * ay;
+          q0 = Math.min(q0, k);
+          q1 = Math.max(q1, k);
+        }
+        if (p1 < q0 || q1 < p0) return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Has a vehicle just moved into somebody, or into another vehicle? (`s`, `lat`, `steer`: where it was before
+   * the move. Out of a vehicle it was in already, a wreck coming free of the other one, it may move.)
+   */
+  private bumps(c: Car, s: number, lat: number, steer: number): boolean {
+    const hl = c.size.length / 2 + 0.1;
+    const hw = c.size.width / 2 + 0.1;
+    const fx = Math.cos(c.yaw);
+    const fy = Math.sin(c.yaw);
+    for (const b of this.bodies) {
+      if (b.hidden || b.gone) continue;
+      const dx = b.x - c.x;
+      const dy = b.y - c.y;
+      if (Math.abs(dx * fx + dy * fy) < hl && Math.abs(dy * fx - dx * fy) < hw) return true;
+    }
+    const hit = this.cars.filter((o) => o !== c && o.mode !== 'gone' && this.overlap(c, o));
+    if (!hit.length) return false;
+    const now = [c.s, c.lat, c.steer];
+    c.s = s;
+    c.lat = lat;
+    c.steer = steer;
+    this.pose(c);
+    const fresh = hit.some((o) => !this.overlap(c, o));
+    [c.s, c.lat, c.steer] = now;
+    this.pose(c);
+    return fresh;
   }
 
   /**

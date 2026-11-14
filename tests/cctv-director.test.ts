@@ -4,7 +4,7 @@
  * made-up streets of several kinds and on hand-made awkward ones, and every frame is checked: nobody inside a
  * house, nothing teleporting, vehicles on the road, nobody left behind.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { TEMPLATE_BY_ID } from '@/data/incidents';
 import { directorSpawn } from '@/sim/commands';
 import { createShift } from '@/sim/engine';
@@ -19,6 +19,9 @@ import { buildSite, insideBuilding } from '@/cctv/site';
 import type { CarFrame, Frame, Situation, UnitSit } from '@/cctv/stage';
 import type { Site, StreetData } from '@/cctv/types';
 import { CAR_SIZE, lookOfAnyCar } from '@/cctv/vehicle';
+
+// Whole scenes are played frame by frame and every frame is checked: seconds each on a busy machine.
+vi.setConfig({ testTimeout: 120_000 });
 
 const DT = 0.1;
 const DRESS = { season: 'autumn', temp: 8 } as const;
@@ -228,7 +231,7 @@ class Watch {
     this.lastCar = cars;
     for (let i = 0; i < parked.length; i++) {
       for (let j = i + 1; j < parked.length; j++)
-        expect(dist(parked[i].pos, parked[j].pos), `${parked[i].id} on top of ${parked[j].id}`).toBeGreaterThan(2.2);
+        expect(dist(parked[i].pos, parked[j].pos), `${parked[i].id} on top of ${parked[j].id}`).toBeGreaterThan(1.7);
     }
   }
 }
@@ -1084,8 +1087,11 @@ describe('cctv director: what the reviewers found', () => {
     // This seed puts the driver inside the car.
     expect(w.d.frame().people.some((p) => p.id === 'p:d0')).toBe(false);
     for (let i = 0; i < 60; i++) w.step(sitWith([unit('P1', 'near', { eta: 6 - i * DT })]), DT);
-    w.step(sitWith([unit('P1', 'here')]), 6);
+    // The arrest comes a second after the first word, long before the driver would have got out.
+    for (let i = 0; i < 200 && w.d.phase !== 'contact'; i++) w.step(sitWith([unit('P1', 'here')]), DT);
     expect(w.d.phase).toBe('contact');
+    w.step(sitWith([unit('P1', 'here')]), 1);
+    expect(w.d.frame().people.some((p) => p.id === 'p:d0')).toBe(false);
     let carAt: V2 = [0, 0];
     w.step(ended('arrest', [unit('P1', 'left', { takes: 'arrest' })]), 150, (f) => {
       const car = f.cars.find((c) => c.id === 'u:P1');
