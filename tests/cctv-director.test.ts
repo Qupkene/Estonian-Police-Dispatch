@@ -2240,8 +2240,11 @@ describe('cctv director: the scenes as two reviewers wanted them', () => {
       arrive(t, 14);
       t.step(sitWith([unit('P1', 'here')], { agencies: ems }), 15);
       const f2 = t.step(ended('tragedy', [unit('P1', 'here')], { agencies: ems }), 40);
-      expect(f2.props?.some((q) => q.kind === 'sheet'), tag).toBe(true);
+      // The sheet names whom it covers (the picture draws the cloth and not them) and lies where they lie.
       const body = person(f2, 'p:v0')!;
+      const sheet = f2.props?.find((q) => q.kind === 'sheet');
+      expect(sheet?.covers, tag).toBe('p:v0');
+      expect(dist(sheet!.pos, body.pos), tag).toBeLessThan(0.01);
       for (const o of f2.people) if (o.id.startsWith('o:')) expect(dist(o.pos, body.pos), `${tag} ${o.id}`).toBeGreaterThan(2.4);
       // The cordon stands guard, hands on the vest: nobody holds an arm out for a minute.
       let armOut = 0;

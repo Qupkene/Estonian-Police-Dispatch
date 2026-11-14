@@ -1136,7 +1136,11 @@ export class CameraView {
     if (!this.env) return;
     const dark = this.env.lamps ? Math.max(this.env.night, 0.3) : 0;
     const seen = new Set<string>();
+    // Whoever lies under a sheet is not drawn: the cloth is all a camera sees of them.
+    let covered: Set<string> | null = null;
+    for (const q of f.props ?? []) if (q.covers) (covered ??= new Set()).add(q.covers);
     for (const p of f.people) {
+      if (covered?.has(p.id)) continue;
       seen.add(p.id);
       let e = this.people.get(p.id);
       if (!e) {

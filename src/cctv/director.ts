@@ -2883,7 +2883,7 @@ export class Director {
           m.steps.push(
             act('crouch', 2.5, at),
             call(() => {
-              this.props.push({ id: `sheet:${dead.id}`, kind: 'sheet', pos: at, yaw: dead.yaw + Math.PI });
+              this.props.push({ id: `sheet:${dead.id}`, kind: 'sheet', pos: at, yaw: dead.yaw + Math.PI, covers: dead.id });
               m.duty = false;
               this.setAct(m, 'stand');
               const own = cops.indexOf(m);

@@ -6,9 +6,46 @@
 import { Color, Group, Mesh, MeshLambertMaterial } from 'three';
 import type { V2 } from '../math';
 import type { Held, PropFrame } from '../stage';
-import { MeshBuilder } from './mesh';
+import { MeshBuilder, shade } from './mesh';
 
 const col = (hex: number) => new Color(hex);
+
+type P3 = [number, number, number];
+
+/**
+ * The sheet over somebody who lies on the ground with the head at +x, as stations along the body: where, how high
+ * the cloth is over the body's middle, and half the body's width there. Toes, feet, shins, knees, hips, belly,
+ * chest, shoulders, neck, head; the first and the last are the cloth's ends on the ground. The body itself is not
+ * drawn under it (PropFrame.covers).
+ */
+const SHEET: readonly (readonly [number, number, number])[] = [
+  [-1.1, 0, 0.14],
+  [-0.97, 0.19, 0.13],
+  [-0.86, 0.22, 0.15],
+  [-0.62, 0.14, 0.17],
+  [-0.36, 0.17, 0.19],
+  [-0.08, 0.2, 0.22],
+  [0.2, 0.22, 0.24],
+  [0.44, 0.26, 0.27],
+  [0.62, 0.23, 0.29],
+  [0.73, 0.16, 0.14],
+  [0.86, 0.24, 0.12],
+  [0.97, 0.16, 0.1],
+  [1.1, 0, 0.1],
+];
+/** Across the body at a station: which side and how far out (beyond 1 is the cloth lying out on the ground), and the share of the height there. */
+const SHEET_ACROSS: readonly (readonly [number, number])[] = [
+  [-2, 0],
+  [-1, 0.45],
+  [-0.55, 0.88],
+  [0, 1],
+  [0.55, 0.88],
+  [1, 0.45],
+  [2, 0],
+];
+/** How far the cloth lies out beyond the body, and how far its rim is below the prop's own level (the pavement's). */
+const SHEET_SKIRT = 0.16;
+const SHEET_RIM = -0.14;
 
 /** A weapon lying about its own origin, along x, as it would on the ground (in a hand it is turned by the hand). */
 export function weaponInto(mb: MeshBuilder, kind: Held): void {
@@ -34,10 +71,28 @@ function build(p: PropFrame): MeshBuilder {
     for (const x of [-0.7, 0.7]) for (const y of [-0.24, 0.24]) mb.box([x, y], 0, 0.05, 0.05, 0.1, 0.7, col(0x8a8e94));
     for (const x of [-0.7, 0.7]) for (const y of [-0.24, 0.24]) mb.box([x, y], 0, 0.12, 0.05, 0, 0.12, col(0x1a1a1c));
   } else if (p.kind === 'sheet') {
-    // A sheet over a body on the ground: higher over the chest, lower over the legs.
-    mb.box([0.25, 0], 0, 1.0, 0.72, 0.02, 0.34, col(0xc9ccca));
-    mb.box([-0.55, 0], 0, 0.75, 0.6, 0.02, 0.24, col(0xbfc2c0));
-    mb.box([0.82, 0], 0, 0.3, 0.5, 0.02, 0.28, col(0xc4c7c5));
+    // Cloth over a body, not a box: it follows the body along its length and falls to the ground all round. The
+    // rim lies lower than the pavement the body is on, so that no gap shows under it on the road either.
+    const grid = SHEET.map(([x, h, w]) => SHEET_ACROSS.map(([side, share]) => [x, share > 0 ? h * share : SHEET_RIM, -(Math.abs(side) > 1 ? Math.sign(side) * (w + SHEET_SKIRT) : side * w)] as P3));
+    // Rounded, as cloth is: every corner's normal from its neighbours along and across.
+    const normal = (i: number, j: number): P3 => {
+      const a = grid[Math.max(0, i - 1)][j];
+      const b = grid[Math.min(grid.length - 1, i + 1)][j];
+      const c = grid[i][Math.max(0, j - 1)];
+      const d = grid[i][Math.min(SHEET_ACROSS.length - 1, j + 1)];
+      const u: P3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+      const v: P3 = [d[0] - c[0], d[1] - c[1], d[2] - c[2]];
+      const n: P3 = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+      const l = (Math.hypot(n[0], n[1], n[2]) || 1) * (n[1] < 0 ? -1 : 1);
+      return [n[0] / l, n[1] / l, n[2] / l];
+    };
+    for (let i = 0; i + 1 < grid.length; i++) {
+      for (let j = 0; j + 1 < SHEET_ACROSS.length; j++) {
+        // The faces differ a little in shade, as folds do.
+        const cloth = shade(0x8e9290, 0.96 + 0.04 * Math.sin(i * 2.1 + j * 1.3));
+        mb.smoothQuad([grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]], [normal(i, j), normal(i + 1, j), normal(i + 1, j + 1), normal(i, j + 1)], cloth);
+      }
+    }
   } else if (p.kind === 'hose') {
     const line = p.line ?? [];
     if (line.length >= 2) {

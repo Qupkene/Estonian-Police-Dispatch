@@ -88,6 +88,8 @@ export interface PropFrame {
   line?: V2[];
   /** A hose: what its water is played on (a point and its height in metres). */
   aim?: { at: V2; height: number };
+  /** A sheet: the id of the person who lies under it. The picture shows the cloth and not them. */
+  covers?: string;
 }
 
 export interface CarFrame {
