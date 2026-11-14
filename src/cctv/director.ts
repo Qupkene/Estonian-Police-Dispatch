@@ -5001,6 +5001,15 @@ export class Director {
     cr.clock = 0;
     if (cr.police && !this.crews.some((x) => x !== cr && x.police && (x.state === 'here' || x.state === 'arriving'))) this.lastCrewLeaves(cr);
     for (const b of cr.people) if (!b.aboard && !b.duty) this.toCar(b);
+    // Whoever the paramedics saw to where they sat (not a case for the hospital) gets up as they pack and goes:
+    // nobody is left sitting alone on the pavement.
+    const p = this.patient;
+    if (cr.agency === 'kiirabi' && p && p.act === 'sit' && !p.duty && !p.hidden && !p.gone && !p.leaving && !p.steps.length) {
+      this.patient = null;
+      p.steps.push(wait(2));
+      this.getUp(p);
+      p.steps.push(call(() => this.leave(p, 'walk')));
+    }
   }
 
   /**

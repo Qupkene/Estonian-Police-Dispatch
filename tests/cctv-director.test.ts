@@ -2307,6 +2307,26 @@ describe('cctv director: the scenes as two reviewers wanted them', () => {
     after(w, 'crowd');
   });
 
+  it('whoever the paramedics saw to on the pavement is not left sitting there when the ambulance has gone', () => {
+    const ems = [{ agency: 'kiirabi' as Agency, state: 'here' as const, eta: 0 }];
+    for (const [place, seed] of PLACES.slice(0, 4)) {
+      const tag = `${place} ${seed}`;
+      const w = start(siteOf(place, seed), castBy('brawl', 'svcw', { down: true }));
+      arrive(w, 14);
+      w.step(sitWith([unit('P1', 'here')], { agencies: ems }), 16);
+      let goneAt = -1;
+      let sat = 0;
+      w.step(ended('arrest', [unit('P1', 'here', { takes: 'arrest' })], { agencies: ems }), 80, (f, t) => {
+        const ambulance = f.cars.some((c) => c.id === 'a:kiirabi');
+        if (!ambulance && goneAt < 0) goneAt = t;
+        // Ten seconds after it has gone nobody of the incident is on the ground any more.
+        if (goneAt > 0 && t > goneAt + 10 && f.people.some((p) => isCast(p.id) && p.pose.hip < 0.6)) sat++;
+      });
+      expect(goneAt, tag).toBeGreaterThan(0);
+      expect(sat, tag).toBe(0);
+    }
+  });
+
   it('a stop: the officer at the window stands behind the driver, and a pursuit sends the crew running to its car at once', () => {
     const site = siteOf('street', 4);
     const w = start(site, castBy('stop', 'd', { driverIn: true, mayFlee: true }, ['suspect']));
