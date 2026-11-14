@@ -88,6 +88,12 @@ interface GameUi {
   dispatchError: Record<string, Text | string | undefined>;
   bulletinsSeen: number;
   toasts: Toast[];
+  /**
+   * Kaamerad (docs/CCTV.md): the incident whose surveillance camera is open over the map, one at a time. It stays
+   * on its incident while the player selects something else. `byKey` says it was opened from the keyboard, so the
+   * window takes the focus and hands it back to the card's button when it closes.
+   */
+  camera: { incidentId: string; byKey?: boolean } | null;
 
   set: (p: Partial<Omit<GameUi, 'set' | 'pushToast' | 'dismissToast' | 'togglePick' | 'clearPicks'>>) => void;
   pushToast: (t: Omit<Toast, 'id' | 'createdAt'>) => void;
@@ -112,6 +118,7 @@ export const useGameUi = create<GameUi>()((set, get) => ({
   dispatchError: {},
   bulletinsSeen: 0,
   toasts: [],
+  camera: null,
 
   set: (p) => set(p),
   pushToast: (t) => {

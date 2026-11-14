@@ -26,16 +26,26 @@ export interface ProbeOptions {
 const DEFAULT_TIMEOUT_MS = 8000;
 const results = new Map<string, StreetProbe>();
 const pending = new Map<string, Promise<StreetProbe>>();
+const archives = new Map<string, PMTiles>();
 
 /** Last finished probe result for a URL, if any (lets a new map start on the street style at once). */
 export function knownStreetProbe(url: string): StreetProbe | undefined {
   return results.get(url);
 }
 
+/**
+ * The archive a probe of `url` found usable, already opened (header and root directory read), for other readers of
+ * the same file (the surveillance cameras' street, src/cctv/tiles.ts). Undefined until a probe has said 'ok'.
+ */
+export function openedStreetArchive(url: string): PMTiles | undefined {
+  return archives.get(url);
+}
+
 /** Forget cached results (tests). */
 export function resetStreetProbes(): void {
   results.clear();
   pending.clear();
+  archives.clear();
 }
 
 /**
@@ -79,6 +89,7 @@ export function probeStreetTiles(url: string, opts: ProbeOptions = {}): Promise<
       const archive = new PMTiles(url);
       const header = await withTimeout(archive.getHeader(), opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
       if (header.tileType !== TileType.Mvt) return 'missing';
+      archives.set(url, archive);
       try {
         opts.onArchive?.(archive);
       } catch {
@@ -93,6 +104,7 @@ export function probeStreetTiles(url: string, opts: ProbeOptions = {}): Promise<
   void run.then((r) => {
     if (pending.get(url) === run) pending.delete(url);
     results.set(url, r);
+    if (r !== 'ok') archives.delete(url);
   });
   return run;
 }
