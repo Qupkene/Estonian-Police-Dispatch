@@ -324,7 +324,7 @@ export class Director {
   private fleeDir: 1 | -1 | 0 = 0;
   private runner: Body | null = null;
   /** An officer has run after whoever made off as the police came. */
-  private chased = true;
+  private chased = false;
   private patient: Body | null = null;
   private stopCar: Car | null = null;
   private stopDriver: Body | null = null;

@@ -1469,7 +1469,7 @@ describe('cctv director: what the films showed', () => {
     const f = w.step(sitWith([unit('P1', 'here')]), 40, (fr) => {
       for (const p of fr.people) if (p.id.startsWith('o:')) far = Math.max(far, dist(p.pos, site.spot));
     });
-    console.log('FAR', far);
+    expect(far).toBe(-1);
     expect(far).toBeGreaterThan(9);
     const back = f.people.filter((p) => p.id.startsWith('o:'));
     expect(back.length).toBe(2);
