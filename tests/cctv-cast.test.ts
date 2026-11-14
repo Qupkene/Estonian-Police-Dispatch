@@ -6,9 +6,10 @@ import { describe, expect, it } from 'vitest';
 import { TEMPLATE_BY_ID, TEMPLATES } from '@/data/incidents';
 import { directorSpawn } from '@/sim/commands';
 import { createShift } from '@/sim/engine';
+import { withScenario } from '@/sim/scenario';
 import { tallinnTime } from '@/sim/time';
 import type { Incident, IncidentTemplate, PlaceKind } from '@/sim/types';
-import { castOf, sceneKindOf, type SceneKind } from '@/cctv/cast';
+import { STOP_STORY, castOf, sceneKindOf, stopStoryOf, variantOf, type SceneKind } from '@/cctv/cast';
 
 const KINDS: SceneKind[] = ['brawl', 'threat', 'disorder', 'lying', 'crash', 'stop', 'theft', 'indoor', 'crowd', 'fire', 'empty'];
 const DRESS = { season: 'autumn', temp: 8 } as const;
@@ -29,9 +30,9 @@ function probe(tpl: IncidentTemplate, place: PlaceKind, falseAlarm = false): Par
 
 const kindAt = (id: string, place: PlaceKind) => sceneKindOf(probe(TEMPLATE_BY_ID[id], place));
 
-function newShift() {
+function newShift(seed = 5) {
   return createShift({
-    seed: 5,
+    seed,
     regionId: 'pohja',
     mode: 'director',
     difficulty: 'normal',
@@ -124,6 +125,21 @@ describe('cctv cast: the people and the vehicles', () => {
       else expect(extras).toBe(0);
       if (cast.kind === 'crash') expect(cast.cars.length, tpl.id).toBe(cast.single || /lahkunud/.test(tpl.id) ? 1 : Math.max(2, inc.vehicles.length));
       expect(cast.priority).toBe(inc.truePriority);
+      if (cast.kind === 'stop') {
+        // The card's own text says which of the template's stories it tells.
+        expect(variantOf(inc, withScenario(tpl, inc.scenarioId)), `${tpl.id}: ${inc.summary.et}`).toBeGreaterThanOrEqual(0);
+        const story = stopStoryOf(inc, tpl);
+        const ofVehicle = cast.people.filter((p) => p.role !== 'caller' && p.role !== 'witness');
+        if (story === 'gone' || story === 'away') {
+          expect(cast.gone, tpl.id).toBe(true);
+          expect(cast.cars, tpl.id).toEqual([]);
+          expect(ofVehicle, tpl.id).toEqual([]);
+          expect(cast.mayFlee, tpl.id).toBe(false);
+        } else expect(cast.gone, tpl.id).toBe(false);
+        if (story === 'away') expect(cast.people, tpl.id).toEqual([]);
+        if (story === 'alone') expect(ofVehicle, tpl.id).toEqual([]);
+        expect(!!cast.driverIn, tpl.id).toBe(story === 'inside');
+      } else expect(cast.gone, tpl.id).toBe(false);
       // The same incident gives the same cast every time.
       expect(castOf(s, inc, tpl, DRESS)).toEqual(cast);
     }
@@ -137,9 +153,9 @@ describe('cctv cast: the people and the vehicles', () => {
       expect(id, templateId).not.toBe('');
       return castOf(s, s.incidents[id], TEMPLATE_BY_ID[templateId], DRESS);
     };
-    const stop = castFor('traffic_joobes_juhi_kahtlus');
+    const stop = castFor('traffic_joobes_juht_tanklas');
     if (stop.kind === 'stop') {
-      expect(stop).toMatchObject({ drunk: true, mayFlee: true, live: true });
+      expect(stop).toMatchObject({ drunk: true, live: true, gone: false });
       expect(stop.cars.length).toBe(1);
       expect(stop.cars[0].role).toBe('suspect');
     }
@@ -151,5 +167,111 @@ describe('cctv cast: the people and the vehicles', () => {
     if (knife.kind === 'threat') expect(knife.armed).toBe(true);
     const demo = castFor('public_order_demonstration');
     if (demo.kind === 'crowd') expect(demo.chant).toBe(true);
+  });
+});
+
+describe('cctv cast: the picture tells the card\'s story', () => {
+  /** Real incidents of a template from several shifts, until `enough` says so (or 40 have been made). */
+  function spawns(templateId: string, each: (s: ReturnType<typeof newShift>, inc: Incident, tpl: IncidentTemplate) => void, enough: () => boolean = () => false) {
+    const tpl = TEMPLATE_BY_ID[templateId];
+    expect(tpl, templateId).toBeDefined();
+    let made = 0;
+    for (let seed = 11; seed < 31 && !enough(); seed++) {
+      const s = newShift(seed);
+      for (let k = 0; k < 2; k++) {
+        const id = directorSpawn(s, { templateId });
+        if (!id) continue;
+        made++;
+        if (!s.incidents[id].falseAlarm) each(s, s.incidents[id], tpl);
+      }
+    }
+    expect(made, templateId).toBeGreaterThan(0);
+  }
+
+  it('every template that can make a stop says what became of its vehicle, variant by variant', () => {
+    const isStop = (tpl: IncidentTemplate) => tpl.places.some((place) => sceneKindOf(probe(tpl, place)) === 'stop');
+    // Every story the catalogue can tell as a stop: a template as it stands, and as each of its scenarios tells it.
+    const stories = new Map<string, IncidentTemplate>();
+    for (const tpl of TEMPLATES) {
+      if (isStop(tpl)) stories.set(tpl.id, tpl);
+      for (const sc of tpl.scenarios ?? []) {
+        const told = withScenario(tpl, sc.id);
+        if (isStop(told)) stories.set(`${tpl.id}#${sc.id}`, told);
+      }
+    }
+    expect(stories.size).toBeGreaterThan(30);
+    const used = new Set<string>();
+    for (const [key, tpl] of stories) {
+      // Its own line, or its template's: in the table exactly once (the table is keyed by story).
+      const line = key in STOP_STORY ? key : tpl.id;
+      const story = STOP_STORY[line];
+      expect(story, key).toBeDefined();
+      used.add(line);
+      // One answer for every variant of the card, or one for each.
+      if (typeof story !== 'string') expect(story.length, key).toBe(tpl.summary.length);
+    }
+    // Nothing in the table that the catalogue does not tell as a stop.
+    expect(Object.keys(STOP_STORY).sort()).toEqual([...used].sort());
+  });
+
+  it('a vehicle the card says has gone is not at the kerb: drive-offs, speeders, drivers who did not stop', { timeout: 120_000 }, () => {
+    for (const templateId of ['property_fuel_driveoff', 'traffic_mittepeatumine', 'traffic_kihutaja', 'traffic_mootorratturid_kihutavad', 'traffic_loata_rallivoistlus']) {
+      let seen = 0;
+      spawns(
+        templateId,
+        (s, inc, tpl) => {
+          const cast = castOf(s, inc, tpl, DRESS);
+          if (cast.kind !== 'stop') return;
+          seen++;
+          expect(cast.gone, `${templateId}: ${inc.summary.et}`).toBe(true);
+          expect(cast.cars).toEqual([]);
+          expect(cast.people.filter((p) => p.role === 'driver' || p.role === 'suspect')).toEqual([]);
+        },
+        () => seen >= 4,
+      );
+      expect(seen, templateId).toBeGreaterThan(0);
+    }
+  });
+
+  it('a template whose variants differ shows the vehicle only for the variant that says it is here', { timeout: 120_000 }, () => {
+    const got = new Map<number, boolean>();
+    spawns(
+      'alarm_anpr_wanted_owner',
+      (s, inc, tpl) => {
+        const v = variantOf(inc, withScenario(tpl, inc.scenarioId));
+        expect(v, inc.summary.et).toBeGreaterThanOrEqual(0);
+        const cast = castOf(s, inc, tpl, DRESS);
+        expect(cast.kind).toBe('stop');
+        // 'Sõiduk peatus tanklas' (0) against 'liigub ... suunas' (1).
+        expect(cast.cars.length, inc.summary.et).toBe(v === 0 ? 1 : 0);
+        got.set(v, !!cast.gone);
+      },
+      () => got.size === 2,
+    );
+    expect([...got].sort()).toEqual([
+      [0, false],
+      [1, true],
+    ]);
+  });
+
+  it('a crash is of one vehicle, with somebody inside it, when its own card says so', { timeout: 120_000 }, () => {
+    const got = new Set<number>();
+    spawns(
+      'traffic_lo_vigastatutega',
+      (s, inc, tpl) => {
+        const v = variantOf(inc, withScenario(tpl, inc.scenarioId));
+        expect(v, inc.summary.et).toBeGreaterThanOrEqual(0);
+        const cast = castOf(s, inc, tpl, DRESS);
+        expect(cast.kind).toBe('crash');
+        // 0: a car on its roof in the ditch, one person inside. 1: two cars head on, one trapped. 2: two cars.
+        expect(cast.single, inc.summary.et).toBe(v === 0);
+        expect(cast.cars.length, inc.summary.et).toBe(v === 0 ? 1 : 2);
+        expect(cast.trapped, inc.summary.et).toBe(v !== 2);
+        if (cast.trapped) expect(cast.down).toBe(false);
+        got.add(v);
+      },
+      () => got.size === 3,
+    );
+    expect([...got].sort()).toEqual([0, 1, 2]);
   });
 });

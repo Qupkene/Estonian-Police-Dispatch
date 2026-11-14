@@ -5,7 +5,9 @@
 // The street:
 //   place=<PlaceKind>&seed=<n>      a made-up street of a kind of place (procedural.ts)
 //   plain=dead|narrow|far|square     a hand-made street: a dead end, a lane 3.6 m wide, the spot far from the road
-//   tiles=<lng>,<lat>               a real street read from the archive (archive=<path>, default the Florence one)
+//   tiles=<lng>,<lat>               a real street read from a map archive in the folder the dev server was started
+//                                    with (EPD_MAP_TILES=<folder>, see vite.harness.config.ts); archive=<file name>
+//                                    names the file in it (default sample.pmtiles)
 // The cast:
 //   kind=<SceneKind>&roles=svcw&cars=involved,suspect   roles as letters: s suspect, v victim, c caller, w witness,
 //                                    d driver, e extra; flags down, runs, armed, drunk, live=0, single, inRoad, chant,
@@ -37,6 +39,9 @@ import type { AgencySit, Situation, UnitSit } from '../stage';
 import { readStreet } from '../tiles';
 import type { Site, StreetData } from '../types';
 import { lookOfAnyCar } from '../vehicle';
+
+/** The folder of map archives the dev server serves ('' when it was started without EPD_MAP_TILES). */
+declare const __EPD_MAP_TILES__: string;
 
 const q = new URLSearchParams(location.search);
 const num = (k: string, d: number) => (q.get(k) !== null ? Number(q.get(k)) : d);
@@ -112,10 +117,14 @@ async function streetOf(): Promise<StreetData> {
   const tiles = q.get('tiles');
   if (tiles) {
     const [lng, lat] = tiles.split(',').map(Number);
-    const file = q.get('archive') ?? '/tmp/claude-0/map-tiles/firenze-v4.pmtiles';
+    if (!__EPD_MAP_TILES__) {
+      log.textContent = 'tiles=: no map sample is configured. Start the dev server with EPD_MAP_TILES=<a folder of .pmtiles archives>.';
+      throw new Error(log.textContent);
+    }
+    const file = `${__EPD_MAP_TILES__.replace(/\/$/, '')}/${q.get('archive') ?? 'sample.pmtiles'}`;
     const got = await readStreet(new PMTiles(`/@fs${file}`), [lng, lat], { timeoutMs: 20000 });
     if (got) return got;
-    log.textContent = `no street at ${tiles}: a made-up one instead`;
+    log.textContent = `no street at ${tiles} in ${file}: a made-up one instead`;
   }
   if (q.get('plain')) return plainStreet(q.get('plain')!);
   return makeStreet((q.get('place') ?? 'street') as PlaceKind, seed);
@@ -174,6 +183,8 @@ function castByKind(): Cast {
   };
 }
 
+let card = '';
+
 /** The cast of a real incident: a shift is created, the template spawned, castOf builds it as the game does. */
 async function castOfTemplate(templateId: string): Promise<Cast> {
   const [{ createShift }, { directorSpawn }, { TEMPLATE_BY_ID }, { tallinnTime }] = await Promise.all([
@@ -194,7 +205,10 @@ async function castOfTemplate(templateId: string): Promise<Cast> {
   });
   const id = directorSpawn(s, { templateId });
   if (!id) throw new Error(`no incident of ${templateId}`);
-  return castOf(s, s.incidents[id], TEMPLATE_BY_ID[templateId], dress);
+  const inc = s.incidents[id];
+  // The card the scene must not contradict, for whoever looks at the picture.
+  card = `${inc.title.et}: ${inc.summary.et}`;
+  return castOf(s, inc, TEMPLATE_BY_ID[templateId], dress);
 }
 
 // ------------------------------------------------------------------------------------------------ the script
@@ -353,7 +367,8 @@ function advance(dt: number) {
     return;
   }
   if (!director) {
-    director = new Director(site!, cast, { night, quiet: flag('quiet'), wet: env.rain });
+    // The street was set first: the director is told which parked cars the view has drawn (as session.ts does).
+    director = new Director(site!, cast, { night, quiet: flag('quiet'), wet: env.rain, parked: view.parked });
     t = Math.max(t, openAt);
     director.update(situation(t, site!), 0);
   }
@@ -383,6 +398,7 @@ function draw() {
     `t=${t.toFixed(1)} phase=${director?.phase ?? 'closed-camera'} people=${f.people.length} cars=${f.cars.length} ` +
     `kind=${cast.kind} ${states}${sit.outcome ? ' out=' + sit.outcome.result : ''}${sit.paused ? ' PAUSED' : ''} ` +
     `src=${street.source} night=${night ? 1 : 0}` +
+    (card ? `\ncard: ${card}` : '') +
     // who=1: everybody on stage with where they stand and what they do, for finding a figure in the picture.
     (flag('who') ? '\n' + f.people.map((p) => `${p.id} ${p.pos.map((v) => v.toFixed(1)).join(',')} yaw=${p.yaw.toFixed(2)}`).join('\n') : '');
 }
