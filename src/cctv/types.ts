@@ -164,7 +164,10 @@ export interface Site {
   /** Walking lines along both sides of the drive line (same direction as it). */
   walkLeft: V2[];
   walkRight: V2[];
-  /** The door people come out of and the crew goes in by (the nearest building's wall), if a building is near. */
+  /**
+   * The door people come out of and the crew goes in by, if a building is near: on the nearest building's wall, or,
+   * when that is more than 12 m from the spot, on the wall near the spot that the camera sees best.
+   */
   door: V2 | null;
   /** The unit normal out of that wall. */
   doorOut: V2 | null;

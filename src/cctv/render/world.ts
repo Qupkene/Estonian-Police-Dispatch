@@ -1502,6 +1502,9 @@ export function buildWorld(site: Site, env: Env, tex: WorldTextures, carMats: Ca
         const p = along(pt, mul(left(dir), side), lat);
         if (Math.hypot(p[0], p[1]) > 120) continue;
         if (slotKerb(p)) continue;
+        // Not on the inside of a bend: there the row would stand in the lane, nearer the road's middle than a kerb is,
+        // and the crews could not get past it.
+        if (nearestOnLine(p, r.pts).d < lat - 0.35 || nearestOnLine(along(p, dir, 2.1), r.pts).d < lat - 0.7 || nearestOnLine(along(p, dir, -2.1), r.pts).d < lat - 0.7) continue;
         if (dist(p, site.spot) < 8 || dist(p, camPos) < 6 || blocksView(site.camera, p, 9, 1.2)) continue;
         if (onOtherRoad(p, r, 5) || kerbBusy.some((q) => dist(q, p) < 9) || site.lamps.some((l) => dist(l.pos, p) < 2.8)) continue;
         if (street.buildings.some((b) => pointInRing(p, b.ring) || nearestOnRing(p, b.ring).d < 1)) continue;

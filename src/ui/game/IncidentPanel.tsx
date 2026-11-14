@@ -262,7 +262,6 @@ function CameraLine({ inc, now }: { inc: Incident; now: number }) {
         variant={open ? 'primary' : 'secondary'}
         icon={open ? 'close' : 'cctv'}
         kbd="K"
-        aria-pressed={open}
         title={open ? t('game.cam.close') : t('game.cam.openTitle')}
         data-camera-toggle={inc.id}
         onClick={() => toggleCamera(inc.id)}
