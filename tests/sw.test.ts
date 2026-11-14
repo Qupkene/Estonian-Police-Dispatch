@@ -1,9 +1,21 @@
 // Service worker (public/sw.js) in a fake worker scope: offline fallbacks, precache and cache pruning,
 // plus the build step that stamps its version and precache list (vite.config.ts).
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { chunkFileName, licenceEntry, packageOfModule, precacheList, preloadEntryStyles, stampServiceWorker } from '../vite.config';
+import {
+  chunkFileName,
+  LICENCE_EXTRAS,
+  LICENCE_FALLBACK,
+  licenceEntry,
+  licenceTexts,
+  packageOfModule,
+  precacheList,
+  preloadEntryStyles,
+  stampServiceWorker,
+} from '../vite.config';
 import { offlineMapUrls } from '@/pwa';
 
 const ORIGIN = 'https://politsei.eu';
@@ -314,11 +326,34 @@ describe('third-party licences in the build', () => {
     expect(packageOfModule('/repo/node_modules/.vite/deps/x.js')).toBeNull();
   });
 
-  it('prints a package with its licence text, or says that it ships none', () => {
+  it('prints a package with its licence text', () => {
     const withText = licenceEntry({ name: 'three', version: '0.187.0', licence: 'MIT', url: 'https://threejs.org/', texts: ['The MIT License\n'] });
     expect(withText).toContain('three 0.187.0 (MIT)\nhttps://threejs.org/');
     expect(withText).toContain('The MIT License');
-    expect(licenceEntry({ name: 'x', version: '1.0.0', licence: 'ISC', url: '', texts: [] })).toContain('ships no licence file');
+    // What is not a package has no version: no stray space before the licence.
+    expect(licenceEntry({ name: 'Glyphs', version: '', licence: 'OFL-1.1', url: '', texts: ['x'] })).toContain('Glyphs (OFL-1.1)');
+  });
+
+  it('has a text for the packages whose tarball carries none, and for what is shipped from public/', () => {
+    const root = fileURLToPath(new URL('..', import.meta.url));
+    for (const [name, file] of Object.entries(LICENCE_FALLBACK)) {
+      const text = readFileSync(path.join(root, 'licences', file), 'utf8');
+      expect(text, name).toMatch(/Copyright \d{4}/);
+      expect(text, name).toContain('Redistributions in binary form must reproduce the above copyright notice');
+      // The package really ships none (else the fallback is dead weight), and the plugin's reader finds the kept text.
+      const dir = path.join(root, 'node_modules', name);
+      expect(licenceTexts(name, dir), name).toEqual([text]);
+    }
+    for (const x of LICENCE_EXTRAS) {
+      expect(readFileSync(path.join(root, 'licences', x.file), 'utf8'), x.name).toContain('SIL Open Font License');
+    }
+  });
+
+  it('reads the licence files of a package that ships them, and nothing for an unknown one without', () => {
+    const root = fileURLToPath(new URL('..', import.meta.url));
+    expect(licenceTexts('three', path.join(root, 'node_modules', 'three')).join('\n')).toContain('MIT');
+    // The game's own src folder has no licence file and no kept text: the plugin stops the build on that.
+    expect(licenceTexts('not-a-package', path.join(root, 'src'))).toEqual([]);
   });
 
   it('is not precached by the service worker', () => {

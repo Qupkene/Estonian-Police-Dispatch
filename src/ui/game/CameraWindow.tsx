@@ -29,15 +29,40 @@ const LARGE_W = 640;
 const MIN_W = 240;
 /** Room kept on the right of a window in its corner: the map's tools. */
 const TOOLS_W = 60;
-/** From the click to the picture at most this long; then the open is given up and a retry offered. */
-export const CONNECT_DEADLINE_MS = 20_000;
+/**
+ * From the click to the picture at most this long; then the open is given up and a retry offered. A slow phone or a
+ * software renderer compiles the shaders of a cold night scene for well over 20 s: that is not a lost signal. The
+ * opening's own budget (OPEN_BUDGET_MS in src/cctv/live.ts, 30 s) limits the compiling; the rest of this is left for
+ * what it does not limit: the chunk and the body model coming over a slow line, and the graphics context.
+ */
+export const CONNECT_DEADLINE_MS = 60_000;
 /** How often the window checks whether the 112 card has opened under it (ms). */
 const FIT_EVERY_MS = 400;
+/** The least picture the window shows (px): MIN_W wide, 16:9. Less room than this above an answered call folds it. */
+const MIN_PICTURE_H = (MIN_W * 9) / 16;
+/** The least room for the camera's place name in the title bar (px, about five letters); with less it is left out. */
+const LABEL_MIN_W = 48;
+/** The folded title bar's gap above the answered 112 card (px). */
+const DOCK_GAP = 4;
 
 const mobile = () => window.matchMedia('(max-width: 899px)').matches;
 const clampN = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
-/** The answered 112 card at the bottom of the map (not while it rings or is folded away). */
-const CALL_CARD = '.tl-call:not(.is-ringing):not(.is-collapsed)';
+/**
+ * The answered 112 card at the bottom of the map, open or folded to its header. While a call only rings, its card
+ * may cover the bottom of the picture: the call comes first, and answering it moves the window.
+ */
+const CALL_CARD = '.tl-call:not(.is-ringing)';
+/** The 112 card, ringing or answered: the window watches it appear, grow, fold and go. */
+const ANY_CALL_CARD = '.tl-call';
+
+/**
+ * The window folded to its title bar above an answered 112 card (px from the map area's top): `corner` is the top
+ * of the corner it sits in unfolded, `maxTop` the lowest top that keeps the bar above the card.
+ */
+interface Fold {
+  corner: number;
+  maxTop: number;
+}
 
 type LiveModule = typeof import('@/cctv/live');
 let liveChunk: Promise<LiveModule> | null = null;
@@ -148,7 +173,23 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   /** The width the map area leaves the window (px; null on a phone, where it is docked at full width). */
   const [fitW, setFitW] = useState<number | null>(null);
+  /** Folded to its title bar above an answered 112 card, or null. */
+  const [fold, setFold] = useState<Fold | null>(null);
+  /** The top of the window's corner (px from the map area's top), read from the style sheet while it sits there. */
+  const corner = useRef(12);
+  /** Read by the picture's loop: nothing is drawn while the window is folded. */
+  const foldedRef = useRef(false);
+  foldedRef.current = fold !== null;
   const focusInside = useRef(byKey);
+  /**
+   * How the title bar fits: everything (''), without the place name ('is-bare': too little of it would show), also
+   * without the camera icon and the live tag ('is-tight': the lamp still says live or paused) so the whole number
+   * fits beside the code, or with only the number's last part as well ('is-short': the whole one does not fit even so).
+   */
+  const [titleFit, setTitleFit] = useState<'' | 'is-bare' | 'is-tight' | 'is-short'>('');
+  /** The width of the whole " · number" when it last showed (px): the short form gives way to it once it fits. */
+  const caseW = useRef(0);
+  const nameRef = useRef<HTMLSpanElement>(null);
 
   const close = useCallback(() => useGameUi.getState().set({ camera: null }), []);
 
@@ -183,6 +224,8 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
     let done = false;
     setState('connecting');
     setPhase('');
+    // The opening's own budget (src/cctv/live.ts) is counted from here, like the deadline.
+    const startedAt = performance.now();
     const deadline = window.setTimeout(() => {
       if (done) return;
       done = true;
@@ -207,7 +250,7 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
           setState('ended');
           return undefined;
         }
-        return m.openCamera(canvas, { sim, incident, camera: info, version: VERSION, signal: ac.signal });
+        return m.openCamera(canvas, { sim, incident, camera: info, version: VERSION, signal: ac.signal, startedAt });
       })
       .then((h) => {
         if (h === undefined) return;
@@ -256,6 +299,11 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
       last = now;
       const win = winRef.current;
       if (document.hidden || !win || win.offsetParent === null) return;
+      if (foldedRef.current) {
+        // Folded above a call: nothing to see. The standing frame is drawn again once it unfolds.
+        drawn = false;
+        return;
+      }
       const g = useGame.getState();
       const sim = g.sim;
       if (!sim) return;
@@ -287,37 +335,81 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
     return () => cancelAnimationFrame(raf);
   }, [state, fail]);
 
+  // ── The title bar: the camera's code and the incident's number stay whole, whatever the window's width ──
+  // The name area is as wide as the bar leaves it, whatever it holds, so measuring it cannot flicker. The whole number
+  // shows while it fits beside the code (the place name gives way first); else only its last part does.
+  const fitTitle = useCallback(() => {
+    const name = nameRef.current;
+    const bar = name?.parentElement;
+    const kase = name?.querySelector<HTMLElement>('.gm-cam__case');
+    if (!name || !bar || !name.clientWidth) return;
+    const short = name.classList.contains('is-short');
+    const tight = bar.classList.contains('is-tight');
+    // The icon and the tag beside the name, with their gaps. A tight bar only hides them (they keep their width and
+    // take no room), so the name's room is measured as it would be with them and the fit cannot flicker.
+    const gap = parseFloat(getComputedStyle(bar).columnGap) || 0;
+    let aside = 0;
+    for (const el of bar.querySelectorAll<HTMLElement>(':scope > .ui-icon, :scope > .gm-cam__tag')) {
+      if (getComputedStyle(el).display !== 'none') aside += el.getBoundingClientRect().width + gap;
+    }
+    const width = name.getBoundingClientRect().width - (tight ? aside : 0);
+    if (kase && !short) caseW.current = kase.getBoundingClientRect().width;
+    const code = name.querySelector<HTMLElement>('.gm-cam__code')?.getBoundingClientRect().width ?? 0;
+    const room = width - code - (kase ? caseW.current : 0);
+    const fit = room >= LABEL_MIN_W ? '' : room >= -0.25 ? 'is-bare' : room + aside >= -0.25 ? 'is-tight' : 'is-short';
+    setTitleFit((old) => (old === fit ? old : fit));
+  }, []);
+
   // ── The window's size and place: inside the map area, above the answered 112 card, out of the map's tools ──
   const refit = useCallback(() => {
     const win = winRef.current;
     const map = win?.parentElement?.querySelector<HTMLElement>('.gm-map');
     const root = win?.closest<HTMLElement>('.gm');
     if (!win || !map) return;
+    fitTitle();
     if (mobile()) {
-      // Docked above the map: the map's tools move down below it.
+      // Docked above the map: the map's tools move down below it. An answered call covers it there, as it should.
       root?.style.setProperty('--gm-cam-h', `${win.offsetHeight}px`);
       setFitW(null);
+      setFold(null);
       return;
     }
     root?.style.removeProperty('--gm-cam-h');
     const m = map.getBoundingClientRect();
-    const r = win.getBoundingClientRect();
-    const bar = win.firstElementChild instanceof HTMLElement ? win.firstElementChild.offsetHeight + 2 : 36;
+    // The title bar with its bottom line and the window's border: the same folded or not, so the fold cannot flicker.
+    const bar = win.firstElementChild instanceof HTMLElement ? win.firstElementChild.clientHeight + 3 : 37;
     const moved = win.classList.contains('is-moved');
-    // The answered 112 card stays on top: the window fits in the map above it.
+    if (!moved && !win.classList.contains('is-folded')) corner.current = parseFloat(getComputedStyle(win).top) || corner.current;
+    // The answered 112 card stays on top: the window fits in the map above it (px from the map area's top).
     const call = document.querySelector<HTMLElement>(CALL_CARD);
-    const floor = call ? Math.min(m.bottom, call.getBoundingClientRect().top) : m.bottom;
-    const top = moved ? m.top + EDGE : r.top;
-    const byHeight = ((floor - top - EDGE - bar) * 16) / 9;
+    const floor = (call ? Math.min(m.bottom, call.getBoundingClientRect().top) : m.bottom) - m.top;
+    // Room for the picture under the bar, with the window at the top of its corner (a dragged one at the map's top).
+    const room = floor - (moved ? EDGE : corner.current) - EDGE - bar;
+    // Too little for the least picture above an answered call: the window folds to its title bar above the card.
+    const folds = !!call && room < MIN_PICTURE_H;
+    const byHeight = folds ? Infinity : (room * 16) / 9;
     const byWidth = m.width - (moved ? 2 * EDGE : TOOLS_W + 2 * EDGE);
     const w = Math.round(Math.max(MIN_W, Math.min(large ? LARGE_W : SMALL_W, byWidth, byHeight)));
     setFitW((old) => (old === w ? old : w));
-    setPos((p) => (p ? clampPos(p, map, win, floor - m.top) : p));
-  }, [large]);
+    if (folds) {
+      // The zoom and size buttons go with the picture: a focus on one of them moves to the close button first.
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && win.contains(active) && active.closest('.gm-cam__btn--zoom, .gm-cam__btn--size')) closeRef.current?.focus({ preventScroll: true });
+      const next = { corner: corner.current, maxTop: Math.max(DOCK_GAP, floor - bar - DOCK_GAP) };
+      setFold((old) => (old && old.corner === next.corner && old.maxTop === next.maxTop ? old : next));
+    } else {
+      setFold(null);
+      // A dragged window is kept where it was while folded, and pushed back inside once it shows its picture again.
+      setPos((p) => (p ? clampPos(p, map, win, floor) : p));
+    }
+  }, [large, fitTitle]);
 
+  // A 112 call rung, answered or ended: the window is fitted in the same commit as the card, before the page is
+  // painted, so an answered card never shows over an unfolded window.
+  const calls = useGame((s) => s.sim?.calls.map((c) => `${c.id}${c.answeredAt ? '+' : ''}${c.endedAt ? '-' : ''}`).join() ?? '');
   useLayoutEffect(() => {
     refit();
-  }, [refit, pos === null, state]);
+  }, [refit, pos === null, state, calls]);
 
   useEffect(() => {
     const win = winRef.current;
@@ -327,8 +419,24 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
     const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => refit());
     ro?.observe(map);
     ro?.observe(win);
+    if (nameRef.current) ro?.observe(nameRef.current);
+    // The 112 card is watched as it comes, changes size (answered, folded, grown) and goes, so the window moves in
+    // the same frame and is never left under it; the timer below is only the safety net.
+    let card: Element | null = null;
+    const watchCard = () => {
+      const next = root?.querySelector(`:scope > ${ANY_CALL_CARD}`) ?? null;
+      if (next === card) return;
+      if (card) ro?.unobserve(card);
+      card = next;
+      if (card) ro?.observe(card);
+      refit();
+    };
+    const mo = root && typeof MutationObserver !== 'undefined' ? new MutationObserver(watchCard) : null;
+    if (root) mo?.observe(root, { childList: true });
+    watchCard();
     const timer = window.setInterval(refit, FIT_EVERY_MS);
     return () => {
+      mo?.disconnect();
       ro?.disconnect();
       window.clearInterval(timer);
       root?.style.removeProperty('--gm-cam-h');
@@ -414,6 +522,15 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
     pan.current = [0, 0];
     applyView(1);
   };
+  // The zoom buttons. One that reaches its limit is disabled, and a disabled button drops the keyboard's focus to
+  // the page: the focus moves to the other one first.
+  const zoomOutRef = useRef<HTMLButtonElement>(null);
+  const zoomInRef = useRef<HTMLButtonElement>(null);
+  const zoomBy = (factor: number, button: HTMLButtonElement, other: HTMLButtonElement | null) => {
+    const z = clampN(zoom * factor, MIN_ZOOM, MAX_ZOOM);
+    if ((z <= MIN_ZOOM || z >= MAX_ZOOM) && document.activeElement === button) other?.focus({ preventScroll: true });
+    applyView(z);
+  };
 
   // The wheel must not scroll or zoom the map under the window: a passive React listener cannot stop it.
   const pictureRef = useRef<HTMLDivElement>(null);
@@ -427,15 +544,25 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
 
   const name = info?.name ?? t('game.cam.title');
   const phone = fitW === null;
-  const style = phone ? undefined : { width: fitW, ...(pos ? { left: pos.x, top: pos.y, right: 'auto' } : {}) };
+  const style = phone
+    ? undefined
+    : {
+        width: fitW,
+        ...(pos ? { left: pos.x, top: pos.y, right: 'auto' } : {}),
+        // Folded: the title bar where the window was, or higher, so that it stays above the answered call.
+        ...(fold ? { top: Math.max(DOCK_GAP, Math.min(pos ? pos.y : fold.corner, fold.maxTop)) } : {}),
+      };
   const live = state === 'live';
   const paused = useGame((s) => s.speedIndex === 0);
+  // The tag's text (paused or live, in the player's language) changes the room beside the name: measured again.
+  const tagText = live ? (paused ? t('game.cam.paused') : t('game.cam.live')) : '';
+  useLayoutEffect(fitTitle, [fitTitle, tagText]);
   const retry = crashed ? onRetry : () => setAttempt((n) => n + 1);
 
   return (
     <section
       ref={winRef}
-      className={`gm-cam${large ? ' is-large' : ''}${pos ? ' is-moved' : ''}`}
+      className={`gm-cam${large ? ' is-large' : ''}${pos ? ' is-moved' : ''}${fold ? ' is-folded' : ''}`}
       style={style}
       role="dialog"
       aria-modal="false"
@@ -456,10 +583,10 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
         }
       }}
     >
-      <header className="gm-cam__bar" onPointerDown={onTitleDown} title={phone ? undefined : t('game.cam.drag')}>
+      <header className={`gm-cam__bar${titleFit === 'is-tight' || titleFit === 'is-short' ? ' is-tight' : ''}`} onPointerDown={onTitleDown} title={phone ? undefined : t('game.cam.drag')}>
         <i className={`gm-cam__lamp is-${live ? (paused ? 'paused' : 'live') : state}`} aria-hidden="true" />
         <Icon name="cctv" size={14} />
-        <span className="gm-cam__name mono">
+        <span ref={nameRef} className={`gm-cam__name mono${titleFit ? ` ${titleFit === 'is-tight' ? 'is-bare' : titleFit}` : ''}`}>
           {/* The camera's code stays whole; its place name gives way when the bar is narrow. */}
           {info && name.startsWith(info.id) ? (
             <>
@@ -469,22 +596,46 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
           ) : (
             <span className="gm-cam__label">{name}</span>
           )}
-          {/* Two incidents can share one camera: the number says whose story the picture tells. */}
-          {number && <span className="gm-cam__case">&nbsp;· {number}</span>}
+          {/* Two incidents can share one camera: the number says whose story the picture tells. It is never cut: when
+              the whole of it does not fit, only its last part shows, the one that tells the day's incidents apart. */}
+          {number && (
+            <span className="gm-cam__case">
+              &nbsp;·&nbsp;<span className="gm-cam__num">{number}</span>
+              <span className="gm-cam__num-short">
+                {number.slice(number.lastIndexOf('-') + 1)}
+              </span>
+            </span>
+          )}
         </span>
-        {live && <span className={`gm-cam__tag${paused ? ' is-paused' : ''}`}>{paused ? t('game.cam.paused') : t('game.cam.live')}</span>}
+        {live && <span className={`gm-cam__tag${paused ? ' is-paused' : ''}`}>{tagText}</span>}
         <span className="gm-cam__tools">
-          <button type="button" className="gm-cam__btn gm-cam__btn--zoom" onClick={() => applyView(clampN(zoom / 1.5, MIN_ZOOM, MAX_ZOOM))} disabled={!live || zoom <= MIN_ZOOM} aria-label={t('game.cam.zoomOut')} title={t('game.cam.zoomOut')}>
+          <button
+            ref={zoomOutRef}
+            type="button"
+            className="gm-cam__btn gm-cam__btn--zoom"
+            onClick={(e) => zoomBy(1 / 1.5, e.currentTarget, zoomInRef.current)}
+            disabled={!live || zoom <= MIN_ZOOM}
+            aria-label={t('game.cam.zoomOut')}
+            title={t('game.cam.zoomOut')}
+          >
             <Icon name="minus" size={13} />
           </button>
-          <button type="button" className="gm-cam__btn gm-cam__btn--zoom" onClick={() => applyView(clampN(zoom * 1.5, MIN_ZOOM, MAX_ZOOM))} disabled={!live || zoom >= MAX_ZOOM} aria-label={t('game.cam.zoomIn')} title={t('game.cam.zoomIn')}>
+          <button
+            ref={zoomInRef}
+            type="button"
+            className="gm-cam__btn gm-cam__btn--zoom"
+            onClick={(e) => zoomBy(1.5, e.currentTarget, zoomOutRef.current)}
+            disabled={!live || zoom >= MAX_ZOOM}
+            aria-label={t('game.cam.zoomIn')}
+            title={t('game.cam.zoomIn')}
+          >
             <Icon name="plus" size={13} />
           </button>
+          {/* The label says what a press does; no aria-pressed beside it, or a reader says "Smaller picture, pressed". */}
           <button
             type="button"
             className="gm-cam__btn gm-cam__btn--size"
             onClick={() => setLarge((v) => !v)}
-            aria-pressed={large}
             aria-label={large ? t('game.cam.smaller') : t('game.cam.bigger')}
             title={large ? t('game.cam.smaller') : t('game.cam.bigger')}
             data-testid="camera-size"
@@ -521,16 +672,32 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
   );
 }
 
-/** Save the running shift, then load the page again (a camera chunk that failed to fetch is fetched anew). */
-function saveAndReload() {
-  saveNow();
-  window.location.reload();
-}
+/**
+ * What a reload of the page would do to the running shift: nothing (it is saved first: null), end it ('lost': a
+ * director-mode shift, which is never saved), or take the player out of a co-op room's shift, which goes on in the
+ * room ('coop'). The same rules as saveNow (src/store/game.ts); the press itself goes by what saveNow answers.
+ */
+type ReloadRisk = 'lost' | 'coop' | null;
+const reloadRisk = (g: ReturnType<typeof useGame.getState>): ReloadRisk =>
+  !g.sim ? null : g.sim.coop ? 'coop' : g.screen !== 'game' || g.sim.mode === 'director' ? 'lost' : null;
 
 /** The text in the picture area while there is no picture. */
 function CameraNote({ state, onRetry }: { state: CameraState; onRetry?: () => void }) {
   const t = useT();
   const offline = state === 'reload' && navigator.onLine === false;
+  const predicted = useGame(reloadRisk);
+  /** The first press found the shift could not be saved: the next press reloads all the same. */
+  const [armed, setArmed] = useState(false);
+  const risk: ReloadRisk = predicted ?? (armed ? 'lost' : null);
+  const reload = () => {
+    // A shift that saves is saved, then the page loads again. One that cannot be saved is never reloaded by a single
+    // press: the note says what a reload does to it, and only a second, deliberate press reloads.
+    if (saveNow() || armed) {
+      window.location.reload();
+      return;
+    }
+    setArmed(true);
+  };
   const title =
     state === 'connecting'
       ? t('game.cam.connecting')
@@ -543,6 +710,8 @@ function CameraNote({ state, onRetry }: { state: CameraState; onRetry?: () => vo
               ? t('game.cam.offline')
               : t('game.cam.stale')
             : t('game.cam.failed');
+  // A shift a reload would not keep: what happens to it, after what the reload is for.
+  const lose = risk === 'coop' ? t('game.cam.staleCoop') : risk === 'lost' ? t('game.cam.staleLost') : '';
   const hint =
     state === 'unavailable'
       ? t('game.cam.unavailableHint')
@@ -552,13 +721,16 @@ function CameraNote({ state, onRetry }: { state: CameraState; onRetry?: () => vo
           ? t('game.cam.failedHint')
           : state === 'reload'
             ? offline
-              ? t('game.cam.offlineHint')
-              : t('game.cam.staleHint')
+              ? `${t('game.cam.offlineHint')}${lose && ` ${lose}`}`
+              : lose
+                ? `${t('game.cam.staleNeeds')} ${lose}`
+                : t('game.cam.staleHint')
             : null;
   return (
     <div className={`gm-cam__note is-${state}`} role="status">
       <strong>{title}</strong>
       {hint && <span>{hint}</span>}
+      {state === 'reload' && armed && <span className="gm-cam__sure">{t('game.cam.reloadSure')}</span>}
       {state === 'failed' && onRetry && (
         <button type="button" className="gm-cam__retry" onClick={onRetry} data-testid="camera-retry">
           <Icon name="refresh" size={13} />
@@ -566,9 +738,9 @@ function CameraNote({ state, onRetry }: { state: CameraState; onRetry?: () => vo
         </button>
       )}
       {state === 'reload' && (
-        <button type="button" className="gm-cam__retry" onClick={saveAndReload} data-testid="camera-reload">
+        <button type="button" className={`gm-cam__retry${armed ? ' is-danger' : ''}`} onClick={reload} data-testid="camera-reload">
           <Icon name="refresh" size={13} />
-          {t('game.cam.reload')}
+          {armed ? t('game.cam.reloadAnyway') : t('game.cam.reload')}
         </button>
       )}
     </div>

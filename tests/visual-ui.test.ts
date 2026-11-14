@@ -325,6 +325,26 @@ describe('the surveillance camera window (Kaamerad, docs/CCTV.md section 14)', (
     expect(side).toMatch(/right:\s*auto;\s*width:\s*min\(calc\(100% - 72px\), calc\(55vh \* 16 \/ 9\)\)/);
   });
 
+  it('never cuts the camera code or the incident number in the title bar; a narrow window shortens the number', () => {
+    expect(rule(GAME, '.gm-cam').container).toBe('gm-cam / inline-size');
+    expect(rule(GAME, '.gm-cam__code').flex).toBe('none');
+    expect(rule(GAME, '.gm-cam__case').flex).toBe('none');
+    expect(rule(GAME, '.gm-cam__case').overflow).toBeUndefined();
+    // Only the place name gives way.
+    expect(rule(GAME, '.gm-cam__label')['text-overflow']).toBe('ellipsis');
+    expect(rule(GAME, '.gm-cam__num-short').display).toBe('none');
+    // CameraWindow.tsx measures the bar: the place name goes first, then the number is shortened to its last part,
+    // then the icon and the live tag step out of the row (hidden, still measured).
+    expect(GAME).toMatch(/\.gm-cam__name\.is-bare \.gm-cam__label,[^{]*\.gm-cam__name\.is-short \.gm-cam__num\s*\{\s*display:\s*none/);
+    expect(rule(GAME, '.gm-cam__name.is-short .gm-cam__num-short').display).toBe('inline');
+    expect(GAME).toMatch(/\.gm-cam__bar\.is-tight > \.gm-cam__tag\s*\{[^}]*position:\s*absolute;[^}]*visibility:\s*hidden/);
+    expect(GAME).toMatch(/@container gm-cam \(max-width: 312px\)\s*\{\s*\.gm-cam__label,/);
+  });
+
+  it('folded above an answered 112 call it is its title bar alone', () => {
+    expect(GAME).toMatch(/\.gm-cam\.is-folded \.gm-cam__picture,[^{]*\.gm-cam\.is-folded \.gm-cam__btn--size\s*\{\s*display:\s*none/);
+  });
+
   it("keeps still with reduced motion, from the system and from the game's own setting", () => {
     expect(mediaAll(GAME, '(prefers-reduced-motion: reduce)')).toMatch(/\.gm-cam \*[^{]*\{\s*animation:\s*none !important/);
     expect(GAME).toMatch(/\.gm--reduced \.gm-cam,\s*\.gm--reduced \.gm-cam \*\s*\{\s*animation:\s*none !important/);

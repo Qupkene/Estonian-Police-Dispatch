@@ -1590,6 +1590,17 @@ export class CarKit implements CarTextures {
     return a;
   }
 
+  /**
+   * Paint a vehicle's atlas before its car exists (a unit on its way) and keep it as an unused one, ready for the car:
+   * returns its textures for the view to upload ahead of the car's first frame. Nothing when this kit has it already.
+   */
+  prime(look: CarLook): Texture[] {
+    if (this.atlases.has(atlasKey(look))) return [];
+    const a = this.atlasFor(look);
+    this.releaseAtlas(look);
+    return a.textures;
+  }
+
   /** A car no longer needs its atlas: keep a few unused ones for the next car, free the rest. */
   releaseAtlas(look: CarLook) {
     const key = atlasKey(look);

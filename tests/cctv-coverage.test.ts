@@ -4,7 +4,7 @@
  * the share of a real shift's incidents that can be watched.
  */
 import { describe, expect, it } from 'vitest';
-import { CAMERA_CHANCE, cameraOf, streetOfAddress, type CameraInfo } from '@/cctv/coverage';
+import { CAMERA_CHANCE, cameraNumber, cameraOf, streetOfAddress, type CameraInfo } from '@/cctv/coverage';
 import { hash32 } from '@/cctv/math';
 import { REGION_IDS, REGIONS } from '@/data/regions';
 import { createShift, step } from '@/sim/engine';
@@ -172,28 +172,69 @@ describe('a place has a camera or not, for good', () => {
 });
 
 describe('the number and the name', () => {
-  it('the number is K- and three digits, the same for the same cell', () => {
+  it('the number is K- and four digits, the same for the same cell', () => {
     const ids = new Set<string>();
     for (let n = 0; n < 6000; n++) {
       const cam = cameraOf(at(spread(n, 31), 'bank'));
       if (!cam) continue;
-      expect(cam.id).toMatch(/^K-[1-9]\d\d$/);
+      expect(cam.id).toMatch(/^K-[1-9]\d{3}$/);
       expect(cam.name.startsWith(`${cam.id} · `)).toBe(true);
       ids.add(cam.id);
     }
-    // 900 numbers, drawn about 5700 times: all but a handful are in use.
-    expect(ids.size).toBeGreaterThan(880);
+    // 9000 numbers, drawn about 5700 times over the whole country: most of them different.
+    expect(ids.size).toBeGreaterThan(3500);
     const { subject, camera } = watched('mall');
     expect(cameraOf({ ...subject, id: 'another' })?.id).toBe(camera.id);
   });
 
+  it('no two cameras within three kilometres of each other share a number', () => {
+    // A 3 km square (81 cells of about 37 m each way) around the middle of a few towns, every cell of it.
+    const towns: [string, LngLat][] = [
+      ['Tallinn', [24.7536, 59.437]],
+      ['Tartu', [26.7225, 58.378]],
+      ['Pärnu', [24.4971, 58.3859]],
+      ['Narva', [28.1903, 59.3772]],
+      ['Kuressaare', [22.4853, 58.2529]],
+    ];
+    for (const [town, [lon, lat]] of towns) {
+      const cx0 = Math.round(lon * 1500);
+      const cy0 = Math.round(lat * 3000);
+      const half = Math.ceil(1500 / ((111_320 * Math.cos((lat * Math.PI) / 180)) / 1500));
+      const seen = new Map<string, string>();
+      for (let dx = -half; dx <= half; dx++)
+        for (let dy = -41; dy <= 41; dy++) {
+          const id = cameraNumber(cx0 + dx, cy0 + dy);
+          expect(id).toMatch(/^K-[1-9]\d{3}$/);
+          const other = seen.get(id);
+          expect(other, `${town}: ${id} at ${dx},${dy} and ${other}`).toBeUndefined();
+          seen.set(id, `${dx},${dy}`);
+        }
+      expect(seen.size).toBeGreaterThan(6000);
+    }
+  });
+
+  it('two cameras two streets apart in central Tallinn have different numbers', () => {
+    // Ravi tn 18 (Ida-Tallinna Keskhaigla) and Liivalaia tn 40 once both showed "K-754".
+    expect(cameraNumber(Math.round(24.7618 * 1500), Math.round(59.4302 * 3000))).not.toBe(
+      cameraNumber(Math.round(24.7579 * 1500), Math.round(59.4297 * 3000)),
+    );
+  });
+
+  it('the numbers do not run in order from one cell to the next', () => {
+    // Inventory numbers, not a grid: the neighbours of a cell do not differ from it by one fixed step.
+    const n = (dx: number, dy: number) => Number(cameraNumber(36_000 + dx, 178_000 + dy).slice(2));
+    const steps = new Set<number>();
+    for (let i = 0; i < 20; i++) steps.add(n(i + 1, 0) - n(i, 0));
+    expect(steps.size).toBeGreaterThan(15);
+  });
+
   it('a street camera is called after the street, without the house number', () => {
     const name = (address: string, kind: PlaceKind = 'street') =>
-      watched(kind, { address }).camera.name.replace(/^K-\d{3} · /, '');
+      watched(kind, { address }).camera.name.replace(/^K-\d{4} · /, '');
     expect(name('Narva mnt 25')).toBe('Narva mnt');
     expect(name('Tartu mnt 87f-12', 'residential')).toBe('Tartu mnt');
     expect(name('Viru väljak 4/6', 'office')).toBe('Viru väljak');
-    expect(watched('street', { address: 'Narva mnt 25' }).camera.name).toMatch(/^K-\d{3} · Narva mnt$/);
+    expect(watched('street', { address: 'Narva mnt 25' }).camera.name).toMatch(/^K-\d{4} · Narva mnt$/);
   });
 
   it('a place with a name of its own gives it to its camera', () => {
@@ -389,7 +430,7 @@ describe('a real shift', () => {
       if (CAMERA_CHANCE[inc.location.placeKind] === 0) expect(cam, inc.location.address).toBeNull();
       if (!cam) continue;
       cameras++;
-      expect(cam.id).toMatch(/^K-\d{3}$/);
+      expect(cam.id).toMatch(/^K-\d{4}$/);
       const where = cam.name.slice(cam.id.length + 3);
       expect(cam.name.slice(0, cam.id.length + 3)).toBe(`${cam.id} · `);
       expect(where.length, inc.location.address).toBeGreaterThan(1);
