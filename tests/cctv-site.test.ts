@@ -12,8 +12,8 @@
  *
  * The streets: every kind of place of src/cctv/procedural.ts, hand-made streets with what real map tiles bring
  * (a lane between house fronts, an incident inside a block, a quay, a dead end, a passage), and a real town when
- * its archive is there: EPD_PMTILES_SAMPLE, or the Florence sample the project uses at its usual place. Without the
- * archive that block is skipped.
+ * the environment variable EPD_PMTILES_SAMPLE names its map archive (a .pmtiles file with zoom 15 tiles). Without it
+ * that block is skipped.
  */
 import { closeSync, existsSync, openSync, readSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -847,7 +847,7 @@ describe("sites on hand-made streets like the map's", () => {
 
 // ---------------------------------------------------------------------------- a real town (optional)
 
-const SAMPLE = process.env.EPD_PMTILES_SAMPLE ?? '/tmp/claude-0/map-tiles/firenze-v4.pmtiles';
+const SAMPLE = process.env.EPD_PMTILES_SAMPLE ?? '';
 /** How many points of the town are tried. */
 const POINTS = 400;
 /** Places that once gave a spot inside a block, people in a house, a spot in the river, a wall, a dead end, no site. */
@@ -861,7 +861,7 @@ const NAMED: [number, number][] = [
   [11.2474, 43.7675],
 ];
 
-describe.skipIf(!existsSync(SAMPLE))("sites on a real town's streets", () => {
+describe.skipIf(!SAMPLE || !existsSync(SAMPLE))("sites on a real town's streets", () => {
   it(`${POINTS} points: every site is sound, and nearly every picture holds the story`, async () => {
     const fd = openSync(SAMPLE, 'r');
     const archive = new PMTiles({
