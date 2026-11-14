@@ -5281,10 +5281,10 @@ button.gm-ctask__btn:hover {
   visibility: hidden;
   pointer-events: none;
 }
-/* A narrow window (about 300 px and less): the place name goes, and so do the camera icon and the live tag (the
+/* A narrow window (about 310 px and less): the place name goes, and so do the camera icon and the live tag (the
    lamp says it). The note in the small picture keeps its button in sight: the reload's title and its "press again"
    line go (the hint and the button's own words say it). */
-@container gm-cam (max-width: 300px) {
+@container gm-cam (max-width: 312px) {
   .gm-cam__label,
   .gm-cam__bar > .ui-icon,
   .gm-cam__tag,

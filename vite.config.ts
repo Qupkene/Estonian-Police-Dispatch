@@ -19,7 +19,7 @@ export function chunkFileName(chunk: { facadeModuleId: string | null }): string 
 export function precacheList(files: readonly string[]): string[] {
   const keep = (f: string) =>
     // Chunks, stylesheets and the MapLibre worker, but not the surveillance camera's chunk (three.js and the
-    // renderer, three quarters of a megabyte): it comes on first use and the runtime cache keeps it. Its body model
+    // renderer, about a megabyte): it comes on first use and the runtime cache keeps it. Its body model
     // (assets/human-*.glb) is no listed kind either.
     (/^assets\/.+\.(?:js|mjs|css)$/.test(f) && !CAMERA_CHUNK.test(f)) ||
     // Latin fonts only: Estonian needs latin + latin-ext, the browser fetches other subsets on demand.
@@ -92,9 +92,30 @@ export function packageOfModule(id: string): { name: string; dir: string } | nul
 /** One package's entry in THIRD-PARTY-LICENSES.txt. */
 export function licenceEntry(p: { name: string; version: string; licence: string; url: string; texts: readonly string[] }): string {
   const rule = '='.repeat(80);
-  const head = [`${p.name} ${p.version} (${p.licence})`, p.url].filter(Boolean).join('\n');
-  const body = p.texts.length ? p.texts.map((t) => t.trim()).join('\n\n') : `Licence: ${p.licence}. The package ships no licence file.`;
-  return `${rule}\n${head}\n${rule}\n\n${body}\n`;
+  const head = [`${[p.name, p.version].filter(Boolean).join(' ')} (${p.licence})`, p.url].filter(Boolean).join('\n');
+  return `${rule}\n${head}\n${rule}\n\n${p.texts.map((t) => t.trim()).join('\n\n')}\n`;
+}
+
+/** Licence texts kept in the repository for what ships none of its own (licences/README.md says where each is from). */
+const LICENCES_DIR = fileURLToPath(new URL('./licences/', import.meta.url));
+/** Packages whose npm tarball carries no licence file, and the file in licences/ that holds their text. */
+export const LICENCE_FALLBACK: Readonly<Record<string, string>> = {
+  pmtiles: 'pmtiles.txt',
+  '@protomaps/basemaps': 'protomaps-basemaps.txt',
+};
+/** What the build ships from public/ rather than from npm, so that the module graph does not know it. */
+export const LICENCE_EXTRAS: readonly { name: string; licence: string; url: string; file: string }[] = [
+  { name: "Noto Sans (the map's glyphs)", licence: 'OFL-1.1', url: 'https://github.com/protomaps/basemaps-assets', file: 'noto-sans.txt' },
+];
+
+/** A package's licence texts: the licence, copying and notice files in its folder, else the text kept in licences/. */
+export function licenceTexts(name: string, dir: string): string[] {
+  const own = readdirSync(dir)
+    .filter((f) => /^(?:licen[sc]e|copying|notice)/i.test(f) && statSync(path.join(dir, f)).isFile())
+    .sort()
+    .map((f) => readFileSync(path.join(dir, f), 'utf8'));
+  if (own.length || !(name in LICENCE_FALLBACK)) return own;
+  return [readFileSync(path.join(LICENCES_DIR, LICENCE_FALLBACK[name]), 'utf8')];
 }
 
 /**
@@ -124,10 +145,9 @@ function thirdPartyLicences(): Plugin {
           repository?: string | { url?: string };
         };
         const repo = typeof pkg.repository === 'string' ? pkg.repository : (pkg.repository?.url ?? '');
-        const texts = readdirSync(dir)
-          .filter((f) => /^(?:licen[sc]e|copying|notice)/i.test(f) && statSync(path.join(dir, f)).isFile())
-          .sort()
-          .map((f) => readFileSync(path.join(dir, f), 'utf8'));
+        const texts = licenceTexts(name, dir);
+        // The notice must travel with the code: a package without a text stops the build rather than ship without it.
+        if (!texts.length) this.error(`${name} ships no licence file: add its text to licences/ and its name to LICENCE_FALLBACK`);
         entries.push(
           licenceEntry({
             name,
@@ -139,6 +159,9 @@ function thirdPartyLicences(): Plugin {
         );
       }
       if (!entries.length) return;
+      for (const x of LICENCE_EXTRAS) {
+        entries.push(licenceEntry({ name: x.name, version: '', licence: x.licence, url: x.url, texts: [readFileSync(path.join(LICENCES_DIR, x.file), 'utf8')] }));
+      }
       const intro =
         'EPD 2.0: third-party software and fonts in this build.\n' +
         'Each package below is distributed under its own licence, reproduced here in full.\n\n';

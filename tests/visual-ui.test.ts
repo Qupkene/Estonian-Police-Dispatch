@@ -338,7 +338,7 @@ describe('the surveillance camera window (Kaamerad, docs/CCTV.md section 14)', (
     expect(GAME).toMatch(/\.gm-cam__name\.is-bare \.gm-cam__label,[^{]*\.gm-cam__name\.is-short \.gm-cam__num\s*\{\s*display:\s*none/);
     expect(rule(GAME, '.gm-cam__name.is-short .gm-cam__num-short').display).toBe('inline');
     expect(GAME).toMatch(/\.gm-cam__bar\.is-tight > \.gm-cam__tag\s*\{[^}]*position:\s*absolute;[^}]*visibility:\s*hidden/);
-    expect(GAME).toMatch(/@container gm-cam \(max-width: 300px\)\s*\{\s*\.gm-cam__label,/);
+    expect(GAME).toMatch(/@container gm-cam \(max-width: 312px\)\s*\{\s*\.gm-cam__label,/);
   });
 
   it('folded above an answered 112 call it is its title bar alone', () => {

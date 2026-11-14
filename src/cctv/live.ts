@@ -33,7 +33,7 @@ export interface CameraHandle {
   readonly phase: string;
   /** The browser took the graphics context away: the picture cannot be drawn any more. */
   readonly dead: boolean;
-  /** Where the street came from ('tiles' or 'procedural'), for the tests. */
+  /** Where the street came from ('tiles' or 'made'), for the tests. */
   readonly source: StreetData['source'];
   /** How many people and vehicles the last frame held (the window shows them to the tests). */
   readonly people: number;
@@ -62,7 +62,7 @@ const STREET_TIMEOUT_MS = 6000;
  * How long an opening may take in all, counted from the window's start (OpenOptions.startedAt), before it goes live
  * with whatever is not ready yet. What is not ready is finished in the first frame, which then holds the whole page
  * for seconds on a slow device: so the budget is as long as the window's own deadline allows (CameraWindow's
- * CONNECT_DEADLINE_MS, 45 s, less a wide margin). A fast device never comes near it; a slow one waits a little longer
+ * CONNECT_DEADLINE_MS, 60 s, less a wide margin). A fast device never comes near it; a slow one waits a little longer
  * for the picture and the game goes on meanwhile. Every step of the opening checks the budget before it starts and is
  * one short task, so 'live' comes at most a task after it.
  */

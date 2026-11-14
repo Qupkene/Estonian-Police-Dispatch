@@ -307,7 +307,7 @@ test.describe('surveillance camera', () => {
   });
 
   test('opened and closed three times, it keeps no graphics context', async ({ page }) => {
-    // Three opens to live, each up to the 45 s connect deadline on a slow machine.
+    // Three opens to live, each up to the 60 s connect deadline on a slow machine.
     test.setTimeout(360_000);
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));

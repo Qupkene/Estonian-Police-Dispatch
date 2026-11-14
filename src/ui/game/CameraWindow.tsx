@@ -31,9 +31,11 @@ const MIN_W = 240;
 const TOOLS_W = 60;
 /**
  * From the click to the picture at most this long; then the open is given up and a retry offered. A slow phone or a
- * software renderer compiles the shaders of a cold night scene for well over 20 s: that is not a lost signal.
+ * software renderer compiles the shaders of a cold night scene for well over 20 s: that is not a lost signal. The
+ * opening's own budget (OPEN_BUDGET_MS in src/cctv/live.ts, 30 s) limits the compiling; the rest of this is left for
+ * what it does not limit: the chunk and the body model coming over a slow line, and the graphics context.
  */
-export const CONNECT_DEADLINE_MS = 45_000;
+export const CONNECT_DEADLINE_MS = 60_000;
 /** How often the window checks whether the 112 card has opened under it (ms). */
 const FIT_EVERY_MS = 400;
 /** The least picture the window shows (px): MIN_W wide, 16:9. Less room than this above an answered call folds it. */
