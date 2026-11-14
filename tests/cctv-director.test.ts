@@ -16,9 +16,9 @@ import { PACE, lookOfStranger } from '@/cctv/figure';
 import { dist, hash32, nearestOnLine, type V2 } from '@/cctv/math';
 import { makeStreet } from '@/cctv/procedural';
 import { buildSite, insideBuilding } from '@/cctv/site';
-import type { Frame, Situation, UnitSit } from '@/cctv/stage';
+import type { CarFrame, Frame, Situation, UnitSit } from '@/cctv/stage';
 import type { Site, StreetData } from '@/cctv/types';
-import { lookOfAnyCar } from '@/cctv/vehicle';
+import { CAR_SIZE, lookOfAnyCar } from '@/cctv/vehicle';
 
 const DT = 0.1;
 const DRESS = { season: 'autumn', temp: 8 } as const;
@@ -114,6 +114,45 @@ const ended = (result: OutcomeResult, units: UnitSit[], over: Partial<Situation>
     ...over,
   });
 
+/** The corners of a vehicle's footprint, `shrink` metres smaller all round. */
+function footprint(c: CarFrame, shrink: number): V2[] {
+  const size = CAR_SIZE[c.look.body];
+  const hl = size.length / 2 - shrink;
+  const hw = size.width / 2 - shrink;
+  const fx = Math.cos(c.yaw);
+  const fy = Math.sin(c.yaw);
+  return [
+    [1, 1],
+    [1, -1],
+    [-1, -1],
+    [-1, 1],
+  ].map(([a, b]) => [c.pos[0] + fx * hl * a - fy * hw * b, c.pos[1] + fy * hl * a + fx * hw * b] as V2);
+}
+
+/** Do two footprints overlap? (Separating axes of two boxes.) */
+function boxesOverlap(p: V2[], q: V2[]): boolean {
+  for (const box of [p, q]) {
+    for (let i = 0; i < 2; i++) {
+      const ax: V2 = [box[i + 1][0] - box[i][0], box[i + 1][1] - box[i][1]];
+      const on = (pts: V2[]) => pts.map((v) => v[0] * ax[0] + v[1] * ax[1]);
+      const a = on(p);
+      const b = on(q);
+      if (Math.max(...a) < Math.min(...b) || Math.max(...b) < Math.min(...a)) return false;
+    }
+  }
+  return true;
+}
+
+/** Is a point inside a footprint? */
+function inFootprint(pt: V2, box: V2[]): boolean {
+  for (let i = 0; i < 4; i++) {
+    const a = box[i];
+    const b = box[(i + 1) % 4];
+    if ((b[0] - a[0]) * (pt[1] - a[1]) - (b[1] - a[1]) * (pt[0] - a[0]) > 0) return false;
+  }
+  return true;
+}
+
 /** Checks every frame of a scene: the invariants of section 8, and what was seen on the way. */
 class Watch {
   phases: string[] = [];
@@ -172,6 +211,19 @@ class Watch {
         expect(nearestOnLine(c.pos, this.site.drive.pts).d, `${c.id} off the road`).toBeLessThanOrEqual(this.site.drive.width / 2 + 1.5);
       else if (was) parked.push({ id: c.id, pos: c.pos });
       this.seen.set(c.id, c.pos);
+    }
+    // No vehicle is inside another (a hand's breadth is allowed), and none that moves is where somebody stands.
+    // Two vehicles of the incident may touch: they are the ones that crashed.
+    const boxes = f.cars.map((c) => ({ c, box: footprint(c, 0.12), moved: !!this.lastCar.get(c.id) && dist(this.lastCar.get(c.id)!, c.pos) > 0.01 }));
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        if (boxes[i].c.id.startsWith('v:') && boxes[j].c.id.startsWith('v:')) continue;
+        if (dist(boxes[i].c.pos, boxes[j].c.pos) > 12) continue;
+        expect(boxesOverlap(boxes[i].box, boxes[j].box), `${boxes[i].c.id} inside ${boxes[j].c.id} at ${f.t.toFixed(1)}`).toBe(false);
+      }
+      if (!boxes[i].moved) continue;
+      const tight = footprint(boxes[i].c, 0.05);
+      for (const p of f.people) expect(inFootprint(p.pos, tight), `${boxes[i].c.id} drives through ${p.id} at ${f.t.toFixed(1)}`).toBe(false);
     }
     this.lastCar = cars;
     for (let i = 0; i < parked.length; i++) {
@@ -942,5 +994,398 @@ describe('cctv director: incidents of a real shift', () => {
     for (let i = 0; i < n; i++) d.update(sit, DT);
     const each = (performance.now() - t0) / n;
     expect(each).toBeLessThan(1);
+  });
+});
+
+describe('cctv director: what the reviewers found', () => {
+  const T = { timeout: 60_000 };
+  /** A dead end at b: the road stops 25 m past the spot. */
+  const deadEnd = () =>
+    plainSite(
+      [
+        [-140, -5],
+        [25, -5],
+      ],
+      6.5,
+    );
+  const officersOut = (f: Frame) => f.people.filter((p) => p.id.startsWith('o:')).length;
+
+  it('a camera opened while a crew drives up shows it driving, not parked with its officers out', T, () => {
+    const site = siteOf('street', 1);
+    const w = start(site, usual('disorder'));
+    const f = w.step(sitWith([unit('P1', 'near', { eta: 6 })]), DT);
+    expect(w.d.phase).toBe('open');
+    expect(officersOut(f)).toBe(0);
+    expect(dist(f.cars.find((c) => c.id === 'u:P1')!.pos, site.roadSpot)).toBeGreaterThan(30);
+    // Another service that is seconds away is not at work yet either.
+    const w2 = start(site, usual('lying'));
+    const f2 = w2.step(sitWith([unit('P1', 'near', { eta: 5 })], { agencies: [{ agency: 'kiirabi', state: 'near', eta: 5 }] }), DT);
+    expect(f2.people.every((p) => isCast(p.id))).toBe(true);
+    for (let i = 1; i < 60; i++) w.step(sitWith([unit('P1', 'near', { eta: 6 - i * DT })]), DT);
+    w.step(sitWith([unit('P1', 'here')]), 15);
+    expect(w.d.phase).toBe('contact');
+  });
+
+  it('a crew that turns from near back to coming (the clock was slowed) keeps driving up and stops at the spot', T, () => {
+    const site = siteOf('street', 1);
+    const w = start(site, usual('disorder'));
+    w.step(NOBODY, 1);
+    w.step(sitWith([unit('P1', 'near', { eta: 6 })]), 1.5);
+    let far = 0;
+    w.step(sitWith([unit('P1', 'coming')]), 8, (f) => {
+      const car = f.cars.find((c) => c.id === 'u:P1');
+      expect(car, 'the car stays in the picture').toBeDefined();
+      far = Math.max(far, dist(car!.pos, site.roadSpot));
+    });
+    const at = w.seen.get('u:P1')!;
+    expect(dist(at, site.roadSpot)).toBeLessThan(25);
+    w.step(sitWith([unit('P1', 'near', { eta: 3 })]), 3);
+    const f = w.step(sitWith([unit('P1', 'here')]), 20);
+    expect(dist(w.seen.get('u:P1')!, at)).toBeLessThan(0.5);
+    expect(officersOut(f)).toBe(2);
+    expect(w.d.phase).toBe('contact');
+  });
+
+  it('a crew called back while its car pulls away stops again instead of driving out and in', T, () => {
+    const site = siteOf('street', 1);
+    const w = start(site, usual('disorder'));
+    arrive(w, 20);
+    let moved = 0;
+    const stood = w.seen.get('u:P1')!;
+    for (let i = 0; i < 300 && moved < 4; i++) {
+      w.step(sitWith([unit('P1', 'left')]), DT);
+      moved = dist(w.seen.get('u:P1')!, stood);
+    }
+    expect(moved).toBeGreaterThanOrEqual(4);
+    const f = w.step(sitWith([unit('P1', 'here')]), 30, (fr) => expect(fr.cars.some((c) => c.id === 'u:P1'), 'it does not leave the picture').toBe(true));
+    expect(dist(w.seen.get('u:P1')!, site.roadSpot)).toBeLessThan(60);
+    expect(officersOut(f)).toBe(2);
+  });
+
+  it('a crew recalled and sent again before a dead end gets out all the same', T, () => {
+    for (const away of ['coming', 'left'] as const) {
+      const w = start(deadEnd(), usual('disorder'));
+      const from = Math.PI;
+      w.step(NOBODY, 1);
+      w.step(sitWith([unit('P1', 'near', { eta: 6, from })]), 1);
+      w.step(sitWith([unit('P1', away, { from })]), 1);
+      w.step(sitWith([unit('P1', 'near', { eta: 3, from })]), 3);
+      const f = w.step(sitWith([unit('P1', 'here', { from })]), 40);
+      expect(w.d.phase, away).toBe('contact');
+      expect(officersOut(f), away).toBe(2);
+      expect(f.cars.find((c) => c.id === 'u:P1')!.lights.beacons, away).toBe(true);
+    }
+  });
+
+  it('stop: a driver who sits inside is arrested too, even right after contact', T, () => {
+    const site = siteOf('street', 1);
+    const w = start(site, castBy('stop', 'dc', { seed: hash32('r7', 3) }, ['suspect']));
+    w.step(NOBODY, 1);
+    // This seed puts the driver inside the car.
+    expect(w.d.frame().people.some((p) => p.id === 'p:d0')).toBe(false);
+    for (let i = 0; i < 60; i++) w.step(sitWith([unit('P1', 'near', { eta: 6 - i * DT })]), DT);
+    w.step(sitWith([unit('P1', 'here')]), 6);
+    expect(w.d.phase).toBe('contact');
+    let carAt: V2 = [0, 0];
+    w.step(ended('arrest', [unit('P1', 'left', { takes: 'arrest' })]), 150, (f) => {
+      const car = f.cars.find((c) => c.id === 'u:P1');
+      if (car && f.people.some((p) => p.id === 'p:d0')) carAt = car.pos;
+    });
+    expect(w.seen.has('p:d0')).toBe(true);
+    expect(dist(w.seen.get('p:d0')!, carAt)).toBeLessThan(3.2);
+    expect(w.d.phase).toBe('after');
+    // The car of the arrested stays where it stood.
+    expect(w.d.frame().cars.map((c) => c.id)).toEqual(['v:T0']);
+  });
+
+  it('stop: an escape that follows the start of the pursuit by a second still takes the vehicle away', T, () => {
+    for (const seed of [1, 2, 3, 4]) {
+      const site = siteOf('street', 1);
+      const w = start(site, castBy('stop', 'dc', { seed: hash32('flee', seed), mayFlee: true }, ['suspect']));
+      arrive(w, 20);
+      const stood = w.seen.get('v:T0')!;
+      w.step(sitWith([unit('P1', 'left')], { pursuit: 'on' }), 1);
+      w.step(ended('escaped', [unit('P1', 'left')], { pursuit: 'over' }), 150);
+      expect(w.d.phase, `seed ${seed}`).toBe('after');
+      expect(w.d.frame().cars, `seed ${seed}`).toEqual([]);
+      // The driver went with the car: last seen beside it, not walking off.
+      if (w.seen.has('p:d0')) expect(dist(w.seen.get('p:d0')!, stood), `seed ${seed}`).toBeLessThan(4);
+    }
+  });
+
+  it('stop: in a pursuit the police car follows the way the suspect drove', T, () => {
+    for (const from of [0, Math.PI]) {
+      const site = siteOf('street', 1);
+      const w = start(site, castBy('stop', 'dc', { mayFlee: true }, ['suspect']));
+      arrive(w, 15, from);
+      w.step(sitWith([unit('P1', 'left', { from })], { pursuit: 'on' }), 45);
+      expect(w.d.frame().cars, `from ${from}`).toEqual([]);
+      // Both were last seen at the same end of the road.
+      expect(dist(w.seen.get('v:T0')!, w.seen.get('u:P1')!), `from ${from}`).toBeLessThan(40);
+    }
+  });
+
+  it('theft with runners and no vehicle: every thief runs when the police come in sight', T, () => {
+    const site = siteOf('street', 1);
+    const w = start(site, usual('theft', { runs: true }));
+    const f = arrive(w, 30);
+    expect(f.people.filter((p) => p.id.startsWith('p:s')).map((p) => p.id)).toEqual([]);
+    for (const id of ['p:s0', 'p:s1']) expect(dist(w.seen.get(id)!, site.spot), id).toBeGreaterThan(40);
+  });
+
+  it('arrest: every arrested goes into the car of the crew that takes them', T, () => {
+    const site = siteOf('street', 1);
+    const w = start(site, castBy('brawl', 'ssvv'));
+    const crews = (state: UnitSit['state'], takes: UnitSit['takes'] = null) => [
+      unit('P1', state, { crew: ['M'], takes }),
+      unit('P2', state, { from: Math.PI }),
+    ];
+    w.step(NOBODY, 1);
+    for (let i = 0; i < 60; i++) w.step(sitWith(crews('near').map((u) => ({ ...u, eta: 6 - i * DT }))), DT);
+    w.step(sitWith(crews('here')), 25);
+    const p1 = w.seen.get('u:P1')!;
+    const sit = ended('arrest', crews('left', 'arrest').map((u) => (u.id === 'P2' ? { ...u, takes: null } : u)));
+    w.step({ ...sit, outcome: { result: 'arrest', arrests: 2, injuries: 0 } }, 160);
+    for (const id of ['p:s0', 'p:s1']) expect(dist(w.seen.get(id)!, p1), id).toBeLessThan(3.2);
+    expect(w.d.phase).toBe('after');
+  });
+
+  it('threat: everybody keeps eight metres from the weapon, the officers seven', T, () => {
+    for (const [kind, seed] of [
+      ['street', 1],
+      ['street', 4],
+      ['residential', 2],
+      ['parking', 3],
+    ] as [PlaceKind, number][]) {
+      const site = siteOf(kind, seed);
+      const w = start(site, castBy('threat', 'svvcw'));
+      const tag = `${kind} ${seed}`;
+      let near = Infinity;
+      w.step(NOBODY, 40, (f) => {
+        const armed = f.people.find((p) => p.id === 'p:s0')!;
+        for (const p of f.people) if (p.id !== 'p:s0') near = Math.min(near, dist(p.pos, armed.pos));
+      });
+      expect(near, tag).toBeGreaterThanOrEqual(8);
+      // Where the officers stop (not where they walk past on their way), until the suspect gives up.
+      let cops = Infinity;
+      let far = 0;
+      let since = -1;
+      const was = new Map<string, V2>();
+      for (let i = 0; i < 400 && (since < 0 || i < since + 15); i++) {
+        const f = w.step(sitWith([unit('P1', i < 60 ? 'near' : 'here', { eta: Math.max(0, 6 - i * DT) })]), DT);
+        const armed = f.people.find((p) => p.id === 'p:s0')!;
+        for (const p of f.people) {
+          if (!p.id.startsWith('o:')) continue;
+          const d = dist(p.pos, armed.pos);
+          const before = was.get(p.id);
+          if (before && dist(before, p.pos) < 1e-6 && d < 15) {
+            cops = Math.min(cops, d);
+            far = Math.max(far, d);
+          }
+          was.set(p.id, p.pos);
+        }
+        if (since < 0 && w.d.phase === 'contact') since = i;
+      }
+      expect(since, tag).toBeGreaterThan(0);
+      expect(cops, tag).toBeGreaterThanOrEqual(6.9);
+      expect(far, tag).toBeLessThanOrEqual(9.8);
+    }
+  });
+
+  it('a patrol boat is not staged as a car in the street', T, () => {
+    const w = start(siteOf('street', 1), usual('empty'));
+    const f = w.step(sitWith([unit('B1', 'here', { type: 'boat' })]), 10);
+    expect(f.cars).toEqual([]);
+    expect(f.people.every((p) => isCast(p.id))).toBe(true);
+  });
+
+  it('a ride home: the person goes into the car of the crew that drives them', T, () => {
+    const site = siteOf('street', 1);
+    const w = start(site, castBy('disorder', 'sc'));
+    arrive(w, 20);
+    const stood = w.seen.get('u:P1')!;
+    w.step(ended('resolved', [unit('P1', 'left', { takes: 'ride' })]), 150);
+    expect(dist(w.seen.get('p:s0')!, stood)).toBeLessThan(3.2);
+    expect(w.d.phase).toBe('after');
+    expect(w.d.frame().people).toEqual([]);
+  });
+
+  it('hospital: with an ambulance here the patient still goes with the police crew the game sends to hospital', T, () => {
+    const site = siteOf('street', 1);
+    const w = start(site, usual('lying'));
+    const ems = [{ agency: 'kiirabi' as Agency, state: 'here' as const, eta: 0 }];
+    arrive(w, 5);
+    w.step(sitWith([unit('P1', 'here')], { agencies: ems }), 25);
+    const stood = w.seen.get('u:P1')!;
+    w.step(ended('hospital', [unit('P1', 'left', { takes: 'hospital' })], { agencies: ems }), 150);
+    expect(dist(w.seen.get('p:v0')!, stood)).toBeLessThan(3.2);
+    expect(w.d.phase).toBe('after');
+  });
+
+  it('an outcome that comes while the only crew drives up holds it fourteen seconds, not forty', T, () => {
+    const site = siteOf('street', 1);
+    const w = start(site, usual('disorder'));
+    w.step(NOBODY, 1);
+    w.step(sitWith([unit('P1', 'near', { eta: 5 })]), 1);
+    let parkedAt = -1;
+    let leftAt = -1;
+    let was: V2 | null = null;
+    w.step(ended('warning', [unit('P1', 'left')]), 60, (f, t) => {
+      const car = f.cars.find((c) => c.id === 'u:P1');
+      if (car && was && parkedAt < 0 && dist(car.pos, was) < 1e-6) parkedAt = t;
+      if (car && was && parkedAt >= 0 && leftAt < 0 && t > parkedAt + 1 && dist(car.pos, was) > 0.05) leftAt = t;
+      was = car ? car.pos : null;
+    });
+    expect(parkedAt).toBeGreaterThan(0);
+    // Held for the closing scene fourteen seconds from the outcome at most, then the walk back to the car.
+    expect(leftAt).toBeGreaterThan(parkedAt);
+    expect(leftAt).toBeLessThan(14 + 9);
+  });
+
+  it('somebody getting out on the road side walks round the front of the car', T, () => {
+    for (const from of [0, Math.PI]) {
+      const site = siteOf('street', 1);
+      const w = start(site, usual('disorder'));
+      const crew = unit('R1', 'near', { type: 'rapid', crew: ['M', 'M', 'F', 'M'], from });
+      w.step(NOBODY, 1);
+      for (let i = 0; i < 60; i++) w.step(sitWith([{ ...crew, eta: 6 - i * DT }]), DT);
+      w.step(sitWith([{ ...crew, state: 'here' }]), 12, (f) => {
+        const car = f.cars.find((c) => c.id === 'u:R1')!;
+        for (const p of f.people) {
+          if (!p.id.startsWith('o:')) continue;
+          const ahead = (p.pos[0] - car.pos[0]) * Math.cos(car.yaw) + (p.pos[1] - car.pos[1]) * Math.sin(car.yaw);
+          const left = -(p.pos[0] - car.pos[0]) * Math.sin(car.yaw) + (p.pos[1] - car.pos[1]) * Math.cos(car.yaw);
+          // Nobody passes behind the rear bumper on the way from a door.
+          expect(ahead < -2.5 && Math.abs(left) < 0.8, `${p.id} behind the car, from ${from}`).toBe(false);
+        }
+      });
+      expect([...w.seen.keys()].filter((id) => id.startsWith('o:')).length).toBe(4);
+    }
+  });
+
+  it('passing traffic does not drive through the people in the road', { timeout: 120_000 }, () => {
+    const site = siteOf('street', 1);
+    expect(site.drive.deadA || site.drive.deadB).toBe(false);
+    let passed = 0;
+    for (const kind of KINDS) {
+      // The Watch checks every moving vehicle against everybody on stage.
+      const w = new Watch(new Director(site, usual(kind), { night: false }), site);
+      w.step(sitWith([unit('P1', 'here')]), 120);
+      passed += [...w.everCars].filter((id) => id.startsWith('c:')).length;
+      w.step(ended('report', [unit('P1', 'left')]), 40);
+    }
+    // The street is not simply closed: traffic did pass in most scenes.
+    expect(passed).toBeGreaterThan(20);
+  });
+
+  it('crews arriving together, parking, and leaving together never drive through one another', { timeout: 120_000 }, () => {
+    const places: [PlaceKind, number][] = [
+      ['park', 7],
+      ['house', 6],
+      ['street', 2],
+      ['street', 1],
+      ['highway', 8],
+    ];
+    for (const [place, seed] of places) {
+      const site = siteOf(place, seed);
+      for (const kind of KINDS) {
+        const w = start(site, usual(kind));
+        const tag = `${place} ${seed} ${kind}`;
+        const crews = (state: UnitSit['state'], eta = 0) => [unit('P1', state, { eta }), unit('P2', state, { eta, from: Math.PI }), unit('P3', state, { eta })];
+        const ems = (state: 'near' | 'here', eta = 0) => [{ agency: 'kiirabi' as Agency, state, eta }];
+        w.step(NOBODY, 1);
+        // The ambulance and the patrols turn near in the same moment, two of them from the same end.
+        for (let i = 0; i < 40; i++) w.step(sitWith(crews('near', 4 - i * DT), { agencies: ems('near', Math.max(0, 3 - i * DT)) }), DT);
+        w.step(sitWith(crews('here'), { agencies: ems('here') }), 30);
+        expect(w.d.phase, tag).toBe('contact');
+        // Everybody is released at once.
+        w.step(ended('report', crews('left'), { agencies: ems('here') }), 150);
+        expect(w.d.phase, tag).toBe('after');
+        expect(
+          w.d.frame().cars.filter((c) => !c.id.startsWith('v:')),
+          tag,
+        ).toEqual([]);
+      }
+    }
+  });
+
+  it('a yard too short for every car: nobody parks on top of another, the rest stay out of the picture', T, () => {
+    const site = plainSite(
+      [
+        [-15, -5],
+        [15, -5],
+      ],
+      4.6,
+      [box(-9, 1, 9, 10)],
+    );
+    for (const n of [5, 12]) {
+      const w = start(site, usual('disorder'));
+      const ids = Array.from({ length: n }, (_, i) => `P${i}`);
+      const crews = (state: UnitSit['state'], eta = 0) => ids.map((id, i) => unit(id, state, { eta, from: i % 2 ? 0 : Math.PI }));
+      w.step(NOBODY, 1);
+      for (let i = 0; i < 50; i++) w.step(sitWith(crews('near', 5 - i * DT)), DT);
+      const f = w.step(sitWith(crews('here')), 40);
+      expect(w.d.phase).toBe('contact');
+      expect(f.cars.filter((c) => c.id.startsWith('u:')).length).toBeGreaterThanOrEqual(2);
+      w.step(ended('report', crews('left')), 200);
+      expect(w.d.phase, `${n} units`).toBe('after');
+      expect(w.d.frame().cars, `${n} units`).toEqual([]);
+    }
+  });
+
+  it('a crash beside a dead end: the crews come from the side they can reach, not through the wrecks', T, () => {
+    const site = plainSite(
+      [
+        [-2, -5],
+        [80, -5],
+      ],
+      6.5,
+    );
+    const w = start(site, usual('crash'));
+    const crews = (state: UnitSit['state'], eta = 0) => [unit('P1', state, { eta, from: Math.PI }), unit('P2', state, { eta, from: 0 })];
+    w.step(NOBODY, 1);
+    for (let i = 0; i < 50; i++) w.step(sitWith(crews('near', 5 - i * DT)), DT);
+    const f = w.step(sitWith(crews('here')), 30);
+    expect(f.cars.filter((c) => c.id.startsWith('u:')).length).toBe(2);
+    expect(w.d.phase).toBe('contact');
+    w.step(ended('report', crews('left')), 150);
+    expect(w.d.phase).toBe('after');
+  });
+
+  it('the picture does not depend on how time is cut into frames', T, () => {
+    const run = (cut: number[]) => {
+      const site = siteOf('street', 1);
+      const d = new Director(site, usual('brawl'), { night: false });
+      const sits: Situation[] = [];
+      for (let i = 0; i < 300; i++)
+        sits.push(i < 20 ? NOBODY : i < 80 ? sitWith([unit('P1', 'near', { eta: 8 - i * DT })]) : i < 200 ? sitWith([unit('P1', 'here')]) : ended('fine', [unit('P1', 'left')]));
+      for (const sit of sits) for (const part of cut) d.update(sit, DT * part);
+      return JSON.stringify(d.frame());
+    };
+    const whole = run([1]);
+    expect(run([0.5, 0.5])).toBe(whole);
+    expect(run([0.25, 0.25, 0.25, 0.25])).toBe(whole);
+    expect(run([0.3, 0.7])).toBe(whole);
+  });
+
+  it('between two steps the picture moves smoothly', T, () => {
+    const site = siteOf('street', 1);
+    const d = new Director(site, usual('disorder'), { night: false, quiet: true });
+    d.update(NOBODY, DT);
+    let was: V2 | null = null;
+    let most = 0;
+    let least = Infinity;
+    for (let i = 0; i < 240; i++) {
+      d.update(sitWith([unit('P1', 'near', { eta: 6 - i / 60 })]), 1 / 60);
+      const car = d.frame().cars.find((c) => c.id === 'u:P1');
+      if (car && was && i > 30 && i < 150) {
+        most = Math.max(most, dist(car.pos, was));
+        least = Math.min(least, dist(car.pos, was));
+      }
+      was = car ? car.pos : null;
+    }
+    // A car at ten or twenty metres a second moves a little every sixtieth of a second, not a metre every tenth.
+    expect(most).toBeLessThan(0.6);
+    expect(least).toBeGreaterThan(0.01);
   });
 });

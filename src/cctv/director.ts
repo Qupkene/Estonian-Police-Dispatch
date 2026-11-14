@@ -53,10 +53,24 @@ const OUT_M = 60;
 /** Opening a camera runs the scene forward this long, in steps of this. */
 const SETTLE_S = 90;
 const SETTLE_DT = 0.2;
-/** The crews wait this long at most for the closing scene before they leave. */
+/** The crews wait this long at most, from the outcome on, for the closing scene before they leave. */
 const HOLD_S = 14;
 /** Roads narrower than this have one lane. */
 const NARROW_M = 5.4;
+/** An armed suspect paces this far to either side of their place. */
+const PACE_M = 1;
+/** A vehicle moves sideways at about this speed, m/s, when it changes its lane. */
+const SIDE_V = 1.2;
+/** The width of road a vehicle needs to get through between two that stand at opposite kerbs. */
+const PASS_M = 3.5;
+/** Passing something that stands in the road, a vehicle keeps this far from it. */
+const BERTH_M = 0.8;
+/** The speed, m/s, at which a vehicle creeps out round what stands before it. */
+const CREEP_V = 1.6;
+/** A stopping place keeps this much room to the vehicles standing before and behind it: enough to pull out forwards. */
+const ROOM_M = 5;
+/** A vehicle that cannot get on for this long goes on regardless, slowly (nobody waits in the road for ever). */
+const STUCK_S = 8;
 /** Seconds a car takes to turn round where it stands. */
 const UTURN_S = 3.4;
 /** Roads with traffic passing through. */
@@ -167,6 +181,12 @@ interface Car {
   braking: boolean;
   /** A crashed vehicle standing in the carriageway. */
   wreck: boolean;
+  /** Metres it still backs off before it drives on (a wreck coming free of the other one). */
+  back: number;
+  /** Seconds it has stood behind something in its way. */
+  wait: number;
+  /** Who is on their way to get in: it does not leave without them. */
+  due: Body[];
   x: number;
   y: number;
   yaw: number;
@@ -213,9 +233,19 @@ interface Wander {
   rest: Act;
 }
 
+/** Somebody in the carriageway, in the drive line's frame. */
+interface RoadBody {
+  b: Body;
+  s: number;
+  lat: number;
+  still: boolean;
+}
+
 interface Timer {
   t: number;
   fn: () => void;
+  /** Part of the scene before its end (a fall, a surrender): dropped when the closing scene starts. */
+  scene: boolean;
 }
 
 export class Director {
@@ -259,6 +289,8 @@ export class Director {
   private pairs: Pair[] = [];
   private wanders: Wander[] = [];
   private timers: Timer[] = [];
+  /** Who is in the carriageway in this step (worked out when a moving vehicle first asks). */
+  private road: RoadBody[] | null = null;
   private smoke: { at: V2; height: number; strength: number } | null = null;
 
   private contact = false;
@@ -270,6 +302,8 @@ export class Director {
   private playT = 0;
   private playMin = 0;
   private fled = false;
+  /** The way the suspect's vehicle made off, once it has. */
+  private fleeDir: 1 | -1 | 0 = 0;
   private runner: Body | null = null;
   private patient: Body | null = null;
   private stopCar: Car | null = null;
@@ -315,7 +349,17 @@ export class Director {
   update(sit: Situation, dt: number): void {
     if (!this.started) {
       this.started = true;
-      for (let i = 0, n = Math.round(SETTLE_S / SETTLE_DT); i < n; i++) this.tick(sit, SETTLE_DT);
+      // Whoever is seconds away has not come yet: the settled stage shows them still out of sight, and the first
+      // live step lets them drive up with the time the game gives them.
+      const near = sit.units.some((u) => u.state === 'near') || sit.agencies.some((a) => a.state === 'near');
+      const before: Situation = near
+        ? {
+            ...sit,
+            units: sit.units.map((u) => (u.state === 'near' ? { ...u, state: 'coming', eta: 0 } : u)),
+            agencies: sit.agencies.map((a) => (a.state === 'near' ? { ...a, state: 'coming', eta: 0 } : a)),
+          }
+        : sit;
+      for (let i = 0, n = Math.round(SETTLE_S / SETTLE_DT); i < n; i++) this.tick(before, SETTLE_DT);
     }
     if (sit.paused || !(dt > 0)) return;
     // A long gap (a hidden tab) is not played out in full: the scene picks up where it was.
@@ -359,6 +403,7 @@ export class Director {
     this.t += dt;
     this.tickNo++;
     this.sit = sit;
+    this.road = null;
     this.follow(sit);
     this.story(sit, dt);
     for (let i = this.crews.length - 1; i >= 0; i--) this.runCrew(this.crews[i], dt);
@@ -371,8 +416,8 @@ export class Director {
   /** Read the game's word: who is coming, who has to go. */
   private follow(sit: Situation): void {
     for (const u of sit.units) {
-      // A helicopter does not park in the street.
-      if (u.type === 'heli') continue;
+      // A helicopter does not park in the street, and a boat does not drive up it.
+      if (u.type === 'heli' || u.type === 'boat') continue;
       const key = `u:${u.id}`;
       this.live.set(key, this.tickNo);
       const cr = this.crewBy.get(key);
@@ -381,15 +426,27 @@ export class Director {
         if (wanted) this.spawnUnit(u, key);
         continue;
       }
-      if (wanted) {
-        cr.wantLeave = false;
-        if (cr.state === 'boarding') this.unboard(cr);
-        if (u.state === 'here' && cr.state === 'arriving' && cr.car.eta > 3) this.plan(cr.car, 3);
-      } else {
+      if (u.state === 'left') {
         cr.wantLeave = true;
         cr.takes = u.takes;
         cr.run = sit.pursuit === 'on';
+        continue;
       }
+      // 'coming' for a crew already in the picture (the clock was slowed, the crew was routed anew) is not a
+      // reason to go: it keeps doing what it does. Only 'left' sends a crew away.
+      cr.wantLeave = false;
+      if (cr.through) {
+        // It was told to go before it stopped, and is wanted after all: its officers get out as usual.
+        cr.through = false;
+        if (cr.state === 'here') {
+          cr.out = 0;
+          cr.clock = 0;
+        }
+      }
+      if (!wanted) continue;
+      if (cr.state === 'boarding') this.unboard(cr);
+      else if (cr.state === 'leaving') this.callBack(cr);
+      if (u.state === 'here' && cr.state === 'arriving' && cr.car.eta > 3) this.plan(cr.car, 3);
     }
     for (const a of sit.agencies) {
       const key = `a:${a.agency}`;
@@ -423,7 +480,7 @@ export class Director {
     }
     if (this.over && !this.played) {
       this.overT += dt;
-      if (!this.playing && (this.contact || !this.policeAround() || this.overT > 25)) this.startPlay(sit);
+      if (!this.playing && (this.contact || !this.policeAround() || this.overT > HOLD_S)) this.startPlay(sit);
       if (this.playing) {
         this.playT += dt;
         if ((this.playT >= this.playMin && !this.bodies.some((b) => b.duty && !b.gone)) || this.playT > 60) {
@@ -637,6 +694,8 @@ export class Director {
           b.steps.shift();
           continue;
         }
+        // Never under a moving vehicle: they let it pass (whoever is in its way already walks on, out of it).
+        if (this.inTheWay(b.x, b.y, nx, ny)) break;
         this.stride(b, st.gait, dx, dy, d * k, dt);
         b.x = nx;
         b.y = ny;
@@ -705,6 +764,37 @@ export class Director {
     }
   }
 
+  /**
+   * Would a step from one place to another take somebody into the way of a vehicle that moves just now: into the
+   * stretch before it, or nearer to its side than an arm's length?
+   */
+  private inTheWay(x0: number, y0: number, x1: number, y1: number): boolean {
+    for (const c of this.cars) {
+      if ((c.mode !== 'drive' || c.v < 0.05) && c.mode !== 'turn') continue;
+      const hl = c.size.length / 2;
+      const hw = c.size.width / 2;
+      if (Math.abs(x1 - c.x) + Math.abs(y1 - c.y) > hl + 20) continue;
+      if (c.mode === 'turn') {
+        const r = hl + 0.8;
+        if (Math.hypot(x1 - c.x, y1 - c.y) < r && Math.hypot(x0 - c.x, y0 - c.y) >= r) return true;
+        continue;
+      }
+      const co = Math.cos(c.yaw);
+      const si = Math.sin(c.yaw);
+      /** Ahead of its middle, to its left, and how far from its body. */
+      const at = (x: number, y: number): [number, number, number] => {
+        const f = (x - c.x) * co + (y - c.y) * si;
+        const l = -(x - c.x) * si + (y - c.y) * co;
+        return [f, l, Math.hypot(Math.max(0, Math.abs(f) - hl), Math.max(0, Math.abs(l) - hw))];
+      };
+      const zone = (f: number, l: number) => f > -hl - 0.3 && f < hl + 0.8 + c.v * 0.8 && Math.abs(l) < hw + 0.5;
+      const [f0, l0, d0] = at(x0, y0);
+      const [f1, l1, d1] = at(x1, y1);
+      if ((zone(f1, l1) && !zone(f0, l0)) || (d1 < 0.6 && d1 < d0)) return true;
+    }
+    return false;
+  }
+
   /** Is the body moved by a fight or by pacing just now? */
   private free(b: Body): boolean {
     for (const w of this.wanders) if (w.b === b) return true;
@@ -748,7 +838,10 @@ export class Director {
     b.steps.push(go(to, gait));
   }
 
-  /** Walk to a point beside a vehicle, or away from one: round its front, not through it. */
+  /**
+   * Walk to a point beside a vehicle, or away from one, not through it: somebody who starts at one of its doors
+   * goes round its front, anybody else round the nearer end.
+   */
   private past(b: Body, car: Car, to: V2, gait: Gait): void {
     const a = this.endOf(b);
     const fx = Math.cos(car.yaw);
@@ -761,7 +854,9 @@ export class Director {
       const f = (a[0] + (to[0] - a[0]) * k - car.x) * fx + (a[1] + (to[1] - a[1]) * k - car.y) * fy;
       const half = car.size.length / 2 + 0.7;
       if (Math.abs(f) < half) {
-        const end = f >= -0.5 ? half : -half;
+        const fa = (a[0] - car.x) * fx + (a[1] - car.y) * fy;
+        const atDoor = Math.abs(fa) < car.size.length / 2 && Math.abs(la) < car.size.width / 2 + 0.9;
+        const end = atDoor || f >= -0.5 ? half : -half;
         const w = car.size.width / 2 + 0.6;
         const sa = la > 0 ? w : -w;
         const p1: V2 = [car.x + fx * end - fy * sa, car.y + fy * end + fx * sa];
@@ -856,6 +951,25 @@ export class Director {
     return this.safe([m[0] + Math.cos(a) * rad, m[1] + Math.sin(a) * rad]);
   }
 
+  /**
+   * A place out of the carriageway: the point itself, or the place beside it `margin` metres behind the kerb (of
+   * its own side of the road, or of `side`). Passing traffic has the road.
+   */
+  private offRoad(p: V2, margin: number, side: 1 | -1 | 0 = 0): V2 {
+    const n = nearestOnLine(p, this.site.drive.pts);
+    const need = this.width / 2 + margin;
+    if (n.d >= need) return p;
+    const own = n.d > 0.3 ? (cross(n.dir, sub(p, n.pt)) >= 0 ? 1 : -1) : this.site.side;
+    const q = onDrive(this.site.drive, n.s, (side || own) * need).pos;
+    return this.wall(q[0], q[1]) ? p : q;
+  }
+
+  /** Which side of the road a point is on: 1 left of the drive line, -1 right. */
+  private sideOf(p: V2): 1 | -1 {
+    const n = nearestOnLine(p, this.site.drive.pts);
+    return cross(n.dir, sub(p, n.pt)) >= 0 ? 1 : -1;
+  }
+
   private post(at: V2, a: Act, face: V2 | null, enter = false): void {
     this.posts.push({ at, face, act: a, enter, by: null });
   }
@@ -920,7 +1034,7 @@ export class Director {
       const first = this.pairs[0]?.home ?? spot;
       a.slice(np).forEach((x, i) => this.stand(x, this.safe(this.local(1.5 + i * 1.3, 1.6)), 'argue', first));
       b.slice(np).forEach((x, i) => this.stand(x, this.safe(this.local(-2.5 - i * 1.2, 1.4)), 'cower', first));
-      if (c.down && np) this.timers.push({ t: 5, fn: () => this.knockDown() });
+      if (c.down && np) this.timers.push({ t: 5, scene: true, fn: () => this.knockDown() });
       if (c.runs && sus.length) this.runner = sus[sus.length - 1];
       for (const x of sus) this.post(this.beside(x.mark, 0), 'guard', x.mark);
       if (b.length) this.post(c.down ? this.beside(b[0].mark, 1, 0.8) : this.beside(b[0].mark, 1), c.down ? 'aid' : 'notes', b[0].mark);
@@ -932,7 +1046,7 @@ export class Director {
       const m = this.safe(this.local(0, 0.2), 1);
       if (armed) {
         this.stand(armed, m, 'brandish', this.site.roadSpot);
-        this.wanders.push({ b: armed, axis: this.u, amp: 2.4, rate: 0.35, gait: 'walk', rest: 'brandish' });
+        this.wanders.push({ b: armed, axis: this.u, amp: PACE_M, rate: 0.5, gait: 'walk', rest: 'brandish' });
         others.delete(armed);
       }
       sus.slice(1).forEach((x, i) => this.stand(x, this.safe(this.local(1.6 + i * 1.2, 0.9)), 'argue', this.site.roadSpot));
@@ -942,16 +1056,34 @@ export class Director {
           this.stand(b, this.safe(this.local(2.6, 0.5)), 'lie');
           return;
         }
-        // They start nearer and back away.
+        // Eight metres and more from wherever the weapon goes: they start a little nearer and back away. A wall
+        // on one side sends them to the other.
         const sg = i % 2 ? 1 : -1;
-        this.stand(b, this.safe(this.local(sg * 5.5, 0.4)), 'cower', m);
-        b.steps.push(go(this.safe(this.local(sg * (9 + 1.2 * (i >> 1)), 0.4)), 'back'));
+        const keep = 8.4 + PACE_M;
+        let to = m;
+        for (const d of [keep + 1.2 * (i >> 1), -(keep + 1.2 * (i >> 1)), keep + 3 + 1.2 * (i >> 1), -(keep + 3 + 1.2 * (i >> 1))]) {
+          to = this.safe(this.local(sg * d, 0.4));
+          if (dist(to, m) >= keep) break;
+        }
+        const from = lerp2(to, m, 2 / Math.max(2, dist(to, m)));
+        this.stand(b, this.wall(from[0], from[1]) || !clearLine(this.site.street, from, to) ? to : from, 'cower', m);
+        b.steps.push(go(to, 'back'));
       });
-      // Officers stop well short of the weapon, towards the road.
+      // Officers stop well short of the weapon, towards the road: seven to nine metres from where it paces.
       const base = Math.atan2(-this.n[1], -this.n[0]);
       for (let k = 0; k < 4; k++) {
-        const ang = base + [0.35, -0.35, 0.9, -0.9][k];
-        this.post(this.safe([m[0] + Math.cos(ang) * (7.5 + (k % 2)), m[1] + Math.sin(ang) * (7.5 + (k % 2))]), 'aim', m);
+        const off = [0.35, -0.35, 0.9, -0.9][k];
+        const rad = 8 + 0.6 * (k % 2);
+        // The place itself, or one on the same ring that is free and has the suspect in sight.
+        let at: V2 | null = null;
+        for (const a of [off, off / 2, -off, off * 1.5, -off * 1.5]) {
+          const p: V2 = [m[0] + Math.cos(base + a) * rad, m[1] + Math.sin(base + a) * rad];
+          if (this.roomAt(p, 0) && clearLine(this.site.street, p, m) && !this.posts.some((q) => dist(q.at, p) < 1)) {
+            at = p;
+            break;
+          }
+        }
+        this.post(at ?? this.safe([m[0] + Math.cos(base + off) * rad, m[1] + Math.sin(base + off) * rad]), 'aim', m);
       }
       if (c.runs && armed) this.runner = armed;
     } else if (kind === 'disorder') {
@@ -1113,11 +1245,12 @@ export class Director {
       }
     } else if (kind === 'crowd') {
       const extras = of('extra');
-      const centre = this.safe(this.local(0, Math.max(0.5, 2.6 - this.kerbD)), 1.5);
+      // Far enough from the kerb for the cluster and the line of officers before it: the road stays free.
+      const centre = this.safe(this.local(0, Math.max(0.5, 4.4 - this.kerbD)), 1.5);
       extras.forEach((b, i) => {
         const rad = 3 * Math.sqrt((i + 0.5) / extras.length);
         const ang = i * 2.4;
-        const p = this.safe([centre[0] + Math.cos(ang) * rad, centre[1] + Math.sin(ang) * rad]);
+        const p = this.offRoad(this.safe([centre[0] + Math.cos(ang) * rad, centre[1] + Math.sin(ang) * rad]), 0.9);
         const a: Act = c.chant && hash01(b.seed, 1) < 0.6 ? 'chant' : hash01(b.seed, 2) < 0.12 ? 'argue' : hash01(b.seed, 3) < 0.5 ? 'talk' : 'idle';
         this.stand(b, p, a, this.site.roadSpot);
       });
@@ -1142,16 +1275,15 @@ export class Director {
       [...sus, ...vic, ...drv].forEach((b, i) =>
         this.stand(
           b,
-          this.safe([centre[0] + this.u[0] * (i - 1) * 1.2 - this.n[0] * 2.2, centre[1] + this.u[1] * (i - 1) * 1.2 - this.n[1] * 2.2]),
+          this.offRoad(this.safe([centre[0] + this.u[0] * (i - 1) * 1.2 - this.n[0] * 2.2, centre[1] + this.u[1] * (i - 1) * 1.2 - this.n[1] * 2.2]), 0.9),
           b.role === 'suspect' ? 'argue' : 'idle',
           this.site.roadSpot,
         ),
       );
-      // A line between the crowd and the road.
-      const back = Math.min(3.8, Math.max(1.2, this.kerbD + 2.2));
+      // A line between the crowd and the road, behind the kerb.
       for (let k = 0; k < 8; k++) {
         const off = ((k >> 1) + 0.5) * 1.5 * (k % 2 ? -1 : 1);
-        this.post(this.safe([centre[0] + this.u[0] * off - this.n[0] * back, centre[1] + this.u[1] * off - this.n[1] * back]), 'guard', centre);
+        this.post(this.offRoad(this.safe([centre[0] + this.u[0] * off - this.n[0] * 3.8, centre[1] + this.u[1] * off - this.n[1] * 3.8]), 0.5), 'guard', centre);
       }
       lookOn([...byst], 9);
     } else {
@@ -1165,16 +1297,18 @@ export class Director {
         height = 1.2;
       }
       this.smoke = { at: src, height, strength: 1 };
-      const centre = this.safe([src[0] + out[0] * 11, src[1] + out[1] * 11], 1);
+      // The onlookers stand on a pavement, the officers before them at its kerb: the road stays free.
+      const centre = this.offRoad(this.safe([src[0] + out[0] * 11, src[1] + out[1] * 11], 1), 2);
+      const side = this.sideOf(centre);
       const tan: V2 = [-out[1], out[0]];
       const crowd = all;
       crowd.forEach((b, i) => {
         const off = (i - (crowd.length - 1) / 2) * 1.25;
-        const p = this.safe([centre[0] + tan[0] * off + out[0] * 0.5 * (i % 2), centre[1] + tan[1] * off + out[1] * 0.5 * (i % 2)]);
+        const p = this.offRoad(this.safe([centre[0] + tan[0] * off + out[0] * 0.5 * (i % 2), centre[1] + tan[1] * off + out[1] * 0.5 * (i % 2)]), 1.6, side);
         this.stand(b, p, b.role === 'caller' ? 'phone' : cold ? 'cold' : hash01(b.seed, 4) < 0.5 ? 'point' : 'idle', src);
       });
-      this.post(this.safe([centre[0] - out[0] * 2.6, centre[1] - out[1] * 2.6]), 'direct', centre);
-      this.post(this.safe([centre[0] - out[0] * 2.6 + tan[0] * 3.2, centre[1] - out[1] * 2.6 + tan[1] * 3.2]), 'guard', centre);
+      this.post(this.offRoad(this.safe([centre[0] - out[0] * 2.6, centre[1] - out[1] * 2.6]), 0.5, side), 'direct', centre);
+      this.post(this.offRoad(this.safe([centre[0] - out[0] * 2.6 + tan[0] * 3.2, centre[1] - out[1] * 2.6 + tan[1] * 3.2]), 0.5, side), 'guard', centre);
     }
     // Other vehicles of the incident stand at the kerb where the kind shows them.
     if (kind === 'brawl' || kind === 'threat' || kind === 'disorder') {
@@ -1244,6 +1378,11 @@ export class Director {
     const run = this.runner;
     if (run && !run.gone && !run.hidden && !run.duty) {
       if (this.stopCar && this.kind === 'theft') this.flee();
+      else if (this.kind === 'theft') {
+        // The thieves run together.
+        for (const b of this.bodies)
+          if (b.kind === 'cast' && b.role === 'suspect' && !b.gone && !b.hidden && !b.duty && !b.leaving) this.leave(b, 'run', car.dir);
+      }
       // Away from the car that comes.
       else this.leave(run, 'run', car.dir);
     }
@@ -1277,6 +1416,7 @@ export class Director {
       const armed = w.b;
       this.timers.push({
         t: 2 + 2 * hash01(armed.seed, 6),
+        scene: true,
         fn: () => {
           if (armed.gone || armed.duty) return;
           this.release(armed);
@@ -1316,45 +1456,51 @@ export class Director {
       const car = this.stopCar;
       if (d && car && d.aboard) {
         // A driver who sat inside gets out after a while and comes round to the pavement.
-        this.timers.push({
-          t: 6,
-          fn: () => {
-            if (!d.aboard || d.gone || car.mode !== 'park' || this.over) return;
-            const kerb = this.kerbSide(car);
-            const p = this.carPoint(car, 0.45, -kerb * (car.size.width / 2 + 0.55));
-            d.x = p[0];
-            d.y = p[1];
-            d.hidden = false;
-            d.aboard = false;
-            car.riders = car.riders.filter((x) => x !== d);
-            const to = this.safe(this.carPoint(car, 0.9, kerb * (car.size.width / 2 + 0.75)));
-            d.mark = to;
-            this.past(d, car, to, this.cast.drunk ? 'stagger' : 'walk');
-            d.steps.push(act(this.cast.drunk ? 'sway' : 'talk', 0, this.site.roadSpot));
-            const o = this.bodies.find((b) => b.kind === 'police' && b.act === 'lean' && !b.duty);
-            if (o) {
-              o.steps.length = 0;
-              this.past(o, car, this.beside(to, 1), 'walk');
-              o.steps.push(act('notes', 0, to));
-            }
-          },
-        });
+        this.timers.push({ t: 6, scene: true, fn: () => this.driverOut() });
       }
+    }
+  }
+
+  /** In a stop, the driver who sat inside gets out and comes round to the pavement; the officer at the window follows. */
+  private driverOut(): void {
+    const d = this.stopDriver;
+    const car = this.stopCar;
+    if (!d || !car || !d.aboard || d.gone || car.mode !== 'park') return;
+    const kerb = this.kerbSide(car);
+    const p = this.carPoint(car, 0.45, -kerb * (car.size.width / 2 + 0.55));
+    d.x = p[0];
+    d.y = p[1];
+    d.hidden = false;
+    d.aboard = false;
+    car.riders = car.riders.filter((x) => x !== d);
+    const to = this.safe(this.carPoint(car, 0.9, kerb * (car.size.width / 2 + 0.75)));
+    d.mark = to;
+    this.past(d, car, to, this.cast.drunk ? 'stagger' : 'walk');
+    d.steps.push(act(this.cast.drunk ? 'sway' : 'talk', 0, this.site.roadSpot));
+    const o = this.bodies.find((b) => b.kind === 'police' && b.act === 'lean' && !b.duty);
+    if (o) {
+      o.steps.length = 0;
+      this.past(o, car, this.beside(to, 1), 'walk');
+      o.steps.push(act('notes', 0, to));
     }
   }
 
   // -------------------------------------------------------------------------- how it ends
 
   private castOnStage(): Body[] {
-    return this.bodies.filter((b) => b.kind === 'cast' && !b.gone && !b.aboard && !b.leaving);
+    return this.bodies.filter((b) => b.kind === 'cast' && !b.gone && !b.aboard && !b.leaving && !b.duty);
   }
 
-  /** The officers on foot (or behind the door), those whose car takes somebody along first. */
-  private officers(take: UnitSit['takes']): Body[] {
-    const list = this.bodies.filter(
+  /** The officers on foot (or behind the door). */
+  private officers(): Body[] {
+    return this.bodies.filter(
       (b) => b.kind === 'police' && !b.gone && !b.aboard && b.crew && (b.crew.state === 'here' || b.crew.state === 'boarding'),
     );
-    return list.sort((a, b) => Number(b.crew?.takes === take) - Number(a.crew?.takes === take));
+  }
+
+  /** The police crew that stands here and leaves with somebody aboard, if the game names one. */
+  private taker(take: UnitSit['takes']): Crew | null {
+    return this.crews.find((cr) => cr.police && cr.takes === take && (cr.state === 'here' || cr.state === 'boarding') && !cr.through) ?? null;
   }
 
   private startPlay(sit: Situation): void {
@@ -1362,17 +1508,24 @@ export class Director {
     this.playT = 0;
     this.playMin = 1;
     const result = sit.outcome?.result ?? null;
-    const folk = this.castOnStage();
-    // Fights and pacing are over.
+    // Fights and pacing are over, and so is whatever the scene had in store; what belongs to the end (a vehicle
+    // about to make off) goes on.
     const fighters = this.pairs.flatMap((p) => [p.a, p.b]);
     this.pairs = [];
     this.wanders = [];
-    this.timers = [];
+    this.timers = this.timers.filter((tm) => !tm.scene);
     for (const b of fighters) if (!b.steps.length) b.steps.push(act(b.role === 'suspect' ? 'stand' : 'idle'));
+    // Whoever is arrested out of a stopped car gets out of it first.
+    if (result === 'arrest' && this.officers().length && !this.bodies.some((b) => b.kind === 'cast' && b.role === 'suspect' && !b.gone && !b.aboard))
+      this.driverOut();
+    const folk = this.castOnStage();
     const down = (b: Body) => DOWN.has(b.act) || b.steps.some((s) => s.k === 'act' && DOWN.has(s.act));
 
     if (result === 'arrest') {
-      const offs = this.officers('arrest');
+      // Everybody arrested goes with the crew the game sends to the cells; any crew will do when it names none.
+      const all = this.officers();
+      const takers = all.filter((o) => o.crew?.takes === 'arrest');
+      const offs = takers.length ? takers : all;
       const suspects = folk.filter((b) => b.role === 'suspect');
       const held = (suspects.length ? suspects : folk.filter((b) => b.role === 'driver')).slice(0, Math.max(1, sit.outcome?.arrests ?? 1));
       held.forEach((s, i) => {
@@ -1395,7 +1548,7 @@ export class Director {
         this.fresh(run);
         this.leave(run, 'run');
         const way = this.endOf(run);
-        const o = this.officers(null).find((b) => !b.hidden);
+        const o = this.officers().find((b) => !b.hidden);
         if (o) {
           // The nearest officer runs a few metres after them and comes back.
           const back: V2 = [o.x, o.y];
@@ -1451,14 +1604,25 @@ export class Director {
     }
     if (result) {
       // A word and a note, then everybody goes their own way.
-      const o = this.officers(null).find((b) => !b.hidden && !b.steps.length);
+      const o = this.officers().find((b) => !b.hidden && !b.steps.length);
       const main = folk.find((b) => !b.hidden && (b.role === 'suspect' || b.role === 'driver')) ?? folk.find((b) => !b.hidden);
       if (o) {
         if (main && dist([o.x, o.y], [main.x, main.y]) < 4) o.face = [main.x, main.y];
         o.steps.push(act('notes', 4), act('guard'));
       }
       this.playMin = o ? 5 : 1;
-      this.disperse(folk, o ? 4.5 : 1, false, true);
+      // A crew that drives somebody home or to a station: the one it is about gets into its car.
+      const ride = this.taker('ride');
+      const guest = ride
+        ? (folk.find((b) => !b.hidden && (b.role === 'suspect' || b.role === 'victim')) ?? folk.find((b) => b.role === 'suspect' || b.role === 'victim') ?? null)
+        : null;
+      if (ride && guest) this.giveRide(guest, ride, o ? 4.5 : 1);
+      this.disperse(
+        folk.filter((b) => b !== guest),
+        o ? 4.5 : 1,
+        false,
+        true,
+      );
       return;
     }
     // Closed without a crew's doing: the people drift away.
@@ -1524,17 +1688,15 @@ export class Director {
   private toHospital(p: Body): void {
     const amb = this.crewBy.get('a:kiirabi');
     const wasDown = DOWN.has(p.act);
-    const ride =
-      amb && amb.state === 'here' && !amb.through
-        ? amb
-        : (this.crews.find((cr) => cr.police && cr.takes === 'hospital' && (cr.state === 'here' || cr.state === 'boarding')) ?? null);
+    // The crew the game sends to hospital takes them; else the ambulance that stands here.
+    const ride = this.taker('hospital') ?? (amb && amb.state === 'here' && !amb.through ? amb : null);
     if (!ride) {
       if (p.hidden) return;
       this.release(p);
       p.steps.length = 0;
       p.steps.push(act('sit'));
       this.patient = p;
-      const o = this.officers(null).find((b) => !b.hidden && !b.duty);
+      const o = this.officers().find((b) => !b.hidden && !b.duty);
       if (o) {
         o.steps.length = 0;
         this.route(o, this.beside([p.x, p.y], 0, 0.8), 'walk');
@@ -1599,6 +1761,31 @@ export class Director {
     });
   }
 
+  /** Somebody is driven home (or to a station): after a word they walk to the crew's car and get in at the back. */
+  private giveRide(p: Body, cr: Crew, after: number): void {
+    const car = cr.car;
+    const wasDown = DOWN.has(p.act);
+    this.fresh(p);
+    p.duty = true;
+    p.inRoad = false;
+    p.steps.push(wait(after));
+    if (wasDown) p.steps.push(act('sit', 1.6), act('stand', 0.7));
+    else p.steps.push(act('stand'));
+    p.steps.push(
+      call(() => {
+        this.past(p, car, this.carPoint(car, -0.75, this.kerbSide(car) * (car.size.width / 2 + 0.6)), this.cast.drunk ? 'stagger' : 'walk');
+        p.steps.push(
+          call(() => {
+            p.hidden = true;
+            p.aboard = true;
+            p.duty = false;
+            car.riders.push(p);
+          }),
+        );
+      }),
+    );
+  }
+
   /**
    * The people of the incident go their own way, one after another from `first` seconds on. Residents go in at the
    * door, drivers drive off (`drive`), drunk people stagger; somebody on the ground sits up first.
@@ -1625,6 +1812,7 @@ export class Director {
       b.inRoad = false;
       const car = drive ? this.rideOf(b, drivers) : null;
       if (car) {
+        car.due.push(b);
         b.steps.push(
           call(() => {
             this.past(b, car, this.carPoint(car, 0.45, -this.kerbSide(car) * (car.size.width / 2 + 0.55)), 'walk');
@@ -1655,7 +1843,7 @@ export class Director {
       for (const car of this.cars) {
         if (car.kind !== 'cast' || car.mode !== 'park') continue;
         if (this.kind === 'crash' ? this.cast.down || this.cast.single : car !== this.stopCar) continue;
-        this.timers.push({ t: Math.max(10, last + 4) + 3 * k++, fn: () => this.pullOut(car, false) });
+        this.timers.push({ t: Math.max(10, last + 4) + 3 * k++, scene: false, fn: () => this.pullOut(car, false) });
       }
     }
   }
@@ -1675,10 +1863,18 @@ export class Director {
   /** A vehicle of the incident drives away. */
   private pullOut(car: Car, hard: boolean): void {
     if (car.mode !== 'park') return;
+    if (!this.canPullOut(car, 0, 0.3)) {
+      this.timers.push({ t: 0.3, scene: false, fn: () => this.pullOut(car, hard) });
+      return;
+    }
     car.lamps = true;
     car.hazard = false;
     car.wreck = false;
+    // A wreck comes free of the other one first.
+    if (car.yawOff) car.back = clamp(this.roomBehind(car) - 0.8, 0, 2.5);
     this.driveOff(car, hard);
+    // Whoever follows it (8.4 stop) goes the same way.
+    if (hard) this.fleeDir = (car.mode as Car['mode']) === 'turn' ? (-car.dir as 1 | -1) : car.dir;
   }
 
   /** The suspect's vehicle makes off: whoever belongs to it jumps in, and it is gone. */
@@ -1693,10 +1889,14 @@ export class Director {
       if (b.role !== 'suspect' && b !== this.stopDriver) continue;
       this.release(b);
       b.steps.length = 0;
+      // On their way to the car: a closing scene that starts meanwhile leaves them to it.
+      b.duty = true;
       this.past(b, car, this.carPoint(car, 0.45, -this.kerbSide(car) * (car.size.width / 2 + 0.55)), 'run');
       b.steps.push(
         call(() => {
-          if (car.mode === 'gone') {
+          b.duty = false;
+          if (car.mode === 'gone' || dist([b.x, b.y], [car.x, car.y]) > 6) {
+            // Too late: the car has gone without them.
             this.leave(b, 'run');
             return;
           }
@@ -1705,9 +1905,17 @@ export class Director {
           car.riders.push(b);
         }),
       );
-      late = Math.max(late, dist([b.x, b.y], [car.x, car.y]) / PACE.run + 0.6);
+      // The car waits for whoever runs to it, as long as that is a few seconds.
+      let way = 0;
+      let at: V2 = [b.x, b.y];
+      for (const st of b.steps) {
+        if (st.k !== 'go') continue;
+        way += dist(at, [st.x, st.y]);
+        at = [st.x, st.y];
+      }
+      late = Math.max(late, way / PACE.run + 0.4);
     }
-    this.timers.push({ t: Math.min(late, 3.5), fn: () => this.pullOut(car, true) });
+    this.timers.push({ t: Math.min(late, 3.5), scene: false, fn: () => this.pullOut(car, true) });
   }
 
   /** The story is over and the crews have gone: nobody of the incident stays in the street. */
@@ -1801,6 +2009,9 @@ export class Director {
       hazard: false,
       braking: false,
       wreck: false,
+      back: 0,
+      wait: 0,
+      due: [],
       x: 0,
       y: 0,
       yaw: 0,
@@ -1828,8 +2039,9 @@ export class Director {
     const lat = this.site.side * this.kerbLat();
     // Right-hand traffic: at the kerb it points the way its side of the road runs.
     const dir: 1 | -1 = lat > 0 ? -1 : 1;
-    let s = this.at - dir * 6.2 * k;
-    for (let i = 0; i < 12 && this.taken(c, s, lat); i++) s -= dir * 6.2;
+    // Behind one another with room to pull out.
+    let s = this.at - dir * (c.size.length + ROOM_M) * k;
+    for (let i = 0; i < 60 && this.taken(c, c.size, s, lat, k ? ROOM_M : 1); i++) s -= dir;
     this.park(c, s, lat, dir);
     return c;
   }
@@ -1884,33 +2096,109 @@ export class Director {
     c.yaw = Math.atan2(dy, dx) + (c.dir < 0 ? Math.PI : 0) + c.yawOff + c.steer;
   }
 
-  /** Does a place at the kerb overlap a vehicle standing or about to stand there? */
-  private taken(me: Car, s: number, lat: number): boolean {
+  /** Half the length and half the width a vehicle takes up along and across the road: a wreck stands at an angle. */
+  private ext(c: Car): [number, number] {
+    const l = c.size.length / 2;
+    const w = c.size.width / 2;
+    if (c.mode === 'turn') {
+      const r = Math.hypot(l, w);
+      return [r, r];
+    }
+    if (!c.yawOff) return [l, w];
+    const co = Math.abs(Math.cos(c.yawOff));
+    const si = Math.abs(Math.sin(c.yawOff));
+    return [l * co + w * si, w * co + l * si];
+  }
+
+  /** Does a place at the kerb overlap a vehicle standing or about to stand there (with `room` metres before and behind)? */
+  private taken(me: Car | null, size: CarSize, s: number, lat: number, room = 1): boolean {
     for (const o of this.cars) {
       if (o === me || o.mode === 'gone' || (o.mode === 'drive' && !o.stop)) continue;
-      const os = o.mode === 'park' ? o.s : o.ts;
-      const ol = o.mode === 'park' ? o.lat : o.tlat;
-      if (Math.abs(os - s) < (o.size.length + me.size.length) / 2 + 1 && Math.abs(ol - lat) < (o.size.width + me.size.width) / 2 + 0.3) return true;
+      const parked = o.mode === 'park' || o.mode === 'turn';
+      const os = parked ? o.s : o.ts;
+      const ol = parked ? o.lat : o.tlat;
+      const [el, ew] = this.ext(o);
+      const side = Math.abs(ol - lat) - ew - size.width / 2;
+      if (side < 1) {
+        if (Math.abs(os - s) < el + size.length / 2 + room) return true;
+      } else if (side < PASS_M && room > 1) {
+        // Across the road from it there would be no way through between the two: far enough along for whoever
+        // passes to swing from the one's side to the other's.
+        const swing = Math.max(0, 2 * (ew + size.width / 2 + 0.25) - Math.abs(ol - lat));
+        if (Math.abs(os - s) < 2 * el + size.length + 1 + swing / 0.6) return true;
+      }
     }
     return false;
   }
 
-  /** The place an arriving crew stops at: its own kerb, short of the spot, behind whoever came before. */
-  private slot(c: Car, fromA: boolean): { s: number; lat: number } {
-    const lat = (fromA ? -1 : 1) * this.kerbLat();
+  /**
+   * The place an arriving crew stops at: at its own kerb short of the spot, behind whoever came before with room to
+   * pull out; past the spot when there is none before it; at the other kerb when its own is full. Never beyond
+   * what blocks the road, and never on a taken place: null when the road has no room left.
+   */
+  private slot(size: CarSize, fromA: boolean): { s: number; lat: number } | null {
     const first = this.kind === 'crash' && !this.cast.single ? 12 : 7;
     const back = fromA ? -1 : 1;
-    const fits = (s: number) => s >= 3.5 && s <= this.length - 3.5 && !this.taken(c, s, lat);
-    for (let k = 0; k < 14; k++) {
-      const s = this.at + back * (first + 6.4 * k);
-      if (fits(s)) return { s, lat };
+    const block = this.blockS();
+    const own = (fromA ? -1 : 1) * this.kerbLat();
+    const folk = this.roadFolk();
+    const fits = (s: number, lat: number) =>
+      s >= 3.5 &&
+      s <= this.length - 3.5 &&
+      (block === null || (s - block) * back >= 6) &&
+      !this.taken(null, size, s, lat, ROOM_M) &&
+      !folk.some((p) => p.still && Math.abs(p.s - s) < size.length / 2 + 1 && Math.abs(p.lat - lat) < size.width / 2 + 0.6);
+    for (const lat of own ? [own, -own] : [own]) {
+      for (const side of [back, -back]) {
+        for (let d = first; d <= 70; d++) {
+          const s = this.at + side * d;
+          if (fits(s, lat)) return { s, lat };
+        }
+      }
     }
-    // No room before the spot (a short road): past it.
-    for (let k = 0; k < 14; k++) {
-      const s = this.at - back * (first + 6.4 * k);
-      if (fits(s)) return { s, lat };
+    // A road too short for that: nearer the spot.
+    for (let d = first - 1; d >= 4; d--) {
+      const s = this.at + back * d;
+      if (fits(s, own)) return { s, lat: own };
     }
-    return { s: clamp(this.at + back * first, 3.5, this.length - 3.5), lat };
+    return null;
+  }
+
+  /**
+   * The way in for an arriving vehicle: from the end the game names when it can (nobody comes out of a dead end
+   * while the other end is open, or through what blocks the road), else from the other one. 'wait' while the way
+   * in is taken for the moment; null when there is no place to stop at all (the vehicle stays out of the picture).
+   */
+  private wayIn(size: CarSize, fromA: boolean): { fromA: boolean; s: number; lat: number } | 'wait' | null {
+    const d = this.site.drive;
+    const open = (a: boolean) => !(a ? d.deadA : d.deadB) || (a ? d.deadB : d.deadA);
+    let busy = false;
+    for (const a of [fromA, !fromA]) {
+      if (!open(a)) continue;
+      const s0 = a ? 0 : this.length;
+      const dir = a ? 1 : -1;
+      const lane = this.laneOf(dir);
+      let shut = false;
+      let now = false;
+      for (const o of this.cars) {
+        if (o.mode === 'gone') continue;
+        const [el, ew] = this.ext(o);
+        const near = Math.abs(o.s - s0) < el + size.length / 2 + 6;
+        if (o.mode === 'park') {
+          // Something stands in the mouth of the road.
+          if (near && Math.abs(o.lat - lane) < ew + size.width / 2 + 0.2 && Math.abs(o.s - s0) < el + size.length / 2 + 1) shut = true;
+        } else if (near || this.width < NARROW_M) now = true;
+      }
+      if (shut) continue;
+      const place = this.slot(size, a);
+      if (!place) continue;
+      if (now) {
+        busy = true;
+        continue;
+      }
+      return { fromA: a, ...place };
+    }
+    return busy ? 'wait' : null;
   }
 
   /** Set a stopping vehicle's speed so that it stands at its place in about `T` seconds. */
@@ -1940,17 +2228,26 @@ export class Director {
     return (dir > 0 ? d.deadB : d.deadA) ? 1 : 0;
   }
 
-  /** Drive off the end of the road: straight on, or turned round first when the way ahead is worse. */
-  private driveOff(c: Car, fast: boolean): void {
+  /** Does a parked vehicle turn round to leave? Yes when the way ahead is worse, or when it has to go the other way (`want`). */
+  private turnsRound(c: Car, want: 1 | -1 | 0): boolean {
+    return want ? want !== c.dir && this.wayCost(c.s, want) < 2 : this.wayCost(c.s, -c.dir) < this.wayCost(c.s, c.dir);
+  }
+
+  /**
+   * Drive off the end of the road: straight on, or turned round first (`want`: the way it has to go, after a
+   * vehicle that made off).
+   */
+  private driveOff(c: Car, fast: boolean, want: 1 | -1 | 0 = 0): void {
     c.stop = false;
     c.vc = fast ? 17 : 11;
     c.acc = fast ? 5 : 2.6;
     c.eta = 0;
-    if (c.mode === 'park' && this.wayCost(c.s, -c.dir) < this.wayCost(c.s, c.dir)) {
+    c.wait = 0;
+    if (c.mode === 'park' && this.turnsRound(c, want)) {
       c.mode = 'turn';
       c.turnT = 0;
       c.turnFrom = c.lat;
-      c.turnTo = Math.abs(c.lat) > 0.3 && !c.wreck ? -c.lat : c.lat;
+      c.turnTo = Math.abs(c.lat) > 0.3 && !c.wreck && !this.taken(c, c.size, c.s, -c.lat, 0.5) ? -c.lat : c.lat;
       c.ts = c.dir > 0 ? 0 : this.length;
       return;
     }
@@ -1958,21 +2255,166 @@ export class Director {
     c.ts = c.dir > 0 ? this.length : 0;
   }
 
-  /** The lane a moving vehicle keeps: its own, moved towards the middle past whatever stands at the kerb. */
-  private lane(c: Car): number {
-    let lat = this.laneOf(c.dir);
+  /**
+   * May a parked vehicle pull out now? Not while those it waits for are on their way to it, somebody stands right
+   * before it, another vehicle is passing or about to, or (on a road of one lane) somebody drives towards it
+   * between it and the end it leaves by. After a minute it goes regardless.
+   */
+  private canPullOut(c: Car, want: 1 | -1 | 0, dt: number): boolean {
+    c.wait += dt;
+    if (c.wait > 60) return true;
+    if (c.due.some((b) => !b.gone && !b.aboard && !b.leaving)) return false;
+    const round = this.turnsRound(c, want);
+    const dir = round ? -c.dir : c.dir;
+    const hl = c.size.length / 2;
+    const hw = c.size.width / 2;
     for (const o of this.cars) {
-      if (o === c || o.mode !== 'park') continue;
-      if (Math.abs(o.s - c.s) > (o.size.length + c.size.length) / 2 + 9) continue;
-      const gap = (o.size.width + c.size.width) / 2 + 0.45;
-      if (Math.abs(o.lat - lat) < gap) lat = o.lat + (o.lat > 0.05 ? -gap : o.lat < -0.05 ? gap : c.dir > 0 ? -gap : gap);
+      if (o === c || o.mode === 'gone' || o.mode === 'park') continue;
+      const [el] = this.ext(o);
+      const gap = Math.abs(o.s - c.s) - el - hl;
+      // Turning round where it stands: nobody moves beside it meanwhile.
+      if (o.mode === 'turn') {
+        if (gap < 8) return false;
+        continue;
+      }
+      if (this.width < NARROW_M && o.dir !== dir && (o.s - c.s) * dir > -el - hl - 1) return false;
+      const coming = (c.s - o.s) * o.dir > -el - hl;
+      if (coming ? gap < 6 + Math.max(o.v, o.vc * 0.8) * (round ? 4.5 : 2.5) : gap < 4) return false;
     }
-    const max = this.width / 2 + 0.5;
-    return clamp(lat, -max, max);
+    const reach = round ? Math.hypot(hl, hw) + 0.6 : 0;
+    for (const b of this.bodies) {
+      if (b.hidden || b.gone) continue;
+      const dx = b.x - c.x;
+      const dy = b.y - c.y;
+      if (Math.abs(dx) + Math.abs(dy) > 12) continue;
+      if (round) {
+        if (dx * dx + dy * dy < reach * reach) return false;
+        continue;
+      }
+      const f = dx * Math.cos(c.yaw) + dy * Math.sin(c.yaw);
+      const l = -dx * Math.sin(c.yaw) + dy * Math.cos(c.yaw);
+      // Before it, and beside it on the side it steers out to.
+      const out = this.kerbSide(c);
+      if (f > -hl && f < hl + 3.5 && l * out < hw + 0.9 && l * out > -hw - 2.2) return false;
+    }
+    return true;
+  }
+
+  /** Who is in the carriageway, in the drive line's frame. */
+  private roadFolk(): RoadBody[] {
+    if (this.road) return this.road;
+    const list: RoadBody[] = [];
+    const pts = this.site.drive.pts;
+    // The carriageway and the verge a vehicle may take to get past something.
+    const half = this.width / 2 + 2.2;
+    for (const b of this.bodies) {
+      if (b.hidden || b.gone) continue;
+      const n = nearestOnLine([b.x, b.y], pts);
+      if (n.d > half) continue;
+      list.push({ b, s: n.s, lat: cross(n.dir, sub([b.x, b.y], n.pt)) >= 0 ? n.d : -n.d, still: !b.gait });
+    }
+    this.road = list;
+    return list;
+  }
+
+  /**
+   * The lane a moving vehicle keeps: its own, or the place nearest to it that is clear of whatever stands in the
+   * road ahead (a vehicle at the kerb or turning round, somebody standing there). It never crosses over what is
+   * right beside it, and on a road of one lane it keeps to the right for a vehicle coming the other way.
+   */
+  private lane(c: Car): number {
+    let lane = this.laneOf(c.dir);
+    const hw = c.size.width / 2;
+    const hl = c.size.length / 2;
+    // On a road of one lane the verge is the only way past.
+    const max = this.width / 2 + (this.width < NARROW_M ? 1.2 : 0.5);
+    const toStop = c.stop ? (c.ts - c.s) * c.dir + 0.5 : Infinity;
+    // It looks as far ahead as it needs to move over: one thing at a time when it creeps.
+    const look = Math.max(6, 3 + 1.5 * c.v);
+    // The room there is: between what is right beside it, and outside the stretches taken ahead.
+    let lo = -max;
+    let hi = max;
+    const shut: [number, number][] = [];
+    let first = Infinity;
+    for (const o of this.cars) {
+      if (o === c || o.mode === 'gone') continue;
+      const ahead = (o.s - c.s) * c.dir;
+      if (ahead > toStop) continue;
+      const [el, ew] = this.ext(o);
+      const moving = o.mode === 'drive' && o.v > 0.3;
+      if (moving && o.dir === c.dir) continue;
+      if (moving) {
+        // Meeting on one lane: each keeps to its right.
+        if (this.width < NARROW_M && ahead > -el - hl && ahead < 45) lane = -c.dir * ((hw + ew) / 2 + 0.25);
+        continue;
+      }
+      // A vehicle of the same direction that only waits in the lane is waited behind, not passed.
+      if (o.mode === 'drive' && o.dir === c.dir) continue;
+      if (Math.abs(ahead) < el + hl + 0.3) {
+        if (c.lat >= o.lat) lo = Math.max(lo, o.lat + ew + hw + BERTH_M);
+        else hi = Math.min(hi, o.lat - ew - hw - BERTH_M);
+      } else if (Math.abs(ahead) < el + hl + look) {
+        shut.push([o.lat - ew - hw - BERTH_M, o.lat + ew + hw + BERTH_M]);
+        if (ahead > 0) first = Math.min(first, ahead);
+      }
+    }
+    for (const p of this.roadFolk()) {
+      const ahead = (p.s - c.s) * c.dir;
+      if (ahead > toStop) continue;
+      if (Math.abs(ahead) < hl + 0.8) {
+        if (c.lat >= p.lat) lo = Math.max(lo, p.lat + hw + 0.45);
+        else hi = Math.min(hi, p.lat - hw - 0.45);
+      } else if (p.still && Math.abs(ahead) < hl + look) shut.push([p.lat - hw - 0.9, p.lat + hw + 0.9]);
+    }
+    if (lo > hi) return c.lat;
+    // With a proper berth if there is room for one, else a hand's breadth from each (a squeeze between two).
+    let best: number | null = null;
+    for (const tight of [0, BERTH_M - 0.25]) {
+      const free = (lat: number) => lat >= lo - 1e-6 && lat <= hi + 1e-6 && !shut.some((r) => lat > r[0] + tight + 1e-6 && lat < r[1] - tight - 1e-6);
+      for (const lat of [lane, lo, hi, ...shut.flatMap((r) => [r[0] + tight, r[1] - tight])]) {
+        const q = clamp(lat, lo, hi);
+        // The nearest to its lane, and of two alike the one on the side it is on already.
+        if (free(q) && (best === null || Math.abs(q - lane) + Math.abs(q - c.lat) < Math.abs(best - lane) + Math.abs(best - c.lat) - 1e-6)) best = q;
+      }
+      if (best !== null) break;
+    }
+    if (best === null) return clamp(c.lat, lo, hi);
+    // Not out into the way of somebody who comes the other way just now: it waits in its lane until they have passed.
+    if (Math.abs(best - lane) > 0.3 && first < Infinity && lo <= lane && lane <= hi) {
+      const to = best;
+      if (this.cars.some((x) => x !== c && x.mode === 'drive' && x.dir !== c.dir && x.v > 0.3 && this.meets(c, x, to, first + 30))) return lane;
+    }
+    return best;
+  }
+
+  /** Would `c`, moved over to `lat`, be in the way of `x` coming towards it within `reach` metres? */
+  private meets(c: Car, x: Car, lat: number, reach: number): boolean {
+    const ahead = (x.s - c.s) * c.dir;
+    return ahead > 0 && ahead < reach && Math.abs(x.lat - lat) < (x.size.width + c.size.width) / 2 + 0.3;
   }
 
   private driveCar(c: Car, dt: number): void {
+    if (c.back > 0 && (c.mode === 'drive' || c.mode === 'turn')) {
+      // Backing off a little first, straightening up; not into somebody behind it.
+      const [bl, bw] = this.ext(c);
+      if (c.wait < STUCK_S && this.roadFolk().some((p) => (c.s - p.s) * c.dir > 0 && (c.s - p.s) * c.dir < bl + 1.2 && Math.abs(p.lat - c.lat) < bw + 0.6)) {
+        c.wait += dt;
+        return;
+      }
+      const move = Math.min(c.back, 1.4 * dt);
+      c.back -= move;
+      c.s -= c.dir * move;
+      if (c.yawOff) c.yawOff = Math.abs(c.yawOff) < 1.2 * dt ? 0 : c.yawOff - Math.sign(c.yawOff) * 1.2 * dt;
+      this.pose(c);
+      return;
+    }
     if (c.mode === 'turn') {
+      // Not round over somebody who stands in its way (for a while).
+      const r = Math.hypot(c.size.length, c.size.width) / 2 + 0.4;
+      if (c.wait < STUCK_S && this.bodies.some((b) => !b.hidden && !b.gone && Math.hypot(b.x - c.x, b.y - c.y) < r)) {
+        c.wait += dt;
+        return;
+      }
       c.turnT += dt / UTURN_S;
       const k = smooth(Math.min(1, c.turnT));
       c.yawOff = Math.PI * k;
@@ -1988,9 +2430,15 @@ export class Director {
     }
     if (c.mode !== 'drive') return;
     const d = (c.ts - c.s) * c.dir;
+    let want = this.lane(c);
     let vt = c.vc;
     if (c.stop) vt = Math.max(0.9, Math.min(vt, Math.sqrt(2 * c.brake * Math.max(0, d))));
-    else if (c.kind === 'traffic') vt = this.behind(c, vt);
+    // Kept from getting on for long (the count runs down again while it moves), it goes on regardless of
+    // vehicles, slowly; of people only much later.
+    const free = this.behind(c, vt, want, false);
+    if (free < 0.5 && vt >= 0.5) c.wait += dt;
+    else c.wait = Math.max(0, c.wait - (free < vt ? 0.5 : 4) * dt);
+    vt = c.wait > STUCK_S ? Math.min(vt, 2, c.wait > 4 * STUCK_S ? vt : this.behind(c, vt, want, true)) : free;
     const was = c.v;
     c.v = c.v < vt ? Math.min(vt, c.v + c.acc * dt) : Math.max(vt, c.v - 9 * dt);
     c.braking = c.v < was - 0.5 * dt;
@@ -2003,6 +2451,7 @@ export class Director {
       c.steer = 0;
       c.braking = false;
       c.eta = 0;
+      c.wait = 0;
       c.mode = 'park';
       this.pose(c);
       return;
@@ -2010,14 +2459,15 @@ export class Director {
     const ps = c.s;
     const pl = c.lat;
     c.s += c.dir * move;
-    let want = this.lane(c);
     if (c.stop) want = lerp(c.tlat, want, smooth(clamp(d / 16, 0, 1)));
-    const maxL = (0.45 * c.v + 0.3) * dt;
+    // Sideways only as far as the wheels turn: nothing while it stands, sharply at a crawl, gently at speed.
+    const maxL = Math.min(0.7 * c.v, SIDE_V + 0.05 * c.v) * dt;
     c.lat += clamp(want - c.lat, -maxL, maxL);
     // A wreck pulling out straightens up.
     if (c.yawOff) c.yawOff = Math.abs(c.yawOff) < 1.2 * dt ? 0 : c.yawOff - Math.sign(c.yawOff) * 1.2 * dt;
-    const steer = c.dir * Math.atan2(c.lat - pl, Math.abs(c.s - ps) + 1e-6);
-    c.steer += (steer - c.steer) * Math.min(1, 8 * dt);
+    // The nose follows the way it goes, as far and as fast as a car swings.
+    const steer = move > 1e-4 ? clamp(c.dir * Math.atan2(c.lat - pl, Math.abs(c.s - ps)), -0.3, 0.3) : c.steer;
+    c.steer += clamp(steer - c.steer, -1.5 * dt, 1.5 * dt);
     if (!c.stop && (c.s <= 0 || c.s >= this.length)) {
       c.mode = 'gone';
       return;
@@ -2025,16 +2475,67 @@ export class Director {
     this.pose(c);
   }
 
-  /** A passing car does not drive into the one ahead of it. */
-  private behind(c: Car, vt: number): number {
+  /**
+   * How fast a vehicle may go for what is ahead of it in its path: it follows a vehicle going its way, waits
+   * behind one that stands where it cannot get round (`want`: the lane it steers for), creeps past one it can,
+   * stops for one coming straight at it, and for anybody in the road before it.
+   */
+  private behind(c: Car, vt: number, want: number, onlyPeople: boolean): number {
+    const hw = c.size.width / 2;
+    const hl = c.size.length / 2;
+    const toStop = c.stop ? (c.ts - c.s) * c.dir + 0.5 : Infinity;
+    const reach = 6 + c.v * 1.2;
     for (const o of this.cars) {
+      if (onlyPeople) break;
       if (o === c || o.mode === 'gone') continue;
-      const gap = (o.s - c.s) * c.dir - (o.size.length + c.size.length) / 2;
-      if (gap < -1 || gap > 6 + c.v * 1.2 || Math.abs(o.lat - c.lat) > (o.size.width + c.size.width) / 2 + 0.2) continue;
-      const ov = o.mode === 'drive' && o.dir === c.dir ? o.v : 0;
-      vt = Math.min(vt, gap < 2 ? ov : Math.max(ov, 2.5));
+      const ahead = (o.s - c.s) * c.dir;
+      if (ahead > toStop) continue;
+      const [el, ew] = this.ext(o);
+      const gap = ahead - el - hl;
+      if (gap < -1 || Math.abs(o.lat - c.lat) > ew + hw + 0.2) continue;
+      const moving = o.mode === 'drive' && o.v > 0.3;
+      if (moving && o.dir !== c.dir) {
+        // Head on: both stop short of each other, then find their way round.
+        const close = c.v + o.v;
+        if (gap < 3 + close * 0.8) vt = 0;
+        else if (gap < 12 + close * 1.6) vt = Math.min(vt, 4);
+        continue;
+      }
+      if (gap > reach) continue;
+      if (o.mode === 'drive' && o.dir === c.dir) vt = Math.min(vt, gap < 2 ? o.v : Math.max(o.v, 2.5));
+      else if (Math.abs(o.lat - want) > ew + hw + 0.2) {
+        // It steers round: slowly only when it would not be clear of it in time.
+        const side = ew + hw + 0.2 - Math.abs(o.lat - c.lat);
+        if (gap < 2 + (c.v * side) / SIDE_V) vt = Math.min(vt, gap < 0.6 ? 0 : CREEP_V);
+      }
+      // No way round it for now: far enough back to pull out later.
+      else vt = Math.min(vt, gap < ROOM_M + 0.2 ? 0 : 2.5);
+    }
+    for (const p of this.roadFolk()) {
+      // Somebody walking may step into the way: a wider berth than for somebody standing.
+      // Beside its front half counts too, when they are as good as touching it.
+      const gap = (p.s - c.s) * c.dir - hl;
+      if (gap < -hl || gap > Math.min(reach, toStop) || Math.abs(p.lat - c.lat) > hw + (gap < -0.5 ? 0.25 : p.still ? 0.5 : 1.3)) continue;
+      vt = Math.min(vt, gap < (p.still ? 1.5 : 2.5) ? 0 : 2.5);
     }
     return vt;
+  }
+
+  /** How far a standing vehicle can back off: to whatever stands behind it, or to the end of the road. */
+  private roomBehind(c: Car): number {
+    const [cl, cw] = this.ext(c);
+    let room = (c.dir > 0 ? c.s : this.length - c.s) - cl - 1;
+    for (const o of this.cars) {
+      if (o === c || o.mode === 'gone') continue;
+      const [el, ew] = this.ext(o);
+      const gap = (c.s - o.s) * c.dir - el - cl;
+      if (gap > -1 && Math.abs(o.lat - c.lat) < ew + cw + 0.3) room = Math.min(room, gap);
+    }
+    for (const p of this.roadFolk()) {
+      const gap = (c.s - p.s) * c.dir - cl;
+      if (gap > -0.5 && Math.abs(p.lat - c.lat) < cw + 0.6) room = Math.min(room, gap);
+    }
+    return room;
   }
 
   // -------------------------------------------------------------------------- crews
@@ -2043,6 +2544,9 @@ export class Director {
     const d = this.site.drive;
     const f = dirOf(u.from);
     const fromA = dot(f, sub(d.pts[0], this.site.roadSpot)) >= dot(f, sub(d.pts[d.pts.length - 1], this.site.roadSpot));
+    const look = lookOfUnit(u.type, u.model);
+    const way = this.wayIn(CAR_SIZE[look.body], fromA);
+    if (!way || way === 'wait') return;
     const n = Math.min(u.type === 'rapid' || u.type === 'special' ? 4 : 2, Math.max(1, u.crew.length));
     const people: Body[] = [];
     for (let i = 0; i < n; i++) {
@@ -2051,7 +2555,7 @@ export class Director {
         this.body(`o:${u.id}:${i}`, lookOfCrew('police', seed, u.crew[i] ?? 'M', this.cast.dress), seed, 'police', 'crew', this.site.roadSpot),
       );
     }
-    this.spawnCrew(key, lookOfUnit(u.type, u.model), 'unit', people, true, null, fromA, u.state === 'here' ? 3.5 : u.eta);
+    this.spawnCrew(key, look, 'unit', people, true, null, way, u.state === 'here' ? 3.5 : u.eta);
   }
 
   private spawnAgency(a: AgencySit, key: string): void {
@@ -2069,6 +2573,8 @@ export class Director {
           : a.agency === 'sotsiaal' || a.agency === 'veterinaar' || a.agency === 'kapo'
             ? null
             : 'guard';
+    const way = this.wayIn(CAR_SIZE[look.body], (hash32('from', this.cast.seed, a.agency) & 1) === 0);
+    if (!way || way === 'wait') return;
     const n = a.agency === 'kiirabi' || a.agency === 'kov' ? 2 : a.agency === 'paaste' ? 3 : 1;
     const people: Body[] = [];
     for (let i = 0; i < n; i++) {
@@ -2077,8 +2583,7 @@ export class Director {
       const lk = dress ? lookOfCrew(dress, seed, gender, this.cast.dress) : lookOfStranger(seed, this.cast.dress);
       people.push(this.body(`m:${a.agency}:${i}`, lk, seed, 'crew', 'crew', this.site.roadSpot));
     }
-    const fromA = (hash32('from', this.cast.seed, a.agency) & 1) === 0;
-    this.spawnCrew(key, look, 'agency', people, false, a.agency, fromA, a.state === 'here' ? 3.5 : a.eta);
+    this.spawnCrew(key, look, 'agency', people, false, a.agency, way, a.state === 'here' ? 3.5 : a.eta);
   }
 
   private spawnCrew(
@@ -2088,19 +2593,15 @@ export class Director {
     people: Body[],
     police: boolean,
     agency: Agency | null,
-    fromA: boolean,
+    way: { fromA: boolean; s: number; lat: number },
     eta: number,
   ): void {
-    const d = this.site.drive;
-    // From an end where the road stops nobody arrives: from the other one.
-    if ((fromA ? d.deadA : d.deadB) && !(fromA ? d.deadB : d.deadA)) fromA = !fromA;
     const c = this.car(key, look, kind);
-    c.dir = fromA ? 1 : -1;
-    c.s = fromA ? 0 : this.length;
+    c.dir = way.fromA ? 1 : -1;
+    c.s = way.fromA ? 0 : this.length;
     c.lat = this.laneOf(c.dir);
-    const slot = this.slot(c, fromA);
-    c.ts = slot.s;
-    c.tlat = slot.lat;
+    c.ts = way.s;
+    c.tlat = way.lat;
     c.stop = true;
     c.mode = 'drive';
     this.plan(c, Math.max(3.5, eta));
@@ -2154,7 +2655,7 @@ export class Director {
     if (cr.state === 'here') {
       car.lamps = this.night;
       car.beacons = hasBeacons(car.look.livery) && open && !cr.through;
-      const hold = this.over && !this.played && (!this.playing || this.playT < HOLD_S);
+      const hold = this.over && !this.played && this.overT < HOLD_S;
       if (cr.wantLeave && (cr.through || !hold)) {
         this.board(cr);
         return;
@@ -2180,10 +2681,13 @@ export class Director {
         }
       }
       if (all && !car.riders.some((r) => r.duty)) {
-        const pursuit = this.sit?.pursuit === 'on';
-        car.beacons = hasBeacons(car.look.livery) && (pursuit || !!cr.takes || cr.run);
+        const pursuit = this.sit?.pursuit === 'on' || cr.run;
+        const way = pursuit && cr.police ? this.fleeDir : 0;
+        if (!this.canPullOut(car, way, dt)) return;
+        // Blue lights for a pursuit, the cells and the hospital; not for a ride home.
+        car.beacons = hasBeacons(car.look.livery) && (pursuit || cr.takes === 'arrest' || cr.takes === 'hospital');
         car.lamps = true;
-        this.driveOff(car, car.beacons);
+        this.driveOff(car, car.beacons, way);
         cr.state = 'leaving';
       }
       return;
@@ -2321,6 +2825,30 @@ export class Director {
     for (const b of cr.people) if (!b.aboard && !b.duty) this.toCar(b);
   }
 
+  /**
+   * Called back when its car has pulled away: it stops again at the kerb ahead, where its crew gets out. A car too
+   * near the end of the road to stop drives out, and comes again from there.
+   */
+  private callBack(cr: Crew): void {
+    const c = cr.car;
+    if (c.mode !== 'drive' || c.stop) return;
+    const lat = (c.dir > 0 ? -1 : 1) * this.kerbLat();
+    const need = (c.v * c.v) / (2 * 4.5) + 6;
+    for (let k = 0; k < 6; k++) {
+      const s = c.s + c.dir * (need + 6.4 * k);
+      if (s < 3.5 || s > this.length - 3.5 || this.taken(c, c.size, s, lat, ROOM_M)) continue;
+      c.ts = s;
+      c.tlat = lat;
+      c.stop = true;
+      this.plan(c, 3.5);
+      c.beacons = hasBeacons(c.look.livery);
+      cr.state = 'arriving';
+      cr.out = 0;
+      cr.clock = 0;
+      return;
+    }
+  }
+
   /** Called back before it had left: whoever is in gets out again, whoever was walking back turns round. */
   private unboard(cr: Crew): void {
     cr.state = 'here';
@@ -2345,8 +2873,13 @@ export class Director {
         this.carT = this.amb.range(gaps[0], gaps[1]) * (this.night ? 2.4 : 1);
         const dir: 1 | -1 = d.oneway ? d.oneway : this.amb.chance(0.5) ? 1 : -1;
         const s = dir > 0 ? 0 : this.length;
-        // Not while the road is blocked or officers stand in it, and not into the back of somebody.
-        const clear = this.blockS() === null && !(this.kind === 'threat' && this.phase !== 'after') && !this.cars.some((c) => Math.abs(c.s - s) < 30);
+        // Not while the road is blocked or somebody at work stands in it, not into the back of somebody, and on a
+        // road of one lane not while a crew's vehicle is on the move.
+        const clear =
+          this.blockS() === null &&
+          !(this.kind === 'threat' && this.phase !== 'after') &&
+          !this.cars.some((c) => Math.abs(c.s - s) < 30 || (this.width < NARROW_M && c.kind !== 'traffic' && c.mode !== 'park')) &&
+          !this.roadFolk().some((p) => (p.b.kind === 'police' || p.b.kind === 'crew') && Math.abs(p.lat) < this.width / 2);
         if (clear) {
           const n = this.serial++;
           const c = this.car(`c:${n}`, lookOfAnyCar(hash32('c', this.cast.seed, n)), 'traffic');

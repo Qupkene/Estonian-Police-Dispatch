@@ -10,7 +10,7 @@ import { templateOf } from '@/sim/selectors';
 import { ddmmyyyy, hhmm } from '@/sim/time';
 import type { Incident, SimState } from '@/sim/types';
 import { castOf, type Cast } from './cast';
-import type { CameraInfo } from './coverage';
+import { cameraOf, type CameraInfo } from './coverage';
 import { Director } from './director';
 import { envAt, type Env } from './env';
 import { makeStreet } from './procedural';
@@ -35,6 +35,11 @@ export const ENV_EVERY_S = 2;
 const MAX_DT = 0.5;
 /** Game seconds per real second assumed until the game has run once (the slowest co-op turn speed). */
 const FIRST_SPEED = 15;
+/**
+ * Real seconds of empty street shown once the incident is closed and its story has played out ('after'); then the
+ * feed ends and the window lets its graphics go (a camera left open must not draw an empty street all shift).
+ */
+export const AFTER_HOLD_S = 15;
 
 /** The street a camera shows: the map's when it has one with a usable road, else a made-up one of the kind of place. */
 function siteFor(street: StreetData | null, incident: Incident, seed: number): { street: StreetData; site: Site } {
@@ -61,6 +66,10 @@ export class CameraSession {
   private lastClock = '';
   private realT = 0;
   private status: SessionState = 'live';
+  /** Did coverage.ts list the place when the camera opened (a session can be opened on any place in the tests)? */
+  private listed: boolean;
+  /** Real seconds played since the closed incident's story reached 'after'. */
+  private afterT = 0;
   zoom = 1;
   panX = 0;
   panY = 0;
@@ -75,6 +84,7 @@ export class CameraSession {
     opts: { quiet?: boolean } = {},
   ) {
     this.incidentId = incident.id;
+    this.listed = !!cameraOf(incident, sim.now);
     const built = siteFor(street, incident, camera.seed);
     this.street = built.street;
     this.site = built.site;
@@ -84,7 +94,10 @@ export class CameraSession {
     this.view.setScene(this.site, this.env);
   }
 
-  /** 'live' while the incident is in the simulation; 'ended' for good once it has gone. */
+  /**
+   * 'live' while there is something to watch; 'ended' for good once the incident has gone from the simulation, the
+   * camera no longer covers it, or it was closed and the street has been empty for AFTER_HOLD_S real seconds.
+   */
   get state(): SessionState {
     return this.status;
   }
@@ -111,7 +124,8 @@ export class CameraSession {
   update(sim: SimState, speed: number, paused: boolean, dt: number): void {
     if (this.status === 'ended') return;
     const incident = sim.incidents[this.incidentId];
-    if (!incident) {
+    // A closed incident nobody went to is off the camera's list after a while (coverage.ts): its feed ends too.
+    if (!incident || (this.listed && incident.state === 'closed' && !cameraOf(incident, sim.now))) {
       this.status = 'ended';
       return;
     }
@@ -130,6 +144,10 @@ export class CameraSession {
     this.last = this.director.frame();
     this.lastClock = `${ddmmyyyy(sim.now)} ${hhmm(sim.now)}`;
     this.draw();
+    if (incident.state === 'closed' && this.director.phase === 'after') {
+      this.afterT += step;
+      if (this.afterT >= AFTER_HOLD_S) this.status = 'ended';
+    }
   }
 
   /** Draw the last frame again (a zoom or a pan while the game stands). */

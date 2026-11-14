@@ -158,7 +158,32 @@ describe('cctv session: one open camera over a shift', () => {
     expect(view.last.frame.people.length).toBeGreaterThan(0);
   });
 
-  it('ends cleanly when the incident is no longer in the simulation', () => {
+  it('ends once the patrol has closed the incident and the street has emptied, and draws nothing after', () => {
+    const { s, inc, unit } = fight(2);
+    const view = new FakeView();
+    const cam = new CameraSession(view, s, inc, CAMERA, null, VERSION, { quiet: true });
+    expect(dispatchUnits(s, inc.id, [unit.id]).ok).toBe(true);
+    // The game's fastest speed: the patrol drives there, deals with the fight and the incident closes in the game.
+    const FAST = 120;
+    let ended = -1;
+    for (let i = 0; i < Math.round(900 / DT) && cam.state === 'live'; i++) {
+      step(s, Math.round(FAST * DT * 1000));
+      cam.update(s, FAST, false, DT);
+      if (s.incidents[inc.id].state === 'closed' && ended < 0) ended = i;
+    }
+    // Closed in the game, not removed from it: incidents stay in the simulation for the whole shift.
+    expect(ended).toBeGreaterThan(0);
+    expect(s.incidents[inc.id]).toBeDefined();
+    expect(cam.phase).toBe('after');
+    expect(cam.state).toBe('ended');
+    // It held the empty street for AFTER_HOLD_S real seconds before ending.
+    const drawn = view.renders.length;
+    cam.update(s, FAST, false, DT);
+    cam.draw();
+    expect(view.renders.length).toBe(drawn);
+  });
+
+  it('ends at once when the incident is no longer in the simulation (a replay seeks past it)', () => {
     const { s, inc } = fight();
     const view = new FakeView();
     const cam = new CameraSession(view, s, inc, CAMERA, null, VERSION, { quiet: true });
@@ -168,8 +193,6 @@ describe('cctv session: one open camera over a shift', () => {
     s.incidentOrder = s.incidentOrder.filter((id) => id !== inc.id);
     cam.update(s, SPEED, false, DT);
     expect(cam.state).toBe('ended');
-    cam.update(s, SPEED, false, DT);
-    cam.draw();
     expect(view.renders.length).toBe(drawn);
   });
 

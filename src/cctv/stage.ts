@@ -27,8 +27,8 @@ export interface UnitSit {
   eta: number;
   /** Where it comes from: the scene yaw of the direction from the incident towards the unit. */
   from: number;
-  /** It leaves with somebody aboard: an arrested person, or a patient. */
-  takes: 'arrest' | 'hospital' | null;
+  /** It leaves with somebody aboard: an arrested person, a patient, or somebody it drives home or to a station ('ride'). */
+  takes: 'arrest' | 'hospital' | 'ride' | null;
 }
 
 /** Another service asked to the scene (an ambulance, the rescue service). */

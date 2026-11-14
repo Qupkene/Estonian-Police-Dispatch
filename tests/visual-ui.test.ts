@@ -311,6 +311,20 @@ describe('the surveillance camera window (Kaamerad, docs/CCTV.md section 14)', (
     expect(phone).toMatch(/\.gm-cam__retry\s*\{\s*min-height:\s*44px/);
   });
 
+  it('on a phone, a window dragged and enlarged on a wider screen docks too, opaque, and moves the map tools below it', () => {
+    const phone = mediaAll(GAME, PHONE);
+    // Every desktop state of the window is in the docked rule (.is-moved.is-large is the most specific one).
+    const docked = /\.gm-cam,\s*\.gm-cam\.is-large,\s*\.gm-cam\.is-moved,\s*\.gm-cam\.is-moved\.is-large\s*\{([^}]*)\}/.exec(phone);
+    expect(docked).not.toBeNull();
+    expect(docked![1]).toMatch(/grid-area:\s*main/);
+    expect(docked![1]).toMatch(/background:\s*var\(--bg-1\)/);
+    const upright = media(GAME, `${PHONE} and (orientation: portrait)`);
+    expect(upright).toMatch(/\.gm\.gm--m-map:has\(\.gm-cam\) \.epdm-tools\s*\{\s*top:\s*calc\(var\(--gm-cam-h, 0px\) \+ 8px\)/);
+    // On its side the picture is on the left and the map's tools stay beside it.
+    const side = media(GAME, `${PHONE} and (orientation: landscape)`);
+    expect(side).toMatch(/right:\s*auto;\s*width:\s*min\(calc\(100% - 72px\), calc\(55vh \* 16 \/ 9\)\)/);
+  });
+
   it("keeps still with reduced motion, from the system and from the game's own setting", () => {
     expect(mediaAll(GAME, '(prefers-reduced-motion: reduce)')).toMatch(/\.gm-cam \*[^{]*\{\s*animation:\s*none !important/);
     expect(GAME).toMatch(/\.gm--reduced \.gm-cam,\s*\.gm--reduced \.gm-cam \*\s*\{\s*animation:\s*none !important/);

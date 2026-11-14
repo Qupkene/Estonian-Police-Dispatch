@@ -25,7 +25,7 @@ import { RadioPanel } from './RadioPanel';
 import { Toasts, useToastFeed } from './Toasts';
 import { PauseMenu, ShiftEndModal } from './Modals';
 import { CoopPanel } from './CoopPanel';
-import { CameraWindow } from './CameraWindow';
+import { CameraWindow, clearOfCamera } from './CameraWindow';
 import { CrisisBar, CrisisBrief, CrisisPanel, crisisOn } from './CrisisPanel';
 import { useHotkeys } from './useHotkeys';
 import { useGameUi, type MobileTab } from './uiStore';
@@ -103,6 +103,9 @@ export function GameScreen() {
           v{VERSION}
         </span>
       </main>
+      {/* Kaamerad: the open surveillance camera over the map (its chunk loads on first use). Right after the map in
+          the page, so the keyboard reaches it before the right panel. */}
+      <CameraWindow />
       <aside className="gm-side">
         <SidePanel />
       </aside>
@@ -126,8 +129,6 @@ export function GameScreen() {
       <MobileNav />
       <Toasts />
       {sim.coop && <CoopPanel />}
-      {/* Kaamerad: the open surveillance camera over the map (its chunk loads on first use). */}
-      <CameraWindow />
       <CallTaker />
       <CrisisBrief />
       <ShiftEndModal />
@@ -143,7 +144,13 @@ function MapHost({ cinematic }: { cinematic?: boolean }) {
   const tick = useGame((s) => s.tick);
   const selInc = useGame((s) => s.selection.incidentId);
   const selUnit = useGame((s) => s.selection.unitId);
-  const focus = useGame((s) => s.mapFocus);
+  const storeFocus = useGame((s) => s.mapFocus);
+  const camOpen = useGameUi((s) => !!s.camera);
+  // While a camera window is open, a focused place is shown beside the window rather than under it.
+  const focus = useMemo(
+    () => (storeFocus && camOpen && storeFocus.zoom !== undefined ? { ...storeFocus, coord: clearOfCamera(storeFocus.coord, storeFocus.zoom) } : storeFocus),
+    [storeFocus, camOpen],
+  );
   const styleKey = useSettings((s) => s.mapStyle);
   const lang = useLang();
   const placing = useDirector((s) => s.placing);

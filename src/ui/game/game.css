@@ -5132,7 +5132,9 @@ button.gm-ctask__btn:hover {
 /* ───────────────────────────── Kaamerad (2.41.0, CameraWindow.tsx) ───────────────────────────── */
 /* The surveillance camera's picture: a small window over the map, in its upper right corner left of the map's
    tools (the 112 card is at the bottom, the co-op panel top left, the crisis bar top centre, the version bottom
-   left). It can be dragged by its title bar; the picture is always 16:9, drawn at 640x360 and scaled. */
+   left). It can be dragged by its title bar; the picture is always 16:9, drawn at 640x360 and scaled. The widths
+   here hold until CameraWindow.tsx has measured the map: then its inline width keeps the window inside the map and
+   above the answered 112 card. */
 .gm-cam {
   grid-area: map;
   position: absolute;
@@ -5233,6 +5235,10 @@ button.gm-ctask__btn:hover {
   font-size: var(--fs-xs);
   font-weight: 650;
   color: var(--text-0);
+}
+.gm-cam__case {
+  font-weight: 500;
+  color: var(--text-2);
 }
 .gm-cam__tag {
   flex: none;
@@ -5403,7 +5409,8 @@ button.gm-ctask__btn:hover {
 @media (max-width: 899px) {
   .gm-cam,
   .gm-cam.is-large,
-  .gm-cam.is-moved {
+  .gm-cam.is-moved,
+  .gm-cam.is-moved.is-large {
     grid-area: main;
     top: 0;
     left: 0;
@@ -5411,6 +5418,8 @@ button.gm-ctask__btn:hover {
     width: auto;
     border-radius: 0;
     border-width: 0 0 1px;
+    /* Opaque: the map's tools must not show through the title bar. */
+    background: var(--bg-1);
     animation: none;
   }
   .gm:not(.gm--m-map) .gm-cam {
@@ -5430,8 +5439,38 @@ button.gm-ctask__btn:hover {
   .gm-cam__retry {
     min-height: 44px;
   }
+  /* The picture box itself stays 16:9 (no letterbox), so the zoom badge sits on the picture. */
   .gm-cam__picture {
-    max-height: 42vh;
+    width: min(100%, calc(42vh * 16 / 9));
+    margin: 0 auto;
+  }
+}
+/* Phone upright: the window spans the map's width, so the map's tools move down below it (CameraWindow.tsx writes
+   its height to --gm-cam-h). */
+@media (max-width: 899px) and (orientation: portrait) {
+  .gm.gm--m-map:has(.gm-cam) .epdm-tools {
+    top: calc(var(--gm-cam-h, 0px) + 8px);
+  }
+}
+/* Phone on its side: a smaller picture on the left, the map and its tools beside it. */
+@media (max-width: 899px) and (orientation: landscape) {
+  .gm-cam,
+  .gm-cam.is-large,
+  .gm-cam.is-moved,
+  .gm-cam.is-moved.is-large {
+    right: auto;
+    width: min(calc(100% - 72px), calc(55vh * 16 / 9));
+    border-width: 0 1px 1px 0;
+  }
+  .gm-cam__bar {
+    min-height: 40px;
+  }
+  .gm-cam__btn {
+    width: 40px;
+    height: 40px;
+  }
+  .gm-cam__picture {
+    width: 100%;
   }
 }
 /* Reduced motion (the OS setting or the game's own): no slide, no pulse, no blinking lamp. */

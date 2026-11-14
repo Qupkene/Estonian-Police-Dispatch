@@ -11,6 +11,7 @@ import { startPursuit } from '@/sim/pursuit';
 import { startSearch } from '@/sim/search';
 import { MIN, tallinnTime } from '@/sim/time';
 import type { Incident, NewShiftOptions, SimState, Unit } from '@/sim/types';
+import { custodyDestination, moveUnit, nearestHospital } from '@/sim/units';
 import { angleDiff, frameAt, yawOf } from '@/cctv/math';
 import { NEAR_S, situationOf } from '@/cctv/situation';
 import type { Situation, UnitSit } from '@/cctv/stage';
@@ -218,6 +219,30 @@ describe('cctv situation: what the game says about an incident', () => {
     expect(situationOf(s, inc, SPEED).searching).toBe(true);
     for (let i = 0; i < 400 && inc.state !== 'closed'; i++) step(s, MIN / 2);
     expect(situationOf(s, inc, SPEED).searching).toBe(false);
+  });
+
+  it('a crew on a transport takes somebody along: to the cells, to hospital, or home', { timeout: 60_000 }, () => {
+    // The engine's transport beat (incidents.ts startTransport): the crew keeps the incident and drives off.
+    const ride = (to: (s: SimState, inc: Incident) => [number, number]) => {
+      const x = shiftWith('public_order_drunk_harassing', 410005, 1);
+      dispatchUnits(x.s, x.inc.id, [x.unit.id]);
+      follow(x.s, x.inc, x.unit.id, (sit) => unitOf(sit, x.unit.id)?.state === 'here');
+      expect(moveUnit(x.s, x.unit, to(x.s, x.inc), 'transport', false)).toBe(true);
+      expect(x.unit.status).toBe('transport');
+      return unitOf(situationOf(x.s, x.inc, SPEED), x.unit.id)!;
+    };
+    const home = ride((_s, inc) => destination(inc.location.coord, 2.2, 200));
+    expect(home).toMatchObject({ state: 'left', takes: 'ride' });
+    const cells = ride((s, inc) => custodyDestination(s, inc.location.coord, inc.location.zone)!.station.coord);
+    expect(cells).toMatchObject({ state: 'left', takes: 'arrest' });
+    const hospital = ride((s, inc) => nearestHospital(s, inc.location.coord, inc.location.zone)!.coord);
+    expect(hospital).toMatchObject({ state: 'left', takes: 'hospital' });
+    // A crew that simply drives away has nobody aboard.
+    const x = shiftWith('public_order_drunk_harassing', 410005, 1);
+    dispatchUnits(x.s, x.inc.id, [x.unit.id]);
+    follow(x.s, x.inc, x.unit.id, (sit) => unitOf(sit, x.unit.id)?.state === 'here');
+    recallUnit(x.s, x.unit.id);
+    expect(unitOf(situationOf(x.s, x.inc, SPEED), x.unit.id)).toMatchObject({ state: 'left', takes: null });
   });
 
   it('a crew that drives the arrested to the cells has left with them; one writing its report at the scene is still here', { timeout: 120_000 }, () => {

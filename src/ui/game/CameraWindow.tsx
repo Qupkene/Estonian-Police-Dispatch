@@ -1,18 +1,21 @@
 // Kaamerad (docs/CCTV.md section 14): the surveillance camera's live picture, a small window over the map.
 // Everything heavy (three.js, the renderer, the body model, the director) is in the camera chunk (src/cctv/live.ts),
-// loaded the first time a camera is opened. The window has its own error boundary: a WebGL or chunk failure shows a
-// "try again" in the picture and never takes the shift down.
+// loaded the first time a camera is opened. Whatever the camera throws, while loading, while drawing or from the
+// zoom, ends in the window's own "failed" note with a retry that can work, and never takes the shift down.
 import { Component, useCallback, useEffect, useLayoutEffect, useRef, useState, type ErrorInfo, type PointerEvent as ReactPointerEvent, type ReactNode, type WheelEvent as ReactWheelEvent } from 'react';
-import { shiftKeyOf, SPEEDS, useGame } from '@/store/game';
+import { saveNow, shiftKeyOf, SPEEDS, useGame } from '@/store/game';
 import { useT } from '@/i18n';
 import { Icon } from '@/ui/components';
 import { cameraOf, type CameraInfo } from '@/cctv/coverage';
 import type { CameraHandle } from '@/cctv/live';
+import { isChunkError } from '@/app/AppBoundary';
 import { effectiveSpeed } from '@/sim/coop';
+import type { LngLat } from '@/sim/types';
 import { VERSION } from '@/ui/screens/shell/helpers';
 import { useGameUi } from './uiStore';
 
-export type CameraState = 'connecting' | 'live' | 'unavailable' | 'failed' | 'ended';
+/** `reload`: the camera chunk could not be fetched; only a reload of the page can fetch it again. */
+export type CameraState = 'connecting' | 'live' | 'unavailable' | 'failed' | 'reload' | 'ended';
 
 /** Frames per second of the picture: a street camera's, and cheap enough for a phone. */
 const FPS = 12;
@@ -20,9 +23,66 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 /** Where the window keeps clear of the map area's edges (px). */
 const EDGE = 8;
+/** The window's widths (px): small, large, and the least it is ever squeezed to. */
+const SMALL_W = 448;
+const LARGE_W = 640;
+const MIN_W = 240;
+/** Room kept on the right of a window in its corner: the map's tools. */
+const TOOLS_W = 60;
+/** From the click to the picture at most this long; then the open is given up and a retry offered. */
+export const CONNECT_DEADLINE_MS = 20_000;
+/** How often the window checks whether the 112 card has opened under it (ms). */
+const FIT_EVERY_MS = 400;
 
 const mobile = () => window.matchMedia('(max-width: 899px)').matches;
 const clampN = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
+/** The answered 112 card at the bottom of the map (not while it rings or is folded away). */
+const CALL_CARD = '.tl-call:not(.is-ringing):not(.is-collapsed)';
+
+type LiveModule = typeof import('@/cctv/live');
+let liveChunk: Promise<LiveModule> | null = null;
+
+/** The camera chunk, fetched once per page; a failed or given-up fetch is forgotten so the next open asks again. */
+function loadLive(): Promise<LiveModule> {
+  const p = (liveChunk ??= import('@/cctv/live'));
+  p.catch(() => {
+    if (liveChunk === p) liveChunk = null;
+  });
+  return p;
+}
+
+/**
+ * Where to centre the map so that `coord` shows in the part of the map the open camera window leaves free, at
+ * `zoom` (the game's selection and the window's own open pass one). Unchanged on a phone, where the window is
+ * docked above the map, and when no window is open.
+ */
+export function clearOfCamera(coord: LngLat, zoom: number): LngLat {
+  if (typeof document === 'undefined' || mobile()) return coord;
+  const win = document.querySelector<HTMLElement>('.gm-cam');
+  const map = document.querySelector<HTMLElement>('.gm-map');
+  if (!win || !map) return coord;
+  const m = map.getBoundingClientRect();
+  const r = win.getBoundingClientRect();
+  if (!m.width || !m.height) return coord;
+  // The largest strip of the map beside the window, and its middle.
+  const strips = [
+    { w: r.left - m.left, h: m.height, x: (r.left - m.left) / 2, y: m.height / 2 },
+    { w: m.right - r.right, h: m.height, x: (r.right - m.left + m.width) / 2, y: m.height / 2 },
+    { w: m.width, h: r.top - m.top, x: m.width / 2, y: (r.top - m.top) / 2 },
+    { w: m.width, h: m.bottom - r.bottom, x: m.width / 2, y: (r.bottom - m.top + m.height) / 2 },
+  ];
+  const best = strips.reduce((a, b) => (Math.max(0, b.w) * Math.max(0, b.h) > Math.max(0, a.w) * Math.max(0, a.h) ? b : a));
+  const dx = best.x - m.width / 2;
+  const dy = best.y - m.height / 2;
+  // Web Mercator with the map's 512 px tiles: the centre lies (dx, dy) pixels the other way from the point.
+  const world = 512 * 2 ** zoom;
+  const lat = (coord[1] * Math.PI) / 180;
+  const x = ((coord[0] + 180) / 360) * world - dx;
+  const y = ((1 - Math.log(Math.tan(lat) + 1 / Math.cos(lat)) / Math.PI) / 2) * world - dy;
+  const lng = (x / world) * 360 - 180;
+  const n = Math.PI - (2 * Math.PI * y) / world;
+  return [lng, (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)))];
+}
 
 /** The open camera, or nothing. One at a time; a new shift or another incident's camera starts a new window. */
 export function CameraWindow() {
@@ -37,7 +97,7 @@ interface BoundaryProps {
   byKey: boolean;
 }
 
-/** Catches whatever the camera throws while drawing; its "try again" starts the window afresh. */
+/** Catches what the camera throws while React renders it; its "try again" starts the window afresh. */
 class CameraBoundary extends Component<BoundaryProps, { failed: boolean; round: number }> {
   state = { failed: false, round: 0 };
   static getDerivedStateFromError() {
@@ -54,13 +114,13 @@ class CameraBoundary extends Component<BoundaryProps, { failed: boolean; round: 
   }
 }
 
-/** The camera that sees the incident, as it was when the window opened (the name stays while the feed ends). */
-function useCameraInfo(incidentId: string): CameraInfo | null {
-  const [info] = useState<CameraInfo | null>(() => {
+/** The camera that sees the incident, and the incident's number, as they were when the window opened. */
+function useCameraInfo(incidentId: string): { info: CameraInfo | null; number: string } {
+  const [v] = useState(() => {
     const inc = useGame.getState().sim?.incidents[incidentId];
-    return inc ? cameraOf(inc) : null;
+    return { info: inc ? cameraOf(inc) : null, number: inc?.number ?? '' };
   });
-  return info;
+  return v;
 }
 
 interface FrameProps {
@@ -73,7 +133,7 @@ interface FrameProps {
 
 function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
   const t = useT();
-  const info = useCameraInfo(incidentId);
+  const { info, number } = useCameraInfo(incidentId);
   const winRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -86,9 +146,19 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
   const pan = useRef<[number, number]>([0, 0]);
   /** Where the window was dragged to, from the map area's top left corner; null while it sits in its corner. */
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  /** The width the map area leaves the window (px; null on a phone, where it is docked at full width). */
+  const [fitW, setFitW] = useState<number | null>(null);
   const focusInside = useRef(byKey);
 
   const close = useCallback(() => useGameUi.getState().set({ camera: null }), []);
+
+  /** The open camera threw or lost its picture: let its graphics go and offer the retry. */
+  const fail = useCallback((e?: unknown) => {
+    if (e !== undefined) console.error('[EPD] camera failed', e);
+    handleRef.current?.dispose();
+    handleRef.current = null;
+    setState('failed');
+  }, []);
 
   // Opened from the keyboard: the close button takes the focus. Closing gives it back to the card's camera button
   // when it was in the window (never taken from a text field: the hotkey does not fire while typing).
@@ -102,21 +172,38 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
     };
   }, [byKey, incidentId]);
 
-  // Load the camera chunk and open the camera on the canvas; dispose of everything when the window goes.
+  // Load the camera chunk and open the camera on the canvas, within the deadline; dispose of everything when the
+  // window goes.
   useEffect(() => {
     if (crashed) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ac = new AbortController();
     let handle: CameraHandle | null = null;
+    let done = false;
     setState('connecting');
     setPhase('');
-    import('@/cctv/live')
+    const deadline = window.setTimeout(() => {
+      if (done) return;
+      done = true;
+      ac.abort();
+      console.error('[EPD] camera did not open in time');
+      setState('failed');
+    }, CONNECT_DEADLINE_MS);
+    loadLive()
+      .catch((e: unknown) => {
+        if (done || ac.signal.aborted) return undefined;
+        done = true;
+        console.error('[EPD] camera chunk did not load', e);
+        setState(isChunkError(e) ? 'reload' : 'failed');
+        return undefined;
+      })
       .then((m) => {
+        if (!m || done || ac.signal.aborted) return undefined;
         const sim = useGame.getState().sim;
         const incident = sim?.incidents[incidentId];
-        if (ac.signal.aborted) return undefined;
         if (!sim || !incident || !info) {
+          done = true;
           setState('ended');
           return undefined;
         }
@@ -124,10 +211,11 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
       })
       .then((h) => {
         if (h === undefined) return;
-        if (ac.signal.aborted) {
+        if (done || ac.signal.aborted) {
           h?.dispose();
           return;
         }
+        done = true;
         if (!h) {
           setState('unavailable');
           return;
@@ -137,11 +225,14 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
         setState('live');
       })
       .catch((e: unknown) => {
-        if (ac.signal.aborted) return;
+        if (done || ac.signal.aborted) return;
+        done = true;
         console.error('[EPD] camera did not open', e);
         setState('failed');
-      });
+      })
+      .finally(() => window.clearTimeout(deadline));
     return () => {
+      window.clearTimeout(deadline);
       ac.abort();
       handle?.dispose();
       handleRef.current = null;
@@ -149,50 +240,123 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
   }, [incidentId, attempt, crashed, info]);
 
   // The picture's own loop, FPS frames a second, reading the stores directly (no React state per frame). Nothing is
-  // done while the tab is hidden, the window is not shown (the phone's other tabs) or the game stands still.
+  // done while the tab is hidden, the window is not shown (the phone's other tabs) or the game stands still. The
+  // feed ending or the picture failing lets the graphics go at once, not only when the window closes.
   useEffect(() => {
     if (state !== 'live') return;
     let raf = 0;
     let last = performance.now();
     let drawn = false;
     const loop = (now: number) => {
-      raf = requestAnimationFrame(loop);
       const h = handleRef.current;
       if (!h) return;
+      raf = requestAnimationFrame(loop);
       const dt = (now - last) / 1000;
       if (dt < 1 / FPS - 0.004) return;
       last = now;
-      if (document.hidden || !winRef.current || winRef.current.offsetParent === null) return;
+      const win = winRef.current;
+      if (document.hidden || !win || win.offsetParent === null) return;
       const g = useGame.getState();
       const sim = g.sim;
       if (!sim) return;
       const paused = g.speedIndex === 0;
       if (paused && drawn) return;
-      h.update(sim, effectiveSpeed(sim, g.realtime ? 1 : SPEEDS[g.speedIndex]), paused, dt);
+      try {
+        h.update(sim, effectiveSpeed(sim, g.realtime ? 1 : SPEEDS[g.speedIndex]), paused, dt);
+      } catch (e) {
+        cancelAnimationFrame(raf);
+        fail(e);
+        return;
+      }
       drawn = true;
-      if (h.dead) setState('failed');
-      else if (h.state === 'ended') setState('ended');
+      // For the tests: what the last frame held (attributes only change when the numbers do).
+      if (win.dataset.people !== String(h.people)) win.dataset.people = String(h.people);
+      if (win.dataset.cars !== String(h.cars)) win.dataset.cars = String(h.cars);
       setPhase(h.phase);
+      if (h.dead) {
+        cancelAnimationFrame(raf);
+        fail();
+      } else if (h.state === 'ended') {
+        cancelAnimationFrame(raf);
+        h.dispose();
+        handleRef.current = null;
+        setState('ended');
+      }
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [state]);
+  }, [state, fail]);
 
-  // The window stays inside the map area when that changes size (a panel opens, the browser is resized).
+  // ── The window's size and place: inside the map area, above the answered 112 card, out of the map's tools ──
+  const refit = useCallback(() => {
+    const win = winRef.current;
+    const map = win?.parentElement?.querySelector<HTMLElement>('.gm-map');
+    const root = win?.closest<HTMLElement>('.gm');
+    if (!win || !map) return;
+    if (mobile()) {
+      // Docked above the map: the map's tools move down below it.
+      root?.style.setProperty('--gm-cam-h', `${win.offsetHeight}px`);
+      setFitW(null);
+      return;
+    }
+    root?.style.removeProperty('--gm-cam-h');
+    const m = map.getBoundingClientRect();
+    const r = win.getBoundingClientRect();
+    const bar = win.firstElementChild instanceof HTMLElement ? win.firstElementChild.offsetHeight + 2 : 36;
+    const moved = win.classList.contains('is-moved');
+    // The answered 112 card stays on top: the window fits in the map above it.
+    const call = document.querySelector<HTMLElement>(CALL_CARD);
+    const floor = call ? Math.min(m.bottom, call.getBoundingClientRect().top) : m.bottom;
+    const top = moved ? m.top + EDGE : r.top;
+    const byHeight = ((floor - top - EDGE - bar) * 16) / 9;
+    const byWidth = m.width - (moved ? 2 * EDGE : TOOLS_W + 2 * EDGE);
+    const w = Math.round(Math.max(MIN_W, Math.min(large ? LARGE_W : SMALL_W, byWidth, byHeight)));
+    setFitW((old) => (old === w ? old : w));
+    setPos((p) => (p ? clampPos(p, map, win, floor - m.top) : p));
+  }, [large]);
+
+  useLayoutEffect(() => {
+    refit();
+  }, [refit, pos === null, state]);
+
   useEffect(() => {
-    const map = winRef.current?.parentElement?.querySelector<HTMLElement>('.gm-map');
-    if (!map || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => setPos((p) => (p ? clampPos(p, map, winRef.current) : p)));
-    ro.observe(map);
-    return () => ro.disconnect();
-  }, []);
+    const win = winRef.current;
+    const map = win?.parentElement?.querySelector<HTMLElement>('.gm-map');
+    const root = win?.closest<HTMLElement>('.gm');
+    if (!win || !map) return;
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => refit());
+    ro?.observe(map);
+    ro?.observe(win);
+    const timer = window.setInterval(refit, FIT_EVERY_MS);
+    return () => {
+      ro?.disconnect();
+      window.clearInterval(timer);
+      root?.style.removeProperty('--gm-cam-h');
+    };
+  }, [refit]);
 
-  const applyView = useCallback((z: number) => {
-    const room = (1 - 1 / z) / 2;
-    pan.current = [clampN(pan.current[0], -room, room), clampN(pan.current[1], -room, room)];
-    setZoom(z);
-    handleRef.current?.view(z, pan.current[0], pan.current[1]);
-  }, []);
+  // On open, the map eases so that the incident shows beside the window, not under it (GameScreen MapHost moves
+  // every focus while a window is open, see clearOfCamera).
+  useEffect(() => {
+    if (mobile()) return;
+    const g = useGame.getState();
+    const inc = g.sim?.incidents[incidentId];
+    if (inc) g.focusMap(inc.location.coord, g.mapFocus?.zoom ?? 14);
+  }, [incidentId, large]);
+
+  const applyView = useCallback(
+    (z: number) => {
+      const room = (1 - 1 / z) / 2;
+      pan.current = [clampN(pan.current[0], -room, room), clampN(pan.current[1], -room, room)];
+      setZoom(z);
+      try {
+        handleRef.current?.view(z, pan.current[0], pan.current[1]);
+      } catch (e) {
+        fail(e);
+      }
+    },
+    [fail],
+  );
 
   // ── Dragging the window by its title bar ──
   const onTitleDown = (e: ReactPointerEvent<HTMLElement>) => {
@@ -204,9 +368,11 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
     const w = win.getBoundingClientRect();
     const dx = e.clientX - w.left;
     const dy = e.clientY - w.top;
+    const call = document.querySelector<HTMLElement>(CALL_CARD);
+    const floor = (call ? Math.min(m.bottom, call.getBoundingClientRect().top) : m.bottom) - m.top;
     const bar = e.currentTarget;
     bar.setPointerCapture(e.pointerId);
-    const move = (ev: PointerEvent) => setPos(clampPos({ x: ev.clientX - m.left - dx, y: ev.clientY - m.top - dy }, map, win));
+    const move = (ev: PointerEvent) => setPos(clampPos({ x: ev.clientX - m.left - dx, y: ev.clientY - m.top - dy }, map, win, floor));
     const up = () => {
       bar.removeEventListener('pointermove', move);
       bar.removeEventListener('pointerup', up);
@@ -260,9 +426,11 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
   }, []);
 
   const name = info?.name ?? t('game.cam.title');
-  const style = pos && !mobile() ? { left: pos.x, top: pos.y, right: 'auto' } : undefined;
+  const phone = fitW === null;
+  const style = phone ? undefined : { width: fitW, ...(pos ? { left: pos.x, top: pos.y, right: 'auto' } : {}) };
   const live = state === 'live';
   const paused = useGame((s) => s.speedIndex === 0);
+  const retry = crashed ? onRetry : () => setAttempt((n) => n + 1);
 
   return (
     <section
@@ -288,10 +456,14 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
         }
       }}
     >
-      <header className="gm-cam__bar" onPointerDown={onTitleDown} title={mobile() ? undefined : t('game.cam.drag')}>
+      <header className="gm-cam__bar" onPointerDown={onTitleDown} title={phone ? undefined : t('game.cam.drag')}>
         <i className={`gm-cam__lamp is-${live ? (paused ? 'paused' : 'live') : state}`} aria-hidden="true" />
         <Icon name="cctv" size={14} />
-        <span className="gm-cam__name mono">{name}</span>
+        <span className="gm-cam__name mono">
+          {name}
+          {/* Two incidents can share one camera: the number says whose story the picture tells. */}
+          {number && <span className="gm-cam__case"> · {number}</span>}
+        </span>
         {live && <span className={`gm-cam__tag${paused ? ' is-paused' : ''}`}>{paused ? t('game.cam.paused') : t('game.cam.live')}</span>}
         <span className="gm-cam__tools">
           <button type="button" className="gm-cam__btn gm-cam__btn--zoom" onClick={() => applyView(clampN(zoom / 1.5, MIN_ZOOM, MAX_ZOOM))} disabled={!live || zoom <= MIN_ZOOM} aria-label={t('game.cam.zoomOut')} title={t('game.cam.zoomOut')}>
@@ -309,7 +481,7 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
             title={large ? t('game.cam.smaller') : t('game.cam.bigger')}
             data-testid="camera-size"
           >
-            <Icon name={large ? 'chevron-down' : 'fast'} size={13} />
+            <Icon name={large ? 'shrink' : 'expand'} size={13} />
           </button>
           <button ref={closeRef} type="button" className="gm-cam__btn" onClick={close} aria-label={t('game.cam.close')} title={`${t('game.cam.close')} (Esc)`} data-testid="camera-close">
             <Icon name="close" size={13} />
@@ -335,37 +507,71 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
           hidden={!live}
         />
         {live && zoom > 1 && <span className="gm-cam__zoom mono">{zoom.toFixed(1)}×</span>}
-        {!live && <CameraNote state={state} onRetry={crashed ? onRetry : () => setAttempt((n) => n + 1)} />}
+        {!live && <CameraNote state={state} onRetry={retry} />}
       </div>
     </section>
   );
 }
 
+/** Save the running shift, then load the page again (a camera chunk that failed to fetch is fetched anew). */
+function saveAndReload() {
+  saveNow();
+  window.location.reload();
+}
+
 /** The text in the picture area while there is no picture. */
 function CameraNote({ state, onRetry }: { state: CameraState; onRetry?: () => void }) {
   const t = useT();
-  const title = state === 'connecting' ? t('game.cam.connecting') : state === 'unavailable' ? t('game.cam.unavailable') : state === 'ended' ? t('game.cam.ended') : t('game.cam.failed');
-  const hint = state === 'unavailable' ? t('game.cam.unavailableHint') : state === 'ended' ? t('game.cam.endedHint') : state === 'failed' ? t('game.cam.failedHint') : null;
+  const offline = state === 'reload' && navigator.onLine === false;
+  const title =
+    state === 'connecting'
+      ? t('game.cam.connecting')
+      : state === 'unavailable'
+        ? t('game.cam.unavailable')
+        : state === 'ended'
+          ? t('game.cam.ended')
+          : state === 'reload'
+            ? offline
+              ? t('game.cam.offline')
+              : t('game.cam.stale')
+            : t('game.cam.failed');
+  const hint =
+    state === 'unavailable'
+      ? t('game.cam.unavailableHint')
+      : state === 'ended'
+        ? t('game.cam.endedHint')
+        : state === 'failed'
+          ? t('game.cam.failedHint')
+          : state === 'reload'
+            ? offline
+              ? t('game.cam.offlineHint')
+              : t('game.cam.staleHint')
+            : null;
   return (
     <div className={`gm-cam__note is-${state}`} role="status">
       <strong>{title}</strong>
       {hint && <span>{hint}</span>}
       {state === 'failed' && onRetry && (
         <button type="button" className="gm-cam__retry" onClick={onRetry} data-testid="camera-retry">
-          <Icon name="route" size={13} />
+          <Icon name="refresh" size={13} />
           {t('game.cam.retry')}
+        </button>
+      )}
+      {state === 'reload' && (
+        <button type="button" className="gm-cam__retry" onClick={saveAndReload} data-testid="camera-reload">
+          <Icon name="refresh" size={13} />
+          {t('game.cam.reload')}
         </button>
       )}
     </div>
   );
 }
 
-/** A dragged position kept inside the map area. */
-function clampPos(p: { x: number; y: number }, map: HTMLElement, win: HTMLElement | null): { x: number; y: number } {
+/** A dragged position kept inside the map area, above `floor` (px from the map's top). */
+function clampPos(p: { x: number; y: number }, map: HTMLElement, win: HTMLElement | null, floor = map.clientHeight): { x: number; y: number } {
   const w = win?.offsetWidth ?? 0;
   const h = win?.offsetHeight ?? 0;
-  return {
-    x: clampN(p.x, EDGE, Math.max(EDGE, map.clientWidth - w - EDGE)),
-    y: clampN(p.y, EDGE, Math.max(EDGE, map.clientHeight - h - EDGE)),
-  };
+  const x = clampN(p.x, EDGE, Math.max(EDGE, map.clientWidth - w - EDGE));
+  const y = clampN(p.y, EDGE, Math.max(EDGE, Math.min(map.clientHeight, floor) - h - EDGE));
+  return x === p.x && y === p.y ? p : { x, y };
 }

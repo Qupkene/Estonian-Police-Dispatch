@@ -46,7 +46,10 @@ function standingHere(s: SimState, inc: Incident, u: Unit): boolean {
   return !!job && haversineKm(job.location.coord, inc.location.coord) < SAME_KM;
 }
 
-/** Whom a crew that left on a transport has aboard: the engine sends it to the cells or to the nearest hospital. */
+/**
+ * Whom a crew that left on a transport has aboard: the engine sends it to the cells, to the nearest hospital, or with
+ * somebody to their home or to a station ('ride': any other place a transport of this incident drives to).
+ */
 function takesOf(s: SimState, inc: Incident, u: Unit): UnitSit['takes'] {
   if (u.incidentId !== inc.id || (u.status !== 'transport' && u.status !== 'busy')) return null;
   const end = u.move ? lastOf(u.move.path) : u.pos;
@@ -55,7 +58,7 @@ function takesOf(s: SimState, inc: Incident, u: Unit): UnitSit['takes'] {
   if (cells && haversineKm(end, cells) < SAME_KM) return 'arrest';
   const hospital = nearestHospital(s, inc.location.coord, inc.location.zone)?.coord;
   if (hospital && haversineKm(end, hospital) < SAME_KM) return 'hospital';
-  return null;
+  return u.status === 'transport' && u.move?.purpose === 'transport' ? 'ride' : null;
 }
 
 /** The scene yaw from the incident towards where the crew is, or comes from. */

@@ -90,7 +90,12 @@ export function useHotkeys() {
           const inc = id ? s.incidents[id] : undefined;
           if (!inc) ui.pushToast({ kind: 'error', title: 'game.cam.pick' });
           else if (ui.camera?.incidentId !== inc.id && !cameraOf(inc, s.now)) ui.pushToast({ kind: 'error', title: 'game.cam.none' });
-          else toggleCamera(inc.id, true);
+          else if (ui.camera?.incidentId === inc.id && !document.activeElement?.closest('.gm-cam')) {
+            // Its window is open but the focus is elsewhere: K goes to the window first, a second K closes it.
+            const btn = document.querySelector<HTMLElement>('[data-testid="camera-close"]');
+            if (btn && btn.offsetParent !== null) btn.focus();
+            else toggleCamera(inc.id, true);
+          } else toggleCamera(inc.id, true);
           return handled();
         }
         case 'F2':
@@ -111,10 +116,11 @@ export function useHotkeys() {
           const dir = useDirector.getState();
           if (dir.placing) {
             dir.setPlacing(null);
+          } else if (ui.drawerOpen) {
+            // The queue drawer lies over everything on a narrow screen, the camera window too: it goes first.
+            ui.set({ drawerOpen: false });
           } else if (ui.camera) {
             ui.set({ camera: null });
-          } else if (ui.drawerOpen) {
-            ui.set({ drawerOpen: false });
           } else if (g.selection.incidentId || g.selection.unitId || g.selection.personId || g.selection.plate) {
             g.select({});
           } else {

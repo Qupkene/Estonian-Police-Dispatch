@@ -1,6 +1,9 @@
 // Kaamerad (docs/CCTV.md section 14): three.js, the renderer, the director and the tile reader load only when a
 // camera is first opened. The game's own bundle may import from src/cctv only coverage.ts (the queue and the card
 // ask it while drawing) and types; everything else comes through import() of the camera chunk's entry.
+// After a build, the last cases read the output too: three.js only in the camera chunk, nothing of the camera in the
+// service worker's precache. They need dist/ and are skipped without it, unless CCTV_DIST=1 asks for them (CI runs
+// this file once more after its build with that set).
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -55,6 +58,9 @@ function resolve(from: string, spec: string): string | null {
   return base;
 }
 
+const DIST = path.join(ROOT, 'dist');
+const haveDist = existsSync(path.join(DIST, 'sw.js'));
+const needDist = process.env.CCTV_DIST === '1';
 const inCctv = (f: string) => f === CCTV || f.startsWith(CCTV + path.sep);
 const rel = (f: string) => path.relative(ROOT, f).split(path.sep).join('/');
 
@@ -96,6 +102,30 @@ describe('the camera chunk stays lazy', () => {
     // And the entry is where three.js comes in (through the renderer).
     const entry = staticImports(path.join(CCTV, 'live.ts')).map((i) => i.spec);
     expect(entry).toContain('./render/view');
+  });
+
+  it('three.js is imported only by the renderer and the harness pages', () => {
+    const allowed = [path.join(CCTV, 'render'), path.join(CCTV, '__dev__')];
+    const bad: string[] = [];
+    for (const file of sourceFiles(SRC)) {
+      if (allowed.some((d) => file.startsWith(d + path.sep))) continue;
+      for (const imp of staticImports(file)) {
+        if (!imp.typeOnly && (imp.spec === 'three' || imp.spec.startsWith('three/'))) bad.push(`${rel(file)} imports ${imp.spec}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it.runIf(haveDist || needDist)('the build puts three.js in the camera chunk only, and precaches nothing of the camera', () => {
+    expect(haveDist).toBe(true);
+    const assets = readdirSync(path.join(DIST, 'assets')).filter((f) => f.endsWith('.js'));
+    const cam = assets.filter((f) => f.startsWith('cctv-'));
+    expect(cam.length).toBe(1);
+    const elsewhere = assets.filter((f) => !f.startsWith('cctv-') && readFileSync(path.join(DIST, 'assets', f), 'utf8').includes('WebGLRenderer'));
+    expect(elsewhere).toEqual([]);
+    expect(readFileSync(path.join(DIST, 'assets', cam[0]), 'utf8')).toContain('WebGLRenderer');
+    const sw = readFileSync(path.join(DIST, 'sw.js'), 'utf8');
+    expect(sw).not.toMatch(/cctv-|human-/);
   });
 
   it('the reader of import statements sees what it must', () => {
