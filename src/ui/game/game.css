@@ -5268,6 +5268,19 @@ button.gm-ctask__btn:hover {
 .gm-cam__name.is-short .gm-cam__num-short {
   display: inline;
 }
+/* Before the number is shortened, the camera icon and the live tag give way ('is-tight'; the lamp still says live or
+   paused). They are only hidden, out of the row: CameraWindow.tsx still measures them. */
+.gm-cam__bar.is-tight {
+  position: relative;
+}
+.gm-cam__bar.is-tight > .ui-icon,
+.gm-cam__bar.is-tight > .gm-cam__tag {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
 /* A narrow window (about 300 px and less): the place name goes, and so do the camera icon and the live tag (the
    lamp says it). The note in the small picture keeps its button in sight: the reload's title and its "press again"
    line go (the hint and the button's own words say it). */

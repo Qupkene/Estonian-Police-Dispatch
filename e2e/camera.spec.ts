@@ -112,8 +112,9 @@ const overlap = (a: { x: number; y: number; width: number; height: number }, b: 
 
 test.describe('surveillance camera', () => {
   test('opens from the card, plays the patrol arriving, keeps the incident in sight and lets everything go', async ({ page }) => {
-    // Boot, two opens to live (up to 12 s each on a software renderer) and the patrol's arrival: well under this.
-    test.setTimeout(300_000);
+    // Boot, two opens to live (11 to 20 s each on a loaded software renderer: shaders are compiled before the first
+    // frame) and the patrol's arrival: well under this.
+    test.setTimeout(420_000);
     const errors: string[] = [];
     const chunk: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
@@ -234,7 +235,7 @@ test.describe('surveillance camera', () => {
       return probe(num.textContent!) - probe(short.textContent!);
     });
     const sweep = async (when: string) => {
-      for (const w of [240, 260, 280, 300, 320, 336, 360, 372, 384, 400, 448, 520, 640]) {
+      for (const w of [240, 260, 280, 300, 304, 312, 320, 336, 360, 372, 384, 400, 448, 520, 640]) {
         await win(page).evaluate((el, px) => (el.style.width = `${px}px`), w);
         // Measured after the window's next fit (a resize observer and a render).
         await expect.poll(async () => (await title()).width, { timeout: SLOW }).toBe(w);
@@ -306,7 +307,8 @@ test.describe('surveillance camera', () => {
   });
 
   test('opened and closed three times, it keeps no graphics context', async ({ page }) => {
-    test.setTimeout(240_000);
+    // Three opens to live, each up to the 45 s connect deadline on a slow machine.
+    test.setTimeout(360_000);
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await bootAndLegacyLogin(page);

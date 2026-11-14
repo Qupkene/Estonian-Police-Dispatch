@@ -333,11 +333,12 @@ describe('the surveillance camera window (Kaamerad, docs/CCTV.md section 14)', (
     // Only the place name gives way.
     expect(rule(GAME, '.gm-cam__label')['text-overflow']).toBe('ellipsis');
     expect(rule(GAME, '.gm-cam__num-short').display).toBe('none');
-    const at = GAME.indexOf('@container gm-cam (max-width: 300px)');
-    expect(at).toBeGreaterThan(0);
-    const narrow = GAME.slice(at, GAME.indexOf('\n}', at));
-    expect(narrow).toMatch(/\.gm-cam__label,[^{]*\.gm-cam__num\s*\{\s*display:\s*none/);
-    expect(narrow).toMatch(/\.gm-cam__num-short\s*\{\s*display:\s*inline/);
+    // CameraWindow.tsx measures the bar: the place name goes first, then the number is shortened to its last part,
+    // then the icon and the live tag step out of the row (hidden, still measured).
+    expect(GAME).toMatch(/\.gm-cam__name\.is-bare \.gm-cam__label,[^{]*\.gm-cam__name\.is-short \.gm-cam__num\s*\{\s*display:\s*none/);
+    expect(rule(GAME, '.gm-cam__name.is-short .gm-cam__num-short').display).toBe('inline');
+    expect(GAME).toMatch(/\.gm-cam__bar\.is-tight > \.gm-cam__tag\s*\{[^}]*position:\s*absolute;[^}]*visibility:\s*hidden/);
+    expect(GAME).toMatch(/@container gm-cam \(max-width: 300px\)\s*\{\s*\.gm-cam__label,/);
   });
 
   it('folded above an answered 112 call it is its title bar alone', () => {

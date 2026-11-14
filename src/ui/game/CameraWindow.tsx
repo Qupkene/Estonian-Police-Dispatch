@@ -180,10 +180,11 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
   foldedRef.current = fold !== null;
   const focusInside = useRef(byKey);
   /**
-   * How the title bar fits: everything (''), without the place name ('is-bare': too little of it would show), or
-   * also with only the last part of the incident's number ('is-short': the whole one does not fit beside the code).
+   * How the title bar fits: everything (''), without the place name ('is-bare': too little of it would show), also
+   * without the camera icon and the live tag ('is-tight': the lamp still says live or paused) so the whole number
+   * fits beside the code, or with only the number's last part as well ('is-short': the whole one does not fit even so).
    */
-  const [titleFit, setTitleFit] = useState<'' | 'is-bare' | 'is-short'>('');
+  const [titleFit, setTitleFit] = useState<'' | 'is-bare' | 'is-tight' | 'is-short'>('');
   /** The width of the whole " · number" when it last showed (px): the short form gives way to it once it fits. */
   const caseW = useRef(0);
   const nameRef = useRef<HTMLSpanElement>(null);
@@ -335,12 +336,23 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
   // shows while it fits beside the code (the place name gives way first); else only its last part does.
   const fitTitle = useCallback(() => {
     const name = nameRef.current;
+    const bar = name?.parentElement;
     const kase = name?.querySelector<HTMLElement>('.gm-cam__case');
-    if (!name || !name.clientWidth) return;
-    if (kase && !name.classList.contains('is-short')) caseW.current = kase.getBoundingClientRect().width;
+    if (!name || !bar || !name.clientWidth) return;
+    const short = name.classList.contains('is-short');
+    const tight = bar.classList.contains('is-tight');
+    // The icon and the tag beside the name, with their gaps. A tight bar only hides them (they keep their width and
+    // take no room), so the name's room is measured as it would be with them and the fit cannot flicker.
+    const gap = parseFloat(getComputedStyle(bar).columnGap) || 0;
+    let aside = 0;
+    for (const el of bar.querySelectorAll<HTMLElement>(':scope > .ui-icon, :scope > .gm-cam__tag')) {
+      if (getComputedStyle(el).display !== 'none') aside += el.getBoundingClientRect().width + gap;
+    }
+    const width = name.getBoundingClientRect().width - (tight ? aside : 0);
+    if (kase && !short) caseW.current = kase.getBoundingClientRect().width;
     const code = name.querySelector<HTMLElement>('.gm-cam__code')?.getBoundingClientRect().width ?? 0;
-    const room = name.getBoundingClientRect().width - code - (kase ? caseW.current : 0);
-    const fit = room < -0.25 ? 'is-short' : room < LABEL_MIN_W ? 'is-bare' : '';
+    const room = width - code - (kase ? caseW.current : 0);
+    const fit = room >= LABEL_MIN_W ? '' : room >= -0.25 ? 'is-bare' : room + aside >= -0.25 ? 'is-tight' : 'is-short';
     setTitleFit((old) => (old === fit ? old : fit));
   }, []);
 
@@ -538,6 +550,9 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
       };
   const live = state === 'live';
   const paused = useGame((s) => s.speedIndex === 0);
+  // The tag's text (paused or live, in the player's language) changes the room beside the name: measured again.
+  const tagText = live ? (paused ? t('game.cam.paused') : t('game.cam.live')) : '';
+  useLayoutEffect(fitTitle, [fitTitle, tagText]);
   const retry = crashed ? onRetry : () => setAttempt((n) => n + 1);
 
   return (
@@ -564,10 +579,10 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
         }
       }}
     >
-      <header className="gm-cam__bar" onPointerDown={onTitleDown} title={phone ? undefined : t('game.cam.drag')}>
+      <header className={`gm-cam__bar${titleFit === 'is-tight' || titleFit === 'is-short' ? ' is-tight' : ''}`} onPointerDown={onTitleDown} title={phone ? undefined : t('game.cam.drag')}>
         <i className={`gm-cam__lamp is-${live ? (paused ? 'paused' : 'live') : state}`} aria-hidden="true" />
         <Icon name="cctv" size={14} />
-        <span ref={nameRef} className={`gm-cam__name mono${titleFit ? ` ${titleFit}` : ''}`}>
+        <span ref={nameRef} className={`gm-cam__name mono${titleFit ? ` ${titleFit === 'is-tight' ? 'is-bare' : titleFit}` : ''}`}>
           {/* The camera's code stays whole; its place name gives way when the bar is narrow. */}
           {info && name.startsWith(info.id) ? (
             <>
@@ -588,7 +603,7 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
             </span>
           )}
         </span>
-        {live && <span className={`gm-cam__tag${paused ? ' is-paused' : ''}`}>{paused ? t('game.cam.paused') : t('game.cam.live')}</span>}
+        {live && <span className={`gm-cam__tag${paused ? ' is-paused' : ''}`}>{tagText}</span>}
         <span className="gm-cam__tools">
           <button
             ref={zoomOutRef}
