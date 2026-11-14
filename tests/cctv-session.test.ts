@@ -149,6 +149,55 @@ describe('cctv session: one open camera over a shift', () => {
     expect(JSON.stringify(view.last.frame)).toBe(still);
   });
 
+  it('plays the street at the pace the game clock really keeps, not at the nominal speed alone', () => {
+    const { s, inc } = fight();
+    const view = new FakeView();
+    const cam = new CameraSession(view, s, inc, CAMERA, null, VERSION, { quiet: true });
+    // A slow device: the game plays only part of each frame's game time (its frames are clamped), the camera is told
+    // the nominal speed all the same.
+    const slow = (seconds: number, share: number, speed = SPEED) => {
+      for (let i = 0; i < Math.round(seconds / DT); i++) {
+        step(s, Math.round(speed * DT * 1000 * share));
+        cam.update(s, speed, false, DT);
+      }
+    };
+    // Nominal until the first window is measured.
+    cam.update(s, SPEED, false, DT);
+    expect(cam.speed).toBe(SPEED);
+    slow(4, 0.5);
+    expect(cam.speed).toBeGreaterThan(SPEED * 0.45);
+    expect(cam.speed).toBeLessThan(SPEED * 0.55);
+    // The game catches up: so does the picture.
+    slow(6, 1);
+    expect(cam.speed).toBeGreaterThan(SPEED * 0.97);
+    expect(cam.speed).toBeLessThan(SPEED * 1.03);
+    // A faster speed is followed at once, at the pace last measured; a pause keeps the speed it stood at.
+    slow(4, 0.5);
+    cam.update(s, 4 * SPEED, false, DT);
+    expect(cam.speed).toBeGreaterThan(4 * SPEED * 0.45);
+    expect(cam.speed).toBeLessThan(4 * SPEED * 0.55);
+    const held = cam.speed;
+    for (let i = 0; i < 12; i++) cam.update(s, 4 * SPEED, true, DT);
+    expect(cam.speed).toBe(held);
+  });
+
+  it('settles the first frame without drawing it (the view prepares on it), and goes on from it', () => {
+    const { s, inc } = fight();
+    const view = new FakeView();
+    const cam = new CameraSession(view, s, inc, CAMERA, null, VERSION, { quiet: true });
+    const first = cam.stage(s);
+    expect(first).not.toBeNull();
+    expect(first!.people.length).toBeGreaterThan(0);
+    expect(view.renders).toHaveLength(0);
+    expect(cam.stage(s)).toBe(first);
+    // The first update while paused draws that frame as it stands.
+    cam.update(s, SPEED, true, DT);
+    expect(view.renders).toHaveLength(1);
+    expect(JSON.stringify(view.last.frame)).toBe(JSON.stringify(first));
+    play(s, cam, 1);
+    expect(view.renders.length).toBeGreaterThan(10);
+  });
+
   it('opened while the game is paused, the first frame still shows the scene as it stands', () => {
     const { s, inc } = fight();
     const view = new FakeView();

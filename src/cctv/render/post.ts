@@ -363,6 +363,21 @@ export class Post {
     this.b = t;
   }
 
+  /**
+   * Compile both passes for the targets they draw into (a program differs by the colour space it writes), in
+   * parallel while the page runs on. Resolves when both can be drawn without waiting.
+   */
+  compile(): Promise<unknown> {
+    const r = this.renderer;
+    this.quad.material = this.lens;
+    r.setRenderTarget(this.a);
+    const lens = r.compileAsync(this.scene, this.cam);
+    this.quad.material = this.monitor;
+    r.setRenderTarget(null);
+    const monitor = r.compileAsync(this.scene, this.cam);
+    return Promise.all([lens, monitor]);
+  }
+
   dispose() {
     this.frame.dispose();
     this.a.dispose();

@@ -32,6 +32,7 @@ import {
   SRGBColorSpace,
   Sprite,
   SpriteMaterial,
+  type Object3D,
   type Texture,
 } from 'three';
 import { lerp, type V2 } from '../math';
@@ -1230,9 +1231,12 @@ interface Atlas {
   textures: Texture[];
 }
 
-/** The paintings kept for the next car or the next camera, the least recently used first. */
+/**
+ * The paintings kept for the next car or the next camera, the least recently used first: two (each 3.9 MB of
+ * canvases), enough for the patrol car and the other car of an incident when its camera is opened again.
+ */
 const paintings = new Map<string, Painting>();
-const PAINTINGS_KEPT = 6;
+const PAINTINGS_KEPT = 2;
 const MASK = 8;
 
 function atlasKey(look: CarLook): string {
@@ -1259,7 +1263,8 @@ function paintingFor(look: CarLook): Painting {
     const c = document.createElement('canvas');
     c.width = AW * k;
     c.height = AH * k;
-    const g = c.getContext('2d')!;
+    // The colour sheet is read back once (which cells carry paint): kept in memory, not on the graphics card.
+    const g = c.getContext('2d', { willReadFrequently: !glow })!;
     if (glow) {
       g.fillStyle = '#000000';
       g.fillRect(0, 0, c.width, c.height);
@@ -1320,9 +1325,14 @@ function atlasOf(p: Painting): Atlas {
   tex.anisotropy = 4;
   const glowTex = new CanvasTexture(p.glow);
   glowTex.colorSpace = SRGBColorSpace;
-  const material = new MeshPhysicalMaterial({
-    map: tex,
-    emissiveMap: glowTex,
+  return { material: decalMaterial(tex, glowTex), mask: p.mask, frame: p.frame, refs: 0, textures: [tex, glowTex] };
+}
+
+/** The material a car's painting is drawn with: the sheet, its glow at night, the paint's clear coat. */
+function decalMaterial(map: Texture, glow: Texture): MeshPhysicalMaterial {
+  return new MeshPhysicalMaterial({
+    map,
+    emissiveMap: glow,
     emissive: 0xffffff,
     emissiveIntensity: 0,
     alphaTest: 0.5,
@@ -1335,8 +1345,19 @@ function atlasOf(p: Painting): Atlas {
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,
   });
-  return { material, mask: p.mask, frame: p.frame, refs: 0, textures: [tex, glowTex] };
 }
+
+/** The lamps' material: their glow is read from `states`, a texel per group of lamps. */
+const lampMaterial = (states: Texture) =>
+  new MeshStandardMaterial({ vertexColors: true, metalness: 0.35, roughness: 0.14, emissive: 0xffffff, emissiveMap: states, emissiveIntensity: 3 });
+
+/** A flare round a lit lamp (`color`: the headlights' or the blue lights'). */
+const flareMaterial = (kit: CarKit, color: number) =>
+  new SpriteMaterial({ map: kit.flare(), color, blending: AdditiveBlending, depthWrite: false, transparent: true });
+
+/** The pool of light the headlights throw on the road. */
+const beamMaterial = (beam: Texture) =>
+  new MeshBasicMaterial({ map: beam, color: 0xfff0d0, blending: AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55 });
 
 /** The painted faces of a car with their places in the atlas, each pushed out a few millimetres. */
 function decalGeometry(facets: Facet[], atlas: Atlas): BufferGeometry | null {
@@ -1504,6 +1525,8 @@ export class CarKit implements CarTextures {
   private spriteQuad: BufferGeometry | null = null;
   private atlases = new Map<string, Atlas>();
   private idle: string[] = [];
+  private stand: Object3D[] | null = null;
+  private standOwned: { dispose: () => void }[] = [];
 
   /**
    * The two materials every parked vehicle is made of: paint (and plain plastic) by the colour of its vertices,
@@ -1518,7 +1541,11 @@ export class CarKit implements CarTextures {
 
   /** A moving car's paint: solid or metallic, both under a full clear coat. */
   paintFor(look: CarLook): MeshPhysicalMaterial {
-    if (look.metallic) return (this.metal ??= new MeshPhysicalMaterial({ vertexColors: true, metalness: 0.55, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 1 }));
+    return this.paintOf(!!look.metallic);
+  }
+
+  private paintOf(metallic: boolean): MeshPhysicalMaterial {
+    if (metallic) return (this.metal ??= new MeshPhysicalMaterial({ vertexColors: true, metalness: 0.55, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 1 }));
     return (this.solid ??= new MeshPhysicalMaterial({ vertexColors: true, metalness: 0.05, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 0.9 }));
   }
 
@@ -1579,8 +1606,44 @@ export class CarKit implements CarTextures {
     }
   }
 
+  /**
+   * A moving car's parts as stand-ins, never drawn: a mesh for each material a car is drawn with (both paints, the
+   * glass, the plastic, the lamps, a painting, a flare, the headlights' pool), with textures of a single texel. A
+   * view compiles their programs before the first car arrives (CameraView.prepare) without painting a car for it.
+   * They go with the kit.
+   */
+  standIns(): Object3D[] {
+    if (this.stand) return this.stand;
+    const texel = () => {
+      const t = new DataTexture(new Uint8Array(4), 1, 1, RGBAFormat);
+      t.colorSpace = SRGBColorSpace;
+      t.needsUpdate = true;
+      return t;
+    };
+    const [map, glow, states] = [texel(), texel(), texel()];
+    const mats = this.materials();
+    // No triangles, but the attributes a car's meshes have: a program is chosen by them too (no normals: flat shading).
+    const none = new BufferGeometry();
+    for (const [name, size] of [['position', 3], ['normal', 3], ['uv', 2], ['color', 3]] as const) none.setAttribute(name, new BufferAttribute(new Float32Array(size), size));
+    const decal = decalMaterial(map, glow);
+    const lamp = lampMaterial(states);
+    const beam = beamMaterial(this.beam);
+    const meshes: Object3D[] = [this.paintOf(false), this.paintOf(true), mats.glass, this.plasticFor(), lamp, decal, beam].map((m) => {
+      const mesh = new Mesh(none, m);
+      mesh.castShadow = m !== beam && m !== lamp;
+      return mesh;
+    });
+    const flare = flareMaterial(this, 0xfff2d8);
+    meshes.push(this.sprite(flare));
+    this.standOwned = [map, glow, states, none, decal, lamp, beam, flare];
+    return (this.stand = meshes);
+  }
+
   /** Free all of it (the view's cars are gone by now). */
   dispose() {
+    for (const o of this.standOwned) o.dispose();
+    this.standOwned = [];
+    this.stand = null;
     for (const a of this.atlases.values()) {
       a.material.dispose();
       a.textures.forEach((t) => t.dispose());
@@ -1682,7 +1745,7 @@ export class CarMesh {
     this.states.minFilter = NearestFilter;
     this.states.colorSpace = SRGBColorSpace;
     this.states.needsUpdate = true;
-    this.lampMat = new MeshStandardMaterial({ vertexColors: true, metalness: 0.35, roughness: 0.14, emissive: 0xffffff, emissiveMap: this.states, emissiveIntensity: 3 });
+    this.lampMat = lampMaterial(this.states);
     const lampMesh = new Mesh(lamps.build(), this.lampMat);
     this.group.add(lampMesh);
     this.owned.push(lampMesh.geometry, this.lampMat, this.states);
@@ -1691,7 +1754,7 @@ export class CarMesh {
 
     const one = spots.head.length === 1;
     for (const [x, y, z] of spots.head) {
-      const s = kit.sprite(new SpriteMaterial({ map: kit.flare(), color: 0xfff2d8, blending: AdditiveBlending, depthWrite: false, transparent: true }));
+      const s = kit.sprite(flareMaterial(kit, 0xfff2d8));
       s.position.set(x + 0.12, y, z);
       s.scale.set(one ? 1.0 : 1.3, one ? 0.7 : 0.8, 1);
       s.visible = false;
@@ -1703,7 +1766,7 @@ export class CarMesh {
       this.beacons = true;
       const b = beaconsOf(look, lofted(look.body) ? shapeOf(look) : null, spots);
       const flare = (x: number, y: number, z: number, w: number, h: number, wide: boolean): Sprite => {
-        const s = kit.sprite(new SpriteMaterial({ map: kit.flare(), color: 0x4a7dff, blending: AdditiveBlending, depthWrite: false, transparent: true }));
+        const s = kit.sprite(flareMaterial(kit, 0x4a7dff));
         s.position.set(x, y, z);
         s.scale.set(w, h, 1);
         s.visible = false;
@@ -1730,7 +1793,7 @@ export class CarMesh {
       }
     }
     // The pool of light the headlights throw on the road.
-    const beam = new Mesh(kit.beamPlane(), new MeshBasicMaterial({ map: tex.beam, color: 0xfff0d0, blending: AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55 }));
+    const beam = new Mesh(kit.beamPlane(), beamMaterial(tex.beam));
     beam.rotation.x = -Math.PI / 2;
     beam.rotation.z = -Math.PI / 2;
     beam.scale.set(7, 16, 1);

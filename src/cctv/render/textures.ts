@@ -7,11 +7,12 @@
 import { CanvasTexture, DataTexture, LinearFilter, LinearMipmapLinearFilter, RGBAFormat, RepeatWrapping, SRGBColorSpace, type Texture } from 'three';
 import { rand, type Rand, type V2 } from '../math';
 
-function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
+/** A canvas to paint on; `read`: its pixels are read back while painting (kept in memory, not on the graphics card). */
+function canvas(w: number, h: number, read = false): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
-  return [c, c.getContext('2d')!];
+  return [c, c.getContext('2d', { willReadFrequently: read })!];
 }
 
 /** A painting that repeats over the ground. */
@@ -69,7 +70,7 @@ export const GROUND_TILE_M = { asphalt: 9, paving: 6.4, grass: 14, setts: 3.2 } 
  */
 export function groundTexture(kind: 'asphalt' | 'paving' | 'grass' | 'setts', seed: number): Texture {
   const size = 512;
-  const [c, g] = canvas(size, size);
+  const [c, g] = canvas(size, size, true);
   const r = rand(seed);
   g.fillStyle = kind === 'grass' ? '#e6e6e6' : '#f0f0f0';
   g.fillRect(0, 0, size, size);
