@@ -400,7 +400,9 @@ function draw() {
     `src=${street.source} night=${night ? 1 : 0}` +
     (card ? `\ncard: ${card}` : '') +
     // who=1: everybody on stage with where they stand and what they do, for finding a figure in the picture.
-    (flag('who') ? '\n' + f.people.map((p) => `${p.id} ${p.pos.map((v) => v.toFixed(1)).join(',')} yaw=${p.yaw.toFixed(2)}`).join('\n') : '');
+    (flag('who') ? '\n' + f.people.map((p) => `${p.id} ${p.pos.map((v) => v.toFixed(1)).join(',')} yaw=${p.yaw.toFixed(2)}`).join('\n') : '') +
+    // who=1 names the vehicles too: where each is and which way it points.
+    (flag('who') ? '\n' + f.cars.map((c) => `${c.id} ${c.pos.map((v) => v.toFixed(1)).join(',')} yaw=${c.yaw.toFixed(2)}`).join('\n') : '');
 }
 
 const api = {

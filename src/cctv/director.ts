@@ -2206,12 +2206,12 @@ export class Director {
       t: after,
       scene: false,
       fn: () => {
-        if (car.mode === 'park' && car.wreck && this.kerbAhead(car) === null && tries < 4) {
-          // No free kerb ahead for the moment (the other wreck is still in the way): a little later.
+        if (car.mode === 'park' && car.wreck && this.kerbFor(car) === null && tries < 8) {
+          // No free kerb for the moment (the other wreck or a lorry is still in the way): a little later.
           this.clearWreck(car, 4, tries + 1);
           return;
         }
-        if (car.mode !== 'park' || !car.wreck || this.kerbAhead(car) === null) {
+        if (car.mode !== 'park' || !car.wreck || this.kerbFor(car) === null) {
           // It cannot be moved from here: it stays where it is.
           this.toClear--;
           return;
@@ -2267,35 +2267,56 @@ export class Director {
     });
   }
 
-  /** The nearest free place at the kerb ahead of a wreck (metres along the road), or null: none, or the road is a single lane. */
-  private kerbAhead(car: Car): number | null {
+  /**
+   * The nearest free place at a kerb for a wreck, and how far it backs off first: a place ahead of it at its own
+   * kerb; or, where something stands before it (the other wreck, nose to nose), one a few metres behind it, which it
+   * backs past and pulls in to; one that stands askew in its own lane just comes straight at its kerb; and where its
+   * own kerb would leave no way through (across the road from the other wreck), the kerb the other one stands at.
+   * Null: none, or the road is a single lane.
+   */
+  private kerbFor(car: Car): { s: number; lat: number; back: number } | null {
     if (this.width < NARROW_M) return null;
-    const lat = (car.lat >= 0 ? 1 : -1) * this.kerbLat();
+    const own = (car.lat >= 0 ? 1 : -1) * this.kerbLat();
+    const hl = car.size.length / 2;
+    const free = (s: number, lat: number) =>
+      !this.taken(car, car.size, s, lat, 1.2, PARK_SIDE, car.dir) && !this.roadFolk().some((p) => p.still && Math.abs(p.s - s) < hl + 1 && Math.abs(p.lat - lat) < car.size.width / 2 + 0.6);
+    const room = this.roomBehind(car) - 0.8;
     for (let d = 6; d <= 40; d += 1) {
       const s = car.s + car.dir * d;
       if (s < 3.5 || s > this.length - 3.5) break;
       // Not past a vehicle that stands in the road ahead: a wreck is rolled a few metres, not driven round things.
-      if (this.cars.some((o) => o !== car && o.mode !== 'gone' && (o.s - car.s) * car.dir > 0.5 && (s - o.s) * car.dir > -(this.ext(o)[0] + car.size.length / 2 + 1))) break;
-      if (!this.taken(car, car.size, s, lat, 1.2, PARK_SIDE, car.dir) && !this.roadFolk().some((p) => p.still && Math.abs(p.s - s) < car.size.length / 2 + 1 && Math.abs(p.lat - lat) < car.size.width / 2 + 0.6)) return s;
+      if (this.cars.some((o) => o !== car && o.mode !== 'gone' && (o.s - car.s) * car.dir > 0.5 && (s - o.s) * car.dir > -(this.ext(o)[0] + hl + 1))) break;
+      if (free(s, own)) return { s, lat: own, back: car.yawOff ? clamp(room, 0, 2.5) : 0 };
     }
-    return null;
+    // Behind it: back far enough to come forward again into the kerb (further for the kerb across the road).
+    const behind = (lat: number, run: number) => {
+      for (let d = 4.5; d + run <= room && d <= 10; d += 1) {
+        const s = car.s - car.dir * d;
+        if (s < 3.5 || s > this.length - 3.5) break;
+        if (free(s, lat)) return { s, lat, back: d + run };
+      }
+      return null;
+    };
+    const mine = behind(own, 3.5);
+    if (mine) return mine;
+    if (car.yawOff && room >= 3 && Math.abs(car.lat - own) < 0.5) return { s: car.s + car.dir * 0.5, lat: own, back: 3 };
+    return behind(-own, 6);
   }
 
-  /** Drive a wreck to the nearest free place at a kerb ahead of it; `done` when it stands there. */
+  /** Drive a wreck to the nearest free place at a kerb (kerbFor); `done` when it stands there. */
   private toKerb(car: Car, done: () => void): void {
-    const lat = (car.lat >= 0 ? 1 : -1) * this.kerbLat();
-    const place = this.kerbAhead(car);
+    const place = this.kerbFor(car);
     if (place === null) {
       this.toClear--;
       done();
       return;
     }
     car.wreck = false;
-    car.back = car.yawOff ? clamp(this.roomBehind(car) - 0.8, 0, 2.5) : 0;
+    car.back = place.back;
     car.mode = 'drive';
     car.stop = true;
-    car.ts = place;
-    car.tlat = lat;
+    car.ts = place.s;
+    car.tlat = place.lat;
     car.vc = 3.2;
     car.acc = 1.4;
     car.brake = 2.5;
@@ -3685,7 +3706,7 @@ export class Director {
    */
   private pinches(size: CarSize, me: Car | null): number[] {
     const out: number[] = [];
-    const need = size.width + 0.5;
+    const need = size.width + 0.6;
     for (const o of this.cars) {
       if (o === me || o.mode === 'gone' || o.kind === 'traffic' || (o.mode === 'drive' && !o.stop)) continue;
       const standing = o.mode !== 'drive';
@@ -3962,7 +3983,8 @@ export class Director {
     // The same with a hand's breadth to the vehicles beside it, for a squeeze between two.
     let loT = -max;
     let hiT = max;
-    const shut: [number, number][] = [];
+    // The stretches taken ahead, each with how much nearer its edges may be passed in a squeeze.
+    const shut: [number, number, number][] = [];
     let first = Infinity;
     for (const o of this.cars) {
       if (o === c || o.mode === 'gone') continue;
@@ -3987,13 +4009,17 @@ export class Director {
           hiT = Math.min(hiT, o.lat - ew - hw - 0.25);
         }
       } else if (Math.abs(ahead) < el + hl + look) {
-        shut.push([o.lat - ew - hw - BERTH_M, o.lat + ew + hw + BERTH_M]);
+        // Round it on the road's side: never between a standing vehicle and the edge of the road it stands by,
+        // unless there is a lane's width of carriageway there.
+        const tight = this.width / 2 - Math.abs(o.lat) - ew < 2 * hw + 0.4;
+        shut.push([tight && o.lat < 0 ? -Infinity : o.lat - ew - hw - BERTH_M, tight && o.lat >= 0 ? Infinity : o.lat + ew + hw + BERTH_M, BERTH_M - 0.25]);
         if (ahead > 0) first = Math.min(first, ahead);
       }
     }
-    // A car parked with its wheels in the carriageway is passed a hand's breadth off.
+    // A car parked where the vehicle could get to (in the carriageway, or on the verge it may use) is passed a
+    // hand's breadth off.
     for (const p of this.kerbCars) {
-      if (Math.abs(p.lat) - p.ew > this.width / 2) continue;
+      if (Math.abs(p.lat) - p.ew > max + hw + 0.3) continue;
       const ahead = (p.s - c.s) * c.dir;
       if (ahead > toStop) continue;
       if (Math.abs(ahead) < p.el + hl + 0.3) {
@@ -4004,7 +4030,7 @@ export class Director {
           hi = Math.min(hi, p.lat - p.ew - hw - 0.3);
           hiT = Math.min(hiT, p.lat - p.ew - hw - 0.15);
         }
-      } else if (Math.abs(ahead) < p.el + hl + look) shut.push([p.lat - p.ew - hw - 0.3, p.lat + p.ew + hw + 0.3]);
+      } else if (Math.abs(ahead) < p.el + hl + look) shut.push([p.lat - p.ew - hw - 0.3, p.lat + p.ew + hw + 0.3, 0.15]);
     }
     for (const p of this.roadFolk()) {
       const ahead = (p.s - c.s) * c.dir;
@@ -4017,9 +4043,9 @@ export class Director {
           hi = Math.min(hi, p.lat - hw - 0.45);
           hiT = Math.min(hiT, p.lat - hw - 0.45);
         }
-      } else if (p.still && Math.abs(ahead) < hl + look) shut.push([p.lat - hw - 0.9, p.lat + hw + 0.9]);
+      } else if (p.still && Math.abs(ahead) < hl + look) shut.push([p.lat - hw - 0.9, p.lat + hw + 0.9, 0.45]);
       // Somebody walking along the road's edge ahead: it moves over for them in good time.
-      else if (p.along && ahead > 0 && ahead < hl + look) shut.push([p.lat - hw - 0.6, p.lat + hw + 0.6]);
+      else if (p.along && ahead > 0 && ahead < hl + look) shut.push([p.lat - hw - 0.6, p.lat + hw + 0.6, 0.2]);
     }
     if (lo > hi) {
       // No room with a proper berth to what is beside it: a hand's breadth then, if that is there.
@@ -4029,9 +4055,9 @@ export class Director {
     if (lo > hi) return c.lat;
     // With a proper berth if there is room for one, else a hand's breadth from each (a squeeze between two).
     let best: number | null = null;
-    for (const tight of [0, BERTH_M - 0.25]) {
-      const free = (lat: number) => lat >= lo - 1e-6 && lat <= hi + 1e-6 && !shut.some((r) => lat > r[0] + tight + 1e-6 && lat < r[1] - tight - 1e-6);
-      for (const lat of [lane, lo, hi, ...shut.flatMap((r) => [r[0] + tight, r[1] - tight])]) {
+    for (const tight of [0, 1]) {
+      const free = (lat: number) => lat >= lo - 1e-6 && lat <= hi + 1e-6 && !shut.some((r) => lat > r[0] + tight * r[2] + 1e-6 && lat < r[1] - tight * r[2] - 1e-6);
+      for (const lat of [lane, lo, hi, ...shut.flatMap((r) => [r[0] + tight * r[2], r[1] - tight * r[2]])]) {
         const q = clamp(lat, lo, hi);
         // The nearest to its lane, and of two alike the one on the side it is on already.
         if (free(q) && (best === null || Math.abs(q - lane) + Math.abs(q - c.lat) < Math.abs(best - lane) + Math.abs(best - c.lat) - 1e-6)) best = q;
@@ -4618,6 +4644,16 @@ export class Director {
       if (car.mode === 'park') {
         cr.state = 'here';
         cr.clock = 0;
+      } else if (car.mode === 'drive' && car.stop && car.back <= 0 && car.v < 0.05 && car.wait > 4 && (car.ts - car.s) * car.dir < 14) {
+        // A few metres short of its place and kept from it by whoever stands there (the people it came for, in
+        // the road beside whoever lies there): it stands where it is. Not while something else still drives.
+        const hl = car.size.length / 2;
+        const folk = this.roadFolk().some((q) => q.still && (q.s - car.s) * car.dir > hl - 0.5 && (q.s - car.s) * car.dir < hl + 4 && Math.abs(q.lat - car.lat) < car.size.width / 2 + 0.6);
+        if (folk && !this.cars.some((o) => o !== car && o.mode === 'drive' && o.v > 0.3)) {
+          car.ts = car.s;
+          car.tlat = car.lat;
+          car.wait = 0;
+        }
       } else if (cr.hereT && !cr.short && this.t - cr.hereT > LATE_S) this.stopShort(cr);
       return;
     }
