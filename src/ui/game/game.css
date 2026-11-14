@@ -5228,15 +5228,27 @@ button.gm-ctask__btn:hover {
 }
 .gm-cam__name {
   flex: 1;
+  display: flex;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
-  text-overflow: ellipsis;
   font-size: var(--fs-xs);
   font-weight: 650;
   color: var(--text-0);
 }
+/* The camera's place name gives way first (it is burned into the picture as well); the incident's number keeps
+   its room until the place name is down to the camera's code. */
+.gm-cam__label {
+  flex: 0 1 auto;
+  min-width: 5ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .gm-cam__case {
+  flex: 0 0.01 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-weight: 500;
   color: var(--text-2);
 }
