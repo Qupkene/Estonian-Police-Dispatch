@@ -1,4 +1,4 @@
-// Dev-only Vite config for the camera harness pages (harness.html, model.html, vehicles.html). Files are watched,
+// Dev-only Vite config for the camera's dev pages (harness.html, scene.html, model.html, vehicles.html). Files are watched,
 // so a page loaded after an edit shows the edit; there is no hot reload (a screenshot never changes under the lens).
 //   npx vite --config src/cctv/__dev__/vite.harness.config.ts --port 5392 --strictPort
 // EPD_VITE_CACHE=<folder>: a cache folder of its own, for a second server running at the same time.
