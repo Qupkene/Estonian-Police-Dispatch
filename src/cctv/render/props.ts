@@ -42,11 +42,35 @@ function build(p: PropFrame): MeshBuilder {
     const line = p.line ?? [];
     if (line.length >= 2) {
       const rel = line.map((q) => [q[0] - p.pos[0], q[1] - p.pos[1]] as V2);
-      // On the ground from the lorry to the feet of whoever holds it, then up to their hands.
-      mb.ribbon(rel.slice(0, -1), 0.09, 0.05, col(0xb8a23a));
-      const a = rel[rel.length - 2];
-      const b = rel[rel.length - 1];
-      mb.tube([a[0], 0.05, -a[1]], [b[0], 1.0, -b[1]], 0.045, 0.045, col(0xb8a23a), 5);
+      const hose = col(0xd6b62c);
+      if (line.length >= 4) {
+        // On the ground from the lorry (wide enough to be a line in the picture), up off it a step behind the
+        // crew, through the second one's hands to the nozzle at the first one's waist.
+        mb.ribbon(rel.slice(0, -2), 0.17, 0.06, hose);
+        const a = rel[rel.length - 3];
+        const h = rel[rel.length - 2];
+        const n = rel[rel.length - 1];
+        mb.tube([a[0], 0.06, -a[1]], [h[0], 0.92, -h[1]], 0.055, 0.055, hose, 5);
+        mb.tube([h[0], 0.92, -h[1]], [n[0], 1.02, -n[1]], 0.055, 0.055, hose, 5);
+        const dx = n[0] - h[0];
+        const dy = n[1] - h[1];
+        const d = Math.max(0.1, Math.hypot(dx, dy));
+        const tip: V2 = [n[0] + (dx / d) * 0.32, n[1] + (dy / d) * 0.32];
+        mb.tube([n[0], 1.02, -n[1]], [tip[0], 1.08, -tip[1]], 0.05, 0.03, col(0x2a2c30), 5);
+        if (p.aim) {
+          // The water: a pale jet from the nozzle, rising in a flat bow to what it is played on.
+          const t: V2 = [p.aim.at[0] - p.pos[0], p.aim.at[1] - p.pos[1]];
+          const top = Math.max(1.4, p.aim.height);
+          const water = col(0xcfdde6);
+          const at = (k: number): [number, number, number] => [tip[0] + (t[0] - tip[0]) * k, 1.08 + (top - 1.08) * k + 1.6 * k * (1 - k), -(tip[1] + (t[1] - tip[1]) * k)];
+          for (let i = 0; i < 7; i++) mb.tube(at(i / 7), at((i + 1) / 7), 0.022 + 0.012 * i, 0.022 + 0.012 * (i + 1), water, 5);
+        }
+      } else {
+        mb.ribbon(rel.slice(0, -1), 0.17, 0.06, hose);
+        const a = rel[rel.length - 2];
+        const b = rel[rel.length - 1];
+        mb.tube([a[0], 0.06, -a[1]], [b[0], 1.0, -b[1]], 0.055, 0.055, hose, 5);
+      }
     }
   } else weaponInto(mb, p.kind);
   return mb;

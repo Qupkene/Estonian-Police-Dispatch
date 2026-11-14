@@ -115,6 +115,11 @@ type Step =
   | { k: 'wait'; t: number }
   /** Moved to a point in `t` seconds without walking: half in a car door, on a stretcher. */
   | { k: 'slide'; x: number; y: number; t: number }
+  /**
+   * Kept at somebody's side while they walk (an officer with the cuffed in hand: behind them and half a step to
+   * the right, or on their other side with `side` -1), until they have arrived. `stuck`: seconds kept from it.
+   */
+  | { k: 'follow'; of: Body; side: 1 | -1; stuck: number }
   | { k: 'door'; out: boolean; t: number; on: boolean }
   | { k: 'hide' }
   | { k: 'show' }
@@ -179,6 +184,8 @@ interface Body {
   crew: Crew | null;
   /** The cuffed it leads to its car. */
   wards: Body[];
+  /** The officer who has them in hand on the way to the car: they do not walk on without that officer. */
+  keeper: Body | null;
   /** The weapon in its hand, while it has one. */
   held: Held | null;
   /** Its hands are cuffed (it was cuffed where it knelt or lay): an arrest goes on from there. */
@@ -410,7 +417,7 @@ export class Director {
   /** The ambulance's stretcher while it is out: who pushes it, and who lies on it. */
   private stretcher: { by: Body; load: Body | null; stands: { pos: V2; yaw: number } | null } | null = null;
   /** The fire hose while it is out: the lorry it comes from and who holds its nozzle. */
-  private hose: { car: Car; by: Body } | null = null;
+  private hose: { car: Car; by: Body; mate: Body | null } | null = null;
   /** Where nobody but the police goes: within `r` metres of where somebody armed stands. */
   private keepOut: { at: V2; r: number } | null = null;
   /** The officer who has the suspect they cuffed in the street. */
@@ -443,6 +450,8 @@ export class Director {
   private trapped: { b: Body; car: Car } | null = null;
   /** Somebody lies dead where they fell: the pavement around them is closed until the last crew has gone. */
   private cordon = false;
+  /** Who lies dead there: they and their sheet stay where they are for as long as the camera looks. */
+  private dead: Body | null = null;
   private stopCar: Car | null = null;
   private stopDriver: Body | null = null;
   private radioT = 0;
@@ -617,12 +626,19 @@ export class Director {
     const h = this.hose;
     if (h && !h.by.hidden && !h.by.gone && h.by.act === 'hose' && h.car.mode === 'park') {
       const from = this.carPoint(h.car, -h.car.size.length / 2 + 1, -this.kerbSide(h.car) * (h.car.size.width / 2 + 0.1));
-      const nozzle = this.before(h.by, 0.35);
-      // A loose curve on the ground, not a ruled line.
-      const mid = lerp2(from, nozzle, 0.5);
-      const d = Math.max(1, dist(from, nozzle));
-      const bow: V2 = [mid[0] - ((nozzle[1] - from[1]) / d) * 0.9, mid[1] + ((nozzle[0] - from[0]) / d) * 0.9];
-      out.push({ id: 'hose', kind: 'hose', pos: from, yaw: 0, line: [from, lerp2(from, bow, 0.6), bow, lerp2(bow, [h.by.x, h.by.y], 0.7), [h.by.x, h.by.y], nozzle] });
+      const nozzle = this.before(h.by, 0.45);
+      // Behind whoever holds the nozzle it passes through the second one's hands (1.2 m back) and comes up off
+      // the ground a step behind them.
+      const m = h.mate && !h.mate.hidden && !h.mate.gone && h.mate.act === 'hose' ? h.mate : null;
+      const hands: V2 = m ? [m.x, m.y] : this.before(h.by, -1.2);
+      const dh = Math.max(0.3, dist(hands, [h.by.x, h.by.y]));
+      const rise: V2 = [hands[0] + ((hands[0] - h.by.x) / dh) * 1.1, hands[1] + ((hands[1] - h.by.y) / dh) * 1.1];
+      // A loose curve on the ground from the lorry's pump, not a ruled line.
+      const mid = lerp2(from, rise, 0.5);
+      const d = Math.max(1, dist(from, rise));
+      const bow: V2 = [mid[0] - ((rise[1] - from[1]) / d) * 0.9, mid[1] + ((rise[0] - from[0]) / d) * 0.9];
+      const line = [from, lerp2(from, bow, 0.6), bow, lerp2(bow, rise, 0.7), rise, hands, nozzle];
+      out.push({ id: 'hose', kind: 'hose', pos: from, yaw: 0, line, ...(this.smoke ? { aim: { at: this.smoke.at, height: this.smoke.height } } : null) });
     }
     return out;
   }
@@ -782,6 +798,7 @@ export class Director {
       );
       if (near || this.seenT > 6 || this.pairs.some((p) => this.bodies.some((o) => o.kind === 'police' && !o.hidden && Math.hypot(p.a.x - o.x, p.a.y - o.y) < 8))) this.breakUp();
     }
+    if (this.dead) this.keepBack();
     for (const p of this.pairs) this.fight(p, dt);
     for (const w of this.wanders) {
       const k = w.amp * Math.sin(this.t * w.rate + (w.b.seed % 628) / 100);
@@ -808,6 +825,49 @@ export class Director {
       const floor = this.phase === 'after' || (this.over && this.played) ? 0 : hose ? 0.15 : 1;
       if (this.smoke.strength > floor) this.smoke.strength = Math.max(floor, this.smoke.strength - (0.85 / 30) * dt);
     }
+  }
+
+  /**
+   * The officers round somebody who lies dead stand guard, facing out. An arm goes up at whoever walks by within
+   * nine metres, for two to three seconds, and comes down again: a held arm is a statue, not a cordon.
+   */
+  private keepBack(): void {
+    const dead = this.dead;
+    if (!dead || dead.gone) return;
+    for (const o of this.bodies) {
+      if (o.kind !== 'police' || o.hidden || o.duty || o.leaving || o.aboard || (o.steps.length && !o.fidget)) continue;
+      if (o.act !== 'guard' && o.act !== 'bar') continue;
+      const d = Math.hypot(o.x - dead.x, o.y - dead.y);
+      if (d > 6 || d < 0.5) continue;
+      if (o.act === 'bar') {
+        if (o.actT > 2.4 + 0.8 * hash01(o.seed, 51)) {
+          this.setAct(o, 'guard');
+          o.face = [o.x + ((o.x - dead.x) / d) * 6, o.y + ((o.y - dead.y) / d) * 6];
+        }
+        continue;
+      }
+      if (o.actT < 4) continue;
+      const w = this.walkerNear(o, 9);
+      if (!w || Math.hypot(w.x - dead.x, w.y - dead.y) < d) continue;
+      this.atRest(o);
+      this.setAct(o, 'bar');
+      o.face = [w.x, w.y];
+    }
+  }
+
+  /** Whoever of the public walks nearest to a body, within `m` metres of it. */
+  private walkerNear(b: Body, m: number): Body | null {
+    let best: Body | null = null;
+    let bd = m;
+    for (const x of this.bodies) {
+      if ((x.kind !== 'cast' && x.kind !== 'passer') || x.hidden || x.gone || !x.gait || x.cuffed) continue;
+      const d = Math.hypot(x.x - b.x, x.y - b.y);
+      if (d < bd) {
+        bd = d;
+        best = x;
+      }
+    }
+    return best;
   }
 
   private raise(p: Phase): void {
@@ -887,6 +947,7 @@ export class Director {
       post: null,
       crew: null,
       wards: [],
+      keeper: null,
       held: null,
       cuffed: false,
       wx: at[0],
@@ -1085,14 +1146,32 @@ export class Director {
         const k = d > pace * left ? (pace * left) / d : 1;
         const nx = b.x + dx * k;
         const ny = b.y + dy * k;
-        // Never into a house or a parked car: the step ends where the wall is.
+        // Never into a house or a parked car: the step ends where the wall is. (Somebody led by the arm does not
+        // stop at a house's corner their way just clips: the two go round it, for a moment at most.)
         if (d < 1e-6 || this.shut(b, nx, ny)) {
-          b.steps.shift();
-          continue;
+          const round = d >= 1e-6 && st.gait === 'escort' && b.stall >= 0 && b.stall < STALL_S ? this.sidestep(b, dx / d, dy / d, Math.min(d, pace * left), st) : null;
+          if (!round) {
+            b.steps.shift();
+            continue;
+          }
+          this.stride(b, st.gait, round[0] - b.x, round[1] - b.y, Math.hypot(round[0] - b.x, round[1] - b.y), dt);
+          b.x = round[0];
+          b.y = round[1];
+          b.stall += left;
+          moving = true;
+          left = 0;
+          break;
         }
         // Never under a moving vehicle: they let it pass (whoever is in its way already walks on, out of it). Nor
         // is a stretcher pushed under one.
         if (this.inTheWay(b.x, b.y, nx, ny)) break;
+        // Somebody cuffed walks in an officer's hand: when the officer has fallen behind, they stop until the
+        // hand is on them again.
+        const kp = b.keeper;
+        if (kp && !kp.gone && !kp.hidden) {
+          const f = kp.steps[0];
+          if (f && f.k === 'follow' && f.stuck < 3 && Math.hypot(kp.x - b.x, kp.y - b.y) > 1.15) break;
+        }
         if (this.stretcher?.by === b && !this.stretcher.stands) {
           const at = this.before(b, 1.25);
           if (this.inTheWay(at[0], at[1], at[0] + nx - b.x, at[1] + ny - b.y)) break;
@@ -1158,6 +1237,51 @@ export class Director {
           left -= st.t;
           b.steps.shift();
         }
+      } else if (st.k === 'follow') {
+        const s = st.of;
+        const fx = Math.cos(s.yaw);
+        const fy = Math.sin(s.yaw);
+        // The place at their side: behind them and half a step to the right (the hand on their arm); on the
+        // other side level with them. Where a wall or a parked car has that place, right behind them.
+        let tx = s.x - fx * (st.side > 0 ? 0.6 : 0.15) + fy * 0.34 * (st.side > 0 ? 1 : -2.2);
+        let ty = s.y - fy * (st.side > 0 ? 0.6 : 0.15) - fx * 0.34 * (st.side > 0 ? 1 : -2.2);
+        if (this.shut(b, tx, ty)) {
+          tx = s.x - fx * 0.7;
+          ty = s.y - fy * 0.7;
+        }
+        const dx = tx - b.x;
+        const dy = ty - b.y;
+        const d = Math.hypot(dx, dy);
+        const afoot = !s.gone && !s.hidden && (!!s.gait || s.steps.some((x) => x.k === 'go'));
+        if (!afoot || st.stuck > (st.side > 0 ? 6 : 2)) {
+          b.steps.shift();
+          continue;
+        }
+        // While they stand (getting up, waiting), whoever is at their side already stays as they are.
+        if (!s.gait && Math.hypot(s.x - b.x, s.y - b.y) < 1) {
+          b.face = [s.x, s.y];
+          left = 0;
+          continue;
+        }
+        // A little quicker than the walk itself, to close up after a turn; never in a jump.
+        const reach = PACE.escort * 1.5 * left;
+        const k = d > reach ? reach / d : 1;
+        const nx = b.x + dx * k;
+        const ny = b.y + dy * k;
+        if (d > 0.04 && !this.shut(b, nx, ny) && !this.inTheWay(b.x, b.y, nx, ny)) {
+          if (d * k > 0.25 * left) {
+            this.setGait(b, 'escort');
+            b.phase += ((d * k) / STRIDE.escort) * TAU;
+            moving = true;
+          }
+          b.x = nx;
+          b.y = ny;
+          st.stuck = Math.max(0, st.stuck - left);
+        } else if (d > 0.5) st.stuck += left;
+        // Their body turned the way the other walks, not at the place they are making for.
+        if (moving) this.turn(b, s.gait ? s.yaw : Math.atan2(s.y - b.y, s.x - b.x), dt);
+        else b.face = [s.x, s.y];
+        left = 0;
       } else if (st.k === 'door') {
         if (!st.on) {
           st.on = true;
@@ -1216,12 +1340,14 @@ export class Director {
    */
   private idle(b: Body, dt: number): void {
     const watcher = b.kind === 'cast' ? b.role === 'caller' || b.role === 'witness' || b.role === 'extra' || b.role === 'driver' : b.kind === 'police';
-    const calm = b.act === 'idle' || b.act === 'stand' || b.act === 'phone' || b.act === 'cold' || b.act === 'smoke' || b.act === 'point' || b.act === 'guard' || b.act === 'cower' || b.act === 'bar';
+    const calm = b.act === 'idle' || b.act === 'stand' || b.act === 'phone' || b.act === 'cold' || b.act === 'smoke' || b.act === 'point' || b.act === 'guard' || b.act === 'cower' || b.act === 'gasp';
     // The head: towards the action, as far as a neck turns, a third of a second behind.
     let want = 0;
     if (watcher && calm && !b.gait) {
-      const to = Math.atan2(this.focus[1] - b.y, this.focus[0] - b.x);
-      if (Math.hypot(this.focus[0] - b.x, this.focus[1] - b.y) > 1.2) want = clamp(angleDiff(b.yaw, to), -1.15, 1.15);
+      // (An officer at a cordon watches who walks by, not what lies behind their back.)
+      const by = this.dead && b.kind === 'police' ? this.walkerNear(b, 14) : null;
+      const at: V2 | null = by ? [by.x, by.y] : this.dead && b.kind === 'police' ? null : this.focus;
+      if (at && Math.hypot(at[0] - b.x, at[1] - b.y) > 1.2) want = clamp(angleDiff(b.yaw, Math.atan2(at[1] - b.y, at[0] - b.x)), -1.15, 1.15);
     }
     b.head += (want - b.head) * Math.min(1, dt / 0.3);
     // Whoever directs traffic waves only while something comes along the road; else they stand and watch it.
@@ -1229,6 +1355,12 @@ export class Director {
       const n = nearestOnLine([b.x, b.y], this.site.drive.pts).s;
       const coming = this.cars.some((c) => c.mode === 'drive' && c.v > 0.5 && (n - c.s) * c.dir > 0 && Math.abs(n - c.s) < 40);
       this.setAct(b, coming ? 'direct' : 'guard');
+    }
+    // Nobody writes for a minute without looking up: an officer at a post for notes writes ten seconds or so,
+    // stands and looks about for a few, and writes on.
+    if (b.kind === 'police' && b.post && b.post.act === 'notes' && !b.steps.length && !b.duty) {
+      if (b.act === 'notes' && b.actT > 9 + 6 * hash01(b.seed, 56)) this.setAct(b, 'guard');
+      else if (b.act === 'guard' && b.actT > 4 + 4 * hash01(b.seed, 57) && !b.fidget) this.setAct(b, 'notes');
     }
     if (Math.abs(b.head) < 1e-3) b.head = 0;
     if (b.steps.length || this.free(b) || b.duty || b.leaving || b.aboard || !calm || b.scale < 1) {
@@ -1238,28 +1370,71 @@ export class Director {
     b.fidget = false;
     // A stretched arm tires: pointing lasts a few seconds.
     if (b.act === 'point' && b.actT > 2 + 2 * hash01(b.seed, 16)) this.setAct(b, hash01(b.seed, 17) < 0.5 && b.kind === 'cast' ? 'phone' : 'idle');
+    // Hands thrown up in fright come down after four to eight seconds: nobody holds them at their head for a minute.
+    if (b.act === 'cower' && b.kind === 'cast' && b.actT > 4 + 4 * hash01(b.seed, 58)) {
+      this.lookOn(b);
+      return;
+    }
     b.idleT -= dt;
     if (b.idleT > 0) return;
     const n = Math.floor(this.t / 3);
     const pick = hash01(b.seed, 18 + (n % 97));
     b.idleT = 5 + 6 * hash01(b.seed, 40 + (n % 97));
     if (b.kind === 'passer') return;
-    // (Nobody who keeps away from a weapon takes a step that might be towards it.)
-    if (pick < 0.45 && b.act !== 'cower') {
+    const scared = b.act === 'cower' || b.act === 'gasp';
+    if (pick < 0.3 && scared) {
+      // A step back from what frightens them (never one that might be towards it); after a while, back again.
+      const fx = b.x - this.focus[0];
+      const fy = b.y - this.focus[1];
+      const fd = Math.hypot(fx, fy);
+      const far = 0.3 + 0.3 * hash01(b.seed, 80 + (n % 97));
+      const p: V2 = [b.x + (fx / Math.max(fd, 0.1)) * far, b.y + (fy / Math.max(fd, 0.1)) * far];
+      const here: V2 = [b.x, b.y];
+      // (No room for the step: then at least another pose.)
+      const taken = this.bodies.some((o) => o !== b && !o.hidden && Math.hypot(o.x - p[0], o.y - p[1]) < 0.8);
+      if (taken || fd < 1 || Math.hypot(p[0] - b.mark[0], p[1] - b.mark[1]) > 1.2 || !this.roomAt(p, 0.3) || !this.clear(here, p) || this.onRoad(p)) {
+        if (b.kind === 'cast') this.lookOn(b);
+        return;
+      }
+      const was = b.act;
+      b.fidget = true;
+      b.steps.push(go(p, 'back'), act(was, 2.5 + 3.5 * hash01(b.seed, 90 + (n % 97)), this.focus), go(here, 'shuffle'), act(was));
+    } else if (pick < 0.45 && !scared) {
       // A step or two aside and, after a moment, back to where they stood.
       const ang = hash01(b.seed, 60 + (n % 97)) * TAU;
       const far = 0.35 + 0.45 * hash01(b.seed, 80 + (n % 97));
       // (Back to their own place when they are near it: a step cut short by a neighbour must not add up to a drift.)
       const home: V2 = Math.hypot(b.mark[0] - b.x, b.mark[1] - b.y) < 1.2 ? b.mark : [b.x, b.y];
       const p: V2 = [home[0] + Math.cos(ang) * far, home[1] + Math.sin(ang) * far];
-      if (!this.roomAt(p, 0.3) || !this.clear(home, p) || this.onRoad(p) || this.bodies.some((o) => o !== b && !o.hidden && Math.hypot(o.x - p[0], o.y - p[1]) < 0.8)) return;
+      // (Nobody who keeps away from a weapon takes a step that might be towards it.)
+      const nearer = !!this.keepOut && b.kind !== 'police' && dist(p, this.keepOut.at) < dist(home, this.keepOut.at);
+      if (nearer || !this.roomAt(p, 0.3) || !this.clear(home, p) || this.onRoad(p) || this.bodies.some((o) => o !== b && !o.hidden && Math.hypot(o.x - p[0], o.y - p[1]) < 0.8)) {
+        if (b.kind === 'cast') this.lookOn(b);
+        return;
+      }
       const was = b.act;
       b.fidget = true;
       b.steps.push(go(p, 'shuffle'), act(was, 1.5 + 2.5 * hash01(b.seed, 90 + (n % 97))), go(home, 'shuffle'), act(was));
-    } else if (pick < 0.7 && b.kind === 'cast' && (b.act === 'idle' || b.act === 'phone') && b.role !== 'extra') {
-      // The phone to the ear and down again; a bystander points once more at what happens.
-      this.setAct(b, b.act === 'phone' ? 'idle' : hash01(b.seed, 19 + (n % 97)) < 0.5 ? 'phone' : 'point');
-    }
+    } else if (b.kind === 'cast') this.lookOn(b);
+  }
+
+  /**
+   * Whoever stands and looks on does not keep one pose: the phone to the ear and down again, a hand over the
+   * mouth, folded arms, a finger pointed at what happens, and each time the body turns to where the action is now.
+   */
+  private lookOn(b: Body): void {
+    if (b.act !== 'idle' && b.act !== 'stand' && b.act !== 'phone' && b.act !== 'cower' && b.act !== 'gasp' && b.act !== 'cold') return;
+    const n = Math.floor(this.t / 3);
+    // Something to be afraid of or shocked by: a weapon out, a fight, somebody who lies there, a fire.
+    const tense = (this.kind === 'threat' && !this.over && this.phase !== 'after') || this.pairs.length > 0 || !!this.dead || (!!this.smoke && this.smoke.strength > 0.3) || (this.cast.down && !this.over);
+    const set: Act[] = tense ? ['gasp', 'phone', 'cold', 'idle', 'point', 'gasp'] : ['idle', 'phone', 'idle', 'cold', 'point'];
+    const i = Math.floor(hash01(b.seed, 19 + (n % 97)) * set.length) % set.length;
+    let a = set[i];
+    if (a === b.act) a = set[(i + 1) % set.length];
+    // (An extra in a knot of people does not make a phone call or point: they look, arms folded or not.)
+    if (b.role === 'extra' && a === 'phone') a = b.act === 'cold' ? 'idle' : 'cold';
+    this.setAct(b, a);
+    if (Math.hypot(this.focus[0] - b.x, this.focus[1] - b.y) > 1.5) b.face = this.focus;
   }
 
   /**
@@ -1296,6 +1471,8 @@ export class Director {
       const was = (o.x - b.x) * (o.x - b.x) + (o.y - b.y) * (o.y - b.y);
       if (d2 >= was || was < 0.4 * 0.4) continue;
       if (b.wards.includes(o) || o.wards.includes(b) || (b.crew && b.crew === o.crew && (b.duty || o.duty))) continue;
+      // Somebody led to a car in an officer's hand is not held up by the other officers: those make room.
+      if (b.keeper && o.kind === 'police') continue;
       const end = (o.x - st.x) * (o.x - st.x) + (o.y - st.y) * (o.y - st.y);
       if (end < 1.4 * 1.4 && d2 > 0.42 * 0.42) continue;
       return true;
@@ -2032,7 +2209,7 @@ export class Director {
       crowd.forEach((b, i) => {
         // A loose knot, not a row: each a little off their place along the kerb and further back or forward.
         const off = (i - (crowd.length - 1) / 2) * 1.3 + (hash01(b.seed, 5) - 0.5) * 0.9;
-        const back = (i % 2) * 0.7 + hash01(b.seed, 6) * 1.1;
+        const back = (i % 2) * 1.1 + hash01(b.seed, 6) * 1.5;
         const p = this.offRoad(this.safe([centre[0] + tan[0] * off + out[0] * back, centre[1] + tan[1] * off + out[1] * back]), 1.6, side);
         this.stand(b, p, b.role === 'caller' ? 'phone' : cold ? 'cold' : hash01(b.seed, 4) < 0.5 ? 'point' : 'idle', src);
       });
@@ -2219,14 +2396,33 @@ export class Director {
         const drivers = this.bodies.filter((b) => b.kind === 'cast' && b.role === 'driver');
         const wrecks = this.cars.filter((c) => c.kind === 'cast');
         const own = drivers[wrecks.indexOf(car)];
-        const fit = (b: Body | undefined) => !!b && !b.gone && !b.hidden && !b.duty && !b.aboard && !DOWN.has(b.act);
+        // (Somebody who is seen to walk up to it and get in: not a driver who is half way down the street.)
+        const fit = (b: Body | undefined) => !!b && !b.gone && !b.hidden && !b.duty && !b.aboard && !DOWN.has(b.act) && Math.hypot(b.x - car.x, b.y - car.y) < 25;
         const mover = fit(own) ? own : this.officers().find((b) => !b.hidden && !b.duty && b.crew?.state === 'here');
-        if (!mover) {
-          // Nobody to move it: it stays.
+        if (!mover || this.phase === 'after') {
+          // Nobody to move it, or the street has emptied: it stays.
           this.toClear--;
           return;
         }
         const cast = mover.kind === 'cast';
+        // An officer sees it to the kerb: at the roadside by the place it makes for, an arm out for whoever comes.
+        const place = this.kerbFor(car);
+        const guide = this.officers().find((b) => b !== mover && !b.hidden && !b.duty && b.crew?.state === 'here' && b.act !== 'aid' && b.act !== 'cpr') ?? null;
+        let guiding = false;
+        if (guide && place) {
+          const sg = place.lat >= 0 ? 1 : -1;
+          const by = this.offRoad(onDrive(this.site.drive, place.s + car.dir * (car.size.length / 2 + 2.2), place.lat + sg * 1.4).pos, 0.5, sg);
+          if (!this.wall(by[0], by[1]) && !this.inParked(by[0], by[1], PARK_BERTH)) {
+            if (guide.post) guide.post.by = null;
+            guide.post = null;
+            guide.steps.length = 0;
+            guide.fidget = false;
+            this.setAct(guide, 'stand');
+            this.route(guide, by, 'walk');
+            guide.steps.push(act('direct', 0, [car.x, car.y]));
+            guiding = true;
+          }
+        }
         this.release(mover);
         mover.steps.length = 0;
         mover.fidget = false;
@@ -2258,9 +2454,19 @@ export class Director {
             mover.steps.length = 0;
             mover.steps.push(slide(out, 0.55));
             this.setAct(mover, 'stand');
-            if (cast) mover.steps.push(act('phone', 4, [car.x, car.y]), call(() => this.leave(mover, 'walk')));
-            else if (mover.crew?.state === 'boarding') this.toCar(mover);
+            // The driver stays by their car (a call to the insurer, the tow) until the police go.
+            if (cast) {
+              const side = this.offRoad(out, 0.6, Math.abs(car.lat) > 0.2 ? (car.lat > 0 ? 1 : -1) : this.site.side);
+              if (!this.wall(side[0], side[1]) && !this.inParked(side[0], side[1], PARK_BERTH)) mover.steps.push(go(side, 'walk'));
+              mover.steps.push(act('phone', 9 + 6 * hash01(mover.seed, 54), [car.x, car.y]), act('idle', 0, [car.x, car.y]));
+            } else if (mover.crew?.state === 'boarding') this.toCar(mover);
             else this.standBy(mover);
+            // The officer who saw it to the kerb goes back to the car (unless somebody gave them other work meanwhile).
+            if (guide && guiding && !guide.duty && !guide.aboard && !guide.gone && (guide.act === 'direct' || guide.steps.some((x) => x.k === 'act' && x.act === 'direct'))) {
+              guide.steps.length = 0;
+              if (guide.crew?.state === 'boarding') this.toCar(guide);
+              else this.standBy(guide);
+            }
           });
         });
       },
@@ -2410,6 +2616,22 @@ export class Director {
       if (b.kind === 'cast' && b.role === 'caller' && !b.hidden && !DOWN.has(b.act) && this.atRest(b)) {
         const was = b.act;
         b.steps.push(act('wave', 4, [car.x, car.y]), act(was === 'phone' ? 'idle' : was, 0, this.site.roadSpot));
+      }
+    }
+    // The police are here: whoever looked on from near makes room, two or three metres further off.
+    if (this.kind !== 'crowd' && this.kind !== 'fire') {
+      const spot = this.site.spot;
+      for (const b of this.bodies) {
+        if (b.kind !== 'cast' || (b.role !== 'witness' && b.role !== 'extra') || b.hidden || DOWN.has(b.act) || this.free(b)) continue;
+        const d = Math.hypot(b.x - spot[0], b.y - spot[1]);
+        if (d < 2.5 || d > 9 || !this.atRest(b)) continue;
+        const far = 2 + 1.5 * hash01(b.seed, 59);
+        const here: V2 = [b.x, b.y];
+        const p: V2 = [b.x + ((b.x - spot[0]) / d) * far, b.y + ((b.y - spot[1]) / d) * far];
+        if (!this.roomAt(p, 0.3) || !this.clear(here, p) || this.onRoad(p) || this.bodies.some((o) => o !== b && !o.hidden && Math.hypot(o.x - p[0], o.y - p[1]) < 0.9)) continue;
+        const was = b.act;
+        b.mark = p;
+        b.steps.push(wait(0.6 + 2 * hash01(b.seed, 60)), go(p, 'back'), act(was === 'cower' ? 'gasp' : was, 0, spot));
       }
     }
     if (this.cast.down) this.knockDown();
@@ -2629,13 +2851,34 @@ export class Director {
       if (dead) {
         const at: V2 = [dead.x, dead.y];
         this.cordon = true;
-        // One of the paramedics fetches a sheet from the ambulance and covers them.
-        const m = medics[0];
-        const amb = m?.crew?.car;
-        if (m && amb) {
+        this.dead = dead;
+        const cops = this.officers().filter((b) => !b.hidden && !b.duty);
+        // One of the paramedics fetches a sheet from the ambulance and covers them; with no ambulance there, an
+        // officer fetches the blanket from the patrol car.
+        const m = medics[0] ?? cops[cops.length - 1];
+        const from = m?.crew?.car;
+        // The officers stand off three to four metres, their backs to the dead, hands on the vest: nobody comes
+        // near. (An arm goes up only at somebody who walks towards them: keepBack.)
+        const base = Math.atan2(-this.n[1], -this.n[0]);
+        const posts = cops.slice(0, 4).map((o, i) => {
+          const ang = base + [0.9, -0.9, 2.3, -2.3][i];
+          const p: V2 = [at[0] + Math.cos(ang) * 3.4, at[1] + Math.sin(ang) * 3.4];
+          const to = this.roomAt(p, 0.3) && this.clear(p, at) ? p : this.safe(p);
+          const toPost = () => {
+            this.route(o, to, 'walk');
+            o.steps.push(act('guard', 0, [to[0] + Math.cos(ang) * 6, to[1] + Math.sin(ang) * 6]));
+          };
+          if (o.post) o.post.by = null;
+          o.post = null;
+          o.steps.length = 0;
+          o.fidget = false;
+          if (o !== m) toPost();
+          return toPost;
+        });
+        if (m && from) {
           m.duty = true;
-          this.route(m, this.carPoint(amb, -amb.size.length / 2 - 0.7, 0), 'walk');
-          m.steps.push(act('lean', 2, [amb.x, amb.y]), act('carry'));
+          this.route(m, this.carPoint(from, -from.size.length / 2 - 0.7, 0), 'walk');
+          m.steps.push(act('lean', 2, [from.x, from.y]), act('carry'));
           this.route(m, this.beside(at, 0, 0.7), 'walk');
           m.steps.push(
             act('crouch', 2.5, at),
@@ -2643,24 +2886,12 @@ export class Director {
               this.props.push({ id: `sheet:${dead.id}`, kind: 'sheet', pos: at, yaw: dead.yaw + Math.PI });
               m.duty = false;
               this.setAct(m, 'stand');
-              this.standBy(m);
+              const own = cops.indexOf(m);
+              if (own >= 0 && own < posts.length) posts[own]();
+              else this.standBy(m);
             }),
           );
         }
-        // The officers stand off three to four metres, their backs to the dead: nobody comes near.
-        const cops = this.officers().filter((b) => !b.hidden && !b.duty);
-        const base = Math.atan2(-this.n[1], -this.n[0]);
-        cops.slice(0, 4).forEach((o, i) => {
-          const ang = base + [0.9, -0.9, 2.3, -2.3][i];
-          const p: V2 = [at[0] + Math.cos(ang) * 3.4, at[1] + Math.sin(ang) * 3.4];
-          const to = this.roomAt(p, 0.3) && this.clear(p, at) ? p : this.safe(p);
-          if (o.post) o.post.by = null;
-          o.post = null;
-          o.steps.length = 0;
-          o.fidget = false;
-          this.route(o, to, 'walk');
-          o.steps.push(act('bar', 0, [to[0] + Math.cos(ang) * 6, to[1] + Math.sin(ang) * 6]));
-        });
       } else for (const b of this.bodies) if (b.kind === 'police' && !b.hidden && b.act !== 'direct' && this.atRest(b)) this.setAct(b, 'guard');
       this.playMin = 8;
       this.disperse(
@@ -2791,25 +3022,27 @@ export class Director {
         o.duty = false;
         // Now the others lower their weapons; one of them picks up what was dropped.
         for (const p of this.posts) if (p.act === 'aim') p.act = 'guard';
+        // Nobody stays at a cover post once the cuffs are on: a moment's look, then back to their own car, where
+        // they write it down until they are needed.
         const rest = offs.filter((x) => x !== o && !x.duty && !x.gone);
-        rest.forEach((x) => {
+        rest.forEach((x, i) => {
           x.steps.length = 0;
-          x.steps.push(act('guard', 0, m));
+          x.fidget = false;
+          x.steps.push(act('guard', 2.5 + 1.3 * i, m), call(() => this.backToCar(x, false)));
         });
         const prop = this.props.find((q) => q.id === `w:${armed.id}`);
         const picker = rest[0] ?? null;
         if (prop && picker) {
-          const home: V2 = [picker.x, picker.y];
           picker.steps.length = 0;
           this.route(picker, this.beside(prop.pos, 0, 0.5), 'walk');
           picker.steps.push(
             act('crouch', 2, prop.pos),
             call(() => {
               this.props = this.props.filter((q) => q !== prop);
+              // What was dropped goes into the boot of their car.
+              this.backToCar(picker, true);
             }),
           );
-          this.route(picker, home, 'walk');
-          picker.steps.push(act('guard', 0, m));
         }
         // The one who cuffed them stays right behind them, a hand on them.
         o.steps.push(act(flat ? 'crouch' : 'kneelHold', 3, m));
@@ -2877,14 +3110,42 @@ export class Director {
         // Up from the ground, the officer's hand under the arm.
         if (kneeling || flat) s.steps.push(act('kneelUp', flat ? 1.2 : 0.2, null, 0.7), act('cuffed', 1, null, 0.8));
         else this.setAct(s, 'cuffed');
+        // One walk for the two of them: the cuffed goes ahead, the officer's hand on their arm from behind (the
+        // officer is kept at their side step by step, and they stop when the officer falls behind).
+        s.keeper = o;
         this.route(s, frisk, 'escort');
         // Facing the car for the search.
         s.steps.push(act('cuffed', 0, [car.x, car.y]));
-        if (kneeling || flat) o.steps.unshift(wait(flat ? 2.2 : 1.2));
+        // A second officer of the crew, when one is free and near, walks on their other side.
+        const mate = cr.people.find((x) => x !== o && !x.duty && !x.aboard && !x.hidden && !x.gone && !x.wards.length && Math.hypot(x.x - s.x, x.y - s.y) < 6);
+        if (mate && cr.car === car) {
+          mate.steps.length = 0;
+          mate.fidget = false;
+          if (mate.post) mate.post.by = null;
+          mate.post = null;
+          this.setAct(mate, 'stand');
+          this.route(mate, this.holdFrom([s.x, s.y], [o.x, o.y], [mate.x, mate.y]), 'walk');
+          mate.steps.push(
+            { k: 'follow', of: s, side: -1, stuck: 0 },
+            call(() => this.backToCar(mate, false)),
+          );
+        }
       }),
-      call(() => {
+      { k: 'follow', of: s, side: 1, stuck: 0 },
+      call(() => atCar(2)),
+    );
+    // At the car (or short of it, the walk cut off by something in the way: then on again from where they are).
+    const atCar = (tries: number): void => {
+      if (tries > 0 && !s.gone && dist([s.x, s.y], frisk) > 1.3) {
+        s.steps.length = 0;
+        this.route(s, frisk, 'escort');
+        s.steps.push(act('cuffed', 0, [car.x, car.y]));
+        o.steps.push({ k: 'follow', of: s, side: 1, stuck: 0 }, call(() => atCar(tries - 1)));
+        return;
+      }
+      {
         const behind = this.holdFrom(frisk, [car.x, car.y], [o.x, o.y]);
-        this.route(o, behind, 'escort');
+        if (dist([o.x, o.y], behind) > 0.35) this.route(o, behind, 'escort');
         o.steps.push(
           // Patted down from the shoulders to the ankles before anybody goes into the car.
           act('frisk', 6, frisk),
@@ -2892,6 +3153,7 @@ export class Director {
           call(() => {
             // In at the rear door, the officer's hand on their head.
             s.steps.length = 0;
+            s.keeper = null;
             this.getIn(s, car, () => {
               s.aboard = true;
               s.duty = false;
@@ -2912,8 +3174,8 @@ export class Director {
             else this.standBy(o);
           }),
         );
-      }),
-    );
+      }
+    };
   }
 
   /**
@@ -3124,7 +3386,7 @@ export class Director {
     const spread = slow ? 13 : Math.min(9, list.length);
     let last = first;
     const drivers = list.filter((b) => b.role === 'driver' || b === this.stopDriver);
-    // (Only when crews end it: a crowd nobody came to drifts off within twenty seconds, as everybody does.)
+    // (Only when crews end it: a crowd nobody came to drifts off within fifteen seconds, as everybody does.)
     const knots = this.kind === 'crowd' && !slow;
     const knot = new Map<Body, number>();
     if (knots) {
@@ -3181,6 +3443,18 @@ export class Director {
         b.steps.push(call(() => this.leave(b, 'walk', sign, across)));
         continue;
       }
+      const wreck = this.kind === 'crash' && this.toClear > 0 && b.role === 'driver' ? this.wreckOf(b) : null;
+      if (wreck && wreck.wreck && wreck.mode === 'park') {
+        // Their car still stands in the road: nobody walks away from it. They wait beside it (up from the kerb if
+        // they sat there) until it is their turn to move it, and stay by it until the police go.
+        if (DOWN.has(b.act)) {
+          b.steps.push(wait(Math.min(delay, 4)));
+          this.getUp(b);
+        }
+        b.inRoad = false;
+        b.steps.push(act(hash01(b.seed, 53) < 0.5 ? 'phone' : 'idle', 0, [wreck.x, wreck.y]));
+        continue;
+      }
       b.steps.push(wait(delay));
       if (DOWN.has(b.act)) this.getUp(b);
       b.inRoad = false;
@@ -3220,6 +3494,12 @@ export class Director {
         this.timers.push({ t: Math.max(10, last + 4) + 3 * k++, scene: false, fn: () => this.pullOut(car, false) });
       }
     }
+  }
+
+  /** The crashed vehicle a driver of the incident came in (the first driver's is the first vehicle, and so on). */
+  private wreckOf(b: Body): Car | null {
+    const drivers = this.bodies.filter((x) => x.kind === 'cast' && x.role === 'driver');
+    return this.cars.filter((c) => c.kind === 'cast')[drivers.indexOf(b)] ?? null;
   }
 
   /** The vehicle somebody of the incident drives away in, if any. */
@@ -3302,8 +3582,14 @@ export class Director {
 
   /** The story is over and the crews have gone: nobody of the incident stays in the street. */
   private tidy(): void {
+    const tragedy = this.sit?.outcome?.result === 'tragedy';
     for (const b of this.bodies) {
       if (b.kind !== 'cast' || b.gone || b.leaving) continue;
+      // The dead do not get up and go. (Seen, they stay where they lie; see lastCrewLeaves.)
+      if (tragedy && !b.hidden && (b === this.dead || b.act === 'lie' || b.act === 'prone')) {
+        if (this.settling) this.vanish(b);
+        continue;
+      }
       if (b.hidden) this.vanish(b);
       else if (this.atRest(b)) {
         if (DOWN.has(b.act)) this.getUp(b);
@@ -3343,22 +3629,24 @@ export class Director {
         );
       }
     }
-    if (this.over) {
+    // The drivers who stayed by their cars while the police were here go their way now.
+    if (this.kind === 'crash' && this.over) {
       for (const b of this.bodies) {
-        // Whoever lies there after a tragedy is taken away as the last crew goes (the camera does not show how).
-        if (
-          b.kind === 'cast' &&
-          !b.gone &&
-          !b.hidden &&
-          !b.duty &&
-          !b.leaving &&
-          DOWN.has(b.act) &&
-          !b.steps.length &&
-          this.sit?.outcome?.result === 'tragedy'
-        ) {
-          b.steps.push(wait(2), { k: 'door', out: false, t: 0, on: false }, { k: 'gone' });
-        }
+        if (b.kind !== 'cast' || b.role !== 'driver' || b.gone || b.hidden || b.duty || b.leaving || b.aboard || DOWN.has(b.act)) continue;
+        // (Standing by their car, on the phone or not: nothing they still have to do.)
+        if (b.steps.some((x) => x.k !== 'act' && x.k !== 'wait') && !b.fidget) continue;
+        b.steps.length = 0;
+        b.fidget = false;
+        b.steps.push(wait(2 + 4 * hash01(b.seed, 55)), call(() => this.leave(b, 'walk')));
       }
+    }
+    // Whoever lies dead there is never taken out of a picture somebody looks at: they stay under their sheet, the
+    // pavement round them stays closed, and the camera's own end comes soon after. Only a camera opened when all
+    // this is long over (the stage being settled before its first picture) finds them taken away.
+    if (this.over && this.settling && this.sit?.outcome?.result === 'tragedy') {
+      for (const b of this.bodies) if (b.kind === 'cast' && !b.gone && !b.hidden && !b.duty && !b.leaving && DOWN.has(b.act) && !b.steps.length) this.vanish(b);
+      this.dead = null;
+      this.cordon = false;
     }
   }
 
@@ -3577,6 +3865,8 @@ export class Director {
     let target = this.at;
     let ideal = STOP_M;
     let least = MIN_STOP_M;
+    /** The side of the target the ambulance will come from (-1: the road's start, 1: its end, 0: no matter). */
+    let medicBack = 0;
     // A vehicle pulled over: the crew stops behind it, never ahead of it.
     const stopped = this.kind === 'stop' && this.stopCar && this.stopCar.mode === 'park' ? this.stopCar : null;
     const down = this.downBody();
@@ -3595,6 +3885,14 @@ export class Director {
       // The kerb beside whoever is down is the ambulance's.
       ideal = 9.5;
       least = 9;
+      // And so is the way to it: a patrol does not stop between whoever is down and the end of the road the
+      // ambulance will come by (spawnAgency), where it would have to get past the patrol car.
+      if (!down?.inRoad && !this.crewBy.has('a:kiirabi') && !this.done.has('a:kiirabi')) {
+        const d = this.site.drive;
+        let a = (hash32('from', this.cast.seed, 'kiirabi') & 1) === 0;
+        if (a ? d.deadA && !d.deadB : d.deadB && !d.deadA) a = !a;
+        medicBack = a ? -1 : 1;
+      }
     }
     const cost = (s: number, lat: number) => {
       const d = Math.abs(s - target);
@@ -3603,6 +3901,7 @@ export class Director {
       if (lat * this.site.side < 0) c += this.width + 5;
       // Past the scene: nobody drives by somebody armed, or stops ahead of the car they pulled over.
       if ((s - target) * back < -0.5) c += this.kind === 'threat' || stopped ? 30 : 3;
+      if (medicBack && (s - target) * medicBack > 0) c += 8;
       // The whole car in the stretch the camera sees.
       if (seen && (s - size.length / 2 < seen.from || s + size.length / 2 > seen.to)) c += 60;
       return c;
@@ -4659,7 +4958,9 @@ export class Director {
     }
     if (cr.state === 'here') {
       car.lamps = this.night;
-      car.beacons = hasBeacons(car.look.livery) && open && !cr.through;
+      // (Blue lights while the incident is open, and for the police as long as a wreck still stands in the road.)
+      const blocked = cr.police && this.kind === 'crash' && this.cars.some((c) => c.kind === 'cast' && c.wreck && c.mode === 'park' && Math.abs(c.lat) < this.width / 2 - 0.8);
+      car.beacons = hasBeacons(car.look.livery) && (open || blocked) && !cr.through;
       // (The police stay until what blocks the road has been moved to the kerb: they are the last to go.)
       const hold = (this.over && !this.played && this.overT < HOLD_S) || (cr.police && this.over && this.overT < 55 && this.toClear > 0);
       if (cr.wantLeave && (cr.through || !hold)) {
@@ -4673,7 +4974,7 @@ export class Director {
       // The story is told and nobody of the incident is left in the street: a crew does not stand about beside
       // its car, it gets in (reports, the radio) until it is sent on. One stays out where somebody lies dead or
       // the matter is behind a door.
-      if (cr.police && this.played && cr.out >= cr.people.length && !this.bodies.some((b) => b.kind === 'cast' && !b.gone && !b.hidden && !b.leaving)) {
+      if (cr.police && this.played && this.toClear === 0 && cr.out >= cr.people.length && !this.bodies.some((b) => b.kind === 'cast' && !b.gone && !b.hidden && !b.leaving)) {
         const keep = this.cordon || this.kind === 'indoor' ? cr.people[0] : null;
         for (const b of cr.people) if (b !== keep && !b.aboard && !b.duty && !b.gone && !(b.inside && b.hidden) && !b.steps.length) this.toCar(b);
       }
@@ -4770,10 +5071,13 @@ export class Director {
     b.aboard = false;
     b.scale = 1;
     b.steps.length = 0;
+    // (The bent pose is the first one shown, held a moment in the door; then up over 0.6 s while stepping out.)
     b.act = 'duck';
+    b.actT = 0;
     b.from = null;
+    b.blend = b.blendS;
     b.ease = 0.6;
-    b.steps.push(slide(at, 0.55));
+    b.steps.push(wait(0.2), act('stand', 0, null, 0.6), slide(at, 0.55));
     // Somebody ran off as the car came and is still in sight: the first officer out runs after them a stretch,
     // looks after them, and comes back to work. A runner nobody chases reads as a mistake.
     const runner = cr.police && !this.chased ? this.bodies.find((x) => x.kind === 'cast' && x.leaving && !x.gone && !x.hidden && x.gait === 'run') : null;
@@ -4796,7 +5100,7 @@ export class Director {
     const gait: Gait = hurry ? 'run' : 'walk';
     if (b.post) b.post.by = null;
     b.post = null;
-    if (b.act !== 'idle') this.setAct(b, 'stand');
+    if (b.act !== 'idle' && b.act !== 'duck') this.setAct(b, 'stand');
     if (cr.police) {
       // The story is told: nothing left to do but wait by the car.
       const post = this.played ? undefined : this.posts.find((p) => !p.by);
@@ -4864,19 +5168,8 @@ export class Director {
         const at: V2 = [down.x, down.y];
         this.route(b, this.beside(at, idx + 4, 0.8), 'run');
         const cpr = this.cast.priority === 1 && idx === 0;
-        if (cpr) {
-          // An officer who was on their chest hands over and steps back.
-          b.steps.push(
-            call(() => {
-              for (const o of this.bodies) {
-                if (o.kind !== 'police' || o.act !== 'cpr' || o.duty) continue;
-                if (o.post) o.post.act = 'guard';
-                o.steps.length = 0;
-                o.steps.push(act('kneelUp', 0.8, null, 0.5), go(this.beside(at, 3, 2.2), 'back'), act('guard', 0, at));
-              }
-            }),
-          );
-        }
+        // The paramedics have the patient from here: an officer who knelt by them hands over and steps back.
+        b.steps.push(call(() => this.handOver(at)));
         b.steps.push(act(cpr ? 'cpr' : 'aid', 0, at));
       } else if (this.kind === 'indoor') {
         this.route(b, this.inPoint, gait);
@@ -4901,12 +5194,17 @@ export class Director {
         b.steps.push(act('lean', 0, [car.x, car.y]));
         return;
       }
-      const p = this.safe([src[0] + out[0] * (7.5 + 1.2 * idx), src[1] + out[1] * (7.5 + 1.2 * idx)]);
-      this.route(b, p, 'run');
+      // On the burning house's own side of the road, four metres before it, facing it: the nozzle in the first
+      // one's hands, the second 1.2 m behind on the same line.
+      const first = this.offRoad(this.safe([src[0] + out[0] * 4.2, src[1] + out[1] * 4.2]), 0.6, this.sideOf(src));
+      const back = dist(first, src) > 1 ? norm(sub(first, src)) : out;
+      const second = this.safe([first[0] + back[0] * 1.2, first[1] + back[1] * 1.2]);
+      this.route(b, idx === 0 ? first : second, 'run');
       b.steps.push(
         act('hose', 0, src),
         call(() => {
-          if (idx === 0) this.hose = { car, by: b };
+          if (idx === 0) this.hose = { car, by: b, mate: null };
+          else if (this.hose) this.hose.mate = b;
         }),
       );
       return;
@@ -4946,6 +5244,58 @@ export class Director {
     this.standBy(b);
   }
 
+  /**
+   * The paramedics are at the patient: an officer who knelt there (first aid, or on their chest) gets up, steps
+   * back two metres and stands guard with their back to the work, facing whoever looks on. Nobody kneels on
+   * beside two paramedics.
+   */
+  private handOver(at: V2): void {
+    for (const p of this.posts) if ((p.act === 'aid' || p.act === 'cpr') && dist(p.at, at) < 3) p.act = 'guard';
+    for (const o of this.bodies) {
+      if (o.kind !== 'police' || o.duty || o.hidden || o.gone || (o.act !== 'cpr' && o.act !== 'aid') || Math.hypot(o.x - at[0], o.y - at[1]) > 3) continue;
+      // Straight back from where they knelt, or the nearest free place round the patient: never where a colleague
+      // stands already.
+      const d = Math.max(0.3, Math.hypot(o.x - at[0], o.y - at[1]));
+      const here: V2 = [o.x, o.y];
+      const free = (q: V2) =>
+        this.roomAt(q, 0.3) &&
+        this.clear(here, q) &&
+        !this.bodies.some((x) => x !== o && !x.hidden && !x.gone && Math.hypot(x.x - q[0], x.y - q[1]) < 0.9) &&
+        !this.posts.some((q2) => q2.by !== o && dist(q2.at, q) < 0.8);
+      const places: V2[] = [[at[0] + ((o.x - at[0]) / d) * 2.4, at[1] + ((o.y - at[1]) / d) * 2.4], ...[3, 4, 1, 2, 5, 0].map((k) => this.beside(at, k, 2.4))];
+      const back = places.find(free) ?? places[0];
+      o.steps.length = 0;
+      o.fidget = false;
+      o.steps.push(act('kneelUp', 0.8, null, 0.5), go(back, 'back'), act('guard', 0, [2 * back[0] - at[0], 2 * back[1] - at[1]]));
+    }
+  }
+
+  /**
+   * An officer with nothing more to do in the street goes back to their own car: to its boot with what they picked
+   * up (`boot`), then to its pavement side, where they write (the notes, the radio) and then stand by it.
+   */
+  private backToCar(b: Body, boot: boolean): void {
+    const cr = b.crew;
+    if (!cr || b.aboard || b.gone || b.duty) return;
+    const car = cr.car;
+    if (b.post) b.post.by = null;
+    b.post = null;
+    b.steps.length = 0;
+    b.fidget = false;
+    this.setAct(b, boot ? 'carry' : 'stand');
+    if (boot) {
+      const rear = this.carPoint(car, -car.size.length / 2 - 0.6, 0);
+      if (!this.wall(rear[0], rear[1])) {
+        this.route(b, rear, 'walk');
+        b.steps.push(act('lean', 2.5, [car.x, car.y]));
+      }
+    }
+    const i = cr.people.indexOf(b);
+    const p = this.carPoint(car, 1.3 - 1.1 * i, this.kerbSide(car) * (car.size.width / 2 + 1.2));
+    this.route(b, this.wall(p[0], p[1]) ? this.doorAt(car, i) : p, 'walk');
+    b.steps.push(act('notes', 7 + 5 * hash01(b.seed, 52), [car.x, car.y]), act('guard', 0, this.site.spot));
+  }
+
   /** Stand by the car, on the pavement side. */
   private standBy(b: Body): void {
     const cr = b.crew;
@@ -4953,7 +5303,7 @@ export class Director {
     const car = cr.car;
     const i = cr.people.indexOf(b);
     const p = this.carPoint(car, 1.3 - 1.1 * i, this.kerbSide(car) * (car.size.width / 2 + 1.2));
-    if (b.act !== 'idle') this.setAct(b, 'stand');
+    if (b.act !== 'idle' && b.act !== 'duck') this.setAct(b, 'stand');
     this.route(b, this.wall(p[0], p[1]) ? this.doorAt(car, i) : p, 'walk');
     b.steps.push(act(cr.police ? 'guard' : 'idle', 0, this.site.spot));
   }
@@ -4983,9 +5333,11 @@ export class Director {
         const at: V2 = [b.x, b.y];
         const d = Math.max(0.3, dist(at, [car.x, car.y]));
         b.face = [b.x + Math.cos(car.yaw) * 3, b.y + Math.sin(car.yaw) * 3];
+        // Bent low within a fifth of a second, held while the body goes into the car's outline: half a second
+        // and more bent over at the door before it is gone.
         b.steps.unshift(
-          act('duck', 0.25),
-          slide(lerp2(at, [car.x, car.y], 0.35 / d), 0.4),
+          act('duck', 0.3, null, 0.2),
+          slide(lerp2(at, [car.x, car.y], 0.45 / d), 0.45),
           call(() => {
             b.hidden = true;
             this.setAct(b, 'stand');
@@ -5008,7 +5360,10 @@ export class Director {
       this.patient = null;
       p.steps.push(wait(2));
       this.getUp(p);
-      p.steps.push(call(() => this.leave(p, 'walk')));
+      // (A driver whose car still stands in the road stays by it: it has to be moved yet.)
+      const wreck = this.kind === 'crash' && this.toClear > 0 && p.role === 'driver' ? this.wreckOf(p) : null;
+      if (wreck && wreck.wreck && wreck.mode === 'park') p.steps.push(act('idle', 0, [wreck.x, wreck.y]));
+      else p.steps.push(call(() => this.leave(p, 'walk')));
     }
   }
 

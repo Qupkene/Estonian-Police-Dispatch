@@ -638,8 +638,18 @@ describe('cctv director: how it ends', () => {
     expect(dist(v.pos, at)).toBeLessThan(0.01);
     expect(v.pose.hip).toBeLessThan(0.3);
     expect(w.d.phase).toBe('closing');
-    w.step(ended('tragedy', [unit('P1', 'left')]), 110);
-    after(w, 'tragedy');
+    // The dead are never taken out of a picture somebody looks at: when the crew has gone they still lie where
+    // they lay, alone, until the camera's own end.
+    const end = w.step(ended('tragedy', [unit('P1', 'left')]), 110);
+    expect(w.d.phase).toBe('after');
+    expect(end.people.map((p) => p.id)).toEqual(['p:v0']);
+    expect(dist(end.people[0].pos, at)).toBeLessThan(0.01);
+    expect(end.people[0].pose.hip).toBeLessThan(0.3);
+    expect(end.cars.filter((c) => !c.id.startsWith('v:'))).toEqual([]);
+    // A camera opened when all of it is long over finds the street empty.
+    const late = start(site, usual('lying'));
+    const f2 = late.step(ended('tragedy', [unit('P1', 'left')]), 5);
+    expect(f2.people.filter((p) => p.id === 'p:v0')).toEqual([]);
   });
 
   it('a word and a note, then everybody goes: every kind, every mild result', () => {
@@ -810,10 +820,12 @@ describe('cctv director: any moment is safe', () => {
         w.step(ended(result, [unit('P1', 'left', { takes: result === 'arrest' ? 'arrest' : null })]), 150);
         const f = w.d.frame();
         expect(w.d.phase, tag).toBe('after');
+        // (Whoever lay there when it ended in a death still lies there: the dead do not leave in view.)
+        const lying = f.people.filter((p) => p.pose.hip < 0.3).map((p) => p.id);
         expect(
           f.people.map((p) => p.id),
           tag,
-        ).toEqual([]);
+        ).toEqual(result === 'tragedy' ? lying : []);
         expect(
           f.cars.filter((c) => !c.id.startsWith('v:')),
           tag,
@@ -2231,9 +2243,19 @@ describe('cctv director: the scenes as two reviewers wanted them', () => {
       expect(f2.props?.some((q) => q.kind === 'sheet'), tag).toBe(true);
       const body = person(f2, 'p:v0')!;
       for (const o of f2.people) if (o.id.startsWith('o:')) expect(dist(o.pos, body.pos), `${tag} ${o.id}`).toBeGreaterThan(2.4);
-      t.step(ended('tragedy', [unit('P1', 'left')], { agencies: ems }), 90);
-      after(t, tag);
-      expect(t.d.frame().props ?? [], tag).toEqual([]);
+      // The cordon stands guard, hands on the vest: nobody holds an arm out for a minute.
+      let armOut = 0;
+      t.step(ended('tragedy', [unit('P1', 'here')], { agencies: ems }), 20, (f) => {
+        if (f.people.some((o) => o.id.startsWith('o:') && (o.pose.armL[1] > 0.9 || o.pose.armL[0] > 1))) armOut++;
+      });
+      expect(armOut, tag).toBeLessThan(80);
+      // The body and its sheet stay where they are when the crews have gone: nothing vanishes in view.
+      const f3 = t.step(ended('tragedy', [unit('P1', 'left')], { agencies: ems }), 90);
+      expect(t.d.phase, tag).toBe('after');
+      expect(f3.people.map((p) => p.id), tag).toEqual(['p:v0']);
+      expect(dist(person(f3, 'p:v0')!.pos, body.pos), tag).toBeLessThan(0.01);
+      expect(f3.props?.some((q) => q.kind === 'sheet'), tag).toBe(true);
+      expect(f3.cars.filter((c) => c.id.startsWith('u:') || c.id.startsWith('a:')), tag).toEqual([]);
     }
   });
 
@@ -2344,5 +2366,144 @@ describe('cctv director: the scenes as two reviewers wanted them', () => {
     });
     // In their car within seconds, not talking to an empty kerb.
     expect(lastSeen).toBeLessThan(6);
+  });
+});
+
+describe('cctv director: the last pass after the reviewers', () => {
+  const upright = (p: Frame['people'][number]) => p.pose.hip > 0.8 && Math.abs(p.pose.lean) < 0.7;
+  const armsBack = (p: Frame['people'][number]) => p.pose.armL[0] < -0.3 && p.pose.armR[0] < -0.3;
+  const ems = [{ agency: 'kiirabi' as Agency, state: 'here' as const, eta: 0 }];
+
+  it('an arrest is one walk for two: the cuffed is never more than a metre and a half from an officer on the way to the car', () => {
+    let total = 0;
+    for (const kind of ['brawl', 'threat', 'disorder', 'theft'] as SceneKind[]) {
+      for (const [place, seed] of PLACES.slice(0, 4)) {
+        const tag = `${kind} on ${place} ${seed}`;
+        const w = start(siteOf(place, seed), usual(kind));
+        arrive(w, kind === 'threat' ? 40 : 25);
+        let walked = 0;
+        const was = new Map<string, V2>();
+        w.step(ended('arrest', [unit('P1', 'here')]), 70, (f) => {
+          const cops = f.people.filter((p) => p.id.startsWith('o:'));
+          for (const p of f.people) {
+            if (!isCast(p.id)) continue;
+            const before = was.get(p.id);
+            was.set(p.id, p.pos);
+            // Hands behind the back, on their feet and walking: in an officer's hand.
+            if (!armsBack(p) || !upright(p) || !before || dist(before, p.pos) < 0.02) continue;
+            walked++;
+            const near = Math.min(...cops.map((o) => dist(o.pos, p.pos)));
+            if (near > 1.5) expect.fail(`${tag}: ${p.id} walks cuffed ${near.toFixed(1)} m from the nearest officer at ${f.t.toFixed(1)}`);
+          }
+        });
+        total += walked;
+      }
+    }
+    // (And they did walk: nobody is put into the car from afar.)
+    expect(total).toBeGreaterThan(500);
+  });
+
+  it('a crash with somebody hurt: nobody walks off while a wreck stands in the road, and no wreck moves without somebody in it', () => {
+    for (const seed of [4, 1]) {
+      const site = siteOf('street', seed);
+      const w = start(site, castBy('crash', 'ddw', { down: true }, ['involved', 'involved']));
+      arrive(w, 20);
+      const lat = (c: CarFrame) => nearestOnLine(c.pos, site.drive.pts).d;
+      const last = new Map<string, V2>();
+      w.step(ended('report', [unit('P1', 'here')]), 60, (f) => {
+        const wrecks = f.cars.filter((c) => c.id.startsWith('v:'));
+        const inRoad = wrecks.filter((c) => lat(c) < site.drive.width / 2 - 1.3);
+        const afoot = f.people.filter((p) => p.id.startsWith('p:d') || p.id.startsWith('o:')).length;
+        for (const c of wrecks) {
+          const before = last.get(c.id);
+          last.set(c.id, c.pos);
+          // A wreck that moves has its driver (or an officer) at the wheel: one of them is not in the street.
+          if (before && dist(before, c.pos) > 0.01) expect(afoot, `street ${seed}: ${c.id} moves by itself at ${f.t.toFixed(1)}`).toBeLessThan(4);
+        }
+        // While a wreck still stands in the road no driver is half way down the street.
+        if (inRoad.length) {
+          for (const p of f.people) {
+            if (!p.id.startsWith('p:d')) continue;
+            expect(Math.min(...wrecks.map((c) => dist(c.pos, p.pos))), `street ${seed}: ${p.id} at ${f.t.toFixed(1)}`).toBeLessThan(25);
+          }
+        }
+      });
+      expect(w.d.phase).toBe('closing');
+      // The drivers are still by their cars while the police are.
+      expect(w.d.frame().people.filter((p) => p.id.startsWith('p:d')).length, `street ${seed}`).toBeGreaterThanOrEqual(1);
+      w.step(ended('report', [unit('P1', 'left')]), 110);
+      expect(w.d.phase).toBe('after');
+      expect(w.d.frame().people.filter((p) => isCast(p.id))).toEqual([]);
+    }
+  });
+
+  it('nobody holds their hands at their head for long, and a guard is not an arm held out', () => {
+    const hands = (p: Frame['people'][number]) => p.pose.armL[0] > 1 && p.pose.armR[0] > 1 && p.pose.armL[2] > 1.4 && p.pose.armR[2] > 1.4 && p.pose.armL[0] < 2;
+    for (const [place, seed] of PLACES.slice(0, 3)) {
+      const w = start(siteOf(place, seed), castBy('threat', 'svvcw'));
+      const held = new Map<string, number>();
+      let longest = 0;
+      const each = (f: Frame) => {
+        for (const p of f.people) {
+          if (!isCast(p.id) || p.id === 'p:s0') continue;
+          const n = hands(p) ? (held.get(p.id) ?? 0) + 1 : 0;
+          held.set(p.id, n);
+          longest = Math.max(longest, n);
+        }
+      };
+      w.step(NOBODY, 40, each);
+      w.step(sitWith([unit('P1', 'here')]), 30, each);
+      // Four to eight seconds, and the blend out of it.
+      expect(longest * DT, `${place} ${seed}`).toBeLessThan(10);
+    }
+  });
+
+  it('an officer who knelt by the patient gets up and steps back when the paramedics have them', () => {
+    for (const [place, seed] of PLACES.slice(0, 3)) {
+      const tag = `${place} ${seed}`;
+      const w = start(siteOf(place, seed), usual('lying'));
+      const f0 = arrive(w, 16);
+      const v = f0.people.find((p) => p.id === 'p:v0')!;
+      const knelt = f0.people.filter((p) => p.id.startsWith('o:') && p.pose.hip < 0.6);
+      expect(knelt.length, tag).toBe(1);
+      const f1 = w.step(sitWith([unit('P1', 'here')], { agencies: ems }), 25);
+      expect(f1.people.filter((p) => p.id.startsWith('m:') && p.pose.hip < 0.6).length, tag).toBeGreaterThanOrEqual(1);
+      // Nobody of the police kneels on, and the one who did stands a step and more back from the patient.
+      for (const o of f1.people) if (o.id.startsWith('o:')) expect(o.pose.hip, `${tag} ${o.id}`).toBeGreaterThan(0.8);
+      expect(dist(f1.people.find((p) => p.id === knelt[0].id)!.pos, v.pos), tag).toBeGreaterThan(1.5);
+    }
+  });
+
+  it('out of a car door bent low: the first picture of somebody getting out is not a figure at full height', () => {
+    const w = start(siteOf('street', 1), usual('brawl'));
+    const first = new Map<string, number>();
+    w.step(NOBODY, 2);
+    for (let i = 0; i < 70; i++) w.step(sitWith([unit('P1', 'near', { eta: 7 - i * DT })]), DT);
+    w.step(sitWith([unit('P1', 'here')]), 8, (f) => {
+      for (const p of f.people) if (p.id.startsWith('o:') && !first.has(p.id)) first.set(p.id, p.pose.hip);
+    });
+    expect(first.size).toBe(2);
+    for (const [id, hip] of first) expect(hip, id).toBeLessThan(0.75);
+  });
+
+  it('fire: the hose runs from the lorry to a nozzle aimed at the smoke, its crew before the burning house and facing it', () => {
+    const site = siteOf('residential', 3);
+    const w = start(site, usual('fire'));
+    arrive(w, 8);
+    const f = w.step(sitWith([unit('P1', 'here')], { agencies: [{ agency: 'paaste', state: 'here', eta: 0 }] }), 30);
+    const hose = f.props?.find((q) => q.kind === 'hose');
+    expect(hose?.line?.length ?? 0).toBeGreaterThanOrEqual(4);
+    expect(hose?.aim).toBeDefined();
+    const src = f.smoke!.at;
+    expect(dist(hose!.aim!.at, src)).toBeLessThan(0.01);
+    const nozzle = hose!.line![hose!.line!.length - 1];
+    const crew = f.people.filter((p) => p.id.startsWith('m:paaste')).sort((a, b) => dist(a.pos, nozzle) - dist(b.pos, nozzle));
+    // The one at the nozzle within six metres of what burns, the second a step or two behind, both turned to it.
+    expect(dist(crew[0].pos, src)).toBeLessThan(6.5);
+    expect(dist(crew[1].pos, crew[0].pos)).toBeLessThan(2.2);
+    for (const p of crew.slice(0, 2)) {
+      const to = Math.atan2(src[1] - p.pos[1], src[0] - p.pos[0]);
+      expect(Math.abs(Math.atan2(Math.sin(to - p.yaw), Math.cos(to - p.yaw))), p.id).toBeLessThan(0.5);
+    }
   });
 });

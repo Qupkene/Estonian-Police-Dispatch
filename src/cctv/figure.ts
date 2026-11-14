@@ -122,13 +122,15 @@ export type Act =
   | 'onStretcher'
   /** Pushing something at waist height with both hands (a stretcher). */
   | 'push'
-  /** Standing guard with an arm out to keep people back; the head turns to who comes. */
-  | 'bar';
+  /** An arm raised, palm out, at somebody who comes too near (a cordon): held a few seconds, not a stance. */
+  | 'bar'
+  /** A hand over the mouth, the other arm across the body: somebody watching what they would rather not see. */
+  | 'gasp';
 
 export type Gait = 'walk' | 'run' | 'stagger' | 'back' | 'escort' | 'shuffle';
 
 /** Acts whose arms are kept while walking (a phone at the ear, hands cuffed behind the back). */
-const UPPER: ReadonlySet<Act> = new Set<Act>(['phone', 'cuffed', 'hold', 'carry', 'cower', 'handsUp', 'aim', 'brandish', 'point', 'cold', 'fight', 'grapple', 'push', 'hose']);
+const UPPER: ReadonlySet<Act> = new Set<Act>(['phone', 'cuffed', 'hold', 'carry', 'cower', 'handsUp', 'aim', 'brandish', 'point', 'cold', 'fight', 'grapple', 'push', 'hose', 'gasp']);
 
 /** Acts on the ground: the figure does not turn or get moved about while in them. */
 export const DOWN: ReadonlySet<Act> = new Set<Act>(['lie', 'prone', 'sit', 'fall', 'side', 'onStretcher']);
@@ -153,6 +155,18 @@ const kneel = (t: number, s: number): Pose => ({
   legR: [0.05, 0.05, 1.62],
 });
 
+/**
+ * Both knees on the ground, sitting back on the heels: whoever works on somebody who lies there. Low and compact
+ * from every side (one knee up reads as a stride when the camera is behind it).
+ */
+const kneelBoth = (t: number, s: number): Pose => ({
+  ...REST,
+  hip: 0.4,
+  bend: 0.6 + 0.03 * wobble(s, t, 1),
+  legL: [0.8, 0.12, 2.35],
+  legR: [0.8, 0.12, 2.35],
+});
+
 const ACTS: Record<Act, Maker> = {
   stand,
   idle: (t, s) => {
@@ -174,7 +188,11 @@ const ACTS: Record<Act, Maker> = {
   phone: (t, s) => ({ ...stand(t, s), headPitch: 0.08, roll: 0.03, armR: [0.5, 0.3, 2.45], armL: [0.05 * wobble(s, t, 0.8), 0.08, 0.2] }),
   wave: (t, s) => ({ ...stand(t, s), armR: [2.75, 0.25 + 0.4 * Math.sin(t * 7), 0.3], armL: [0, 0.08, 0.2] }),
   notes: (t, s) => ({ ...stand(t, s), headPitch: 0.4, armL: [0.55, 0.05, 1.55], armR: [0.5, 0.02, 1.6 + 0.08 * Math.sin(t * 9)] }),
-  guard: (t, s) => ({ ...stand(t, s), armL: [0.3, 0.12, 1.75], armR: [0.3, 0.12, 1.75], legL: [0, 0.1, 0.03], legR: [0, 0.1, 0.03], headYaw: 0.35 * wobble(s + 7, t, 0.3) }),
+  // Hands on the vest at the chest, elbows back, feet apart; the weight goes from one foot to the other.
+  guard: (t, s) => {
+    const shift = wobble(s + 11, t, 0.22);
+    return { ...stand(t, s), roll: 0.03 * shift, armL: [-0.32, 0.1, 2.1], armR: [-0.3, 0.1, 2.12], legL: [0.02 * shift, 0.1, 0.03], legR: [-0.02 * shift, 0.1, 0.03], headYaw: 0.35 * wobble(s + 7, t, 0.3) };
+  },
   aim: (t, s) => ({ ...REST, hip: 0.95, lean: 0.1, armL: [1.42, -0.12, 0.12], armR: [1.45 + 0.02 * wobble(s, t, 3), -0.1, 0.08], legL: [0.28, 0.08, 0.2], legR: [-0.3, 0.08, 0.12] }),
   handsUp: (t, s) => ({ ...REST, armL: [2.85, 0.4, 0.3 + 0.05 * wobble(s, t, 2)], armR: [2.85, 0.4, 0.3], headPitch: 0.1 }),
   cuffed: () => ({ ...REST, lean: 0.12, headPitch: 0.3, armL: [-0.6, -0.14, 0.35], armR: [-0.6, -0.14, 0.35] }),
@@ -263,11 +281,11 @@ const ACTS: Record<Act, Maker> = {
   },
   aid: (t, s) => {
     const f = wobble(s, t, 2.2);
-    return { ...kneel(t, s), bend: 0.55 + 0.05 * f, headPitch: 0.35, armL: [0.9 + 0.1 * f, 0.1, 0.5], armR: [0.95 - 0.1 * f, 0.1, 0.45] };
+    return { ...kneelBoth(t, s), bend: 0.62 + 0.05 * f, headPitch: 0.35, armL: [0.55 + 0.12 * f, 0.1, 0.45], armR: [0.6 - 0.12 * f, 0.1, 0.4] };
   },
   cpr: (t, s) => {
     const push = pulse(t * 11.5 + (s % 3)) ** 1.5;
-    return { ...kneel(t, s), hip: 0.5 - 0.03 * push, bend: 0.75 + 0.16 * push, headPitch: 0.4, armL: [0.75, -0.12, 0.05], armR: [0.75, -0.12, 0.05] };
+    return { ...kneelBoth(t, s), hip: 0.47 - 0.03 * push, bend: 0.75 + 0.16 * push, headPitch: 0.4, armL: [0.75, -0.12, 0.05], armR: [0.75, -0.12, 0.05], legL: [0.45, 0.14, 2.0], legR: [0.45, 0.14, 2.0] };
   },
   lean: (t, s) => ({ ...stand(t, s), bend: 0.5, hip: 0.97, headPitch: -0.2, armR: [0.9, 0.1, 0.9], armL: [0.2, 0.1, 0.3] }),
   direct: (t, s) => {
@@ -296,7 +314,8 @@ const ACTS: Record<Act, Maker> = {
   kneelCuffed: () => ({ ...REST, hip: 0.52, lean: 0.12, headPitch: 0.35, armL: [-0.6, -0.14, 0.35], armR: [-0.6, -0.14, 0.35], legL: [0, 0.1, 1.6], legR: [0, 0.1, 1.6] }),
   onStretcher: () => ({ ...REST, hip: 0.13, lean: -Math.PI / 2, lift: 0.72, armL: [0, 0.1, 0.1], armR: [0, 0.1, 0.1], legL: [0, 0.05, 0.03], legR: [0, 0.05, 0.03] }),
   push: (t, s) => ({ ...stand(t, s), lean: 0.1, armL: [0.75, 0.05, 0.55], armR: [0.75, 0.05, 0.55] }),
-  bar: (t, s) => ({ ...stand(t, s), armL: [0.25, 1.2, 0.15], armR: [0.3, 0.12, 1.75], legL: [0, 0.1, 0.03], legR: [0, 0.1, 0.03] }),
+  bar: (t, s) => ({ ...stand(t, s), armL: [1.25 + 0.05 * wobble(s, t, 1.4), 0.3, 0.45], armR: [-0.3, 0.1, 2.12], legL: [0.12, 0.1, 0.05], legR: [-0.1, 0.1, 0.03] }),
+  gasp: (t, s) => ({ ...stand(t, s), lean: -0.04, headPitch: 0.06, armR: [0.55, 0.12, 2.5], armL: [0.45, -0.35, 1.7], twist: 0.04 * wobble(s, t, 0.8) }),
 };
 
 /** A walking, running or stumbling body at step phase `th` (radians, a full turn every two steps). */

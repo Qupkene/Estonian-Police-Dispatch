@@ -81,8 +81,13 @@ export interface PropFrame {
   kind: Held | 'stretcher' | 'sheet' | 'hose';
   pos: V2;
   yaw: number;
-  /** A hose: the points it lies along on the ground, from the lorry to the nozzle (the last one is held at the waist). */
+  /**
+   * A hose: the points it lies along on the ground from the lorry, then where it comes up off the ground, the hands
+   * of the second of its crew, and the nozzle (the last two are held at the waist).
+   */
   line?: V2[];
+  /** A hose: what its water is played on (a point and its height in metres). */
+  aim?: { at: V2; height: number };
 }
 
 export interface CarFrame {

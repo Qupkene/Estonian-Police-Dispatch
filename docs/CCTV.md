@@ -234,26 +234,76 @@ true). Pure: it only reads the state.
 
 ## 7. The cast (`cast.ts`)
 
-`sceneKindOf(incident)` gives one of eleven kinds from the template's category, tags, id and kind of place:
+`sceneKindOf(incident)` gives one of eleven kinds from the incident's category, tags, template id and kind of place,
+and from who and what the incident has (a victim, a suspect, vehicles). When in doubt it is the kind that shows less:
+a camera never shows what the card does not say. A false alarm is `empty`; somebody about to harm themselves, on the
+water or in an aircraft, and the side jobs of a forest fire are not staged (`indoor` at an indoor place, else
+`empty`).
 
 | Kind | When | What is on the street before anyone comes |
 | --- | --- | --- |
-| `brawl` | fights outdoors, street robbery | people fighting, witnesses at a distance |
-| `threat` | armed suspects outdoors | one person with a weapon, others keeping away |
-| `disorder` | drunk, loud, unwelcome people outdoors | one to three people swaying, arguing, sitting |
-| `lying` | drunk in the snow, overdose, injured pedestrian | somebody on the ground, the caller beside them |
-| `crash` | collisions | two vehicles at angles in the road, hazard lights, the drivers |
-| `stop` | drunk or wanted drivers, suspicious vehicles | a vehicle at the kerb with its driver |
-| `theft` | thieves and vandals at work outdoors, alarms | somebody working at a car or a door, a lookout |
-| `indoor` | domestic, anything under a roof | the door; perhaps the caller waiting outside |
-| `crowd` | demonstrations, fans, evacuations | twelve to twenty people |
-| `fire` | fires | smoke from the building or the vehicle, onlookers |
-| `empty` | false alarms, anything a street camera would not show | nothing, perhaps the caller |
+| `brawl` | fights outdoors (violence with a suspect, public order with a fight), street robbery | people fighting, witnesses at a distance |
+| `threat` | violence, public order or a major incident with a weapon, outdoors (in a shop, a school or a filling station it is `indoor`) | one person with a weapon, others keeping away |
+| `disorder` | drunk, loud or unwelcome people, harassment without a vehicle, drugs in the open, a drunk or confused person to help, electric scooters without a victim | one to three people swaying, arguing, sitting |
+| `lying` | drunk in the snow, an overdose, somebody who fell or lies in the road, outdoors; a traffic incident with a victim and no vehicle | somebody on the ground, the caller beside them |
+| `crash` | collisions (traffic templates whose id or tags say so), bus crashes | the wrecks in the road, hazard lights, the drivers |
+| `stop` | traffic incidents with a vehicle, harassment from a vehicle, a wanted vehicle on the plate cameras, drugs in a car, a fuel drive-off, the border's vehicles held with their driver | a vehicle at the kerb with its driver, or only whoever reported it (below) |
+| `theft` | thieves and vandals at work outdoors (from a car, bicycles, graffiti, catalytic converters, fuel, copper), alarms outdoors | somebody working at a car or a door, a lookout |
+| `indoor` | domestic, noise, anything under a roof, a fire alarm or a panic button | the door; perhaps the caller waiting outside |
+| `crowd` | demonstrations, fans, riots; a bomb threat at a shop or a mall | twelve to twenty people |
+| `fire` | fires and arson, burned cars | smoke from the building or the vehicle, onlookers |
+| `empty` | false alarms, fraud and missing persons outdoors, anything a street camera would not show | nothing, perhaps the caller |
 
-`castOf(sim, incident, template, dress)` adds the people (everyone of the incident except the missing and the dead,
-dressed by `figure.ts` for the weather), the vehicles, and the choices made once by seed: `armed`, `drunk`, `down`
-(somebody already on the ground), `live` (the suspects are still there), `runs` (somebody runs when the police come
-in sight), `mayFlee` (a vehicle pursuit can start).
+`castOf(sim, incident, template, dress)` builds the `Cast`. It reads the template as the incident's own scenario tells
+it (`withScenario(template, incident.scenarioId)`, the same whether or not the caller has resolved it already), and
+the card's own resolved summary (`incident.summary.et`) where the template alone does not say what happened.
+
+**People.** Everyone of the incident except the missing and the dead, dressed by `figure.ts` for the weather
+(`lookOfPerson`). People of nobody's registry are added as extras with ids `e:<n>`: twelve to twenty for a crowd,
+three to six onlookers at a fire. **Vehicles** in their registry colour and kind (`lookOfVehicle`), else a made-up
+car (`lookOfAnyCar`).
+
+**What a stop shows of its vehicle** (`STOP_STORY`, `stopStoryOf`). Every template that can make a `stop` has a line
+in the table: one answer for the whole template, or one for each of its summary variants in their order. A scenario
+that tells another story has its own line, keyed `<template id>#<scenario id>`, which wins over the template's.
+`variantOf` finds which variant the card is by matching its text against each variant with the `{placeholders}` as
+wildcards. A template the table does not know, or a card that is none of its variants, shows the least (`away`).
+`tests/cctv-cast.test.ts` keeps the table and the catalogue in step.
+
+| Story | Example | On the street |
+| --- | --- | --- |
+| `held` | a drunk driver at a filling station | the vehicle at the kerb with its driver, in it or beside it (by seed) |
+| `inside` | a driver asleep at a junction, a car watching a house | the vehicle, its driver inside until the officers have them out (`driverIn`) |
+| `alone` | a child locked in a hot car | the vehicle, none of its people; only callers and witnesses |
+| `gone` | a fuel drive-off, a driver who did not stop, a speeder | no vehicle and no driver: whoever reported it waits for the crew (`gone`) |
+| `away` | a drunk driver reported from the road, a car still on a ferry | nobody at all (`gone` as well) |
+
+**Crashes.** A crash is of one vehicle (`single`) when the template is one (a ditch, an elk, a train, the sea, an
+armoured column: `SINGLE_ID`) or when the card says so in its own words, whatever the template usually tells
+(`kraavi`, `katusel`, `külili`, `teelt välja`, `tammilt`, `teepervele`, `merre`): only the story's first vehicle is in
+the cast. Somebody is still inside a wreck (`trapped`) when the card says that (`inimene sees`, `juht sees`,
+`kiilunud`, `ei saa välja`, `juhti pole näha`, `autos on vähemalt`). After a hit-and-run (`lahkunud` in the id) the
+suspect's vehicle is not there. A crash with fewer vehicles than it needs gets made-up ones of nobody's
+(`v:other<n>`): two, or one for a single vehicle or a hit-and-run.
+
+**Weapons.** `armed` when the tags say `armed`, `weapon_knife`, `weapon_firearm`, `weapon_gun` or `firearm`. The
+weapon (`Held`) is a pistol for the firearm tags, a knife for `weapon_knife`, else a knife or a bat by seed.
+
+**`Cast`** carries:
+
+- `kind`, `seed` (`hash32('cast', incident.id)`), `people`, `cars`, `dress`, `priority` (the true priority, 1 the
+  worst).
+- `armed`, `weapon`; `drunk` (tags `alcohol`, `drunk`, `dui`, `drunk_driving`, `drugs`).
+- `live`: the suspects are at it when the crew comes. True for every kind but `theft`, where it is true for a theft in
+  progress or an alarm and else six times in ten; the director plays a theft that is not live as `indoor`.
+- `down`, somebody on the ground from the start: always in `lying`; a `brawl` of priority 1 or 2 by a chance of 0.45;
+  a `crash` of priority 1 unless somebody is trapped; a `threat` of priority 1 by a chance of 0.5.
+- `runs`, somebody runs when the police come in sight: `theft` 0.7, `brawl` 0.3, `threat` 0.2, `disorder` 0.12.
+- `mayFlee`: a pursuit can start (tag `vehicle_flee`, or a pursuit beat in the template), never for a vehicle that has
+  gone.
+- `single`, `trapped`, `gone`, `driverIn` (above); `inRoad` (a `lying` whose template is somebody in the carriageway);
+  `chant` (a demonstration or fans) and `riot` (a riot or a clash) for a crowd; `carFire` (a vehicle burns, not a
+  building).
 
 ## 8. The director (`director.ts`)
 
@@ -270,150 +320,321 @@ class Director {
 }
 ```
 
-The director is plain state stepped by `update`: no timers, no three.js, no randomness outside `rand(seed)`.
+The director is plain state stepped by `update`: no timers, no three.js, no randomness outside `rand(seed)`. The same
+site, cast and situations give the same frames. Every change has to be safe at any moment: a newer instruction
+replaces the older one, and whoever should be elsewhere walks or drives there.
 
 - `night`: the light is dark (the session passes `env.night >= 0.5`). `quiet`: no passing traffic and no
   passers-by (the tests). `wet`: it rains (`env.rain`).
 - `parked`: the cars the renderer drew parked in the street (`types.ts ParkedCar`: the middle of the car, its yaw,
   length and width). `render/world.ts` decides which places are filled and returns them as `World.parked`; the
   view keeps them as `view.parked`; the session sets the scene on the view first and passes them on. The director
-  treats each as solid: no vehicle stops in one, nobody stands in one or walks through one.
-- `site.seen` (section 4.2) is the stretch of road the camera sees: where it is set, an arriving crew's stopping
-  place inside it is preferred, so that the first cars stop in the picture.
+  treats each as solid: no vehicle stops, drives or turns in one, nobody stands in one or walks through one.
+- `site.seen` (section 4.2) is the stretch of road the camera sees: an arriving crew's stopping place is weighed
+  against it and against the real picture (8.2), so that the first cars stop in sight.
+
+**Steps of the scene.** The scene runs in steps of 0.1 s (`STEP_S`) whatever the frame rate, kept up to one step
+ahead of the picture; `frame()` draws everybody between the last two steps, so the picture does not depend on how
+time is cut into frames. Somebody put elsewhere at once (out at a door) is drawn where they are, not on the way. A
+gap of more than 2 s (a hidden tab) is not played out in full.
 
 ### 8.1 Bodies and steps
 
-A person on stage has a position, a yaw, an `Act` (what it does standing still), and a queue of steps:
+A person on stage has a position, a yaw, an `Act` (what it does standing still), a gait while it walks, and a queue
+of steps:
 
-- `go` (walk, run, stagger, back away or be escorted in a straight line to a point), `path` (along several points),
-- `act` (an act, facing a point, for some seconds or for good), `wait`,
-- `door` (shrink into the door or grow out of it in half a second), `hide` and `show`, `call` (run a function).
+- `go` (walk, run, stagger, back away, escort or shuffle in a straight line to a point),
+- `act` (an act, facing a point, for some seconds or until another replaces it), `wait`,
+- `slide` (moved to a point in some seconds without walking: out of a car door, onto a stretcher),
+- `door` (shrink into the door or grow out of it in half a second), `hide` and `show`, `gone`, `call` (run a
+  function).
 
-Walking advances a step phase by distance covered, so feet do not slide (`figure.ts STRIDE`, `PACE`). When the act
-changes, the pose blends from the old one over 0.3 s. A body turns towards where it walks or what it faces at no more
-than 7 rad/s. `figure.ts DOWN` acts (lying, sitting) do not turn.
+A walk to a point is planned as `go` steps (`route`): straight when no house is in the way, else by way of the spot,
+the road or the door, or along the walking lines; then round every vehicle that stands in the way (the parked cars
+and the scene's own standing vehicles), by its corners 0.6 m out (`CORNER_M`), up to three vehicles one after the
+other. Whoever starts at a car's door goes round its front. The walking lines are the site's, moved off the cars
+parked along them.
 
-People leave the scene along the pavement of their side to an end of the drive line and are removed there. People
-never walk through buildings: door to pavement to exit, or straight lines between points that `site.ts clearLine`
-allows.
+- **Feet and turns.** Walking advances a step phase by distance covered, so feet do not slide (`figure.ts STRIDE`,
+  `PACE`: walk 1.35 m/s, run 4.6, stagger 0.75, back 0.8, escort 1.1, shuffle 0.6). Each body has its own pace,
+  0.9 to 1.1 of that, except in step with somebody it leads or is led by, and nobody walks in step with a neighbour.
+  When the act changes, the pose blends from the one shown over 0.3 s (`BLEND_S`), longer where a step says so
+  (getting up, getting out of a car). A body turns towards where it walks or what it faces at no more than 7 rad/s;
+  `figure.ts DOWN` acts (lying, prone, sitting, falling, on one side, on a stretcher) do not turn.
+- **Nobody inside anybody.** People keep 0.6 m between their middles (`NEAR_M`). A step that would come nearer goes
+  round on the right, as people pass on a pavement, else on the left, else waits; kept waiting 1.6 s (`STALL_S`), they
+  squeeze through for two seconds. Exempt: whoever they walk with (an officer and the one they lead, two fighters, a
+  crew at work), whoever lies or kneels, and the last step to somebody's side.
+- **Nothing solid.** Never into a house, never within 0.4 m of a parked car (`PARK_BERTH`) except to get out of
+  that berth, and never into the way of a moving vehicle (the stretch before it, an arm's length beside it, the swing
+  of one turning round): they wait for it to pass. A stretcher is not pushed under one either. Nobody stands on open
+  water.
+- **Places.** At the start nobody stands on somebody else's place (0.6 m apart; fighting pairs excepted). An
+  officer's post is never within 0.8 m of another post or on a standing person of the incident.
+- **The idle step.** Somebody who stands calmly (idle, phone, cold, smoke, point, guard, cower, bar) turns their head
+  towards the action (a vehicle driving up, the fight, the weapon, an officer at work, else the spot), up to 1.15 rad
+  and a third of a second behind. A pointing arm comes down after 2 to 4 s. Every 5 to 11 s they may shuffle a step or
+  two aside (0.35 to 0.8 m) and back to their own place, put the phone to the ear or down, or point again. Nobody who
+  keeps away from a weapon steps. None of this is an order: such a body takes new orders at once.
+- **Directing traffic.** An officer at a `direct` post waves only while a vehicle comes towards them within 40 m;
+  else they stand and watch the road.
+
+People leave along the pavement of their side (or across the road and along the other) to an open end of the drive
+line, each on a line of their own up to half a metre off the pavement's middle, arms down, and are removed 60 m from
+the spot (`OUT_M`).
 
 ### 8.2 Vehicles
 
-A vehicle follows a path at a speed that eases in and brakes to a stop at its end; its yaw is the path's direction.
+A vehicle follows the drive line (`s` metres along, `lat` metres to the left, a direction) at a speed that eases in
+and brakes to a stop at its place; its yaw is the line's direction over 3 m about it, plus the swing of its wheels
+(at most 0.3 rad). It moves sideways only as far as wheels turn: nothing while it stands, sharply at a crawl, gently
+at speed (about 1.2 m/s, `SIDE_V`).
 
-- **Lanes** (drive-line frame: `s` metres along, `lat` metres to the left). Right-hand traffic: a vehicle going from
-  end a to end b drives at `lat = -width/4`, the other way at `+width/4`; on roads narrower than 5.4 m at `lat = 0`.
-- **Slots.** Emergency vehicles stop at their kerb (`lat = -/+(width/2 - 1.15)`): from a at `s = at - 7 - 6.4 k`, from b
-  at `s = at + 7 + 6.4 k` for the k-th vehicle from that side, moved back while a slot is taken. In a `crash` the first
-  slot is 12 m before the wreck (its lane is blocked).
-- **Arrival.** A unit that turns `near` spawns at the end of the drive line on the side it comes `from` (the other end
-  if that one is a dead end), blue lights and headlights on, and drives to its slot so as to stop when `eta` runs out
-  (between 3.5 and 10 s; faster if the game says `here` first).
-- **Crew.** Once stopped: lamps stay on at night, blue lights stay on while the incident is open. Officers appear at
-  their doors (driver left front, then right front, then the rear doors; a van's crew at its side door), up to two
-  for a patrol, up to four for rapid response and special units, and walk (run when the scene is `threat` or the
-  incident's priority is 1) to their posts. Somebody getting out on the road side walks round the front of the car.
-- **Leaving.** A unit that turns `left` (or disappears from the situation): its officers walk back, get in (hide), the
-  car pulls out and drives off the far end (a dead end: it turns round and leaves the way it came). Blue lights off
-  unless it leaves for a pursuit or with `takes`. A closing scene (8.5) is played out first, for at most 14 s.
-- **Other services** arrive the same way (`vehicle.ts lookOfAgency`): an ambulance brings two paramedics, the rescue
-  service a lorry with three rescuers. They leave when the incident has closed and their part is played.
-- **Passing traffic.** On through roads of class tertiary and up, a car every 6 to 25 s by class and hour (fewer at
-  night), headlights at dusk and night. It keeps clear of stopped vehicles by moving towards the middle. None while
-  a `crash` blocks the road. `quiet` (the tests) turns it and the passers-by off.
-- **Passers-by.** One every 10 to 40 s along a pavement (rarely at night, none in heavy rain or storm), on the far
-  side while a `brawl` or `threat` is open.
+- **Lanes.** Right-hand traffic: from end a to end b at `lat = -width/4`, the other way at `+width/4`; on roads
+  narrower than 5.4 m (`NARROW_M`) on the middle, `lat = 0`.
+- **The kerb.** A vehicle stops at `lat = -/+(width/2 - 1.15)`; on a lane narrower than 3.3 m (`KERB_MIN_M`) there is
+  no kerb to pull in to and it stands on the centre line.
+- **Stopping places** (`slot`). Every metre within 70 m of the scene, at both kerbs, is weighed by its cost: how far
+  it is from the usual 5.5 m short of the scene (`STOP_M`; never nearer than 4 m, `MIN_STOP_M`); across the road from
+  the scene, the road's width plus 5 (the crew would cross it on foot); past the scene, 3 (30 past somebody armed or
+  ahead of a car the police pulled over); not wholly inside `Site.seen`, 60; not wholly in the camera's real picture
+  (its eight corners through `projectPoint`), 40; in the lane beside parked cars instead of at the kerb, 1.5. A
+  `crash` stops 10 to 12 m short of the wrecks, a `threat` 9 to 10 m short of the weapon; the police stop 9 to 9.5 m
+  short when an ambulance is asked for and somebody is down, leaving the kerb beside them to the ambulance, which
+  stops level with its patient (in the lane when wrecks shut the road). Never within 6 m of what blocks the
+  carriageway, beyond a place where the road is shut for it, on a place taken or about to be, or on somebody in the
+  road. Room is asked for first (5 m before and behind, `ROOM_M`, and 3 m of road left free beside, `PASS_FREE`), then
+  less (1.2 m), then none. A place out of the picture is taken only when no place in it fits even with less room;
+  none at all, and the vehicle stays out of the picture.
+- **Taken places.** From a car parked in the street a vehicle keeps 0.8 m before and behind (`PARK_GAP`), 1.2 m
+  beside for its doors (`PARK_SIDE`) and 2.6 m of free kerb behind its place to swing in (`PARK_IN`). It does not stop
+  across the road from a standing vehicle where less than 3.5 m of road (`PASS_M`) would stay between them, unless far
+  enough along for an 8.5 m lorry (`LONGEST_M`) to swing from one side to the other. Where cars are parked along the
+  kerb it may stop in the lane beside them, half a metre off them, while 3 m of road stay free.
+- **Parked cars are solid.** No vehicle stops, drives or turns round in one. It passes them a hand's breadth off;
+  one on the inside of a bend counts wider by the swing a passing vehicle takes. Where the parked cars alone leave no
+  way through for a vehicle of a width (a pinch), nothing of that width passes.
+- **Arrival.** A unit that turns `near` (or `here` first) comes in at the end of the drive line on the side it comes
+  `from`; the first crew at a `stop` comes from the end behind the stopped car, so that it pulls in behind it at the
+  same kerb; another service's end is chosen by seed. Nobody comes out of a dead end while the other end is open.
+  An end where the drive line was cut at a house is a wall: nothing comes from behind it, unless the open end has no
+  place for the vehicle at all. Arrivals from the two ends come in turn: while one vehicle drives up to its place, or
+  something moves near the mouth of the road (on a road of one lane: anything moving), a vehicle at the other end
+  waits for its turn and looks again every 0.45 s. It comes from the other end only when that gets it 25 nearer in
+  cost. It comes with blue lights (as its livery has them) and headlights on.
+- **Timing against the game.** Its speed is planned so that it stands at its place when `eta` runs out (between 3.5
+  and 10 s; 3.5 s for a unit already `here`; cruise 5 to 24 m/s, braking 3 to 9 m/s2). While the unit stays `near`
+  and its `eta` moves by more than a second from the car's own (the game's clock ran slower or faster than it said),
+  the car is planned again to the new time. Once the game says `here`, it stands within 3 s. Nobody gets out of the
+  car before the game says the unit is `here`, however early the car stands; the session's pace (section 14) keeps a
+  `near` crew `coming` until the pace has been measured.
+- **On the way.** A moving vehicle keeps its lane and moves over in good time round whatever stands ahead: 0.8 m
+  (`BERTH_M`) from a standing vehicle, a hand's breadth in a squeeze, 0.3 m from a parked car, 0.9 m from somebody
+  standing in the road, 0.6 m from somebody walking along the road's edge (the passing walker is overtaken slowly
+  where less than a metre is free, not followed at a walk). It never passes between a standing vehicle and the road
+  edge that one stands by unless a lane's width is there, never moves out into the way of one that comes towards it
+  (it waits in its lane), and on a road of one lane two that meet each keep to their right, using up to 1.2 m of the
+  verge. It follows a vehicle going its way, creeps round one standing at 1.6 m/s (`CREEP_V`), waits 5 m back from
+  one it cannot get round, stops short of one coming straight at it, and stops for anybody in the road before it.
+- **Pulling in.** It moves over to its place from 16 m before it, 8 m more for each metre across, but only once past
+  the last thing standing at that kerb before the place. A place at the far kerb crosses the way of oncoming traffic:
+  it waits short of the turn until that has passed. A vehicle that stops more than 0.35 m short of its kerb line backs
+  off and comes again, twice at most, then stands where it got to. Its wheels come straight as it stands, unless its
+  tail would swing into what is beside it.
+- **Jams.** Wedged against something it could get round with more road, a vehicle backs off up to 4 m first. Kept
+  from getting on for 8 s (`STUCK_S`) it goes on slowly; it may then pass people closer than usual, but never moves
+  into a person before 32 s and never into another vehicle or a parked car at all: it stands instead, and every 4 s
+  backs off a little and comes again. Two that stand nose to flank, each steered for its own lane, straighten
+  together.
+- **A held-back crew.** Kept for 4 s within 14 m of its place by people standing in the road (beside whoever lies
+  there), a crew's car stands where it is. A crew the game has had on scene for 8 s (`LATE_S`) that is still kept from
+  its place gives it up for the nearest free one in the picture, never past its own.
+- **Crew.** Up to two officers for a patrol, up to four for rapid response and special units. They open their doors
+  a moment after the car stops (the first after 1.5 to 3 s, each next 0.8 to 1.5 s later; 0.9 to 1.4 s and 0.5 to 0.9 s
+  when it is urgent: a `threat`, priority 1, a fight going on), bent low and rising as they step clear. Doors: the
+  driver left front, then right front, then the rear doors; a van's or a lorry's crew at the driver's door and the
+  side door; where a door opens into a wall or a parked car, the one across. They walk to their posts (run for a
+  `threat`, priority 1, a fight going on, a victim about to fall, or a closing scene being played); somebody getting
+  out on the road side walks round the front of the car. While the crew is here the lamps are on only at night and the
+  blue lights while the incident is open.
+- **Leaving.** A unit that turns `left` (or is no longer named) leaves: its officers walk back, duck in (anybody
+  still kept away after 40 s is put aboard), and the car pulls out when it can. A closing scene (8.5) is played first,
+  for at most 14 s (`HOLD_S`) from the outcome; the police also wait while the wrecks are being moved, up to 55 s. It
+  pulls out when nobody it waits for is still on the way to it, nobody stands right before it, nothing passes, and
+  nothing comes towards it within 60 m (on a road of one lane, anywhere along it); on a road of one lane blocked ahead
+  a crew waits up to a minute (a car of the incident as long as it takes), and after a minute any vehicle goes. It
+  drives off the far end at 11 m/s (17 with blue lights). Blue lights on only for a pursuit, the cells or the
+  hospital, not for a ride home.
+- **U-turns.** A standing vehicle turns round in 3.4 s (`UTURN_S`) when the way ahead is worse than the way back
+  (blocked, then ending at a wall, then ending) or when it has to follow a vehicle that made off; to the other kerb's
+  side when that is free. It waits for the room to swing (no vehicle within its swing, nobody within reach, for up to
+  32 s), and edges out from a parked car beside it first.
+- **Recalled and called back.** Told to leave before it stopped, a car drives on through when the road ahead is
+  open; where it ends, it stops, turns round and goes without anybody getting out. Called back while boarding, its
+  crew gets out again; called back after it pulled away, it stops again at the kerb ahead.
+- **Wrecks.** When a crash is over, every wreck that can roll is moved to a kerb (8.5): its driver gets in (a free
+  officer when the driver cannot), it backs free of the other one and straightens, and rolls at 3.2 m/s to the
+  nearest free kerb place 6 to 40 m ahead (not past anything standing ahead), else to one 4.5 to 10 m behind at its
+  own kerb, else it straightens in its lane at its kerb, else it joins the other wreck's kerb; hazard lights stay on.
+  No free place yet: it tries again every 4 s, eight times. On a road narrower than 5.4 m nothing is moved.
+- **Other services** arrive the same way (`vehicle.ts lookOfAgency`): an ambulance with two paramedics, the rescue
+  service a lorry with three rescuers, the local government two, others one (social workers, vets and the security
+  police in plain clothes). A service with no vehicle a camera would see (the sea rescue) is not staged, nor are
+  helicopters and boats. Each comes once; it leaves when the incident has closed and its part is played.
+- **Passing traffic.** On through roads of class tertiary and up without a dead end, a car every 6 to 25 s by class
+  (2.4 times fewer at night), 10 to 13.5 m/s, headlights at night. None while the carriageway is blocked, while
+  somebody armed is in the street, while a crew member stands in the road, or on a road of one lane while a crew's
+  vehicle moves.
+- **Passers-by.** One every 10 to 40 s along a pavement (three times fewer at night, none while it rains or while
+  somebody armed is in the street), on the far side while a `brawl` or `threat` is open or a cordon stands. Whoever is
+  on their way within 30 m of a weapon, or on the cordoned side, turns round.
 
 ### 8.3 Posts
 
 Each kind of scene keeps a list of posts for the officers who arrive: where to stand, what to face, what to do
-(`guard`, `talk`, `notes`, `aim`, `aid`, `direct`, `look`, or "go in at the door"). An officer takes the first free
-post; when all are taken the rest stand guard by their car. The first officer reaching a post is the moment of
-`contact`.
+(`guard`, `talk`, `notes`, `aim`, `aid`, `cpr`, `lean`, `direct`, `look`, or "go in at the door"), and whom the post
+is for. An officer takes the first free post; when all are taken, or the story has been played, they stand guard by
+their car on the pavement side. The first officer reaching a post (or the door) is the moment of `contact`. When the
+person a post is for has gone, the post goes and its officer stands by the car.
 
 ### 8.4 The kinds, phase by phase
 
 Phases: `open` (nobody has come) -> `seen` (the first police car is in sight: 3 s before it stops) -> `contact` (the
 first officer is at a post) -> `closing` (the outcome is known and being played) -> `after`.
 
-**brawl.** Suspects and victims pair up and fight (acts `fight` and `grapple` in turns of 5 to 9 s, the pair drifting
-and slowly circling round its middle); a suspect without an opponent rages (`argue`) at whoever is near. With `down`,
-after a while one victim falls (`fall`, then `lie`) and the suspect kicks (`kick`) and then stands over them.
-Witnesses and the caller stand 7 to 10 m away (`phone`, `point`, `cold` in winter). *Seen:* with `runs`, one suspect
-breaks off and runs along the pavement away from the arriving car and is gone; the caller waves. *Contact:* the fight
-stops; suspects put their hands up for a moment, then stand or argue; a victim on the ground stays there. Posts: one
-officer by each suspect (`guard`), one with the victim (`notes`, or `aid` kneeling when the victim is down), the rest
-`guard` between the groups. Paramedics kneel at a victim on the ground (`aid`).
+**brawl.** Suspects and victims pair up (two groups of suspects when there are no victims), each pair 3.8 m from the
+next. They fight in turns of 5 to 9 s, hitting (`fight`) and holding on (`grapple`, closer), the pair drifting a few
+decimetres and slowly circling round its middle at a fighter's shuffle. A suspect without an opponent rages
+(`argue`), a victim without one cowers. With `down`, the fall is for the camera: 6 to 12 s after the picture opens
+(or when the police come in sight) one victim falls (`fall`, then `lie`), the suspect kicks (`kick`) and then prowls:
+a few steps away, shouting at a witness, back, now and then another kick. Witnesses and the caller stand 7.5 m and
+more away, not in a row (`phone`, `point`, `cold` in winter). *Seen:* the caller waves; with `runs`, one suspect runs
+off along the pavement away from the arriving car, and the first officer out runs 14 m after them, looks, and comes
+back. The fight stops when an officer on foot is within 8 m of a suspect or a fighter, or the police have been in
+sight for 6 s, so that it is over before an officer is in it: the fighters step back to their places, the suspects put
+their hands up (`handsUp`, 2.5 s) and then stand or argue, a victim on the ground stays there. Posts: `guard` by each
+suspect, `notes` with the first victim (`aid` kneeling when they are down), two more `guard` between. Paramedics kneel
+at a victim on the ground.
 
-**threat.** One suspect with a weapon (`brandish`), pacing a few metres to and fro. Everybody else keeps 8 m or more
-away (`cower`), backing off at first. *Contact:* officers stop 7 to 9 m from the suspect and aim (`aim`); after 2 to 4 s
-the suspect raises their hands (`handsUp`), then kneels (`kneel`); the first officer walks up and holds them (`hold`).
+**threat.** One suspect with the weapon in the hand (`brandish`, `Cast.weapon`), pacing a metre to either side
+(`PACE_M`). Everybody else stands 9.4 m and more from it, along the pavement either way and then across the road, in
+a loose knot, starting nearer and backing off (`cower`, `phone`); whoever finds no such place is not there (they left
+while they could). Nobody but the police comes within 6 m. A victim who is `down` lies a few metres off. Crews stop
+10 m short. The `aim` posts are on a ring of 8 to 8.6 m round the weapon, towards the road; an officer whose car
+stands within 13 m takes cover behind it instead (the first over its bonnet, the next behind its door, on the side
+away from the weapon, at least 7.2 m from it). With `runs` the armed suspect runs at *seen*. *Contact:* 2 to 4 s later
+the suspect gives up: hands up, the weapon dropped a step to the side (it lies there, a prop), the back turned to the
+officers, on the knees (flat on the ground with a pistol). The nearest officer walks up from behind, still aiming,
+kneels behind them with a hand on them (`kneelHold`) and cuffs them in 4 s (`kneelCuffed`); the others keep their
+aim until the cuffs are on, then lower it (`guard`), and one of them picks up the weapon. The officer who cuffed them
+stays behind them holding (`hold`) until the arrest is played. With nobody left to aim at, the officers look round.
 
-**disorder.** One to three people at the spot: swaying (`sway`), arguing with each other, sitting on the kerb, smoking,
-staggering a few metres and back. *Contact:* they turn to the officers (`talk`, `argue`, `sway`); posts beside them
-(`talk`, `notes`, `guard`).
+**disorder.** One to three people at the spot: swaying (`sway`; the third smokes), arguing with each other, the
+second sitting on the kerb six times in ten; a drunk one may stagger 2 m to and fro. With `runs` (and more than one
+of them) one runs at *seen*. *Contact:* the one staggering comes back to their place, and they turn to the officers
+(`sway` when drunk, else `talk` or `argue`). Posts beside them (`talk`, `notes`, `guard`) and one more `guard`.
 
-**lying.** The victim lies at the spot (in the lane itself when the template is about somebody in the road); the
-caller stands or kneels beside (`phone`, then `wave` when the car is seen). Posts: `aid` kneeling at the victim, `notes`
-with the caller. Paramedics: `aid`, or `cpr` when the incident's true priority is 1.
+**lying.** The victim lies at the spot (in the lane on the spot's side when `inRoad`: the road is then blocked and no
+traffic passes). The caller stands beside (`phone`; at the kerb when the victim is in the road) and waves when the car
+is seen. Posts: `aid` kneeling beside the victim (`cpr` at priority 1: nobody looks at somebody whose heart has
+stopped), `notes` with the caller, `guard`. The ambulance stops level with the patient; its paramedics kneel at them
+(`aid`, or `cpr` for the first at priority 1, and an officer on the chest kneels up and steps back to guard).
 
-**crash.** Two vehicles in the road at the point nearest to the incident, one in its lane turned 25 degrees, the
-other across it, hazard lights blinking; a single-vehicle crash (a ditch, an animal) is one vehicle half off the road.
-Drivers stand by their cars (`phone`, `argue`); with `down`, an injured person sits against a car or lies beside it.
-Posts: `notes` with the drivers, `direct` in the road 8 m before the wreck, `aid` at the injured.
+**crash.** Two wrecks in the road at the scene: one in its lane 1.8 m short of it turned 0.44 rad, the other 2.8 m past
+it (6.5 m for a long vehicle) across it; they block the carriageway. A single-vehicle crash is one vehicle half off
+the road on the scene's side; a wreck that would stand in a parked car stands straighter. Hazard lights blink. The
+drivers stand at the road's edge (`phone`, `argue`), and once each walks round their own car and looks at the damage,
+some seconds after the picture opens. With `down`, an injured person sits or lies at the kerb by the wrecks. With
+`trapped` one person is inside the first wreck, not seen; an officer leans in at its door, and the paramedics and the
+first two rescuers go to its doors: 9 s after the rescuers are there (12 s after the paramedics) they have the person
+out, lying beside the wreck, and the paramedics see to them there; an outcome gets them out too, except a tragedy.
+Posts: `notes` with a driver, `direct` in the road 8 m before the wrecks (not for one vehicle), `aid` at the injured,
+`guard`. Crews stop 10 to 12 m short and come from the side they can reach, never through the wrecks. The rescue crew
+works: the first two crouch at the wrecks' noses (the batteries), then lean in at a door (or the second sees to the
+injured), the third crouches along a wreck three times and then guards the road 30 m out.
 
-**stop.** The suspect's (or involved) vehicle stands at the kerb near the spot, lamps on at night. The driver stands
-at their door (`sway` when `drunk`, else `idle` or `smoke`) or sits inside (not shown). Posts: at the driver's window
-(`lean`), on the pavement behind the vehicle (`guard`). Six seconds after contact a driver who was inside gets out.
-*Pursuit* (`situation.pursuit` turns `on`): the driver jumps in, the vehicle pulls out hard and is gone off the far
-end; the officers run to their car and follow with blue lights (their unit turns `left` in the situation).
+**stop.** The vehicle stands at the kerb on the scene's side, lamps on at night. The driver sits inside (`driverIn`,
+half the time by seed, or where there is no room beside it), not shown, or stands on the pavement side (`sway` when
+`drunk`, else `idle` or `smoke`); other suspects stand on the pavement beside it. Posts: at the driver's window from
+just behind it (`lean`: the driver has to turn to the officer), or `talk` with a driver who stands; `guard` at the
+vehicle's rear corner on the pavement. The patrol pulls in behind it at the same kerb, never ahead. *Contact:* a driver
+who sat inside gets out 6 s later and comes round to the pavement, and the officer at the window follows with notes.
+With `gone` there is no vehicle: whoever reported it waits at the spot, an officer hears them out (`notes`) and the
+second looks along the road the vehicle went by. *Pursuit* (`situation.pursuit` turns `on`): every crew here runs for
+its doors at once; the suspects run to their vehicle (it waits for them up to 3.5 s; too late, they run off on foot),
+it pulls out hard and is gone off an end; the officers follow the way it went with blue lights (their unit turns
+`left` in the situation).
 
-**theft.** With `live`: the thief crouches (`crouch`) at a victim's car door, a bicycle or the building's door, a
-second suspect keeps watch (`look`); a suspect vehicle waits nearby with its lamps off. Without `live` it is an
-`indoor` scene (the thief has gone). *Seen:* with `runs` the thieves run (or drive off in their vehicle). *Contact:*
-anyone left raises their hands. Posts: beside each suspect, one looking at the damage (`lean`), one with the caller.
+**theft.** With `live`: the thief crouches (`crouch`) at a victim's car door on the pavement side, else at the
+building's door or the spot; a second suspect keeps watch (`look`) a few metres along; a suspect vehicle waits at the
+kerb behind with its lamps off. Without `live` it is played as `indoor` (the thieves have gone). *Seen:* with `runs`
+the thieves drive off in their vehicle, or without one all run together, and the first officer out chases them a
+stretch. *Contact:* anyone left puts their hands up for 3 s. Posts: `guard` beside each suspect, `lean` at the damage,
+`notes` with the victim or the caller, `look`.
 
-**indoor.** With a caller or a witness in the cast, half the time (by seed) they wait at the door (`phone`, `smoke`,
-`cold`, `idle`) and wave when the car is seen. Posts: the first two officers go in at the door; a third stays outside
-(`guard`). While the crew works, now and then (every 25 to 40 s) one officer comes out, walks to the car, leans in
-(the radio), and goes back. Paramedics go in. Without a door in sight the officers walk off round the nearest corner
-instead.
+**indoor.** Everybody but the caller and the witnesses is behind the door. The first of those waits at the door half
+the time (by seed: `phone`, `smoke`, `idle`, `cold`) and waves when the car is seen; the rest are inside. Posts: the
+first two officers go in at the door (when it is more than 10 m from the spot they look at the spot first); a third
+stays outside (`guard`). While the crew works, every 25 to 40 s one officer comes out, walks to the car's door, leans
+in for 5 s (the radio) and goes back in. Paramedics go in. Without a door in sight "in" is round the corner, 20 m
+along the pavement.
 
-**crowd.** The extras stand in a loose cluster 6 m across at the spot (`idle`, `talk`, `chant` for demonstrations and
-fans, a few `argue`; pairs `fight` when the template is a riot or a clash). Posts: a line of officers 1.5 m apart
-between the crowd and the road, facing it (`guard`).
+**crowd.** The extras stand in a loose cluster 6 m across, far enough from the kerb for the line before it (`idle`,
+`talk`, `chant` for demonstrations and fans, a few `argue`); with `riot` up to three pairs fight where they stand.
+Suspects and victims stand at its front. The fights stop as in a brawl. Posts: a line of eight officers 1.5 m apart
+between the crowd and the road, behind the kerb, facing it (`guard`).
 
-**fire.** Smoke from the door building at 5 m (or from a vehicle), strength 1; three to six onlookers (`point`,
-`phone`, `cold`). Posts: `direct` and `guard` keeping people back. When the rescue service is `here` its crew stands
-before the building (`aim`: the hose) and the smoke fades to 0.15 over 30 s.
+**fire.** Smoke from just before the door's wall at 2.8 m (a window above the door: smoke from the roof would rise out
+of the picture at once), or from a vehicle at the kerb with `carFire`, strength 1. The onlookers stand in a loose knot
+on the pavement about 11 m out from it (`point`, `phone`, `cold`). Posts: `direct` and `guard` at the kerb before
+them. When the rescue service is here, two rescuers stand on the hose before the building (`hose`, 7.5 and 8.7 m from
+the smoke; the hose lies from the back of the lorry to the first one's nozzle), the third at the lorry's pump; while
+they are at it the smoke fades towards 0.15 (by 0.85 over 30 s), and to nothing once the story has been played.
 
-**empty.** Nothing; a caller in the cast may wait as in `indoor`. Posts: `look` at the spot and near the door.
+**empty.** Nothing; a caller in the cast may wait at the door as in `indoor`. Posts: `look` at the spot and near the
+door.
 
 ### 8.5 How it ends
 
-When the situation has an outcome (phase `closing`):
+When the situation has an outcome, or the incident closes, the phase is `closing`. The closing scene starts once an
+officer has reached a post, or no police crew is around, or 14 s (`HOLD_S`) have passed. Fights, pacing and whatever
+the scene still had in store stop; somebody shut in a wreck is got out (except in a tragedy); officers still behind
+a door with no part in the end come out one after another and wait by their car.
 
 | Result | What is played |
 | --- | --- |
-| `arrest` | For each arrest (as many as there are suspects on stage): the suspect is cuffed (`handsUp` 1 s, then `cuffed`), an officer holds them (`hold`), both walk to the rear door of the officer's car on the kerb side (gait `escort`, the suspect half a metre ahead), the suspect gets in (hide). Other suspects are let go and walk off. |
-| `escaped` | A suspect still on stage bolts and runs off along the pavement; the nearest officer runs ten metres after them and comes back. Nobody is taken. |
-| `hospital` | With an ambulance here: the paramedics bring the patient to it (a patient who was down gets up via `sit`; from an `indoor` scene they come out of the door together) and the patient gets in at its rear. Without one: the patient sits (`sit`) with an officer kneeling beside (`aid`). |
-| `tragedy` | Whoever is down stays down; paramedics stop and stand (`kneelUp`, then `stand`); officers stand guard; nobody leaves in a hurry. |
-| `warning`, `fine`, `report`, `resolved`, `referred`, `unfounded`, `false_alarm` | An officer talks or writes for a few seconds (`notes`), then everyone of the incident walks off their own way (drunk people stagger; residents go in at the door). In a `stop` the driver gets back in and drives off, except after an arrest. Crashed vehicles stay; a vehicle that can drive leaves after ten seconds. |
-| closed without units (`closedBy` referral, phone, prank, duplicate, expired) | The people of the incident drift away within twenty seconds; an `indoor` caller goes in. |
+| `arrest` | As many as there are arrests (at least one) of the suspects on stage (drivers when there are none). The crew the game sends to the cells (`takes: 'arrest'`) does the arresting, the others lend a hand: an officer to each suspect, and whoever already holds one keeps them. Anybody without an officer yet waits with their hands up. The officer walks up behind them (runs from over 9 m), takes hold (`hold`), the hands come down behind the back while the officer holds them (`cuffed`, about 3.6 s; somebody kneeling or lying is helped up), and the suspect is walked (gait `escort`) to the rear door of that crew's car, patted down there (`frisk`, 6 s) and put in with a hand on the head (hide). The officer then takes whoever still waits; when their prisoner is in, the crew gets in too. The others walk off from 3 s on. |
+| `escaped` | A suspect on stage and not on the ground runs off along the pavement; the nearest officer takes in what happens for a moment, runs ten metres after them, looks, and walks back. Nobody is taken. The others go from 4 s on. |
+| `hospital` | The patient (whoever is down, else a victim) goes with the crew the game sends to hospital (`takes: 'hospital'`), else with the ambulance that stands here. Somebody who lay goes on the ambulance's stretcher: one paramedic fetches it from the back of the ambulance while the other stays with the patient, it is pushed up to them, both crouch and lift them on, and it is wheeled to the rear doors and in. Somebody who sat or stood, or who goes in a police car, gets up slowly (onto one side, sitting, a knee, standing: four to five seconds) and is walked to the rear door between the helpers; from an `indoor` scene they come out of the door together. Without a vehicle to take them the patient sits (`sit`) with an officer kneeling beside (`aid`); when the last police crew goes they get up and walk off, or go with it when it takes them to hospital. |
+| `tragedy` | Whoever is down stays down. The paramedics stop and stand (`kneelUp`, then `stand`); one fetches a sheet from the back of the ambulance and covers them (a prop). Up to four officers stand 3.4 m round with their backs to the dead and an arm out (`bar`): a cordon, and no passer-by walks that side. Nobody leaves in a hurry (the people of the incident go slowly from 10 s on). As the last crew leaves, the dead are taken away out of sight with the sheet; the camera does not show how. |
+| `warning`, `fine`, `report`, `resolved`, `referred`, `unfounded`, `false_alarm` | An officer writes for 4 s (`notes`, facing the main person when near), then stands guard. A crew that drives somebody home or to a station (`takes: 'ride'`) has the suspect or victim get into its car after a word. Everyone else of the incident goes their own way from 4.5 s on: drunk people stagger, residents go in at the door, somebody on the ground gets up first, or, while the ambulance is here, sits up and stays with a paramedic until it packs. Drivers walk to their own vehicle and drive off: a `stop`'s vehicle (not after an arrest), the wrecks of a crash where nobody was hurt and it was not a single vehicle; the vehicle pulls out ten seconds on at the earliest, when its driver is in. A crowd breaks up in knots of one to three over half a minute, towards both ends of the street; some cross the road, a knot in seven stays talking 10 to 20 s longer. |
+| closed without units (`closedBy` referral, phone, prank, duplicate, expired) | The people of the incident set off within fifteen seconds and drift away, drivers in their vehicles; an `indoor` caller goes in. |
 
-From an `indoor` scene the officers come out of the door first (with the cuffed suspect or the patient).
+A crash's wrecks are moved to the kerb (8.2), the first 9 s and the second 18 s after the closing scene starts,
+unless their drivers drive them away. From an `indoor` scene the officers come out of the door first (with the cuffed
+suspect or the patient).
 
-Then the crews leave as their units are released (8.2), and the phase is `after`: the street with its passing traffic.
+When the story is played and nobody of the incident is left in the street, a police crew gets into its car until its
+unit is released; one officer stays out at a cordon or at an `indoor` scene's door. Then the crews leave as their
+units are released (8.2), the people of the incident still there walk off, and the phase is `after`: the street with
+its passing traffic.
+
+**Not done.** Car doors do not swing: people duck in and out at a shut door. There is no tow truck: a wreck moved to
+the kerb stays there, hazard lights on, and still takes that lane. How the dead are taken away is not shown. Arrivals
+from the two ends coming in turn can hold a second wave back for some seconds (about 25 s with eight vehicles at
+once). A vehicle using the verge of a narrow lane does not check the house fronts there.
 
 ### 8.6 Opening a camera in the middle
 
 The first `update` builds the stage for the situation as it is and then runs the scene forward 90 s in steps of 0.2 s
 with the same situation, without drawing: cars that were `here` are parked with their crews at their posts, people
 who ran are gone, a closed incident's street is empty. No special "instant" paths exist; whatever plays live also
-settles a stage.
+settles a stage. Two things are kept for the live picture. A unit or service that is `near` is settled as still
+`coming`: the first live step lets it drive up in the time the game gives it, instead of standing parked with its
+officers out. And the beats of the story a viewer should see (the fall in a brawl, a driver walking round their car)
+do not run down while the stage settles: they play some seconds after the picture opens.
 
-While `situation.paused` is true `update` moves nothing.
+While `situation.paused` is true `update` moves nothing (a camera opened while paused shows the settled stage).
 
 ## 9. The picture
 
@@ -643,10 +864,15 @@ variable is set, and without it the scene page says that no sample is configured
   sheet and its night twin.
 - `scene.html` plays a whole scenario through the director and the real renderer, for filming scenes from start to
   end. The street: `place=<PlaceKind>&seed=<n>`, a hand-made `plain=dead|narrow|far|square`, or a real street with
-  `tiles=<lng>,<lat>` (and `archive=<file>`) from the `EPD_MAP_TILES` folder. The cast: `kind=<SceneKind>&roles=...`
-  with flags, or `tpl=<templateId>` for a real incident of a shift. The situation is scripted over the scene's clock:
-  units `u=...`, services `ag=...`, `out=<result>@<s>`, `pursuit`, `search`, `pause`, `open=<s>`. The top of
-  `scene.ts` lists every parameter.
+  `tiles=<lng>,<lat>` (and `archive=<file>`, default `sample.pmtiles`) from the `EPD_MAP_TILES` folder. The cast:
+  `kind=<SceneKind>&roles=svcw&cars=...` (roles as letters) with the flags `down`, `runs`, `armed`, `drunk`, `live=0`,
+  `single`, `inRoad`, `chant`, `riot`, `carFire`, `prio=<1..4>`, or `tpl=<templateId>` for a real incident of a shift.
+  The situation is scripted over the scene's clock: units `u=<id>[:<type>[:<model>]],<side>,c<s>,n<s>,h<s>,l<s>`
+  (with `t=arrest|hospital|ride`), services `ag=<agency>,n<s>,h<s>`, `out=<result>@<s>` (or `closed=<s>`),
+  `pursuit=<on>,<over>`, `search=<from>-<to>`, `pause=<from>-<to>`, `open=<s>` (the camera opened late). The picture:
+  `hour`, `month`, `weather`, `temp`, `wind`, the close view and `clean=1` as `harness.html`, and the window's own zoom
+  (`zoom=<k>&panx&pany`). `quiet=1` turns traffic and passers-by off; `who=1` lists every person and vehicle with its
+  place. The top of `scene.ts` lists the parameters.
 - `vehicles.html` shows the vehicles on plain asphalt: `car=<id>,...` or `set=police|ems|civil|all`,
   `view=front|rear|side|top|cctv`, `night=1`, `lamps=1`, `beacons=1`, `low=1` for the parked cars' level of detail.
 - `model.html?src=<url>` draws a glTF model four times, turned a quarter each (`plain=1`: one grey material).
@@ -663,7 +889,7 @@ variable is set, and without it the scene page says that no sample is configured
 | `tests/cctv-coverage.test.ts` | the table of chances, a place has a camera or not for good, the four-digit number and the name, nothing left to see, the share of a real shift's incidents that can be watched |
 | `tests/cctv-cast.test.ts` | every template of the catalogue gets a kind and a cast without throwing; well-known templates get the expected kind; the picture never contradicts the card |
 | `tests/cctv-situation.test.ts` | a crew coming, near, here, then left over a real shift; other services; a pursuit; the outcome and the transports |
-| `tests/cctv-director.test.ts` | per kind: the stage before anyone comes, a patrol arriving, contact, each outcome, any moment safe to open, awkward streets and many crews, a real shift's incidents, the parked cars solid, crews stopping where the camera sees them; on every frame nobody inside a house, nothing teleporting, vehicles on the road, nobody left behind |
+| `tests/cctv-director.test.ts` | the stage before anyone comes; a patrol arrives (from the side the game says, from the open end of a dead end); what each kind of scene does; how it ends, every result; any moment is safe (opening in the middle, a closed incident, pause, the same frames from the same inputs, rapid changes, recalls); awkward streets and many crews; incidents of a real shift, traffic and passers-by, the cost of a step; what the reviewers found (crews driving up when the camera opens, a slowed clock, call-backs, stops and pursuits, arrests into the right car, the threat's distances, frames independent of how time is cut); what the films showed (arrests out of a door, officers left inside, water, smoke, chases, nobody on another's place); the parked cars solid; crews stopping where the camera sees them and the first patrol in the picture (a real town's points with `EPD_PMTILES_SAMPLE`), nobody out of the car before the game says on scene; the scenes as two reviewers wanted them (a vehicle that has gone, somebody trapped in a wreck, nobody inside anybody, the brawl's fall for the camera, crews getting out one after the other, aim kept until the cuffs are on, cuffing and the search at the car, the stretcher, the sheet and the cordon, the hose and the wrecks to the kerb, the crowd in knots, the window and the cover posts of a stop); on every frame nobody inside a house, nothing jumping, moving vehicles on the road and in nothing, nobody left behind |
 | `tests/cctv-session.test.ts` | the session over a real shift with a fake view: frames with the incident's people and a patrol arriving, the clock and the light read at most every 2 s, dusk, pause, the measured pace, a crew getting out only once the game says on scene on a slow device, `expect`, the settled first frame (`stage`), the feed ending ('ended') after the street empties or when the incident leaves the simulation, the made-up street fallback, the same place twice |
 | `tests/cctv-lazy.test.ts` | the import guard (section 14); after a build, three.js only in the camera chunk and nothing of the camera in `sw.js` (skipped without `dist/`, required with `CCTV_DIST=1`: the CI job runs this file once more after its build with that set) |
 | `tests/sw.test.ts` | the camera chunk's name, neither it nor the body model precached, the licence file's entries |

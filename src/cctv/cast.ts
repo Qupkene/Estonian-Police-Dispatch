@@ -76,7 +76,8 @@ export interface Cast {
   trapped?: boolean;
   /**
    * A 'stop' whose vehicle is not here any more (it drove off without paying, did not stop, sped past): no
-   * suspect vehicle and no driver are in the cast, and whoever reported it waits alone (STOP_STORY).
+   * suspect vehicle and no driver are in the cast. Whoever reported it waits alone, or nobody is here at all when
+   * they went after it (STOP_STORY: 'gone' and 'away').
    */
   gone?: boolean;
   /** A 'stop' whose driver sits in the vehicle until the officers have them out (asleep at the wheel, watching a house). */

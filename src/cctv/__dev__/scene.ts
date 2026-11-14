@@ -10,8 +10,8 @@
 //                                    names the file in it (default sample.pmtiles)
 // The cast:
 //   kind=<SceneKind>&roles=svcw&cars=involved,suspect   roles as letters: s suspect, v victim, c caller, w witness,
-//                                    d driver, e extra; flags down, runs, armed, drunk, live=0, single, inRoad, chant,
-//                                    riot, carFire, prio=<1..4>
+//                                    d driver, e extra; flags down, runs, mayFlee, armed, drunk, live=0, single,
+//                                    inRoad, chant, riot, carFire, prio=<1..4>
 //   tpl=<templateId>                 a real incident: a shift is created, the template spawned and castOf builds it
 // The situation (seconds of the scene's clock):
 //   u=<id>[:<type>[:<model>]],<side>,c<s>,n<s>,h<s>,l<s>[,t=arrest|hospital|ride]   one unit, repeated for more;
@@ -20,7 +20,9 @@
 //   out=<result>@<s>[,a<n>][,i<n>]   the outcome (closed from then on); closed=<s> closes it without one
 //   pursuit=<on>,<over>  search=<from>-<to>  pause=<from>-<to>  open=<s> (the camera opens late: the first update)
 // The picture: hour, month, weather, temp, wind as harness.ts; near=<m>&angle&h&fov&at as there; clean=1;
-// zoom=<k>&panx=<-1..1>&pany=<-1..1> as the window's own zoom.
+// zoom=<k>&panx=<-1..1>&pany=<-1..1> as the window's own zoom. quiet=1: no passing traffic and no passers-by.
+// who=1: the log line also lists everybody and every vehicle on stage with their place and yaw.
+// manual=1: the page does not play by itself; the caller drives it with step and seek.
 // window.__cctv = { ready, step(dt, frames), seek(t) }: seek advances the scene to second t without drawing the
 // frames between, then draws one.
 import { PMTiles } from 'pmtiles';
