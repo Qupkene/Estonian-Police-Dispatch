@@ -1197,6 +1197,12 @@ export class Director {
       if (Math.hypot(this.focus[0] - b.x, this.focus[1] - b.y) > 1.2) want = clamp(angleDiff(b.yaw, to), -1.15, 1.15);
     }
     b.head += (want - b.head) * Math.min(1, dt / 0.3);
+    // Whoever directs traffic waves only while something comes along the road; else they stand and watch it.
+    if (b.kind === 'police' && b.post && b.post.act === 'direct' && !b.steps.length && (b.act === 'direct' || b.act === 'guard')) {
+      const n = nearestOnLine([b.x, b.y], this.site.drive.pts).s;
+      const coming = this.cars.some((c) => c.mode === 'drive' && c.v > 0.5 && (n - c.s) * c.dir > 0 && Math.abs(n - c.s) < 40);
+      this.setAct(b, coming ? 'direct' : 'guard');
+    }
     if (Math.abs(b.head) < 1e-3) b.head = 0;
     if (b.steps.length || this.free(b) || b.duty || b.leaving || b.aboard || !calm || b.scale < 1) {
       if (!b.steps.length) b.fidget = false;
@@ -3069,6 +3075,22 @@ export class Director {
     const spread = slow ? 13 : Math.min(9, list.length);
     let last = first;
     const drivers = list.filter((b) => b.role === 'driver' || b === this.stopDriver);
+    // (Only when crews end it: a crowd nobody came to drifts off within twenty seconds, as everybody does.)
+    const knots = this.kind === 'crowd' && !slow;
+    const knot = new Map<Body, number>();
+    if (knots) {
+      let g = 0;
+      let left = 0;
+      for (const b of list) {
+        if (b.role !== 'extra') continue;
+        if (left <= 0) {
+          g++;
+          left = 1 + Math.floor(hash01(this.cast.seed, 600 + g) * 3);
+        }
+        knot.set(b, g);
+        left--;
+      }
+    }
     for (const b of list) {
       if (b.gone || b.duty) continue;
       // Whoever stayed behind the door stays there.
@@ -3094,6 +3116,20 @@ export class Director {
           this.route(m, this.beside([b.x, b.y], 0, 0.8), 'walk');
           m.steps.push(act('aid', 0, [b.x, b.y]));
         }
+        continue;
+      }
+      if (knots && b.role === 'extra') {
+        // A crowd breaks up in twos and threes over half a minute and more, towards both ends of the street;
+        // some cross the road, one or two stay talking a while longer.
+        const g = knot.get(b) ?? 0;
+        const lingers = hash01(this.cast.seed, 300 + g) < 0.14;
+        const at = first + 26 * hash01(this.cast.seed, 100 + g) + 1.2 * hash01(b.seed, 8) + (lingers ? 10 + 10 * hash01(this.cast.seed, 400 + g) : 0);
+        last = Math.max(last, at);
+        const sign = hash01(this.cast.seed, 200 + g) < 0.5 ? 1 : -1;
+        const across = hash01(this.cast.seed, 500 + g) < 0.25;
+        if (lingers) b.steps.push(act('talk', at), act('stand'));
+        else b.steps.push(wait(at));
+        b.steps.push(call(() => this.leave(b, 'walk', sign, across)));
         continue;
       }
       b.steps.push(wait(delay));
