@@ -48,15 +48,46 @@ export interface OpenOptions {
   version: string;
   /** Aborted when the window closes while the camera is still connecting. */
   signal: AbortSignal;
+  /**
+   * When the window began to open the camera (performance.now(), the start of its deadline): the opening's budget
+   * is counted from then, the camera chunk's download included. Without it, from the first request of this chunk
+   * when this is the page's first opening, else from the call.
+   */
+  startedAt?: number;
 }
 
 /** The street around the incident takes at most this long to read; then the made-up street is used. */
 const STREET_TIMEOUT_MS = 6000;
 /**
- * How long an opening may take in all before it goes live with whatever is not ready yet (finished when first
- * drawn): inside the window's own deadline (CameraWindow's CONNECT_DEADLINE_MS, 20 s), with room to spare.
+ * How long an opening may take in all, counted from the window's start (OpenOptions.startedAt), before it goes live
+ * with whatever is not ready yet (finished when first drawn). Inside the window's own deadline (CameraWindow's
+ * CONNECT_DEADLINE_MS, 45 s) with a wide margin, and inside the 20 s it used to be: every step of the opening checks
+ * the budget before it starts and is one short task, so 'live' comes at most a task after it.
  */
 const OPEN_BUDGET_MS = 14000;
+/** What the view's own preparing gets at the least, however long the loading took (a frame then compiles less). */
+const PREPARE_MIN_MS = 1500;
+
+/** Has this page opened a camera before (the chunk was downloaded for an earlier one)? */
+let openedBefore = false;
+
+/**
+ * When this opening began: the window's own start if it says, else, on the page's first opening, when the browser
+ * first asked for this chunk (the window imports it on the click), else now.
+ */
+function startOf(o: OpenOptions): number {
+  const now = performance.now();
+  if (o.startedAt !== undefined && o.startedAt <= now) return o.startedAt;
+  if (openedBefore) return now;
+  openedBefore = true;
+  try {
+    const own = performance.getEntriesByName(import.meta.url)[0];
+    if (own && own.startTime <= now && now - own.startTime < OPEN_BUDGET_MS) return own.startTime;
+  } catch {
+    /* no resource timing: counted from now */
+  }
+  return now;
+}
 
 /** The map's street file, opened once per page; the map's own archive when it has already opened it. */
 let ownArchive: { url: string; archive: PMTiles } | null = null;
@@ -132,7 +163,7 @@ function releaseShared(humans: HumanBase) {
  * failed or `signal` was aborted (then nothing is left behind).
  */
 export async function openCamera(canvas: HTMLCanvasElement, o: OpenOptions): Promise<CameraHandle | null> {
-  const started = performance.now();
+  const started = startOf(o);
   drawable ??= canRender();
   if (!drawable) return null;
   const [humans, street] = await Promise.all([untilAborted(loadHumanBase(), o.signal), streetOf(o.incident, o.signal)]);
@@ -144,7 +175,7 @@ export async function openCamera(canvas: HTMLCanvasElement, o: OpenOptions): Pro
     // The incident may have moved on while the street loaded: build from the game as it is now.
     const inc = o.sim.incidents[o.incident.id] ?? o.incident;
     session = new CameraSession(view, o.sim, inc, o.camera, street, o.version);
-    await view.prepare(session.stage(o.sim), session.osd(), o.signal, Math.max(1500, OPEN_BUDGET_MS - (performance.now() - started)));
+    await view.prepare(session.stage(o.sim), session.osd(), o.signal, Math.max(PREPARE_MIN_MS, OPEN_BUDGET_MS - (performance.now() - started)));
     if (o.signal.aborted) throw aborted();
   } catch (e) {
     view.dispose();
