@@ -2538,16 +2538,24 @@ export class Director {
         return;
       }
       const move = Math.min(c.back, 1.4 * dt);
+      const was = [c.s, c.yawOff];
       c.back -= move;
       c.s -= c.dir * move;
       if (c.yawOff) c.yawOff = Math.abs(c.yawOff) < 1.2 * dt ? 0 : c.yawOff - Math.sign(c.yawOff) * 1.2 * dt;
       this.pose(c);
+      // A corner swinging round as it straightens can reach somebody beside the road: then it waits.
+      if (this.bodies.some((b) => !b.hidden && !b.gone && this.under(c, b))) {
+        [c.s, c.yawOff] = was;
+        c.back += move;
+        c.wait += dt;
+        this.pose(c);
+      }
       return;
     }
     if (c.mode === 'turn') {
-      // Not round over somebody who stands in its way (for a while).
+      // Not round over somebody who stands in its way (for a good while: whoever walks by is soon past).
       const r = Math.hypot(c.size.length, c.size.width) / 2 + 0.4;
-      if (c.wait < STUCK_S && this.bodies.some((b) => !b.hidden && !b.gone && Math.hypot(b.x - c.x, b.y - c.y) < r)) {
+      if (c.wait < 4 * STUCK_S && this.bodies.some((b) => !b.hidden && !b.gone && Math.hypot(b.x - c.x, b.y - c.y) < r)) {
         c.wait += dt;
         return;
       }
@@ -2659,21 +2667,21 @@ export class Director {
     return true;
   }
 
+  /** Does somebody stand where a vehicle's body is (with a hand's breadth round it)? */
+  private under(c: Car, b: Body): boolean {
+    const dx = b.x - c.x;
+    const dy = b.y - c.y;
+    const fx = Math.cos(c.yaw);
+    const fy = Math.sin(c.yaw);
+    return Math.abs(dx * fx + dy * fy) < c.size.length / 2 + 0.1 && Math.abs(dy * fx - dx * fy) < c.size.width / 2 + 0.1;
+  }
+
   /**
    * Has a vehicle just moved into somebody, or into another vehicle? (`s`, `lat`, `steer`: where it was before
    * the move. Out of a vehicle it was in already, a wreck coming free of the other one, it may move.)
    */
   private bumps(c: Car, s: number, lat: number, steer: number): boolean {
-    const hl = c.size.length / 2 + 0.1;
-    const hw = c.size.width / 2 + 0.1;
-    const fx = Math.cos(c.yaw);
-    const fy = Math.sin(c.yaw);
-    for (const b of this.bodies) {
-      if (b.hidden || b.gone) continue;
-      const dx = b.x - c.x;
-      const dy = b.y - c.y;
-      if (Math.abs(dx * fx + dy * fy) < hl && Math.abs(dy * fx - dx * fy) < hw) return true;
-    }
+    if (this.bodies.some((b) => !b.hidden && !b.gone && this.under(c, b))) return true;
     const hit = this.cars.filter((o) => o !== c && o.mode !== 'gone' && this.overlap(c, o));
     if (!hit.length) return false;
     const now = [c.s, c.lat, c.steer];
