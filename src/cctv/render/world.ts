@@ -46,7 +46,7 @@ import {
 import { blocksView } from '../site';
 import { CAR_ROADS, type Building, type Road, type RoadClass, type Site } from '../types';
 import { lookOfAnyCar } from '../vehicle';
-import { carMaterials, drawCar } from './cars';
+import { drawCar, type CarMaterials } from './cars';
 import {
   BAY_M,
   boardUV,
@@ -203,7 +203,7 @@ export function facadeKindOf(b: Building, bb: Box, terraced = false): FacadeKind
   return h < 0.46 ? 'plaster' : h < 0.68 ? 'brick' : h < 0.88 ? 'modern' : 'panel';
 }
 
-export function buildWorld(site: Site, env: Env, tex: WorldTextures): World {
+export function buildWorld(site: Site, env: Env, tex: WorldTextures, carMats: CarMaterials): World {
   const { street } = site;
   const group = new Group();
   /** Horizontal surfaces by their grain, painted by where they lie. */
@@ -1775,9 +1775,8 @@ export function buildWorld(site: Site, env: Env, tex: WorldTextures): World {
   }
   disposables.push(flatMat, asphaltMat, pavingMat, turfMat, decalMat, wallMat, cutMat, headMat, glowMat);
   if (!parkedCars.paint.empty) {
-    const mats = carMaterials();
-    add('parked', parkedCars.paint, mats.paint, true);
-    add('parkedGlass', parkedCars.glass, mats.glass, true);
+    add('parked', parkedCars.paint, carMats.paint, true);
+    add('parkedGlass', parkedCars.glass, carMats.glass, true);
   }
 
   return {

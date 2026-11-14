@@ -37,12 +37,12 @@ import type { Env } from '../env';
 import { hash01, hash32, wobble } from '../math';
 import type { Site } from '../types';
 import type { Frame } from '../stage';
-import { BEACON_COLOR, CarMesh } from './cars';
+import { BEACON_COLOR, CarKit, CarMesh } from './cars';
 import { HumanMesh, seedOfLook, type HumanBase } from './human';
 import { FigureMesh, Palette } from './people';
 import { Post, type PostLook } from './post';
 import { makeAtlas } from './facades';
-import { beamTexture, decalTexture, dropsTexture, glareTexture, glowTexture, groundTexture, poolTexture, skylineTexture, skyTexture, type SkyLook } from './textures';
+import { decalTexture, dropsTexture, glareTexture, groundTexture, poolTexture, skylineTexture, skyTexture, type SkyLook } from './textures';
 import { buildWorld, type World, type WorldTextures } from './world';
 
 /** The picture's size in pixels: small on purpose. */
@@ -67,7 +67,10 @@ const SMOKE_PUFFS = 26;
 export function canRender(): boolean {
   try {
     const c = document.createElement('canvas');
-    return !!c.getContext('webgl2');
+    const gl = c.getContext('webgl2');
+    // The probe's context is given back at once: a page may hold only a few, and garbage collection comes late.
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    return !!gl;
   } catch {
     return false;
   }
@@ -96,7 +99,8 @@ export class CameraView {
   private lampLights: SpotLight[] = [];
   private beaconLights: PointLight[] = [];
   private pools: Mesh[] = [];
-  private carTex = { glow: glowTexture(), beam: beamTexture() };
+  /** What this view's vehicles share on the graphics card (disposed with the view). */
+  private carKit = new CarKit();
   private poolTex = poolTexture();
   /** The street's paintings: made once, shared by every scene this view builds. */
   private sheets: WorldTextures = {
@@ -199,7 +203,7 @@ export class CameraView {
     this.site = site;
     this.env = env;
     this.seed = site.seed;
-    this.world = buildWorld(site, env, this.sheets);
+    this.world = buildWorld(site, env, this.sheets, this.carKit.materials());
     this.scene.add(this.world.group);
     const town = site.street.buildings.length > 14;
     const tex = skylineTexture(town, site.seed);
@@ -450,7 +454,8 @@ export class CameraView {
     };
   }
 
-  private buildWeather(env: Env) {
+  /** Make the rain or the snow for this weather (none for null), after taking away the old. */
+  private buildWeather(env: Env | null) {
     if (this.rain) {
       this.scene.remove(this.rain);
       this.rain.geometry.dispose();
@@ -463,6 +468,7 @@ export class CameraView {
       (this.snow.material as PointsMaterial).dispose();
       this.snow = null;
     }
+    if (!env) return;
     if (env.rain) {
       const n = env.weather === 'storm' ? 620 : 300;
       const g = new BufferGeometry();
@@ -594,7 +600,7 @@ export class CameraView {
       seen.add(c.id);
       let m = this.cars.get(c.id);
       if (!m) {
-        m = new CarMesh(c.look, this.carTex);
+        m = new CarMesh(c.look, this.carKit);
         this.scene.add(m.group);
         this.cars.set(c.id, m);
       }
@@ -638,6 +644,7 @@ export class CameraView {
       this.skylineMat?.dispose();
       this.skylineNearMat?.map?.dispose();
       this.skylineNearMat?.dispose();
+      this.skylineMat = null;
       this.skylineNearMat = null;
       this.skyline = null;
     }
@@ -658,14 +665,25 @@ export class CameraView {
     this.cars.clear();
   }
 
+  /**
+   * Let go of everything this view made, the graphics context last. Nothing of it may stay reachable from outside
+   * the view: every texture, material, geometry and render target is disposed (which also takes the renderer's
+   * listener off it), and the renderer then gives its context up.
+   */
   dispose() {
     this.canvas.removeEventListener('webglcontextlost', this.onLost);
     this.clearScene();
+    this.carKit.dispose();
+    this.buildWeather(null);
     this.palette.dispose();
     this.post.dispose();
+    this.scene.environment = null;
     this.reflection?.dispose();
+    this.reflection = null;
     this.pmrem.dispose();
-    for (const t of [this.carTex.glow, this.carTex.beam, this.poolTex, this.drops]) t.dispose();
+    // The lights' shadow maps (render targets the renderer made for them).
+    for (const l of [this.sun, this.irLamp, ...this.lampLights, ...this.beaconLights]) l.dispose();
+    for (const t of [this.poolTex, this.drops]) t.dispose();
     this.skyTex?.dispose();
     this.skyMat.dispose();
     this.skyDome.geometry.dispose();

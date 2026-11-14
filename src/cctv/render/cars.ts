@@ -38,6 +38,7 @@ import { lerp, type V2 } from '../math';
 import { CAR_SIZE, hasBeacons, type CarLights, type CarLook } from '../vehicle';
 import { bendOf, drawBody, linesOf, lofted, noseVariant, shapeOf, type BodyOptions, type CarBuilders, type CarSpots, type Facet, type LampGroup, type LampSink, type Lines, type Shape } from './carbody';
 import { MeshBuilder, shade, type P3, type Xf } from './mesh';
+import { beamTexture, glowTexture } from './textures';
 
 export type { CarBuilders, CarSpots };
 
@@ -349,32 +350,18 @@ export function drawCar(mb: CarBuilders, look: CarLook, f?: Xf, opts: BodyOption
 
 export type { CarLights };
 
-let paintMat: MeshPhysicalMaterial | null = null;
-let solidMat: MeshPhysicalMaterial | null = null;
-let metalMat: MeshPhysicalMaterial | null = null;
-let glassMat: MeshPhysicalMaterial | null = null;
-let plasticMat: MeshStandardMaterial | null = null;
+/** What parked cars are baked with: paint (and plain plastic) by vertex colour, and glass. */
+export interface CarMaterials {
+  paint: MeshStandardMaterial;
+  glass: MeshStandardMaterial;
+}
 
 /**
- * The two materials every vehicle is made of: paint (and plain plastic) by the colour of its vertices, under a clear
- * coat that mirrors the sky on roofs and bonnets; and glass, smooth enough to show the sky and the houses, more so
- * at a grazing angle.
+ * The parked cars' materials for a page that draws vehicles without a camera view (the dev pages). A camera view
+ * never uses these: it takes its own from its CarKit, so that nothing of its graphics context outlives it.
  */
-export function carMaterials(): { paint: MeshStandardMaterial; glass: MeshStandardMaterial } {
-  paintMat ??= new MeshPhysicalMaterial({ vertexColors: true, metalness: 0.2, roughness: 0.38, clearcoat: 0.8, clearcoatRoughness: 0.12, envMapIntensity: 0.9 });
-  glassMat ??= new MeshPhysicalMaterial({ vertexColors: true, metalness: 0.45, roughness: 0.05, envMapIntensity: 1.2, clearcoat: 1, clearcoatRoughness: 0.03 });
-  return { paint: paintMat, glass: glassMat };
-}
-
-/** A moving car's paint: solid or metallic, both under a full clear coat. */
-function paintFor(look: CarLook): MeshPhysicalMaterial {
-  if (look.metallic) return (metalMat ??= new MeshPhysicalMaterial({ vertexColors: true, metalness: 0.55, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 1 }));
-  return (solidMat ??= new MeshPhysicalMaterial({ vertexColors: true, metalness: 0.05, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 0.9 }));
-}
-
-/** Tyres, bumpers and cladding of unpainted plastic: rough, no clear coat, so they stand apart from the paint. */
-function plasticFor(): MeshStandardMaterial {
-  return (plasticMat ??= new MeshStandardMaterial({ vertexColors: true, metalness: 0, roughness: 0.85, envMapIntensity: 0.5 }));
+export function carMaterials(): CarMaterials {
+  return pageKit().materials();
 }
 
 // ── The painting laid over a car (its atlas) ──
@@ -1222,17 +1209,30 @@ function drawFireEngine(mb: CarBuilders, f: Xf | undefined, sink: LampSink, skin
   };
 }
 
+/**
+ * A car's painting: the colour sheet, its glow twin and which cells carry paint. Plain canvases and numbers, so it
+ * can be kept between views (painting one takes a while); each view uploads it into its own textures.
+ */
+interface Painting {
+  colour: HTMLCanvasElement;
+  glow: HTMLCanvasElement;
+  /** Which cells of the atlas (8 x 8 pixels) carry paint. */
+  mask: Uint8Array;
+  frame: Frame;
+}
+
+/** A painting as one view draws it: its own textures and material, counted by the cars that use it. */
 interface Atlas {
   material: MeshStandardMaterial;
-  /** Which cells of the atlas (8 x 8 pixels) carry paint. */
   mask: Uint8Array;
   frame: Frame;
   refs: number;
   textures: Texture[];
 }
 
-const atlases = new Map<string, Atlas>();
-const idle: string[] = [];
+/** The paintings kept for the next car or the next camera, the least recently used first. */
+const paintings = new Map<string, Painting>();
+const PAINTINGS_KEPT = 6;
 const MASK = 8;
 
 function atlasKey(look: CarLook): string {
@@ -1241,13 +1241,13 @@ function atlasKey(look: CarLook): string {
 }
 
 /** Paint a car's atlas (shared by every car of the same model, livery and plate), or take it from the cache. */
-function atlasFor(look: CarLook): Atlas {
+function paintingFor(look: CarLook): Painting {
   const key = atlasKey(look);
-  const known = atlases.get(key);
+  const known = paintings.get(key);
   if (known) {
-    known.refs++;
-    const i = idle.indexOf(key);
-    if (i >= 0) idle.splice(i, 1);
+    // The most recently used goes last, out of the way of the next eviction.
+    paintings.delete(key);
+    paintings.set(key, known);
     return known;
   }
   const fire = look.livery === 'rescue' && look.body === 'truck';
@@ -1300,16 +1300,26 @@ function atlasFor(look: CarLook): Atlas {
     }
     return c;
   };
-  const tex = new CanvasTexture(draw(1, false));
-  tex.colorSpace = SRGBColorSpace;
-  tex.anisotropy = 4;
-  const glowTex = new CanvasTexture(draw(GLOW_K, true));
-  glowTex.colorSpace = SRGBColorSpace;
+  const colour = draw(1, false);
+  const glow = draw(GLOW_K, true);
   // Which 8-pixel cells carry paint: a facet whose painting would be empty is left out of the mesh.
-  const img = (tex.image as HTMLCanvasElement).getContext('2d')!.getImageData(0, 0, AW, AH).data;
+  const img = colour.getContext('2d')!.getImageData(0, 0, AW, AH).data;
   const mw = AW / MASK;
   const mask = new Uint8Array(mw * (AH / MASK));
   for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) if (img[(y * AW + x) * 4 + 3] > 24) mask[Math.floor(y / MASK) * mw + Math.floor(x / MASK)] = 1;
+  const painting: Painting = { colour, glow, mask, frame: { ...base, k: 1 } };
+  paintings.set(key, painting);
+  while (paintings.size > PAINTINGS_KEPT) paintings.delete(paintings.keys().next().value!);
+  return painting;
+}
+
+/** A painting made into one view's textures and material. */
+function atlasOf(p: Painting): Atlas {
+  const tex = new CanvasTexture(p.colour);
+  tex.colorSpace = SRGBColorSpace;
+  tex.anisotropy = 4;
+  const glowTex = new CanvasTexture(p.glow);
+  glowTex.colorSpace = SRGBColorSpace;
   const material = new MeshPhysicalMaterial({
     map: tex,
     emissiveMap: glowTex,
@@ -1325,25 +1335,7 @@ function atlasFor(look: CarLook): Atlas {
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,
   });
-  const atlas: Atlas = { material, mask, frame: { ...base, k: 1 }, refs: 1, textures: [tex, glowTex] };
-  atlases.set(key, atlas);
-  return atlas;
-}
-
-/** A car no longer needs its atlas: keep a few unused ones for the next car, free the rest. */
-function releaseAtlas(look: CarLook) {
-  const key = atlasKey(look);
-  const a = atlases.get(key);
-  if (!a || --a.refs > 0) return;
-  idle.push(key);
-  while (idle.length > 6) {
-    const old = idle.shift()!;
-    const o = atlases.get(old);
-    if (!o) continue;
-    o.material.dispose();
-    o.textures.forEach((t) => t.dispose());
-    atlases.delete(old);
-  }
+  return { material, mask: p.mask, frame: p.frame, refs: 0, textures: [tex, glowTex] };
 }
 
 /** The painted faces of a car with their places in the atlas, each pushed out a few millimetres. */
@@ -1463,16 +1455,17 @@ export function beaconOn(t: number, side: 0 | 1, rate = 1.7): boolean {
   return ph < 0.11 || (ph > 0.19 && ph < 0.3);
 }
 
-let flareTex: DataTexture | null = null;
+let flareData: Uint8Array | null = null;
+const FLARE_N = 64;
 
 /**
  * The glow round a lit blue lens: a smooth round falloff kept in linear values with a little noise in it, so that
  * the faint outer rings do not show as steps when it is added onto a dark picture. Stretched flat into a
- * horizontal flare by its sprite's scale.
+ * horizontal flare by its sprite's scale. The numbers are worked out once; each kit makes its own texture of them.
  */
-function flareTexture(): DataTexture {
-  if (flareTex) return flareTex;
-  const n = 64;
+function flarePixels(): Uint8Array {
+  if (flareData) return flareData;
+  const n = FLARE_N;
   const d = new Uint8Array(n * n * 4);
   let seed = 11;
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -1484,12 +1477,134 @@ function flareTexture(): DataTexture {
       d.set([255, 255, 255, Math.round(v)], (y * n + x) * 4);
     }
   }
-  flareTex = new DataTexture(d, n, n, RGBAFormat);
-  flareTex.magFilter = LinearFilter;
-  flareTex.minFilter = LinearFilter;
-  flareTex.needsUpdate = true;
-  return flareTex;
+  flareData = d;
+  return d;
 }
+
+/** How many unused atlases a kit keeps uploaded for the next car before it frees the oldest. */
+const IDLE_ATLASES = 6;
+
+/**
+ * Everything on the graphics card that the vehicles of one camera view share: their materials, the atlases of
+ * their paintings, the flare and headlight textures, the beam's plane and the sprites' quad. A view makes one and
+ * disposes of it with itself: a renderer hangs a listener on whatever it uploads, so one of these kept past its
+ * view would keep that view's renderer and graphics context alive.
+ */
+export class CarKit implements CarTextures {
+  readonly glow: Texture = glowTexture();
+  readonly beam: Texture = beamTexture();
+  private paint: MeshPhysicalMaterial | null = null;
+  private solid: MeshPhysicalMaterial | null = null;
+  private metal: MeshPhysicalMaterial | null = null;
+  private glass: MeshPhysicalMaterial | null = null;
+  private plastic: MeshStandardMaterial | null = null;
+  private flareTex: DataTexture | null = null;
+  private plane: PlaneGeometry | null = null;
+  /** The quad every Sprite of three.js shares (module-wide in three.js): disposed so it lets go of this renderer. */
+  private spriteQuad: BufferGeometry | null = null;
+  private atlases = new Map<string, Atlas>();
+  private idle: string[] = [];
+
+  /**
+   * The two materials every parked vehicle is made of: paint (and plain plastic) by the colour of its vertices,
+   * under a clear coat that mirrors the sky on roofs and bonnets; and glass, smooth enough to show the sky and the
+   * houses, more so at a grazing angle.
+   */
+  materials(): CarMaterials {
+    this.paint ??= new MeshPhysicalMaterial({ vertexColors: true, metalness: 0.2, roughness: 0.38, clearcoat: 0.8, clearcoatRoughness: 0.12, envMapIntensity: 0.9 });
+    this.glass ??= new MeshPhysicalMaterial({ vertexColors: true, metalness: 0.45, roughness: 0.05, envMapIntensity: 1.2, clearcoat: 1, clearcoatRoughness: 0.03 });
+    return { paint: this.paint, glass: this.glass };
+  }
+
+  /** A moving car's paint: solid or metallic, both under a full clear coat. */
+  paintFor(look: CarLook): MeshPhysicalMaterial {
+    if (look.metallic) return (this.metal ??= new MeshPhysicalMaterial({ vertexColors: true, metalness: 0.55, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 1 }));
+    return (this.solid ??= new MeshPhysicalMaterial({ vertexColors: true, metalness: 0.05, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 0.9 }));
+  }
+
+  /** Tyres, bumpers and cladding of unpainted plastic: rough, no clear coat, so they stand apart from the paint. */
+  plasticFor(): MeshStandardMaterial {
+    return (this.plastic ??= new MeshStandardMaterial({ vertexColors: true, metalness: 0, roughness: 0.85, envMapIntensity: 0.5 }));
+  }
+
+  /** The lens flare's texture (see flarePixels). */
+  flare(): DataTexture {
+    if (this.flareTex) return this.flareTex;
+    const t = new DataTexture(flarePixels(), FLARE_N, FLARE_N, RGBAFormat);
+    t.magFilter = LinearFilter;
+    t.minFilter = LinearFilter;
+    t.needsUpdate = true;
+    return (this.flareTex = t);
+  }
+
+  /** The unit square the headlights' pool on the road is drawn on. */
+  beamPlane(): PlaneGeometry {
+    return (this.plane ??= new PlaneGeometry(1, 1));
+  }
+
+  /** A sprite of this kit's cars: remember the quad three.js gives every sprite, to dispose of it with the kit. */
+  sprite(material: SpriteMaterial): Sprite {
+    const s = new Sprite(material);
+    this.spriteQuad ??= s.geometry;
+    return s;
+  }
+
+  /** A car's atlas in this view: uploaded once and shared by every car of the same model, livery and plate. */
+  atlasFor(look: CarLook): Atlas {
+    const key = atlasKey(look);
+    let a = this.atlases.get(key);
+    if (!a) {
+      a = atlasOf(paintingFor(look));
+      this.atlases.set(key, a);
+    }
+    const i = this.idle.indexOf(key);
+    if (i >= 0) this.idle.splice(i, 1);
+    a.refs++;
+    return a;
+  }
+
+  /** A car no longer needs its atlas: keep a few unused ones for the next car, free the rest. */
+  releaseAtlas(look: CarLook) {
+    const key = atlasKey(look);
+    const a = this.atlases.get(key);
+    if (!a || --a.refs > 0) return;
+    this.idle.push(key);
+    while (this.idle.length > IDLE_ATLASES) {
+      const old = this.idle.shift()!;
+      const o = this.atlases.get(old);
+      if (!o) continue;
+      o.material.dispose();
+      o.textures.forEach((t) => t.dispose());
+      this.atlases.delete(old);
+    }
+  }
+
+  /** Free all of it (the view's cars are gone by now). */
+  dispose() {
+    for (const a of this.atlases.values()) {
+      a.material.dispose();
+      a.textures.forEach((t) => t.dispose());
+    }
+    this.atlases.clear();
+    this.idle.length = 0;
+    for (const m of [this.paint, this.solid, this.metal, this.glass, this.plastic]) m?.dispose();
+    this.paint = this.solid = this.metal = this.glass = this.plastic = null;
+    this.flareTex?.dispose();
+    this.flareTex = null;
+    this.plane?.dispose();
+    this.plane = null;
+    // Shared by every sprite on the page: disposing of it only drops it from the renderers that drew it, and the
+    // next renderer uploads it again.
+    this.spriteQuad?.dispose();
+    this.spriteQuad = null;
+    this.glow.dispose();
+    this.beam.dispose();
+  }
+}
+
+/** The kit of a page that draws vehicles without a camera view (the dev pages); never used by the game. */
+let ownKit: CarKit | null = null;
+const pageKit = () => (ownKit ??= new CarKit());
 
 /** How much of the blue lights' throw on the street to show: none in daylight, all of it at dusk and at night. */
 const nightShare = (dark: number) => Math.min(1, Math.max(0, (dark - 0.12) / 0.45));
@@ -1527,16 +1642,21 @@ export class CarMesh {
   private shown = -1;
   private hasBar = false;
 
+  /**
+   * A car of a camera view takes everything shared from the view's kit (`tex` is the kit). A page without a view
+   * (the dev pages) may hand plain textures: the rest then comes from the page's own kit.
+   */
   constructor(look: CarLook, tex: CarTextures) {
     this.look = look;
+    const kit = tex instanceof CarKit ? tex : pageKit();
     const mb: CarBuilders = { paint: new MeshBuilder(), glass: new MeshBuilder(), plastic: new MeshBuilder() };
     const skin: Facet[] = [];
     const lamps = new LampParts();
     const spots = drawCar(mb, look, undefined, { lod: 'high', skin, lamps });
     this.bar = spots.bar;
-    const mats = carMaterials();
+    const mats = kit.materials();
     let tris = 0;
-    for (const [builder, mat] of [[mb.paint, paintFor(look)], [mb.glass, mats.glass], [mb.plastic!, plasticFor()]] as const) {
+    for (const [builder, mat] of [[mb.paint, kit.paintFor(look)], [mb.glass, mats.glass], [mb.plastic!, kit.plasticFor()]] as const) {
       const m = new Mesh(builder.build(), mat);
       m.castShadow = true;
       m.receiveShadow = true;
@@ -1545,7 +1665,7 @@ export class CarMesh {
       tris += (m.geometry.index?.count ?? 0) / 3;
     }
     if (lofted(look.body) || skin.length) {
-      const atlas = atlasFor(look);
+      const atlas = kit.atlasFor(look);
       const g = decalGeometry(skin, atlas);
       if (g) {
         const m = new Mesh(g, atlas.material);
@@ -1555,7 +1675,7 @@ export class CarMesh {
         tris += g.attributes.position.count / 3;
       }
       this.decal = atlas.material;
-      this.owned.push({ dispose: () => releaseAtlas(look) });
+      this.owned.push({ dispose: () => kit.releaseAtlas(look) });
     }
     this.states = new DataTexture(new Uint8Array(SLOTS * 4), SLOTS, 1, RGBAFormat);
     this.states.magFilter = NearestFilter;
@@ -1571,7 +1691,7 @@ export class CarMesh {
 
     const one = spots.head.length === 1;
     for (const [x, y, z] of spots.head) {
-      const s = new Sprite(new SpriteMaterial({ map: flareTexture(), color: 0xfff2d8, blending: AdditiveBlending, depthWrite: false, transparent: true }));
+      const s = kit.sprite(new SpriteMaterial({ map: kit.flare(), color: 0xfff2d8, blending: AdditiveBlending, depthWrite: false, transparent: true }));
       s.position.set(x + 0.12, y, z);
       s.scale.set(one ? 1.0 : 1.3, one ? 0.7 : 0.8, 1);
       s.visible = false;
@@ -1583,7 +1703,7 @@ export class CarMesh {
       this.beacons = true;
       const b = beaconsOf(look, lofted(look.body) ? shapeOf(look) : null, spots);
       const flare = (x: number, y: number, z: number, w: number, h: number, wide: boolean): Sprite => {
-        const s = new Sprite(new SpriteMaterial({ map: flareTexture(), color: 0x4a7dff, blending: AdditiveBlending, depthWrite: false, transparent: true }));
+        const s = kit.sprite(new SpriteMaterial({ map: kit.flare(), color: 0x4a7dff, blending: AdditiveBlending, depthWrite: false, transparent: true }));
         s.position.set(x, y, z);
         s.scale.set(w, h, 1);
         s.visible = false;
@@ -1610,7 +1730,7 @@ export class CarMesh {
       }
     }
     // The pool of light the headlights throw on the road.
-    const beam = new Mesh(beamPlane, new MeshBasicMaterial({ map: tex.beam, color: 0xfff0d0, blending: AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55 }));
+    const beam = new Mesh(kit.beamPlane(), new MeshBasicMaterial({ map: tex.beam, color: 0xfff0d0, blending: AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55 }));
     beam.rotation.x = -Math.PI / 2;
     beam.rotation.z = -Math.PI / 2;
     beam.scale.set(7, 16, 1);
@@ -1692,8 +1812,6 @@ export class CarMesh {
     for (const o of this.owned) o.dispose();
   }
 }
-
-const beamPlane = new PlaneGeometry(1, 1);
 
 /** The colour a blue light throws on the street. */
 export const BEACON_COLOR = new Color(0x3f6dff);

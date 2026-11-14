@@ -1479,4 +1479,56 @@ describe('cctv director: what the films showed', () => {
     expect(back.length).toBe(2);
     for (const o of back) expect(dist(o.pos, site.spot)).toBeLessThan(12);
   });
+
+  it('nobody of the incident stands on somebody else at the start, on any street, in any kind of scene', () => {
+    const pairs = new Set(['brawl']);
+    for (const [place, seed] of PLACES) {
+      const site = siteOf(place, seed);
+      for (const kind of KINDS) {
+        const f = start(site, usual(kind)).step(NOBODY, 0.5);
+        const folk = f.people.filter((p) => isCast(p.id));
+        for (let a = 0; a < folk.length; a++)
+          for (let b = a + 1; b < folk.length; b++) {
+            // Two who fight hold on to each other; anybody else keeps a step apart.
+            const near = pairs.has(kind) ? 0.3 : 0.45;
+            expect(dist(folk[a].pos, folk[b].pos), `${place} ${seed} ${kind}: ${folk[a].id} on ${folk[b].id}`).toBeGreaterThan(near);
+          }
+      }
+    }
+  });
+
+  it('stop: the patrol pulls in behind the stopped car at the same kerb, from whichever end it comes', () => {
+    const site = siteOf('street', 4);
+    const side = (p: V2) => {
+      const n = nearestOnLine(p, site.drive.pts);
+      return Math.sign(n.dir[0] * (p[1] - n.pt[1]) - n.dir[1] * (p[0] - n.pt[0]));
+    };
+    for (const from of [0, Math.PI]) {
+      const w = start(site, castBy('stop', 'dc', {}, ['suspect']));
+      const f = arrive(w, 20, from);
+      const stopped = f.cars.find((c) => c.id === 'v:T0')!;
+      const patrol = f.cars.find((c) => c.id === 'u:P1')!;
+      expect(side(patrol.pos), `from ${from}`).toBe(side(stopped.pos));
+      // Behind it: on the side its back is, a car's length or two away.
+      const back = -((patrol.pos[0] - stopped.pos[0]) * Math.cos(stopped.yaw) + (patrol.pos[1] - stopped.pos[1]) * Math.sin(stopped.yaw));
+      expect(back, `from ${from}`).toBeGreaterThan(5);
+      expect(back, `from ${from}`).toBeLessThan(16);
+    }
+  });
+
+  it('two officers at work never stand on one spot', () => {
+    for (const [place, seed] of PLACES) {
+      const site = siteOf(place, seed);
+      for (const kind of KINDS) {
+        const w = start(site, usual(kind));
+        w.step(NOBODY, 3);
+        w.step(sitWith([unit('P1', 'near', { eta: 5 }), unit('P2', 'near', { eta: 6, from: Math.PI })]), 1);
+        const f = w.step(sitWith([unit('P1', 'here'), unit('P2', 'here', { from: Math.PI })]), 30);
+        const cops = f.people.filter((p) => p.id.startsWith('o:'));
+        for (let a = 0; a < cops.length; a++)
+          for (let b = a + 1; b < cops.length; b++)
+            expect(dist(cops[a].pos, cops[b].pos), `${place} ${seed} ${kind}: ${cops[a].id} on ${cops[b].id}`).toBeGreaterThan(0.5);
+      }
+    }
+  });
 });

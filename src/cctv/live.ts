@@ -15,7 +15,6 @@ import type { Incident, SimState } from '@/sim/types';
 import { PMTiles } from 'pmtiles';
 import type { Material, Mesh, Texture } from 'three';
 import type { CameraInfo } from './coverage';
-import { carMaterials } from './render/cars';
 import { loadHumanBase, type HumanBase } from './render/human';
 import { CameraView, canRender } from './render/view';
 import { CameraSession, type SessionState } from './session';
@@ -103,14 +102,13 @@ function untilAborted<T>(p: Promise<T>, signal: AbortSignal): Promise<T> {
 let drawable: boolean | null = null;
 
 /**
- * Let go of what every view shares and keeps between cameras (the cars' paint and glass, the base body). Each
- * renderer hangs a listener on whatever it uploads, so an object that is never disposed would keep every closed
- * camera's renderer alive. The objects stay usable: the next view uploads them again.
+ * Let go of what every view shares and keeps between cameras: the base body, which human.ts loads once per page.
+ * Each renderer hangs a listener on whatever it uploads, so an object that is never disposed would keep every
+ * closed camera's renderer and graphics context alive. The objects stay usable: the next view uploads them again.
+ * (Everything else a view draws with, the vehicles' materials and paintings among it, is its own and goes with
+ * CameraView.dispose; what render/cars.ts keeps between views is plain canvases and numbers.)
  */
 function releaseShared(humans: HumanBase) {
-  const { paint, glass } = carMaterials();
-  paint.dispose();
-  glass.dispose();
   humans.template.traverse((o) => {
     const mesh = o as Mesh;
     if (!mesh.isMesh) return;

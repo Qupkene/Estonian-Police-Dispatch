@@ -1043,7 +1043,27 @@ export class Director {
     return cross(n.dir, sub(p, n.pt)) >= 0 ? 1 : -1;
   }
 
+  /**
+   * A place for an officer. Never on another post or on somebody of the incident: where walls squeeze two places
+   * together, the later one moves to the nearest free place round it (two officers on one spot read as one body).
+   */
   private post(at: V2, a: Act, face: V2 | null, enter = false): void {
+    if (!enter) {
+      const near = (p: V2) =>
+        this.posts.some((q) => !q.enter && dist(p, q.at) < 0.8) ||
+        this.bodies.some((b) => b.kind === 'cast' && !b.hidden && dist(p, [b.x, b.y]) < 0.55 && !DOWN.has(b.act));
+      if (near(at)) {
+        search: for (let ring = 1; ring <= 4; ring++)
+          for (let k = 0; k < 8; k++) {
+            const ang = (k / 8) * TAU + ring * 0.3;
+            const p: V2 = [at[0] + Math.cos(ang) * 0.6 * ring, at[1] + Math.sin(ang) * 0.6 * ring];
+            if (!near(p) && this.roomAt(p, 0) && clearLine(this.site.street, p, at)) {
+              at = p;
+              break search;
+            }
+          }
+      }
+    }
     this.posts.push({ at, face, act: a, enter, by: null });
   }
 
@@ -1124,6 +1144,7 @@ export class Director {
       }
       sus.slice(1).forEach((x, i) => this.stand(x, this.safe(this.local(1.6 + i * 1.2, 0.9)), 'argue', this.site.roadSpot));
       const keepOff = [...vic.filter((x) => x !== armed), ...byst];
+      const placed: V2[] = [];
       keepOff.forEach((b, i) => {
         if (i === 0 && c.down && b.role === 'victim') {
           this.stand(b, this.safe(this.local(2.6, 0.5)), 'lie');
@@ -1134,10 +1155,14 @@ export class Director {
         const sg = i % 2 ? 1 : -1;
         const keep = 8.4 + PACE_M;
         let to = m;
-        for (const d of [keep + 1.2 * (i >> 1), -(keep + 1.2 * (i >> 1)), keep + 3 + 1.2 * (i >> 1), -(keep + 3 + 1.2 * (i >> 1))]) {
+        // Never on somebody else's place: where walls send two of them to the same point, the next one along.
+        const free = (p: V2) => !placed.some((q) => dist(p, q) < 0.9);
+        for (const d of [keep + 1.2 * (i >> 1), -(keep + 1.2 * (i >> 1)), keep + 3 + 1.2 * (i >> 1), -(keep + 3 + 1.2 * (i >> 1)), keep + 4.5, -(keep + 4.5), keep + 6, -(keep + 6)]) {
           to = this.safe(this.local(sg * d, 0.4));
-          if (dist(to, m) >= keep) break;
+          if (dist(to, m) >= keep && free(to)) break;
         }
+        if (!free(to)) to = this.beside(to, 1 + (i % 5), 1);
+        placed.push(to);
         const from = lerp2(to, m, 2 / Math.max(2, dist(to, m)));
         this.stand(b, this.wall(from[0], from[1]) || !clearLine(this.site.street, from, to) ? to : from, 'cower', m);
         b.steps.push(go(to, 'back'));
@@ -1393,6 +1418,37 @@ export class Director {
         const car = this.kerbCar(x.id, x.look, i + 1);
         if (x.role === 'suspect' && !this.stopCar) this.stopCar = car;
       });
+    }
+    this.spread(all);
+  }
+
+  /**
+   * Nobody starts on somebody else's place: where walls or the kerb pushed two people to the same point, the later
+   * one moves to the nearest free place round it (fighting pairs hold on to each other and are left as they are).
+   */
+  private spread(all: Body[]): void {
+    const held = new Set(this.pairs.flatMap((p) => [p.a, p.b]));
+    const taken: V2[] = [];
+    for (const b of all) {
+      if (b.hidden) continue;
+      const at: V2 = [b.x, b.y];
+      const clear = (p: V2) => !taken.some((q) => dist(p, q) < 0.6);
+      if (!held.has(b) && !clear(at)) {
+        let best: V2 | null = null;
+        for (let ring = 1; ring <= 4 && !best; ring++)
+          for (let k = 0; k < 8 && !best; k++) {
+            const a = (k / 8) * TAU + ring * 0.4;
+            const p: V2 = [at[0] + Math.cos(a) * 0.65 * ring, at[1] + Math.sin(a) * 0.65 * ring];
+            if (clear(p) && this.roomAt(p, 0) && clearLine(this.site.street, p, at)) best = p;
+          }
+        if (best) {
+          b.x = best[0];
+          b.y = best[1];
+          b.mark = best;
+          for (const st of b.steps) if (st.k === 'go' && dist([st.x, st.y], at) < 0.01) [st.x, st.y] = best;
+        }
+      }
+      taken.push([b.x, b.y]);
     }
   }
 
@@ -2763,7 +2819,11 @@ export class Director {
   private spawnUnit(u: UnitSit, key: string): void {
     const d = this.site.drive;
     const f = dirOf(u.from);
-    const fromA = dot(f, sub(d.pts[0], this.site.roadSpot)) >= dot(f, sub(d.pts[d.pts.length - 1], this.site.roadSpot));
+    let fromA = dot(f, sub(d.pts[0], this.site.roadSpot)) >= dot(f, sub(d.pts[d.pts.length - 1], this.site.roadSpot));
+    // A vehicle pulled over: the first crew pulls in behind it at the same kerb, the way a stop is made (it has
+    // followed the car or turned round for it), not across the road from it.
+    const stopped = this.stopCar;
+    if (this.kind === 'stop' && stopped && stopped.mode === 'park' && !this.crews.some((c) => c.police)) fromA = stopped.dir > 0;
     const look = lookOfUnit(u.type, u.model);
     const way = this.wayIn(CAR_SIZE[look.body], fromA);
     if (!way || way === 'wait') return;
