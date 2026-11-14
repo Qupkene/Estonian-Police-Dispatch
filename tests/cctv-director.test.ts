@@ -1922,9 +1922,10 @@ describe('cctv director: the scenes as two reviewers wanted them', () => {
         else if (dropped) picked = true;
         if (kneltAt < 0 && armed.pose.hip < 0.6) kneltAt = t;
         if (cuffedAt < 0 && kneltAt > 0 && armsBack(armed)) cuffedAt = t;
-        // From the kneeling to the cuffs: every officer who stands still has the weapon on them.
+        // From the kneeling to the cuffs: every officer has the weapon on them, but the one who has walked up to
+        // their back and puts it away to take hold of them.
         if (kneltAt > 0 && cuffedAt < 0 && t > kneltAt + 1) {
-          for (const o of cops) if (upright(o) && !aiming(o)) expect.fail(`${tag}: ${o.id} has lowered the weapon before the cuffs are on, at ${f.t.toFixed(1)}`);
+          for (const o of cops) if (upright(o) && !aiming(o) && dist(o.pos, armed.pos) > 1.5) expect.fail(`${tag}: ${o.id} has lowered the weapon before the cuffs are on, at ${f.t.toFixed(1)}`);
         }
       });
       expect(kneltAt, tag).toBeGreaterThan(0);
