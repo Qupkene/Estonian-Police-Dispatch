@@ -5,6 +5,7 @@
  *
  * Pure: it only reads the state, it never changes it.
  */
+import { TURN_SPEEDS } from '@/sim/coop';
 import { haversineKm } from '@/sim/geo';
 import { workProgress } from '@/sim/incidents';
 import type { Incident, LngLat, SimState, Unit } from '@/sim/types';
@@ -12,8 +13,23 @@ import { custodyDestination, nearestHospital, unitPosAt } from '@/sim/units';
 import { frameAt, len, yawOf, yawOfHeading } from './math';
 import type { AgencySit, Situation, UnitSit } from './stage';
 
-/** A crew or another service this many real seconds from arriving is shown driving up. */
+/** A crew or another service this many seconds of the street's own time from arriving is shown driving up. */
 export const NEAR_S = 7;
+
+/** The game's 1x speed in game seconds per real second: up to it the street plays in real seconds. */
+export const BASE_SPEED: number = TURN_SPEEDS[1];
+
+/**
+ * How many seconds of the street's own time one real second plays: 1 at the 1x speed and below it (the real-time
+ * mode, an open 112 call), above it as many times faster as the game runs, like a recording played faster (2, 4 and
+ * 8 at 2x, 4x and 8x). `nominal` is the game's speed in game seconds per real second, `measured` the pace its clock
+ * really keeps (the session measures it: a slow device runs behind the nominal speed); above 1x the street follows
+ * the measured clock, never slower than real time.
+ */
+export function streetScale(nominal: number, measured = nominal): number {
+  if (!(nominal > BASE_SPEED) || !Number.isFinite(nominal) || !(measured > 0) || !Number.isFinite(measured)) return 1;
+  return Math.max(1, measured / BASE_SPEED);
+}
 
 /** A crew standing or stopping further from the incident than this is not at this camera's place. */
 const HERE_KM = 0.15;
@@ -80,12 +96,12 @@ function fromOf(s: SimState, inc: Incident, u: Unit, state: UnitSit['state']): n
   return len(p) < 1 ? back : yawOf(p);
 }
 
-function unitSit(s: SimState, inc: Incident, u: Unit, speed: number): UnitSit {
+function unitSit(s: SimState, inc: Incident, u: Unit, speed: number, played: number): UnitSit {
   let state: UnitSit['state'] = 'left';
   let eta = 0;
   if (standingHere(s, inc, u)) state = 'here';
   else if (drivingHere(inc, u)) {
-    eta = Math.max(0, (u.move!.arriveAt - s.now) / 1000 / speed);
+    eta = Math.max(0, (u.move!.arriveAt - s.now) / 1000 / speed - played);
     state = eta <= NEAR_S ? 'near' : 'coming';
   }
   return {
@@ -101,10 +117,12 @@ function unitSit(s: SimState, inc: Incident, u: Unit, speed: number): UnitSit {
 }
 
 /**
- * The situation of an incident. `speed` is game seconds per real second while the game runs (the last running speed
- * while it is paused, with `paused` true).
+ * The situation of an incident. `speed` is game seconds per second of the street's own time while the game runs (the
+ * last running one while it is paused, with `paused` true): the game's speed divided by streetScale, so 15 at every
+ * speed from 1x up when the clock keeps its pace, and the etas are seconds of the street's time. `played`: seconds of
+ * street time of the current step already played (a long step is played in parts): the etas are that much shorter.
  */
-export function situationOf(sim: SimState, incident: Incident, speed: number, paused = false): Situation {
+export function situationOf(sim: SimState, incident: Incident, speed: number, paused = false, played = 0): Situation {
   const rate = speed > 0 && Number.isFinite(speed) ? speed : 1;
   const closed = incident.state === 'closed';
   // Everybody ever sent, in the order they were sent, then whoever else has this incident as its job.
@@ -114,13 +132,13 @@ export function situationOf(sim: SimState, incident: Incident, speed: number, pa
   const units: UnitSit[] = [];
   for (const id of ids) {
     const u = sim.units[id];
-    if (u) units.push(unitSit(sim, incident, u, rate));
+    if (u) units.push(unitSit(sim, incident, u, rate, played));
   }
   const agencies: AgencySit[] = [];
   for (const need of incident.agencyNeeds) {
     const rq = need.requested;
     if (!rq) continue;
-    const eta = Math.max(0, (rq.arriveAt - sim.now) / 1000 / rate);
+    const eta = Math.max(0, (rq.arriveAt - sim.now) / 1000 / rate - played);
     // The engine stops counting arrivals when the incident closes: whoever had not come by then is not shown coming.
     const state: AgencySit['state'] = rq.arrived ? 'here' : closed ? 'coming' : eta <= NEAR_S ? 'near' : 'coming';
     agencies.push({ agency: need.agency, state, eta: state === 'near' ? eta : 0 });

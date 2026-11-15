@@ -12,8 +12,8 @@ import type { Incident, NewShiftOptions, SimState, Unit } from '@/sim/types';
 import type { CameraInfo } from '@/cctv/coverage';
 import type { Env } from '@/cctv/env';
 import type { Osd } from '@/cctv/render/view';
-import { CameraSession, ENV_EVERY_S, type SessionView } from '@/cctv/session';
-import type { Frame } from '@/cctv/stage';
+import { AFTER_HOLD_S, CameraSession, ENV_EVERY_S, type SessionView } from '@/cctv/session';
+import type { CarFrame, Frame } from '@/cctv/stage';
 import type { Site, StreetData } from '@/cctv/types';
 
 const OPTS: NewShiftOptions = {
@@ -61,14 +61,99 @@ function fight(km = 3, opts: Partial<NewShiftOptions> = {}): { s: SimState; inc:
   return { s, inc: s.incidents[id], unit };
 }
 
-/** The game and the camera together: `seconds` of real time at SPEED, a frame each DT. */
-function play(s: SimState, cam: CameraSession, seconds: number, until?: () => boolean) {
+/** The game and the camera together: `seconds` of real time at `speed` (SPEED unless said), a frame each DT. */
+function play(s: SimState, cam: CameraSession, seconds: number, until?: () => boolean, speed = SPEED) {
   const frames = Math.round(seconds / DT);
   for (let i = 0; i < frames; i++) {
-    step(s, Math.round(SPEED * DT * 1000));
-    cam.update(s, SPEED, false, DT);
+    step(s, Math.round(speed * DT * 1000));
+    cam.update(s, speed, false, DT);
     if (until?.()) return;
   }
+}
+
+/** Where everybody in a frame stands, by id. */
+const placesOf = (f: Frame) => new Map(f.people.map((p) => [p.id, p.pos] as const));
+
+/** The greatest distance between where the same people stand in two frames (both must hold the same people). */
+function apart(a: Frame, b: Frame): number {
+  const pa = placesOf(a);
+  const pb = placesOf(b);
+  expect([...pb.keys()].sort()).toEqual([...pa.keys()].sort());
+  let most = 0;
+  for (const [id, p] of pa) most = Math.max(most, Math.hypot(p[0] - pb.get(id)![0], p[1] - pb.get(id)![1]));
+  return most;
+}
+
+/** Metres everybody in the picture walked from frame to frame of `frames`, all together. */
+function walked(frames: readonly Frame[]): number {
+  let sum = 0;
+  for (let i = 1; i < frames.length; i++) {
+    const pb = placesOf(frames[i]);
+    for (const [id, p] of placesOf(frames[i - 1])) {
+      const q = pb.get(id);
+      if (q) sum += Math.hypot(p[0] - q[0], p[1] - q[1]);
+    }
+  }
+  return sum;
+}
+
+/**
+ * A patrol sent 3 km to the fight with the camera open (its pace measured), the game played at `speedAt(game seconds
+ * the game still gives the unit)`, a frame each DT; `pauseAt`: real seconds of pause when the unit is that many game
+ * seconds out. Returns, in game seconds after the arrival the game first said: when the unit was on scene in the
+ * game, when its car stood still in the picture, when the first officer was out, and the fastest the car moved
+ * between two frames in metres per second of the street's own time.
+ */
+function approach(speedAt: (left: number) => number, pause?: { at: number; seconds: number }) {
+  const { s, inc, unit } = fight();
+  const view = new FakeView();
+  const cam = new CameraSession(view, s, inc, CAMERA, null, VERSION, { quiet: true });
+  play(s, cam, 1);
+  expect(dispatchUnits(s, inc.id, [unit.id]).ok).toBe(true);
+  const at = s.units[unit.id].move!.arriveAt;
+  let onScene = Infinity;
+  let stood = Infinity;
+  let out = Infinity;
+  let fastest = 0;
+  let paused = false;
+  let prev: CarFrame | undefined;
+  for (let i = 0; i < 20_000 && (onScene === Infinity || stood === Infinity || out === Infinity); i++) {
+    const left = (at - s.now) / 1000;
+    const speed = speedAt(left);
+    if (pause && !paused && left <= pause.at) {
+      paused = true;
+      const still = JSON.stringify(view.last.frame);
+      for (let j = 0; j < Math.round(pause.seconds / DT); j++) cam.update(s, speed, true, DT);
+      // Nothing on the street moved, the picture's clock stood too.
+      expect(JSON.stringify(view.last.frame)).toBe(still);
+    }
+    step(s, Math.round(speed * DT * 1000));
+    cam.update(s, speed, false, DT);
+    const g = (s.now - at) / 1000;
+    if (onScene === Infinity && s.units[unit.id].status === 'onscene') onScene = g;
+    if (out === Infinity && view.last.frame.people.some((p) => p.id.startsWith(`o:${unit.id}:`))) out = g;
+    const car = view.last.frame.cars.find((c) => c.id === `u:${unit.id}`);
+    if (car && prev) {
+      const d = Math.hypot(car.pos[0] - prev.pos[0], car.pos[1] - prev.pos[1]);
+      fastest = Math.max(fastest, d / (DT * cam.scale));
+      if (d < 0.005 && stood === Infinity && left < SPEED) stood = g;
+    }
+    prev = car;
+  }
+  expect(Number.isFinite(onScene) && Number.isFinite(stood) && Number.isFinite(out)).toBe(true);
+  return { onScene, stood, out, fastest };
+}
+
+/** The arrival as the picture shows it, against the game's: in seconds of the street's own time (15 game seconds each). */
+function expectOnTime(r: ReturnType<typeof approach>) {
+  // The car stands within a second of the street's time of the game's arrival (its stop is seen a frame late at 8x).
+  expect((r.stood - r.onScene) / SPEED).toBeGreaterThan(-1);
+  expect((r.stood - r.onScene) / SPEED).toBeLessThanOrEqual(1);
+  // Nobody is out of the car before the game says it is on scene, and they are out a few seconds after.
+  expect(r.out).toBeGreaterThanOrEqual(r.onScene);
+  expect((r.out - r.onScene) / SPEED).toBeLessThan(8);
+  // Nothing jumps: never faster than a car drives.
+  expect(r.fastest).toBeLessThan(35);
 }
 
 describe('cctv session: one open camera over a shift', () => {
@@ -181,6 +266,92 @@ describe('cctv session: one open camera over a shift', () => {
     expect(cam.speed).toBe(held);
   });
 
+  it('at 2x, 4x and 8x the street runs two, four and eight times as fast, like a recording played faster', () => {
+    for (const k of [2, 4, 8]) {
+      // One real second at k times the 1x speed against k real seconds at 1x: the same game minute, the same street.
+      const a = fight();
+      const fast = new FakeView();
+      // With the street's own passers-by, who walk.
+      const camA = new CameraSession(fast, a.s, a.inc, CAMERA, null, VERSION);
+      // Each settles its stage first (an update in a paused game plays nothing).
+      camA.update(a.s, k * SPEED, true, DT);
+      play(a.s, camA, 1, undefined, k * SPEED);
+      expect(camA.scale).toBeCloseTo(k, 6);
+      const b = fight();
+      const slow = new FakeView();
+      const camB = new CameraSession(slow, b.s, b.inc, CAMERA, null, VERSION);
+      camB.update(b.s, SPEED, true, DT);
+      play(b.s, camB, k);
+      expect(camB.scale).toBe(1);
+      // Frame j at kx is frame j * k at 1x: everybody stands where they stood then.
+      const fastFrames = fast.renders.map((r) => r.frame);
+      const slowFrames = slow.renders.filter((_, i) => i % k === 0).map((r) => r.frame);
+      expect(fastFrames).toHaveLength(slowFrames.length);
+      for (let i = 0; i < fastFrames.length; i++) expect(apart(fastFrames[i], slowFrames[i])).toBeLessThan(0.05);
+      // So in that one real second the people on the street covered the ground they cover in k real seconds at 1x:
+      // k times the ground a real second.
+      const perSecondFast = walked(fastFrames);
+      const perSecondSlow = walked(slowFrames) / k;
+      expect(perSecondSlow).toBeGreaterThan(1);
+      expect(perSecondFast / perSecondSlow).toBeCloseTo(k, 1);
+      const startA = fastFrames[0];
+      // The picture's own life keeps its real pace: its clock ran one second.
+      expect(fast.last.frame.t - startA.t).toBeCloseTo(1, 6);
+    }
+  });
+
+  it('at the real-time speed and while a 112 call is open the street runs as at 1x', () => {
+    const at = (speed: number) => {
+      const { s, inc } = fight();
+      const view = new FakeView();
+      const cam = new CameraSession(view, s, inc, CAMERA, null, VERSION, { quiet: true });
+      play(s, cam, 3, undefined, speed);
+      expect(cam.scale).toBe(1);
+      return view.last.frame;
+    };
+    const base = at(SPEED);
+    // The real-time mode (1 game second a second) and an open call (2).
+    expect(apart(at(1), base)).toBeLessThan(0.05);
+    expect(apart(at(2), base)).toBeLessThan(0.05);
+  });
+
+  it('a patrol stands in the picture when the game says it is on scene, at 1x, 4x and 8x, and nobody is out before', () => {
+    for (const speed of [SPEED, 4 * SPEED, 8 * SPEED]) expectOnTime(approach(() => speed));
+  });
+
+  it('a change of speed in the middle of the approach takes effect at once, and nothing jumps', () => {
+    // 1x, then 8x for the 30 game seconds from a minute out, then 1x again; and the other way round.
+    expectOnTime(approach((left) => (left < 60 && left > 30 ? 8 * SPEED : SPEED)));
+    expectOnTime(approach((left) => (left < 60 && left > 30 ? SPEED : 8 * SPEED)));
+    // 1x until a minute out, then 8x to the end.
+    expectOnTime(approach((left) => (left < 60 ? 8 * SPEED : SPEED)));
+  });
+
+  it('a pause in the middle of the approach at 8x holds the street, and the patrol still stops on time', () => {
+    expectOnTime(approach(() => 8 * SPEED, { at: 40, seconds: 2 }));
+    expectOnTime(approach(() => SPEED, { at: 40, seconds: 2 }));
+  });
+
+  it('a slow frame at 8x is played in full, four seconds of the street', () => {
+    const { s, inc } = fight();
+    const view = new FakeView();
+    const cam = new CameraSession(view, s, inc, CAMERA, null, VERSION, { quiet: true });
+    cam.update(s, 8 * SPEED, true, DT);
+    // Half a real second (the longest frame the session plays) at 8x: four seconds of the street.
+    step(s, Math.round(8 * SPEED * 0.5 * 1000));
+    cam.update(s, 8 * SPEED, false, 0.5);
+    const b = fight();
+    const slowView = new FakeView();
+    const ref = new CameraSession(slowView, b.s, b.inc, CAMERA, null, VERSION, { quiet: true });
+    ref.update(b.s, SPEED, true, DT);
+    // The same street at 1x after two and after four real seconds: the slow frame is the one after four.
+    play(b.s, ref, 2);
+    const two = slowView.last.frame;
+    play(b.s, ref, 2);
+    expect(apart(view.last.frame, slowView.last.frame)).toBeLessThan(0.05);
+    expect(apart(view.last.frame, two)).toBeGreaterThan(0.1);
+  });
+
   it("on a slow device, opened as the patrol arrives, the crew gets out only after the game says it is on scene", () => {
     // The game clock at a third of the nominal speed; the camera opened when the patrol is `away` game seconds out.
     // Until the pace is measured (half a second) a unit about to arrive is held back, then it is planned on the
@@ -260,17 +431,22 @@ describe('cctv session: one open camera over a shift', () => {
     // The game's fastest speed: the patrol drives there, deals with the fight and the incident closes in the game.
     const FAST = 120;
     let ended = -1;
+    let after = -1;
+    let last = -1;
     for (let i = 0; i < Math.round(900 / DT) && cam.state === 'live'; i++) {
       step(s, Math.round(FAST * DT * 1000));
       cam.update(s, FAST, false, DT);
       if (s.incidents[inc.id].state === 'closed' && ended < 0) ended = i;
+      if (s.incidents[inc.id].state === 'closed' && cam.phase === 'after' && after < 0) after = i;
+      last = i;
     }
     // Closed in the game, not removed from it: incidents stay in the simulation for the whole shift.
     expect(ended).toBeGreaterThan(0);
     expect(s.incidents[inc.id]).toBeDefined();
     expect(cam.phase).toBe('after');
     expect(cam.state).toBe('ended');
-    // It held the empty street for AFTER_HOLD_S real seconds before ending.
+    // It held the empty street for AFTER_HOLD_S real seconds before ending, though the street itself ran at 8x.
+    expect((last - after + 1) * DT).toBeCloseTo(AFTER_HOLD_S, 1);
     const drawn = view.renders.length;
     cam.update(s, FAST, false, DT);
     cam.draw();

@@ -41,7 +41,7 @@ Everything lives in `src/cctv/`. The upper half is plain TypeScript with no DOM 
 | `vehicle.ts` | a vehicle's body, paint and markings (`CarLook`), its lamps (`CarLights`) | |
 | `cast.ts` | the kind of scene an incident makes, its people and vehicles | sim types |
 | `stage.ts` | shared types: `Situation` (what the game says now), `Frame` (where everything is) | |
-| `situation.ts` | `situationOf(sim, incident, speed, paused = false)`: reads a `Situation` from the simulation | sim |
+| `situation.ts` | `situationOf(sim, incident, speed, paused = false, played = 0)`: reads a `Situation` from the simulation; `streetScale`: how fast the street runs | sim |
 | `director.ts` | `Director`: moves the cast as the situation changes; `frame()` | all of the above |
 | `session.ts` | one open camera: builds site, light, cast and director from a street, steps them at the pace the game clock really keeps, drives the view, tells it which vehicles are on their way, ends the feed once the closed incident's street has emptied | all but three |
 | `live.ts` | the lazy chunk's entry: `openCamera(canvas, options)` checks WebGL 2 (once per page), loads the body model and the street under the window's abort signal, creates the view and the session, has the view prepare the first frame within a budget, returns a handle that also lets go of the base body | all |
@@ -70,11 +70,15 @@ The game's UI part is `src/ui/game/CameraWindow.tsx` (the picture over the map) 
   rounded coordinate). The same incident shows the same street, camera, cast and choices every time it is opened, on
   every player's screen. Only the fine timing of an animation differs between two viewers.
 - **Two clocks.** The game clock runs 15 to 120 times faster than real time (`src/sim/coop.ts TURN_SPEEDS`), so people
-  on camera cannot follow it second by second: they would move like a time-lapse. The camera's scene clock runs in
-  real seconds whenever the game is not paused. The game decides *what* happens and *when it starts* (a unit arrives,
-  the incident closes); the director plays each change at a natural pace. How many real seconds away an arrival is
-  comes from the game's speed at the pace its clock really keeps (section 14, the session's pace). The clock burned
-  into the picture shows the game's date, hours and minutes.
+  on camera cannot follow it second by second: they would move like a time-lapse. The camera's scene clock, the
+  street's own time, runs in real seconds at the game's 1x speed (15 game seconds a second) and below it (the
+  real-time mode, an open 112 call), and at 2x, 4x and 8x two, four and eight times as fast, like a recording played
+  faster (`situation.ts streetScale`, section 14); it stands while the game is paused. The game decides *what*
+  happens and *when it starts* (a unit arrives, the incident closes); the director plays each change at a natural
+  pace in the street's time. How many of the street's seconds away an arrival is comes from the game's speed at the
+  pace its clock really keeps (section 14, the session's pace): from 1x up, 15 game seconds each. The picture's own
+  life (the blue lights, the hazards, rain, grain and shake, the recording dot) keeps real seconds at every speed.
+  The clock burned into the picture shows the game's date, hours and minutes.
 - **Language.** Code comments and docs in plain English; UI texts through `src/i18n` (Estonian and English). No em
   dash and no en dash anywhere (owner's rule): write "-", ":" or a new sentence.
 
@@ -210,15 +214,21 @@ pass `now`; the window reads the camera's name once, as it opens, without it.
 
 ## 6. What the game says (`situation.ts`)
 
-`situationOf(sim, incident, speed, paused = false): Situation` (`stage.ts`). `speed` is game seconds per real second
-while the game runs (the session passes its measured speed, and the last running one while paused, with `paused`
-true). Pure: it only reads the state.
+`situationOf(sim, incident, speed, paused = false, played = 0): Situation` (`stage.ts`). `speed` is game seconds per
+second of the street's own time while the game runs: the session passes its measured speed divided by
+`streetScale` (so 15 from 1x up while the clock keeps its pace), and the last running one while paused, with `paused`
+true. `played` is how much of the street's time the session has already played of a long step it plays in parts:
+every eta is that much shorter. Pure: it only reads the state.
+
+`streetScale(nominal, measured = nominal)`: seconds of the street's time one real second plays. 1 when the nominal
+speed is at most `BASE_SPEED` (`TURN_SPEEDS[1]`, the 1x speed), else `max(1, measured / BASE_SPEED)`: 2, 4 and 8 at
+2x, 4x and 8x when the clock keeps its pace, less on a slow device whose clock runs behind.
 
 - A unit is listed when it is in the incident's `unitHistory`, assigned to it, or has it as its job.
   - `here`: standing within 150 m of the incident on a job there (on scene, writing its report after the incident
     closed, or waiting for help with an injured officer at the same address).
-  - `near`: driving to the incident's own place with `(arriveAt - now) / 1000 / speed <= NEAR_S` (7 real seconds);
-    `eta` is those seconds.
+  - `near`: driving to the incident's own place with `(arriveAt - now) / 1000 / speed - played <= NEAR_S` (7 seconds
+    of the street's time: real seconds at 1x, under a real second at 8x); `eta` is those seconds.
   - `coming`: driving there, further away.
   - `left`: was here or sent here and is not any more (released, sent elsewhere, driving in a pursuit, transporting).
   - `takes`: `'arrest'`, `'hospital'` or `'ride'` when it left on a transport of this incident to the cells, to the
@@ -311,7 +321,7 @@ weapon (`Held`) is a pistol for the firearm tags, a knife for `weapon_knife`, el
 type Phase = 'open' | 'seen' | 'contact' | 'closing' | 'after';
 class Director {
   constructor(site: Site, cast: Cast, opts: { night: boolean; quiet?: boolean; wet?: boolean; parked?: readonly ParkedCar[] });
-  /** Follow the situation for `dt` real seconds. The first call settles the stage (see 8.6). */
+  /** Follow the situation for `dt` seconds of the street's own time (section 14). The first call settles the stage (see 8.6). */
   update(sit: Situation, dt: number): void;
   /** Everything on stage now, for the renderer. */
   frame(): Frame;
@@ -960,9 +970,9 @@ variable is set, and without it the scene page says that no sample is configured
 | `tests/cctv-site.test.ts` | every site is sound (nothing inside a house or in water, a free line to the spot) for every kind of place over forty seeds, and for a dozen of them the story is in the picture (the spot, a standing adult's size, the first crew's stretch and car from each end, the door, street rather than a wall), measured with its own projection checked against `projectPoint`; hand-made streets with what real tiles bring (a lane between house fronts, an incident inside a block, a quay, a dead end, a passage); null where nothing holds; a real town's points when the Florence sample is there |
 | `tests/cctv-coverage.test.ts` | the table of chances, a place has a camera or not for good, the four-digit number and the name, nothing left to see, the share of a real shift's incidents that can be watched |
 | `tests/cctv-cast.test.ts` | every template of the catalogue gets a kind at each of its places and a cast from a real incident without throwing; well-known templates get the expected kind; the choices a scene reads from its template (drunk, single, in the road, armed, chanting); the picture tells the card's story: every template and scenario that can make a `stop` has its line in `STOP_STORY`, variant by variant; a vehicle the card says has gone is not at the kerb (drive-offs, speeders, drivers who did not stop); a template whose variants differ shows the vehicle only for the variant that says it is there; a crash is of one vehicle, with somebody trapped inside, when its own card says so |
-| `tests/cctv-situation.test.ts` | a crew coming, near, here, then left over a real shift; other services; a pursuit; the outcome and the transports |
+| `tests/cctv-situation.test.ts` | a crew coming, near, here, then left over a real shift; other services; a pursuit; the outcome and the transports; `streetScale` at every speed; the etas of a step played in parts |
 | `tests/cctv-director.test.ts` | the stage before anyone comes; a patrol arrives (from the side the game says, from the open end of a dead end); what each kind of scene does; how it ends, every result; any moment is safe (opening in the middle, a closed incident, pause, the same frames from the same inputs, rapid changes, recalls); awkward streets and many crews; incidents of a real shift, traffic and passers-by, the cost of a step; what the reviewers found (crews driving up when the camera opens, a slowed clock, call-backs, stops and pursuits, arrests into the right car, the threat's distances, frames independent of how time is cut); what the films showed (arrests out of a door, officers left inside, water, smoke, chases, nobody on another's place); the parked cars solid; crews stopping where the camera sees them and the first patrol in the picture (a real town's points with `EPD_PMTILES_SAMPLE`), nobody out of the car before the game says on scene; the scenes as two reviewers wanted them (a vehicle that has gone, somebody trapped in a wreck, nobody inside anybody, the brawl's fall for the camera, crews getting out one after the other, aim kept until the cuffs are on, cuffing and the search at the car, the stretcher, the sheet and the cordon, the hose and the wrecks to the kerb, the crowd in knots, the window and the cover posts of a stop); the last pass after the reviewers (an arrest as one walk for two, never more than 1.5 m apart, for four kinds on five streets, and with parked cars, people about and one crew or two from the two ends; a crash with somebody hurt: nobody walks off while a wreck stands in the road, a wreck that moves has somebody at the wheel, and both drivers are by their cars afterwards; nobody holds their hands at their head for long; an officer who knelt by the patient gets up and steps back when the paramedics have them; out of a car door bent low for the first quarter of a second; the hose from the lorry to a nozzle aimed at the smoke, its crew before the burning house); what the verifiers of the last pass proved (a wreck kept from its kerb stands where it got to; the police are held by a wreck for 55 s after the end at most; no driver is left by a wreck when the last police crew has gone or none ever came; a camera opened after a crash has ended finds no driver by a wreck); after a tragedy the dead and the sheet (which names whom it covers) stay where they lie once the crews have gone, and a camera opened when it is long over finds the street empty; on every frame nobody inside a house, nothing jumping, moving vehicles on the road and in nothing, nobody left behind |
-| `tests/cctv-session.test.ts` | the session over a real shift with a fake view: frames with the incident's people and a patrol arriving, the clock and the light read at most every 2 s, dusk, pause, the measured pace, a crew getting out only once the game says on scene on a slow device, `expect`, the settled first frame (`stage`), the feed ending ('ended') after the street empties or when the incident leaves the simulation, the made-up street fallback, the same place twice |
+| `tests/cctv-session.test.ts` | the session over a real shift with a fake view: frames with the incident's people and a patrol arriving, the clock and the light read at most every 2 s, dusk, pause, the measured pace, a crew getting out only once the game says on scene on a slow device, the street two, four and eight times as fast at 2x, 4x and 8x and as at 1x at the real-time and call speeds, a patrol standing when the game says on scene at 1x, 4x and 8x, through a change of speed and a pause in its approach, a slow frame at 8x played in full, `expect`, the settled first frame (`stage`), the feed ending ('ended') after the street empties or when the incident leaves the simulation, the made-up street fallback, the same place twice |
 | `tests/cctv-lazy.test.ts` | the import guard (section 14); after a build, three.js only in the camera chunk and nothing of the camera in `sw.js` (skipped without `dist/`, required with `CCTV_DIST=1`: the CI job runs this file once more after its build with that set) |
 | `tests/sw.test.ts` | the camera chunk's name, neither it nor the body model precached, the licence file's entries |
 | `tests/visual-ui.test.ts` | the window's place on a desktop, the phone upright and on its side, the title bar never cutting the code or the number, the folded bar, reduced motion |
@@ -1069,19 +1079,38 @@ state or the phase changes. Game seconds per real second are `effectiveSpeed(sim
 the window is not shown (the phone's other tabs), the window is folded above a call, or the game is paused (a zoom
 then draws the standing frame once).
 
-The session (`session.ts`) reads the situation, steps the director by the real seconds (a step of at most 0.5 s),
-reads the light again at most every 2 real seconds (`ENV_EVERY_S`: dusk falls in seconds at the fastest speed), and
-draws with the burned-in texts: the camera's name top left, the game's date and clock top right ("23.10.2026 19:42"),
-`EPD v<version>` bottom right, and a recording dot that blinks once a second of the camera's own clock.
+The session (`session.ts`) reads the situation and steps the director by the real seconds of the frame (at most
+0.5 s, `MAX_DT`) times the street's scale (`CameraSession.scale`, `streetScale` of the nominal and the measured
+speed): at 1x and below the street plays in real seconds, at 2x, 4x and 8x two, four and eight times as fast, like a
+recording played faster. A new speed counts from the next frame, and nothing jumps: the director goes on from where
+it stands, and from 1x up an eta is the same number of the street's seconds at every speed (15 game seconds each),
+so a change of speed does not time a car anew. A pause keeps the scale it stood at. The step is played in parts of
+at most 0.5 s of the street (`PART_S`), each with the situation read again with the etas shortened by what the step
+has played (`played`), because the director plays at most 2 s at once and times a car anew when its eta is off by
+more than a second: a slow frame at 8x (4 s of the street, 40 of the director's steps of 0.1 s) is played in full.
+A frame at 8x and 12 frames a second costs about 0.13 ms (at 1x about 0.06 ms), a slow frame of 0.5 s at 8x about
+0.5 ms.
+What stays in real seconds whatever the speed: the frames a second, the picture's own life (the view is handed the
+director's frame with `t` set to the picture's own clock, which starts where the director's stood and runs in real
+seconds: the blue lights and hazards flash, the rain falls, the smoke rises, the grain and the torn lines run and the camera shakes at
+their real pace), the light read again at most every 2 real seconds (`ENV_EVERY_S`: dusk falls in seconds at the
+fastest speed), the 15 s of empty street before a finished feed ends, the pace windows and the opening. It draws with
+the burned-in texts: the camera's name top left, the game's date and clock top right ("23.10.2026 19:42"),
+`EPD v<version>` bottom right, and a recording dot that blinks once a real second (it stands while the game is
+paused).
 
 **The session's pace.** The game plays at most 250 ms of a slow frame, so on a slow device its clock runs behind
 the nominal speed. The picture follows the game's real clock, not the nominal speed: over windows of 0.5 real
 seconds (`PACE_WINDOW_S`) the session measures how far `sim.now` moved against the real time between camera frames,
 keeps that pace between 0.05 and 1.5 of the nominal speed (`PACE_MIN`, `PACE_MAX`), smooths it, and passes the
-nominal speed times the pace to `situationOf` (`CameraSession.speed`). The measuring starts again after a pause or a
-change of speed. Until the pace has been measured once, units and services that are `near` are handed to the
-director as still `coming`, so a crew never gets out on camera while the unit list still says it is on its way;
-half a second later it drives in on the measured speed.
+nominal speed times the pace (`CameraSession.speed`), divided by the street's scale, to `situationOf`. Above 1x the
+scale follows the measured clock too (8x on a device whose clock keeps half the pace plays the street at 4x). The
+measuring starts again after a pause or a change of speed. Until the pace has been measured once, units and services
+that are `near` are handed to the director as still `coming`, so a crew never gets out on camera while the unit list
+still says it is on its way; half a real second later it drives in on the measured speed. At 8x that half second is
+4 s of the street (60 game seconds): a camera opened in the last minute or two of game time of an approach sees the
+car stand up to about 7 of the street's seconds (under a real second) after the game says it is on scene, and its
+officers get out after that as usual. Opened earlier, the car stands when the game says on scene at every speed.
 
 **Disposal.** The view (its WebGL context, geometry, textures, render targets) is disposed when the window closes,
 when another incident's camera opens, when a new shift starts, when the game screen unmounts, when a retry starts,

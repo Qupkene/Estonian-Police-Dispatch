@@ -16,7 +16,7 @@ import { envAt, type Env } from './env';
 import { makeStreet } from './procedural';
 import type { Osd } from './render/view';
 import { buildSite } from './site';
-import { situationOf } from './situation';
+import { situationOf, streetScale } from './situation';
 import type { Frame, Situation } from './stage';
 import type { ParkedCar, Site, StreetData } from './types';
 import { lookOfAgency, lookOfUnit, type CarLook } from './vehicle';
@@ -36,8 +36,14 @@ export type SessionState = 'live' | 'ended';
 
 /** The light is read again at most this often (real seconds): at the fastest speed dusk falls in a few seconds. */
 export const ENV_EVERY_S = 2;
-/** A frame step longer than this (a tab coming back, a slow device) is played as this long. */
+/** A frame step longer than this many real seconds (a tab coming back, a slow device) is played as this long. */
 const MAX_DT = 0.5;
+/**
+ * A step of the street is played in parts of at most this many of its own seconds, each with the situation as it
+ * stands at its start (the etas shortened by what the step has played so far): at 8x a slow frame is 4 s of the
+ * street, and the director times a car anew when its eta is off by more than a second and plays at most 2 s at once.
+ */
+const PART_S = 0.5;
 /** Game seconds per real second assumed until the game has run once (the slowest co-op turn speed). */
 const FIRST_SPEED = 15;
 /**
@@ -51,10 +57,10 @@ const PACE_MIN = 0.05;
 const PACE_MAX = 1.5;
 /**
  * The situation as the director is to play it before the game clock's pace has been measured once: a unit or a
- * service about to arrive ('near') is held back as still on its way. Its eta is real seconds worked out from the
- * speed, and until the first window the speed is the nominal one: on a slow device the car would be planned to
+ * service about to arrive ('near') is held back as still on its way. Its eta is the street's seconds worked out from
+ * the speed, and until the first window the speed is the nominal one: on a slow device the car would be planned to
  * arrive (and its crew to get out) well before the game says it is on scene. Half a second later it drives in on
- * the measured speed.
+ * the measured speed (at 8x that half second is 4 s of the street).
  */
 function heldBack(sit: Situation): Situation {
   return {
@@ -91,6 +97,10 @@ export class CameraSession {
   private env: Env;
   private envAge = 0;
   private lastSpeed = FIRST_SPEED;
+  /** Seconds of the street's own time per real second (streetScale): 1 up to the 1x speed. */
+  private scaleNow = 1;
+  /** The picture's own clock, real seconds (the Frame.t the view is given): set from the director's first frame. */
+  private clock: number | null = null;
   /** The game clock's pace against the nominal speed (1: as fast), and the window it is being measured over. */
   private pace = 1;
   private paced = false;
@@ -161,9 +171,18 @@ export class CameraSession {
     return this.last;
   }
 
-  /** Game seconds per real second the street is played at: the nominal speed at the pace the game clock really keeps. */
+  /** Game seconds per real second the game clock runs at: the nominal speed at the pace the game clock really keeps. */
   get speed(): number {
     return this.lastSpeed;
+  }
+
+  /**
+   * Seconds of the street's own time one real second plays: 1 up to the game's 1x speed, then as many times faster as
+   * the game runs (2, 4, 8), like a recording played faster. The picture's own life (the blue lights, rain, grain, the
+   * recording dot) and the session's own timing (the light, the empty street at the end) stay in real seconds.
+   */
+  get scale(): number {
+    return this.scaleNow;
   }
 
   /**
@@ -175,8 +194,8 @@ export class CameraSession {
     if (this.last) return this.last;
     const incident = sim.incidents[this.incidentId];
     if (!incident) return null;
-    this.play(situationOf(sim, incident, this.lastSpeed, false), 0);
-    this.last = this.director.frame();
+    this.play(sim, incident, false, 0);
+    this.last = this.framed();
     this.lastClock = `${ddmmyyyy(sim.now)} ${hhmm(sim.now)}`;
     return this.last;
   }
@@ -225,17 +244,20 @@ export class CameraSession {
     }
     const step = paused ? 0 : Math.min(MAX_DT, Math.max(0, dt));
     this.lastSpeed = this.follow(sim, speed, paused, dt);
+    // A pause keeps the scale it stood at; a new speed counts from this frame on.
+    if (!paused) this.scaleNow = streetScale(speed, this.lastSpeed);
     // The first update settles the stage as the game stands, also when the camera is opened in a paused game.
     const first = !this.last;
-    this.play(situationOf(sim, incident, this.lastSpeed, paused && !first), step);
+    this.play(sim, incident, paused && !first, step * this.scaleNow);
     this.realT += step;
+    if (this.clock !== null) this.clock += step;
     this.envAge += step;
     if (this.envAge >= ENV_EVERY_S) {
       this.envAge = 0;
       this.env = envAt(sim.now, incident.location.coord, sim.weather);
       this.view.setEnv(this.env);
     }
-    this.last = this.director.frame();
+    this.last = this.framed();
     this.lastClock = `${ddmmyyyy(sim.now)} ${hhmm(sim.now)}`;
     this.draw();
     if (incident.state === 'closed' && this.director.phase === 'after') {
@@ -244,9 +266,22 @@ export class CameraSession {
     }
   }
 
-  /** Step the director by `step` real seconds in this situation, and tell the view which vehicles are on their way. */
-  private play(sit: Situation, step: number) {
-    this.director.update(this.paced ? sit : heldBack(sit), step);
+  /**
+   * Step the director by `step` seconds of the street's own time as the game stands, in parts of at most PART_S, and
+   * tell the view which vehicles are on their way. The etas are in the street's seconds: game seconds over the speed
+   * divided by the scale (15 game seconds a second from 1x up), so a car stops when the game says it is on scene at
+   * every speed.
+   */
+  private play(sim: SimState, incident: Incident, paused: boolean, step: number) {
+    const rate = this.lastSpeed / this.scaleNow;
+    let sit: Situation;
+    let played = 0;
+    do {
+      const part = Math.min(PART_S, step - played);
+      sit = situationOf(sim, incident, rate, paused, played);
+      this.director.update(this.paced ? sit : heldBack(sit), part);
+      played += part;
+    } while (step - played > 1e-9);
     if (!this.view.expect) return;
     const looks: CarLook[] = [];
     for (const u of sit.units) if (u.state === 'coming' || u.state === 'near') looks.push(lookOfUnit(u.type, u.model));
@@ -258,6 +293,17 @@ export class CameraSession {
     if (key === this.comingKey) return;
     this.comingKey = key;
     if (looks.length) this.view.expect(looks);
+  }
+
+  /**
+   * The director's frame with the picture's own clock: the view flashes the blue lights, blinks the hazards, moves
+   * the rain and the grain by Frame.t, and those keep their real pace at every speed. The clock starts where the
+   * director's stood when the stage was settled and runs on in real seconds.
+   */
+  private framed(): Frame {
+    const f = this.director.frame();
+    this.clock ??= f.t;
+    return { ...f, t: this.clock };
   }
 
   /** Draw the last frame again (a zoom or a pan while the game stands). */
