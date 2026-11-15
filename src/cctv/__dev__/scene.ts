@@ -3,11 +3,16 @@
 // real incident of a shift), the Director, and a situation scripted over time in the address.
 //
 // The street:
-//   place=<PlaceKind>&seed=<n>      a made-up street of a kind of place (procedural.ts)
+//   place=<PlaceKind>&seed=<n>      a made-up street of a kind of place (procedural.ts); name=<text> is the place's
+//                                    own name, for its board
 //   plain=dead|narrow|far|square     a hand-made street: a dead end, a lane 3.6 m wide, the spot far from the road
 //   tiles=<lng>,<lat>               a real street read from a map archive in the folder the dev server was started
 //                                    with (EPD_MAP_TILES=<folder>, see vite.harness.config.ts); archive=<file name>
-//                                    names the file in it (default sample.pmtiles)
+//                                    names the file in it (default sample.pmtiles). With place=<PlaceKind> (and
+//                                    name=<text>) the street is read for that place as the game reads it (tiles.ts
+//                                    readStreet: the map's own point for the place, the scene before its front,
+//                                    what stands before it); without, around the bare point as before. The log
+//                                    line then says what the site made of the place (place=, own=, front=).
 // The cast:
 //   kind=<SceneKind>&roles=svcw&cars=involved,suspect   roles as letters: s suspect, v victim, c caller, w witness,
 //                                    d driver, e extra; flags down, runs, mayFlee, armed, drunk, live=0, single,
@@ -124,12 +129,14 @@ async function streetOf(): Promise<StreetData> {
       throw new Error(log.textContent);
     }
     const file = `${__EPD_MAP_TILES__.replace(/\/$/, '')}/${q.get('archive') ?? 'sample.pmtiles'}`;
-    const got = await readStreet(new PMTiles(`/@fs${file}`), [lng, lat], { timeoutMs: 20000 });
+    const kind = q.get('place') as PlaceKind | null;
+    const place = kind ? { kind, name: q.get('name') } : undefined;
+    const got = await readStreet(new PMTiles(`/@fs${file}`), [lng, lat], { timeoutMs: 20000, place });
     if (got) return got;
     log.textContent = `no street at ${tiles} in ${file}: a made-up one instead`;
   }
   if (q.get('plain')) return plainStreet(q.get('plain')!);
-  return makeStreet((q.get('place') ?? 'street') as PlaceKind, seed);
+  return makeStreet((q.get('place') ?? 'street') as PlaceKind, seed, q.get('name'));
 }
 
 // ------------------------------------------------------------------------------------------------ the light
@@ -331,9 +338,11 @@ function situation(t: number, site: Site): Situation {
 
 // ------------------------------------------------------------------------------------------------ the scene
 
-const street = await streetOf();
-const site = buildSite(street, seed);
-if (!site) throw new Error(`no site on this street (${street.source}: ${street.roads.length} roads, ${street.buildings.length} buildings)`);
+const read = await streetOf();
+const site = buildSite(read, seed);
+if (!site) throw new Error(`no site on this street (${read.source}: ${read.roads.length} roads, ${read.buildings.length} buildings)`);
+// The site's own street: the one read, with what stands before the place added.
+const street = site.street;
 if (q.get('near')) {
   const d = Number(q.get('near'));
   const a = num('angle', 0.6);
@@ -400,6 +409,7 @@ function draw() {
     `t=${t.toFixed(1)} phase=${director?.phase ?? 'closed-camera'} people=${f.people.length} cars=${f.cars.length} ` +
     `kind=${cast.kind} ${states}${sit.outcome ? ' out=' + sit.outcome.result : ''}${sit.paused ? ' PAUSED' : ''} ` +
     `src=${street.source} night=${night ? 1 : 0}` +
+    (site!.place ? ` place=${site!.place.kind} own=${site!.place.building ?? '-'} front=${site!.place.front ? 1 : 0}` : '') +
     (card ? `\ncard: ${card}` : '') +
     // who=1: everybody on stage with where they stand and what they do, for finding a figure in the picture.
     (flag('who') ? '\n' + f.people.map((p) => `${p.id} ${p.pos.map((v) => v.toFixed(1)).join(',')} yaw=${p.yaw.toFixed(2)}`).join('\n') : '') +

@@ -133,11 +133,14 @@ export type CellName = keyof typeof CELLS;
 
 export const uvOf = (name: CellName, u0 = 0, u1 = 1, v0 = 0, v1 = 1): UV4 => cellUV(CELLS[name][0], CELLS[name][1], 1, 1, u0, u1, v0, v1);
 
-/** How many shop boards there are, and the painting of one. */
+/**
+ * How many shop boards there are, and the painting of one. `blank`: only its ground, without the word (the strip
+ * at its left end, which the letters never reach): a board that names nothing.
+ */
 export const BOARDS = 12;
-export function boardUV(i: number): UV4 {
+export function boardUV(i: number, blank = false): UV4 {
   const k = ((i % BOARDS) + BOARDS) % BOARDS;
-  return cellUV(CELLS.boards[0] + Math.floor(k / 4), CELLS.boards[1], 1, 1, 0, 1, 1 - ((k % 4) + 1) / 4, 1 - (k % 4) / 4);
+  return cellUV(CELLS.boards[0] + Math.floor(k / 4), CELLS.boards[1], 1, 1, blank ? 0.012 : 0, blank ? 0.03 : 1, 1 - ((k % 4) + 1) / 4, 1 - (k % 4) / 4);
 }
 
 type G = CanvasRenderingContext2D;

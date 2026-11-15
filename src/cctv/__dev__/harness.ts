@@ -1,12 +1,17 @@
 // Dev-only: draws a camera picture without the game, for looking at the renderer (see harness.html).
+//   kind=<PlaceKind>&seed=<n>   a made-up street of a kind of place; name=<text> is the place's own name (its board)
+//   pk=<PlaceKind>&pname=<text> dress the building nearest the spot as a place of this kind by hand, whatever the
+//                               street is (the renderer's side of Site.place on its own: every kind on one street)
+//   hour, month, weather, temp, wind; near=<m>&angle&h&fov&at; zoom; cast=0 (the street alone); clean=1; hide=...
 import type { PlaceKind, Weather } from '@/sim/types';
 import { VERSION } from '@/ui/screens/shell/helpers';
 import { envAt } from '../env';
 import { lookOfCrew, lookOfStranger, poseOf, type Act, type Gait } from '../figure';
-import { along, left, mul, yawOf } from '../math';
+import { along, dist, left, mul, nearestOnRing, norm, ringArea, sub, yawOf, type V2 } from '../math';
 import { makeStreet } from '../procedural';
 import { makeAtlas } from '../render/facades';
 import { loadHumanBase } from '../render/human';
+import { frontEdgeOf } from '../render/place';
 import { CameraView, type CarFrame, type Frame, type PersonFrame } from '../render/view';
 import { buildSite, onDrive } from '../site';
 import { lookOfAgency, lookOfAnyCar, lookOfUnit } from '../vehicle';
@@ -50,8 +55,35 @@ const weatherKind = (q.get('weather') ?? 'clear') as Weather['kind'];
 const temp = Number(q.get('temp') ?? (month <= 2 || month === 12 ? -4 : 16));
 const log = document.getElementById('log')!;
 
-const street = makeStreet(kind, seed);
-const site = buildSite(street, seed)!;
+const site = buildSite(makeStreet(kind, seed, q.get('name')), seed)!;
+const street = site.street;
+const pk = q.get('pk') as PlaceKind | null;
+if (pk) {
+  // The own building by hand: the one with the site's door, else the nearest to the spot; its front the wall the
+  // camera sees best.
+  let own = site.door ? site.doorBuilding : -1;
+  if (own < 0) {
+    let best = Infinity;
+    street.buildings.forEach((b, i) => {
+      const d = b.open || b.ring.length < 3 ? Infinity : nearestOnRing(site.spot, b.ring).d;
+      if (d < best && d < 60) {
+        best = d;
+        own = i;
+      }
+    });
+  }
+  const b = own >= 0 ? street.buildings[own] : null;
+  const ring = b ? (ringArea(b.ring) > 0 ? b.ring : b.ring.slice().reverse()) : [];
+  const edge = b ? frontEdgeOf(site, ring, null) : null;
+  let front: { a: V2; b: V2; out: V2 } | null = null;
+  if (edge) {
+    const a = ring[edge.i];
+    const d = ring[(edge.i + 1) % ring.length];
+    const t = norm(sub(d, a));
+    front = { a: along(a, t, edge.s0), b: along(a, t, Math.min(edge.s1, dist(a, d))), out: [t[1], -t[0]] };
+  }
+  site.place = { kind: pk, name: q.get('pname'), building: b && front ? b.id : null, front };
+}
 // ?near=<metres>: look at the spot from close by and low, to inspect the models.
 if (q.get('near')) {
   const d = Number(q.get('near'));
@@ -179,7 +211,7 @@ const api = {
 (window as unknown as { __cctv: typeof api; __view: CameraView; __site: typeof site }).__cctv = api;
 (window as unknown as { __view: CameraView }).__view = view;
 (window as unknown as { __site: typeof site }).__site = site;
-const head = `kind=${kind} seed=${seed} source=${street.source} sun=${env.sunAlt.toFixed(1)} night=${env.night.toFixed(2)} cam=${site.camera.mount} h=${site.camera.height.toFixed(1)} buildings=${street.buildings.length}`;
+const head = `kind=${kind} place=${site.place ? `${site.place.kind}/${site.place.name ?? '-'}/own=${site.place.building ?? '-'}` : '-'} seed=${seed} source=${street.source} sun=${env.sunAlt.toFixed(1)} night=${env.night.toFixed(2)} cam=${site.camera.mount} h=${site.camera.height.toFixed(1)} buildings=${street.buildings.length}`;
 log.textContent = head;
 if (!q.get('manual')) {
   let last = performance.now();

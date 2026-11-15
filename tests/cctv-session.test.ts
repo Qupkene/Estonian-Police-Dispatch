@@ -12,7 +12,8 @@ import type { Incident, NewShiftOptions, SimState, Unit } from '@/sim/types';
 import type { CameraInfo } from '@/cctv/coverage';
 import type { Env } from '@/cctv/env';
 import type { Osd } from '@/cctv/render/view';
-import { AFTER_HOLD_S, CameraSession, ENV_EVERY_S, type SessionView } from '@/cctv/session';
+import { dist, frameAt } from '@/cctv/math';
+import { AFTER_HOLD_S, CameraSession, ENV_EVERY_S, mapPose, type SessionView } from '@/cctv/session';
 import type { CarFrame, Frame } from '@/cctv/stage';
 import type { Site, StreetData } from '@/cctv/types';
 
@@ -484,5 +485,87 @@ describe('cctv session: one open camera over a shift', () => {
     expect(JSON.stringify(b.cast)).toBe(JSON.stringify(a.cast));
     const c = new CameraSession(new FakeView(), s, inc, { ...CAMERA, seed: 999 }, null, VERSION, { quiet: true });
     expect(JSON.stringify(c.site)).not.toBe(JSON.stringify(a.site));
+  });
+
+  it("tells a made-up street the incident's place: a house of the street is the bar, with its name", () => {
+    const { s, inc } = fight();
+    const bar: Incident = { ...inc, location: { ...inc.location, placeKind: 'bar', placeName: 'Kuku klubi' } };
+    const cam = new CameraSession(new FakeView(), s, bar, CAMERA, null, VERSION, { quiet: true });
+    expect(cam.site.place).toMatchObject({ kind: 'bar', name: 'Kuku klubi' });
+    expect(cam.site.street.buildings.some((b) => b.id === cam.site.place!.building)).toBe(true);
+    expect(cam.site.place!.front).not.toBeNull();
+    const plain: Incident = { ...inc, location: { ...inc.location, placeKind: 'street', placeName: undefined } };
+    expect(new CameraSession(new FakeView(), s, plain, CAMERA, null, VERSION, { quiet: true }).site.place).toBeNull();
+  });
+
+  it("the session's street is the site's own, with what stands before the place added to the map's", () => {
+    const { s, inc } = fight();
+    const read: StreetData = {
+      source: 'tiles',
+      radius: 160,
+      roads: [{ cls: 'secondary', pts: [[-150, -20], [150, -20]], width: 7, oneway: 0, walk: true }],
+      buildings: [],
+      areas: [],
+      origin: [24.75, 59.44],
+      place: { kind: 'gasstation', name: 'Olerex', at: [0, 0] },
+    };
+    const cam = new CameraSession(new FakeView(), s, inc, CAMERA, read, VERSION, { quiet: true });
+    expect(cam.street).toBe(cam.site.street);
+    expect(cam.street.source).toBe('tiles');
+    expect(cam.street.buildings.some((b) => b.open && b.area >= 80)).toBe(true);
+    expect(read.buildings.length).toBe(0);
+  });
+});
+
+describe('cctv session: where the camera is on the map', () => {
+  const ORIGIN: [number, number] = [24.7536, 59.437];
+  const read: StreetData = {
+    source: 'tiles',
+    radius: 160,
+    roads: [{ cls: 'residential', pts: [[-150, -6], [150, -6]], width: 5.6, oneway: 0, walk: true }],
+    buildings: [{ id: 1, ring: [[-12, 2], [12, 2], [12, 14], [-12, 14]], height: 9, base: 0, area: 288, roof: 'flat' }],
+    areas: [],
+    origin: ORIGIN,
+  };
+
+  it('gives the camera, the spot, the bearing, the opening and the reach in map coordinates', () => {
+    const { s, inc } = fight();
+    for (const seed of [1, 214, 999, 4242]) {
+      const { site } = new CameraSession(new FakeView(), s, inc, { ...CAMERA, seed }, read, VERSION, { quiet: true });
+      const pose = mapPose(site)!;
+      const frame = frameAt(ORIGIN);
+      expect(dist(frame.toLocal(pose.at), site.camera.pos)).toBeLessThan(0.01);
+      expect(dist(frame.toLocal(pose.spot), site.spot)).toBeLessThan(0.01);
+      // Degrees clockwise from north: east of north is positive x.
+      const dx = site.camera.target[0] - site.camera.pos[0];
+      const dy = site.camera.target[1] - site.camera.pos[1];
+      const want = ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360;
+      expect(Math.abs(((pose.bearing - want + 540) % 360) - 180)).toBeLessThan(1e-6);
+      expect(pose.fovH).toBeCloseTo((2 * Math.atan(Math.tan((site.camera.fov * Math.PI) / 360) * (16 / 9)) * 180) / Math.PI, 6);
+      expect(pose.fovH).toBeGreaterThan(site.camera.fov);
+      expect(pose.reach).toBeGreaterThanOrEqual(Math.min(90, dist(site.camera.pos, site.spot)));
+      expect(pose.reach).toBeGreaterThanOrEqual(20);
+      expect(pose.reach).toBeLessThanOrEqual(90);
+    }
+  });
+
+  it('north is 0, east 90, south 180, west 270', () => {
+    const { s, inc } = fight();
+    const { site } = new CameraSession(new FakeView(), s, inc, CAMERA, read, VERSION, { quiet: true });
+    const looking = (target: [number, number]) => mapPose({ ...site, camera: { ...site.camera, pos: [0, 0], target } })!.bearing;
+    expect(looking([0, 10])).toBeCloseTo(0, 6);
+    expect(looking([10, 0])).toBeCloseTo(90, 6);
+    expect(looking([0, -10])).toBeCloseTo(180, 6);
+    expect(looking([-10, 0])).toBeCloseTo(270, 6);
+    expect(looking([-10, 10])).toBeCloseTo(315, 6);
+  });
+
+  it('a made-up street is nowhere on the map: no pose', () => {
+    const { s, inc } = fight();
+    const made = new CameraSession(new FakeView(), s, inc, CAMERA, null, VERSION, { quiet: true });
+    expect(mapPose(made.site)).toBeNull();
+    // Nor a map street that does not say where it was read.
+    const { origin: _origin, ...nowhere } = read;
+    expect(mapPose(new CameraSession(new FakeView(), s, inc, CAMERA, nowhere, VERSION, { quiet: true }).site)).toBeNull();
   });
 });

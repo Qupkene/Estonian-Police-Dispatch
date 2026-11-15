@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 
 // Kaamerad (docs/CCTV.md section 14): a street fight under a surveillance camera. The card shows the camera, the
@@ -500,5 +501,84 @@ test.describe('surveillance camera without its chunk', () => {
     const reload = page.waitForEvent('framenavigated', { timeout: SLOW });
     await button.click();
     await reload;
+  });
+});
+
+// The map shows the camera (src/map/cameraCone.ts): where it hangs, which way it looks and how far, while its picture
+// is live. Only a street read from the map's own archive has a place on the map (a made-up one has none), and the
+// game's archive is not in the repository: a sample archive (EPD_PMTILES_SAMPLE, Florence at zoom 15, the one the
+// unit tests read) is served in its place and the fight is put in that city. Without it the case is skipped.
+test.describe('surveillance camera on the map', () => {
+  const SAMPLE = process.env.EPD_PMTILES_SAMPLE;
+  // The route below must see the archive's requests, not the service worker.
+  test.use({ serviceWorkers: 'block' });
+
+  /** The sample archive in place of the game's street file, with the byte ranges the map and the camera ask for. */
+  async function serveSample(page: Page, file: string) {
+    const data = readFileSync(file);
+    await page.route('**/tiles/estonia.pmtiles', (route) => {
+      const m = /bytes=(\d+)-(\d*)/.exec(route.request().headers()['range'] ?? '');
+      if (!m) return route.fulfill({ status: 200, body: data, headers: { 'content-type': 'application/octet-stream', 'accept-ranges': 'bytes' } });
+      const a = Number(m[1]);
+      const b = Math.min(m[2] ? Number(m[2]) : data.length - 1, data.length - 1);
+      return route.fulfill({
+        status: 206,
+        body: data.subarray(a, b + 1),
+        headers: { 'content-type': 'application/octet-stream', 'accept-ranges': 'bytes', 'content-range': `bytes ${a}-${b}/${data.length}` },
+      });
+    });
+  }
+
+  test('the view cone is drawn while the picture is live, follows its zoom and goes when the window closes', async ({ page }) => {
+    test.skip(!SAMPLE, 'needs EPD_PMTILES_SAMPLE, a street archive to read the camera street from');
+    test.setTimeout(240_000);
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await serveSample(page, SAMPLE!);
+    await bootAndLegacyLogin(page);
+    await epd(
+      page,
+      `return e.game.getState().startShift({ seed: 2041, regionId: 'pohja', mode: 'free', difficulty: 'normal',
+         start: Date.UTC(2026, 9, 16, 9, 0), hours: 8, playerName: 'Test', weather: 'clear' })
+       .then(() => e.game.getState().setSpeed(0));`,
+    );
+    await expect.poll(() => screen(page), { timeout: 20_000 }).toBe('game');
+    // A street fight in the middle of the sample's city where a camera sees it.
+    const id = await epd<string | null>(
+      page,
+      `const g = e.game.getState(); const s = g.sim; const { cmd } = e.engine;
+       for (let i = 0; i < 80; i++) {
+         const a = i * 2.39996, r = 0.0006 + (i % 9) * 0.0004;
+         const id = cmd.directorSpawn(s, { templateId: 'violence_bar_fight_outside', coord: [11.2556 + Math.cos(a) * r * 1.4, 43.7696 + Math.sin(a) * r] });
+         if (!id) continue;
+         const inc = s.incidents[id];
+         // The region knows no place there: a street of the city, as a call from it would give.
+         inc.location = { ...inc.location, placeKind: 'street', address: 'Via Test 1', city: 'Firenze' };
+         if (e.camera.cameraOf(inc, s.now)) {
+           inc.expiresAt = undefined;
+           g.select({ incidentId: id }, 'incident');
+           g.bump();
+           return id;
+         }
+         delete s.incidents[id];
+         s.incidentOrder = s.incidentOrder.filter((x) => x !== id);
+       }
+       return null;`,
+    );
+    expect(id, 'a street fight under a camera').not.toBeNull();
+    const map = page.locator('.epdm');
+    await page.locator(`[data-camera-toggle="${id}"]`).click();
+    // Connecting: nothing of the camera on the map yet.
+    await expect(map).toHaveAttribute('data-camera-cone', '0', { timeout: SLOW });
+    await expect.poll(() => camState(page), { timeout: 60_000, intervals: [500] }).toBe('live');
+    // Live: the cone's three bands, its outline, the camera and the spot.
+    await expect(map).toHaveAttribute('data-camera-cone', '6', { timeout: SLOW });
+    // Zoomed in, it is drawn again (narrower: tests/map-camera-cone.test.ts) and stays.
+    await page.locator('.gm-cam__btn--zoom').nth(1).click();
+    await expect(map).toHaveAttribute('data-camera-cone', '6', { timeout: SLOW });
+    await page.getByTestId('camera-close').click();
+    await expect(win(page)).toHaveCount(0, { timeout: SLOW });
+    await expect(map).toHaveAttribute('data-camera-cone', '0', { timeout: SLOW });
+    expect(errors, errors.join('\n')).toEqual([]);
   });
 });

@@ -497,6 +497,7 @@ export default {
     en: 'Wheel zooms, dragging pans, a double click resets',
   },
   'game.cam.drag': { et: 'Lohista akent', en: 'Drag to move the window' },
+  'game.cam.onMap': { et: 'Kaardil on näha kaamera asukoht ja vaateväli', en: 'The map shows where the camera is and what it sees' },
 
   // ── Director ──────────────────────────────────────────────────────────────
   'game.dir.placeIncident': { et: 'Klõpsa kaardil, kuhu sündmus paigutada', en: 'Click the map to place the event' },

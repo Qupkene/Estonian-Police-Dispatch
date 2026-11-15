@@ -14,6 +14,10 @@
  * line ends before a house that stands on its road, and where the nearest wall is some way off the door is on the
  * wall the camera sees.
  *
+ * A street read or made for a place (`StreetData.place`: a petrol station, a bank, a car park) is first given what
+ * stands before the place (place.ts), and the scene is wanted before the front of the place's own building, with its
+ * door on that front and the front in the picture: a place on a road the building does not face costs more.
+ *
  * Pure: no DOM, no three.js.
  */
 import {
@@ -42,7 +46,19 @@ import {
   type Rand,
   type V2,
 } from './math';
-import { CAR_ROADS, type Building, type CameraPose, type DriveLine, type Lamp, type Road, type Site, type StreetData } from './types';
+import { isShown, settlePlace, wallAt, type Front } from './place';
+import {
+  CAR_ROADS,
+  type Building,
+  type CameraPose,
+  type DriveLine,
+  type Lamp,
+  type PlaceHint,
+  type Road,
+  type Site,
+  type SitePlace,
+  type StreetData,
+} from './types';
 
 /** Vehicles are followed this far from the incident. */
 export const DRIVE_RADIUS = 120;
@@ -86,6 +102,22 @@ const FIT_MARGIN = 0.16;
 /** Where the spot is wanted in the picture's height: a little above the middle (-1 bottom, 1 top). */
 const SPOT_Y = 0.1;
 const DEG = Math.PI / 180;
+/** A door is looked for within this many metres of the spot. */
+const DOOR_REACH_M = 32;
+/** A spot within this many metres of the own building's front, on its side and with nothing between, is before it. */
+const FRONT_NEAR_M = 30;
+/** What a place costs that is not before the front of the incident's own building (more than the next road does). */
+const OFF_FRONT_COST = 6;
+
+/** The place the incident names, as a site is built for it. */
+interface Own {
+  hint: PlaceHint;
+  /** Its own building (index into street.buildings), or -1. */
+  index: number;
+  front: Front | null;
+  /** What stands before it that the picture should hold (a canopy's middle, the bays, the shelters). */
+  focus: V2[];
+}
 
 /** How much less a road is wanted as the drive line (metres added to its distance). */
 function reluctance(r: Road): number {
@@ -485,12 +517,18 @@ interface Subject {
   carB: number[] | null;
   /** The door, when the scene is at one. */
   door: number[];
+  /** What says which place this is: what stands before it, and its own front's door when the scene is not at it. */
+  extra: number[];
+  /** Which of `extra` is the own front's door (-1: none). */
+  ownDoor: number;
+  /** The door at the scene is the place's own. */
+  ownNear: boolean;
 }
 
 /** May a crew come from this end of the road? Not out of a dead end while the other end is open (the director's rule). */
 const comesFrom = (d: DriveLine, a: boolean) => !(a ? d.deadA : d.deadB) || (a ? d.deadB : d.deadA);
 
-function subjectOf(place: Place): Subject {
+function subjectOf(place: Place, own: Own | null): Subject {
   const { drive, spot, dir, side } = place;
   const n = mul(left(dir), side);
   const marks: Mark[] = [];
@@ -530,7 +568,16 @@ function subjectOf(place: Place): Subject {
     const p = along(place.door, place.doorOut, 0.3);
     door.push(add(p, 0.1), add(p, 4));
   }
-  return { place, marks, group, road, ends, carA, carB, door };
+  const extra: number[] = [];
+  let ownDoor = -1;
+  if (own) {
+    for (const p of own.focus) if (dist(p, spot) < 45) extra.push(add(p, 1.5));
+    if (own.front && !door.length && dist(own.front.door, spot) < 45) {
+      ownDoor = extra.length;
+      extra.push(add(along(own.front.door, own.front.out, 0.3), 2.2));
+    }
+  }
+  return { place, marks, group, road, ends, carA, carB, door, extra, ownDoor, ownNear: !!own && door.length > 0 && place.doorBuilding === own.index };
 }
 
 /** The direction and the opening that hold a set of points in the picture, or null when no lens here does. */
@@ -679,7 +726,13 @@ function rate(sub: Subject, vis: readonly boolean[], c: CameraPose, mountCost: n
   }
   cost -= beyond * 0.03;
 
-  for (const i of sub.door) if (!sees(i, 0.03)) cost += 1;
+  // The place's own door at the scene comes before what stands before the place.
+  for (const i of sub.door) if (!sees(i, 0.03)) cost += sub.ownNear ? 1.5 : 1;
+  // What says which place this is: the first of what stands before it (the canopy, the bays) weighs nearly as much as
+  // the road the crews stop on, the own front's door as much as a door at the scene.
+  sub.extra.forEach((i, k) => {
+    if (!sees(i, 0.02)) cost += k === sub.ownDoor ? 1 : k === 0 ? 2.5 : 0.7;
+  });
   // A door seen along its own wall is a sliver: a camera across the way shows who comes out of it.
   const { door, doorOut } = sub.place;
   if (sub.door.length && door && doorOut) cost += Math.max(0, SQUARE_ON - facingOf(c, door, doorOut)) * 3;
@@ -690,9 +743,9 @@ function rate(sub: Subject, vis: readonly boolean[], c: CameraPose, mountCost: n
 /**
  * How much of a picture is houses instead of street: rays through a grid over the frame, each followed to the
  * ground or to the first house. A wall or a roof right before the lens weighs most; then the lower part of the
- * picture, where the street should be. Added to a camera's `rate`.
+ * picture, where the street should be. Added to a camera's `rate`. `strict`: for a place's camera (see below).
  */
-function shutIn(g: Ground, c: CameraPose): number {
+function shutIn(g: Ground, c: CameraPose, strict: boolean): number {
   const l = lensOf(c);
   let rays = 0;
   let near = 0;
@@ -720,7 +773,10 @@ function shutIn(g: Ground, c: CameraPose): number {
   }
   if (!rays || !low) return 0;
   // In a lane between house fronts every picture is half walls: this tells cameras at one place apart, no more.
-  return Math.min(1.5, (near / rays) * 3 + Math.max(0, 0.75 - lowGround / low));
+  const cost = Math.min(1.5, (near / rays) * 3 + Math.max(0, 0.75 - lowGround / low));
+  // Where a camera is also asked to show a place's own front, a wall or a roof right before the lens over more than
+  // a fifth of the picture is worse than a door or a board it misses: there it weighs on without a cap.
+  return strict ? cost + Math.max(0, near / rays - 0.2) * 8 : cost;
 }
 
 /** Is a road of the street a piece of the drive line? */
@@ -810,9 +866,9 @@ function mountsFor(g: Ground, place: Place, r: Rand): Mount[] {
 }
 
 /** The best camera for a place and how much it misses, or null when nothing around has a free line to the spot. */
-function placeCamera(g: Ground, place: Place, seed: number): { camera: CameraPose; cost: number } | null {
+function placeCamera(g: Ground, place: Place, seed: number, own: Own | null): { camera: CameraPose; cost: number } | null {
   const r = rand(seed ^ 0x2545f491);
-  const subj = subjectOf(place);
+  const subj = subjectOf(place, own);
   const { spot, roadSpot, drive } = place;
   const marks = subj.marks;
   const fromA = comesFrom(drive, true);
@@ -823,6 +879,8 @@ function placeCamera(g: Ground, place: Place, seed: number): { camera: CameraPos
   const carB = subj.carB ?? [];
   // What a lens is asked to hold: everything; then one end's stretch; then the spot with the road beside it; then the spot.
   const sets: number[][] = [[...subj.group, ...subj.door, ...all, ...subj.ends, ...carA, ...carB]];
+  // And first of all with what says which place this is.
+  if (subj.extra.length) sets.unshift([...sets[0], ...subj.extra]);
   if (fromA && fromB) {
     sets.push([...subj.group, ...subj.door, ...stretch(-STOP_BEFORE_M, STOP_PAST_M), ...carA]);
     sets.push([...subj.group, ...subj.door, ...stretch(-STOP_PAST_M, STOP_BEFORE_M), ...carB]);
@@ -860,10 +918,13 @@ function placeCamera(g: Ground, place: Place, seed: number): { camera: CameraPos
   // before the lens, and for one without a door in it (where a house is near enough to have one).
   const farDoor = place.door !== null && !subj.door.length;
   const closer = (c: CameraPose) => {
-    let cost = shutIn(g, c);
+    let cost = shutIn(g, c, own !== null);
     if (farDoor) {
-      const d = seenDoor(g, c, spot);
+      const mine = own && own.index >= 0 ? seenDoor(g, c, spot, own.index) : null;
+      const d = mine ?? seenDoor(g, c, spot);
       cost += d ? Math.max(0, SQUARE_ON - facingOf(c, d.door, d.out)) * 1.5 : 0.5;
+      // The place's own building has no wall in the picture a door could be on.
+      if (own && own.index >= 0 && !mine) cost += 1.5;
     }
     return cost;
   };
@@ -1033,7 +1094,7 @@ interface Try {
 }
 
 /** The site at a place with its cost (the place's own and what its best camera misses), or null when the place does not hold. */
-function siteAt(g: Ground, t: Try, seed: number): { site: Site; cost: number } | null {
+function siteAt(g: Ground, t: Try, seed: number, own: Own | null): { site: Site; cost: number } | null {
   const street = g.street;
   const c = pointAlong(t.pts, t.s);
   const roadSpot = c.pt;
@@ -1094,35 +1155,60 @@ function siteAt(g: Ground, t: Try, seed: number): { site: Site; cost: number } |
     for (let s = Math.max(0, n.s - 22); s <= end; s += 0.5) if (g.inside(pointAlong(line, s).pt) >= 0) return null;
   }
 
-  // The nearest wall: the door people come out of.
+  // The door people come out of: the own building's front door when the scene is before that front, else on the
+  // nearest wall.
   let door: V2 | null = null;
   let doorOut: V2 | null = null;
   let doorBuilding = -1;
-  let bestD = 32;
-  street.buildings.forEach((b, i) => {
-    if (!solid(b) || b.ring.length < 3) return;
-    const n = nearestOnRing(spot, b.ring);
-    if (n.d < bestD) {
-      bestD = n.d;
-      door = n.pt;
-      doorOut = n.normal;
-      doorBuilding = i;
+  const front = own?.front ?? null;
+  const ownRing = own && own.index >= 0 ? street.buildings[own.index].ring : null;
+  if (front) {
+    const before = dot(front.out, sub(spot, front.door)) > 0.5 && nearestOnSegment(spot, front.a, front.b).d <= FRONT_NEAR_M && g.clear(spot, along(front.door, front.out, 0.5));
+    if (!before) cost += OFF_FRONT_COST;
+    else if (dist(front.door, spot) < DOOR_REACH_M) {
+      door = front.door;
+      doorOut = front.out;
+      doorBuilding = own!.index;
     }
-  });
+  } else if (ownRing && nearestOnRing(spot, ownRing).d > FRONT_NEAR_M) cost += OFF_FRONT_COST / 2;
+  if (!door) {
+    let bestD = DOOR_REACH_M;
+    street.buildings.forEach((b, i) => {
+      if (!solid(b) || b.ring.length < 3) return;
+      const n = nearestOnRing(spot, b.ring);
+      // The own building's wall before another house's that is not much nearer.
+      const d = n.d - (own && i === own.index ? 6 : 0);
+      if (d < bestD && n.d < DOOR_REACH_M) {
+        bestD = d;
+        door = n.pt;
+        doorOut = n.normal;
+        doorBuilding = i;
+      }
+    });
+  }
 
   const place: Place = { drive, roadSpot, dir, side: t.side, spot, door, doorOut, doorBuilding };
-  const cam = placeCamera(g.near(spot, CAMERA_REACH_M), place, seed);
+  const near = g.near(spot, CAMERA_REACH_M);
+  const cam = placeCamera(near, place, seed, own);
   if (!cam) return null;
   const camera = cam.camera;
-  // Where the nearest wall is some way off (the scene is not at its door): the door is on the wall the camera sees
-  // best near the spot, so that what happens at a door happens in the picture.
-  if (door && dist(door, spot) > DOOR_NEAR_M) {
-    const other = seenDoor(g, camera, spot);
+  // Where the door is some way off (the scene is not at it): the door is on the wall the camera sees best near the
+  // spot, the own building's before any other, so that what happens at a door happens in the picture.
+  if (door && dist(door, spot) > DOOR_NEAR_M && !(own && doorBuilding === own.index && doorOut && doorSeen(near, camera, door, doorOut))) {
+    const other = (own && own.index >= 0 ? seenDoor(g, camera, spot, own.index) : null) ?? seenDoor(g, camera, spot);
     if (other) {
       door = other.door;
       doorOut = other.out;
       doorBuilding = other.index;
     }
+  }
+  // The place as the picture is to show it: its own building and the wall of it the scene is before (the wall the
+  // door is on when the door is the own building's, else the front that faces the road).
+  let sitePlace: SitePlace | null = null;
+  if (own && isShown(own.hint.kind)) {
+    const b = own.index >= 0 ? street.buildings[own.index] : null;
+    const wall = b ? wallAt(b, door && doorBuilding === own.index ? door : front ? front.door : nearestOnRing(spot, b.ring).pt) : null;
+    sitePlace = { kind: own.hint.kind, name: own.hint.name, building: b ? b.id : null, front: wall };
   }
   const site: Site = {
     street,
@@ -1140,6 +1226,7 @@ function siteAt(g: Ground, t: Try, seed: number): { site: Site; cost: number } |
     camera,
     lamps: placeLamps(street, drive, t.side, camera, t.road.walk),
     seen: seenStretch(g, drive, camera),
+    place: sitePlace,
   };
   return { site, cost: cost + cam.cost };
 }
@@ -1154,12 +1241,13 @@ function doorSeen(g: Ground, camera: CameraPose, door: V2, out: V2): boolean {
 /**
  * The place on a house wall near the spot that a camera sees best and a door can be at: within the 32 m a door is
  * looked for, a metre and a half from the wall's corners, with free ground before it; the nearest, but a wall seen
- * squarely before one seen along its own line. Null when the camera sees no such wall.
+ * squarely before one seen along its own line. Null when the camera sees no such wall. `only`: on that building alone.
  */
-function seenDoor(g: Ground, camera: CameraPose, spot: V2): { door: V2; out: V2; index: number } | null {
+function seenDoor(g: Ground, camera: CameraPose, spot: V2, only = -1): { door: V2; out: V2; index: number } | null {
   let best: { door: V2; out: V2; index: number } | null = null;
-  let bestScore = 32;
-  for (const m of g.housesNear(spot, 32)) {
+  let bestScore = DOOR_REACH_M;
+  for (const m of g.housesNear(spot, DOOR_REACH_M)) {
+    if (only >= 0 && m.index !== only) continue;
     const ccw = ringArea(m.ring) > 0;
     for (let i = 0, j = m.ring.length - 1; i < m.ring.length; j = i++) {
       const a = m.ring[j];
@@ -1174,7 +1262,7 @@ function seenDoor(g: Ground, camera: CameraPose, spot: V2): { door: V2; out: V2;
       for (let k = 1.5; k <= len - 1.5; k += 1.5) {
         const q = along(a, e, k);
         const d = dist(q, spot);
-        if (d >= 32) continue;
+        if (d >= DOOR_REACH_M) continue;
         const score = d + Math.max(0, SQUARE_ON - facingOf(camera, q, out)) * 40;
         if (score >= bestScore || g.wallDist(along(q, out, 0.8), 0.4) < 0.4 || g.water(along(q, out, 0.8))) continue;
         if (!doorSeen(g, camera, q, out)) continue;
@@ -1234,8 +1322,20 @@ const SHIFTS: readonly (readonly [number, number])[] = [
 /**
  * The site of an incident at the scene's origin, or null when the street data has no road near enough or no place
  * on its roads that holds (the caller then makes a street up, src/cctv/procedural.ts).
+ *
+ * A street that names its place (`street.place`) is first dressed for it (place.ts settlePlace: a canopy, a
+ * forecourt, bays, shelters), so `Site.street` is that street with what was added, and `Site.place` says what the
+ * picture is to show.
  */
-export function buildSite(street: StreetData, seed: number): Site | null {
+export function buildSite(given: StreetData, seed: number): Site | null {
+  let street = given;
+  let own: Own | null = null;
+  if (given.place) {
+    const hint = given.place;
+    const settled = settlePlace(street, hint);
+    street = settled.street;
+    own = { hint, index: settled.plan.building, front: settled.plan.front, focus: settled.focus };
+  }
   const g = new Ground(street);
   const tries: Try[] = [];
   const taken = new Set<number>();
@@ -1288,7 +1388,7 @@ export function buildSite(street: StreetData, seed: number): Site | null {
     // The other side of the road is for where the incident's own side does not hold: it shows the same street.
     const key = `${t.line}:${t.s}`;
     if (t.other && held.has(key)) continue;
-    const got = siteAt(g, t, seed);
+    const got = siteAt(g, t, seed, own);
     if (!got) continue;
     held.add(key);
     places++;

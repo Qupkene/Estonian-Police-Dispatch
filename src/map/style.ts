@@ -52,10 +52,18 @@ export const SRC = {
   search: 'epd-search',
   heat: 'epd-heat',
   area: 'epd-area',
+  camera: 'epd-camera',
 } as const;
 
-export type OverlaySourceId = typeof SRC.stations | typeof SRC.routes | typeof SRC.pursuit | typeof SRC.search | typeof SRC.heat | typeof SRC.area;
-export const OVERLAY_SOURCES: OverlaySourceId[] = [SRC.stations, SRC.routes, SRC.pursuit, SRC.search, SRC.heat, SRC.area];
+export type OverlaySourceId =
+  | typeof SRC.stations
+  | typeof SRC.routes
+  | typeof SRC.pursuit
+  | typeof SRC.search
+  | typeof SRC.heat
+  | typeof SRC.area
+  | typeof SRC.camera;
+export const OVERLAY_SOURCES: OverlaySourceId[] = [SRC.stations, SRC.routes, SRC.pursuit, SRC.search, SRC.heat, SRC.area, SRC.camera];
 
 /** Label layers hidden in cinematic mode (route lines are hidden too). */
 export const LABEL_LAYERS = ['label-district', 'label-village', 'label-alev', 'label-city', 'label-city-major', 'stations-label', 'area-label'];
@@ -73,6 +81,20 @@ export const AREA_DIM: Record<MapStyleKey, { color: string; opacity: number; edg
   foto: { color: '#000000', opacity: 0.48, edge: '#9fc2ff', inside: 0 },
 };
 export const ROUTE_LAYERS = ['routes-casing', 'routes-line', 'routes-line-calm'];
+/** The open surveillance camera's view cone, its outline, the spot it shows and the camera itself (cameraCone.ts). */
+export const CAMERA_LAYERS = ['camera-cone', 'camera-cone-edge', 'camera-spot', 'camera-at'];
+
+/**
+ * The camera cone's colours on each base map: a mint green no other overlay uses (routes are blue, searches cyan,
+ * pursuits red, the area's night cover yellow), deeper on the light grey map; `fill` is the nearest band's opacity,
+ * `halo` the ring round the marks that keeps them apart from the base.
+ */
+export const CAMERA_CONE: Record<MapStyleKey, { color: string; fill: number; halo: string }> = {
+  tactical: { color: '#5ef2c0', fill: 0.3, halo: '#02060b' },
+  dark: { color: '#5ef2c0', fill: 0.28, halo: '#000000' },
+  maaamet: { color: '#00876a', fill: 0.26, halo: '#ffffff' },
+  foto: { color: '#7dffd2', fill: 0.34, halo: '#000000' },
+};
 export const HEAT_LAYER = 'heat';
 export const RASTER_LAYER = 'raster';
 
@@ -247,6 +269,8 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     [SRC.search]: { type: 'geojson', data: ov[SRC.search] ?? EMPTY, maxzoom: 14 },
     [SRC.heat]: { type: 'geojson', data: ov[SRC.heat] ?? EMPTY, maxzoom: 12 },
     [SRC.area]: { type: 'geojson', data: ov[SRC.area] ?? EMPTY, maxzoom: 12, tolerance: 0.4 },
+    // A street's few metres: kept exact up to the map's closest zoom.
+    [SRC.camera]: { type: 'geojson', data: ov[SRC.camera] ?? EMPTY, maxzoom: 20, tolerance: 0.1 },
   };
   if (street) sources[SRC.street] = streetSource(opts.base);
   rasters.forEach((r, i) => {
@@ -548,6 +572,24 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     },
   });
   const routeVis = opts.cinematic ? 'none' : 'visible';
+  // The open camera's view cone, under the routes and the markers: a fill that fades outwards and its outline.
+  const cam = CAMERA_CONE[styleKey];
+  add({
+    id: 'camera-cone',
+    type: 'fill',
+    source: SRC.camera,
+    filter: kindIs('band'),
+    layout: { visibility: routeVis },
+    paint: { 'fill-color': cam.color, 'fill-opacity': ['*', ['coalesce', ['get', 'o'], 0], cam.fill], 'fill-antialias': true },
+  });
+  add({
+    id: 'camera-cone-edge',
+    type: 'line',
+    source: SRC.camera,
+    filter: kindIs('edge'),
+    layout: { visibility: routeVis, 'line-join': 'round' },
+    paint: { 'line-color': cam.color, 'line-opacity': 0.85, 'line-width': interp([[13, 1], [17, 1.6]]) },
+  });
   add({
     id: 'routes-casing',
     type: 'line',
@@ -593,6 +635,35 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     paint: {
       'line-width': interp([[6, 2.5], [14, 4.5]]),
       'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, 'rgba(255,45,85,0)', 0.5, 'rgba(255,45,85,0.55)', 1, 'rgba(255,90,120,1)'],
+    },
+  });
+
+  // The spot the picture shows (a ring) and the camera (a dot), above the routes.
+  add({
+    id: 'camera-spot',
+    type: 'circle',
+    source: SRC.camera,
+    filter: kindIs('spot'),
+    layout: { visibility: routeVis },
+    paint: {
+      'circle-radius': interp([[13, 3.5], [17, 6]]),
+      'circle-color': cam.color,
+      'circle-opacity': 0.18,
+      'circle-stroke-color': cam.color,
+      'circle-stroke-width': 2,
+    },
+  });
+  add({
+    id: 'camera-at',
+    type: 'circle',
+    source: SRC.camera,
+    filter: kindIs('at'),
+    layout: { visibility: routeVis },
+    paint: {
+      'circle-radius': interp([[13, 3], [17, 4.5]]),
+      'circle-color': cam.color,
+      'circle-stroke-color': cam.halo,
+      'circle-stroke-width': 1.6,
     },
   });
 

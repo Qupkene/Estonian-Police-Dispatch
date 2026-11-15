@@ -13,13 +13,13 @@
  */
 import { streetTilesUrl } from '@/map/streetStyle';
 import { knownStreetProbe, openedStreetArchive } from '@/map/streetTiles';
-import type { Incident, SimState } from '@/sim/types';
+import type { Incident, LngLat, SimState } from '@/sim/types';
 import { PMTiles } from 'pmtiles';
 import type { Material, Mesh, Texture } from 'three';
 import type { CameraInfo } from './coverage';
 import { loadHumanBase, type HumanBase } from './render/human';
 import { CameraView, canRender } from './render/view';
-import { CameraSession, type SessionState } from './session';
+import { CameraSession, mapPose, type SessionState } from './session';
 import { readStreet, type TileArchive } from './tiles';
 import type { StreetData } from './types';
 
@@ -38,6 +38,12 @@ export interface CameraHandle {
   /** How many people and vehicles the last frame held (the window shows them to the tests). */
   readonly people: number;
   readonly cars: number;
+  /**
+   * Where the camera stands and looks, for the map: `at` where it hangs, `spot` where it happens, `bearing` the
+   * degrees clockwise from north that it looks along, `fovH` the picture's horizontal field of view in degrees at
+   * zoom 1, `reach` the metres the view cone is worth drawing to. Null when it cannot be told.
+   */
+  readonly pose: { at: LngLat; spot: LngLat; bearing: number; fovH: number; reach: number } | null;
   dispose(): void;
 }
 
@@ -54,6 +60,11 @@ export interface OpenOptions {
    * when this is the page's first opening, else from the call.
    */
   startedAt?: number;
+  /**
+   * Where the map draws the incident's marker (it moves the marker onto a building or a road): the street is read
+   * around it. Without it, around the incident's own coordinates.
+   */
+  origin?: LngLat;
 }
 
 /** The street around the incident takes at most this long to read; then the made-up street is used. */
@@ -111,10 +122,15 @@ function streetArchive(): TileArchive | null {
   return ownArchive.archive;
 }
 
-async function streetOf(incident: Incident, signal: AbortSignal): Promise<StreetData | null> {
+/**
+ * The street of the incident's place: read around where the map draws its marker, for its kind of place and its name
+ * (tiles.ts readStreet finds the place's own point and front from there).
+ */
+async function streetOf(incident: Incident, origin: LngLat | undefined, signal: AbortSignal): Promise<StreetData | null> {
   const archive = streetArchive();
   if (!archive) return null;
-  return readStreet(archive, incident.location.coord, { signal, timeoutMs: STREET_TIMEOUT_MS });
+  const { coord, placeKind, placeName } = incident.location;
+  return readStreet(archive, origin ?? coord, { signal, timeoutMs: STREET_TIMEOUT_MS, place: { kind: placeKind, name: placeName ?? null } });
 }
 
 const aborted = () => new DOMException('The camera was closed', 'AbortError');
@@ -168,7 +184,7 @@ export async function openCamera(canvas: HTMLCanvasElement, o: OpenOptions): Pro
   const started = startOf(o);
   drawable ??= canRender();
   if (!drawable) return null;
-  const [humans, street] = await Promise.all([untilAborted(loadHumanBase(), o.signal), streetOf(o.incident, o.signal)]);
+  const [humans, street] = await Promise.all([untilAborted(loadHumanBase(), o.signal), streetOf(o.incident, o.origin, o.signal)]);
   if (o.signal.aborted) throw aborted();
   const view = new CameraView(canvas);
   let session: CameraSession;
@@ -211,6 +227,7 @@ export async function openCamera(canvas: HTMLCanvasElement, o: OpenOptions): Pro
     get cars() {
       return session.frame?.cars.length ?? 0;
     },
+    pose: mapPose(session.site),
     dispose: () => {
       if (disposed) return;
       disposed = true;

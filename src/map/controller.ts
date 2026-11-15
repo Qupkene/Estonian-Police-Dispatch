@@ -30,7 +30,8 @@ import { knownStreetProbe, probeStreetTiles, type StreetProbe } from './streetTi
 import { MAX_BOUNDS } from './geodata';
 import { areaKey, areaStationIds, buildArea, shiftArea } from './area';
 import { buildHeat, buildPursuits, buildRoutes, buildSearches, buildStations, declutterOffsets, isMoving, remainingPath } from './overlays';
-import { roadDisplay, roadService, type RoadDisplay } from './roads';
+import { mapBase, roadDisplay, roadService, type RoadDisplay } from './roads';
+import { buildCameraCone, cameraCone, freeBox, revealPlan, revealPoints, type CameraConeView } from './cameraCone';
 import { agencyDisplay, type AgencyVehicle } from './agencies';
 import { AgencyMarkers, IncidentMarkers, SuspectMarkers, UnitMarkers, type MarkerContext } from './markers';
 import { altitudeOf, Atmosphere } from './atmosphere';
@@ -107,15 +108,6 @@ const OVERLAY_INTERVAL_MS = 100;
 /** How close the camera may come when it fits a small area (one city sector). */
 const AREA_MAX_ZOOM = 13;
 
-function absBase(): string {
-  const base = import.meta.env.BASE_URL || '/';
-  try {
-    return new URL(base, window.location.href).href;
-  } catch {
-    return base;
-  }
-}
-
 export class MapController {
   readonly map: MlMap;
   private units: UnitMarkers;
@@ -127,7 +119,7 @@ export class MapController {
   private atmo: Atmosphere;
   private raf = 0;
   private destroyed = false;
-  private base = absBase();
+  private base = mapBase();
 
   private styleKey: MapStyleKey;
   private regionId: RegionId;
@@ -173,6 +165,9 @@ export class MapController {
   private area: { sectors: string[]; cover: string[] } = { sectors: [], cover: [] };
   private areaDirty = false;
   private areaStationSet: Set<string> | null = null;
+  /** The camera window's view as last drawn (cameraCone.ts), and its last reveal request that was carried out. */
+  private coneSeen: CameraConeView | null = null;
+  private coneReveal = 0;
   private onlineListener = () => {
     if (this.fallback === 'network') this.retryOnline();
   };
@@ -820,6 +815,7 @@ export class MapController {
       this.setSource(SRC.area, buildArea(REGIONS[this.regionId], this.area, this.lang), true);
       this.root.dataset.areaShown = this.area.sectors.join(' ');
     }
+    this.syncCone(s);
     this.setSource(SRC.routes, buildRoutes(s, this.posOf, p.selectedIncidentId, p.selectedUnitId, this.remainingOf));
     this.setSource(SRC.pursuit, buildPursuits(s, this.trailOf));
     if (realNow - this.lastHeatAt > 500) {
@@ -829,6 +825,46 @@ export class MapController {
         this.setSource(SRC.heat, buildHeat(s, this.incCoord));
       }
       this.lastHeatAt = realNow;
+    }
+  }
+
+  /**
+   * The open surveillance camera (cameraCone.ts): its view cone drawn while its picture is live and shown, and the
+   * marker and cone brought into the part of the map its window leaves free when the window asks.
+   */
+  private syncCone(s: SimState) {
+    const raw = cameraCone();
+    const v = raw && raw.sim === s ? raw : null;
+    if (v !== this.coneSeen) {
+      this.coneSeen = v;
+      const fc = v?.pose && v.shown ? buildCameraCone(v.pose, v.zoom, v.panX) : EMPTY_FC;
+      this.setSource(SRC.camera, fc);
+      // For the tests: how many features the camera's source was given (none: nothing of the camera is drawn).
+      this.root.dataset.cameraCone = String(fc.features.length);
+    }
+    if (v && v.reveal && v.reveal !== this.coneReveal && v.shown) {
+      this.coneReveal = v.reveal;
+      // Following a unit, the map stays on it: the player asked for that.
+      if (!this.follow) this.revealCone(v);
+    }
+  }
+
+  private revealCone(v: CameraConeView) {
+    try {
+      const el = this.map.getContainer();
+      const width = el.clientWidth;
+      const height = el.clientHeight;
+      if (!width || !height) return;
+      const points = revealPoints(v);
+      const shown = points.map((p): [number, number] => {
+        const q = this.map.project(p);
+        return [q.x, q.y];
+      });
+      const plan = revealPlan({ points, shown, reach: v.pose?.reach ?? null, zoom: this.map.getZoom(), width, height, free: freeBox(width, height, v.cover(el)) });
+      if (!plan) return;
+      this.map.easeTo({ center: plan.center, zoom: plan.zoom, offset: plan.offset, duration: this.motionOK ? 700 : 0, essential: false });
+    } catch (e) {
+      console.warn('[map] could not show the camera', e);
     }
   }
 
@@ -859,6 +895,8 @@ export class MapController {
     }
   }
 }
+
+const EMPTY_FC: FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 /** Cheap planar distance check (km) for small distances. */
 function nearKm(a: LngLat, b: LngLat, km: number): boolean {

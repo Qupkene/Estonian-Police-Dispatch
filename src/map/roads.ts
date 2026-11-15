@@ -351,6 +351,16 @@ function trim<V>(m: Map<string, V>, max: number) {
 
 const services = new Map<string, RoadService>();
 
+/** The game's own base URL, absolute: the key of the page's road service (the map and the camera window share it). */
+export function mapBase(): string {
+  const base = import.meta.env.BASE_URL || '/';
+  try {
+    return new URL(base, window.location.href).href;
+  } catch {
+    return base;
+  }
+}
+
 /** The page's road service for a base URL, started on first use. */
 export function roadService(base: string): RoadService {
   let s = services.get(base);

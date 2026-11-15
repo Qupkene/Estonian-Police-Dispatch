@@ -1,17 +1,19 @@
 /**
  * A made-up street for a camera when the street map is not there (local development, the GitHub Pages preview,
  * the tests) or has nothing usable around the incident (docs/CCTV.md). The kind of place decides the layout: a
- * town street, a housing estate's yard, a row of private houses, a shop's car park, a petrol station, a highway,
- * a park. The same place always gets the same street.
+ * town street (with a forecourt for a bus station), a housing estate's yard, a row of private houses, a shop's car park, a petrol station, a highway,
+ * a park. The same place always gets the same street. A kind of place that is a building (a bank, a school, a
+ * petrol station's kiosk) gets one of the street's houses as its own, told in `StreetData.place`.
  *
  * Layouts are drawn with the main road running east to west just south of the origin and then turned by the
  * seed, so cameras do not all look the same way. Pure: no DOM, no three.js.
  */
 import type { PlaceKind } from '@/sim/types';
-import { rand, rectRing, ringArea, type Rand, type V2 } from './math';
+import { nearestOnRing, pointInRing, rand, rectRing, ringArea, ringCentroid, type Rand, type V2 } from './math';
+import { hasOwnBuilding, isShown } from './place';
 import { ROAD_WIDTH, type Area, type AreaKind, type Building, type Road, type RoadClass, type RoofKind, type StreetData } from './types';
 
-export type Layout = 'street' | 'oldtown' | 'estate' | 'houses' | 'carpark' | 'shopfront' | 'fuel' | 'highway' | 'park';
+export type Layout = 'street' | 'oldtown' | 'station' | 'estate' | 'houses' | 'carpark' | 'shopfront' | 'fuel' | 'highway' | 'park';
 
 const LAYOUT: Partial<Record<PlaceKind, Layout>> = {
   residential: 'estate',
@@ -32,6 +34,7 @@ const LAYOUT: Partial<Record<PlaceKind, Layout>> = {
   industrial: 'carpark',
   construction: 'carpark',
   gasstation: 'fuel',
+  busstation: 'station',
   highway: 'highway',
   ruralroad: 'highway',
   border: 'highway',
@@ -50,6 +53,8 @@ class Draft {
   roads: Road[] = [];
   buildings: Building[] = [];
   areas: Area[] = [];
+  /** The building that is the place itself, when the layout has one (index into `buildings`); else the nearest to the origin. */
+  own = -1;
   private nextId = 1;
   constructor(readonly r: Rand) {}
 
@@ -94,7 +99,11 @@ function row(d: Draft, x0: number, x1: number, front: number, dir: 1 | -1, o: { 
   }
 }
 
-function street(d: Draft, old: boolean) {
+/**
+ * A town street. `forecourt`: the houses on the incident's side stand that many metres back behind a paved strip (a
+ * bus station's platform: there is room for its shelters, which place.ts puts along the kerb).
+ */
+function street(d: Draft, old: boolean, forecourt = 0) {
   const { r } = d;
   const cls: RoadClass = old ? 'living' : r.pick(['secondary', 'tertiary', 'tertiary', 'residential'] as const);
   const w = ROAD_WIDTH[cls];
@@ -104,8 +113,9 @@ function street(d: Draft, old: boolean) {
   // A side street to the north, east or west of the incident.
   const sx = r.chance(0.5) ? r.range(30, 44) : -r.range(30, 44);
   d.road('residential', [[sx, y], [sx + r.range(-2, 2), 60], [sx + r.range(-6, 6), 150]], { walk: true });
-  const north = y + w / 2 + 2.6;
+  const north = y + w / 2 + 2.6 + forecourt;
   const south = y - w / 2 - 2.6;
+  if (forecourt) d.area('paved', -70, y + w / 2 + 2.2, 70, north + 1.6);
   const gap: [number, number] = old ? [0, 0.6] : [0, 7];
   const floors: [number, number] = old ? [2, 3] : [2, 6];
   row(d, -140, 140, north, 1, { floors, width: old ? [8, 15] : [14, 30], depth: [10, 14], gap, roof: old ? 'gable' : 'flat', skip: [[sx - 7, sx + 7]] });
@@ -179,6 +189,7 @@ function carpark(d: Draft, big: boolean) {
   d.road('service', [[-74, main], [-74, 4.4], [74, 4.4], [74, main]], { width: 5.6 });
   const w = big ? r.range(84, 110) : r.range(34, 46);
   const depth = big ? r.range(44, 60) : r.range(18, 24);
+  d.own = d.buildings.length;
   d.box(0, 12.6 + depth / 2, w, depth, big ? r.range(8, 11) : r.range(4.5, 6), { metres: true });
   d.area('paved', -w / 2, 6.6, w / 2, 12.8);
   d.area('parking', -66, -40, 66, 2.4);
@@ -200,6 +211,7 @@ function shopfront(d: Draft) {
   const half = r.range(13, 19);
   const front = 6.4;
   const depth = r.range(16, 22);
+  d.own = d.buildings.length;
   d.box(r.range(-3, 3), front + depth / 2, half * 2, depth, r.range(4.2, 5.4), { metres: true });
   // The bays in front of the glass, and the paved strip along it.
   d.area('parking', -half - 2, -0.6, half + 2, front - 1.2);
@@ -226,6 +238,7 @@ function fuel(d: Draft) {
   d.area('paved', -32, -12, 32, 21);
   // The canopy over the pumps and the shop behind it.
   d.box(0, 2.6, 21, 9.4, 5.2, { open: true, metres: true });
+  d.own = d.buildings.length;
   d.box(0, 15.2, 17, 9, 4.2, { metres: true });
   d.area('parking', 12, 10.6, 30, 20);
   d.area('green', -150, -8, -36, 60);
@@ -269,13 +282,35 @@ function park(d: Draft) {
 
 const turn = (p: V2, c: number, s: number): V2 => [p[0] * c - p[1] * s, p[0] * s + p[1] * c];
 
-/** The made-up street for a kind of place. `seed` picks the variation (the same seed: the same street). */
-export function makeStreet(kind: PlaceKind, seed: number): StreetData {
+/** The place's own point on a made-up street: the middle of its own building (the layout's, else the house nearest the origin). */
+function ownPoint(d: Draft, kind: PlaceKind): V2 {
+  if (!hasOwnBuilding(kind)) return [0, 0];
+  let own = d.own;
+  if (own < 0) {
+    let best = 30;
+    d.buildings.forEach((b, i) => {
+      if (b.open) return;
+      const away = pointInRing([0, 0], b.ring) ? 0 : nearestOnRing([0, 0], b.ring).d;
+      if (away < best) {
+        best = away;
+        own = i;
+      }
+    });
+  }
+  return own < 0 ? [0, 0] : ringCentroid(d.buildings[own].ring);
+}
+
+/**
+ * The made-up street for a kind of place. `seed` picks the variation (the same seed: the same street). `name`: the
+ * place's own name, for its board.
+ */
+export function makeStreet(kind: PlaceKind, seed: number, name: string | null = null): StreetData {
   const r = rand(seed);
   const d = new Draft(r);
   const layout = layoutOf(kind);
   if (layout === 'street') street(d, false);
   else if (layout === 'oldtown') street(d, true);
+  else if (layout === 'station') street(d, false, 9);
   else if (layout === 'estate') estate(d);
   else if (layout === 'houses') houses(d);
   else if (layout === 'carpark') carpark(d, true);
@@ -287,11 +322,13 @@ export function makeStreet(kind: PlaceKind, seed: number): StreetData {
   const a = rand(seed ^ 0x5bd1e995)() * Math.PI * 2;
   const c = Math.cos(a);
   const s = Math.sin(a);
-  return {
+  const made: StreetData = {
     source: 'made',
     radius: 150,
     roads: d.roads.map((x) => ({ ...x, pts: x.pts.map((p) => turn(p, c, s)) })),
     buildings: d.buildings.map((b) => ({ ...b, ring: b.ring.map((p) => turn(p, c, s)) })),
     areas: d.areas.map((x) => ({ ...x, ring: x.ring.map((p) => turn(p, c, s)) })),
   };
+  if (isShown(kind)) made.place = { kind, name, at: turn(ownPoint(d, kind), c, s) };
+  return made;
 }

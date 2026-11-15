@@ -8,11 +8,12 @@
  */
 import { templateOf } from '@/sim/selectors';
 import { ddmmyyyy, hhmm } from '@/sim/time';
-import type { Incident, SimState } from '@/sim/types';
+import type { Incident, LngLat, SimState } from '@/sim/types';
 import { castOf, type Cast } from './cast';
 import { cameraOf, type CameraInfo } from './coverage';
 import { Director } from './director';
 import { envAt, type Env } from './env';
+import { clamp, dist, frameAt, pointAlong, sub, yawOf } from './math';
 import { makeStreet } from './procedural';
 import type { Osd } from './render/view';
 import { buildSite } from './site';
@@ -76,16 +77,46 @@ function heldBack(sit: Situation): Situation {
  */
 export const AFTER_HOLD_S = 15;
 
-/** The street a camera shows: the map's when it has one with a usable road, else a made-up one of the kind of place. */
-function siteFor(street: StreetData | null, incident: Incident, seed: number): { street: StreetData; site: Site } {
+/**
+ * The street a camera shows: the map's when it has one with a usable road, else a made-up one of the kind of place.
+ * The street is the site's own: buildSite adds what stands before the place the incident names (place.ts).
+ */
+function siteFor(street: StreetData | null, incident: Incident, seed: number): Site {
   if (street) {
     const site = buildSite(street, seed);
-    if (site) return { street, site };
+    if (site) return site;
   }
-  const made = makeStreet(incident.location.placeKind, seed);
-  const site = buildSite(made, seed);
-  if (!site) throw new Error(`cctv: no site for a made-up ${incident.location.placeKind} street`);
-  return { street: made, site };
+  const { placeKind, placeName } = incident.location;
+  const site = buildSite(makeStreet(placeKind, seed, placeName ?? null), seed);
+  if (!site) throw new Error(`cctv: no site for a made-up ${placeKind} street`);
+  return site;
+}
+
+/** Where a camera stands and looks, in the map's own coordinates (live.ts CameraHandle.pose has the fields' meaning). */
+export interface MapPose {
+  at: LngLat;
+  spot: LngLat;
+  bearing: number;
+  fovH: number;
+  reach: number;
+}
+
+/**
+ * A site's camera on the map, or null when its street is not the map's (a made-up street lies nowhere). The street's
+ * origin is where tiles.ts read it around, which is not always the incident's own point.
+ */
+export function mapPose(site: Site): MapPose | null {
+  const origin = site.street.origin;
+  if (site.street.source !== 'tiles' || !origin) return null;
+  const frame = frameAt(origin);
+  const { camera, drive, seen } = site;
+  const look = sub(camera.target, camera.pos);
+  const bearing = (((90 - (yawOf(look) * 180) / Math.PI) % 360) + 360) % 360;
+  const fovH = (2 * Math.atan(Math.tan((camera.fov * Math.PI) / 360) * (16 / 9)) * 180) / Math.PI;
+  // As far as the picture holds the road, and past the spot at the least.
+  let reach = Math.max(dist(camera.pos, camera.target) * 1.6, dist(camera.pos, site.spot) + 8);
+  if (seen) for (const s of [seen.from, seen.to]) reach = Math.max(reach, dist(camera.pos, pointAlong(drive.pts, s).pt));
+  return { at: frame.toLngLat(camera.pos), spot: frame.toLngLat(site.spot), bearing, fovH, reach: clamp(reach, 20, 90) };
 }
 
 export class CameraSession {
@@ -133,9 +164,8 @@ export class CameraSession {
   ) {
     this.incidentId = incident.id;
     this.listed = !!cameraOf(incident, sim.now);
-    const built = siteFor(street, incident, camera.seed);
-    this.street = built.street;
-    this.site = built.site;
+    this.site = siteFor(street, incident, camera.seed);
+    this.street = this.site.street;
     this.env = envAt(sim.now, incident.location.coord, sim.weather);
     this.cast = castOf(sim, incident, templateOf(sim, incident), { season: this.env.season, temp: sim.weather.tempC });
     // The street first: the director is told which parked cars the view has drawn.

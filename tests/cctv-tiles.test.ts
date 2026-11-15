@@ -20,6 +20,7 @@ import {
   MAX_HOLE_VERTICES,
   MAX_HOLES,
   MAX_ROADS,
+  poisFromTiles,
   readStreet,
   streetFromTiles,
   tilesAround,
@@ -45,9 +46,9 @@ const Z = 15;
 
 /** A feature drawn in scene metres around an origin; written into every tile it is given to. */
 interface SceneFeature {
-  layer: 'roads' | 'buildings' | 'landuse' | 'water';
+  layer: 'roads' | 'buildings' | 'landuse' | 'water' | 'pois';
   id?: number;
-  type: 2 | 3;
+  type: 1 | 2 | 3;
   props: Props;
   geom: V2[][];
 }
@@ -75,14 +76,15 @@ function encodeTile(
     return [Math.round((lonToTile(lng, t.z) - t.x) * 4096), Math.round((latToTile(lat, t.z) - t.y) * 4096)];
   };
   const layers: MvtLayer[] = [];
-  for (const name of ['roads', 'buildings', 'landuse', 'water'] as const) {
+  for (const name of ['roads', 'buildings', 'landuse', 'water', 'pois'] as const) {
     const features: MvtFeature[] = feats
       .filter((f) => f.layer === name)
       .map((f) => {
         let geom = f.geom.map((g) => g.map(toTile));
         if (buffer !== undefined && f.type === 3)
           geom = geom.map((g) => clipRingToSquare(g, -buffer, 4096 + buffer)).filter((g) => g.length >= 3);
-        return { id: f.id, type: f.type, props: f.props, geom };
+        // A point goes through the fixture's encoder as a line of one vertex (its type only names lines and polygons).
+        return { id: f.id, type: f.type as 2 | 3, props: f.props, geom };
       })
       .filter((f) => f.geom.length);
     if (features.length) layers.push({ name, features });
@@ -108,6 +110,14 @@ const house = (id: number | undefined, ring: V2[], props: Props = {}): SceneFeat
   type: 3,
   props: { kind: 'building', ...props },
   geom: [ring],
+});
+
+/** A point of interest of the map: a kind and, if it has one, a name. */
+const poi = (kind: string, name: string | null, at: V2): SceneFeature => ({
+  layer: 'pois',
+  type: 1,
+  props: name ? { kind, name } : { kind },
+  geom: [[at]],
 });
 
 /** Tallinn: a tile border runs 15 m east of the incident, so the block is read from two tiles. */
@@ -611,6 +621,123 @@ describe('readStreet', () => {
     expect(
       await readStreet(blockArchive().archive, borderOrigin().origin, { signal: AbortSignal.abort() }),
     ).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------- the place the incident names
+
+/** A long street with a petrol station's kiosk 146 m east of the incident and a bank's house at the incident itself. */
+function placeBlock(extra: SceneFeature[] = []): SceneFeature[] {
+  return [
+    road({ kind: 'major_road', kind_detail: 'secondary', name: 'Narva mnt' }, [-600, -30], [0, -30], [600, -30]),
+    house(301, rect(140, 4, 152, 12)),
+    house(302, rect(-10, -10, 10, 10)),
+    ...extra,
+  ];
+}
+
+/** An archive wide enough for a place looked for 250 m away and a street read around it. */
+function placeArchive(feats: SceneFeature[]): { archive: PMTiles; origin: LngLat } {
+  const { origin } = borderOrigin();
+  const tiles = tilesFor(origin, feats, 700).map((t) => ({ ...t, data: t.data as Uint8Array }));
+  return { archive: archiveOf(writePmtiles(tiles, [24, 59, 25.5, 60])), origin };
+}
+
+/** Where a street's origin ended up, in metres from the point it was asked for. */
+const movedTo = (asked: LngLat, s: StreetData): V2 => frameAt(asked).toLocal(s.origin!);
+
+describe('streetFromTiles: points of interest', () => {
+  const { origin } = borderOrigin();
+
+  it('keeps the points of the kinds a place can be, with their names, each once', () => {
+    const feats = [...block(), poi('fuel', 'Olerex', [20, 12]), poi('bank', null, [-30, 5]), poi('bench', 'Pink', [5, 5]), poi('fuel', 'Kaugel', [400, 0])];
+    const s = streetFromTiles(tilesFor(origin, feats), origin);
+    expect(s.pois!.map((p) => `${p.kind}:${p.name}`).sort()).toEqual(['bank:null', 'fuel:Olerex']);
+    const fuel = s.pois!.find((p) => p.kind === 'fuel')!;
+    expect(Math.hypot(fuel.pos[0] - 20, fuel.pos[1] - 12)).toBeLessThan(0.2);
+    // The origin is told, so that scene metres can be put back on the map.
+    expect(s.origin).toEqual(origin);
+  });
+
+  it('an archive without the layer gives no list at all, and the street is the same', () => {
+    const s = readBlock();
+    expect(s.pois).toBeUndefined();
+    expect(s.place).toBeUndefined();
+    const withPois = streetFromTiles(tilesFor(origin, [...block(), poi('fuel', 'Olerex', [20, 12])]), origin);
+    expect(withPois.roads).toEqual(s.roads);
+    expect(withPois.buildings).toEqual(s.buildings);
+    expect(poisFromTiles(tilesFor(origin, block()), origin, 250)).toEqual([]);
+  });
+});
+
+describe('readStreet for a place', () => {
+  it("moves the origin to the map's own point for the place, a name that matches first, then before the kiosk's front", async () => {
+    const { archive, origin } = placeArchive(placeBlock([poi('fuel', 'Neste', [60, 40]), poi('fuel', 'Olerex', [146, 8])]));
+    const s = (await readStreet(archive, origin, { place: { kind: 'gasstation', name: 'Olerex Narva mnt' } }))!;
+    expect(s.place!.kind).toBe('gasstation');
+    expect(s.place!.name).toBe('Olerex Narva mnt');
+    // The scene's origin: before the kiosk (the house the point is in), on the side of the road.
+    const at = movedTo(origin, s);
+    expect(Math.abs(at[0] - 146)).toBeLessThan(8);
+    expect(at[1]).toBeLessThan(4);
+    expect(at[1]).toBeGreaterThan(-30);
+    // The place's own point and its door are told in the new frame.
+    expect(Math.hypot(at[0] + s.place!.at[0] - 146, at[1] + s.place!.at[1] - 8)).toBeLessThan(0.5);
+    expect(s.place!.door).toBeDefined();
+    expect(at[1] + s.place!.door![1]).toBeCloseTo(4, 0);
+    // What was found to stand before the kiosk came along: a canopy for the pumps.
+    expect(s.buildings.some((b) => b.open && b.area >= 80)).toBe(true);
+    expect(buildSite(s, 5)!.place).toMatchObject({ kind: 'gasstation', name: 'Olerex Narva mnt', building: 301 });
+  });
+
+  it('takes the nearest point of the kind when no name matches, and none further than 250 m', async () => {
+    const { archive, origin } = placeArchive(placeBlock([poi('fuel', 'Neste', [60, 40]), poi('fuel', 'Olerex', [146, 8])]));
+    const near = (await readStreet(archive, origin, { place: { kind: 'gasstation', name: 'Tankla' } }))!;
+    const at = movedTo(origin, near);
+    expect(Math.hypot(at[0] + near.place!.at[0] - 60, at[1] + near.place!.at[1] - 40)).toBeLessThan(0.5);
+    const far = placeArchive(placeBlock([poi('fuel', 'Olerex', [320, 8])]));
+    const kept = (await readStreet(far.archive, far.origin, { place: { kind: 'gasstation', name: 'Olerex' } }))!;
+    const stay = movedTo(far.origin, kept);
+    expect(Math.hypot(stay[0] + kept.place!.at[0], stay[1] + kept.place!.at[1])).toBeLessThan(0.5);
+  });
+
+  it('without points of interest the place is found from the buildings: the origin moves before its front', async () => {
+    const { archive, origin } = placeArchive(placeBlock());
+    const s = (await readStreet(archive, origin, { place: { kind: 'bank', name: 'Swedbank' } }))!;
+    expect(s.pois).toBeUndefined();
+    const at = movedTo(origin, s);
+    // The bank's house is the one the point is in; its front is the wall that faces the street to the south.
+    expect(Math.abs(at[0])).toBeLessThan(9);
+    expect(at[1]).toBeLessThan(-10.5);
+    expect(at[1]).toBeGreaterThan(-14);
+    expect(s.place!.at[1]).toBeGreaterThan(10);
+    const site = buildSite(s, 3)!;
+    expect(site.place).toMatchObject({ kind: 'bank', name: 'Swedbank', building: 302 });
+    expect(site.place!.front!.out[1]).toBeLessThan(-0.9);
+    expect(site.street.buildings[site.doorBuilding].id).toBe(302);
+    // The scene is before that front, not behind the house.
+    expect(site.spot[1]).toBeLessThan(site.place!.front!.a[1]);
+  });
+
+  it('a plain kind of place leaves the origin where it was asked', async () => {
+    const { archive, origin } = placeArchive(placeBlock([poi('fuel', 'Olerex', [146, 8])]));
+    const s = (await readStreet(archive, origin, { place: { kind: 'street' } }))!;
+    expect(movedTo(origin, s)).toEqual([0, 0]);
+    expect(s.place).toEqual({ kind: 'street', name: null, at: [0, 0] });
+    expect(buildSite(s, 3)!.place).toBeNull();
+  });
+
+  it('with no road within 70 m the origin moves beside the nearest road; without a place that is still no street', async () => {
+    const feats = [road({ kind: 'minor_road', kind_detail: 'residential' }, [-400, -120], [400, -120])];
+    const { archive, origin } = placeArchive(feats);
+    expect(await readStreet(archive, origin)).toBeNull();
+    const s = (await readStreet(archive, origin, { place: { kind: 'stadium', name: 'Staadion' } }))!;
+    const at = movedTo(origin, s);
+    expect(Math.abs(at[0])).toBeLessThan(1);
+    expect(at[1]).toBeGreaterThan(-119);
+    expect(at[1]).toBeLessThan(-108);
+    expect(s.place!.at[1]).toBeGreaterThan(108);
+    expect(buildSite(s, 3)).not.toBeNull();
   });
 });
 
