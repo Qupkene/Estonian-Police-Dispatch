@@ -75,8 +75,10 @@ test('a new career at the Tartu linn desk plays its own area', async ({ page }) 
   // Briefing: the shift's area and the roster by station.
   await page.getByRole('button', { name: /Alusta vahetust · päev/ }).click();
   await expect.poll(() => screen(page)).toBe('briefing');
+  // (The briefing is a chunk of its own: the store says 'briefing' before the screen is drawn, and a machine busy
+  // with another worker's test can take longer than the default five seconds to draw it.)
   const brief = page.locator('.sh-brief__area');
-  await expect(brief).toBeVisible();
+  await expect(brief).toBeVisible({ timeout: 30_000 });
   await expect(brief.locator('.sh-brief__areaNames')).toHaveText('Tartu linn');
   await expect(brief).toContainText('Tartumaa ja Elva');
   await expect(page.locator('.sh-order__area')).toContainText('Vastutusala: Tartu linn.');
@@ -138,11 +140,11 @@ test('a career from before sectors keeps the whole prefecture', async ({ page })
 
   await page.getByRole('button', { name: /Alusta vahetust · päev/ }).click();
   await expect.poll(() => screen(page)).toBe('briefing');
+  // (Once the briefing itself is drawn: before that the panel is missing whatever the career says.)
+  const begin = page.getByRole('button', { name: /Alusta vahetust/ }).first();
+  await expect(begin).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.sh-brief__area')).toHaveCount(0);
-  await page
-    .getByRole('button', { name: /Alusta vahetust/ })
-    .first()
-    .click();
+  await begin.click();
   await expect.poll(() => screen(page), LOAD).toBe('game');
   expect(await epd(page, 'return e.game.getState().sim.sectors ?? null')).toBeNull();
   await expect(page.locator('.epdm')).toBeVisible(LOAD);
