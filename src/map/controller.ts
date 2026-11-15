@@ -31,7 +31,18 @@ import { MAX_BOUNDS } from './geodata';
 import { areaKey, areaStationIds, buildArea, shiftArea } from './area';
 import { buildHeat, buildPursuits, buildRoutes, buildSearches, buildStations, declutterOffsets, isMoving, remainingPath } from './overlays';
 import { mapBase, roadDisplay, roadService, type RoadDisplay } from './roads';
-import { buildCameraCone, cameraCone, freeBox, revealPlan, revealPoints, type CameraConeView } from './cameraCone';
+import {
+  buildCameraCone,
+  cameraCone,
+  distM,
+  freeBox,
+  revealFix,
+  revealPlan,
+  revealPoints,
+  RevealGate,
+  type CameraConeView,
+  type ScreenBox,
+} from './cameraCone';
 import { agencyDisplay, type AgencyVehicle } from './agencies';
 import { AgencyMarkers, IncidentMarkers, SuspectMarkers, UnitMarkers, type MarkerContext } from './markers';
 import { altitudeOf, Atmosphere } from './atmosphere';
@@ -165,9 +176,14 @@ export class MapController {
   private area: { sectors: string[]; cover: string[] } = { sectors: [], cover: [] };
   private areaDirty = false;
   private areaStationSet: Set<string> | null = null;
-  /** The camera window's view as last drawn (cameraCone.ts), and its last reveal request that was carried out. */
+  /** The camera window's view as last drawn (cameraCone.ts), and which of its reveals are owed and when. */
   private coneSeen: CameraConeView | null = null;
-  private coneReveal = 0;
+  private coneGate = new RevealGate();
+  /** Counts the reveal's eases: the correction after one (revealFix) is for that ease only. */
+  private coneEase = 0;
+  /** While a reveal's ease runs; and where the map came to rest after the last reveal (null: moved since). */
+  private coneEasing = false;
+  private coneRest: { c: LngLat; z: number } | null = null;
   private onlineListener = () => {
     if (this.fallback === 'network') this.retryOnline();
   };
@@ -230,6 +246,12 @@ export class MapController {
     this.map.on('click', this.onClick);
     this.map.setMissingStyleImageResolver(this.resolveImage);
     this.map.on('dragstart', this.onUserMove);
+    // A move with an input event behind it is the player's own (the map's own eases carry none).
+    this.map.on('movestart', (e: { originalEvent?: unknown }) => {
+      if (e.originalEvent) this.coneGate.moved();
+    });
+    // For the tests: the zoom the map came to rest at.
+    this.map.on('moveend', () => (this.root.dataset.zoom = this.map.getZoom().toFixed(2)));
     this.map.on('zoom', this.onZoom);
     this.map.on('mousemove', 'stations-halo', this.onStationEnter);
     this.map.on('mouseleave', 'stations-halo', this.onStationLeave);
@@ -396,6 +418,7 @@ export class MapController {
   }
 
   zoomBy(delta: number) {
+    this.coneGate.moved();
     this.map.easeTo({ zoom: this.map.getZoom() + delta, duration: this.motionOK ? 250 : 0 });
   }
 
@@ -403,6 +426,7 @@ export class MapController {
   recenter(jump = false) {
     const r = REGIONS[this.regionId];
     if (!r) return;
+    this.coneGate.moved();
     const opts = { duration: this.motionOK && !jump ? 900 : 0, pitch: this.map.getPitch(), bearing: 0 };
     if (this.area.sectors.length) {
       try {
@@ -462,6 +486,7 @@ export class MapController {
   }
 
   focus(target: LngLat, zoom?: number) {
+    this.coneGate.moved();
     // An incident or unit coordinate goes to where that marker is shown (on its building or road).
     let coord = target;
     try {
@@ -478,6 +503,7 @@ export class MapController {
   setFollow(v: boolean) {
     this.follow = v;
     if (v) {
+      this.coneGate.moved();
       const p = this.getProps();
       const u = p.selectedUnitId ? p.sim.units[p.selectedUnitId] : undefined;
       if (u) {
@@ -829,43 +855,116 @@ export class MapController {
   }
 
   /**
-   * The open surveillance camera (cameraCone.ts): its view cone drawn while its picture is live and shown, and the
-   * marker and cone brought into the part of the map its window leaves free when the window asks.
+   * The open surveillance camera (cameraCone.ts): its view cone drawn while its picture is live and shown (with the
+   * line from the incident's marker when the camera shows a place apart from it), and the marker and cone brought
+   * into the part of the map its window leaves free when the window or "Näita kaardil" asks.
    */
   private syncCone(s: SimState) {
     const raw = cameraCone();
     const v = raw && raw.sim === s ? raw : null;
     if (v !== this.coneSeen) {
       this.coneSeen = v;
-      const fc = v?.pose && v.shown ? buildCameraCone(v.pose, v.zoom, v.panX) : EMPTY_FC;
+      const fc = v?.pose && v.shown ? buildCameraCone(v.pose, v.zoom, v.panX, { marker: v.marker, place: v.place }) : EMPTY_FC;
       this.setSource(SRC.camera, fc);
-      // For the tests: how many features the camera's source was given (none: nothing of the camera is drawn).
+      // For the tests: how many features the camera's source was given (none: nothing of the camera is drawn), their
+      // kinds, and how far the spot the camera shows is from the incident's marker (m).
       this.root.dataset.cameraCone = String(fc.features.length);
+      this.root.dataset.cameraKinds = fc.features.map((f) => f.properties?.kind).join(' ');
+      this.root.dataset.cameraSpotM = v?.pose && v.shown ? String(Math.round(distM(v.marker, v.pose.spot))) : '';
     }
-    if (v && v.reveal && v.reveal !== this.coneReveal && v.shown) {
-      this.coneReveal = v.reveal;
-      // Following a unit, the map stays on it: the player asked for that.
-      if (!this.follow) this.revealCone(v);
+    // A map moved away from where the last reveal left it, by anyone (the game's own moves without an input event
+    // too), counts as moved. A change of the map's size keeps its centre and zoom, so it does not count.
+    if (this.coneEasing && !this.map.isMoving()) {
+      // An ease that ended without telling (it had nowhere to go): at rest here.
+      this.coneEasing = false;
+      this.coneRest = this.restHere();
     }
+    if (this.coneRest && !this.coneEasing && this.awayFromRest(this.coneRest)) {
+      this.coneRest = null;
+      this.coneGate.moved();
+    }
+    // The window's requests and "Näita kaardil": following a unit, the map stays on it (the player asked for that);
+    // the reveal when the picture goes live does not pull the map back once someone has moved it.
+    this.coneGate.step(v, this.follow, (atLeast) => (v ? this.revealCone(v, atLeast) : true));
   }
 
-  private revealCone(v: CameraConeView) {
+  /** Where the map is now, to compare with later (awayFromRest). */
+  private restHere(): { c: LngLat; z: number } {
+    const c = this.map.getCenter();
+    return { c: [c.lng, c.lat], z: this.map.getZoom() };
+  }
+
+  /** Has the map moved more than a few px or zoomed since `rest`? */
+  private awayFromRest(rest: { c: LngLat; z: number }): boolean {
+    const el = this.map.getContainer();
+    if (!el.clientWidth || !el.clientHeight) return false;
+    if (Math.abs(this.map.getZoom() - rest.z) > 0.02) return true;
+    const q = this.map.project(rest.c);
+    return Math.hypot(q.x - el.clientWidth / 2, q.y - el.clientHeight / 2) > 3;
+  }
+
+  /** The map's tool column over the map (px from the container's top left corner), or null. */
+  private toolsBox(el: HTMLElement): ScreenBox | null {
+    const tools = this.root.querySelector<HTMLElement>('.epdm-tools');
+    if (!tools) return null;
+    const r = tools.getBoundingClientRect();
+    const m = el.getBoundingClientRect();
+    return r.width && r.height ? { x: r.left - m.left, y: r.top - m.top, w: r.width, h: r.height } : null;
+  }
+
+  /** Bring the camera into view (revealPlan); false while the map has no size (a phone's other tab), to be tried again. */
+  private revealCone(v: CameraConeView, atLeast?: number): boolean {
     try {
       const el = this.map.getContainer();
       const width = el.clientWidth;
       const height = el.clientHeight;
-      if (!width || !height) return;
+      // No size (a phone's other tab), or the map has not taken its new size yet: try again on a later frame.
+      const canvas = this.map.getCanvas();
+      if (!width || !height || Math.abs(canvas.clientWidth - width) > 1 || Math.abs(canvas.clientHeight - height) > 1) return false;
       const points = revealPoints(v);
-      const shown = points.map((p): [number, number] => {
+      const project = (p: LngLat): [number, number] => {
         const q = this.map.project(p);
         return [q.x, q.y];
-      });
-      const plan = revealPlan({ points, shown, reach: v.pose?.reach ?? null, zoom: this.map.getZoom(), width, height, free: freeBox(width, height, v.cover(el)) });
-      if (!plan) return;
-      this.map.easeTo({ center: plan.center, zoom: plan.zoom, offset: plan.offset, duration: this.motionOK ? 700 : 0, essential: false });
+      };
+      const free = freeBox(width, height, v.cover(el), this.toolsBox(el));
+      const plan = revealPlan({ points, shown: points.map(project), reach: v.pose?.reach ?? null, zoom: this.map.getZoom(), width, height, free, atLeast });
+      const ease = ++this.coneEase;
+      if (!plan) {
+        this.coneRest = this.restHere();
+        return true;
+      }
+      // Ends one of the reveal's eases: where it came to rest (unless something else stopped it), then `next`.
+      const settle = (next?: () => void) => {
+        if (ease !== this.coneEase || !this.coneEasing || this.destroyed) return;
+        this.coneEasing = false;
+        this.coneRest = this.restHere();
+        next?.();
+      };
+      const easeTo = (o: { center: LngLat; zoom: number; offset: [number, number] }, ms: number, next?: () => void) => {
+        this.coneEasing = true;
+        this.map.easeTo({ ...o, duration: this.motionOK ? ms : 0, essential: false });
+        if (this.motionOK) this.map.once('moveend', () => settle(next));
+        else settle(next);
+      };
+      // The plan is worked out on a flat, north-up map: with the 3D tilt on, look again once it has eased (and only if
+      // it got there: a drag that stopped it is the player's) and correct.
+      const fix = () => {
+        const w = el.clientWidth;
+        const h = el.clientHeight;
+        if (this.coneGate.wasMoved || !w || !h || Math.abs(this.map.getZoom() - plan.zoom) > 0.01) return;
+        const [cx, cy] = project(plan.center);
+        if (Math.hypot(cx - w / 2 - plan.offset[0], cy - h / 2 - plan.offset[1]) > 2) return;
+        const box = freeBox(w, h, v.cover(el), this.toolsBox(el));
+        const f = revealFix(plan.keep.map(project), box, this.map.getZoom());
+        if (!f) return;
+        const at = this.map.unproject(f.at);
+        easeTo({ center: [at.lng, at.lat], zoom: f.zoom, offset: [box.x + box.w / 2 - w / 2, box.y + box.h / 2 - h / 2] }, 400);
+      };
+      easeTo(plan, 700, fix);
     } catch (e) {
       console.warn('[map] could not show the camera', e);
     }
+    return true;
   }
 
   destroy() {

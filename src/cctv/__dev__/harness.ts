@@ -3,6 +3,9 @@
 //   pk=<PlaceKind>&pname=<text> dress the building nearest the spot as a place of this kind by hand, whatever the
 //                               street is (the renderer's side of Site.place on its own: every kind on one street)
 //   hour, month, weather, temp, wind; near=<m>&angle&h&fov&at; zoom; cast=0 (the street alone); clean=1; hide=...
+// The log line ends with what the view holds on the graphics card (tex=<textures> geo=<geometries>): the numbers
+// must be the same after __cctv.rebuild(n) (the street built again, as a change of weather does) as before it, and
+// __cctv.reopen(n) (a second view opened, drawn and closed) must report 0/0 left behind.
 import type { PlaceKind, Weather } from '@/sim/types';
 import { VERSION } from '@/ui/screens/shell/helpers';
 import { envAt } from '../env';
@@ -108,7 +111,8 @@ for (const name of (q.get('hide') ?? '').split(',').filter(Boolean)) {
   else if (name === 'shadows') v.renderer.shadowMap.enabled = false;
   else v.scene.traverse((o) => { if (o.name === name) o.visible = false; });
 }
-if (!q.get('dolls')) view.setHumans(await loadHumanBase());
+const humans = q.get('dolls') ? null : await loadHumanBase();
+if (humans) view.setHumans(humans);
 // ?clean=1: the picture without the camera's own faults.
 if (q.get('clean')) {
   const v = view as unknown as { post: { setLook: (l: unknown) => void }; look: Record<string, unknown> };
@@ -172,6 +176,10 @@ function frame(t: number): Frame {
   return { t, people, cars, smoke };
 }
 
+/** The renderer's own counts: a frame's triangles and draw calls, and what it holds on the graphics card. */
+const infoOf = (v: CameraView) =>
+  (v as unknown as { renderer: { info: { render: { triangles: number; calls: number }; memory: { textures: number; geometries: number } } } }).renderer.info;
+
 let t = Number(q.get('t') ?? 0);
 const osd = () => ({ name: `CAM ${String(seed % 900 + 100)} · ${kind.toUpperCase()}`, clock: `14.${String(month).padStart(2, '0')}.2026 ${String(hour).padStart(2, '0')}:20`, note: '', mark: `EPD v${VERSION}`, rec: Math.floor(t) % 2 === 0 });
 const zoom = Number(q.get('zoom') ?? 1);
@@ -186,9 +194,30 @@ const api = {
       t += dt;
       draw();
     }
-    const info = (view as unknown as { renderer: { info: { render: { triangles: number; calls: number } } } }).renderer.info.render;
-    log.textContent = `${head} tris=${info.triangles} calls=${info.calls}`;
+    const info = infoOf(view);
+    log.textContent = `${head} tris=${info.render.triangles} calls=${info.render.calls} tex=${info.memory.textures} geo=${info.memory.geometries}`;
     return t;
+  },
+  /** Build the street again `n` times, a frame drawn after each, and return the counts (see the top of the file). */
+  rebuild(n = 1) {
+    for (let i = 0; i < n; i++) {
+      view.setScene(site, env);
+      api.step(0.08, 1);
+    }
+    return `${infoOf(view).memory.textures}/${infoOf(view).memory.geometries}`;
+  },
+  /** Open a second view on this street, draw two frames and close it, `n` times: what each left behind ('0/0'). */
+  reopen(n = 1) {
+    const left: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const second = new CameraView(document.createElement('canvas'));
+      second.setScene(site, env);
+      if (humans) second.setHumans(humans);
+      for (let k = 0; k < 2; k++) second.render(frame(t + k * 0.08), osd());
+      second.dispose();
+      left.push(`${infoOf(second).memory.textures}/${infoOf(second).memory.geometries}`);
+    }
+    return left.join(' ');
   },
   /** Milliseconds a steady frame takes: `frames` frames drawn and waited for (a pixel is read back after each). */
   time(frames = 20) {

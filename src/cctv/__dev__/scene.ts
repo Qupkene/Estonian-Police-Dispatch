@@ -26,6 +26,7 @@
 //   pursuit=<on>,<over>  search=<from>-<to>  pause=<from>-<to>  open=<s> (the camera opens late: the first update)
 // The picture: hour, month, weather, temp, wind as harness.ts; near=<m>&angle&h&fov&at as there; clean=1;
 // zoom=<k>&panx=<-1..1>&pany=<-1..1> as the window's own zoom. quiet=1: no passing traffic and no passers-by.
+// cam=<x>,<y>,<h>,<tx>,<ty>[,<th>[,<fov>]]: the camera hung by hand, in scene metres (to look at a place from elsewhere).
 // who=1: the log line also lists everybody and every vehicle on stage with their place and yaw.
 // manual=1: the page does not play by itself; the caller drives it with step and seek.
 // window.__cctv = { ready, step(dt, frames), seek(t) }: seek advances the scene to second t without drawing the
@@ -350,6 +351,10 @@ if (q.get('near')) {
   const atPt = q.get('at')?.split(',').map(Number);
   const target = atPt ? onDrive(site.drive, site.drive.at + atPt[0], atPt[1]).pos : site.spot;
   site.camera = { ...site.camera, pos: along(along(target, n, d * Math.cos(a)), site.dir, d * Math.sin(a)), height: num('h', 2.4), target, targetHeight: 1, fov: num('fov', 34) };
+}
+if (q.get('cam')) {
+  const [x, y, h, tx, ty, th = 1, fov = 44] = q.get('cam')!.split(',').map(Number);
+  site.camera = { ...site.camera, pos: [x, y], height: h, target: [tx, ty], targetHeight: th, fov };
 }
 const cast = q.get('tpl') ? await castOfTemplate(q.get('tpl')!) : castByKind();
 const view = new CameraView(document.getElementById('c') as HTMLCanvasElement);

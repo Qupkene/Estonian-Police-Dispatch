@@ -14,8 +14,8 @@
 import { CanvasTexture, ClampToEdgeWrapping, SRGBColorSpace, type Color, type Texture } from 'three';
 import type { PlaceKind } from '@/sim/types';
 import { along, clamp, dist, dot, hash32, nearestOnSegment, norm, pointInRing, ringCentroid, segmentHitsRing, sub, type Box, type V2 } from '../math';
-import { projectPoint } from '../site';
-import type { Site, SitePlace, StreetData } from '../types';
+import { blocksView, projectPoint } from '../site';
+import type { CameraPose, Site, SitePlace, StreetData } from '../types';
 import { uvOf, type FacadeKind, type UV4 } from './facades';
 import { at, type MeshBuilder, shade, type P3 } from './mesh';
 
@@ -42,8 +42,10 @@ type Extra =
   | 'posters'
   /** Scaffolding with its netting along the front. */
   | 'scaffold'
-  /** A church: a tower with a spire over the front, a tall door, tall windows. */
+  /** A church: a tower with a spire over the front, and a chapel's door, cross and windows. */
   | 'tower'
+  /** A chapel: a tall door in a pointed arch with a cross over it, tall windows (a church without its tower). */
+  | 'chapel'
   /** Lit strips beside the door (a night club). */
   | 'strip';
 
@@ -112,7 +114,7 @@ const DRESS: Partial<Record<PlaceKind, Dress>> = {
   parking: dress('PARKLA', '#1456a8', CREAM, false, 1.2, 'blank', [], { flat: true, plain: true, emblem: 'p' }),
   hotel: dress('HOTELL', '#2a2420', '#ecdcae', true, 1.1, 'public', ['canopy', 'flags', 'blade']),
   church: dress('KIRIK', '#3a2e22', '#ecdcae', false, 0.6, 'blank', ['tower'], { form: 'beside', plain: true }),
-  cemetery: dress('KALMISTU', '#3a2e22', '#ecdcae', false, 0.6, 'blank', [], { form: 'beside' }),
+  cemetery: dress('KALMISTU', '#3a2e22', '#ecdcae', false, 0.6, 'blank', ['chapel'], { form: 'beside', plain: true }),
   gasstation: dress('TANKLA', '#2a5a9a', CREAM, true, 1.1, 'glass', [], { flat: true, band: true }),
   government: dress('RIIGIASUTUS', INK, '#ece8dc', false, 0.9, 'public', ['flag']),
   embassy: dress('SAATKOND', '#3a2e22', '#ecdcae', false, 0.7, 'public', ['flag2'], { form: 'beside' }),
@@ -135,17 +137,53 @@ export function dressOf(kind: PlaceKind, seed: number): Dress | null {
 /** A '#rrggbb' colour as a number. */
 export const hexOf = (css: string) => parseInt(css.slice(1), 16);
 
+/** How bright a colour is to the eye, 0..1, as light (not as the number it is written with). */
+export function luminance(hex: number): number {
+  const lin = (v: number) => ((v / 255) <= 0.04045 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * lin((hex >> 16) & 255) + 0.7152 * lin((hex >> 8) & 255) + 0.0722 * lin(hex & 255);
+}
+
+/** The brightest a lit board's ground shines after dark (see makePlaceSheet). */
+const LIT_GROUND = 0.37;
+
 /**
- * The lines of a place's board: its own name without what the game adds in brackets ("Pank (Liivalaia)" is a board
- * that says PANK), in capitals, in two lines when it is long (`narrow`: already when it is longer than nine
- * letters, for a board that has little width); the kind's word when there is no name.
+ * The last word of a name that describes an area or a stretch of land, not something a building carries on a board
+ * ("Lasnamäe tööstuspiirkond", "Riigipiir, Narva jõe kallas", "Pärimusmuusika festivali ala", "Sõprussild"): an
+ * area, a district, a bank, a border, a plot, a field, a hill, a bridge, a group of houses.
+ */
+const AREA = /(ala|piirkond|rajoon|kallas|piir|krunt|väli|mägi|sild|hooned)$/i;
+
+/** The letters of a word, without its full stops, hyphens and digits. */
+const letters = (word: string) => word.replace(/[^\p{L}]/gu, '').length;
+
+/**
+ * The lines of a place's board, in capitals. Its own name without what the game adds in brackets ("Pank
+ * (Liivalaia)" is a board that says PANK); the kind's word when there is no name or the name describes an area
+ * (AREA; a festival's ground says FESTIVAL). In two lines when it is long (`narrow`: already when it is longer than
+ * nine letters, for a board that has little width): at its comma when it has one, else at a space, never after a
+ * word of three letters or fewer where another space will do ("ROCCA AL MARE / KESKUS", not "ROCCA AL / MARE
+ * KESKUS"). Of the spaces left, the one before the last word (the kind of thing it is: KESKUS, GÜMNAASIUM, KIRIK)
+ * when the two lines are then not much more unequal than they need be, else the one that makes them most equal.
  */
 export function boardLines(name: string | null, word: string, narrow = false): string[] {
-  const s = ((name ?? '').replace(/\s*\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim() || word).toUpperCase();
+  const own = (name ?? '').replace(/\s*\([^)]*\)/g, ' ').replace(/\s+/g, ' ').replace(/ ,/g, ',').trim();
+  const area = AREA.test(own.split(' ').pop() ?? '');
+  const s = (area ? (/festival/i.test(own) ? 'FESTIVAL' : word) : own || word).toUpperCase();
   if (s.length <= (narrow ? 9 : 18) || !s.includes(' ')) return [s];
-  let cut = -1;
-  for (let i = 0; i < s.length; i++) if (s[i] === ' ' && (cut < 0 || Math.abs(i - s.length / 2) < Math.abs(cut - s.length / 2))) cut = i;
-  return [s.slice(0, cut), s.slice(cut + 1)];
+  const comma = s.indexOf(', ');
+  if (comma > 0) return [s.slice(0, comma), s.slice(comma + 2)];
+  const words = s.split(' ');
+  /** The places to break: before word k, with how unequal the two lines are then. */
+  const cuts = words.slice(1).map((_, k) => {
+    const first = words.slice(0, k + 1).join(' ');
+    return { first, second: words.slice(k + 1).join(' '), short: letters(words[k]) <= 3, uneven: Math.abs(2 * first.length + 1 - s.length) };
+  });
+  const allowed = cuts.some((c) => !c.short) ? cuts.filter((c) => !c.short) : cuts;
+  const least = Math.min(...allowed.map((c) => c.uneven));
+  const last = allowed[allowed.length - 1];
+  // The last of the most equal ones on a tie: the longer line on top.
+  const cut = last === cuts[cuts.length - 1] && last.uneven <= least + 4 ? last : allowed.filter((c) => c.uneven === least).pop()!;
+  return [cut.first, cut.second];
 }
 
 /** The own building of a place: its index in the street's buildings, or -1. */
@@ -285,7 +323,8 @@ function paintBoard(g: CanvasRenderingContext2D, lines: readonly string[], d: Dr
     g.font = `700 ${px}px ${FONT}`;
     return Math.max(...lines.map((l) => g.measureText(l).width));
   };
-  const high = () => Math.ceil(two ? px * 2.5 : px * 1.5);
+  // The letters fill the board: capitals over half its height in one line, so that they are read from far away.
+  const high = () => Math.ceil(two ? px * 2.3 : px * 1.34);
   const emblem = () => (d.emblem ? high() : 0);
   let tw = widest();
   const room = SHEET_W - 2 - px * 0.9 - emblem();
@@ -435,8 +474,10 @@ function paintParts(g: CanvasRenderingContext2D, d: Dress) {
   fill(PARTS.fg, d.fg);
   fill(PARTS.dark, '#2c2f33');
   r = PARTS.net;
-  fill(r, '#3f7a52');
-  for (let k = 0; k < r.w; k += 4) fill(r, 'rgba(0,0,0,0.12)', k, 0, 1, r.h);
+  fill(r, '#4a8a5e');
+  for (let k = 0; k < r.w; k += 4) fill(r, 'rgba(0,0,0,0.14)', k, 0, 1, r.h);
+  // The hems where one length of netting is tied to the next.
+  for (let k = 9; k < r.h; k += 10) fill(r, 'rgba(255,255,255,0.16)', 0, k, r.w, 1);
   fill(PARTS.white, '#ffffff');
 }
 
@@ -463,8 +504,13 @@ export function makePlaceSheet(d: Dress, lines: readonly string[]): PlaceSheet {
   l.fillRect(0, 0, night.width, night.height);
   const light = (r: Rect, x = 0, y = 0, w = r.w, h = r.h) => l.drawImage(canvas, r.x + x, r.y + y, w, h, (r.x + x) / 2, (r.y + y) / 2, w / 2, h / 2);
   if (d.lit) {
+    // A lit board with a light ground (a hospital's, a yellow brand's) is dimmed until its ground stays under the
+    // white of the night picture, whose gain is a little over two: its letters are read, not a white blot. A dark
+    // ground with bright letters is left as painted.
+    l.globalAlpha = Math.min(1, LIT_GROUND / luminance(hexOf(d.bg))) ** (1 / 2.2);
     light(board);
     light(PARTS.word);
+    l.globalAlpha = 1;
     light(PARTS.clock);
   }
   light(PARTS.atm, 0, 0, PARTS.atm.w, 20);
@@ -555,47 +601,89 @@ function crossesBeyond(a: V2, b: V2, ring: readonly V2[], skip: number): boolean
   return false;
 }
 
+/**
+ * Would something tall standing at `p` (a petrol station's price pylon) hide what the camera is there to show? It
+ * does when it stands in the camera's field of view within `reach` metres of the lens, or within `room` metres of
+ * the straight line from the lens to any of `marks` (the spot, the pumps, the own front), wherever along it.
+ */
+export function hidesPlace(camera: CameraPose, p: V2, marks: readonly V2[], reach = 14, room = 1.8): boolean {
+  return blocksView(camera, p, reach, room) || marks.some((m) => nearestOnSegment(p, camera.pos, m).d < room);
+}
+
 /** A point of the ground plan as a three.js direction. */
 const dir3 = (v: V2, up = 0): P3 => [v[0], up, -v[1]];
 
-/** Dress the place's own building, wall by wall as the renderer laid them (`main`: the front). */
-export function dressOwn(c: DressCtx, walls: readonly { w: OwnWall; main: boolean }[]): void {
-  const sides = walls.filter((x) => !x.main).map((x) => x.w);
-  for (const x of walls) dressWall(c, x.w, x.main, sides);
+/** Something hung over the entrance: its middle along the wall, its width, its depth, its underside. */
+interface Hang {
+  s: number;
+  wide: number;
+  deep: number;
+  h: number;
 }
 
 /**
- * Dress one wall of the place's own building: on every wall what runs round the house (a shop's band, a church's
- * windows), on the front (`front`) the board where the camera sees it and what the kind hangs beside it. `sides`
- * are the building's other walls: the board goes on one of them when the front has no place the camera sees.
+ * What the place's front carries, worked out before the wall is laid: the renderer leaves the windows out of the
+ * bays the board covers (boardCovers), and dressOwn then hangs everything where this says.
  */
-function dressWall(c: DressCtx, w: OwnWall, front: boolean, sides: readonly OwnWall[]): void {
-  const { dress: d, sheet, signs, solids, heads } = c;
-  const white = shade(0xffffff);
-  const dark = shade(0x34373b);
-  const P = (s: number, off: number): V2 => along(along(w.a, w.t, s), w.n, off);
-  const out3 = dir3(w.n);
-  const yaw = Math.atan2(w.t[1], w.t[0]);
-  /** A painting of the sheet flat on the wall: from s0 to s1 along it and h0 to h1 up, `off` metres out of it. */
-  const face = (s0: number, s1: number, h0: number, h1: number, off: number, uv: UV4, col: Color = white) =>
-    signs.quad(at(P(s0, off), h0), at(P(s1, off), h0), at(P(s1, off), h1), at(P(s0, off), h1), col, out3, uv);
-  const has = (e: Extra) => d.extras.includes(e);
-  // The band of a shop's colour over its glass, on every wall that has glass.
-  if (d.band && (front || w.street) && w.g1 - w.base > 2.6) face(0, w.len, w.g1 - 0.5, w.g1 - 0.05, 0.08, sheet.part.bg);
-  if (has('tower') && w.len > 5 && w.eaves - w.base > 5.2) {
-    // Tall windows between the buttresses of the wall, not where the door is.
-    const n = Math.max(1, Math.round(w.len / 4.2));
-    const h1 = Math.min(w.eaves - 0.8, w.base + 5.6);
-    for (let k = 0; k < n; k++) {
-      const s = ((k + 0.5) / n) * w.len;
-      if (front && Math.abs(s - w.door) < 2.4) continue;
-      face(s - 0.55, s + 0.55, w.base + 1.7, h1, 0.04, sheet.part.window, w.wall);
-    }
-  }
-  if (!front) return;
+export interface FrontPlan {
+  /** The front wall, its entrance along it, and the side of the entrance the camera is on (1: further along the wall). */
+  w: OwnWall;
+  sDoor: number;
+  camSide: number;
+  /** The entrance canopy and the awning, when the kind has them (an awning's `h` is its hanging edge). */
+  canopy: Hang | null;
+  awning: Hang | null;
+  /** The lowest the board may start (over what hangs above the door), and half the width of what hangs there. */
+  floor: number;
+  over: number;
+  /** The board: the wall it is on, its middle along it, its foot, how far it stands out of the wall, its size. */
+  board: { v: OwnWall; s: number; h: number; off: number; W: number; H: number };
+}
 
+/** What planOwn reads: the site, the kind's dress, the board's painting, the own building's index. */
+type PlanCtx = Pick<DressCtx, 'site' | 'dress' | 'sheet' | 'own'>;
+
+/** Plan the front of the place's own building from its walls as they will be laid (`main`: the front). Null without a front. */
+export function planOwn(c: PlanCtx, walls: readonly { w: OwnWall; main: boolean }[]): FrontPlan | null {
+  const front = walls.find((x) => x.main);
+  return front ? planFront(c, front.w, walls.filter((x) => !x.main).map((x) => x.w)) : null;
+}
+
+/**
+ * Does the board lie flat on wall `w` over the piece from s0 to s1 along it and h0 to h1 up? The renderer asks for
+ * the part of each bay where its window is, and paints plain wall there: a board hangs on a wall, not across glass.
+ */
+export function boardCovers(plan: FrontPlan | null, w: OwnWall, s0: number, s1: number, h0: number, h1: number): boolean {
+  const b = plan?.board;
+  if (!b || b.v !== w || b.off > 1) return false;
+  return Math.min(s1, b.s + b.W / 2) - Math.max(s0, b.s - b.W / 2) > 0.15 && Math.min(h1, b.h + b.H) - Math.max(h0, b.h) > 0.15;
+}
+
+/** Dress the place's own building, wall by wall as the renderer laid them (`main`: the front), to its plan. */
+export function dressOwn(c: DressCtx, walls: readonly { w: OwnWall; main: boolean }[], plan: FrontPlan | null): void {
+  for (const x of walls) dressWall(c, x.w, x.main ? plan : null);
+}
+
+/** Seen less squarely than this (about 17 degrees off the wall's own line), a board on the wall is not read. */
+const FACING = 0.3;
+/** How squarely a camera sees a wall at a point of it: 1 straight on, 0 along the wall. */
+const facing = (cam: V2, v: OwnWall, s: number) => dot(v.n, norm(sub(cam, along(v.a, v.t, s))));
+/** A board is made larger for a camera far away until one line of it is this many lines of the picture high, up to GROW times its size. */
+const BOARD_PX = 24;
+const GROW = 1.6;
+/** Half the lines of the camera's picture (view.ts FRAME_H): a projected height of 1 is this many of them. */
+const HALF_LINES = 180;
+
+/**
+ * Where everything on the front goes: the canopy or the awning over the entrance, and the board where the camera
+ * sees it. `sides` are the building's other walls: the board goes on one of them when the front has no place the
+ * camera sees. Nothing is drawn here.
+ */
+function planFront(c: PlanCtx, w: OwnWall, sides: readonly OwnWall[]): FrontPlan {
+  const { dress: d, sheet } = c;
+  const P = (s: number, off: number): V2 => along(along(w.a, w.t, s), w.n, off);
+  const has = (e: Extra) => d.extras.includes(e);
   const cam = c.site.camera;
-  const ground = w.base > 0.2 ? w.base : 0.16;
   const sDoor = clamp(w.door, Math.min(1.2, w.len / 2), Math.max(w.len - 1.2, w.len / 2));
   /** The side of the door the camera is on: what is read from the side hangs there. */
   const camSide = dot(sub(cam.pos, P(sDoor, 0)), w.t) >= 0 ? 1 : -1;
@@ -603,57 +691,37 @@ function dressWall(c: DressCtx, w: OwnWall, front: boolean, sides: readonly OwnW
   let floor = -Infinity;
   /** Half the width of what hangs over the door. */
   let over = 1.1;
-  /** The entrance canopy, when the kind has one: its middle along the wall, its width, its depth, its underside. */
-  let canopy: { s: number; wide: number; deep: number; h: number } | null = null;
-  /** What hangs over the door and hides the wall under it from a camera above: the canopy, or the awning. */
-  let cover: { s: number; wide: number; deep: number; h: number } | null = null;
-
+  let canopy: Hang | null = null;
+  let awning: Hang | null = null;
   if (has('canopy')) {
-    // A slab hung from the wall on two rods, its edge in the board's letter colour, lamps under it.
     const wide = clamp(w.len * 0.5, Math.min(3.2, w.len), d.ground === 'glass' ? 9 : 6.5);
-    const deep = 2.2;
     const h = w.base + clamp(w.g1 - w.base - 0.35, 2.7, 3.3);
-    const s = clamp(sDoor, wide / 2, Math.max(wide / 2, w.len - wide / 2));
-    solids.box(P(s, deep / 2 + 0.02), yaw, wide, deep, h, h + 0.3, dark);
-    face(s - wide / 2, s + wide / 2, h + 0.02, h + 0.28, deep + 0.03, sheet.part.fg);
-    for (const e of [-1, 1]) {
-      const q = s + e * (wide / 2 - 0.35);
-      solids.tube(at(P(q, 0.04), h + 1.7), at(P(q, deep - 0.3), h + 0.3), 0.03, 0.03, dark, 4);
-      heads.box(P(s + (e * wide) / 4, deep * 0.55), yaw, 0.6, 0.6, h - 0.03, h, white);
-    }
-    c.spill(P(s - wide / 2, 0), P(s + wide / 2, 0), w.n, deep + 2.2, ground, shade(0xd8c8a0, 0.5));
+    canopy = { s: clamp(sDoor, wide / 2, Math.max(wide / 2, w.len - wide / 2)), wide, deep: 2.2, h };
     floor = h + 0.55;
     over = wide / 2;
-    canopy = { s, wide, deep, h };
-    cover = canopy;
   }
   if (has('awning')) {
-    // Cloth on a frame, sloping out from the wall over the door and the window beside it, with its hanging edge.
     const wide = clamp(w.len * 0.45, Math.min(2.6, w.len), 5);
-    const deep = 1.1;
     // Its hanging edge ends 2.6 m up: nobody and nothing on the pavement reaches it.
     const lo = Math.max(w.base + 2.8, w.g1 - 0.5);
-    const hi = lo + 0.5;
-    const s = clamp(sDoor, wide / 2, Math.max(wide / 2, w.len - wide / 2));
-    signs.quad(at(P(s - wide / 2, 0.04), hi), at(P(s + wide / 2, 0.04), hi), at(P(s + wide / 2, deep), lo), at(P(s - wide / 2, deep), lo), white, dir3(w.n, 2), sheet.part.awning);
-    face(s - wide / 2, s + wide / 2, lo - 0.2, lo, deep, sheet.part.awning);
-    const cloth = shade(hexOf(d.bg));
-    for (const e of [-1, 1]) {
-      const q = s + (e * wide) / 2;
-      solids.tri(at(P(q, 0.04), hi), at(P(q, deep), lo), at(P(q, 0.04), lo), cloth);
-      solids.tri(at(P(q, 0.04), hi), at(P(q, 0.04), lo), at(P(q, deep), lo), cloth);
-    }
-    floor = hi + 0.12;
+    awning = { s: clamp(sDoor, wide / 2, Math.max(wide / 2, w.len - wide / 2)), wide, deep: 1.1, h: lo };
+    floor = lo + 0.62;
     over = wide / 2;
-    cover = { s, wide, deep, h: lo };
   }
+  /** What hangs over the door and hides the wall under it from a camera above: the awning, or the canopy. */
+  const cover = awning ?? canopy;
 
   // ── The board ──
   let H = 0;
   let W = 0;
+  /** The board's height with its lines at full size, and how much larger it is made for this camera (see BOARD_PX). */
+  const full = d.size * (sheet.lines > 1 ? 1.55 : 1);
+  const want = Math.abs(w.at - sDoor) > 6 ? w.at : sDoor;
+  const px = (projectPoint(cam, P(want, 0), w.g1 + full).y - projectPoint(cam, P(want, 0), w.g1).y) * HALF_LINES;
+  const grow = d.form === 'over' && px > 0 ? clamp((BOARD_PX * (sheet.lines > 1 ? 1.55 : 1)) / px, 1, GROW) : 1;
   /** The board's size at a share `k` of its full one, no wider than `room`. */
   const size = (k: number, room: number) => {
-    H = d.size * (sheet.lines > 1 ? 1.55 : 1) * k;
+    H = full * k;
     W = H * sheet.aspect;
     if (W > room) {
       W = room;
@@ -661,10 +729,6 @@ function dressWall(c: DressCtx, w: OwnWall, front: boolean, sides: readonly OwnW
     }
   };
   const ownRing = c.site.street.buildings[c.own].ring;
-  /** How squarely the camera sees a wall at a point of it: 1 straight on, 0 along the wall. */
-  const facing = (v: OwnWall, s: number) => dot(v.n, norm(sub(cam.pos, along(v.a, v.t, s))));
-  /** Seen less squarely than this (about 17 degrees off the wall's own line), a board on the wall is not read. */
-  const FACING = 0.3;
   const roofs = c.site.street.buildings.filter((b) => b.open && b.area >= 30 && b.ring.length > 2);
   // The houses that can stand between the camera and this front: those near the line from the one to the other.
   const blockers = c.site.street.buildings.filter((b, i) => {
@@ -676,7 +740,7 @@ function dressWall(c: DressCtx, w: OwnWall, front: boolean, sides: readonly OwnW
   const seen = (v: OwnWall, s: number, h: number, off: number) => {
     let k = 0;
     // A board the camera looks along is not read.
-    if (facing(v, s) < FACING) return 0;
+    if (facing(cam.pos, v, s) < FACING) return 0;
     for (const f of [-0.5, -0.25, 0, 0.25, 0.5]) {
       const p = along(along(v.a, v.t, s + f * W), v.n, off);
       const lo = projectPoint(cam, p, h);
@@ -707,12 +771,14 @@ function dressWall(c: DressCtx, w: OwnWall, front: boolean, sides: readonly OwnW
   /** Where the board is: the wall, its middle along it, its foot, how far it stands out. */
   let board: { v: OwnWall; s: number; h: number; off: number };
   if (d.form === 'beside') {
-    // A plate on the wall beside the door, at eye level.
+    // A plate on the wall beside the door, at eye level: on the side of the door where the camera's picture holds
+    // more of it (the camera's own side when both do).
     size(1, roomOf(w));
-    const off = (has('tower') ? 1.5 : 1.0) + W / 2;
-    let s = sDoor + camSide * off;
-    if (s - W / 2 < 0.2 || s + W / 2 > w.len - 0.2) s = sDoor - camSide * off;
-    board = { v: w, s: clamp(s, W / 2 + 0.1, Math.max(W / 2 + 0.1, w.len - W / 2 - 0.1)), h: w.base + 1.5, off: 0.145 };
+    const off = (has('tower') || has('chapel') ? 1.5 : 1.0) + W / 2;
+    const h = w.base + 1.5;
+    const sides2 = [camSide, -camSide].map((e) => sDoor + e * off).filter((s) => s - W / 2 >= 0.2 && s + W / 2 <= w.len - 0.2);
+    const best = sides2.map((s) => ({ s, n: seen(w, s, h, 0.145) })).sort((p, q) => q.n - p.n)[0];
+    board = { v: w, s: clamp(best?.s ?? sDoor + camSide * off, W / 2 + 0.1, Math.max(W / 2 + 0.1, w.len - W / 2 - 0.1)), h, off: 0.145 };
   } else {
     // On the front over the ground floor (on a building of one floor: on the edge of its roof), at the entrance.
     // When the camera's picture does not hold all of it there: lower on the wall, on the front edge of the canopy,
@@ -736,9 +802,8 @@ function dressWall(c: DressCtx, w: OwnWall, front: boolean, sides: readonly OwnW
       .filter((x) => x.hit.d < 18)
       .sort((x, y) => x.hit.d - y.hit.d)
       .slice(0, 4);
-    // A long front whose entrance is far from where it happens carries the board where the camera looks.
-    const want = Math.abs(w.at - sDoor) > 6 ? w.at : sDoor;
-    const eye = (k: number) => Math.min(k, 1.45 / (d.size * (sheet.lines > 1 ? 1.55 : 1)));
+    // A long front whose entrance is far from where it happens carries the board where the camera looks (`want`).
+    const eye = (k: number) => Math.min(k, 1.45 / full);
     let found: typeof board | null = null;
     /** The place seen most of those tried and not seen whole, with the board's size there. */
     let part: { at: typeof board; n: number; W: number; H: number } | null = null;
@@ -748,7 +813,8 @@ function dressWall(c: DressCtx, w: OwnWall, front: boolean, sides: readonly OwnW
       if (n < 5 && n > (part?.n ?? 0)) part = { at: { v, s, h, off }, n, W, H };
       return n === 5;
     };
-    for (const k of [1, 0.78, 0.6]) {
+    // Larger for a camera far away, where the wall has the room; then at its own size, then smaller.
+    for (const k of [...(grow > 1.15 ? [grow] : []), 1, 0.78, 0.6]) {
       size(k, roomOf(w));
       for (const h of heights(w, floor)) {
         const q = tries(w, want, Math.max(3, W)).find((x) => whole(w, x, h, 0.145));
@@ -792,6 +858,69 @@ function dressWall(c: DressCtx, w: OwnWall, front: boolean, sides: readonly OwnW
     }
     board = found;
   }
+  return { w, sDoor, camSide, canopy, awning, floor, over, board: { ...board, W, H } };
+}
+
+/**
+ * Dress one wall of the place's own building: on every wall what runs round the house (a shop's band, a church's
+ * windows), and on the front (`plan`: its plan, null for the other walls) the board and what the kind hangs beside it.
+ */
+function dressWall(c: DressCtx, w: OwnWall, plan: FrontPlan | null): void {
+  const { dress: d, sheet, signs, solids, heads } = c;
+  const front = plan !== null;
+  const white = shade(0xffffff);
+  const dark = shade(0x34373b);
+  const P = (s: number, off: number): V2 => along(along(w.a, w.t, s), w.n, off);
+  const out3 = dir3(w.n);
+  const yaw = Math.atan2(w.t[1], w.t[0]);
+  /** A painting of the sheet flat on the wall: from s0 to s1 along it and h0 to h1 up, `off` metres out of it. */
+  const face = (s0: number, s1: number, h0: number, h1: number, off: number, uv: UV4, col: Color = white) =>
+    signs.quad(at(P(s0, off), h0), at(P(s1, off), h0), at(P(s1, off), h1), at(P(s0, off), h1), col, out3, uv);
+  const has = (e: Extra) => d.extras.includes(e);
+  // The band of a shop's colour over its glass, on every wall that has glass.
+  if (d.band && (front || w.street) && w.g1 - w.base > 2.6) face(0, w.len, w.g1 - 0.5, w.g1 - 0.05, 0.08, sheet.part.bg);
+  const chapel = has('tower') || has('chapel');
+  if (chapel && w.len > 5 && w.eaves - w.base > 5.2) {
+    // Tall windows between the buttresses of the wall, not where the door is.
+    const n = Math.max(1, Math.round(w.len / 4.2));
+    const h1 = Math.min(w.eaves - 0.8, w.base + 5.6);
+    for (let k = 0; k < n; k++) {
+      const s = ((k + 0.5) / n) * w.len;
+      if (plan && Math.abs(s - plan.w.door) < 2.4) continue;
+      face(s - 0.55, s + 0.55, w.base + 1.7, h1, 0.04, sheet.part.window, w.wall);
+    }
+  }
+  if (!plan) return;
+
+  const { sDoor, camSide, canopy, awning, floor, over, board } = plan;
+  const cam = c.site.camera;
+  const ground = w.base > 0.2 ? w.base : 0.16;
+  if (canopy) {
+    // A slab hung from the wall on two rods, its edge in the board's letter colour, lamps under it.
+    const { s, wide, deep, h } = canopy;
+    solids.box(P(s, deep / 2 + 0.02), yaw, wide, deep, h, h + 0.3, dark);
+    face(s - wide / 2, s + wide / 2, h + 0.02, h + 0.28, deep + 0.03, sheet.part.fg);
+    for (const e of [-1, 1]) {
+      const q = s + e * (wide / 2 - 0.35);
+      solids.tube(at(P(q, 0.04), h + 1.7), at(P(q, deep - 0.3), h + 0.3), 0.03, 0.03, dark, 4);
+      heads.box(P(s + (e * wide) / 4, deep * 0.55), yaw, 0.6, 0.6, h - 0.03, h, white);
+    }
+    c.spill(P(s - wide / 2, 0), P(s + wide / 2, 0), w.n, deep + 2.2, ground, shade(0xd8c8a0, 0.5));
+  }
+  if (awning) {
+    // Cloth on a frame, sloping out from the wall over the door and the window beside it, with its hanging edge.
+    const { s, wide, deep, h: lo } = awning;
+    const hi = lo + 0.5;
+    signs.quad(at(P(s - wide / 2, 0.04), hi), at(P(s + wide / 2, 0.04), hi), at(P(s + wide / 2, deep), lo), at(P(s - wide / 2, deep), lo), white, dir3(w.n, 2), sheet.part.awning);
+    face(s - wide / 2, s + wide / 2, lo - 0.2, lo, deep, sheet.part.awning);
+    const cloth = shade(hexOf(d.bg));
+    for (const e of [-1, 1]) {
+      const q = s + (e * wide) / 2;
+      solids.tri(at(P(q, 0.04), hi), at(P(q, deep), lo), at(P(q, 0.04), lo), cloth);
+      solids.tri(at(P(q, 0.04), hi), at(P(q, 0.04), lo), at(P(q, deep), lo), cloth);
+    }
+  }
+  let { W, H } = board;
   {
     // A box that stands out from the wall (or stands on the canopy's edge), its face the painting.
     const { v, s, h, off } = board;
@@ -812,7 +941,7 @@ function dressWall(c: DressCtx, w: OwnWall, front: boolean, sides: readonly OwnW
 
   // A sign standing out from the wall, read from along the street: the word of the kind where the kind has one, and
   // the board itself once more where the camera looks along the wall its board is on.
-  const along2 = d.form === 'over' && facing(board.v, board.s) < FACING;
+  const along2 = d.form === 'over' && facing(cam.pos, board.v, board.s) < FACING;
   if (along2 || (has('blade') && w.len > 4)) {
     const wide = along2 ? Math.min(1.8, 0.8 * sheet.aspect) : 1.35;
     const high = along2 ? wide / sheet.aspect : 0.45;
@@ -889,16 +1018,35 @@ function dressWall(c: DressCtx, w: OwnWall, front: boolean, sides: readonly OwnW
       solids.box(P(w.len / 2, 0.33), yaw, w.len - 0.2, 0.5, h, h + 0.05, plank);
       solids.tube(at(P(0.1, 0.56), h + 1.0), at(P(w.len - 0.1, 0.56), h + 1.0), 0.022, 0.022, steel, 4);
     }
-    // The netting leaves the board's bays open.
-    const from = sc + W / 2 + 0.6 < w.len - 2 ? sc + W / 2 + 0.6 : 0;
-    const to = from > 0 ? w.len : Math.max(0, sc - W / 2 - 0.6);
-    if (to - from > 2) signs.card(at(P(from, 0.6), w.base + 2.75), at(P(to, 0.6), w.base + 2.75), at(P(to, 0.6), topH + 1), at(P(from, 0.6), topH + 1), out3, white, sheet.part.net);
+    for (let k = 0; k < n; k++) {
+      const s0 = (k / n) * w.len + 0.06;
+      const s1 = ((k + 1) / n) * w.len - 0.06;
+      // Netting in sheets from standard to standard, every other one a shade darker; the board's bays stay open.
+      if (s1 < sc - W / 2 - 0.3 || s0 > sc + W / 2 + 0.3) {
+        const [q0, q1] = [P(s0, 0.58), P(s1, 0.58)];
+        signs.card(at(q0, w.base + 2.75), at(q1, w.base + 2.75), at(q1, topH + 1), at(q0, topH + 1), out3, k % 2 ? white : shade(0xffffff, 0.84), sheet.part.net);
+      }
+      // A hoarding of grey sheets between the standards at the scaffold's foot, a band in the board's colour along
+      // its top; the bays at the entrance stay open.
+      if (s1 < sDoor - 1.3 || s0 > sDoor + 1.3) {
+        face(s0, s1, ground, ground + 2, 0.58, sheet.part.white, shade(0x9ea3a8));
+        face(s0, s1, ground + 1.72, ground + 2, 0.585, sheet.part.bg);
+      }
+    }
   }
-  if (has('tower')) {
+  if (chapel) {
     // The tall door in its pointed arch.
     const dh = Math.min(3.6, w.eaves - w.base - 0.6);
     face(sDoor - 1.2, sDoor + 1.2, w.base, w.base + dh, 0.05, sheet.part.door, w.wall);
-    tower(c, w, sDoor);
+    // A cross on the wall over the door, dark on a pale wall and pale on a dark one: the tower is above the picture
+    // of a camera that hangs lower than the eaves, and this is what then says that the house is a church.
+    const ch = w.base + dh + 0.45;
+    if (w.eaves - ch > 2.1) {
+      const iron = shade(w.wall.r + w.wall.g + w.wall.b < 0.9 ? 0xd8d2c0 : 0x2a2a2c);
+      solids.box(P(sDoor, 0.06), yaw, 0.2, 0.1, ch, ch + 1.7, iron);
+      solids.box(P(sDoor, 0.06), yaw, 1.0, 0.1, ch + 1.05, ch + 1.25, iron);
+    }
+    if (has('tower')) tower(c, w, sDoor);
   }
 }
 

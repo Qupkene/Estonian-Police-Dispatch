@@ -81,8 +81,11 @@ export const AREA_DIM: Record<MapStyleKey, { color: string; opacity: number; edg
   foto: { color: '#000000', opacity: 0.48, edge: '#9fc2ff', inside: 0 },
 };
 export const ROUTE_LAYERS = ['routes-casing', 'routes-line', 'routes-line-calm'];
-/** The open surveillance camera's view cone, its outline, the spot it shows and the camera itself (cameraCone.ts). */
-export const CAMERA_LAYERS = ['camera-cone', 'camera-cone-edge', 'camera-spot', 'camera-at'];
+/**
+ * The open surveillance camera (cameraCone.ts): its view cone, its outline, the dashed line from the incident's marker
+ * to the spot when the camera shows a place apart from it, the spot, the camera itself and the place's name.
+ */
+export const CAMERA_LAYERS = ['camera-cone', 'camera-cone-edge', 'camera-link', 'camera-spot', 'camera-at', 'camera-label'];
 
 /**
  * The camera cone's colours on each base map: a mint green no other overlay uses (routes are blue, searches cyan,
@@ -638,6 +641,16 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
     },
   });
 
+  // The camera's place apart from the incident: a thin dashed line from the marker (drawn above every layer) to the
+  // ring, above the routes, under the ring.
+  add({
+    id: 'camera-link',
+    type: 'line',
+    source: SRC.camera,
+    filter: kindIs('link'),
+    layout: { visibility: routeVis, 'line-cap': 'round' },
+    paint: { 'line-color': cam.color, 'line-opacity': 0.9, 'line-width': interp([[13, 1.2], [17, 1.8]]), 'line-dasharray': ['literal', [2, 2]] },
+  });
   // The spot the picture shows (a ring) and the camera (a dot), above the routes.
   add({
     id: 'camera-spot',
@@ -665,6 +678,24 @@ export function buildStyle(styleKey: MapStyleKey, opts: BuildStyleOptions): Styl
       'circle-stroke-color': cam.halo,
       'circle-stroke-width': 1.6,
     },
+  });
+  // The place's name by the ring, on the side away from the marker (only with the line above).
+  add({
+    id: 'camera-label',
+    type: 'symbol',
+    source: SRC.camera,
+    filter: kindIs('label'),
+    layout: {
+      visibility: routeVis,
+      'text-field': ['get', 'name'],
+      'text-font': FONT.medium,
+      'text-size': interp([[13, 10.5], [17, 12]]),
+      'text-anchor': ['coalesce', ['get', 'anchor'], 'left'],
+      'text-offset': ['coalesce', ['get', 'offset'], ['literal', [0.9, 0]]],
+      'text-max-width': 12,
+      'text-allow-overlap': true,
+    },
+    paint: { 'text-color': cam.color, 'text-halo-color': cam.halo, 'text-halo-width': 1.4, 'text-halo-blur': 0.3 },
   });
 
   // ── Labels ────────────────────────────────────────────────────────────────

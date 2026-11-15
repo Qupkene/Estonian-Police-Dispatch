@@ -1038,6 +1038,9 @@ export async function readStreet(
     street.place = { kind: place.kind, name, at: [0, 0] };
     // 2. Before the front of its own building; 3. or beside the nearest road when none is in reach.
     const settled = settlePlace(street, street.place);
+    // The surroundings cannot carry the place (no room for a petrol station's canopy, for bays, for shelters): no
+    // street, and the caller shows a made-up one of the kind.
+    if (!settled.fits) return null;
     const { plan } = settled;
     const anchor = plan.anchor ?? (usable(street) ? null : roadAnchor(street));
     if (plan.anchor && plan.front) street.place.door = plan.front.door;

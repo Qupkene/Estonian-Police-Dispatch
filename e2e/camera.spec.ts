@@ -107,9 +107,44 @@ const shot = (page: Page) => page.locator('.gm-cam__canvas').screenshot({ timeou
 /** The software renderer's first frame can come seconds after the window turns "live". */
 const SLOW = 30_000;
 
+type Box = { x: number; y: number; width: number; height: number };
 /** Do two boxes overlap? */
-const overlap = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
-  a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+const overlap = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+/** Is `a` wholly inside `b`? */
+const within = (a: Box, b: Box) => a.x >= b.x && a.y >= b.y && a.x + a.width <= b.x + b.width && a.y + a.height <= b.y + b.height;
+
+/** The selected incident's marker, the camera window and the map, as boxes on the page (null: not there). */
+const boxes = async (page: Page) => {
+  const box = async (l: ReturnType<Page['locator']>) => ((await l.count()) ? l.first().boundingBox() : null);
+  return { marker: await box(page.locator('.epdm-inc.is-sel')), win: await box(win(page)), map: await box(page.locator('.epdm__map')) };
+};
+/** The marker shows in the part of the map the window leaves free: inside the map, clear of the window. */
+const markerFree = async (page: Page) => {
+  const b = await boxes(page);
+  return !!b.marker && !!b.win && !!b.map && within(b.marker, b.map) && !overlap(b.marker, b.win);
+};
+/** The zoom the map came to rest at (the map writes it on its root for the tests). */
+const mapZoom = async (page: Page) => Number(await page.locator('.epdm').getAttribute('data-zoom'));
+
+/** The player drags the map by (dx, dy) px, from a point in its lower left part. */
+async function dragMap(page: Page, dx: number, dy: number) {
+  const m = (await page.locator('.epdm__map').boundingBox())!;
+  const x = m.x + m.width * 0.2;
+  const y = m.y + m.height * 0.8;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + dx, y + dy, { steps: 8 });
+  await page.mouse.up();
+}
+
+/** The player drags the map until the selected marker lies where the camera window opens (the map's top right). */
+async function hideMarker(page: Page) {
+  const m = (await page.locator('.epdm__map').boundingBox())!;
+  const k = (await page.locator('.epdm-inc.is-sel').boundingBox())!;
+  // The window opens in the map's top right corner, about 450 x 290 px.
+  await dragMap(page, m.x + m.width - 240 - (k.x + k.width / 2), m.y + 150 - (k.y + k.height / 2));
+  await page.waitForTimeout(800);
+}
 
 test.describe('surveillance camera', () => {
   test('opens from the card, plays the patrol arriving, keeps the incident in sight and lets everything go', async ({ page }) => {
@@ -136,6 +171,12 @@ test.describe('surveillance camera', () => {
     // Nothing of the camera has come down the wire yet.
     expect(chunk).toEqual([]);
 
+    // The player has dragged the map so that the marker lies where the window will open.
+    await expect.poll(() => mapZoom(page), { timeout: SLOW }).toBeCloseTo(15, 1);
+    await hideMarker(page);
+    const hiddenAt = (await boxes(page)).marker!;
+    const zoomBefore = await mapZoom(page);
+
     await button.click();
     await expect(win(page)).toBeVisible({ timeout: SLOW });
     // The card's button now closes the camera (its words say so).
@@ -151,15 +192,17 @@ test.describe('surveillance camera', () => {
     // The fight's people are in the frame; no car yet.
     await expect.poll(async () => Number(await win(page).getAttribute('data-people')), { timeout: SLOW }).toBeGreaterThan(1);
 
-    // The map eased so that the incident's marker shows beside the window, not under it.
-    const marker = page.locator('.epdm-inc.is-sel');
-    await expect
-      .poll(async () => {
-        const m = await marker.boundingBox();
-        const w = await win(page).boundingBox();
-        return !!m && !!w && !overlap(m, w);
-      }, { timeout: SLOW })
-      .toBe(true);
+    // The marker had been dragged under where the window opens: the map brought it into the part the window leaves
+    // free, whole, at the same zoom.
+    await expect.poll(() => markerFree(page), { timeout: SLOW }).toBe(true);
+    const shownAt = (await boxes(page)).marker!;
+    expect(Math.hypot(shownAt.x - hiddenAt.x, shownAt.y - hiddenAt.y)).toBeGreaterThan(40);
+    expect(overlap(hiddenAt, (await boxes(page)).win!)).toBe(true);
+    expect(await mapZoom(page)).toBeCloseTo(zoomBefore, 1);
+    // This street (Tallinn, with no street archive here) was made up for the picture: the window says the camera is
+    // not shown on the map.
+    await expect(page.getByTestId('camera-nomap')).toHaveText('Selle kaamera asukohta kaardil ei näidata');
+    expect(await page.locator('.epdm').getAttribute('data-camera-cone')).toBe('0');
 
     // Paused, the picture stands; running, it moves.
     const a = await shot(page);
@@ -304,6 +347,29 @@ test.describe('surveillance camera', () => {
     // Nothing is left: every camera context lost, and none of them still held once garbage is collected.
     expect(await liveCams(page)).toBe(0);
     await expect.poll(() => heldContexts(page), { timeout: SLOW }).toBeLessThanOrEqual(held);
+    expect(errors, errors.join('\n')).toEqual([]);
+  });
+
+  test("an overview keeps its zoom: opening a camera only pans the marker out from under the window", async ({ page }) => {
+    test.setTimeout(240_000);
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await bootAndLegacyLogin(page);
+    const { id } = await fightUnderCamera(page);
+    const coord = await epd<[number, number]>(page, `return e.game.getState().sim.incidents['${id}'].location.coord`);
+    // The dispatcher's overview of the district, the incident under where the window opens.
+    await epd(page, `e.game.getState().focusMap([${coord[0]}, ${coord[1]}], 12.5);`);
+    await expect.poll(() => mapZoom(page), { timeout: SLOW }).toBeCloseTo(12.5, 2);
+    await hideMarker(page);
+    await page.locator(`[data-camera-toggle="${id}"]`).click();
+    await expect(win(page)).toBeVisible({ timeout: SLOW });
+    await expect.poll(() => markerFree(page), { timeout: SLOW }).toBe(true);
+    await expect.poll(() => camState(page), { timeout: 60_000, intervals: [500] }).toBe('live');
+    await page.waitForTimeout(1500);
+    // Still the overview, the marker in sight.
+    expect(await mapZoom(page)).toBeCloseTo(12.5, 2);
+    expect(await markerFree(page)).toBe(true);
+    await page.getByTestId('camera-close').click();
     expect(errors, errors.join('\n')).toEqual([]);
   });
 
@@ -529,12 +595,8 @@ test.describe('surveillance camera on the map', () => {
     });
   }
 
-  test('the view cone is drawn while the picture is live, follows its zoom and goes when the window closes', async ({ page }) => {
-    test.skip(!SAMPLE, 'needs EPD_PMTILES_SAMPLE, a street archive to read the camera street from');
-    test.setTimeout(240_000);
-    const errors: string[] = [];
-    page.on('pageerror', (e) => errors.push(String(e)));
-    await serveSample(page, SAMPLE!);
+  /** A paused shift, and a street fight in the middle of the sample's city where a camera sees it, selected. */
+  async function fightInFlorence(page: Page): Promise<string> {
     await bootAndLegacyLogin(page);
     await epd(
       page,
@@ -543,7 +605,6 @@ test.describe('surveillance camera on the map', () => {
        .then(() => e.game.getState().setSpeed(0));`,
     );
     await expect.poll(() => screen(page), { timeout: 20_000 }).toBe('game');
-    // A street fight in the middle of the sample's city where a camera sees it.
     const id = await epd<string | null>(
       page,
       `const g = e.game.getState(); const s = g.sim; const { cmd } = e.engine;
@@ -557,6 +618,7 @@ test.describe('surveillance camera on the map', () => {
          if (e.camera.cameraOf(inc, s.now)) {
            inc.expiresAt = undefined;
            g.select({ incidentId: id }, 'incident');
+           g.focusMap(inc.location.coord, 15);
            g.bump();
            return id;
          }
@@ -566,19 +628,65 @@ test.describe('surveillance camera on the map', () => {
        return null;`,
     );
     expect(id, 'a street fight under a camera').not.toBeNull();
+    await expect.poll(() => mapZoom(page), { timeout: SLOW }).toBeCloseTo(15, 1);
+    return id!;
+  }
+
+  test('the view cone is drawn while the picture is live, follows its zoom and goes when the window closes', async ({ page }) => {
+    test.skip(!SAMPLE, 'needs EPD_PMTILES_SAMPLE, a street archive to read the camera street from');
+    test.setTimeout(240_000);
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await serveSample(page, SAMPLE!);
+    const id = await fightInFlorence(page);
     const map = page.locator('.epdm');
     await page.locator(`[data-camera-toggle="${id}"]`).click();
     // Connecting: nothing of the camera on the map yet.
     await expect(map).toHaveAttribute('data-camera-cone', '0', { timeout: SLOW });
     await expect.poll(() => camState(page), { timeout: 60_000, intervals: [500] }).toBe('live');
-    // Live: the cone's three bands, its outline, the camera and the spot.
-    await expect(map).toHaveAttribute('data-camera-cone', '6', { timeout: SLOW });
+    // Live: the cone's three bands, its outline, the camera and the spot; with the line from the marker and the
+    // place's name when the spot is more than 40 m from the marker (the camera found its place itself).
+    const kinds = /^band band band edge (link )?spot at( label)?$/;
+    await expect(map).toHaveAttribute('data-camera-kinds', kinds, { timeout: SLOW });
+    const spotM = Number(await map.getAttribute('data-camera-spot-m'));
+    const linked = /link/.test((await map.getAttribute('data-camera-kinds'))!);
+    expect(spotM).toBeLessThanOrEqual(260);
+    expect(linked, `the spot is ${spotM} m from the marker`).toBe(spotM > 40);
+    // No note about the map: this camera has its place on it.
+    await expect(page.getByTestId('camera-nomap')).toHaveCount(0);
     // Zoomed in, it is drawn again (narrower: tests/map-camera-cone.test.ts) and stays.
     await page.locator('.gm-cam__btn--zoom').nth(1).click();
-    await expect(map).toHaveAttribute('data-camera-cone', '6', { timeout: SLOW });
+    await expect(map).toHaveAttribute('data-camera-kinds', kinds, { timeout: SLOW });
     await page.getByTestId('camera-close').click();
     await expect(win(page)).toHaveCount(0, { timeout: SLOW });
     await expect(map).toHaveAttribute('data-camera-cone', '0', { timeout: SLOW });
+    expect(errors, errors.join('\n')).toEqual([]);
+  });
+
+  test('a map the dispatcher moved while the camera connected is not pulled back when the picture goes live', async ({ page }) => {
+    test.skip(!SAMPLE, 'needs EPD_PMTILES_SAMPLE, a street archive to read the camera street from');
+    test.setTimeout(240_000);
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await serveSample(page, SAMPLE!);
+    const id = await fightInFlorence(page);
+    const map = page.locator('.epdm');
+    await page.locator(`[data-camera-toggle="${id}"]`).click();
+    await expect(win(page)).toBeVisible({ timeout: SLOW });
+    // The dispatcher looks somewhere else while the camera connects (it takes seconds: shaders, the street).
+    expect(await camState(page)).toBe('connecting');
+    await dragMap(page, 260, -160);
+    await page.waitForTimeout(1500);
+    const moved = { zoom: await mapZoom(page), marker: (await boxes(page)).marker };
+    await expect.poll(() => camState(page), { timeout: 60_000, intervals: [500] }).toBe('live');
+    await expect(map).not.toHaveAttribute('data-camera-cone', '0', { timeout: SLOW });
+    await page.waitForTimeout(2500);
+    // Live, the cone is drawn where the camera is; the map stays where the dispatcher left it.
+    expect(await mapZoom(page)).toBeCloseTo(moved.zoom, 2);
+    const now = (await boxes(page)).marker;
+    expect(!!now === !!moved.marker).toBe(true);
+    if (now && moved.marker) expect(Math.hypot(now.x - moved.marker.x, now.y - moved.marker.y)).toBeLessThan(2);
+    await page.getByTestId('camera-close').click();
     expect(errors, errors.join('\n')).toEqual([]);
   });
 });

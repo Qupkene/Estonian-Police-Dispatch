@@ -177,8 +177,11 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
   const [pose, setPose] = useState<CameraPose | null>(null);
   /** Where the map drew the incident's marker when the camera was opened: the camera was opened there. */
   const marker = useRef<LngLat | null>(null);
-  /** Asks the map to bring the marker and the cone into view: on opening, once live, and after a change of size. */
-  const [reveal, setReveal] = useState(0);
+  /**
+   * Asks the map to bring the marker and the cone into view: on opening, once live (`auto`: left out when the map was
+   * moved meanwhile), and after a change of size.
+   */
+  const [reveal, setReveal] = useState({ n: 0, auto: false });
   /** Where the window was dragged to, from the map area's top left corner; null while it sits in its corner. */
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   /** The width the map area leaves the window (px; null on a phone, where it is docked at full width). */
@@ -280,7 +283,7 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
         handle = h;
         handleRef.current = h;
         setPose(h.pose);
-        if (h.pose) setReveal(nextReveal());
+        if (h.pose) setReveal({ n: nextReveal(), auto: true });
         setState('live');
       })
       .catch((e: unknown) => {
@@ -460,11 +463,12 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
   }, [refit]);
 
   // The map shows the camera (src/map/cameraCone.ts): where the incident's marker is, and while the picture is live
-  // and the window not folded, where the camera hangs, which way it looks and how far, at the window's zoom. On
-  // opening, once live and after a change of size, the map brings the marker and the cone into the part of the map
-  // the window leaves free (it does not move when they already show there). GameScreen MapHost moves every other
-  // focus while a window is open, see clearOfCamera.
-  useEffect(() => setReveal(nextReveal()), [large]);
+  // and the window not folded, where the camera hangs, which way it looks and how far, at the window's zoom, with a
+  // line from the marker when the camera shows its place apart from it. On opening, once live (unless the map was
+  // moved meanwhile) and after a change of size, the map brings the marker and the cone into the part of the map the
+  // window leaves free (it does not move when they already show there, and keeps an overview's zoom). GameScreen
+  // MapHost moves every other focus while a window is open, see clearOfCamera.
+  useEffect(() => setReveal({ n: nextReveal(), auto: false }), [large]);
   const sim = useGame((s) => s.sim);
   const live = state === 'live';
   const folded = fold !== null;
@@ -474,12 +478,16 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
     marker.current ??= shownIncidentCoord(sim, inc);
     showCameraCone({
       sim,
+      incidentId,
       marker: marker.current,
+      // The place name as the title shows it, after the camera's code.
+      place: info && info.name.startsWith(info.id) ? info.name.slice(info.id.length) : '',
       pose: live ? pose : null,
       zoom,
       panX,
       shown: !folded,
-      reveal,
+      reveal: reveal.n,
+      auto: reveal.auto,
       cover: (map) => {
         const win = winRef.current;
         if (!win || win.offsetParent === null) return null;
@@ -489,7 +497,7 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
       },
     });
     return () => showCameraCone(null);
-  }, [sim, incidentId, live, pose, zoom, panX, folded, reveal]);
+  }, [sim, incidentId, info, live, pose, zoom, panX, folded, reveal]);
 
   const applyView = useCallback(
     (z: number) => {
@@ -692,7 +700,7 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
         onWheel={onWheel}
         onPointerDown={onPictureDown}
         onDoubleClick={resetView}
-        title={live ? (pose ? `${t('game.cam.zoomHint')}\n${t('game.cam.onMap')}` : t('game.cam.zoomHint')) : undefined}
+        title={live ? `${t('game.cam.zoomHint')}\n${t(pose ? 'game.cam.onMap' : 'game.cam.noMap')}` : undefined}
       >
         <canvas
           key={attempt}
@@ -705,6 +713,12 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
           hidden={!live}
         />
         {live && zoom > 1 && <span className="gm-cam__zoom mono">{zoom.toFixed(1)}×</span>}
+        {/* A street the map does not know (made up for the picture): said once, then it fades, and stays in the hint. */}
+        {live && !pose && (
+          <span className="gm-cam__nomap" data-testid="camera-nomap">
+            {t('game.cam.noMap')}
+          </span>
+        )}
         {!live && <CameraNote state={state} onRetry={retry} />}
       </div>
     </section>

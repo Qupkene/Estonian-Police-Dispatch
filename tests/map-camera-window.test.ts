@@ -11,7 +11,7 @@ import { tallinnTime } from '@/sim/time';
 import type { Incident, LngLat } from '@/sim/types';
 import { useGameUi } from '@/ui/game/uiStore';
 import { CameraWindow } from '@/ui/game/CameraWindow';
-import { cameraCone } from '@/map/cameraCone';
+import { cameraCone, mapLabel } from '@/map/cameraCone';
 import type { CameraHandle, OpenOptions } from '@/cctv/live';
 
 /** Where the map draws the marker: on the place's building, away from the incident's own coordinates. */
@@ -20,13 +20,15 @@ const OWN: LngLat = [24.751, 59.4359];
 const POSE = { at: [24.7529, 59.4366] as LngLat, spot: [24.7531, 59.43668] as LngLat, bearing: 64, fovH: 78, reach: 42 };
 
 const opened: OpenOptions[] = [];
-let answer: 'live' | 'none' = 'live';
+let answer: 'live' | 'none' | 'nowhere' = 'live';
 
 vi.mock('@/cctv/live', () => ({
   openCamera: async (_canvas: HTMLCanvasElement, o: OpenOptions): Promise<CameraHandle | null> => {
     opened.push(o);
     if (answer === 'none') return null;
-    return { update() {}, view() {}, state: 'live', phase: 'open', dead: false, source: 'tiles', people: 2, cars: 0, pose: POSE, dispose() {} };
+    // 'nowhere': a street made up for the picture, which has no place on the map.
+    const pose = answer === 'nowhere' ? null : POSE;
+    return { update() {}, view() {}, state: 'live', phase: 'open', dead: false, source: answer === 'nowhere' ? 'made' : 'tiles', people: 2, cars: 0, pose, dispose() {} };
   },
 }));
 vi.mock('@/cctv/coverage', async (orig) => ({
@@ -82,6 +84,10 @@ describe('the camera window and the map', () => {
     expect(cameraCone()?.marker).toEqual(SHOWN);
     expect(cameraCone()?.pose).toBeNull();
     const first = cameraCone()!.reveal;
+    // Opening the window is the player's own request; the camera's incident and place go with it.
+    expect(cameraCone()!.auto).toBe(false);
+    expect(cameraCone()!.incidentId).toBe(id);
+    expect(mapLabel(cameraCone()!.place)).toBe('Narva mnt');
     await waitFor(() => expect(document.querySelector('[data-testid="camera-window"]')?.getAttribute('data-state')).toBe('live'));
     expect(opened).toHaveLength(1);
     expect(opened[0].origin).toEqual(SHOWN);
@@ -94,6 +100,10 @@ describe('the camera window and the map', () => {
     expect(v.panX).toBe(0);
     expect(v.shown).toBe(true);
     expect(v.reveal).toBeGreaterThan(first);
+    // That one comes from the picture, not the player: the map leaves it out if it was moved meanwhile.
+    expect(v.auto).toBe(true);
+    // A place on the map: no note about it.
+    expect(document.querySelector('[data-testid="camera-nomap"]')).toBeNull();
     // The window's zoom narrows the cone.
     act(() => (document.querySelectorAll<HTMLButtonElement>('.gm-cam__btn--zoom')[1]).click());
     expect(cameraCone()!.zoom).toBeCloseTo(1.5, 6);
@@ -112,5 +122,17 @@ describe('the camera window and the map', () => {
     await waitFor(() => expect(document.querySelector('[data-testid="camera-window"]')?.getAttribute('data-state')).toBe('unavailable'));
     expect(opened[0].origin).toEqual([24.76, 59.44]);
     expect(cameraCone()?.pose).toBeNull();
+  });
+
+  it('says once, small, when the live picture has no place on the map', async () => {
+    const id = shiftWithIncident();
+    answer = 'nowhere';
+    useGameUi.setState({ camera: { incidentId: id } });
+    render(createElement(CameraWindow));
+    await waitFor(() => expect(document.querySelector('[data-testid="camera-window"]')?.getAttribute('data-state')).toBe('live'));
+    expect(cameraCone()?.pose).toBeNull();
+    const note = document.querySelector('[data-testid="camera-nomap"]');
+    expect(note?.textContent).toBe('Selle kaamera asukohta kaardil ei näidata');
+    expect(document.querySelector('.gm-cam__picture')?.getAttribute('title')).toContain('Selle kaamera asukohta kaardil ei näidata');
   });
 });

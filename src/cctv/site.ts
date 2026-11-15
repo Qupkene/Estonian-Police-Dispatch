@@ -16,7 +16,12 @@
  *
  * A street read or made for a place (`StreetData.place`: a petrol station, a bank, a car park) is first given what
  * stands before the place (place.ts), and the scene is wanted before the front of the place's own building, with its
- * door on that front and the front in the picture: a place on a road the building does not face costs more.
+ * door on that front and the front in the picture: a place on a road the building does not face costs more, and so
+ * does a camera without the stretch of the front the place's board hangs on in the middle of its picture.
+ *
+ * No camera is taken with a wall, a roof, a canopy or a panel block's balconies nearer than 8 m over more than a
+ * seventh of its picture while the street has one without (`nearCover`): only a lane too narrow for any gets the
+ * camera with the least wall for what it shows.
  *
  * Pure: no DOM, no three.js.
  */
@@ -28,6 +33,7 @@ import {
   cross,
   dist,
   dot,
+  hash01,
   left,
   lineLength,
   mul,
@@ -40,13 +46,14 @@ import {
   rand,
   ringArea,
   segmentHitsRing,
+  segmentsCross,
   sliceLine,
   sub,
   yawOf,
   type Rand,
   type V2,
 } from './math';
-import { isShown, settlePlace, wallAt, type Front } from './place';
+import { isShown, pumpIslands, settlePlace, wallAt, type Front } from './place';
 import {
   CAR_ROADS,
   type Building,
@@ -93,6 +100,8 @@ const DOOR_NEAR_M = 12;
 const CAMERA_REACH_M = 110;
 /** How many places a camera is worked out for before the best of them is taken. */
 const MAX_PLACES = 6;
+/** And how many at the most where some of them have a wall right before every camera. */
+const MAX_TRIES = 18;
 /** The vertical field of view of a street camera, degrees: about a 6 mm lens to a 2.8 mm one. */
 const FOV_MIN = 36;
 const FOV_MAX = 64;
@@ -106,14 +115,17 @@ const DEG = Math.PI / 180;
 const DOOR_REACH_M = 32;
 /** A spot within this many metres of the own building's front, on its side and with nothing between, is before it. */
 const FRONT_NEAR_M = 30;
+/** A spot within this many metres of what stands before the place (a canopy's middle, the bays, a shelter) is at it. */
+const FOCUS_NEAR_M = 28;
 /** What a place costs that is not before the front of the incident's own building (more than the next road does). */
 const OFF_FRONT_COST = 6;
 
 /** The place the incident names, as a site is built for it. */
 interface Own {
   hint: PlaceHint;
-  /** Its own building (index into street.buildings), or -1. */
+  /** Its own building: its index into street.buildings and the building itself, or -1 and null. */
   index: number;
+  building: Building | null;
   front: Front | null;
   /** What stands before it that the picture should hold (a canopy's middle, the bays, the shelters). */
   focus: V2[];
@@ -268,14 +280,104 @@ function roofRise(b: Building): number {
   return b.roof === 'gable' ? clamp(boundingBox(b.ring).short * 0.44, 1.2, 4.6) : 0.6;
 }
 
+/** The scene's own spot keeps this far from a pump island. */
+const ISLAND_ROOM_M = 1.2;
 /** How thick a shelter's roof is taken to be: a line of sight passes over it or under it, not through it. */
 const ROOF_SLAB_M = 0.7;
+
+/**
+ * Something a lens can have right before it, as src/cctv/render/world.ts builds it: a house's walls with the parapet
+ * of a flat roof, a building part held up on posts, a canopy's fascia, a shelter's roof (all: a footprint between
+ * two heights), and a pitched roof (over the footprint's bounding rectangle, half a metre past the walls).
+ */
+interface Block {
+  ring: readonly V2[];
+  lo: number;
+  hi: number;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  /** A pitched roof: the rectangle's middle, its long axis, its half sizes, and the heights of its eaves and its ridge. */
+  pitch?: { c: V2; u: V2; halfLong: number; half: number; eave: number; ridge: number };
+}
+
+/** How far a pitched roof reaches past its walls, and how deep a canopy's fascia and a shelter's roof are (render/world.ts). */
+const ROOF_OVER_M = 0.42;
+const FASCIA_M = 0.85;
+const SHELTER_ROOF_M = 0.25;
+/** A flat roof's parapet at the most. */
+const PARAPET_M = 0.6;
+
+/**
+ * Is a building a panel block, as the renderer fronts it (src/cctv/render/world.ts facadeKindOf gives 'panel', by
+ * the building's size and its id: tests/cctv-site.test.ts holds the two together)? Balconies hang on a panel
+ * block's long walls.
+ */
+export function panelBlock(b: Building): boolean {
+  if (b.open || b.roof === 'gable' || b.ring.length < 3) return false;
+  const h = hash01('kind', b.id);
+  const tall = b.height - b.base;
+  // A hall, and a shop's low box, are never one.
+  if ((b.area > 1500 && tall < 13) || (b.area > 120 && b.area <= 1500 && tall < 6.5)) return false;
+  const bb = boundingBox(b.ring);
+  if (bb.long > 36 && bb.short >= 9 && bb.short <= 17 && tall >= 12) return h < 0.82;
+  if (tall >= 18) return h < 0.6;
+  return tall >= 3.2 && h >= 0.88;
+}
+
+/** A panel block's balconies: on its walls longer than this, from the first floor up, this far out of the wall. */
+const BALCONY_WALL_M = 20;
+const BALCONY_FROM_M = 2.85;
+const BALCONY_OUT_M = 1.25;
+
+function blocksOf(b: Building): Block[] {
+  if (b.ring.length < 3) return [];
+  const blockOf = (ring: readonly V2[], lo: number, hi: number): Block => {
+    const m = massOf(ring, 0, 0);
+    return { ring, lo, hi, x0: m.x0, y0: m.y0, x1: m.x1, y1: m.y1 };
+  };
+  if (b.open) return [blockOf(b.ring, b.height - (b.area >= 30 ? FASCIA_M : SHELTER_ROOF_M), b.height)];
+  if (b.roof !== 'gable') {
+    const out = [blockOf(b.ring, b.base, b.height + PARAPET_M)];
+    if (!panelBlock(b)) return out;
+    // The stacks of balconies, as one mass along each long wall (which bays have them is the renderer's own choice).
+    const ccw = ringArea(b.ring) > 0;
+    for (let i = 0; i < b.ring.length; i++) {
+      const a = b.ring[i];
+      const d = b.ring[(i + 1) % b.ring.length];
+      if (dist(a, d) <= BALCONY_WALL_M) continue;
+      const e = norm(sub(d, a));
+      const n: V2 = ccw ? [e[1], -e[0]] : [-e[1], e[0]];
+      out.push(blockOf([a, d, along(d, n, BALCONY_OUT_M), along(a, n, BALCONY_OUT_M)], b.base + BALCONY_FROM_M, b.height));
+    }
+    return out;
+  }
+  const box = blockOf(b.ring, b.base, b.height);
+  const bb = boundingBox(b.ring);
+  const rise = clamp(bb.short * (0.32 + 0.12 * hash01('pitch', b.id)), 1.2, 4.6);
+  const half = bb.short / 2 + ROOF_OVER_M;
+  const halfLong = bb.long / 2 + ROOF_OVER_M;
+  const reach = Math.hypot(half, halfLong);
+  const roof: Block = {
+    ring: b.ring,
+    lo: b.height,
+    hi: b.height + rise,
+    x0: bb.c[0] - reach,
+    y0: bb.c[1] - reach,
+    x1: bb.c[0] + reach,
+    y1: bb.c[1] + reach,
+    pitch: { c: bb.c, u: bb.axis, halfLong, half, eave: b.height - (ROOF_OVER_M * rise) / (bb.short / 2), ridge: b.height + rise },
+  };
+  return [box, roof];
+}
 
 /** What stands on the ground of a street, asked many times while a site is worked out: houses, shelters, water. */
 class Ground {
   private houses: Mass[] = [];
   private roofs: Mass[] = [];
   private waters: Mass[] = [];
+  private blocks: Block[] = [];
   private readonly ts: number[] = [];
 
   constructor(
@@ -284,14 +386,16 @@ class Ground {
   ) {
     if (from) {
       const { g, c, r } = from;
-      const close = (m: Mass) => m.x1 >= c[0] - r && m.x0 <= c[0] + r && m.y1 >= c[1] - r && m.y0 <= c[1] + r;
+      const close = (m: { x0: number; y0: number; x1: number; y1: number }) => m.x1 >= c[0] - r && m.x0 <= c[0] + r && m.y1 >= c[1] - r && m.y0 <= c[1] + r;
       this.houses = g.houses.filter(close);
       this.roofs = g.roofs.filter(close);
       this.waters = g.waters;
+      this.blocks = g.blocks.filter(close);
       return;
     }
     street.buildings.forEach((b, i) => {
       if (b.ring.length < 3) return;
+      this.blocks.push(...blocksOf(b));
       if (solid(b)) this.houses.push(massOf(b.ring, b.height + roofRise(b), i));
       else if (b.open) this.roofs.push(massOf(b.ring, b.height, i));
     });
@@ -312,6 +416,15 @@ class Ground {
   inside(p: V2): number {
     for (const m of this.houses) if (p[0] >= m.x0 && p[0] <= m.x1 && p[1] >= m.y0 && p[1] <= m.y1 && pointInRing(p, m.ring)) return m.index;
     return -1;
+  }
+
+  /** On a pump island under a petrol station's canopy, or within a step of one? */
+  onIsland(p: V2): boolean {
+    for (const m of this.roofs) {
+      const b = this.street.buildings[m.index];
+      for (const ring of pumpIslands(b)) if (pointInRing(p, ring) || nearestOnRing(p, ring).d < ISLAND_ROOM_M) return true;
+    }
+    return false;
   }
 
   /** Under a shelter's roof (a petrol station's canopy)? */
@@ -419,6 +532,73 @@ class Ground {
     }
     return best;
   }
+
+  /** Does a ray from a lens (`d`: its unit direction) meet a wall, a roof or a canopy within `max` metres? */
+  private blocked(o: P3, d: P3, max: number): boolean {
+    const a: V2 = [o.x, o.y];
+    const b: V2 = [o.x + d.x * max, o.y + d.y * max];
+    const x0 = Math.min(a[0], b[0]);
+    const x1 = Math.max(a[0], b[0]);
+    const y0 = Math.min(a[1], b[1]);
+    const y1 = Math.max(a[1], b[1]);
+    for (const m of this.blocks) {
+      if (x1 < m.x0 || x0 > m.x1 || y1 < m.y0 || y0 > m.y1) continue;
+      if (m.pitch) {
+        if (underPitch(m.pitch, o, d, max)) return true;
+        continue;
+      }
+      // The stretches of the ray over the footprint, and whether it is between the two heights on one of them.
+      const ts = crossings(a, b, m.ring, this.ts).sort((p, q) => p - q);
+      if (pointInRing(a, m.ring)) ts.unshift(0);
+      if (ts.length % 2) ts.push(1);
+      for (let i = 0; i < ts.length; i += 2) {
+        const za = o.z + d.z * ts[i] * max;
+        const zb = o.z + d.z * ts[i + 1] * max;
+        if (Math.max(za, zb) >= m.lo && Math.min(za, zb) <= m.hi) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * The share of a camera's picture that is a wall, a roof or a canopy nearer than `reach` metres from its lens:
+   * rays through a grid of `cols` by `rows` points over the frame, each followed that far.
+   */
+  cover(c: CameraPose, reach: number, cols: number, rows: number): number {
+    const l = lensOf(c);
+    let hit = 0;
+    for (let ix = 0; ix < cols; ix++) {
+      for (let iy = 0; iy < rows; iy++) {
+        const gx = (((ix + 0.5) / cols) * 2 - 1) * l.th;
+        const gy = (((iy + 0.5) / rows) * 2 - 1) * l.tv;
+        const d = unit3(l.f.x + l.r.x * gx + l.u.x * gy, l.f.y + l.r.y * gx + l.u.y * gy, l.f.z + l.r.z * gx + l.u.z * gy);
+        // No further than the ground.
+        const max = d.z < 0 ? Math.min(reach, l.o.z / -d.z) : reach;
+        if (this.blocked(l.o, d, max)) hit++;
+      }
+    }
+    return hit / (cols * rows);
+  }
+}
+
+/** Does a ray meet a pitched roof within `max` metres: its slopes from above or from below, a gable, its eaves? */
+function underPitch(r: NonNullable<Block['pitch']>, o: P3, d: P3, max: number): boolean {
+  const w = left(r.u);
+  let wasIn = false;
+  let wasOver = false;
+  for (let t = 0; t <= max; t += 0.2) {
+    const x = o.x + d.x * t - r.c[0];
+    const y = o.y + d.y * t - r.c[1];
+    const v = Math.abs(x * w[0] + y * w[1]);
+    const isIn = Math.abs(x * r.u[0] + y * r.u[1]) <= r.halfLong && v <= r.half;
+    const z = o.z + d.z * t;
+    const over = z > r.eave + (r.ridge - r.eave) * (1 - v / r.half);
+    // Through a slope; or into the roof by its gable or its eaves board (under the eaves is the way to the wall).
+    if (isIn && (wasIn ? over !== wasOver : !over && z >= r.eave - 0.2)) return true;
+    wasIn = isIn;
+    wasOver = over;
+  }
+  return false;
 }
 
 // ------------------------------------------------------------------------------------------------ the picture
@@ -523,7 +703,23 @@ interface Subject {
   ownDoor: number;
   /** The door at the scene is the place's own. */
   ownNear: boolean;
+  /**
+   * Where the place's board hangs: its middle over the door of its own front and its two ends along the wall (none:
+   * the place has no building), and that wall's normal.
+   */
+  board: number[];
+  boardOut: V2 | null;
 }
+
+/** A place's board hangs about this high over its door (over the ground floor: src/cctv/render/place.ts), and reaches this far to each side. */
+const BOARD_H_M = 3.4;
+const BOARD_HALF_M = 4;
+/** What a camera costs that does not have the middle of the place's board in the middle of its picture, and an end of it in the picture. */
+const BOARD_COST = 1.2;
+const BOARD_END_COST = 0.6;
+const BOARD_MAX = 1.8;
+/** A board a metre high is read when it takes this share of the picture's height at the least. */
+const BOARD_SHARE = 0.035;
 
 /** May a crew come from this end of the road? Not out of a dead end while the other end is open (the director's rule). */
 const comesFrom = (d: DriveLine, a: boolean) => !(a ? d.deadA : d.deadB) || (a ? d.deadB : d.deadA);
@@ -577,7 +773,29 @@ function subjectOf(place: Place, own: Own | null): Subject {
       extra.push(add(along(own.front.door, own.front.out, 0.3), 2.2));
     }
   }
-  return { place, marks, group, road, ends, carA, carB, door, extra, ownDoor, ownNear: !!own && door.length > 0 && place.doorBuilding === own.index };
+  // The board: on the wall the place's own door is on at this place, else on its front, else on its wall nearest the scene.
+  const board: number[] = [];
+  let boardOut: V2 | null = null;
+  if (own && own.building) {
+    let at: V2;
+    if (place.door && place.doorOut && place.doorBuilding === own.index) [at, boardOut] = [place.door, place.doorOut];
+    else if (own.front) [at, boardOut] = [own.front.door, own.front.out];
+    else {
+      const n = nearestOnRing(spot, own.building.ring);
+      [at, boardOut] = [n.pt, n.normal];
+    }
+    if (dist(at, spot) < 60) {
+      // The wall it hangs on, no further along it than the wall goes.
+      const wall = wallAt(own.building, at);
+      const e = norm(sub(wall.b, wall.a));
+      const len = dist(wall.a, wall.b);
+      const half = Math.min(BOARD_HALF_M, len / 2 - 0.3);
+      const s = clamp(dot(sub(at, wall.a), e), half + 0.3, len - half - 0.3);
+      for (const k of [s, s - half, s + half]) board.push(add(along(along(wall.a, e, k), boardOut, 0.3), BOARD_H_M));
+    }
+  }
+  const ownNear = !!own && door.length > 0 && place.doorBuilding === own.index;
+  return { place, marks, group, road, ends, carA, carB, door, extra, ownDoor, ownNear, board, boardOut };
 }
 
 /** The direction and the opening that hold a set of points in the picture, or null when no lens here does. */
@@ -733,6 +951,18 @@ function rate(sub: Subject, vis: readonly boolean[], c: CameraPose, mountCost: n
   sub.extra.forEach((i, k) => {
     if (!sees(i, 0.02)) cost += k === sub.ownDoor ? 1 : k === 0 ? 2.5 : 0.7;
   });
+  // The place's board, next to the people at the spot: in the middle four fifths of the picture, large enough to
+  // read, on a wall the lens does not look along.
+  if (sub.board.length && sub.boardOut) {
+    const m = marks[sub.board[0]];
+    const q = see(l, m.p, m.h);
+    let miss = 0;
+    if (!vis[sub.board[0]] || !framed(q, 0.2)) miss += BOARD_COST;
+    else miss += clamp((BOARD_SHARE - 1 / (2 * q.z * l.tv)) * 60, 0, BOARD_COST) + Math.max(0, SQUARE_ON - facingOf(c, m.p, sub.boardOut)) * 3;
+    for (const i of sub.board.slice(1)) if (!sees(i, 0.04)) miss += BOARD_END_COST;
+    // Never worth more than a wall right before the lens is (wallCost).
+    cost += Math.min(miss, BOARD_MAX);
+  }
   // A door seen along its own wall is a sliver: a camera across the way shows who comes out of it.
   const { door, doorOut } = sub.place;
   if (sub.door.length && door && doorOut) cost += Math.max(0, SQUARE_ON - facingOf(c, door, doorOut)) * 3;
@@ -779,11 +1009,33 @@ function shutIn(g: Ground, c: CameraPose, strict: boolean): number {
   return strict ? cost + Math.max(0, near / rays - 0.2) * 8 : cost;
 }
 
+/** A wall, a roof or a canopy nearer the lens than this is right before it. */
+export const NEAR_COVER_M = 8;
+/** No camera is taken whose picture is more than this share such a wall or roof, while the street has another. */
+export const NEAR_COVER_MAX = 0.15;
+/** The same as cameras are sorted by it, on a coarser grid of rays: a little under, so that the fine grid agrees. */
+const COVER_LIMIT = 0.12;
+
+/**
+ * The share of a camera's picture that a wall, a roof or a canopy nearer than 8 m from the lens takes up, as
+ * src/cctv/render/world.ts builds them from the street (a grid of rays through the frame, each followed 8 m).
+ */
+export function nearCover(street: StreetData, camera: CameraPose, cols = 32, rows = 18): number {
+  return new Ground(street).cover(camera, NEAR_COVER_M, cols, rows);
+}
+
 /** Is a road of the street a piece of the drive line? */
 function sameRoad(o: Road, drive: DriveLine): boolean {
   const mid = pointAlong(o.pts, lineLength(o.pts) / 2).pt;
   return nearestOnLine(mid, drive.pts).d < 0.5 && nearestOnLine(o.pts[0], drive.pts).d < 0.5;
 }
+
+/**
+ * A camera's pole stands this far from any house wall at the least: what hangs on a wall (a balcony, a canopy over a
+ * door, an awning: the renderer's own, not in the street data) reaches a metre and a bit out of it. Nearer a wall
+ * than this the camera hangs on the wall itself.
+ */
+const POLE_ROOM_M = 1.6;
 
 /** Where cameras could hang around a place: poles at both kerbs along the road, walls, poles on open ground. */
 function mountsFor(g: Ground, place: Place, r: Rand): Mount[] {
@@ -797,7 +1049,7 @@ function mountsFor(g: Ground, place: Place, r: Rand): Mount[] {
   const onRoad = (p: V2, room: number, kerb: boolean) =>
     (!kerb && nearestOnLine(p, drive.pts).d < edge + room) || others.some((o) => nearestOnLine(p, o.pts).d < o.width / 2 + room);
   const pole = (p: V2, cost: number, kerb: boolean) => {
-    if (g.wallDist(p, 0.5) < 0.5 || g.roofed(p) || onRoad(p, 0.3, kerb)) return;
+    if (g.wallDist(p, POLE_ROOM_M) < POLE_ROOM_M || g.roofed(p) || onRoad(p, 0.3, kerb)) return;
     out.push({ pos: p, heights: [low, high], mount: 'pole', cost });
   };
   const wall = (p: V2, index: number, cost: number) => {
@@ -818,7 +1070,7 @@ function mountsFor(g: Ground, place: Place, r: Rand): Mount[] {
         const c = pointAlong(drive.pts, s);
         const n = mul(left(c.dir), ks);
         const want = edge + (ks === side ? 0.9 : 1.1);
-        const hit = g.reach(c.pt, n, want + 0.6);
+        const hit = g.reach(c.pt, n, want + POLE_ROOM_M);
         const base = ks === side ? 0.15 : 0;
         if (hit.index < 0) {
           const p = along(c.pt, n, want);
@@ -865,8 +1117,41 @@ function mountsFor(g: Ground, place: Place, r: Rand): Mount[] {
   return out;
 }
 
-/** The best camera for a place and how much it misses, or null when nothing around has a free line to the spot. */
-function placeCamera(g: Ground, place: Place, seed: number, own: Own | null): { camera: CameraPose; cost: number } | null {
+/** A camera for a place: how much it misses, and whether a wall or a roof right before its lens takes too much of its picture. */
+interface Pick {
+  camera: CameraPose;
+  cost: number;
+  walled: boolean;
+}
+
+/**
+ * What a camera costs that has too much wall right before its lens: at once more than the place's board out of the
+ * picture does, and with every further tenth of the picture more than a place on the next road; a few hundredths
+ * over the limit cost less than the first crew's car out of the picture. So a camera with a free picture is taken
+ * wherever the street has one that shows the story, and in a lane too narrow for any (its own house fronts are
+ * nearer than 8 m on both sides) the one with the least wall for what it shows.
+ */
+const WALLED_COST = 1.9;
+const COVER_COST = 30;
+const wallCost = (share: number) => (share <= COVER_LIMIT ? 0 : WALLED_COST + (share - COVER_LIMIT) * COVER_COST);
+
+/** What a camera without the place's own wishes costs beside one with them (it may miss the front and what stands before it). */
+const NO_WISH_COST = 4;
+
+/**
+ * The best camera for a place and how much it misses, or null when nothing around has a free line to the spot. No
+ * camera is taken with a wall or a roof right before its lens over more than a seventh of its picture while another
+ * will do (`wallCost`): the next best of the place's own, then the best one made without the place's wishes (as for a
+ * plain street). Where every camera about the place looks into a wall the best of them is given, marked `walled`.
+ */
+function placeCamera(g: Ground, place: Place, seed: number, own: Own | null): Pick | null {
+  const mine = camerasFor(g, place, seed, own);
+  if (!mine || !mine.walled || !own) return mine;
+  const plain = camerasFor(g, place, seed, null);
+  return plain && plain.cost + NO_WISH_COST < mine.cost ? { ...plain, cost: plain.cost + NO_WISH_COST } : mine;
+}
+
+function camerasFor(g: Ground, place: Place, seed: number, own: Own | null): Pick | null {
   const r = rand(seed ^ 0x2545f491);
   const subj = subjectOf(place, own);
   const { spot, roadSpot, drive } = place;
@@ -879,8 +1164,9 @@ function placeCamera(g: Ground, place: Place, seed: number, own: Own | null): { 
   const carB = subj.carB ?? [];
   // What a lens is asked to hold: everything; then one end's stretch; then the spot with the road beside it; then the spot.
   const sets: number[][] = [[...subj.group, ...subj.door, ...all, ...subj.ends, ...carA, ...carB]];
-  // And first of all with what says which place this is.
-  if (subj.extra.length) sets.unshift([...sets[0], ...subj.extra]);
+  // And first of all with what says which place this is: what stands before it, and its board.
+  const says = [...subj.extra, ...subj.board];
+  if (says.length) sets.unshift([...sets[0], ...says]);
   if (fromA && fromB) {
     sets.push([...subj.group, ...subj.door, ...stretch(-STOP_BEFORE_M, STOP_PAST_M), ...carA]);
     sets.push([...subj.group, ...subj.door, ...stretch(-STOP_PAST_M, STOP_BEFORE_M), ...carB]);
@@ -928,16 +1214,56 @@ function placeCamera(g: Ground, place: Place, seed: number, own: Own | null): { 
     }
     return cost;
   };
-  const top: { camera: CameraPose; cost: number }[] = [];
-  for (const x of found.slice(0, 8)) {
-    top.push({ camera: x.camera, cost: x.cost + closer(x.camera) });
+  /** A mount's cameras at both its heights, looked at closely. */
+  const both = (x: { camera: CameraPose; cost: number; m: Mount }): { camera: CameraPose; cost: number }[] => {
+    const out = [{ camera: x.camera, cost: x.cost + closer(x.camera) }];
     const other = x.m.heights.length > 1 ? best(x.m, x.m.heights[1]) : null;
-    if (other) top.push({ camera: other.camera, cost: other.cost + closer(other.camera) });
+    if (other) out.push({ camera: other.camera, cost: other.cost + closer(other.camera) });
+    return out;
+  };
+  const cover = (c: CameraPose) => g.cover(c, NEAR_COVER_M, 16, 9);
+  const walled = (x: { camera: CameraPose; cost: number }): Pick => {
+    const share = cover(x.camera);
+    return { camera: x.camera, cost: x.cost + wallCost(share), walled: share > COVER_LIMIT };
+  };
+  // The best few by what they show, each with what the wall before it costs: looked at for as long as one further
+  // down could still be the best.
+  const top: Pick[] = [];
+  let least = Infinity;
+  for (const x of found.slice(0, 8).flatMap(both).sort((a, b) => a.cost - b.cost)) {
+    if (x.cost > least + 0.3) break;
+    const y = walled(x);
+    top.push(y);
+    least = Math.min(least, y.cost);
   }
   top.sort((a, b) => a.cost - b.cost);
-  // The seed chooses among those as good as the best, so that cameras differ from place to place.
-  const equal = top.filter((x) => x.cost <= top[0].cost + 0.3);
-  return equal[r.int(0, equal.length - 1)];
+  // Every one of the best looks into a wall: the first of the rest that does not comes in beside them.
+  if (top[0].walled) {
+    for (const x of found.slice(8)) {
+      const free = both(x)
+        .map(walled)
+        .filter((y) => !y.walled)
+        .sort((a, b) => a.cost - b.cost)[0];
+      if (!free) continue;
+      top.push(free);
+      top.sort((a, b) => a.cost - b.cost);
+      break;
+    }
+  }
+  // The seed chooses among those as good as the best, so that cameras differ from place to place. A camera taken
+  // as free is looked at once more on a fine grid of rays: if that finds the wall after all, it pays for it and the
+  // choice is made again.
+  const pick = r();
+  for (let k = 0; k < 6; k++) {
+    const equal = top.filter((x) => x.cost <= top[0].cost + 0.3);
+    const got = equal[Math.min(equal.length - 1, Math.floor(pick * equal.length))];
+    const share = got.walled ? 0 : g.cover(got.camera, NEAR_COVER_M, 32, 18);
+    if (share <= NEAR_COVER_MAX) return got;
+    got.walled = true;
+    got.cost += WALLED_COST + (share - COVER_LIMIT) * COVER_COST;
+    top.sort((a, b) => a.cost - b.cost);
+  }
+  return top[0];
 }
 
 /**
@@ -1093,8 +1419,15 @@ interface Try {
   penalty: number;
 }
 
+/** A site with its cost, and whether its camera looks into a wall right before its lens. */
+interface Built {
+  site: Site;
+  cost: number;
+  walled: boolean;
+}
+
 /** The site at a place with its cost (the place's own and what its best camera misses), or null when the place does not hold. */
-function siteAt(g: Ground, t: Try, seed: number, own: Own | null): { site: Site; cost: number } | null {
+function siteAt(g: Ground, t: Try, seed: number, own: Own | null): Built | null {
   const street = g.street;
   const c = pointAlong(t.pts, t.s);
   const roadSpot = c.pt;
@@ -1142,6 +1475,8 @@ function siteAt(g: Ground, t: Try, seed: number, own: Own | null): { site: Site;
   }
   if (g.water(spot) && !(g.water(roadSpot) && lat <= edge + 1.5)) return null;
   if (g.wallDist(spot, 0.5) < 0.5) return null;
+  // Not on a pump island, nor between its pumps.
+  if (g.roofed(spot) && g.onIsland(spot)) return null;
   if (lat < edge + 1) cost += 1.2;
   // People in the mouth of another road are in the way there.
   if (street.roads.some((o) => CAR_ROADS.has(o.cls) && o.pts.length > 1 && !sameRoad(o, drive) && nearestOnLine(spot, o.pts).d < o.width / 2)) cost += 0.7;
@@ -1171,6 +1506,13 @@ function siteAt(g: Ground, t: Try, seed: number, own: Own | null): { site: Site;
       doorBuilding = own!.index;
     }
   } else if (ownRing && nearestOnRing(spot, ownRing).d > FRONT_NEAR_M) cost += OFF_FRONT_COST / 2;
+  // What stands before the place (the canopy, the bays, the shelters) is where the scene belongs: not some way off
+  // it, and not across the road from it.
+  if (own && own.focus.length) {
+    const at = own.focus.reduce((a, b) => (dist(b, spot) < dist(a, spot) ? b : a));
+    if (dist(at, spot) > FOCUS_NEAR_M) cost += OFF_FRONT_COST / 2;
+    if (t.pts.some((p, i) => i > 0 && segmentsCross(spot, at, t.pts[i - 1], p))) cost += OFF_FRONT_COST / 2;
+  }
   if (!door) {
     let bestD = DOOR_REACH_M;
     street.buildings.forEach((b, i) => {
@@ -1202,14 +1544,6 @@ function siteAt(g: Ground, t: Try, seed: number, own: Own | null): { site: Site;
       doorBuilding = other.index;
     }
   }
-  // The place as the picture is to show it: its own building and the wall of it the scene is before (the wall the
-  // door is on when the door is the own building's, else the front that faces the road).
-  let sitePlace: SitePlace | null = null;
-  if (own && isShown(own.hint.kind)) {
-    const b = own.index >= 0 ? street.buildings[own.index] : null;
-    const wall = b ? wallAt(b, door && doorBuilding === own.index ? door : front ? front.door : nearestOnRing(spot, b.ring).pt) : null;
-    sitePlace = { kind: own.hint.kind, name: own.hint.name, building: b ? b.id : null, front: wall };
-  }
   const site: Site = {
     street,
     seed,
@@ -1226,9 +1560,19 @@ function siteAt(g: Ground, t: Try, seed: number, own: Own | null): { site: Site;
     camera,
     lamps: placeLamps(street, drive, t.side, camera, t.road.walk),
     seen: seenStretch(g, drive, camera),
-    place: sitePlace,
+    place: own ? placeOf(own, street, spot, door, doorBuilding) : null,
   };
-  return { site, cost: cost + cam.cost };
+  return { site, cost: cost + cam.cost, walled: cam.walled };
+}
+
+/**
+ * The place as the picture is to show it: its own building and the wall of it the scene is before (the wall the door
+ * is on when the door is the own building's, else the front that faces the road, else the wall nearest the spot).
+ */
+function placeOf(own: Own, street: StreetData, spot: V2, door: V2 | null, doorBuilding: number): SitePlace {
+  const b = own.index >= 0 ? street.buildings[own.index] : null;
+  const wall = b ? wallAt(b, door && doorBuilding === own.index ? door : own.front ? own.front.door : nearestOnRing(spot, b.ring).pt) : null;
+  return { kind: own.hint.kind, name: own.hint.name, building: b ? b.id : null, front: wall };
 }
 
 /** Is a door in a camera's picture: its foot and the window above it, with nothing before them? */
@@ -1330,11 +1674,17 @@ const SHIFTS: readonly (readonly [number, number])[] = [
 export function buildSite(given: StreetData, seed: number): Site | null {
   let street = given;
   let own: Own | null = null;
-  if (given.place) {
+  // A plain kind of place (an ordinary street, a road, a forest) has nothing of its own: its site is a plain street's.
+  if (given.place && isShown(given.place.kind)) {
     const hint = given.place;
     const settled = settlePlace(street, hint);
-    street = settled.street;
-    own = { hint, index: settled.plan.building, front: settled.plan.front, focus: settled.focus };
+    // Where the street has no room for the place (place.ts Dressed.fits) it stays a plain street: no house of it is
+    // made out to be the petrol station.
+    if (settled.fits) {
+      street = settled.street;
+      const index = settled.plan.building;
+      own = { hint, index, building: index >= 0 ? street.buildings[index] : null, front: settled.plan.front, focus: settled.focus };
+    }
   }
   const g = new Ground(street);
   const tries: Try[] = [];
@@ -1380,18 +1730,24 @@ export function buildSite(given: StreetData, seed: number): Site | null {
   }
   // The likeliest place first; a place further off is only looked at while it could still be the better one.
   tries.sort((a, b) => a.penalty - b.penalty);
-  let best: { site: Site; cost: number } | null = null;
+  let best: Built | null = null;
   const held = new Set<string>();
   let places = 0;
+  let walled = 0;
   for (const t of tries) {
-    if (best && (best.cost <= t.penalty || places >= MAX_PLACES)) break;
-    // The other side of the road is for where the incident's own side does not hold: it shows the same street.
+    if (best && (best.cost <= t.penalty || places >= MAX_PLACES || places + walled >= MAX_TRIES)) break;
+    // The other side of the road is for where the incident's own side does not hold: it shows the same street
+    // (but for a wall before its cameras).
     const key = `${t.line}:${t.s}`;
     if (t.other && held.has(key)) continue;
     const got = siteAt(g, t, seed, own);
     if (!got) continue;
-    held.add(key);
-    places++;
+    // A place where every camera looks into a wall does not use up the places a camera is worked out for.
+    if (got.walled) walled++;
+    else {
+      held.add(key);
+      places++;
+    }
     if (!best || got.cost < best.cost) best = got;
   }
   return best ? best.site : null;

@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PbfWriter } from 'pbf';
 import { PMTiles } from 'pmtiles';
 import { frameAt, lineLength, nearestOnLine, pointInRing, ringArea, type V2 } from '@/cctv/math';
+import { namesMatch, pickPoi } from '@/cctv/place';
 import { buildSite } from '@/cctv/site';
 import { openedStreetArchive, probeStreetTiles, resetStreetProbes } from '@/map/streetTiles';
 import {
@@ -27,7 +28,7 @@ import {
   type TileArchive,
   type TileData,
 } from '@/cctv/tiles';
-import type { Building, Road, StreetData } from '@/cctv/types';
+import type { Building, Poi, Road, StreetData } from '@/cctv/types';
 import type { LngLat } from '@/sim/types';
 import {
   clipRingToSquare,
@@ -670,6 +671,51 @@ describe('streetFromTiles: points of interest', () => {
   });
 });
 
+describe("pickPoi: the map's own point for a place, by its name", () => {
+  const at = (kind: string, name: string | null, x: number): Poi => ({ kind, name, pos: [x, 0] });
+
+  it('the same name wins from far off; a shared town name or kind word does not', () => {
+    const schools = [at('school', 'Tallinna Inglise Kolledž', 40), at('school', 'Tallinna Reaalkool', 190)];
+    expect(pickPoi(schools, 'school', 'Tallinna Reaalkool')?.name).toBe('Tallinna Reaalkool');
+    // The game's name holds the map's: the same church.
+    const churches = [at('place_of_worship', 'Aleksandri kirik', 30), at('place_of_worship', 'Narva Ülestõusmise peakirik', 240)];
+    expect(pickPoi(churches, 'church', 'Narva Aleksandri kirik')?.pos[0]).toBe(30);
+    // The map does not name it: the nearest, not the one 240 m off that shares the town's name.
+    expect(pickPoi([at('place_of_worship', null, 30), churches[1]], 'church', 'Narva Aleksandri kirik')?.pos[0]).toBe(30);
+    // Where two are about as near, the shared first word decides.
+    expect(pickPoi([at('hotel', 'Hotell Viru', 60), at('hotel', 'Sokos', 30)], 'hotel', 'Hotell (Viru väljak)')?.name).toBe('Hotell Viru');
+  });
+
+  it('a map point named with a letter or two is nobody\'s name', () => {
+    expect(namesMatch('Viru keskuse parkla', 'P')).toBe(false);
+    expect(namesMatch('Pank (Rüütli tn)', 'A')).toBe(false);
+    expect(namesMatch('Olerex Tartu', 'Olerex')).toBe(true);
+    expect(namesMatch('Kaubamaja', 'Tallinna Kaubamaja')).toBe(true);
+    // Whole words only: a name inside another word is not it.
+    expect(namesMatch('Rimini pitsa', 'Rimi')).toBe(false);
+    expect(pickPoi([at('parking', null, 20), at('parking', 'P', 240)], 'parking', 'Viru keskuse parkla')?.pos[0]).toBe(20);
+  });
+
+  it("the game's generic names match no brand: the nearest point of the kind is taken", () => {
+    const pairs = [
+      ['Tankla (Pärnu mnt)', 'Circle K'],
+      ['Tankla (Narva mnt)', 'Olerex'],
+      ['Pank (Tornimäe)', 'SEB'],
+      ['Toidukauplus (Kopli)', 'Maxima'],
+      ['Tankla (Narva mnt)', 'Narva mnt Olerex'],
+    ];
+    for (const [game, map] of pairs) expect(namesMatch(game, map), `${game} / ${map}`).toBe(false);
+    expect(pickPoi([at('fuel', 'Olerex', 120), at('fuel', 'Circle K', 45)], 'gasstation', 'Tankla (Pärnu mnt)')?.name).toBe('Circle K');
+  });
+
+  it('parks, concert halls, town halls and cemeteries have points of their own too', () => {
+    expect(pickPoi([at('park', 'Kadrioru park', 80)], 'park', 'Kadrioru park')?.pos[0]).toBe(80);
+    expect(pickPoi([at('cinema', null, 30), at('theatre', 'Estonia', 70)], 'concert', null)?.kind).toBe('theatre');
+    expect(pickPoi([at('townhall', null, 50)], 'government', 'Linnavalitsus')?.pos[0]).toBe(50);
+    expect(pickPoi([at('grave_yard', null, 90)], 'cemetery', 'Metsakalmistu')?.pos[0]).toBe(90);
+  });
+});
+
 describe('readStreet for a place', () => {
   it("moves the origin to the map's own point for the place, a name that matches first, then before the kiosk's front", async () => {
     const { archive, origin } = placeArchive(placeBlock([poi('fuel', 'Neste', [60, 40]), poi('fuel', 'Olerex', [146, 8])]));
@@ -691,14 +737,25 @@ describe('readStreet for a place', () => {
   });
 
   it('takes the nearest point of the kind when no name matches, and none further than 250 m', async () => {
-    const { archive, origin } = placeArchive(placeBlock([poi('fuel', 'Neste', [60, 40]), poi('fuel', 'Olerex', [146, 8])]));
+    const { archive, origin } = placeArchive(placeBlock([poi('fuel', 'Neste', [60, -8]), poi('fuel', 'Olerex', [146, 8])]));
     const near = (await readStreet(archive, origin, { place: { kind: 'gasstation', name: 'Tankla' } }))!;
     const at = movedTo(origin, near);
-    expect(Math.hypot(at[0] + near.place!.at[0] - 60, at[1] + near.place!.at[1] - 40)).toBeLessThan(0.5);
+    expect(Math.hypot(at[0] + near.place!.at[0] - 60, at[1] + near.place!.at[1] + 8)).toBeLessThan(0.5);
     const far = placeArchive(placeBlock([poi('fuel', 'Olerex', [320, 8])]));
     const kept = (await readStreet(far.archive, far.origin, { place: { kind: 'gasstation', name: 'Olerex' } }))!;
     const stay = movedTo(far.origin, kept);
     expect(Math.hypot(stay[0] + kept.place!.at[0], stay[1] + kept.place!.at[1])).toBeLessThan(0.5);
+  });
+
+  it('gives no street where the surroundings cannot carry the place: a petrol station asked for in a row of houses', async () => {
+    const feats = [road({ kind: 'minor_road', kind_detail: 'residential' }, [-600, -6], [600, -6])];
+    for (let x = -96; x < 96; x += 12) feats.push(house(400 + x, rect(x, 2, x + 12, 14)), house(600 + x, rect(x, -26, x + 12, -14)));
+    const { archive, origin } = placeArchive(feats);
+    // No canopy can stand in the lane or among the houses: the caller shows a made-up petrol station instead.
+    expect(await readStreet(archive, origin, { place: { kind: 'gasstation', name: 'Olerex' } })).toBeNull();
+    // The same street is there for a kind that needs no room, and without a place.
+    expect(await readStreet(archive, origin, { place: { kind: 'bank', name: 'Pank' } })).not.toBeNull();
+    expect(await readStreet(archive, origin)).not.toBeNull();
   });
 
   it('without points of interest the place is found from the buildings: the origin moves before its front', async () => {

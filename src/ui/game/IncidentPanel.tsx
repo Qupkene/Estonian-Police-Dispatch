@@ -15,6 +15,7 @@ import { CrisisNote } from './CrisisPanel';
 import { crisisTaskOf } from '@/sim/crisis';
 import { cameraOf } from '@/cctv/coverage';
 import { toggleCamera, useGameUi } from './uiStore';
+import { showCameraOnMap } from '@/map/cameraCone';
 import {
   AgencyBlock,
   AssignedBlock,
@@ -117,7 +118,8 @@ function IncidentDetail({ sim, inc }: { sim: SimState; inc: Incident }) {
             <strong>{loc.address}</strong>
             <span>{[loc.placeName && loc.placeName !== loc.address ? loc.placeName : null, loc.district, loc.city].filter(Boolean).join(' · ')}</span>
           </div>
-          <Button size="sm" icon="map" onClick={() => g.focusMap(loc.coord, 15)}>
+          {/* With this incident's camera open, the map shows the marker and the camera together (cameraCone.ts). */}
+          <Button size="sm" icon="map" onClick={() => showCameraOnMap(inc.id) || g.focusMap(loc.coord, 15)}>
             {t('game.inc.showOnMap')}
           </Button>
         </div>

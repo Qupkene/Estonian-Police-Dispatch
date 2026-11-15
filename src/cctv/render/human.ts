@@ -802,6 +802,9 @@ export class HumanMesh {
     this.mesh.geometry.dispose();
     this.material.dispose();
     this.texture.dispose();
+    // The figure's own skeleton (a clone of the base's): the renderer keeps its bones in a texture of its own, which
+    // only this lets go of. Without it every figure that ever stood in the picture leaves one on the graphics card.
+    this.mesh.skeleton.dispose();
   }
 }
 

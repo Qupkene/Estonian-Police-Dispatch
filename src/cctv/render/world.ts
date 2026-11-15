@@ -63,7 +63,10 @@ import {
   type UV4,
 } from './facades';
 import { at, MeshBuilder, shade, type P3 } from './mesh';
-import { boardLines, dressOf, dressOwn, frontEdgeOf, hexOf, makePlaceSheet, ownBuildingOf, ownFacade, type DressCtx, type OwnWall } from './place';
+import {
+  boardCovers, boardLines, dressOf, dressOwn, frontEdgeOf, hexOf, hidesPlace, makePlaceSheet, ownBuildingOf, ownFacade, planOwn,
+  type DressCtx, type OwnWall,
+} from './place';
 import { decalUV, GROUND_TILE_M, type DecalName } from './textures';
 
 /** Everything the street is painted with, made once per view. */
@@ -897,21 +900,65 @@ export function buildWorld(site: Site, env: Env, tex: WorldTextures, carMats: Ca
     const isDoorHouse = index === site.doorBuilding && site.door !== null;
     const trimHex = kind === 'wood' ? 0xece8dc : 0x8a8a86;
     const bay = BAY_M[kind];
-    /** The own building's walls as laid, for its dressing. */
-    const ownWalls: { w: OwnWall; main: boolean }[] = [];
-
-    for (let i = 0; i < ring.length; i++) {
+    /** Wall `i` of the footprint as it is laid: its ends, its bays (none: one plain piece), whether it looks onto a street. */
+    const lay = (i: number) => {
       const a = ring[i];
       const d = ring[(i + 1) % ring.length];
       const len = dist(a, d);
-      if (len < 0.2) continue;
-      const out = outOf(a, d);
       const t = norm(sub(d, a));
       const n: V2 = [t[1], -t[0]];
       const mid: V2 = [(a[0] + d[0]) / 2, (a[1] + d[1]) / 2];
-      const front = streetAhead(mid, n) < 16;
       const bays = len < bay * 0.6 ? 0 : Math.max(1, Math.round(len / bay));
-      const bw = bays ? len / bays : len;
+      return { a, d, len, t, n, mid, front: len >= 0.2 && streetAhead(mid, n) < 16, bays, bw: bays ? len / bays : len };
+    };
+    // The wall with the site's door, and the bay of it: the first wall laid in bays that the door lies on.
+    let doorWall = -1;
+    let doorBayOf = -1;
+    if (isDoorHouse && !doorDone && site.door && !shed) {
+      for (let i = 0; i < ring.length && doorWall < 0; i++) {
+        const w = lay(i);
+        if (w.len < 0.2 || !w.bays) continue;
+        const hit = nearestOnSegment(site.door, w.a, w.d);
+        if (hit.d >= 0.8) continue;
+        doorWall = i;
+        doorBayOf = Math.min(w.bays - 1, Math.floor((hit.t * w.len) / w.bw));
+        doorDone = true;
+      }
+    }
+    /** The bay of wall `i` with the entrance of the own building's front (the site's door, or one where the scene is before it), else -1. */
+    const mainDoorOf = (i: number, bays: number, bw: number) =>
+      mainWall === null || mainWall.i !== i ? -1 : i === doorWall ? doorBayOf : clamp(Math.floor(mainWall.at / bw), 0, bays - 1);
+    // The own building's walls as they will be laid, and what its front carries: planned before the bays are laid,
+    // so that the board hangs on plain wall (the bays it covers get no windows).
+    const ownWalls: { w: OwnWall; main: boolean }[] = [];
+    const ownAt = new Map<number, OwnWall>();
+    if (own) {
+      for (let i = 0; i < ring.length; i++) {
+        const w = lay(i);
+        if (w.len < 0.2 || !w.bays) continue;
+        const isMain = mainWall !== null && mainWall.i === i;
+        const wallOf: OwnWall = {
+          a: w.a, t: w.t, n: w.n, len: w.len, street: w.front,
+          s0: isMain ? mainWall.s0 : 0,
+          s1: isMain ? mainWall.s1 : w.len,
+          door: (Math.max(0, mainDoorOf(i, w.bays, w.bw)) + 0.5) * w.bw,
+          at: isMain ? mainWall.at : w.len / 2,
+          base: b.base, g1, eaves: b.height, top, uppers, wall, kind, bb, plain,
+          rise: gable ? clamp(bb.short * (0.32 + 0.12 * hash01('pitch', b.id)), 1.2, 4.6) : 0,
+        };
+        ownAt.set(i, wallOf);
+        ownWalls.push({ w: wallOf, main: isMain });
+      }
+    }
+    const frontPlan = own && placeCtx ? planOwn(placeCtx, ownWalls) : null;
+
+    for (let i = 0; i < ring.length; i++) {
+      const { a, d, len, t, n, mid, front, bays, bw } = lay(i);
+      if (len < 0.2) continue;
+      const out = outOf(a, d);
+      const ownWall = ownAt.get(i) ?? null;
+      /** Does the place's board cover this part of bay `k` (from h0 to h1 up the wall)? */
+      const boarded = (k: number, h0: number, h1: number) => ownWall !== null && boardCovers(frontPlan, ownWall, k * bw, (k + 1) * bw, h0, h1);
       const quad = (p0: V2, p1: V2, h0: number, h1: number, uv: UV4, c: Color = wall) => walls.quad(at(p0, h0), at(p1, h0), at(p1, h1), at(p0, h1), c, out, uv);
       // A town house's front stands on the pavement: no strip of grass between the wall and the walk.
       if (front && kind !== 'panel' && !b.base) {
@@ -948,19 +995,11 @@ export function buildWorld(site: Site, env: Env, tex: WorldTextures, carMats: Ca
         }
         continue;
       }
-      // Which bay of this wall holds the site's door.
-      let doorBay = -1;
-      if (isDoorHouse && !doorDone && site.door) {
-        const hit = nearestOnSegment(site.door, a, d);
-        if (hit.d < 0.8) {
-          doorBay = Math.min(bays - 1, Math.floor((hit.t * len) / bw));
-          doorDone = true;
-        }
-      }
-      // The own building's front always has an entrance: the site's door, or one where the scene is before it.
-      const isMain = mainWall !== null && mainWall.i === i;
-      const mainDoor = !isMain ? -1 : doorBay >= 0 ? doorBay : clamp(Math.floor(mainWall.at / bw), 0, bays - 1);
-      const hung = own !== null && (own.extras.includes('canopy') || own.extras.includes('awning') || own.extras.includes('tower'));
+      // Which bay of this wall holds the site's door. The own building's front always has an entrance: the site's
+      // door, or one where the scene is before it.
+      const doorBay = i === doorWall ? doorBayOf : -1;
+      const mainDoor = mainDoorOf(i, bays, bw);
+      const hung = own !== null && (['canopy', 'awning', 'tower', 'chapel'] as const).some((e) => own.extras.includes(e));
       const variantA = kind === 'panel' ? UPPER.window : r.chance(0.7) ? UPPER.window : UPPER.second;
       const variantB = kind === 'panel' ? UPPER.balcony : r.pick([UPPER.second, UPPER.balcony, UPPER.window]);
       const every = 2 + (hash32('every', b.id, i) % 3);
@@ -976,7 +1015,7 @@ export function buildWorld(site: Site, env: Env, tex: WorldTextures, carMats: Ca
         if (own) {
           // By the kind of place: glass all along a shop's street walls, gates in a hall's, closed walls, or a public
           // building's windows; one entrance, in the front.
-          const street = front || isMain;
+          const street = front || mainWall?.i === i;
           if (k === doorBay || k === mainDoor) gv = own.ground === 'glass' && kind !== 'modern' && kind !== 'hall' ? GROUND.shop : GROUND.door;
           else if (own.ground === 'glass' && street) {
             gv = EXTRA.shopWindow;
@@ -987,6 +1026,11 @@ export function buildWorld(site: Site, env: Env, tex: WorldTextures, carMats: Ca
             row = 3;
           } else if (r.chance(litShare)) {
             gv = EXTRA.litWindow;
+            row = 3;
+          }
+          // A plate at eye level hangs on a pier of plain wall, not across the bay's window or glass.
+          if (k !== doorBay && k !== mainDoor && boarded(k, b.base + 0.2 * (g1 - b.base), b.base + 0.75 * (g1 - b.base))) {
+            gv = EXTRA.plain;
             row = 3;
           }
         } else if (k === doorBay) gv = GROUND.door;
@@ -1027,8 +1071,15 @@ export function buildWorld(site: Site, env: Env, tex: WorldTextures, carMats: Ca
         }
         // The floors above.
         for (let f = 0; f < uppers; f++) {
-          quad(p0, p1, g1 + f * rowH, g1 + (f + 1) * rowH, cellUV(...facadeCell(kind, col, r.chance(litShare) ? 1 : 0)));
-          if (kind === 'panel' && col === UPPER.balcony && len > 20) balcony(p0, p1, n, g1 + f * rowH, r);
+          const h0 = g1 + f * rowH;
+          const lit = r.chance(litShare) ? 1 : 0;
+          // The place's board hangs on plain wall: no window in the bays it covers (the window is the middle of a bay's height).
+          if (boarded(k, h0 + 0.2 * rowH, h0 + 0.8 * rowH)) {
+            quad(p0, p1, h0, h0 + rowH, plain);
+            continue;
+          }
+          quad(p0, p1, h0, h0 + rowH, cellUV(...facadeCell(kind, col, lit)));
+          if (kind === 'panel' && col === UPPER.balcony && len > 20) balcony(p0, p1, n, h0, r);
         }
       }
       // The band over the top floor and the parapet.
@@ -1052,22 +1103,8 @@ export function buildWorld(site: Site, env: Env, tex: WorldTextures, carMats: Ca
       if (kind !== 'hall' && kind !== 'modern') plinthStrip(a, d, n, b.base, kind === 'wood' ? 0.5 : 0.45, kind === 'wood' ? shade(0x8e8a82) : shade(wallHex, 0.62));
       if (kind === 'plaster' && !gable && uppers > 0) cornice(a, d, n, b.height - 0.3, wall);
       if ((kind === 'plaster' || kind === 'wood' || kind === 'brick') && front && len > 6 && i % 2 === 0) drainpipe(along(d, t, -0.3), n, b.base, b.height - 0.1, trimHex);
-      if (own) {
-        ownWalls.push({
-          w: {
-            a, t, n, len, street: front,
-            s0: isMain ? mainWall.s0 : 0,
-            s1: isMain ? mainWall.s1 : len,
-            door: (Math.max(0, mainDoor) + 0.5) * bw,
-            at: isMain ? mainWall.at : len / 2,
-            base: b.base, g1, eaves: b.height, top, uppers, wall, kind, bb, plain,
-            rise: gable ? clamp(bb.short * (0.32 + 0.12 * hash01('pitch', b.id)), 1.2, 4.6) : 0,
-          },
-          main: isMain,
-        });
-      }
     }
-    if (own && placeCtx) dressOwn(placeCtx, ownWalls);
+    if (own && placeCtx) dressOwn(placeCtx, ownWalls, frontPlan);
 
     if (gable) pitchedRoof(b, bb, kind, r, wall);
     else flatRoof(b, ring, bb, kind, parapet, r);
@@ -1378,9 +1415,12 @@ export function buildWorld(site: Site, env: Env, tex: WorldTextures, carMats: Ca
     }
     if (!best) return;
     const toward = norm(sub(bb.c, best.hit.pt));
-    for (const slide of [8, -8, 14, -14]) {
+    // The price board is taller than most cameras hang: it stands where it hides neither the spot, the pumps nor the
+    // station's own front, at one end of the forecourt or the other, and is left out when no such place is free.
+    const marks: V2[] = [site.spot, site.roadSpot, bb.c, ...b.ring, ...(place?.front ? [place.front.a, place.front.b] : []), ...(site.door ? [site.door] : [])];
+    for (const slide of [8, -8, 14, -14, 20, -20]) {
       const p = along(along(best.hit.pt, toward, best.r.width / 2 + 3.2), best.hit.dir, slide);
-      if (!free(p, 1)) continue;
+      if (!free(p, 1) || hidesPlace(site.camera, p, marks)) continue;
       const py = Math.atan2(best.hit.dir[1], best.hit.dir[0]);
       solids.box(p, py, 1.5, 0.4, 0, 6.2, shade(0x2c3a4a));
       for (const f of [-1, 1]) {

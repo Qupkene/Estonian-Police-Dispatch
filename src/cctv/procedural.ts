@@ -3,7 +3,8 @@
  * the tests) or has nothing usable around the incident (docs/CCTV.md). The kind of place decides the layout: a
  * town street (with a forecourt for a bus station), a housing estate's yard, a row of private houses, a shop's car park, a petrol station, a highway,
  * a park. The same place always gets the same street. A kind of place that is a building (a bank, a school, a
- * petrol station's kiosk) gets one of the street's houses as its own, told in `StreetData.place`.
+ * petrol station's kiosk, a concert hall, a port's or an airport's terminal, a house under scaffold, a cemetery's
+ * chapel) gets one of the street's houses as its own, told in `StreetData.place`.
  *
  * Layouts are drawn with the main road running east to west just south of the origin and then turned by the
  * seed, so cameras do not all look the same way. Pure: no DOM, no three.js.
@@ -32,7 +33,6 @@ const LAYOUT: Partial<Record<PlaceKind, Layout>> = {
   airport: 'carpark',
   port: 'carpark',
   industrial: 'carpark',
-  construction: 'carpark',
   gasstation: 'fuel',
   busstation: 'station',
   highway: 'highway',
@@ -236,11 +236,12 @@ function fuel(d: Draft) {
   // Off the road, past the pumps, and back.
   d.road('service', [[-40, main], [-27, -5.6], [0, -4.6], [27, -5.6], [40, main]], { width: 5.6, oneway: 1 });
   d.area('paved', -32, -12, 32, 21);
-  // The canopy over the pumps and the shop behind it.
-  d.box(0, 2.6, 21, 9.4, 5.2, { open: true, metres: true });
+  // The canopy over the pumps and the shop behind it: half a pump island's pitch to the side, so that the scene
+  // (at the origin) is played in the lane between two islands, not on one.
+  d.box(3.2, 2.6, 21, 9.4, 5.2, { open: true, metres: true });
   d.own = d.buildings.length;
-  d.box(0, 15.2, 17, 9, 4.2, { metres: true });
-  d.area('parking', 12, 10.6, 30, 20);
+  d.box(3.2, 15.2, 17, 9, 4.2, { metres: true });
+  d.area('parking', 15, 10.6, 31, 20);
   d.area('green', -150, -8, -36, 60);
   d.area('green', 36, -8, 150, 60);
   if (r.chance(0.6)) row(d, -140, 140, main - 16, -1, { floors: [1, 3], width: [14, 30], depth: [10, 13], gap: [10, 30] });
@@ -265,9 +266,15 @@ function highway(d: Draft) {
   d.area(far ? 'forest' : 'green', -160, -160, 160, y - w / 2 - (far ? 9 : 28));
 }
 
-function park(d: Draft) {
+/** `chapel`: a cemetery's chapel stands by the paths' meeting, its door to them. */
+function park(d: Draft, chapel: boolean) {
   const { r } = d;
   d.area('green', -150, -64, 150, 150);
+  if (chapel) {
+    d.own = d.buildings.length;
+    d.box(9, 11.5, 8, 13, 5.4, { roof: 'gable', metres: true });
+    d.area('paved', 3, -1.4, 15, 5);
+  }
   // Paths meeting just south of the incident; a street along the park's edge.
   d.road('path', [[-140, r.range(-30, 20)], [-40, -6], [0, -3.4], [50, -1], [140, r.range(-20, 40)]], { width: 3 });
   d.road('path', [[0, -3.4], [r.range(-10, 10), -70]], { width: 2.6 });
@@ -317,7 +324,7 @@ export function makeStreet(kind: PlaceKind, seed: number, name: string | null = 
   else if (layout === 'shopfront') shopfront(d);
   else if (layout === 'fuel') fuel(d);
   else if (layout === 'highway') highway(d);
-  else park(d);
+  else park(d, kind === 'cemetery');
   // Turn the whole layout about the origin.
   const a = rand(seed ^ 0x5bd1e995)() * Math.PI * 2;
   const c = Math.cos(a);

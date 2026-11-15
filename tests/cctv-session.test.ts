@@ -560,6 +560,17 @@ describe('cctv session: where the camera is on the map', () => {
     expect(looking([-10, 10])).toBeCloseTo(315, 6);
   });
 
+  it('a petrol station the map has no room for is shown on a made-up street of its kind, nowhere on the map', () => {
+    const { s, inc } = fight();
+    const fuel: Incident = { ...inc, location: { ...inc.location, placeKind: 'gasstation', placeName: 'Olerex' } };
+    // tiles.ts readStreet gave no street for it (tests/cctv-tiles.test.ts): the session makes one up.
+    const cam = new CameraSession(new FakeView(), s, fuel, CAMERA, null, VERSION, { quiet: true });
+    expect(cam.street.source).toBe('made');
+    expect(cam.street.buildings.some((b) => b.open && b.area >= 80)).toBe(true);
+    expect(cam.site.place).toMatchObject({ kind: 'gasstation', name: 'Olerex' });
+    expect(mapPose(cam.site)).toBeNull();
+  });
+
   it('a made-up street is nowhere on the map: no pose', () => {
     const { s, inc } = fight();
     const made = new CameraSession(new FakeView(), s, inc, CAMERA, null, VERSION, { quiet: true });
