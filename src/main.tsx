@@ -20,6 +20,7 @@ import { simDigest } from './sim/coop';
 import { coopDebug, useCoop } from './store/coop';
 import { recordFrame, useReplay } from './store/replay';
 import { pokePresence, useFriends } from './store/friends';
+import { cameraOf } from './cctv/coverage';
 
 // Console handle for power users, filmmakers and end-to-end tests (single-player game, nothing secret).
 // Set synchronously from the entry chunk (MapLibre and the in-shift screen load later, see app/App.tsx).
@@ -36,6 +37,9 @@ import { pokePresence, useFriends } from './store/friends';
   replay: useReplay,
   // Sõbrad (src/store/friends.ts): the list and what waits; poke says it is here at once (tests need not wait).
   friends: { state: useFriends, poke: pokePresence },
+  // Kaamerad (docs/CCTV.md): which places a surveillance camera sees (the pure, cheap part only; the camera itself
+  // loads with its chunk when one is opened).
+  camera: { cameraOf },
 };
 
 /**

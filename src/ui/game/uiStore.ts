@@ -88,6 +88,12 @@ interface GameUi {
   dispatchError: Record<string, Text | string | undefined>;
   bulletinsSeen: number;
   toasts: Toast[];
+  /**
+   * Kaamerad (docs/CCTV.md): the incident whose surveillance camera is open over the map, one at a time. It stays
+   * on its incident while the player selects something else. `byKey` says it was opened from the keyboard, so the
+   * window takes the focus and hands it back to the card's button when it closes.
+   */
+  camera: { incidentId: string; byKey?: boolean } | null;
 
   set: (p: Partial<Omit<GameUi, 'set' | 'pushToast' | 'dismissToast' | 'togglePick' | 'clearPicks'>>) => void;
   pushToast: (t: Omit<Toast, 'id' | 'createdAt'>) => void;
@@ -112,6 +118,7 @@ export const useGameUi = create<GameUi>()((set, get) => ({
   dispatchError: {},
   bulletinsSeen: 0,
   toasts: [],
+  camera: null,
 
   set: (p) => set(p),
   pushToast: (t) => {
@@ -138,3 +145,15 @@ export const useGameUi = create<GameUi>()((set, get) => ({
     set({ picks: rest });
   },
 }));
+
+/**
+ * Open the camera of an incident, or close it when it is the one open (the card's button and the K key). Opening
+ * another incident's camera closes the one that was open: one camera at a time.
+ */
+export function toggleCamera(incidentId: string, byKey = false) {
+  const ui = useGameUi.getState();
+  if (ui.camera?.incidentId === incidentId) return ui.set({ camera: null });
+  // On a phone the picture is on the map tab: opening a camera from the card goes there.
+  const phone = typeof window !== 'undefined' && window.matchMedia('(max-width: 899px)').matches;
+  ui.set({ camera: { incidentId, byKey }, ...(phone ? { mobileTab: 'map' as const } : {}) });
+}

@@ -273,3 +273,31 @@ export function encodeRoadsBin(
   });
   return buf;
 }
+
+/**
+ * Clip a ring (tile units) to the square [lo, hi]^2, as a tile producer clips a polygon to the tile and its buffer
+ * (planetiler: [-64, 4160] for an extent of 4096). Sutherland-Hodgman, rounded to whole units like a real tile.
+ */
+export function clipRingToSquare(ring: [number, number][], lo: number, hi: number): [number, number][] {
+  let poly = ring.slice();
+  const sides: [
+    (p: [number, number]) => boolean,
+    (a: [number, number], b: [number, number]) => [number, number],
+  ][] = [
+    [(p) => p[0] >= lo, (a, b) => [lo, a[1] + ((b[1] - a[1]) * (lo - a[0])) / (b[0] - a[0])]],
+    [(p) => p[0] <= hi, (a, b) => [hi, a[1] + ((b[1] - a[1]) * (hi - a[0])) / (b[0] - a[0])]],
+    [(p) => p[1] >= lo, (a, b) => [a[0] + ((b[0] - a[0]) * (lo - a[1])) / (b[1] - a[1]), lo]],
+    [(p) => p[1] <= hi, (a, b) => [a[0] + ((b[0] - a[0]) * (hi - a[1])) / (b[1] - a[1]), hi]],
+  ];
+  for (const [inside, cut] of sides) {
+    const out: [number, number][] = [];
+    for (let i = 0; i < poly.length; i++) {
+      const c = poly[i];
+      const p = poly[(i + poly.length - 1) % poly.length];
+      if (inside(c) !== inside(p)) out.push(cut(p, c));
+      if (inside(c)) out.push(c);
+    }
+    poly = out;
+  }
+  return poly.map(([x, y]) => [Math.round(x), Math.round(y)]);
+}

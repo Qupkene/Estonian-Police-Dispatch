@@ -1,0 +1,21 @@
+<!doctype html>
+<!-- Dev-only: plays one camera scenario (a street, a cast, the director and a scripted situation) through the real
+     renderer, for filming whole scenes (not part of the app build). Serve with
+     `npx vite --config src/cctv/__dev__/vite.harness.config.ts --port 5392` and open
+     /src/cctv/__dev__/scene.html?kind=brawl&u=P1,a,h12,l60&out=arrest@40 (parameters at the top of scene.ts) -->
+<html lang="et">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EPD camera scenes</title>
+    <style>
+      body { margin: 0; background: #111; color: #ccc; font: 12px monospace; }
+      canvas { display: block; width: 1024px; height: 576px; image-rendering: auto; }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <pre id="log"></pre>
+    <script type="module" src="./scene.ts"></script>
+  </body>
+</html>

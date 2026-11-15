@@ -2,6 +2,41 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.41.0 (2026-11-15)
+
+- **Valvekaamerad:** osa sündmusi toimub valvekaamera vaateväljas. Sündmuse kaardil on siis nupp **"Kaamera"** (klahv **K**), mis avab kaardi kohal otsepildi: näed tänavat, kus sündmus toimub, patrulli saabumist vilkuritega, ametnikke autost väljumas, kaklust, põgenejat, kinnipidamist, kiirabi ja päästjaid.
+  - **Pilt tuleb mängu enda seisust.** Majad ja teed on päris kohast, inimesed ja sõidukid on sündmuse omad (registri värv ja tüüp), ekipaažid on need, kelle sa saatsid. Kui kaart ütleb, et sõiduk lahkus, siis pildil seda ei ole.
+  - **Mida pildil näeb:**
+    - Patrull peatub kaamera vaateväljas ja ametnikud väljuvad alles siis, kui üksus on mängus kohale jõudnud.
+    - Relvastatud isiku juures hoiavad pealtvaatajad eemale, ametnikud lähenevad sihtides ja isik pannakse kohapeal raudu.
+    - Kinnipeetu viiakse ametniku saatel auto juurde, otsitakse seal läbi ja pannakse autosse.
+    - Kannatanu viiakse kanderaamil kiirabisse. Hukkunu kaetakse linaga ja ala piiratakse.
+    - Päästjad töötavad avariil ja kustutavad tulekahju voolikuga. Pärast avariid sõidavad juhid oma autod tee äärde, enne kui patrull lahkub.
+    - Rahvas hajub väikeste gruppidena.
+  - **Aken:** saab lohistada, teha suuremaks ja suumida 1x kuni 4x. Tiitliribal on kaamera number (näiteks K-4821) ja juhtumi number. Kui vastad 112 kõnele, tõmbub aken kõnekaardi kohale tiitliribaks ja tuleb pärast kõnet tagasi. Telefonis avaneb kaamera kaardi vaates.
+  - **Järjekorras** on kaameraga sündmuste juures kaamera märk.
+  - **Pilt näeb välja nagu valvekaamera oma:** lainurk, madal lahutus, müra, kell nurgas, öösel must-valge infrapunapilt, vihmaga piisad kupli peal. Nurgas on märge "EPD v2.41.0".
+  - **Kus kaameraid on:** avalikes kohtades (tanklad, pangad, kaubanduskeskused, jaamad, kesklinna tänavad) sagedamini kui elamurajoonis; metsas ja külas kaameraid pole. Siseruumis toimuvast näitab kaamera ainult ust.
+  - **Sõidukid:** politseiautod on Eesti politsei värvides ja kirjaga POLITSEI, vappi neil ei ole. Kiirabi- ja päästeautod on tehtud päris autode eeskujul, embleemide asemel on lihtsustatud märgid.
+  - **Esimene avamine vajab võrguühendust:** kaamera kood (umbes 1 MB) laaditakse alles siis, kui kaamera esimest korda avad. Ühendamine võtab mõne sekundi, aeglasel seadmel kauem; mäng käib samal ajal edasi.
+- **Tiitrid:** lisatud link kõigi mänguga kaasa pandud teekide ja kirjatüüpide litsentsitekstidele.
+
+<details>
+<summary>English</summary>
+
+Kaamerad, live surveillance cameras (docs/CCTV.md). An incident at a place with a camera (`src/cctv/coverage.ts`: by kind of place and a stable hash of the map cell, with a four-digit code K-1000 to K-9999 that no two cells within about 3 km share) gets a camera button on its card (key K) and a mark in the queue; the window over the map shows the street live. The picture is a small three.js scene built from the game's own state, 640x360 at about 12 frames a second, in a lazy chunk of about 1 MB (290 kB gzipped) that is neither in the first load nor in the offline cache (a CI step checks the built files).
+
+- **The street** comes from the zoom 15 tiles of the street map (`tiles.ts`; a made-up street of the place's kind when the map is not there). `site.ts` tries places in order and keeps the first that holds: the spot, the camera and the walking lines are never inside a house or in water, the road is as wide as the house fronts leave, and the camera is the best-scored candidate with its lens fitted so that the people at the spot, the door and the stretch where the first crews stop are in the picture (`Site.seen`).
+- **The people and vehicles** are the incident's own (`cast.ts`: from the template, its scenario and the card's resolved summary, so a car that drove off is not shown and a one-car crash with a trapped person plays as one) and the crews actually sent. The director (`director.ts`) plays each change of the incident in real seconds at the game clock's measured pace: a patrol stops in the picture, nobody gets out before the game says the unit is on scene, officers take posts, an armed person is approached with aim kept until the cuffs are on, an arrested person is cuffed, walked to the car with an officer at their side, searched there and driven off, a victim goes to the ambulance on a stretcher, a body is covered and cordoned and stays covered, the rescue crew works a crash and a hose, drivers move their wrecks to the kerb before the police leave, a crowd breaks up in knots. Nobody stands or walks inside anybody, and the cars parked in the street are solid (the renderer tells the director which it drew). Opening a camera in the middle settles the stage first.
+- **The look.** People are one CC0 base body dressed per person (`render/human.ts`, "Male Base Mesh" by orange-juice-games); vehicles are shaped from cross-sections at real sizes in the Estonian services' liveries (`render/carbody.ts`, `cars.ts`; no crest on police cars, stand-in emblems on the ambulance and the rescue vehicles); house fronts are painted by building kind (`render/facades.ts`); small props (a stretcher, a sheet, a hose, weapons) in `render/props.ts`. Two screen passes make it a camera's picture: lens bulge, softness and colour fringes, rain on the dome, then stream blocks, grain, infrared black and white at night, scan lines and the burned-in clock with the mark `EPD v<version>`.
+- **Opening.** `CameraView.prepare` compiles every shader before the camera reports live, in short tasks, so the game does not freeze (the first frame then takes a few milliseconds); the opening has a budget of 30 s inside the window's 60 s deadline. While the light does not change nothing is rebuilt, and a closed camera keeps no graphics context. Each opening still creates a new WebGL context, the one long task that remains.
+- **The window** (`src/ui/game/CameraWindow.tsx`): drag, two sizes, zoom 1x to 4x, a title bar that gives way by measuring so that the camera's code and the incident's number are never clipped, folding to the title bar above an answered 112 card (nothing is drawn while folded), a docked layout on a phone. When the camera's code is out of date after an update the note offers a reload; if the shift cannot be saved (director mode, co-op) it says so and asks for a second, deliberate press.
+- **Licences.** The build writes `THIRD-PARTY-LICENSES.txt` with the licence text of every bundled npm package and font (texts for `pmtiles`, `@protomaps/basemaps` and the map's Noto Sans glyphs are kept in `licences/`; a package without a text stops the build); the credits screen links to it.
+- New runtime dependencies: `three`, and `@mapbox/vector-tile` and `pbf` (until now used only by the map data script).
+- Known limits: car doors do not swing open and there is no tow truck (a wreck stays at the kerb); in narrow old-town lanes walls can fill a large part of the frame; working out a camera's place takes up to about 70 ms once per opening.
+
+</details>
+
 ## 2.40.2 (2026-11-04)
 
 - **Veel kiirem algus:** sündmuste kataloog (umbes 2 MB vahetuse sündmusi) laaditakse alles pärast sisselogimist, menüüs taustal. Avaleht laadib ja käivitab umbes 40 % vähem JavaScripti ja telefon on avamisel vähem hõivatud: kohalikus PageSpeedi mõõtmises langes blokeeritud aeg (TBT) 310-720 ms pealt 160-190 ms peale.

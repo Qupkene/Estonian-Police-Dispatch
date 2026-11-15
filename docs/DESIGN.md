@@ -94,6 +94,9 @@ src/
     economy.ts      upgrades, vehicle catalogue, salaries, ranks        (engine-systems)
   audio/sfx.ts audio/speech.ts                                          (ui-shell)
   map/                            MapView + style + markers             (map)
+  cctv/                           Kaamerad: surveillance cameras (docs/CCTV.md). Pure parts (street,
+                                  site, coverage, cast, situation, director, session) tested in node;
+                                  render/ draws with three.js; live.ts is the lazy chunk's entry
   store/game.ts store/settings.ts store/career.ts                      (core skeleton; career store: ui-career)
   i18n/index.ts i18n/parts/*.ts   UI strings, one part file per module (each module adds its own)
   ui/
@@ -102,7 +105,8 @@ src/
     screens/        Boot, Login, Menu, Briefing, Settings, Credits,
                     Report (+ Newspaper), Career (HQ management)        (ui-shell / ui-career)
     game/           GameScreen layout, TopBar, Queue, IncidentPanel,
-                    UnitBoard, RadioPanel, Toasts, hotkeys              (ui-game)
+                    UnitBoard, RadioPanel, Toasts, hotkeys,
+                    CameraWindow (the camera over the map)              (ui-game)
     tools/          Registry (Andmebaas), CallTaker (112), Stats,
                     Bulletins, Director panel                           (ui-tools)
 tests/              vitest unit tests (each module adds its own file)
@@ -416,7 +420,8 @@ money in career) · left: event queue · centre: map · right: context panel (in
 Andmebaas / Statistika tabs) · bottom: radio log + unit status board. 112 call = modal-ish
 dock that slides in. Below 1100 px the side panels become tabs.
 Hotkeys: Space pause, 1-5 speed, F2 queue, F3 Andmebaas, F4 units, F6 radio, A acknowledge,
-D dispatch recommended, Esc close. Everything keyboard reachable.
+D dispatch recommended, K the selected incident's surveillance camera (docs/CCTV.md section 14),
+Esc closes the topmost thing (placing, the queue drawer, the camera, the selection). Everything keyboard reachable.
 Screens: Boot (fake OS boot log) → Login (ID-kaart / Mobiil-ID / Smart-ID simulation; empty
 user+password = legacy login easter egg "Tere tagasi, 2024!") → Menu (Karjäär, Kiirmäng,
 Režissööri režiim, Seaded, Algsed versioonid 2024/2025, Tiitrid) → Briefing → Game → Report.

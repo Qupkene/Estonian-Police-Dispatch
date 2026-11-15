@@ -89,6 +89,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      # The surveillance camera (three.js and its body model) must stay out of the first load and out of the
+      # offline cache: the same test file again, now reading the built files.
+      - name: Camera chunk stays lazy (built files)
+        run: CCTV_DIST=1 npx vitest run tests/cctv-lazy.test.ts
+
   e2e:
     name: E2E (Playwright, Chromium)
     needs: build

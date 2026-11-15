@@ -32,6 +32,7 @@ const KEYS: [string, string][] = [
   ['F3', 'game.key.registry'],
   ['F4', 'game.key.units'],
   ['F6', 'game.key.radio'],
+  ['K', 'game.key.camera'],
   ['H', 'game.key.hud'],
   ['Esc', 'game.key.esc'],
 ];

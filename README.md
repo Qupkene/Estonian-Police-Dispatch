@@ -58,6 +58,7 @@ EPD sai alguse 2024. aastal lihtsa brauserimänguna „Politsei Andmebaas“. EP
 - **Karjäär:** alusta oma sektori laua taga ja jõua prefektuuri juhiks. Viis peatükki, korduvad tegelased, eelarve, Staatus, töötajad, autopark, uuendused, auastmed ja saavutused. Naabersektorites töötavad AI kolleegid, kes paluvad abi, võtavad jälitusi üle ja katavad öid.
 - **Päeva väljakutse:** kõigil on sama vahetus ja sama päeva edetabel.
 - **Mitmikmäng kuni neljale:** võistlus samal vahetusel, ühine vahetus rollidega (kõnevastuvõtja, dispetšer, raadio ja registrid) või sektoritega, kus naabrid laenavad üksteisele ekipaaže. Ühine vahetus jookseb mänguserveris, nupuvajutus jõuab kohale umbes kümnendiku sekundiga.
+- **Valvekaamerad:** kui sündmuse koha juures on valvekaamera, näed sündmuse kaardilt (<kbd>K</kbd>) otsepilti: kaklust, saabuvat patrulli vilkuritega, kinnipidamist, kiirabi. Pilt joonistatakse mängu enda tänavakaardilt ja olukorrast.
 - **Elav maailm:** päev ja öö päris päikesetõusu ja -loojanguga, aastaajad, ilm ja pühad.
 - **Aruanne ja ajaleht** iga vahetuse lõpus, koos hinde ja statistikaga.
 - **Režissööri režiim** politseifilmide jaoks: tekita sündmusi, kirjuta raadiolauseid ja peida kasutajaliides.
@@ -81,8 +82,9 @@ Põhjalikum juhend: [politsei.eu/juhend](https://politsei.eu/juhend/).
 | <kbd>A</kbd> | Võta valitud sündmus vastu |
 | <kbd>D</kbd> | Saada soovitatud üksus |
 | <kbd>F2</kbd> · <kbd>F3</kbd> · <kbd>F4</kbd> · <kbd>F6</kbd> | Sündmused · Andmebaas · Üksused · Raadio |
+| <kbd>K</kbd> | Ava või sulge valitud sündmuse valvekaamera |
 | <kbd>H</kbd> | Peida või näita kasutajaliidest |
-| <kbd>Esc</kbd> | Sulge aken |
+| <kbd>Esc</kbd> | Sulge pealmine aken (sündmuste sahtel, siis kaamera) |
 
 ### Algsed versioonid
 
@@ -108,6 +110,7 @@ EPD started in 2024 as a small browser game, "Politsei Andmebaas". EPD 2.0 is a 
 - **Career** in five chapters with a recurring cast: from your own sector desk to running a prefecture, with budget, reputation, staff, fleet, upgrades and ranks. AI colleagues run the neighbouring sectors.
 - **Daily challenge** with a shared leaderboard.
 - **Multiplayer for up to four:** a race on the same shift, or one shared shift split by roles or by sectors. Shared shifts run on the game server, so a click takes effect in about a tenth of a second.
+- **Surveillance cameras:** when a camera covers an incident's place, open its live picture from the incident card (<kbd>K</kbd>) and watch the fight, the patrol arriving with blue lights, the arrest, the ambulance; drawn from the game's own street map and state.
 - **Day and night, seasons, weather and holidays;** a report and a newspaper front page after every shift; a director mode for filming.
 - **Accounts with cloud saves** (the ID card, Mobile-ID and Smart-ID login is a simulation, no real data is asked) or play as a guest.
 - **Works offline** as a web app (PWA). **Estonian and English.**
@@ -167,6 +170,9 @@ tests/ e2e/   Vitest and Playwright
 | [TartuNLP Neurokõne](https://neurokone.ee) | raadio hääl / radio voice | per the service's terms |
 | Archivo, Instrument Sans, Inter, JetBrains Mono, Noto Sans | fondid / fonts | SIL Open Font License 1.1 |
 | [MapLibre GL JS](https://maplibre.org) | kaardimootor / map engine | BSD-3-Clause |
+| [three.js](https://threejs.org) | valvekaamera pilt / the surveillance camera's picture | MIT |
+| [vector-tile](https://github.com/mapbox/vector-tile-js), [pbf](https://github.com/mapbox/pbf) | valvekaamera tänav kaardifailist / the camera's street from the map file | BSD-3-Clause |
+| [Male Base Mesh](https://github.com/BoQsc/Godot-Male-Base-Mesh) (orange-juice-games) | inimeste keha valvekaamera pildil / the people's body in the camera picture | CC0 1.0 |
 
 Isikukoodid, numbrimärgid ja registrikanded on juhuslikud; kokkulangevus päris inimese või sõidukiga on juhus. ID codes, plates and records are random; any match with a real person or vehicle is a coincidence.
 
