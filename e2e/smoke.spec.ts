@@ -144,8 +144,9 @@ test('a major incident: the choice, the briefing, the staff, a decision and a ta
     await page.getByRole('button', { name: /Üksikmäng/ }).first().click();
   await page.getByRole('button', { name: /Kiirmäng/ }).first().click();
   await expect.poll(() => screen(page)).toBe('briefing');
+  // (The briefing is a chunk of its own, drawn a moment after the store says 'briefing': longer on a busy machine.)
   const choice = page.getByRole('radiogroup', { name: 'Suurõnnetus' });
-  await expect(choice.getByRole('radio')).toHaveCount(3);
+  await expect(choice.getByRole('radio')).toHaveCount(3, { timeout: 30_000 });
   await choice.getByRole('radio', { name: /^Kindlasti/ }).click();
   await expect(choice.getByRole('radio', { name: /^Kindlasti/ })).toHaveAttribute('aria-checked', 'true');
   // A paused shift of its own; the bus crash started by hand, as the director's panel does.
