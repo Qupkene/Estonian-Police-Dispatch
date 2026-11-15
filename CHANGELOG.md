@@ -2,6 +2,17 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.41.1 (2026-11-15)
+
+- **Kaamera käib mängu kiirusega:** kiirustel 2x, 4x ja 8x liigub ka kaamerapilt sama palju kiiremini, nagu kiirendatud salvestis. Patrull jõuab kaadrisse ikka samal hetkel, kui mäng ütleb, et ta on kohal.
+
+<details>
+<summary>English</summary>
+
+The camera's street runs at the game's speed: real seconds at 1x and below (real-time mode, an open 112 call), 2, 4 and 8 times as fast at 2x, 4x and 8x (`streetScale` in `src/cctv/situation.ts`; arrivals are given to the director in the street's own seconds, a slow frame at 8x is played in parts). The picture's own life (blue lights, rain, grain) stays in real seconds.
+
+</details>
+
 ## 2.41.0 (2026-11-15)
 
 - **Valvekaamerad:** osa sündmusi toimub valvekaamera vaateväljas. Sündmuse kaardil on siis nupp **"Kaamera"** (klahv **K**), mis avab kaardi kohal otsepildi: näed tänavat, kus sündmus toimub, patrulli saabumist vilkuritega, ametnikke autost väljumas, kaklust, põgenejat, kinnipidamist, kiirabi ja päästjaid.
