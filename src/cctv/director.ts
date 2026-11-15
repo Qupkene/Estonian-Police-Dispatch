@@ -60,6 +60,11 @@ const STEP_S = 0.1;
 const STEP_US = 100_000;
 /** The crews wait this long at most, from the outcome on, for the closing scene before they leave. */
 const HOLD_S = 14;
+/**
+ * The police stay, and stay out of their car, while a wreck is still to be moved to the kerb: for this long after
+ * the end at most.
+ */
+const WRECK_HOLD_S = 55;
 /** Roads narrower than this have one lane. */
 const NARROW_M = 5.4;
 /** An armed suspect paces this far to either side of their place. */
@@ -762,8 +767,9 @@ export class Director {
       this.over = true;
       this.raise('closing');
     }
+    // (The ending's clock runs on after its scene is played: the police are held by a wreck for so long, not for ever.)
+    if (this.over) this.overT += dt;
     if (this.over && !this.played) {
-      this.overT += dt;
       if (!this.playing && (this.contact || !this.policeAround() || this.overT > HOLD_S)) {
         this.startPlay(sit);
         this.bringOut();
@@ -2454,11 +2460,14 @@ export class Director {
             mover.steps.length = 0;
             mover.steps.push(slide(out, 0.55));
             this.setAct(mover, 'stand');
-            // The driver stays by their car (a call to the insurer, the tow) until the police go.
+            // The driver stays by their car (a call to the insurer, the tow) until the police go (driversGo); with
+            // no police there to wait for, they are on their way after the call.
             if (cast) {
               const side = this.offRoad(out, 0.6, Math.abs(car.lat) > 0.2 ? (car.lat > 0 ? 1 : -1) : this.site.side);
               if (!this.wall(side[0], side[1]) && !this.inParked(side[0], side[1], PARK_BERTH)) mover.steps.push(go(side, 'walk'));
-              mover.steps.push(act('phone', 9 + 6 * hash01(mover.seed, 54), [car.x, car.y]), act('idle', 0, [car.x, car.y]));
+              mover.steps.push(act('phone', 9 + 6 * hash01(mover.seed, 54), [car.x, car.y]));
+              if (this.policeAround()) mover.steps.push(act('idle', 0, [car.x, car.y]));
+              else mover.steps.push(wait(2 + 4 * hash01(mover.seed, 55)), call(() => this.leave(mover, 'walk')));
             } else if (mover.crew?.state === 'boarding') this.toCar(mover);
             else this.standBy(mover);
             // The officer who saw it to the kerb goes back to the car (unless somebody gave them other work meanwhile).
@@ -2530,7 +2539,28 @@ export class Director {
     car.wait = 0;
     car.shunts = 0;
     car.lamps = true;
+    // Kept from its place (somebody stands where it would back to, the way ahead is shut), it is not waited for for
+    // ever: after six seconds without moving, or twenty-four in all, it stands where it has got to.
+    let all = 0;
+    let still = 0;
+    let at: V2 = [car.x, car.y];
+    let yaw = car.yaw;
     const poll = () => {
+      all += 0.4;
+      still = dist(at, [car.x, car.y]) < 0.02 && Math.abs(car.yaw - yaw) < 0.005 ? still + 0.4 : 0;
+      at = [car.x, car.y];
+      yaw = car.yaw;
+      if (car.mode !== 'park' && car.mode !== 'gone' && (still >= 6 || all >= 24)) {
+        car.mode = 'park';
+        car.v = 0;
+        car.back = 0;
+        car.wait = 0;
+        car.shunts = 0;
+        car.braking = false;
+        car.eta = 0;
+        car.ts = car.s;
+        car.tlat = car.lat;
+      }
       if (car.mode === 'park' || car.mode === 'gone') {
         car.lamps = this.night;
         this.toClear--;
@@ -3583,6 +3613,7 @@ export class Director {
   /** The story is over and the crews have gone: nobody of the incident stays in the street. */
   private tidy(): void {
     const tragedy = this.sit?.outcome?.result === 'tragedy';
+    this.driversGo();
     for (const b of this.bodies) {
       if (b.kind !== 'cast' || b.gone || b.leaving) continue;
       // The dead do not get up and go. (Seen, they stay where they lie; see lastCrewLeaves.)
@@ -3597,6 +3628,28 @@ export class Director {
       }
     }
     for (const c of this.cars) if (c.kind === 'cast' && c.mode === 'park' && !c.hazard) c.lamps = false;
+  }
+
+  /**
+   * The drivers of a crash who stayed by their cars go their way: the last police crew is going, or there is no
+   * police to wait for (none ever came, the street has emptied).
+   */
+  private driversGo(): void {
+    if (this.kind !== 'crash' || !this.over) return;
+    for (const b of this.bodies) {
+      if (b.kind !== 'cast' || b.role !== 'driver' || b.gone || b.hidden || b.duty || b.leaving || b.aboard) continue;
+      const last = b.steps[b.steps.length - 1];
+      if (b.fidget || (!DOWN.has(b.act) && b.steps.every((x) => x.k === 'act' || x.k === 'wait'))) {
+        // Standing by their car, on the phone or not: nothing they still have to do.
+        b.steps.length = 0;
+        b.fidget = false;
+      } else if (last && last.k === 'act' && !last.t && !DOWN.has(last.act)) {
+        // Still on the way to that (out of the wreck and onto the pavement, up from the kerb): they finish it, and
+        // do not stay.
+        b.steps.pop();
+      } else continue;
+      b.steps.push(wait(2 + 4 * hash01(b.seed, 55)), call(() => this.leave(b, 'walk')));
+    }
   }
 
   /** The last police crew goes: what they could not leave behind goes with them. */
@@ -3629,17 +3682,7 @@ export class Director {
         );
       }
     }
-    // The drivers who stayed by their cars while the police were here go their way now.
-    if (this.kind === 'crash' && this.over) {
-      for (const b of this.bodies) {
-        if (b.kind !== 'cast' || b.role !== 'driver' || b.gone || b.hidden || b.duty || b.leaving || b.aboard || DOWN.has(b.act)) continue;
-        // (Standing by their car, on the phone or not: nothing they still have to do.)
-        if (b.steps.some((x) => x.k !== 'act' && x.k !== 'wait') && !b.fidget) continue;
-        b.steps.length = 0;
-        b.fidget = false;
-        b.steps.push(wait(2 + 4 * hash01(b.seed, 55)), call(() => this.leave(b, 'walk')));
-      }
-    }
+    this.driversGo();
     // Whoever lies dead there is never taken out of a picture somebody looks at: they stay under their sheet, the
     // pavement round them stays closed, and the camera's own end comes soon after. Only a camera opened when all
     // this is long over (the stage being settled before its first picture) finds them taken away.
@@ -4962,7 +5005,7 @@ export class Director {
       const blocked = cr.police && this.kind === 'crash' && this.cars.some((c) => c.kind === 'cast' && c.wreck && c.mode === 'park' && Math.abs(c.lat) < this.width / 2 - 0.8);
       car.beacons = hasBeacons(car.look.livery) && (open || blocked) && !cr.through;
       // (The police stay until what blocks the road has been moved to the kerb: they are the last to go.)
-      const hold = (this.over && !this.played && this.overT < HOLD_S) || (cr.police && this.over && this.overT < 55 && this.toClear > 0);
+      const hold = (this.over && !this.played && this.overT < HOLD_S) || (cr.police && this.over && this.overT < WRECK_HOLD_S && this.toClear > 0);
       if (cr.wantLeave && (cr.through || !hold)) {
         this.board(cr);
         return;
@@ -4974,7 +5017,7 @@ export class Director {
       // The story is told and nobody of the incident is left in the street: a crew does not stand about beside
       // its car, it gets in (reports, the radio) until it is sent on. One stays out where somebody lies dead or
       // the matter is behind a door.
-      if (cr.police && this.played && this.toClear === 0 && cr.out >= cr.people.length && !this.bodies.some((b) => b.kind === 'cast' && !b.gone && !b.hidden && !b.leaving)) {
+      if (cr.police && this.played && (this.toClear === 0 || this.overT >= WRECK_HOLD_S) && cr.out >= cr.people.length && !this.bodies.some((b) => b.kind === 'cast' && !b.gone && !b.hidden && !b.leaving)) {
         const keep = this.cordon || this.kind === 'indoor' ? cr.people[0] : null;
         for (const b of cr.people) if (b !== keep && !b.aboard && !b.duty && !b.gone && !(b.inside && b.hidden) && !b.steps.length) this.toCar(b);
       }

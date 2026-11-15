@@ -142,8 +142,11 @@ export class PropsMesh {
     const seen = new Set<string>();
     for (const p of props ?? []) {
       seen.add(p.id);
-      // A hose's shape is its line; everything else only moves.
-      const key = p.kind === 'hose' ? (p.line ?? []).map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`).join(' ') : p.kind;
+      // A hose's shape is its line and what its water is played on; everything else only moves.
+      const key =
+        p.kind === 'hose'
+          ? (p.line ?? []).map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`).join(' ') + (p.aim ? ` at ${p.aim.at[0].toFixed(1)},${p.aim.at[1].toFixed(1)},${p.aim.height.toFixed(1)}` : '')
+          : p.kind;
       let it = this.items.get(p.id);
       if (it && it.key !== key) {
         this.group.remove(it.mesh);
