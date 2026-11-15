@@ -5,11 +5,21 @@ Kõik olulised muudatused on kirjas siin. Each version has a short English summa
 ## 2.41.1 (2026-11-15)
 
 - **Kaamera käib mängu kiirusega:** kiirustel 2x, 4x ja 8x liigub ka kaamerapilt sama palju kiiremini, nagu kiirendatud salvestis. Patrull jõuab kaadrisse ikka samal hetkel, kui mäng ütleb, et ta on kohal.
+- **Kaamera näitab seda kohta, millest sündmus räägib:**
+  - Kaamera teab nüüd koha liiki ja nime. Tanklaröövi pildil on tankla: varikatus, tankurid, plats ja kassahoone. Parklas on parkimiskohad ja autod, bussijaamas ootekojad.
+  - Koha hoonel on silt koha nimega või liigiga (TANKLA, PANK, BAAR, KOOL, HAIGLA, HOTELL jne) ja liigile vastav esikülg: pangal sularahaautomaat, baaril varikate, haiglal ja jaamal varjualune, kirikul torn.
+  - Stseen toimub koha oma hoone esikülje ees, mitte tagatänaval. Kui mängu andmetes on koha asukoht nihkes, otsib kaamera kaardilt lähima sama liiki koha (kuni 250 m).
+  - Juhuslikke silte ("LILLED" panga seinal) koha hoonel enam ei ole.
+- **Kaamera on kaardil näha:** avatud kaamera asukoht, sündmuskoht ja vaateväli on kaardil koonusena. Koonus järgib akna suumi. Kaamera avaneb samas punktis, kus kaart sündmuse märki näitab.
 
 <details>
 <summary>English</summary>
 
 The camera's street runs at the game's speed: real seconds at 1x and below (real-time mode, an open 112 call), 2, 4 and 8 times as fast at 2x, 4x and 8x (`streetScale` in `src/cctv/situation.ts`; arrivals are given to the director in the street's own seconds, a slow frame at 8x is played in parts). The picture's own life (blue lights, rain, grain) stays in real seconds.
+
+The camera is told the place the incident names (`src/cctv/place.ts`). `readStreet` takes the incident's place kind and name, moves the origin to the map's own point of that kind within 250 m (the archive's `pois` layer, a name match first), then to the front of the place's own building, and adds what stands before the place as street data: a petrol station's canopy, forecourt and kiosk, a car park's bays, a bus station's shelters. `Site.place` names the own building and its front; made-up streets mark one too. The renderer (`src/cctv/render/place.ts`) dresses that building by kind: a board with the place's own name or the kind's Estonian word, placed where the camera sees all of it, and a front of its kind for 27 kinds. Other boards near the scene carry no words.
+
+The map shows the open camera (`src/map/cameraCone.ts`): a dot where it hangs, a ring where the scene is and the view cone from `CameraHandle.pose`, narrowed and turned with the window's zoom. The camera opens at the point where the map draws the marker (`OpenOptions.origin`), and the map moves on opening only as much as it takes to bring the marker and the cone into its free part. A made-up street has no place on the map and gets no cone.
 
 </details>
 
