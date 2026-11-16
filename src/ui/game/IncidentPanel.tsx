@@ -14,7 +14,7 @@ import { RejectMenu } from './EventQueue';
 import { CrisisNote } from './CrisisPanel';
 import { crisisTaskOf } from '@/sim/crisis';
 import { cameraOf } from '@/cctv/coverage';
-import { toggleCamera, useGameUi } from './uiStore';
+import { cameraView, toggleCamera, useGameUi } from './uiStore';
 import { showCameraOnMap } from '@/map/cameraCone';
 import {
   AgencyBlock,
@@ -249,7 +249,8 @@ function HelpNote({ inc }: { inc: Incident }) {
  */
 function CameraLine({ inc, now }: { inc: Incident; now: number }) {
   const t = useT();
-  const open = useGameUi((s) => s.camera?.incidentId === inc.id);
+  const view = useGameUi((s) => cameraView(s, inc.id));
+  const open = view === 'open';
   const cam = cameraOf(inc, now);
   if (!cam) return null;
   return (
@@ -261,14 +262,14 @@ function CameraLine({ inc, now }: { inc: Incident; now: number }) {
       </span>
       <Button
         size="sm"
-        variant={open ? 'primary' : 'secondary'}
+        variant={view === 'closed' ? 'secondary' : 'primary'}
         icon={open ? 'close' : 'cctv'}
         kbd="K"
-        title={open ? t('game.cam.close') : t('game.cam.openTitle')}
+        title={open ? t('game.cam.close') : view === 'away' ? t('game.cam.show') : t('game.cam.openTitle')}
         data-camera-toggle={inc.id}
         onClick={() => toggleCamera(inc.id)}
       >
-        {open ? t('game.cam.close') : t('game.cam.open')}
+        {open ? t('game.cam.close') : view === 'away' ? t('game.cam.show') : t('game.cam.open')}
       </Button>
     </div>
   );

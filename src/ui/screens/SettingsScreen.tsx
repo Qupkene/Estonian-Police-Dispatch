@@ -96,6 +96,9 @@ export function SettingsScreen() {
           <Row label={t('shell.set.hints')} desc={t('shell.set.hintsDesc')}>
             <Toggle checked={s.hints} onChange={(v) => s.set({ hints: v })} />
           </Row>
+          <Row label={t('shell.set.autoCamera')} desc={t('shell.set.autoCameraDesc')}>
+            <Toggle checked={s.autoCamera !== false} onChange={(v) => s.set({ autoCamera: v })} />
+          </Row>
         </Section>
 
         <Section id="audio" title={t('shell.set.sec.audio')}>

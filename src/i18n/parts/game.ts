@@ -447,6 +447,7 @@ export default {
   'game.cam.title': { et: 'Valvekaamera', en: 'Surveillance camera' },
   'game.cam.open': { et: 'Kaamera', en: 'Camera' },
   'game.cam.close': { et: 'Sulge kaamera', en: 'Close camera' },
+  'game.cam.show': { et: 'Näita kaamerat', en: 'Show camera' },
   'game.cam.openTitle': { et: 'Vaata selle koha valvekaamera otsepilti', en: "Watch this place's surveillance camera live" },
   'game.cam.mark': { et: 'Valvekaamera: {name}', en: 'Surveillance camera: {name}' },
   'game.cam.none': { et: 'Selle koha juures valvekaamerat ei ole', en: 'There is no surveillance camera at this place' },

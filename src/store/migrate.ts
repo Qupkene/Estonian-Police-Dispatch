@@ -663,6 +663,8 @@ export const SETTING_RULES: Record<string, (v: unknown) => unknown> = {
     return n === undefined ? undefined : clamp(n, 0.85, 1.25);
   },
   hints: bool,
+  // Not in the defaults (absent means on, src/store/settings.ts): checked here whenever it is stored.
+  autoCamera: bool,
   colorblind: bool,
 };
 
@@ -690,7 +692,7 @@ export function normalizeSettings<S extends object>(
   const out: Record<string, unknown> = { ...cur };
   for (const [k, v] of Object.entries(stored)) {
     if (typeof cur[k] === 'function' || UNSAFE_KEYS.has(k)) continue;
-    if (!Object.prototype.hasOwnProperty.call(cur, k)) {
+    if (!Object.prototype.hasOwnProperty.call(cur, k) && !SETTING_RULES[k]) {
       out[k] = v;
       continue;
     }

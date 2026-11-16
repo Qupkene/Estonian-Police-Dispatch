@@ -2,6 +2,18 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.41.2 (2026-11-16)
+
+- **Kaamera avaneb vastuvõtmisel:** kui võtad vastu sündmuse, mille kohas on valvekaamera, avaneb selle pilt kohe ja eelmine kaamera läheb kinni. Seadetes (Üldine, "Ava kaamera vastuvõtmisel") saab selle välja lülitada.
+- **Parandus telefonis:** kui kaamera on lahti, aga oled kaardi vahelehelt lahkunud, ütleb sündmuse nupp "Näita kaamerat" ja üks vajutus näitab pilti uuesti. Varem pani esimene vajutus kaamera kinni ja alles teine avas selle.
+
+<details>
+<summary>English</summary>
+
+Accepting an incident (the card's and the queue's "Võta vastu" and the A key) opens its surveillance camera when its place has one, in place of any open camera (`showCamera` in `src/ui/game/uiStore.ts`; `acknowledge` in `src/ui/game/actions.ts`). A new setting, `autoCamera` ("Ava kaamera vastuvõtmisel", on by default), turns it off. On a phone, a camera that is open on the map tab but out of sight is shown again by the card's button ("Näita kaamerat", `cameraView` 'away') instead of being closed by the first press.
+
+</details>
+
 ## 2.41.1 (2026-11-16)
 
 - **Kaamera käib mängu kiirusega:** kiirustel 2x, 4x ja 8x liigub ka kaamerapilt sama palju kiiremini, nagu kiirendatud salvestis. Patrull jõuab kaadrisse ikka samal hetkel, kui mäng ütleb, et ta on kohal.

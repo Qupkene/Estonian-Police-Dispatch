@@ -1446,12 +1446,24 @@ say what a press does; it has no `aria-pressed`). A place without a camera has n
 rows of places with a camera with a small camera icon (`data-camera` holds its code, its title names the camera).
 Watching is open to every role and desk of a co-op room: nothing is changed by it.
 
-**One camera at a time.** `useGameUi.camera` (`src/ui/game/uiStore.ts`, not persisted, no setting) holds the
-incident whose camera is open (`{ incidentId, byKey? }`); `toggleCamera(incidentId, byKey)` opens or closes it, and
-on a phone opening goes to the map tab. It stays on that incident while the player selects others: that is the
-point, watching one place while working on another. Opening another incident's camera closes the first. A new
-shift, the end of a shift and leaving the game screen close it (`GameScreen`); the window itself is keyed by the
-shift (`shiftKeyOf`) and the incident, so another shift or incident always starts a fresh one.
+**One camera at a time.** `useGameUi.camera` (`src/ui/game/uiStore.ts`, not persisted) holds the incident whose
+camera is open (`{ incidentId, byKey? }`); `toggleCamera(incidentId, byKey)` opens or closes it, and on a phone
+opening goes to the map tab. It stays on that incident while the player selects others: that is the point,
+watching one place while working on another. Opening another incident's camera closes the first. A new shift, the
+end of a shift and leaving the game screen close it (`GameScreen`); the window itself is keyed by the shift
+(`shiftKeyOf`) and the incident, so another shift or incident always starts a fresh one.
+
+On a phone the window is on the map tab, so a camera can be open and out of sight. `cameraView(ui, incidentId)`
+tells the three apart: 'closed', 'open' (in sight) and 'away' (open, on a phone, from another tab). The card's
+button says "Näita kaamerat" while 'away', and `toggleCamera` then goes to the map tab instead of closing it: one
+press shows the picture again, never a close and an open.
+
+**Opening on accept.** Accepting an incident (`acknowledge` in `src/ui/game/actions.ts`: the card's and the queue's
+"Võta vastu" and the A key) opens its camera when its place has one and the setting "Ava kaamera vastuvõtmisel"
+(`Settings.autoCamera`, on by default, under General in the settings) is on. `showCamera(incidentId)` puts it in
+place of any open camera, does not take the focus and does not move a phone off the tab the player is on. Only
+the press that turns an incoming incident into an accepted one opens it: a camera the player closed stays closed.
+In a co-op room the camera opens when the player presses, before the room confirms the command.
 
 **Keys.** K opens or closes the selected incident's camera (a short note when nothing is selected or the place
 has no camera). When that camera is open and the focus is elsewhere, K first moves the focus to the window's close

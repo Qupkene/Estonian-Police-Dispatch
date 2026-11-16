@@ -146,14 +146,39 @@ export const useGameUi = create<GameUi>()((set, get) => ({
   },
 }));
 
+/** A phone-sized screen: the map, and the camera window over it, are a tab of their own there. */
+export function isPhone(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 899px)').matches;
+}
+
+/**
+ * Whether an incident's camera is open, and whether the player can see it now: on a phone the window is on the map
+ * tab, so from any other tab it is open but out of sight ('away').
+ */
+export function cameraView(ui: Pick<GameUi, 'camera' | 'mobileTab'>, incidentId: string): 'closed' | 'open' | 'away' {
+  if (ui.camera?.incidentId !== incidentId) return 'closed';
+  return isPhone() && ui.mobileTab !== 'map' ? 'away' : 'open';
+}
+
 /**
  * Open the camera of an incident, or close it when it is the one open (the card's button and the K key). Opening
- * another incident's camera closes the one that was open: one camera at a time.
+ * another incident's camera closes the one that was open: one camera at a time. On a phone a camera that is open
+ * but out of sight on the map tab is brought back into view, not closed: the button the player sees says so.
  */
 export function toggleCamera(incidentId: string, byKey = false) {
   const ui = useGameUi.getState();
-  if (ui.camera?.incidentId === incidentId) return ui.set({ camera: null });
+  const view = cameraView(ui, incidentId);
+  if (view === 'away') return ui.set({ mobileTab: 'map' });
+  if (view === 'open') return ui.set({ camera: null });
   // On a phone the picture is on the map tab: opening a camera from the card goes there.
-  const phone = typeof window !== 'undefined' && window.matchMedia('(max-width: 899px)').matches;
-  ui.set({ camera: { incidentId, byKey }, ...(phone ? { mobileTab: 'map' as const } : {}) });
+  ui.set({ camera: { incidentId, byKey }, ...(isPhone() ? { mobileTab: 'map' as const } : {}) });
+}
+
+/**
+ * Open the camera of an incident the player has just accepted (Settings.autoCamera), in place of any other. It
+ * does not take the focus, and on a phone it does not move the player off the tab they are working on.
+ */
+export function showCamera(incidentId: string) {
+  const ui = useGameUi.getState();
+  if (ui.camera?.incidentId !== incidentId) ui.set({ camera: { incidentId } });
 }
