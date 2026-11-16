@@ -16,7 +16,7 @@
  * that block is skipped.
  */
 import { closeSync, existsSync, openSync, readSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PMTiles } from 'pmtiles';
 import { CAMERA_CHANCE } from '@/cctv/coverage';
 import {
@@ -44,6 +44,9 @@ import { boardShown, buildSite, clearLine, NEAR_COVER_MAX, nearCover, onDrive, p
 import { readStreet } from '@/cctv/tiles';
 import type { Building, CameraPose, Road, Site, StreetData } from '@/cctv/types';
 import type { PlaceKind } from '@/sim/types';
+
+// Many tests build hundreds of sites (a dozen seeds of every kind of place): seconds each on a busy machine.
+vi.setConfig({ testTimeout: 60_000 });
 
 const KINDS = Object.keys(CAMERA_CHANCE) as PlaceKind[];
 const SEEDS = Array.from({ length: 40 }, (_, i) => 1 + i * 7919);
