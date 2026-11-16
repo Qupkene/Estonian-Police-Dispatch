@@ -18,6 +18,12 @@ export interface Settings {
   uiScale: number; // 0.85..1.25
   hints: boolean;
   colorblind: boolean;
+  /**
+   * Kaamerad: accepting an incident whose place has a surveillance camera opens its picture (docs/CCTV.md). Absent
+   * means on: a setting added after settings were first saved is not in the defaults, so the stored settings stay
+   * exactly as they were (and are not synced again) until the player turns it off.
+   */
+  autoCamera?: boolean;
   set: (patch: Partial<Omit<Settings, 'set'>>) => void;
 }
 

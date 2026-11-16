@@ -577,6 +577,11 @@ export default {
     et: 'Prioriteedid ja staatused paremini eristuvate värvidega.',
     en: 'Priorities and statuses in more distinguishable colours.',
   },
+  'shell.set.autoCamera': { et: 'Ava kaamera vastuvõtmisel', en: 'Open the camera on accept' },
+  'shell.set.autoCameraDesc': {
+    et: 'Kui vastu võetud sündmuse kohas on valvekaamera, avaneb selle pilt kohe.',
+    en: "When an accepted incident's place has a surveillance camera, its picture opens at once.",
+  },
   'shell.set.storage': {
     et: 'Kõik andmed hoitakse ainult selles brauseris.',
     en: 'All data is stored only in this browser.',

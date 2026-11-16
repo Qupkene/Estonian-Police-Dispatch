@@ -11,7 +11,9 @@ import { coopIssue, deskCan, onOwnResult } from '@/store/coop';
 import { openUnitAsks, resolvedSince } from '@/audio/radioSpeech';
 import type { Agency, CallQuestionId, Priority, SimState, Text } from '@/sim/types';
 import { activeBackup, bestFor, selQueue, selRecs, type QuerySubject } from './data';
-import { useGameUi } from './uiStore';
+import { showCamera, useGameUi } from './uiStore';
+import { cameraOf } from '@/cctv/coverage';
+import { useSettings } from '@/store/settings';
 
 function errText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -54,8 +56,15 @@ onOwnResult((cmd, r) => {
 });
 
 export function acknowledge(incidentId: string) {
-  if (coopIssue('ack', [incidentId])) return;
-  run((s) => C.acknowledge(s, incidentId));
+  const s = useGame.getState().sim;
+  const inc = s?.incidents[incidentId];
+  const incoming = inc?.state === 'incoming';
+  if (!coopIssue('ack', [incidentId])) {
+    run((st) => C.acknowledge(st, incidentId));
+    if (inc?.state === 'incoming') return;
+  }
+  // Kaamerad: an accepted incident whose place has a surveillance camera shows its picture (a setting turns it off).
+  if (s && inc && incoming && useSettings.getState().autoCamera !== false && cameraOf(inc, s.now)) showCamera(incidentId);
 }
 
 /** Acknowledge the selected incident if it is incoming, otherwise the oldest incoming one. */
