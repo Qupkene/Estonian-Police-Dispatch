@@ -1,10 +1,12 @@
 // The pure parts of what dresses a place in the camera's picture (src/cctv/render/place.ts): the words on its board
 // over every place of the game's own data (which names are painted, which give way to the kind's word, where a long
-// one is broken), where a tall thing would hide the place from the camera, which bays the board covers, and how
-// bright a lit board's ground is.
+// one is broken), where a tall thing would hide the place from the camera, where the board goes on the front so that
+// the picture holds all of it, which bays the board covers, and how bright a lit board's ground is.
 import { describe, expect, it } from 'vitest';
-import { boardCovers, boardLines, dressOf, hidesPlace, luminance, type FrontPlan, type OwnWall } from '@/cctv/render/place';
-import type { CameraPose } from '@/cctv/types';
+import { boardCovers, boardLines, dressOf, hidesPlace, luminance, planOwn, type FrontPlan, type OwnWall } from '@/cctv/render/place';
+import { projectPoint } from '@/cctv/site';
+import type { CameraPose, Site } from '@/cctv/types';
+import type { PlaceKind } from '@/sim/types';
 import { REGIONS, REGION_IDS } from '@/data/regions';
 
 /** Every place of the game whose kind has a board of its own, with the board's word for that kind. */
@@ -135,6 +137,62 @@ describe('what hides a place from its camera', () => {
     expect(hidesPlace(camera, [-6, 2], marks)).toBe(false);
     expect(hidesPlace(camera, [26, -9], marks)).toBe(false);
     expect(hidesPlace(camera, [40, 14], marks)).toBe(false);
+  });
+});
+
+describe('where the board goes on the front', () => {
+  /** A front along the x axis from 0 to `len` (the street on its -y side), its entrance `door` metres along it, three floors over the shop. */
+  const front = (len: number, door: number, more: Partial<OwnWall> = {}) =>
+    ({ a: [0, 0], t: [1, 0], n: [0, -1], len, s0: 0, s1: len, door, at: door, street: true, base: 0, g1: 4, eaves: 13, top: 13.4, uppers: 3,
+      wall: null, kind: 'brick', bb: null, rise: 0, plain: [0, 0, 1, 1], ...more }) as unknown as OwnWall;
+  /** A tall hall of one floor: its board goes on the edge of its roof, 8 m up. */
+  const hall = (len: number, door: number) => front(len, door, { g1: 7.5, eaves: 8, top: 8.3, uppers: 0 });
+  /** A camera 5 m up at (x, y) looking at the point (tx, 0) a metre up. */
+  const camAt = (x: number, y: number, tx: number): CameraPose => ({ pos: [x, y], height: 5, target: [tx, 0], targetHeight: 1, fov: 36, mount: 'pole' });
+  /** The plan of the front `w` of a kind of place seen by `camera`, its board five times as wide as high. */
+  const plan = (camera: CameraPose, w: OwnWall, kind: PlaceKind) => {
+    const ring = [[0, 0], [w.len, 0], [w.len, 15], [0, 15]];
+    const site = { camera, street: { buildings: [{ id: 1, ring, height: w.eaves, base: 0, area: w.len * 15, roof: 'flat' }] } } as unknown as Site;
+    return planOwn({ site, dress: dressOf(kind, 1)!, sheet: { aspect: 5, lines: 1 } as never, own: 0 }, [{ w, main: true }])!;
+  };
+  /** Where the board's corners land in the picture: its first letter's foot and top, then its last letter's. */
+  const corners = (camera: CameraPose, p: FrontPlan) => {
+    const { s, h, off, W, H } = p.board;
+    return [[s - W / 2, h], [s - W / 2, h + H], [s + W / 2, h], [s + W / 2, h + H]].map(([x, z]) => projectPoint(camera, [x, -off], z));
+  };
+  const inside = (q: { x: number; y: number; z: number }) => q.z > 1 && Math.abs(q.x) <= 0.92 && Math.abs(q.y) <= 0.92;
+
+  it('slides along the wall towards the middle of the picture when the entrance is at its edge', () => {
+    // The entrance 6 m along a 30 m front, at the left edge of the picture: over it, the board's first letters were cut.
+    const camera = camAt(15, -4, 16);
+    expect(projectPoint(camera, [6, 0], 3).x).toBeLessThan(-1);
+    const p = plan(camera, front(30, 6), 'shop');
+    expect(corners(camera, p).every(inside)).toBe(true);
+    expect(p.board.s).toBeGreaterThan(6 + p.board.W / 2);
+  });
+
+  it('comes down from the roof of a tall hall of one floor that the picture does not reach', () => {
+    const camera = camAt(-5, -6, 0);
+    expect(projectPoint(camera, [7, 0], 8).y).toBeGreaterThan(1);
+    const p = plan(camera, hall(14, 7), 'hotel');
+    expect(corners(camera, p).every(inside)).toBe(true);
+    expect(p.board.h + p.board.H).toBeLessThan(3);
+  });
+
+  it('moves and shrinks a church\'s plate beside its door until all of it is in the picture', () => {
+    const camera = camAt(5, -4, 8);
+    const p = plan(camera, front(14, 2.8), 'church');
+    expect(corners(camera, p).every(inside)).toBe(true);
+    // A church's plate stands 1.5 m from the door's middle; here it had to go further out.
+    expect(Math.abs(p.board.s - 2.8)).toBeGreaterThan(p.board.W / 2 + 1.5 + 0.25);
+  });
+
+  it('shows from its first letter a board the picture cannot hold whole anywhere', () => {
+    const camera = camAt(-5, -10, -4);
+    const p = plan(camera, front(14, 2.8), 'church');
+    const [foot, top, foot1, top1] = corners(camera, p);
+    expect([foot1, top1].every(inside)).toBe(false);
+    expect([foot, top].every(inside)).toBe(true);
   });
 });
 

@@ -300,7 +300,9 @@ export function buildWorld(site: Site, env: Env, tex: WorldTextures, carMats: Ca
     else if (a.kind === 'sand') turf.flat(a.ring, lift, surf(0xd8caa0, 0.9));
     else if (a.kind === 'water') solids.flat(a.ring, lift, snow > 0.7 ? shade(0xcfd8de) : shade(0x3a5462));
     else if (a.kind === 'paved' && street.buildings.some((b) => b.open && b.area > 80 && pointInRing(ringCentroid(b.ring), a.ring))) {
-      // A petrol station's forecourt: poured concrete in slabs of five metres, sealed joints between them.
+      // A petrol station's forecourt: poured concrete in slabs of five metres, sealed joints between them. It lies
+      // 7 mm over a lawn the map draws under it (the paths start 3 mm higher), so the grass does not show through.
+      const lift = 0.027;
       asphalt.flat(a.ring, lift, surf(0xb2b0aa, 0.5, wet));
       const bb = boundingBox(a.ring);
       const w = left(bb.axis);
@@ -1433,6 +1435,27 @@ export function buildWorld(site: Site, env: Env, tex: WorldTextures, carMats: Ca
       break;
     }
   });
+  // A cemetery: rows of headstones on the grass round its chapel, off the paths and the walks, clear of the scene.
+  if (place?.kind === 'cemetery' && ownIndex >= 0) {
+    const bb = boundingBox(street.buildings[ownIndex].ring);
+    const across = left(bb.axis);
+    const yaw = Math.atan2(bb.axis[1], bb.axis[0]);
+    const rg = rand(hash32('graves', site.seed));
+    const grass = street.areas.filter((a) => a.kind === 'green');
+    const paths = street.roads.filter((r) => !CAR_ROADS.has(r.cls));
+    let n = 0;
+    for (let u = -26; u <= 26; u += 2.4) {
+      for (let v = -26; v <= 26 && n < 150; v += 1.5) {
+        const p = along(along(bb.c, bb.axis, u + rg() * 0.3), across, v);
+        if (!grass.some((a) => pointInRing(p, a.ring)) || !free(p, 0.9) || nearestOnRing(p, street.buildings[ownIndex].ring).d < 3) continue;
+        if (paths.some((r) => nearestOnLine(p, r.pts).d < r.width / 2 + 1) || [site.walkLeft, site.walkRight].some((l) => nearestOnLine(p, l).d < 1.6)) continue;
+        // Grey and dark granite, a few pale limestone ones, some leaning after the years.
+        const c = shade([0x8a8a86, 0x5e5f60, 0x3e3f42, 0xb8b2a2][Math.floor(rg() * 4)]);
+        solids.box(p, yaw + (rg() - 0.5) * 0.16, 0.13, 0.42 + rg() * 0.3, 0, 0.5 + rg() * 0.45, c);
+        n++;
+      }
+    }
+  }
   // Private houses: a fence or a hedge along the street, with a gap for the gate.
   street.buildings.forEach((b) => {
     if (b.roof !== 'gable' || b.open || b.area < 40) return;

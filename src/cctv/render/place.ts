@@ -671,6 +671,8 @@ const facing = (cam: V2, v: OwnWall, s: number) => dot(v.n, norm(sub(cam, along(
 /** A board is made larger for a camera far away until one line of it is this many lines of the picture high, up to GROW times its size. */
 const BOARD_PX = 24;
 const GROW = 1.6;
+/** How far from the middle of the picture (1: its edge) a board must stay to count as shown whole. */
+const EDGE = 0.92;
 /** Half the lines of the camera's picture (view.ts FRAME_H): a projected height of 1 is this many of them. */
 const HALF_LINES = 180;
 
@@ -736,64 +738,120 @@ function planFront(c: PlanCtx, w: OwnWall, sides: readonly OwnWall[]): FrontPlan
     const m = ringCentroid(b.ring);
     return nearestOnSegment(m, cam.pos, P(sDoor, 0)).d < 30 + Math.sqrt(b.area);
   });
-  /** How much of a board on wall `v`, centred at `s` along it, its foot at `h`, `off` metres out of it, the camera sees (0..5). */
-  const seen = (v: OwnWall, s: number, h: number, off: number) => {
-    let k = 0;
-    // A board the camera looks along is not read.
-    if (facing(cam.pos, v, s) < FACING) return 0;
-    for (const f of [-0.5, -0.25, 0, 0.25, 0.5]) {
-      const p = along(along(v.a, v.t, s + f * W), v.n, off);
-      const lo = projectPoint(cam, p, h);
-      const hi = projectPoint(cam, p, h + H);
-      // Inside the picture, and clear of the text the recorder burns into its top corners.
-      if (!(lo.z > 1 && hi.z > 1 && Math.abs(lo.x) < 0.93 && Math.abs(hi.x) < 0.93 && lo.y > -0.9 && hi.y < (Math.abs(hi.x) < 0.42 ? 0.92 : 0.8))) continue;
-      // Not behind another house, nor behind another wing of its own (a camera on its own wall looks past that
-      // wall's first metres), nor under the canopy or the awning as the camera looks down on them.
-      const to = along(p, v.n, 0.4);
-      if (blockers.some((b) => segmentHitsRing(cam.pos, to, b.ring)) || crossesBeyond(cam.pos, to, ownRing, 3)) continue;
-      const mid = h + H / 2;
-      /** The point of the line of sight to the board's middle that is `z` metres above the ground. */
-      const sightAt = (z: number): V2 => {
-        const f1 = (cam.height - z) / (cam.height - mid);
-        return [cam.pos[0] + (p[0] - cam.pos[0]) * f1, cam.pos[1] + (p[1] - cam.pos[1]) * f1];
-      };
-      // Nor behind a roof on posts (a petrol station's canopy stands before its kiosk).
-      if (roofs.some((b) => [b.height, b.height - 0.85].some((z) => (z - mid) * (z - cam.height) < 0 && pointInRing(sightAt(z), b.ring)))) continue;
-      if (cover && cam.height > cover.h && mid < cover.h) {
-        const x = sub(sightAt(cover.h), w.a);
-        if (Math.abs(dot(x, w.t) - cover.s) < cover.wide / 2 && dot(x, w.n) > -0.2 && dot(x, w.n) < cover.deep) continue;
-      }
-      k++;
+  /** Is the upright line of a board at `p` on wall `v`, from `h` to `h + H` up, in the picture and hidden by nothing? */
+  const shows = (v: OwnWall, p: V2, h: number) => {
+    const lo = projectPoint(cam, p, h);
+    const hi = projectPoint(cam, p, h + H);
+    // Inside the picture with a margin, and clear of the text the recorder burns into its corners.
+    if (!(lo.z > 1 && hi.z > 1 && Math.abs(lo.x) <= EDGE && Math.abs(hi.x) <= EDGE)) return false;
+    if (lo.y < (lo.x > 0.6 ? -0.8 : -EDGE) || hi.y > (Math.abs(hi.x) < 0.42 ? EDGE : 0.8)) return false;
+    // Not behind another house, nor behind another wing of its own (a camera on its own wall looks past that
+    // wall's first metres), nor under the canopy or the awning as the camera looks down on them.
+    const to = along(p, v.n, 0.4);
+    if (blockers.some((b) => segmentHitsRing(cam.pos, to, b.ring)) || crossesBeyond(cam.pos, to, ownRing, 3)) return false;
+    const mid = h + H / 2;
+    /** The point of the line of sight to the board `to` metres up that is `z` metres above the ground. */
+    const sightAt = (z: number, to = mid): V2 => {
+      const f1 = (cam.height - z) / (cam.height - to);
+      return [cam.pos[0] + (p[0] - cam.pos[0]) * f1, cam.pos[1] + (p[1] - cam.pos[1]) * f1];
+    };
+    // Nor behind a roof on posts (a petrol station's canopy stands before its kiosk).
+    if (roofs.some((b) => [b.height, b.height - 0.85].some((z) => (z - mid) * (z - cam.height) < 0 && pointInRing(sightAt(z), b.ring)))) return false;
+    // Under the canopy or the awning, its top edge is the first the camera loses.
+    if (cover && cam.height > cover.h && h + H < cover.h) {
+      const x = sub(sightAt(cover.h, h + H), w.a);
+      if (Math.abs(dot(x, w.t) - cover.s) < cover.wide / 2 && dot(x, w.n) > -0.2 && dot(x, w.n) < cover.deep) return false;
     }
-    return k;
+    return true;
+  };
+  /**
+   * How much the camera sees of a board on wall `v`, centred at `s` along it, its foot at `h`, `off` metres out of
+   * it: of five upright lines across it from its first letter to its last, how many show (`n`, 5: all of it) and how
+   * many of them in a row from the first letter (`lead`, what can be read of it).
+   */
+  const seen = (v: OwnWall, s: number, h: number, off: number) => {
+    let n = 0;
+    let lead = 0;
+    // A board the camera looks along is not read.
+    if (facing(cam.pos, v, s) < FACING) return { n, lead };
+    for (let k = 0; k < 5; k++) {
+      if (!shows(v, along(along(v.a, v.t, s + (k / 4 - 0.5) * W), v.n, off), h)) continue;
+      if (lead === k) lead++;
+      n++;
+    }
+    return { n, lead };
   };
   const roomOf = (v: OwnWall) => Math.max(1.4, v.len - 0.5);
   /** Where the board is: the wall, its middle along it, its foot, how far it stands out. */
   let board: { v: OwnWall; s: number; h: number; off: number };
+  /**
+   * Places for the board's middle along wall `v`: at `want`, then step by step further from it on both sides, from
+   * `skip` to `reach` metres; or (`slide`) the places beyond that towards the middle of the picture, as far as the
+   * wall goes.
+   */
+  const tries = (v: OwnWall, want: number, reach: number, skip = 0, slide = false) => {
+    const lo = W / 2 + 0.2;
+    const hi = Math.max(lo, v.len - W / 2 - 0.2);
+    const ok = (x: number) => x >= lo && x <= hi;
+    const out = skip || slide ? [] : [clamp(want, lo, hi)];
+    if (!slide) {
+      for (let e = Math.max(0.5, skip); e <= reach; e += 0.5) for (const sg of [camSide, -camSide]) if (ok(want + sg * e)) out.push(want + sg * e);
+      return out;
+    }
+    // The way along the wall that brings the board towards the middle of the picture.
+    const x0 = projectPoint(cam, along(v.a, v.t, want), v.g1);
+    const x1 = projectPoint(cam, along(v.a, v.t, want + 1), v.g1);
+    const sg = x0.z > 1 && x1.z > 1 && (x1.x - x0.x) * x0.x > 0 ? -1 : 1;
+    for (let e = Math.max(reach, skip) + 1; ok(want + sg * e); e += 1) out.push(want + sg * e);
+    return out;
+  };
+  /** The place read best of those tried and not seen whole (the most from its first letter, then the most of it), with the board's size there. */
+  let part: { at: typeof board; lead: number; n: number; W: number; H: number } | null = null;
+  /** Is a board here seen whole? Remembers the best of the others. */
+  const whole = (v: OwnWall, s: number, h: number, off: number) => {
+    const { n, lead } = seen(v, s, h, off);
+    if (n < 5 && n > 0 && (!part || lead > part.lead || (lead === part.lead && n > part.n))) part = { at: { v, s, h, off }, lead, n, W, H };
+    return n === 5;
+  };
+  /** The best place seen in part, with the board at its size there; null when nothing of it was seen anywhere. */
+  const bestPart = () => {
+    const best = part as { at: typeof board; W: number; H: number } | null;
+    if (best) [W, H] = [best.W, best.H];
+    return best?.at ?? null;
+  };
   if (d.form === 'beside') {
-    // A plate on the wall beside the door, at eye level: on the side of the door where the camera's picture holds
-    // more of it (the camera's own side when both do).
-    size(1, roomOf(w));
-    const off = (has('tower') || has('chapel') ? 1.5 : 1.0) + W / 2;
+    // A plate on the wall beside the door, at eye level (a church's clear of its wide door's frame, which a camera
+    // seeing the wall aslant would otherwise see it overlap): on the side of the door the camera is on, else the
+    // other, moved out from the door by up to 1.5 m where the picture holds it so, then smaller. Where it is not seen whole
+    // anywhere, where most of it is read.
     const h = w.base + 1.5;
-    const sides2 = [camSide, -camSide].map((e) => sDoor + e * off).filter((s) => s - W / 2 >= 0.2 && s + W / 2 <= w.len - 0.2);
-    const best = sides2.map((s) => ({ s, n: seen(w, s, h, 0.145) })).sort((p, q) => q.n - p.n)[0];
-    board = { v: w, s: clamp(best?.s ?? sDoor + camSide * off, W / 2 + 0.1, Math.max(W / 2 + 0.1, w.len - W / 2 - 0.1)), h, off: 0.145 };
+    let found: typeof board | null = null;
+    for (const k of [1, 0.78, 0.6]) {
+      size(k, roomOf(w));
+      const off = (has('tower') || has('chapel') ? 1.9 : 1.0) + W / 2;
+      for (const sg of [camSide, -camSide]) {
+        const q = [0, 0.5, 1, 1.5].map((e) => sDoor + sg * (off + e)).filter((x) => x - W / 2 >= 0.2 && x + W / 2 <= w.len - 0.2);
+        const s1 = q.find((x) => whole(w, x, h, 0.145));
+        if (s1 !== undefined) found = { v: w, s: s1, h, off: 0.145 };
+        if (found) break;
+      }
+      if (found) break;
+    }
+    if (!found) found = bestPart();
+    if (!found) {
+      size(1, roomOf(w));
+      const off = (has('tower') || has('chapel') ? 1.9 : 1.0) + W / 2;
+      found = { v: w, s: clamp(sDoor + camSide * off, W / 2 + 0.1, Math.max(W / 2 + 0.1, w.len - W / 2 - 0.1)), h, off: 0.145 };
+    }
+    board = found;
   } else {
     // On the front over the ground floor (on a building of one floor: on the edge of its roof), at the entrance.
-    // When the camera's picture does not hold all of it there: lower on the wall, on the front edge of the canopy,
-    // at eye level beside the entrance, on a wall round the corner, and then all of that smaller. The first place
-    // that is seen whole is taken; if none is, the place along the front seen most.
+    // When the camera's picture does not hold all of it there: lower on the wall, slid along it towards the middle
+    // of the picture, on the front edge of the canopy, at eye level beside the entrance, on a wall round the corner,
+    // and then all of that smaller. The first place that is seen whole is taken; if none is, the place where most
+    // of it is read from its first letter.
     const heights = (v: OwnWall, fl: number) =>
       v.uppers === 0 ? [Math.max(v.top - 0.3, fl), Math.max(v.top - H - 0.08, fl)] : [Math.max(v.g1 - H * 0.3, fl), Math.max(v.g1 - H - 0.05, fl)];
-    /** Places for the board's middle along a wall: at `want`, then step by step further from it, from `skip` to `reach` metres. */
-    const tries = (v: OwnWall, want: number, reach: number, skip = 0) => {
-      const lo = W / 2 + 0.2;
-      const hi = Math.max(lo, v.len - W / 2 - 0.2);
-      const out = skip ? [] : [clamp(want, lo, hi)];
-      for (let e = Math.max(0.5, skip); e <= reach; e += 0.5) for (const sg of [camSide, -camSide]) if (want + sg * e >= lo && want + sg * e <= hi) out.push(want + sg * e);
-      return out;
-    };
     const doorAt = P(sDoor, 0);
     // The walls round the corner that look towards the camera, the nearest to the entrance first.
     const near = sides
@@ -804,57 +862,49 @@ function planFront(c: PlanCtx, w: OwnWall, sides: readonly OwnWall[]): FrontPlan
       .slice(0, 4);
     // A long front whose entrance is far from where it happens carries the board where the camera looks (`want`).
     const eye = (k: number) => Math.min(k, 1.45 / full);
-    let found: typeof board | null = null;
-    /** The place seen most of those tried and not seen whole, with the board's size there. */
-    let part: { at: typeof board; n: number; W: number; H: number } | null = null;
-    /** Is a board here seen whole? Remembers the best of the others. */
-    const whole = (v: OwnWall, s: number, h: number, off: number) => {
-      const n = seen(v, s, h, off);
-      if (n < 5 && n > (part?.n ?? 0)) part = { at: { v, s, h, off }, n, W, H };
-      return n === 5;
+    /** How far out of the front its board stands: on a building site, on the face of the scaffolding. */
+    const flat = has('scaffold') ? 0.66 : 0.145;
+    /**
+     * The first place on wall `v` at one of the heights `hs` where the board is seen whole: near `want` (from `skip`
+     * to `reach` metres from it) at each height, then slid on towards the middle of the picture at each height.
+     */
+    const onWall = (v: OwnWall, want: number, hs: readonly number[], off: number, reach: number, skip = 0) => {
+      for (const slide of [false, true]) {
+        for (const h of hs) {
+          const q = tries(v, want, reach, skip, slide).find((x) => whole(v, x, h, off));
+          if (q !== undefined) return { v, s: q, h, off };
+        }
+      }
+      return null;
     };
+    let found: typeof board | null = null;
     // Larger for a camera far away, where the wall has the room; then at its own size, then smaller.
     for (const k of [...(grow > 1.15 ? [grow] : []), 1, 0.78, 0.6]) {
       size(k, roomOf(w));
-      for (const h of heights(w, floor)) {
-        const q = tries(w, want, Math.max(3, W)).find((x) => whole(w, x, h, 0.145));
-        if (q !== undefined) found = { v: w, s: q, h, off: 0.145 };
-        if (found) break;
-      }
+      found = onWall(w, want, heights(w, floor), flat, Math.max(3, W));
       if (found) break;
       if (canopy) {
         size(k, canopy.wide - 0.3);
         if (whole(w, canopy.s, canopy.h + 0.3, canopy.deep)) found = { v: w, s: canopy.s, h: canopy.h + 0.3, off: canopy.deep };
         if (found) break;
       }
-      // On the wall beside the entrance, clear of the door and of what hangs over it (the camera looks down on that).
+      // On the wall beside the entrance, clear of the door (under the canopy where the camera sees in under it).
       size(eye(k), Math.min(roomOf(w), 3.6));
-      const q = tries(w, sDoor, W + 6, Math.max(1.4, over + 0.3) + W / 2).find((x) => whole(w, x, w.base + 2.5 - H, 0.145));
-      if (q !== undefined) found = { v: w, s: q, h: w.base + 2.5 - H, off: 0.145 };
+      found = onWall(w, sDoor, [w.base + 2.5 - H], flat, W + 6, 1.4 + W / 2);
       for (const { v, hit } of found ? [] : near) {
         size(k, roomOf(v));
-        for (const h of heights(v, -Infinity)) {
-          const q1 = tries(v, hit.t * v.len, Math.max(3, W)).find((x) => whole(v, x, h, 0.145));
-          if (q1 !== undefined) found = { v, s: q1, h, off: 0.145 };
-          if (found) break;
-        }
+        found = onWall(v, hit.t * v.len, heights(v, -Infinity), 0.145, Math.max(3, W));
         if (found) break;
         size(eye(k), Math.min(roomOf(v), 3.6));
-        const q2 = tries(v, hit.t * v.len, W + 4).find((x) => whole(v, x, v.base + 2.5 - H, 0.145));
-        if (q2 !== undefined) found = { v, s: q2, h: v.base + 2.5 - H, off: 0.145 };
+        found = onWall(v, hit.t * v.len, [v.base + 2.5 - H], 0.145, W + 4);
         if (found) break;
       }
       if (found) break;
     }
+    if (!found) found = bestPart();
     if (!found) {
-      const best = part as { at: typeof board; n: number; W: number; H: number } | null;
-      if (best) {
-        [W, H] = [best.W, best.H];
-        found = best.at;
-      } else {
-        size(1, roomOf(w));
-        found = { v: w, s: clamp(want, W / 2 + 0.2, Math.max(W / 2 + 0.2, w.len - W / 2 - 0.2)), h: heights(w, floor)[0], off: 0.145 };
-      }
+      size(1, roomOf(w));
+      found = { v: w, s: clamp(want, W / 2 + 0.2, Math.max(W / 2 + 0.2, w.len - W / 2 - 0.2)), h: heights(w, floor)[0], off: flat };
     }
     board = found;
   }
