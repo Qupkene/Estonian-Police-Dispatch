@@ -3,11 +3,16 @@
 // real incident of a shift), the Director, and a situation scripted over time in the address.
 //
 // The street:
-//   place=<PlaceKind>&seed=<n>      a made-up street of a kind of place (procedural.ts)
+//   place=<PlaceKind>&seed=<n>      a made-up street of a kind of place (procedural.ts); name=<text> is the place's
+//                                    own name, for its board
 //   plain=dead|narrow|far|square     a hand-made street: a dead end, a lane 3.6 m wide, the spot far from the road
 //   tiles=<lng>,<lat>               a real street read from a map archive in the folder the dev server was started
 //                                    with (EPD_MAP_TILES=<folder>, see vite.harness.config.ts); archive=<file name>
-//                                    names the file in it (default sample.pmtiles)
+//                                    names the file in it (default sample.pmtiles). With place=<PlaceKind> (and
+//                                    name=<text>) the street is read for that place as the game reads it (tiles.ts
+//                                    readStreet: the map's own point for the place, the scene before its front,
+//                                    what stands before it); without, around the bare point as before. The log
+//                                    line then says what the site made of the place (place=, own=, front=).
 // The cast:
 //   kind=<SceneKind>&roles=svcw&cars=involved,suspect   roles as letters: s suspect, v victim, c caller, w witness,
 //                                    d driver, e extra; flags down, runs, mayFlee, armed, drunk, live=0, single,
@@ -21,6 +26,7 @@
 //   pursuit=<on>,<over>  search=<from>-<to>  pause=<from>-<to>  open=<s> (the camera opens late: the first update)
 // The picture: hour, month, weather, temp, wind as harness.ts; near=<m>&angle&h&fov&at as there; clean=1;
 // zoom=<k>&panx=<-1..1>&pany=<-1..1> as the window's own zoom. quiet=1: no passing traffic and no passers-by.
+// cam=<x>,<y>,<h>,<tx>,<ty>[,<th>[,<fov>]]: the camera hung by hand, in scene metres (to look at a place from elsewhere).
 // who=1: the log line also lists everybody and every vehicle on stage with their place and yaw.
 // manual=1: the page does not play by itself; the caller drives it with step and seek.
 // window.__cctv = { ready, step(dt, frames), seek(t) }: seek advances the scene to second t without drawing the
@@ -124,12 +130,14 @@ async function streetOf(): Promise<StreetData> {
       throw new Error(log.textContent);
     }
     const file = `${__EPD_MAP_TILES__.replace(/\/$/, '')}/${q.get('archive') ?? 'sample.pmtiles'}`;
-    const got = await readStreet(new PMTiles(`/@fs${file}`), [lng, lat], { timeoutMs: 20000 });
+    const kind = q.get('place') as PlaceKind | null;
+    const place = kind ? { kind, name: q.get('name') } : undefined;
+    const got = await readStreet(new PMTiles(`/@fs${file}`), [lng, lat], { timeoutMs: 20000, place });
     if (got) return got;
     log.textContent = `no street at ${tiles} in ${file}: a made-up one instead`;
   }
   if (q.get('plain')) return plainStreet(q.get('plain')!);
-  return makeStreet((q.get('place') ?? 'street') as PlaceKind, seed);
+  return makeStreet((q.get('place') ?? 'street') as PlaceKind, seed, q.get('name'));
 }
 
 // ------------------------------------------------------------------------------------------------ the light
@@ -331,9 +339,11 @@ function situation(t: number, site: Site): Situation {
 
 // ------------------------------------------------------------------------------------------------ the scene
 
-const street = await streetOf();
-const site = buildSite(street, seed);
-if (!site) throw new Error(`no site on this street (${street.source}: ${street.roads.length} roads, ${street.buildings.length} buildings)`);
+const read = await streetOf();
+const site = buildSite(read, seed);
+if (!site) throw new Error(`no site on this street (${read.source}: ${read.roads.length} roads, ${read.buildings.length} buildings)`);
+// The site's own street: the one read, with what stands before the place added.
+const street = site.street;
 if (q.get('near')) {
   const d = Number(q.get('near'));
   const a = num('angle', 0.6);
@@ -341,6 +351,10 @@ if (q.get('near')) {
   const atPt = q.get('at')?.split(',').map(Number);
   const target = atPt ? onDrive(site.drive, site.drive.at + atPt[0], atPt[1]).pos : site.spot;
   site.camera = { ...site.camera, pos: along(along(target, n, d * Math.cos(a)), site.dir, d * Math.sin(a)), height: num('h', 2.4), target, targetHeight: 1, fov: num('fov', 34) };
+}
+if (q.get('cam')) {
+  const [x, y, h, tx, ty, th = 1, fov = 44] = q.get('cam')!.split(',').map(Number);
+  site.camera = { ...site.camera, pos: [x, y], height: h, target: [tx, ty], targetHeight: th, fov };
 }
 const cast = q.get('tpl') ? await castOfTemplate(q.get('tpl')!) : castByKind();
 const view = new CameraView(document.getElementById('c') as HTMLCanvasElement);
@@ -400,6 +414,7 @@ function draw() {
     `t=${t.toFixed(1)} phase=${director?.phase ?? 'closed-camera'} people=${f.people.length} cars=${f.cars.length} ` +
     `kind=${cast.kind} ${states}${sit.outcome ? ' out=' + sit.outcome.result : ''}${sit.paused ? ' PAUSED' : ''} ` +
     `src=${street.source} night=${night ? 1 : 0}` +
+    (site!.place ? ` place=${site!.place.kind} own=${site!.place.building ?? '-'} front=${site!.place.front ? 1 : 0}` : '') +
     (card ? `\ncard: ${card}` : '') +
     // who=1: everybody on stage with where they stand and what they do, for finding a figure in the picture.
     (flag('who') ? '\n' + f.people.map((p) => `${p.id} ${p.pos.map((v) => v.toFixed(1)).join(',')} yaw=${p.yaw.toFixed(2)}`).join('\n') : '') +

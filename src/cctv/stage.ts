@@ -109,7 +109,10 @@ export interface Smoke {
 }
 
 export interface Frame {
-  /** The scene's own clock in seconds (it stands while the game is paused). */
+  /**
+   * The scene's own clock in seconds (it stands while the game is paused). The picture is handed the frame with the
+   * picture's clock here instead, in real seconds (session.ts): lights flash and rain falls at one rate at any speed.
+   */
   t: number;
   people: PersonFrame[];
   cars: CarFrame[];

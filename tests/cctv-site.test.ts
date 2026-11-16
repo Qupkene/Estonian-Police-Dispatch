@@ -20,17 +20,27 @@ import { describe, expect, it } from 'vitest';
 import { PMTiles } from 'pmtiles';
 import { CAMERA_CHANCE } from '@/cctv/coverage';
 import {
+  boundingBox,
   dist,
+  dot,
+  frameAt,
+  hash32,
   lineLength,
   nearestOnLine,
   nearestOnRing,
+  nearestOnSegment,
   pointAlong,
   pointInRing,
   rand,
+  ringCentroid,
+  segmentHitsRing,
+  sub,
   type V2,
 } from '@/cctv/math';
+import { pumpIslands, settlePlace } from '@/cctv/place';
 import { layoutOf, makeStreet } from '@/cctv/procedural';
-import { buildSite, clearLine, onDrive, pavement, projectPoint, walkLine } from '@/cctv/site';
+import { facadeKindOf } from '@/cctv/render/world';
+import { boardShown, buildSite, clearLine, NEAR_COVER_MAX, nearCover, onDrive, panelBlock, pavement, projectPoint, walkLine } from '@/cctv/site';
 import { readStreet } from '@/cctv/tiles';
 import type { Building, CameraPose, Road, Site, StreetData } from '@/cctv/types';
 import type { PlaceKind } from '@/sim/types';
@@ -434,6 +444,27 @@ describe('sites on made-up streets', () => {
       poses.add(JSON.stringify(a.camera));
     }
     expect(poses.size).toBeGreaterThan(1);
+  });
+
+  it('kinds that borrow one layout do not get one street at one seed, and the layouts\' own kinds keep theirs', () => {
+    const drawn = (kind: PlaceKind, seed: number) => {
+      const street = makeStreet(kind, seed);
+      return JSON.stringify([street.roads.map((r) => r.pts), street.buildings.map((b) => b.ring)]);
+    };
+    for (const group of [['concert', 'port', 'airport', 'stadium', 'mall'], ['bar', 'bank', 'hospital', 'nightclub', 'hotel', 'school'], ['church', 'museum']] as PlaceKind[][]) {
+      for (const seed of [3, 564, 7920]) {
+        const streets = group.map((kind) => drawn(kind, seed));
+        expect(new Set(streets).size, `${group.join(', ')} at seed ${seed}`).toBe(group.length);
+        // The same kind and seed: the same street.
+        expect(drawn(group[0], seed)).toBe(streets[0]);
+      }
+    }
+    // A kind that borrows a layout is not the layout's own kind at that seed either.
+    expect(drawn('bar', 564)).not.toBe(drawn('street', 564));
+    expect(drawn('concert', 564)).not.toBe(drawn('parking', 564));
+    // The layout is still the borrowed one.
+    expect(layoutOf('port')).toBe('carpark');
+    expect(layoutOf('bank')).toBe('street');
   });
 
   it("projectPoint is the pose's pinhole picture", () => {
@@ -845,7 +876,365 @@ describe("sites on hand-made streets like the map's", () => {
   });
 });
 
+// ---------------------------------------------------------------------------- the place the incident names
+
+/** A hand-made street told its place: the kind, a name, and the place's own point. */
+function placed(street: StreetData, kind: PlaceKind, at: V2 = [0, 0], name: string | null = null): StreetData {
+  return { ...street, place: { kind, name, at } };
+}
+
+const MAIN = road([[-150, -20], [150, -20]], 'secondary', 7);
+/** Everything a site guarantees, on the street the site itself carries (with what was added for the place). */
+const faults = (site: Site) => [...invalid(site.street, site), ...unsound(site.street, site)];
+const canopiesOf = (s: StreetData) => s.buildings.filter((b) => b.open && b.area >= 80);
+/** No corner of a footprint is on a road's carriageway. */
+const offRoads = (s: StreetData, ring: readonly V2[]) =>
+  s.roads.every((r) => ring.every((p) => nearestOnLine(p, r.pts).d >= r.width / 2) && !r.pts.slice(1).some((q, i) => segmentHitsRing(r.pts[i], q, ring)));
+
+describe('the place the incident names', () => {
+  it('a petrol station where the map has no building: a canopy, a kiosk and a forecourt are made', () => {
+    for (const seed of FRAME_SEEDS) {
+      const given = placed(streetOf([MAIN], []), 'gasstation', [0, 0], 'Olerex');
+      const site = buildSite(given, seed)!;
+      expect(faults(site)).toEqual([]);
+      const [canopy] = canopiesOf(site.street);
+      expect(canopy).toBeDefined();
+      expect(offRoads(site.street, canopy.ring)).toBe(true);
+      // The kiosk is the place's own building, and its front looks at the pumps.
+      const kiosk = site.street.buildings.find((b) => b.id === site.place!.building)!;
+      expect(kiosk.open).toBeFalsy();
+      expect(offRoads(site.street, kiosk.ring)).toBe(true);
+      const front = site.place!.front!;
+      expect(dot(front.out, sub(ringCentroid(canopy.ring), front.a))).toBeGreaterThan(0);
+      // The forecourt is poured under the canopy (the renderer tells it by the canopy's middle).
+      expect(site.street.areas.some((a) => a.kind === 'paved' && pointInRing(ringCentroid(canopy.ring), a.ring))).toBe(true);
+      // The given street is not touched, and the canopy is in the picture.
+      expect(given.buildings.length).toBe(0);
+      const seen = projectPoint(site.camera, ringCentroid(canopy.ring), 1.5);
+      expect(seen.z > 0 && Math.abs(seen.x) < 1 && Math.abs(seen.y) < 1).toBe(true);
+      expect(site.place).toMatchObject({ kind: 'gasstation', name: 'Olerex' });
+    }
+  });
+
+  it('a petrol station with its kiosk: the canopy goes between the kiosk and the road', () => {
+    const site = buildSite(placed(streetOf([MAIN], [box(-6, 14, 6, 22)]), 'gasstation', [0, 18]), 11)!;
+    expect(faults(site)).toEqual([]);
+    const [canopy] = canopiesOf(site.street);
+    const c = ringCentroid(canopy.ring);
+    expect(c[1]).toBeGreaterThan(-16);
+    expect(c[1]).toBeLessThan(14);
+    expect(site.street.buildings.filter((b) => !b.open).length).toBe(1);
+    expect(site.place!.building).toBe(1);
+    expect(site.place!.front!.out[1]).toBeLessThan(-0.9);
+  });
+
+  it('a petrol station whose canopy the map draws as a house: that house becomes the canopy', () => {
+    // The kiosk at the back, a free-standing house of a canopy's size before it, houses of the street further off.
+    const given = placed(streetOf([MAIN], [box(-6, 24, 6, 32), box(-10, 4, 10, 13), box(40, -10, 52, 10)]), 'gasstation', [0, 28]);
+    const site = buildSite(given, 4)!;
+    expect(faults(site)).toEqual([]);
+    expect(site.street.buildings.length).toBe(3);
+    expect(site.street.buildings[1].open).toBe(true);
+    expect(site.street.buildings[2].open).toBeFalsy();
+    expect(site.place!.building).toBe(1);
+    // The kiosk looks at its canopy.
+    expect(site.place!.front!.out[1]).toBeLessThan(-0.9);
+    expect(given.buildings[1].open).toBeUndefined();
+  });
+
+  it('a made-up petrol station is left as it is, and its kiosk is the own building', () => {
+    for (const seed of FRAME_SEEDS) {
+      const made = makeStreet('gasstation', seed, 'Alexela');
+      const site = buildSite(made, seed)!;
+      expect(site.street.buildings.length).toBe(made.buildings.length);
+      expect(site.street.areas.length).toBe(made.areas.length);
+      const kiosk = site.street.buildings.find((b) => b.id === site.place!.building)!;
+      expect(kiosk.area).toBeCloseTo(17 * 9, 0);
+      // Its front as the picture shows it: the wall that faces the pumps, or, where the canopy hides that one from
+      // the camera, a wall of the kiosk the camera looks at.
+      const canopy = canopiesOf(site.street)[0];
+      const front = site.place!.front!;
+      const mid: V2 = [(front.a[0] + front.b[0]) / 2, (front.a[1] + front.b[1]) / 2];
+      const toPumps = dot(front.out, sub(ringCentroid(canopy.ring), front.a)) > 0;
+      expect(toPumps || dot(front.out, sub(site.camera.pos, mid)) > 0, `seed ${seed}`).toBe(true);
+      expect(site.place!.name).toBe('Alexela');
+      // The scene is played in a lane between the pump islands, never on one.
+      for (const island of pumpIslands(canopy)) expect(nearestOnRing(site.spot, island).d, `seed ${seed}`).toBeGreaterThan(1);
+    }
+  });
+
+  it('a car park: the bare ground at the point becomes a parking area clear of houses and roads', () => {
+    const lane = road([[-60, 30], [60, 30]], 'service', 3.8, false);
+    const given = placed(streetOf([MAIN, lane], [box(30, -8, 50, 12), box(-70, -10, -50, 20)]), 'parking', [0, 4], 'Parkla');
+    const site = buildSite(given, 9)!;
+    expect(faults(site)).toEqual([]);
+    const lots = site.street.areas.filter((a) => a.kind === 'parking');
+    expect(lots.length).toBe(1);
+    const bb = boundingBox(lots[0].ring);
+    expect(bb.long).toBeGreaterThanOrEqual(18);
+    expect(bb.short).toBeGreaterThanOrEqual(12);
+    expect(dist(bb.c, [0, 4])).toBeLessThan(25);
+    expect(offRoads(site.street, lots[0].ring)).toBe(true);
+    for (const b of site.street.buildings) expect(b.ring.some((p) => pointInRing(p, lots[0].ring)) || lots[0].ring.some((p) => pointInRing(p, b.ring))).toBe(false);
+    expect(site.place).toEqual({ kind: 'parking', name: 'Parkla', building: null, front: null });
+    // A street that has its car park is left alone.
+    expect(buildSite(placed(site.street, 'parking', [0, 4]), 9)!.street.areas.length).toBe(site.street.areas.length);
+  });
+
+  it('a bus station: two or three shelters along the kerb on the scene\'s side', () => {
+    const given = placed(streetOf([MAIN], [box(-40, 8, 40, 30)]), 'busstation');
+    const site = buildSite(given, 6)!;
+    expect(faults(site)).toEqual([]);
+    const shelters = site.street.buildings.filter((b) => b.open && b.area < 30);
+    expect(shelters.length).toBeGreaterThanOrEqual(2);
+    expect(shelters.length).toBeLessThanOrEqual(3);
+    for (const b of shelters) {
+      const c = ringCentroid(b.ring);
+      expect(offRoads(site.street, b.ring)).toBe(true);
+      expect(c[1]).toBeGreaterThan(-20);
+      expect(nearestOnLine(c, MAIN.pts).d).toBeLessThan(9);
+      expect(pointInRing(site.spot, b.ring)).toBe(false);
+    }
+    expect(site.place).toEqual({ kind: 'busstation', name: null, building: null, front: null });
+    // Dressed once: built again from its own street, nothing more is added.
+    expect(buildSite(placed(site.street, 'busstation'), 6)!.street.buildings.length).toBe(site.street.buildings.length);
+  });
+
+  it('a petrol station on open ground: the scene is on the forecourt by the pumps, on the station\'s side of the street', () => {
+    for (const seed of FRAME_SEEDS) {
+      // The point as the game may have it: across the street from the open ground, or some way into it.
+      for (const at of [[0, 0], [8, -12], [-20, 14]] as V2[]) {
+        const site = buildSite(placed(streetOf([MAIN], []), 'gasstation', at, 'Olerex'), seed)!;
+        const [canopy] = canopiesOf(site.street);
+        const c = ringCentroid(canopy.ring);
+        const kiosk = site.street.buildings.find((b) => b.id === site.place!.building)!;
+        // All of it on one side of the street, the kiosk within 25 m of the canopy, the forecourt up to the street's edge.
+        expect(Math.sign(c[1] + 20), `seed ${seed}`).toBe(Math.sign(ringCentroid(kiosk.ring)[1] + 20));
+        expect(Math.min(...kiosk.ring.map((q) => nearestOnRing(q, canopy.ring).d))).toBeLessThanOrEqual(25);
+        const court = site.street.areas.find((a) => a.kind === 'paved' && pointInRing(c, a.ring))!;
+        expect(Math.min(...court.ring.map((q) => Math.abs(q[1] + 20)))).toBeLessThan(MAIN.width / 2 + 1);
+        expect(Math.sign(site.spot[1] + 20), `seed ${seed}`).toBe(Math.sign(c[1] + 20));
+        expect(dist(site.spot, c), `seed ${seed}`).toBeLessThan(25);
+        for (const island of pumpIslands(canopy)) expect(nearestOnRing(site.spot, island).d, `seed ${seed}`).toBeGreaterThan(1);
+      }
+    }
+  });
+
+  it('a petrol station asked for in a row of houses: the street cannot carry it, and no house is made out to be one', () => {
+    const lane = road([[-150, -6], [150, -6]]);
+    const given = placed(streetOf([lane], [...row(2, 14, -84, 84, 12), ...row(-26, -14, -84, 84, 12)]), 'gasstation', [6, 8], 'Olerex');
+    expect(settlePlace(given, given.place!).fits).toBe(false);
+    const site = buildSite(given, 4)!;
+    expect(site.street.buildings.some((b) => b.open)).toBe(false);
+    expect(site.street.buildings.length).toBe(given.buildings.length);
+    expect(site.place).toBeNull();
+  });
+
+  it('a petrol station is never made in a block\'s yard, nor across the street from its kiosk', () => {
+    // A closed block about a lawn, the street outside it: the point is in the yard.
+    const outside = road([[-150, -40], [150, -40]], 'secondary', 7);
+    const block = [box(-30, -30, 30, -20), box(-30, 20, 30, 30), box(-30, -20, -20, 20), box(20, -20, 30, 20)];
+    const yard: StreetData = { ...streetOf([outside], block), areas: [{ kind: 'green', ring: box(-20, -20, 20, 20) }] };
+    const inYard = placed(yard, 'gasstation', [0, 0]);
+    expect(settlePlace(inYard, inYard.place!).fits).toBe(false);
+    expect(canopiesOf(buildSite(inYard, 3)!.street)).toEqual([]);
+    // A kiosk hard by the street between its neighbours, open ground only across the street.
+    const tight = placed(streetOf([MAIN], [box(-8, -13, 8, -3), box(-30, -13, -8, -3), box(8, -13, 30, -3)]), 'gasstation', [0, -8]);
+    for (const seed of FRAME_SEEDS) {
+      const site = buildSite(tight, seed)!;
+      for (const canopy of canopiesOf(site.street)) {
+        expect(ringCentroid(canopy.ring)[1]).toBeGreaterThan(-20);
+        expect(site.spot[1]).toBeGreaterThan(-20);
+      }
+    }
+  });
+
+  it('a car park whose point lies in a house is a parking house; one with no room for bays is not carried', () => {
+    const house = placed(streetOf([MAIN], [box(-20, -10, 20, 14)]), 'parking', [0, 2], 'Parkimismaja');
+    const site = buildSite(house, 5)!;
+    expect(site.street.areas.some((a) => a.kind === 'parking')).toBe(false);
+    expect(site.place).toMatchObject({ kind: 'parking', name: 'Parkimismaja', building: 1 });
+    expect(site.place!.front).not.toBeNull();
+    // A lane between rows of small houses: nowhere to put bays, and the point is in the lane.
+    const lane = road([[-150, -6], [150, -6]]);
+    const rows = placed(streetOf([lane], [...row(-2.5, 8, -87, 87, 12), ...row(-20, -9.5, -87, 87, 12)]), 'parking', [0, -6]);
+    expect(settlePlace(rows, rows.place!).fits).toBe(false);
+    expect(buildSite(rows, 5)!.place).toBeNull();
+  });
+
+  it('a bus station with room for one shelter only is not carried', () => {
+    // House fronts at the kerb along the scene's side but for one gap.
+    const fronts = [box(-150, -15.5, -16, -6), box(-8, -15.5, 150, -6)];
+    const given = placed(streetOf([MAIN], fronts), 'busstation', [-12, -10]);
+    expect(settlePlace(given, given.place!).fits).toBe(false);
+    const site = buildSite(given, 6)!;
+    expect(site.street.buildings.some((b) => b.open)).toBe(false);
+    expect(site.place).toBeNull();
+  });
+
+  it('a bank in a row of houses: its own house, the wall to the street as the front, the door on it', () => {
+    const houses = [...row(-12, 2, -60, 60, 20), ...row(-44, -28, -60, 60, 20)];
+    for (const seed of FRAME_SEEDS) {
+      const site = buildSite(placed(streetOf([MAIN], houses), 'bank', [10, -5], 'SEB'), seed)!;
+      expect(faults(site)).toEqual([]);
+      const own = site.street.buildings.find((b) => b.id === site.place!.building)!;
+      expect(pointInRing([10, -5], own.ring)).toBe(true);
+      const front = site.place!.front!;
+      expect(front.out[1]).toBeLessThan(-0.9);
+      expect(front.a[1]).toBeCloseTo(-12, 5);
+      expect(dist(front.a, front.b)).toBeLessThanOrEqual(28.001);
+      expect(site.street.buildings[site.doorBuilding]).toBe(own);
+      // The scene is on the bank's side of the street, before its front.
+      expect(site.spot[1]).toBeLessThan(-12);
+      expect(site.spot[1]).toBeGreaterThan(-20);
+    }
+  });
+
+  it('a school between a street and a back lane: the scene plays before the front on the street, not on the lane', () => {
+    // The lane hugs the back wall and is the nearest road to the school's middle; the street is 24 m before the front.
+    const lane = road([[-120, 33], [120, 33]], 'service', 3.8, false);
+    const school = box(-30, -4, 30, 30);
+    const plain = streetOf([MAIN, lane], [school, box(-30, 40, 30, 52)]);
+    const hint = { kind: 'school' as PlaceKind, name: 'Kool', at: [0, 13] as V2 };
+    let onStreet = 0;
+    for (const seed of FRAME_SEEDS) {
+      // As tiles.ts readStreet does: the origin is moved before the front first.
+      const first = buildSite({ ...plain, place: hint }, seed)!;
+      expect(first.place!.front!.out[1]).toBeLessThan(-0.9);
+      const site = first;
+      expect(faults(site)).toEqual([]);
+      if (site.spot[1] < -4) onStreet++;
+      expect(site.place!.building).toBe(1);
+    }
+    expect(onStreet).toBe(FRAME_SEEDS.length);
+  });
+
+  it('a bar in a lane between house fronts: the camera across the lane has its board, and none hangs on the bar looking away', () => {
+    // House fronts 5 m apart: no camera in the lane is without a wall within 8 m of its lens.
+    const lane = road([[-140, 0], [140, 0]], 'residential', 5, false);
+    const houses = [...row(2.5, 14, -70, 70, 14), ...row(-14, -2.5, -70, 70, 14)];
+    const failures: string[] = [];
+    // The bar at the incident's point, and 30 m along the lane from it on either side.
+    for (const at of [[5, 8], [-30, 9], [33, -7]] as V2[]) {
+      for (const seed of FRAME_SEEDS.slice(0, 5)) {
+        const site = buildSite(placed(streetOf([lane], houses), 'bar', at, 'Kelder'), seed)!;
+        const where = `bar at ${fmt(at)} seed ${seed}`;
+        for (const p of faults(site)) failures.push(`${where}: ${p}`);
+        const own = site.street.buildings.findIndex((b) => b.id === site.place!.building);
+        if (own < 0 || !pointInRing(at, site.street.buildings[own].ring)) {
+          failures.push(`${where}: the bar's house is not the own building`);
+          continue;
+        }
+        if (!boardShown(site)) failures.push(`${where}: the board is not in the picture`);
+        if (nearestOnRing(site.camera.pos, site.street.buildings[own].ring).d < 1.3) failures.push(`${where}: the camera hangs on the bar's own house`);
+        // The camera looks at the front from its outer side, and the scene is near the bar's door: as far along the
+        // lane from it as the lens needs to hold the road the first crew stops on beside the board.
+        const front = site.place!.front!;
+        if (dot(front.out, sub(site.camera.pos, front.a)) < 2) failures.push(`${where}: the camera is not before the front`);
+        if (site.doorBuilding !== own || dist(site.door!, site.spot) > 26) failures.push(`${where}: the scene is not near the bar's door`);
+        const person = (project(site.camera, site.spot, 1.75).y - project(site.camera, site.spot, 0).y) / 2;
+        if (person < 0.08) failures.push(`${where}: an adult at the spot is ${(person * 100).toFixed(1)} % of the picture's height`);
+        // What is right before the lens is the bar's own front, not another house's wall.
+        const others = nearCover(site.street, site.camera, 32, 18, own);
+        if (others > 0.25) failures.push(`${where}: ${(others * 100).toFixed(0)} % of the picture is another house's wall right before the lens`);
+      }
+    }
+    expect(failures, failures.slice(0, 15).join('\n')).toEqual([]);
+  }, 60_000);
+
+  it('says nothing for an ordinary street, and the kind alone for a place without a building', () => {
+    expect(buildSite(makeStreet('street', 3), 3)!.place).toBeNull();
+    expect(buildSite(makeStreet('highway', 3), 3)!.place).toBeNull();
+    expect(buildSite(makeStreet('park', 3, 'Kadriorg'), 3)!.place).toEqual({ kind: 'park', name: 'Kadriorg', building: null, front: null });
+    expect(buildSite(streetOf([MAIN], []), 3)!.place).toBeNull();
+  });
+
+  it('made-up streets say their kind: a house of the street is the place\'s own, its front before the scene', () => {
+    const kinds: PlaceKind[] = ['bank', 'bar', 'nightclub', 'shop', 'mall', 'school', 'hospital', 'hotel', 'church', 'trainstation', 'stadium', 'museum'];
+    const failures: string[] = [];
+    for (const kind of kinds) {
+      for (const seed of FRAME_SEEDS) {
+        const site = buildSite(makeStreet(kind, seed, 'Nimi'), seed)!;
+        const p = site.place;
+        const own = p && site.street.buildings.find((b) => b.id === p.building);
+        if (!p || p.kind !== kind || p.name !== 'Nimi' || !own || !p.front) {
+          failures.push(`${kind} seed ${seed}: no own building`);
+          continue;
+        }
+        const mid: V2 = [(p.front.a[0] + p.front.b[0]) / 2, (p.front.a[1] + p.front.b[1]) / 2];
+        if (nearestOnRing(mid, own.ring).d > 1) failures.push(`${kind} seed ${seed}: the front is not on the own building`);
+        if (dot(p.front.out, sub(site.spot, mid)) <= 0) failures.push(`${kind} seed ${seed}: the scene is behind the front`);
+        if (dist(mid, site.spot) > 45) failures.push(`${kind} seed ${seed}: the front is ${dist(mid, site.spot).toFixed(0)} m from the scene`);
+      }
+    }
+    expect(failures, failures.slice(0, 15).join('\n')).toEqual([]);
+  });
+});
+
 // ---------------------------------------------------------------------------- a real town (optional)
+
+// ---------------------------------------------------------------------------- a wall right before the lens
+
+describe('a wall or a roof right before the lens', () => {
+  const house = (id: number, ring: V2[], height: number, o: Partial<Building> = {}): Building => ({ id, ring, height, base: 0, area: 200, roof: 'flat', ...o });
+  const only = (b: Building): StreetData => ({ source: 'tiles', radius: 160, roads: [], buildings: [b], areas: [] });
+  const cam = (pos: V2, height: number, target: V2, targetHeight: number): CameraPose => ({ pos, height, target, targetHeight, fov: 50, mount: 'pole' });
+
+  it('nearCover counts a wall across the view, and nothing behind the lens or further than 8 m', () => {
+    const wall = only(house(1, box(-20, 5, 20, 15), 9));
+    expect(nearCover(wall, cam([0, 0], 5, [0, 10], 3))).toBeGreaterThan(0.8);
+    expect(nearCover(wall, cam([0, 0], 5, [0, -10], 3))).toBe(0);
+    expect(nearCover(wall, cam([0, -6], 5, [0, 10], 3))).toBe(0);
+  });
+
+  it('nearCover counts a pitched roof over the lens\'s line, a canopy\'s fascia and a panel block\'s balconies', () => {
+    // Over the eaves of a low house: its ridge stands in the way, a flat roof of the same house less so.
+    const over = cam([0, 2], 6, [0, 25], 5);
+    const gable = nearCover(only(house(1, box(-10, 5, 10, 15), 4, { roof: 'gable' })), over);
+    expect(gable).toBeGreaterThan(nearCover(only(house(1, box(-10, 5, 10, 15), 4)), over) + 0.2);
+    // A canopy's fascia at the lens's own height, three metres off.
+    expect(nearCover(only(house(2, box(-10, 3, 10, 12), 5.2, { open: true })), cam([0, 0], 4.8, [0, 10], 4.8))).toBeGreaterThan(0.2);
+    // A metre off a panel block's long wall the lens is among its balconies; off any other house's it is not.
+    const long = (id: number) => house(id, box(-30, 5, 30, 17), 16, { area: 720 });
+    const ids = Array.from({ length: 60 }, (_, i) => i + 1);
+    const panel = long(ids.find((id) => panelBlock(long(id)))!);
+    const brick = long(ids.find((id) => !panelBlock(long(id)))!);
+    const along = cam([0, 4], 6, [20, 2], 1);
+    expect(nearCover(only(panel), along)).toBe(1);
+    expect(nearCover(only(brick), along)).toBeLessThan(0.9);
+  });
+
+  it('panelBlock is the renderer\'s panel front (balconies hang on it), house by house', () => {
+    const r = rand(99);
+    let panels = 0;
+    for (let i = 0; i < 4000; i++) {
+      const w = r.range(6, 80);
+      const d = r.range(5, 30);
+      const b = house(r.int(1, 1e9), box(0, 0, w, d), r.range(2.5, 30), { area: w * d, base: r.chance(0.1) ? 3 : 0, roof: r.chance(0.3) ? 'gable' : 'flat' });
+      const is = facadeKindOf(b, boundingBox(b.ring)) === 'panel';
+      expect(panelBlock(b), JSON.stringify(b)).toBe(is);
+      if (is) panels++;
+    }
+    expect(panels).toBeGreaterThan(200);
+  });
+
+  it('made-up streets: no camera has a wall over a seventh of its picture, and no pole stands at a wall', () => {
+    const bad: string[] = [];
+    for (const kind of KINDS) {
+      for (const seed of FRAME_SEEDS) {
+        const site = buildSite(makeStreet(kind, seed), seed)!;
+        const share = nearCover(site.street, site.camera);
+        if (share > NEAR_COVER_MAX) bad.push(`${kind} ${seed}: ${(share * 100).toFixed(0)} % of the picture is a wall right before the lens`);
+        if (site.camera.mount !== 'pole') continue;
+        for (const b of site.street.buildings) {
+          const d = solid(b) ? nearestOnRing(site.camera.pos, b.ring).d : Infinity;
+          if (d < 1.55) bad.push(`${kind} ${seed}: the camera's pole stands ${d.toFixed(1)} m from a wall`);
+        }
+      }
+    }
+    expect(bad, bad.join('\n')).toEqual([]);
+  });
+});
 
 const SAMPLE = process.env.EPD_PMTILES_SAMPLE ?? '';
 /** How many points of the town are tried. */
@@ -935,5 +1324,192 @@ describe.skipIf(!SAMPLE || !existsSync(SAMPLE))("sites on a real town's streets"
     expect(count.unseen, numbers).toBe(0);
     expect(count.small, numbers).toBeLessThanOrEqual(count.sites * 0.05);
     expect(count.walled, numbers).toBeLessThanOrEqual(count.sites * 0.1);
+  }, 600_000);
+});
+
+/** The audit's places in the sample town (the map's own points for them), by kind of place. */
+const PLACES: [PlaceKind, string, number, number][] = [
+  ['gasstation', 'Q8', 11.231799, 43.784284],
+  ['gasstation', 'Tamoil', 11.227166, 43.775078],
+  ['gasstation', 'Agip', 11.232016, 43.771925],
+  ['gasstation', 'Esso', 11.26814, 43.7782],
+  ['gasstation', 'Q8', 11.2283, 43.77219],
+  ['bank', 'UniCredit', 11.252647, 43.77261],
+  ['bank', 'Banca CR Firenze', 11.228741, 43.78556],
+  ['bank', 'BNL', 11.240486, 43.777146],
+  ['bar', 'Dolce Bar', 11.230165, 43.78497],
+  ['bar', 'Bar Francesconi', 11.23315, 43.771892],
+  ['bar', 'Il trip per tre', 11.243273, 43.774193],
+  ['nightclub', 'Space Club', 11.24632, 43.773685],
+  ['shop', 'Lidl', 11.231166, 43.78534],
+  ['mall', 'Esselunga', 11.232145, 43.772277],
+  ['school', 'Galliano-Rossini', 11.238064, 43.783349],
+  ['school', 'Machiavelli', 11.242106, 43.769473],
+  ['hospital', 'Santa Maria Nuova', 11.260335, 43.773586],
+  ['hospital', 'Piero Palagi', 11.272107, 43.755126],
+  ['trainstation', 'Porta al Prato', 11.237871, 43.778395],
+  ['trainstation', 'Santa Maria Novella', 11.247417, 43.777572],
+  ['church', 'San Frediano in Cestello', 11.244005, 43.769959],
+  ['hotel', 'Westin Excelsior', 11.246288, 43.77182],
+  ['stadium', 'Artemio Franchi', 11.28282, 43.780884],
+  ['stadium', 'Marathon Stadium', 11.280381, 43.778544],
+  ['busstation', 'Hub Vittorio Veneto', 11.237209, 43.776414],
+  ['busstation', 'Airport Shuttle Bus', 11.2489, 43.776131],
+  ['busstation', 'Hub Montelungo', 11.246358, 43.781259],
+  ['parking', 'Piazzale Montelungo', 11.246733, 43.781058],
+  ['parking', 'Parcheggio Beccaria', 11.270811, 43.769999],
+  ['parking', 'Piazza Vasari', 11.271517, 43.782317],
+];
+/** The kinds whose scene must be at the door of the place's own building. */
+const AT_ITS_DOOR = new Set<PlaceKind>(['bank', 'bar', 'nightclub', 'shop', 'mall']);
+
+describe.skipIf(!SAMPLE || !existsSync(SAMPLE))("the audit's places in a real town", () => {
+  it('every place gets a real street, a sound site and what says which place it is', async () => {
+    const fd = openSync(SAMPLE, 'r');
+    const archive = new PMTiles({
+      getKey: () => SAMPLE,
+      getBytes: async (offset: number, length: number) => {
+        const buf = Buffer.alloc(length);
+        readSync(fd, buf, 0, length, offset);
+        return { data: buf.buffer.slice(buf.byteOffset, buf.byteOffset + length) as ArrayBuffer };
+      },
+    });
+    const bad: string[] = [];
+    let ownDoor = 0;
+    let withBuilding = 0;
+    let pictures = 0;
+    let walled = 0;
+    let boards = 0;
+    // The point as the game has it: typed by hand, some way off the place (here 60 m to the north-east).
+    for (const off of [0, 60]) {
+      for (const [kind, name, lng, lat] of PLACES) {
+        const at = `${kind} ${name}${off ? ' (given 60 m off)' : ''}`;
+        const given: [number, number] = [lng + (off * 0.7) / 80400, lat + (off * 0.7) / 111195];
+        // The seed is the camera's own, tied to the incident's place (coverage.ts).
+        const seed = hash32('site', Math.round(lng * 1500), Math.round(lat * 3000));
+        const street = await readStreet(archive, given, { place: { kind, name } });
+        if (!street) {
+          bad.push(`${at}: no street`);
+          continue;
+        }
+        // The origin is at the map's own point for the place or before its front, wherever the game's point was.
+        const there = frameAt(street.origin!).toLocal([lng, lat]);
+        if (dist(there, street.place!.at) > 1.5) bad.push(`${at}: the place's point is ${dist(there, street.place!.at).toFixed(0)} m from the map's`);
+        const site = buildSite(street, seed);
+        if (!site) {
+          bad.push(`${at}: no site`);
+          continue;
+        }
+        for (const p of [...invalid(site.street, site), ...unsound(site.street, site)]) bad.push(`${at}: ${p}`);
+        const f = framing(site);
+        if (!inFrame(f.spot, 0.2)) bad.push(`${at}: the spot is not in the picture`);
+        // A wall or a roof right before the lens over a seventh of the picture: only where the picture has the place's
+        // board (a lane's camera across from the front), and then it is the place's own front, not another house.
+        const share = nearCover(site.street, site.camera);
+        const shown = boardShown(site);
+        const ownIndex = site.street.buildings.findIndex((b) => b.id === site.place?.building);
+        pictures++;
+        if (shown) boards++;
+        if (share > NEAR_COVER_MAX) {
+          walled++;
+          const others = nearCover(site.street, site.camera, 32, 18, ownIndex);
+          if (!shown) bad.push(`${at}: ${(share * 100).toFixed(0)} % of the picture is a wall or a roof right before the lens, and the place's board is not in it`);
+          else if (others > 0.25) bad.push(`${at}: ${(others * 100).toFixed(0)} % of the picture is another house's wall right before the lens`);
+        }
+        // No camera hangs on the place's own building looking away from its board.
+        if (ownIndex >= 0 && !shown && nearestOnRing(site.camera.pos, site.street.buildings[ownIndex].ring).d < 1.3) {
+          bad.push(`${at}: the camera hangs on the place's own building without its board in the picture`);
+        }
+        const p = site.place;
+        if (!p || p.kind !== kind || p.name !== name) {
+          bad.push(`${at}: the site does not say its place`);
+          continue;
+        }
+        const seenAt = (q: V2, h: number) => inFrame(project(site.camera, q, h), 0);
+        if (kind === 'gasstation') {
+          const canopy = site.street.buildings.find((b) => b.open && b.area >= 80 && dist(ringCentroid(b.ring), site.spot) < 45);
+          if (!canopy) bad.push(`${at}: no canopy`);
+          else if (!seenAt(ringCentroid(canopy.ring), 1.5)) bad.push(`${at}: the canopy is not in the picture`);
+        } else if (kind === 'parking') {
+          const lot = site.street.areas.find((a) => a.kind === 'parking' && dist(boundingBox(a.ring).c, site.spot) < 45);
+          if (!lot) bad.push(`${at}: no bays`);
+          else if (!seenAt(boundingBox(lot.ring).c, 1.5)) bad.push(`${at}: the bays are not in the picture`);
+        } else if (kind === 'busstation') {
+          const shelters = site.street.buildings.filter((b) => b.open && b.area < 30 && dist(ringCentroid(b.ring), site.spot) < 40);
+          if (shelters.length < 2) bad.push(`${at}: ${shelters.length} shelters`);
+          else if (!shelters.some((b) => seenAt(ringCentroid(b.ring), 1.5))) bad.push(`${at}: no shelter is in the picture`);
+        }
+        if (p.building !== null) {
+          withBuilding++;
+          const own = site.street.buildings.find((b) => b.id === p.building);
+          if (!own || !p.front) bad.push(`${at}: the own building has no front`);
+          else if (site.doorBuilding >= 0 && site.street.buildings[site.doorBuilding].id === p.building) ownDoor++;
+          if (AT_ITS_DOOR.has(kind) && (!site.door || site.street.buildings[site.doorBuilding].id !== p.building || dist(site.door, site.spot) > 15))
+            bad.push(`${at}: the scene is not at the place's own door`);
+        } else if (AT_ITS_DOOR.has(kind)) bad.push(`${at}: no own building`);
+      }
+    }
+    closeSync(fd);
+    expect(bad, bad.join('\n')).toEqual([]);
+    // The door people come out of is the place's own nearly everywhere it has a building.
+    expect(ownDoor, `${ownDoor} of ${withBuilding}`).toBeGreaterThanOrEqual(withBuilding * 0.85);
+    expect(walled, `${walled} of ${pictures}`).toBeLessThanOrEqual(pictures * 0.08);
+    // The place's board is in the picture nearly everywhere the place has a front.
+    expect(boards, `${boards} of ${withBuilding}`).toBeGreaterThanOrEqual(withBuilding * 0.9);
+  }, 600_000);
+
+  it('places that had a wall, a roof or a balcony before the lens have a free picture, or their own front with its board, at every seed', async () => {
+    const fd = openSync(SAMPLE, 'r');
+    const archive = new PMTiles({
+      getKey: () => SAMPLE,
+      getBytes: async (offset: number, length: number) => {
+        const buf = Buffer.alloc(length);
+        readSync(fd, buf, 0, length, offset);
+        return { data: buf.buffer.slice(buf.byteOffset, buf.byteOffset + length) as ArrayBuffer };
+      },
+    });
+    // A school across the lane from a panel block's balconies (given from six sides), a hotel in a street of house
+    // fronts: a free picture. A church among low pitched roofs and a bar on a corner, both in lanes where every camera
+    // has a wall within 8 m: the camera across the lane from the front, with the board in its picture (`lane`).
+    const cases: [PlaceKind, string, number, number, number[], boolean?][] = [
+      ['school', 'Machiavelli', 11.242106, 43.770012, [500, 601, 702]],
+      ['school', 'Machiavelli', 11.243599, 43.769473, [513, 614, 715]],
+      ['school', 'Machiavelli', 11.242106, 43.768126, [526, 627, 728]],
+      ['school', 'Machiavelli', 11.24281, 43.769981, [539, 640, 741]],
+      ['school', 'Machiavelli', 11.240167, 43.770281, [552, 653, 754]],
+      ['school', 'Machiavelli', 11.241226, 43.768838, [565, 666, 767]],
+      ['hotel', 'Hotell', 11.2485, 43.7745, [111, 222, 333, 444, 555, 666]],
+      ['church', 'S. Frediano', 11.244005, 43.769959, [15850387, 15850488, 15850589, 15850690, 15850791, 15850892], true],
+      ['bar', 'Baar (Kalamaja)', 11.249831, 43.768965, [96028, 1, 2, 3, 4, 5], true],
+    ];
+    const bad: string[] = [];
+    for (const [kind, name, lng, lat, seeds, lane] of cases) {
+      const street = (await readStreet(archive, [lng, lat], { place: { kind, name } }))!;
+      for (const seed of seeds) {
+        const site = buildSite(street, seed)!;
+        const at = `${name} ${lng},${lat} seed ${seed}`;
+        const share = nearCover(site.street, site.camera);
+        if (lane) {
+          const own = site.street.buildings.findIndex((b) => b.id === site.place!.building);
+          const others = nearCover(site.street, site.camera, 32, 18, own);
+          if (!boardShown(site)) bad.push(`${at}: the place's board is not in the picture`);
+          if (nearestOnRing(site.camera.pos, site.street.buildings[own].ring).d < 1.3) bad.push(`${at}: the camera hangs on the place's own building`);
+          if (others > 0.25) bad.push(`${at}: ${(others * 100).toFixed(0)} % of the picture is another house's wall right before the lens`);
+          if (dist(site.spot, site.door ?? [1e9, 1e9]) > 16) bad.push(`${at}: the scene is not at the place's door`);
+        } else if (share > NEAR_COVER_MAX) bad.push(`${at}: ${(share * 100).toFixed(0)} %`);
+        // No camera hangs among a panel block's balconies.
+        for (const b of site.street.buildings) {
+          if (!panelBlock(b)) continue;
+          const ring = b.ring;
+          for (let i = 0; i < ring.length; i++) {
+            const q = ring[(i + 1) % ring.length];
+            const d = dist(ring[i], q) > 20 ? nearestOnSegment(site.camera.pos, ring[i], q).d : Infinity;
+            if (d < 1.2) bad.push(`${name} seed ${seed}: the camera hangs on a wall with balconies`);
+          }
+        }
+      }
+    }
+    closeSync(fd);
+    expect(bad, bad.join('\n')).toEqual([]);
   }, 600_000);
 });

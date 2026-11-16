@@ -1,10 +1,12 @@
-# Kaamerad: live surveillance cameras (2.41.0)
+# Kaamerad: live surveillance cameras (2.41.1)
 
 Some incidents happen in sight of a surveillance camera. The dispatcher opens the camera from the incident's card and
 watches the place live: the trouble itself, the patrol car driving up with its blue lights, the officers getting out,
 people running off, the arrest, the ambulance. The picture is drawn from the game's own state on the game's own street
 map, and made to look like the feed of a street camera: wide lens, low resolution, grain, a clock burned into the
-corner, infrared black and white at night, rain on the dome.
+corner, infrared black and white at night, rain on the dome. The street is the place the incident names: a petrol
+station shows its canopy and its kiosk with its board, a bank its own front. While the picture is live, the game map
+shows where the camera hangs and what it sees.
 
 Nothing here changes the simulation. A camera is a second way of looking at what the engine already decided.
 
@@ -31,22 +33,24 @@ Everything lives in `src/cctv/`. The upper half is plain TypeScript with no DOM 
 | File | What it is | Depends on |
 | --- | --- | --- |
 | `math.ts` | scene geometry (metres east and north of the incident), seeded randomness | |
-| `types.ts` | `StreetData` (roads, buildings, areas), `Site` (the lie of the land for one camera) | |
-| `tiles.ts` | the street around a point, read from the street map (`tiles/estonia.pmtiles`, zoom 15) | pmtiles, @mapbox/vector-tile, pbf |
-| `procedural.ts` | a made-up street when the map is not there or has nothing usable | |
-| `site.ts` | from a street: the road vehicles arrive on, the spot, the door, the lamps, where the camera hangs and what it sees | |
+| `types.ts` | `StreetData` (roads, buildings, areas, points of interest, the place), `Site` (the lie of the land for one camera), `PlaceHint`, `SitePlace`, `Poi` | |
+| `tiles.ts` | the street around a point, read from the street map (`tiles/estonia.pmtiles`, zoom 15), for the incident's place | pmtiles, @mapbox/vector-tile, pbf |
+| `place.ts` | the place an incident names, found on the street: its point, its own building and front, and what stands before it (`POI_KINDS`, `nameRank`, `pickPoi`, `ownBuilding`, `frontOf`, `planPlace`, `roadAnchor`, `dressStreet`, `settlePlace`, `carryDressing`, `pumpIslands`, `wallAt`, `hasOwnBuilding`, `isShown`) | |
+| `procedural.ts` | a made-up street when the map is not there or has nothing usable, with the place's own building marked | |
+| `site.ts` | from a street: the road vehicles arrive on, the spot, the door, the lamps, where the camera hangs and what it sees, and the place the picture shows; `nearCover` (how much of a picture a wall right before the lens takes), `boardShown` (is the place's board whole in the picture), `panelBlock` | |
 | `coverage.ts` | which incidents have a camera, and what it is called | sim types |
 | `env.ts` | sun, darkness, lamps, snow, rain, fog at the game's clock | sim time |
 | `figure.ts` | a person's clothes (`Look`) and poses (`Pose`, acts, gaits) | |
 | `vehicle.ts` | a vehicle's body, paint and markings (`CarLook`), its lamps (`CarLights`) | |
 | `cast.ts` | the kind of scene an incident makes, its people and vehicles | sim types |
 | `stage.ts` | shared types: `Situation` (what the game says now), `Frame` (where everything is) | |
-| `situation.ts` | `situationOf(sim, incident, speed, paused = false)`: reads a `Situation` from the simulation | sim |
+| `situation.ts` | `situationOf(sim, incident, speed, paused = false, played = 0)`: reads a `Situation` from the simulation; `streetScale`: how fast the street runs | sim |
 | `director.ts` | `Director`: moves the cast as the situation changes; `frame()` | all of the above |
-| `session.ts` | one open camera: builds site, light, cast and director from a street, steps them at the pace the game clock really keeps, drives the view, tells it which vehicles are on their way, ends the feed once the closed incident's street has emptied | all but three |
+| `session.ts` | one open camera: builds site, light, cast and director from a street, steps them at the pace the game clock really keeps, drives the view, tells it which vehicles are on their way, ends the feed once the closed incident's street has emptied; `mapPose(site)`: where the camera is on the map | all but three |
 | `live.ts` | the lazy chunk's entry: `openCamera(canvas, options)` checks WebGL 2 (once per page), loads the body model and the street under the window's abort signal, creates the view and the session, has the view prepare the first frame within a budget, returns a handle that also lets go of the base body | all |
 | `render/view.ts` | `CameraView`: three.js scene, light, weather, people and cars of a frame; `prepare()` gets the first frames onto the graphics card | three |
 | `render/world.ts`, `facades.ts`, `textures.ts` | the standing street: ground, roads, houses, trees, lamps, parked cars | three |
+| `render/place.ts` | what the place an incident names is dressed as (`dressOf`, `boardLines`, `ownBuildingOf`, `frontEdgeOf`, `ownFacade`), its sheet (`makePlaceSheet`, `luminance`), the plan of its front (`planOwn`, `boardCovers`), the dressing of its own building (`dressOwn`) and where a petrol station's price pylon may stand (`hidesPlace`), section 9.4 | three |
 | `render/human.ts` (`people.ts` as fallback) | people: one real body mesh dressed per `Look`, posed by `Pose` | three |
 | `render/carbody.ts`, `cars.ts` | vehicles: shaped bodies, markings, switchable lamps; `CarKit`, what one view's vehicles share | three |
 | `render/props.ts` | what is neither a person nor a vehicle: a dropped weapon, a stretcher, a sheet, a hose | three |
@@ -55,13 +59,18 @@ Everything lives in `src/cctv/`. The upper half is plain TypeScript with no DOM 
 | `assets/human.glb` | the base body (see section 11) | |
 | `__dev__/` | harness pages for looking at pictures without the game (not in the build) | |
 
-The game's UI part is `src/ui/game/CameraWindow.tsx` (the picture over the map) and a line on the incident card
-(section 14). The game's own bundle imports only `coverage.ts` (and types) from here; everything else loads through
+`src/cctv/place.ts` (pure, no three.js) and `src/cctv/render/place.ts` (three.js) are two files: the first finds the
+place on the street, the second draws it.
+
+The game's UI part is `src/ui/game/CameraWindow.tsx` (the picture over the map), a line on the incident card, and
+`src/map/cameraCone.ts`, through which the window tells the map where the camera is (section 14). The game's own bundle imports only `coverage.ts` (and types) from here; everything else loads through
 `import('@/cctv/live')` (`tests/cctv-lazy.test.ts`).
 
 ## 3. Conventions
 
-- **Scene space.** Origin at the incident's coordinate. `x` east, `y` north, metres (`math.ts frameAt`). A yaw is in
+- **Scene space.** Origin at the point the street was read around: the point where the map draws the incident's
+  marker, moved to the place the incident names (section 4); on a street from the map `StreetData.origin` says where
+  that is. "The incident" below means this origin. `x` east, `y` north, metres (`math.ts frameAt`). A yaw is in
   radians from east towards north; a unit direction is `(cos yaw, sin yaw)`. The sim's heading (degrees clockwise from
   north) converts with `yawOfHeading`.
 - **three.js space.** `x` east, `y` up, `z` south: a scene point `(x, y)` at height `h` is `(x, h, -y)`. A model stands at
@@ -70,18 +79,22 @@ The game's UI part is `src/ui/game/CameraWindow.tsx` (the picture over the map) 
   rounded coordinate). The same incident shows the same street, camera, cast and choices every time it is opened, on
   every player's screen. Only the fine timing of an animation differs between two viewers.
 - **Two clocks.** The game clock runs 15 to 120 times faster than real time (`src/sim/coop.ts TURN_SPEEDS`), so people
-  on camera cannot follow it second by second: they would move like a time-lapse. The camera's scene clock runs in
-  real seconds whenever the game is not paused. The game decides *what* happens and *when it starts* (a unit arrives,
-  the incident closes); the director plays each change at a natural pace. How many real seconds away an arrival is
-  comes from the game's speed at the pace its clock really keeps (section 14, the session's pace). The clock burned
-  into the picture shows the game's date, hours and minutes.
+  on camera cannot follow it second by second: they would move like a time-lapse. The camera's scene clock, the
+  street's own time, runs in real seconds at the game's 1x speed (15 game seconds a second) and below it (the
+  real-time mode, an open 112 call), and at 2x, 4x and 8x two, four and eight times as fast, like a recording played
+  faster (`situation.ts streetScale`, section 14); it stands while the game is paused. The game decides *what*
+  happens and *when it starts* (a unit arrives, the incident closes); the director plays each change at a natural
+  pace in the street's time. How many of the street's seconds away an arrival is comes from the game's speed at the
+  pace its clock really keeps (section 14, the session's pace): from 1x up, 15 game seconds each. The picture's own
+  life (the blue lights, the hazards, rain, grain and shake, the recording dot) keeps real seconds at every speed.
+  The clock burned into the picture shows the game's date, hours and minutes.
 - **Language.** Code comments and docs in plain English; UI texts through `src/i18n` (Estonian and English). No em
   dash and no en dash anywhere (owner's rule): write "-", ":" or a new sentence.
 
 ## 4. The street (`StreetData`, `Site`)
 
 `tiles.ts` reads the Protomaps v4 basemap tiles at zoom 15 (the same archive the map draws, opened once by
-`src/map/streetTiles.ts`): the one to four tiles that cover a circle of 160 m around the incident. Layers used:
+`src/map/streetTiles.ts`): the one to four tiles that cover a circle of 160 m around the scene's origin. Layers used:
 
 - `roads` (lines): `kind` and `kind_detail` give the class exactly as `scripts/build-mapdata.mjs roadClass` reads them
   for cars (`highway`, `major_road`, `minor_road`, living streets), plus `path` kinds (footway, cycleway, path, steps,
@@ -91,15 +104,93 @@ The game's UI part is `src/ui/game/CameraWindow.tsx` (the picture over the map) 
   the same feature id are kept as separate footprints with the same id (same colour and height), which draws right.
 - `landuse` and `water` (polygons): parks, grass, forest and wood become `green` or `forest`; water `water`;
   pedestrian areas `paved`; parking `parking`; sand and beach `sand`; pitches and playgrounds `pitch`.
+- `pois` (points), where the archive has the layer: `kind` and `name`. Only the kinds a place of the game can be are
+  kept (the table below), each point once, the nearest 120 (`MAX_POIS`) within 200 m (`StreetData.pois`). An archive
+  without the layer gives no `pois` field at all, and the rest of the street is the same.
 
-Tile coordinates become scene metres through Web Mercator and the cosine of the incident's latitude. Roads are cut at
+Tile coordinates become scene metres through Web Mercator and the cosine of the origin's latitude. Roads are cut at
 the circle of 160 m (`STREET_RADIUS`); buildings and areas that reach within 200 m are kept and clipped to a square
-of 200 m half size around the incident.
+of 200 m half size around the origin. `StreetData.origin` is that origin on the map.
+
+**Read for a place.** The window opens the camera at the point where the map draws the incident's marker
+(`OpenOptions.origin`, section 14), and `live.ts` reads the street there for the incident's kind of place and its
+name: `readStreet(archive, origin, { place: { kind, name } })`. The origin then moves in up to three steps:
+
+1. To the map's own point for the place (`place.ts pickPoi`): among the archive's points of the kinds the place can
+   be within 250 m (`POI_REACH_M`; read from the tiles that cover that circle), one whose name matches first
+   (`nameRank`, compared in lower case without accents: one name holds the other as whole words, the held one of
+   four letters or more, so a map point named "P" matches nothing); else the nearest. Two names that only share
+   their first word of three letters or more (a town's name, "Hotell", a short brand) count as 60 m nearer, no
+   more. A less likely kind (later in the table) is taken only when it is 60 m nearer per step down the list. The game's coordinates are typed by hand and are often 100 to 300 m off. Without a `pois` layer, or for a
+   kind not in the table, this step is skipped.
+2. To just before the front of the place's own building (section 4.3, `planPlace`): 0.8 to 2 m out from the door
+   (less where the road is closer), stepped out 3 m at a time while that point is inside a house. Where the road the
+   front faces is more than 62 m off, the origin is 25 m short of that road instead. So the scene plays before the
+   place, not on the street behind it. A petrol station whose canopy was made (section 4.3) is played on its
+   forecourt before the pumps instead (`Dressed.anchor`), and a car park or a bus station without a building among
+   its bays or shelters.
+3. Where step 2 gives no point and no road is within 70 m (the middle of a stadium or a station hall): beside the
+   nearest road the street has (`roadAnchor`), on the origin's side, up to 5 m past its edge.
+
+When the origin moves by more than 3 m, the street is read again around the new one (tiles already read are not
+fetched again), and what was found to stand before the place (a canopy, a kiosk, a forecourt, bays, shelters) is
+carried over to it (`carryDressing`), so that the site is built for the very place the origin was moved for.
+`StreetData.place` (`PlaceHint`: `kind`, `name`, `at` the place's own point in scene metres, `door` the door found
+on its front) tells `buildSite` what it is. Without `place`, `readStreet` reads the bare point as before.
+
+| Kind of place | The map's point kinds, likeliest first |
+| --- | --- |
+| gasstation | fuel |
+| bank | bank |
+| bar | bar, pub, biergarten |
+| nightclub | nightclub, bar, pub |
+| shop | supermarket, convenience, department_store, marketplace |
+| mall | mall, department_store, supermarket |
+| school | school |
+| kindergarten | kindergarten, childcare |
+| university | university, college |
+| hospital | hospital, clinic |
+| trainstation | station, train_station, halt |
+| busstation | bus_station |
+| parking | parking |
+| church | place_of_worship |
+| hotel | hotel, hostel, guest_house, motel |
+| stadium | stadium |
+| museum | museum |
+| park | park |
+| concert | theatre, arts_centre, cinema |
+| government | townhall, courthouse |
+| cemetery | cemetery, grave_yard |
 
 Any failure (no archive, a network error, a tile that does not parse, a read that takes more than 6 s, no road
-within 70 m, no place on the roads that holds a scene: section 4.2) ends in `procedural.ts makeStreet(placeKind,
-seed)`, a believable street of the incident's kind of place. The picture works without the map file;
-`StreetData.source` says which one it is (`'tiles'` or `'made'`).
+within 70 m of the final origin, no place on the roads that holds a scene: section 4.2) ends in
+`procedural.ts makeStreet(placeKind, seed, name)`, a believable street of the incident's kind of place. The picture
+works without the map file; `StreetData.source` says which one it is (`'tiles'` or `'made'`).
+
+So does a street that cannot carry its place: where a petrol station has no canopy and none can stand, a car park
+has no room for bays, or a bus station none for two shelters (`place.ts` `Dressed.fits` false, section 4.3),
+`readStreet` gives no street, and the camera shows the made-up street of that kind rather than the wrong
+neighbourhood with a canopy rammed into it. Such a camera has no place on the map (`CameraHandle.pose` is null,
+section 14).
+
+A made-up street tells its place too (`StreetData.place`, for every kind `isShown` allows, section 4.2): its own
+building is the layout's own (the shop, the hall, the petrol station's kiosk) or else the house nearest the origin
+(within 30 m) for a kind that has a building, and `name` is the incident's place name, for its board. A bus station
+has a layout of its own (`station`): the town street with the houses on the incident's side 9 m further back behind
+a paved strip, so that its shelters fit along the kerb. Concert, port and airport use the car park layout and its
+big building as their own (KONTSERDIMAJA, SADAM, LENNUJAAM); construction is the town street with the house nearest
+the origin under scaffold; cemetery is the park layout with a chapel (8 x 13 m, pitched roof) and a paved apron where
+the paths meet. The made-up petrol station's canopy and kiosk stand 3.2 m to the side, so that the scene at the
+origin is played in the lane between two pump islands, not on one.
+
+The same kind and seed always give the same made-up street. A kind that borrows another kind's layout (a concert
+hall, a port, an airport, a stadium or a mall the car park's; a bar, a bank or a hospital the town street's; a church
+or a museum the old town's) draws its street from the seed with the kind mixed in: `(seed ^ hash32('made-up street',
+kind)) >>> 0`, and the turn of the whole layout comes from that seed too. So two such places at one seed do not get
+the same houses, turned the same way. The kind each layout was drawn for (`PLAIN`: street, oldtown, busstation,
+residential, house, parking, shop, gasstation, highway, park) keeps the plain seed. The reason is the director's
+tests: they name seeds of those streets, and mixing the kind in for every kind broke nine of them (somebody in a
+parked car or in a house on the other streets, section 8.5).
 
 ### 4.1 Heights and roofs when the map has none
 
@@ -123,6 +214,12 @@ water (the spot, the camera, the walking lines near the spot), and the camera ha
 is taken as it is drawn, not as it is labelled. Null only when no place holds; the session then makes a street up
 (`procedural.ts`) and builds the site on that.
 
+A street that names its place (`StreetData.place`) is first settled for it (`place.ts settlePlace`, section 4.3):
+what stands before the place is added as street data, and the place's own building and front are found. `Site.street`
+is that street with what was added (the street passed in is never changed); the session and the renderer use it.
+The rules below then also want the scene before that front. A plain kind (`isShown` false, below) is not settled:
+its site is built exactly as for a street read without a place.
+
 - **Roads.** Every road within 70 m of the incident, ranked by its distance plus a reluctance: car roads first
   (service roads +5 m, motorways +8 m), then pedestrian streets (+14 m), then paths (+26 m); never a tunnel. Each is
   followed past its ends through the straightest drivable continuation (turning less than 55 degrees) until it
@@ -133,44 +230,227 @@ is taken as it is drawn, not as it is labelled. Null only when no place holds; t
   yard) and the other side. A place costs more the further it is from the incident (a later road, a shift along
   it, a bend within 14 m, the other side of the road). Places are tried cheapest first and a place that does not
   hold is dropped. Once one holds, at most six are worked out, and only while a further one could still cost less;
-  the site with the least cost (the place's own and what its camera misses) is taken.
+  the site with the least cost (the place's own and what its camera misses) is taken. For a place with a board the
+  order of its cameras comes before the cost (**Which camera a place gets**, below). With a place's front, a place
+  not before it (on the front's side, within 30 m of it, with a free line to the door) costs 6 more
+  (`OFF_FRONT_COST`): more than the next road. A place more than 30 m from an own building that has no front costs 3.
+  A place more than 28 m from what stands before the place (a canopy's middle, the bays, the shelters) costs 3, and
+  one across the drive line from it 3 more.
 - **Drive line.** `drive.width` is what the house fronts leave within 16 m either way (at least 2.6 m): an old
   town's lane is as narrow as its walls. A front within 1.2 m of the centre line near the place drops the place (an
   archway). Where a house stands on the line further along, the line ends 2 m before it as a dead end. The scene
   keeps 8 m from both ends.
 - **Spot**: where it happens. Beside the road on the place's side: on the pavement at least (1.4 m past the kerb,
   1.7 m where the fronts leave no pavement), at most 9 m in (a forecourt, a yard), at least 0.7 m from any wall, not
-  in water (on a bridge or a quay it moves towards the road).
+  in water (on a bridge or a quay it moves towards the road). Under a petrol station's canopy never on a pump island
+  or within 1.2 m of one (`place.ts pumpIslands`, the renderer's own rule for where the islands stand).
 - **Walking lines** (`walkLeft`, `walkRight`): along both sides of the drive line, 1.3 m past the kerb (1.5 m
   without pavements), drawn in to 0.7 m from a house front where the fronts leave less: in a lane people walk at
   the wall. Within 22 m of the spot no point of them may be inside a house.
-- **Door**: the nearest wall point within 32 m, with its outward normal and its building. When that is more than
-  12 m from the spot, the door is on the wall near the spot that the camera sees best (facing the lens and seen
-  squarely, its foot and the window above it in the picture, free ground before it), when there is such a wall.
+- **Door**: the own front's door when the scene is before that front and the door is within 32 m (`DOOR_REACH_M`);
+  else the nearest wall point within 32 m, with its outward normal and its building (the own building's wall counts
+  6 m nearer than another house's). When that is more than 12 m from the spot, the door is on the wall near the spot
+  that the camera sees best (facing the lens and seen squarely, its foot and the window above it in the picture,
+  free ground before it), on the own building first, when there is such a wall; an own front's door the camera
+  already sees is kept.
 - **Camera**: candidates are poles at both kerbs 8 to 31 m along the road (on the wall where a house stands at the
-  kerb), points on the walls within 30 m, and poles on open ground 13 to 24 m round the spot; 7 to 40 m from the
-  spot, with a free line to the spot and to the road; 5 to 7.8 m up (on a wall below its top). Each is aimed to hold
-  as much as it can and its lens fitted (vertical field of view 36 to 64 degrees), then scored by what the picture
-  misses (`rate`): the people at the spot, readable; the stretch of road the first crews stop on from each end they
-  can come from (14 m before the spot to 6 m past it), with the first car whole; the door; not looking steeply down
-  on heads; a long stretch of street rather than a close-up. The best eight are scored again at their other height,
-  for a wall or a roof right before the lens and for a door out of the picture; among those within 0.3 of the best
-  the seed chooses.
+  kerb), points on the walls within 30 m, poles on open ground 13 to 24 m round the spot, and for a place with a
+  board the mounts across from it (below); a pole stands at least 1.6 m from any house wall (what hangs on a wall,
+  a balcony or an awning, reaches a metre and more out of it), and nearer than that the camera hangs on the wall
+  itself; 7 to 40 m from the spot, with a free line to the spot and to the road; 5 to 7.8 m up (on a wall below its
+  top). Each is aimed to hold as much as it can and its lens fitted (vertical field of view 36 to 64 degrees), then
+  scored by what the picture misses (`rate`): the people at the spot, readable; the stretch of road the first crews
+  stop on from each end they can come from (14 m before the spot to 6 m past it), with the first car whole; the
+  door; not looking steeply down on heads; a long stretch of street rather than a close-up. The best eight are
+  scored again at their other height, for a wall or a roof right before the lens and for a door out of the picture;
+  among those within 0.3 of the best the seed chooses. (The cameras that have a place's board in their picture: the
+  best twelve, below.)
+- **The place in the picture.** With a place, the lens is fitted first to hold also what says which place this is:
+  what stands before it (a canopy's middle, the bays, the shelters, within 45 m of the spot) and, when the scene is
+  not at a door, the own front's door. Each missed costs: the first thing before the place 2.5, the further ones
+  0.7, the own front's door 1; a door at the scene that is the own building's costs 1.5 per mark missed (else 1).
+  Where the door is far, a camera that sees no wall of the own building a door could be on costs 1.5 more. A place's
+  camera also pays for a wall or a roof right before the lens (within 5 m) beyond the capped 1.5 of other cameras:
+  8 times the share of the picture it covers less 0.2. A camera that has the place's board in its picture does not:
+  its own front near the lens is what it is there to show.
+- **A petrol station's pumps** (`Own.pumps`, `Subject.pumps`). Under each of the station's canopies with pump
+  islands: the middle of each island 1.2 m up, and the canopy's roof over its middle at the canopy's height; those
+  within 45 m of the spot. Each one not 8 % inside the picture's edge (`PUMP_MARGIN`) or hidden costs 0.6
+  (`PUMP_COST`). They are in the sets the lens is fitted to, with what stands before the place: a station whose
+  canopy stands behind its kiosk, as seen from the road, is not shown as its kiosk alone.
+- **The place's board.** A place camera is also rated for the stretch of its own building's wall the board hangs on
+  (`boardMarks`): 3.4 m up (`BOARD_H_M`), 0.3 m out; about the site's door when that is on the own building, else
+  about the point of the front's wall nearest the scene (where `render/place.ts` hangs it), else the point of the
+  own building's wall nearest the scene; 4 m to each side along the wall (`BOARD_HALF_M`), less on a short wall, and
+  0.3 m short of its corners. A free line to it is asked to a point a metre before the wall and 0.3 m higher: a wall
+  is told as a straight line, and the footprint steps in and out of it. Its middle outside the middle four fifths of
+  the picture or hidden costs 1.2; each end out of the picture 0.6; a board too small to read (under 3.5 % of the
+  picture's height for a metre) or seen along its own wall costs up to as much. The whole is capped at 1.8
+  (`BOARD_MAX`), so this cost alone never buys a camera with a wall before its lens; whether the board is in the
+  picture at all counts for more (**Which camera a place gets**). The stretch is in the fullest set the lens is
+  fitted to, and in smaller sets of its own (below).
+- **Nothing right before the lens.** No camera is taken with a wall, a roof, a canopy's fascia or a panel block's
+  balconies nearer than 8 m over more than 15 % of its picture (`nearCover`, `NEAR_COVER_M`, `NEAR_COVER_MAX`) while
+  the street has another. For a place with a board, that other must have the board in its picture too (below). The
+  measure follows rays through a grid of the frame against what the renderer builds: walls with the parapet of a
+  flat roof (0.6 m), pitched roofs over the footprint's bounding rectangle with their 0.42 m overhang, a canopy's
+  0.85 m fascia, a shelter's roof, and on a panel block the stacks of balconies along every wall over 20 m, 1.25 m
+  out, from 2.85 m up. `panelBlock` must stay the renderer's own rule (`render/world.ts facadeKindOf` 'panel'); a
+  test holds the two together. The best cameras are measured on a grid of 16 x 9 rays against 12 %; one over it
+  costs 1.9 plus 30 times what it is over (`wallCost`), more than a board out of the picture. The camera chosen is
+  measured again on 32 x 18 rays against 15 % and, if over, pays and the choice is made again. For a camera without
+  the place's board (a plain street, a place without a building, a place none of whose cameras has its board) the
+  order of fallbacks is: the next camera of the place; the best camera made without the place's wishes (4 more);
+  another place on the street (up to 28 places are worked out, `MAX_TRIES`, where some have a wall before every
+  camera or no camera with the board); and only where every camera looks into a wall, the one with the least wall
+  for what it shows. That is a lane narrower than about 8 m, whose own house fronts are within 8 m on both sides.
+- **The board in the picture** (`boardSeen`). A camera has the place's board `shown` when the middle and both ends
+  of its stretch are in front of the lens, within 0.93 of the way to the picture's sides and between -0.9 and 0.8 of
+  the way to its foot and top (under the recorder's text), with a free line to each; seen at least as squarely as
+  0.3 (`BOARD_FACING`, about 17 degrees to the wall: the renderer's own `FACING`, section 9.4); and a metre of it at
+  least 3 % of the picture's height (`BOARD_SHARE_MIN`). It is `glimpsed` with only its middle in the picture, seen
+  from the wall's outer side at 0.1 at the least (`FRONT_FACING`), and `gone` otherwise. Where the door is more than
+  12 m from the spot and the camera does not see it, the board is judged where the door will then hang: on the own
+  building's wall the camera sees best near the spot (the door rule above). `boardShown(site)` asks the same of a
+  finished site (the tests use it).
+- **Mounts across from the board** (`mountsFor`, step 4). From a point 0.6 m before the board's wall, straight out
+  and 7, 11 and 15 m to each side along it, a line goes out 30 m (`FRONT_VIEW_M`). The first house wall it meets
+  gets a camera, a metre before the wall (0.45 m where the wall is within 2.4 m), unless it is within 1.6 m; where
+  it meets none, poles stand 12, 17 and 23 m out. A lane's camera then looks at the front, not along the lane from
+  its far end. Where a mount's best pose lacks the board and the lens has a free line to all of it, the lens is
+  fitted again to smaller sets with the board: one end's stretch, the 12 m about the spot, and down to the people,
+  the door and 8 m of road to one side of them (where a crew then stops, `director.ts slot`). The first of those
+  that shows the board joins as a second camera at that mount.
+- **Which camera a place gets** (`camerasFor`, `Built.tier`). For a place with a building, so with a board, the
+  cameras are taken in three tiers, across all the places tried:
+  1. The board shown, and no wall right before the lens.
+  2. The board shown, with such a wall. It costs 1.9 plus 10 times what other houses' walls take over 12 %
+     (`shownWallCost`, `SHOWN_COVER_COST`); the place's own building is not counted (`nearCover`'s `without`). In a
+     lane the camera that shows the place looks at its front from near by.
+  3. Only where no camera shows the board: the rest, by the wall rule above. One with no glimpse of the board
+     (`gone`) costs 4 more (`BOARD_GONE_COST`): more than the scene a dozen metres further along the road, less than
+     a scene not before the front at all.
+
+  Of the cameras that show the board, the best twelve are looked at closely at both heights. A free one comes
+  before every walled one; among those within 0.3 of the best the seed chooses. No camera hangs on the place's own
+  building without the board in its picture while another has a line to the spot. Across places a lower tier wins
+  before a lower cost. A place whose camera looks into a wall or has no glimpse of the board (`Built.poor`) does not
+  use up the six places, and up to 28 are worked out in all (`MAX_TRIES`). For a place with a board the search stops
+  on cost only once a camera has the board in a free picture: until then the next place is worked out, whatever it
+  costs.
 - **`Site.seen`**: the stretch of the drive line in the picture, in metres along it (as `drive.at`): from the point
   of the road nearest the scene that is in the picture, outwards both ways (at most 80 m) for as long as the road's
   centre line is inside the frame and not behind a house. Not set when the camera does not see the road at the
   scene. The director prefers stopping places inside it (section 8), so that the first cars stop in the picture.
 - **Lamps** every 30 m (34 m on main roads) along the drive line, on alternate sides of roads wider than 6.2 m, else
   across from the spot; none right before the lens. A main road without pavements is lit only where a road joins it.
+- **`Site.place`** (`SitePlace`): what the picture is to show of the place. Null for a street that names no place
+  and for the kinds with nothing of their own (`isShown` false: residential, house, street, forest, lake, beach,
+  highway, ruralroad, village, farm, summerhouse, oldtown, border). Else `kind`, `name` (the incident's place name, or
+  null), `building` and `front`. `building` is a `Building.id` (parts of one building can share an id), null for a
+  kind without a building of its own (a bus station, a park, a car park of bays) or where none was found, and for a
+  petrol station that is only a canopy. A car park whose point lies in a house of 150 m2 or more is a parking house:
+  that house is its `building`. `front` is the stretch of that building's wall the scene is before (the wall the
+  door is on when the door is the own building's, else the front that faces the road), at most 14 m to each side of
+  the door, with its outward normal (`place.ts wallAt`); null without a building. The renderer takes the building
+  with that id whose wall `front` lies on, and the wall the camera sees best when it lies on none (section 9.4).
 
 `projectPoint(camera, p, h)` says where a point `h` m above the ground lands in the picture (16:9, before the lens's
 bulge): `x` and `y` from -1 to 1, `z` metres in front of the lens. The site's scoring and the tests use the same
 projection. Also exported: `clearLine`, `insideBuilding`, `onDrive`, `blocksView`, `walkLine`, `pavement`.
 
 Known limits. `buildSite` costs about 6 ms for a typical street and up to about 70 ms for a large one, once per
-opening. In narrow lanes between high fronts the walls can fill a large part of the frame (about 4 percent of
-old-town lanes). A door further than 12 m from the spot can be out of the picture when the camera sees no wall
-near the spot.
+opening. For a place it is slower. Over a wide sample of 144 pictures of places in the Florence sample (one seed
+each), without the read: a median of 25 ms, 90 % within about 170 ms, at most 821 ms (26, 120 and 348 ms over the
+audit's 306 pictures below). In the tests' hand-made lane (a bar between house fronts 5 m apart) it takes 137 to
+173 ms. That is the price of `MAX_TRIES` 28: at 18 the slowest took 547 ms, but an old town's lanes need more
+places to get round a corner to a free view of the front; at 40 one more church got its board, and the slowest took
+1170 ms.
+
+In narrow lanes between high fronts the walls can fill a large part of the frame (about 4 percent of old-town
+lanes). The wall rule is a steep cost, not a ban: as a ban it moved a university off its own front onto another
+street. So in a lane narrower than about 8 m it is not met: of 51 places of the Florence sample at 6 seeds each
+(the audit's 306 pictures), 12 are more than 15 % wall right before the lens. All are at two lane places, a
+university (34 to 38 % at every seed) and a hospital (16 to 40 %), each with the whole board in the picture. In a
+lane the camera that shows the place hangs across from its front. In the tests' hand-made lane the scene then plays
+15 to 24 m along the lane from the door: the lens must hold the board, seen squarely enough, and both stretches the
+crews stop on. A standing adult is then 9 to 12 % of the picture's height. A door further than 12 m from the spot
+can be out of the picture when the camera sees no wall near the spot.
+
+The whole board (its middle and both ends in the frame, nothing before them) is in 126 of the wide sample's 144
+pictures (101 before the board came first in the choice of camera), in 263 of the audit's 306 (231), and in all 60
+pictures with a front of a fresh set of 12 places at 6 seeds (52). The rest have no front (8, 30 and 12 pictures),
+or are of these:
+
+- **Alleys** about 1.7 to 3.5 m between walls. The map's centre line runs within 1.2 m of a wall all along them
+  (`freeWidth` null, the archway rule of the drive line), so no place in them holds. The scene plays on the next
+  street, 40 to 70 m from the front, and the board is behind the lens or out of the picture. Five places of the wide
+  sample: a shop, a bar, a hotel (Golden Tower) and two nightclubs (Club 21 among them).
+- **Fronts far back** from where the scene can play, 31 m and more (a kindergarten 31 m, a hotel 32 m, a university
+  38 m, a train station 66 m; section 4.3): the board is out of the picture, or small at its edge. These are 12 of
+  the audit's 13 pictures without the whole board; the 13th has it in part.
+- **A house before the front**: a church in a lane about 4 m wide (San Jacopo), where every camera has a wall
+  before it, and a university.
+
+The board and wall costs were tuned against films and the first patrol's measure without a place (no such measure
+exists for place cameras). The cap of 40 walls in `frontOf` has no test of its own.
+
+### 4.3 The place (`place.ts`)
+
+Works from the buildings, the roads and the areas alone; the map's points of interest only make the place's point
+more exact. Pure.
+
+**The own building** (`ownBuilding`), for the kinds that have one (`hasOwnBuilding`: gasstation, bank, bar,
+nightclub, shop, mall, school, kindergarten, university, hospital, trainstation, hotel, church, stadium, museum,
+office, government, embassy, prison, industrial, concert, port, airport, construction, cemetery). Of the solid
+buildings of 12 m2 and more: the one the place's point is in, else the nearest within 35 m. For a big kind (mall,
+school, university, hospital, trainstation, church, stadium, museum, government, prison, industrial, concert, port,
+airport) the most prominent within 60 m, by its distance less 0.6 times the square root of its area, as the map puts
+its marker: a large hall 10 m off before the shed the point is in. For a petrol station a small one (more than
+400 m2 counts 30 m further), and where the street has a canopy (an open building of 30 m2 and more within 75 m of
+the point), the house nearest the canopy on its side of the street, within 25 m of it, wherever the station's point
+is. For a car park, the house of 150 m2 or more its point lies in (a parking house), else none. When the street was
+read for the place, the building its door was found on.
+
+**The front** (`frontOf`): the wall of 4 m or more that faces the best road. Each wall is asked, from a point every
+3 m along it, what road lies before it along its normal within 110 m. A road counts its distance plus a reluctance:
+a street 0, a service road or a motorway 30, a pedestrian street 12, a footpath 45; 30 more when another house or a
+railway lies between. A long wall comes before a short one, and when the place's point is outside the building (the
+map puts a shop's point at its entrance), the wall it lies before. The door is the point of the front that is about
+as good as the best, nearest the place's own point. A kiosk faces a canopy the map has (or a house taken as the
+canopy, below), whatever road lies beyond: the forecourt is its road. A canopy made beside the kiosk does not turn
+the front.
+
+**What stands before it** (`dressStreet`), added as plain street data so that the director keeps people and
+vehicles out of what is solid and the renderer draws it as on a made-up street. A street that already has the thing
+(a made-up petrol station, a mapped canopy) is left as it is.
+
+| Place | What is added |
+| --- | --- |
+| petrol station | A canopy the street has (an open building within 75 m) is taken as it is, with a `paved` forecourt about it when it is over 80 m2. Else a free-standing house the map draws by the kiosk becomes the canopy (marked open, 5.2 m high): 80 to 300 m2, short side 6.5 m or more, long side at most 36 m, within 45 m of the point and 14 m of the kiosk on its side of the street, by a street, not on a mapped lawn. Else one is made of 21 x 9.4, 16 x 9, 12 x 8 or 11 x 7.5 m, 5.2 m high: first before the kiosk's front, then about the point along the nearest road, then by the nearest street (within 45 m) 3.5 to 12 m from its edge; in those two, slid along by half a pump island's pitch (3.2 m) first, so that the point lies between two islands. A made canopy must stand where a station can: clear of houses, roads, water, trees and pitches; 3 m clear of every house but its kiosk; not on a mapped lawn (a block's yard, a park; the renderer now draws a forecourt over a lawn, section 9.4, but a station is not made there); beside a street (not a service road) within a forecourt's depth of 26 m; with its forecourt reaching that street's edge and 1 m clear of houses; the kiosk, found or made, within 25 m of it on its side of the street. A kiosk of 17 x 9, 12 x 7 or 8 x 6 m (4.2 m high) is made behind the canopy or at one end of it where the map has none there. Last, when the point is inside a house of 80 to 400 m2 that stands as a canopy would, that house is the canopy and the station has no kiosk. No canopy is under 80 m2: the renderer puts pumps under a canopy only from that size. Where none of this stands, the street cannot carry the station (`fits` false, section 4). |
+| car park | A `parking` area (bays and parked cars are drawn on it) where the map has none within 30 m and the point is in no parking house: the largest of 52 x 32 down to 14 x 10 m about the point (shifted up to 30 m), along the nearest road, clear of houses, roads, water, trees and pitches, not on a mapped lawn, with a road within 25 m and no house between the two. Else `fits` is false. |
+| bus station | Where fewer than two shelters stand within 45 m: up to three shelters of 3.8 x 1.6 m (2.5 m high, open) along the kerb of the nearest road, 3.4 m beyond the kerb on the scene's side, each 1 m clear of every house. With room for fewer than two, `fits` is false. |
+
+`settlePlace` plans the place, dresses the street, and plans again where the dressing changed the own building or
+what its front faces. A petrol station's kiosk always faces its canopy. The scene of a made station is anchored on
+the forecourt, 2.5 m out from the canopy on the street's side (`Dressed.anchor`); a station whose canopy the map
+draws keeps the kiosk door's anchor. `Dressed.fits` says whether the street can carry the place at all.
+
+Known limits. A place far from any road (more than about 30 m) is played at the road, with its front in the
+background (a kindergarten 30 m back from its road: the board on its 6 m front is out of the picture; more in
+section 4.2). Three real stations of the Florence sample that looked right before the station rules now show the
+made-up station. The 3 m a made canopy keeps from other houses (`CANOPY_ROOM_M`) is not the reason: at 2, 1 and
+0.2 m nothing changed over 104 fuel points, so it stays 3 m. One station's point lies on a mapped lawn, and two lie
+in a block's yard. Without a `pois` layer in the archive (whether the game's `tiles/estonia.pmtiles` has one with
+`fuel` at zoom 15 was not checked), every petrol station is placed from the buildings alone, and most in a dense
+town will show the made-up station. A border crossing is a plain kind here,
+so the renderer's PIIRIPUNKT dress never shows (section 9.4). At big buildings the front can still be missed: a
+hotel 36 m back from its road and a hall whose map point lies in the open 12 m from it showed no own front in the
+Florence sample, and at two railway stations the door is on a neighbouring building, because the stations' own
+fronts face platforms and tracks. A church's tower and spire are drawn but stood above the frame at every church
+tried: the camera neither tilts nor stands back for them (a cross over the door says church, section 9.4). No fence,
+school yard, ambulance bay, platform or stand is made: the street data has no such thing and the renderer draws
+none. Schools and hospitals say their kind only through the dressing of their own front (section 9.4).
 
 ## 5. Which incidents have a camera (`coverage.ts`)
 
@@ -210,15 +490,21 @@ pass `now`; the window reads the camera's name once, as it opens, without it.
 
 ## 6. What the game says (`situation.ts`)
 
-`situationOf(sim, incident, speed, paused = false): Situation` (`stage.ts`). `speed` is game seconds per real second
-while the game runs (the session passes its measured speed, and the last running one while paused, with `paused`
-true). Pure: it only reads the state.
+`situationOf(sim, incident, speed, paused = false, played = 0): Situation` (`stage.ts`). `speed` is game seconds per
+second of the street's own time while the game runs: the session passes its measured speed divided by
+`streetScale` (so 15 from 1x up while the clock keeps its pace), and the last running one while paused, with `paused`
+true. `played` is how much of the street's time the session has already played of a long step it plays in parts:
+every eta is that much shorter. Pure: it only reads the state.
+
+`streetScale(nominal, measured = nominal)`: seconds of the street's time one real second plays. 1 when the nominal
+speed is at most `BASE_SPEED` (`TURN_SPEEDS[1]`, the 1x speed), else `max(1, measured / BASE_SPEED)`: 2, 4 and 8 at
+2x, 4x and 8x when the clock keeps its pace, less on a slow device whose clock runs behind.
 
 - A unit is listed when it is in the incident's `unitHistory`, assigned to it, or has it as its job.
   - `here`: standing within 150 m of the incident on a job there (on scene, writing its report after the incident
     closed, or waiting for help with an injured officer at the same address).
-  - `near`: driving to the incident's own place with `(arriveAt - now) / 1000 / speed <= NEAR_S` (7 real seconds);
-    `eta` is those seconds.
+  - `near`: driving to the incident's own place with `(arriveAt - now) / 1000 / speed - played <= NEAR_S` (7 seconds
+    of the street's time: real seconds at 1x, under a real second at 8x); `eta` is those seconds.
   - `coming`: driving there, further away.
   - `left`: was here or sent here and is not any more (released, sent elsewhere, driving in a pursuit, transporting).
   - `takes`: `'arrest'`, `'hospital'` or `'ride'` when it left on a transport of this incident to the cells, to the
@@ -311,7 +597,7 @@ weapon (`Held`) is a pistol for the firearm tags, a knife for `weapon_knife`, el
 type Phase = 'open' | 'seen' | 'contact' | 'closing' | 'after';
 class Director {
   constructor(site: Site, cast: Cast, opts: { night: boolean; quiet?: boolean; wet?: boolean; parked?: readonly ParkedCar[] });
-  /** Follow the situation for `dt` real seconds. The first call settles the stage (see 8.6). */
+  /** Follow the situation for `dt` seconds of the street's own time (section 14). The first call settles the stage (see 8.6). */
   update(sit: Situation, dt: number): void;
   /** Everything on stage now, for the renderer. */
   frame(): Frame;
@@ -680,6 +966,14 @@ ambulance. Arrivals from the two ends coming in turn can hold a second wave back
 eight vehicles at once). A vehicle using the verge of a narrow lane does not check the house fronts there. A wreck
 that is kept from every kerb (people behind it, no free place in eight tries) stays in its lane. A camera opened a
 few seconds after the outcome shows the ending already played (8.6): the arrest's walk to the car is not seen then.
+The director does not know a petrol station's pump islands or a bus shelter's panels: open buildings are not solid
+for it. The site keeps the spot 1.2 m from every island (section 4.2), but somebody walking or waiting can still
+stand in one. Keeping people out would need the islands as solid ground (`place.ts pumpIslands` already gives their
+places). Nor does it know the price pylon or a building site's hoarding (section 9.4): the pylon stands only where
+people and cars are kept away already, the hoarding within 0.6 m of the wall. A latent matter: drawing every kind's
+made-up street with its kind mixed into the seed broke nine of the director's tests that name seeds, with somebody
+in a parked car or in a house on the streets they then got. So the layouts' own kinds keep the plain seed (section
+4), and the cause in the director is not found yet.
 
 ### 8.6 Opening a camera in the middle
 
@@ -711,7 +1005,11 @@ While `situation.paused` is true `update` moves nothing (a camera opened while p
   chimneys. The ground has the grain of asphalt, paving or grass, kerbs, a centre line, pedestrian crossings, parking
   bays with parked cars, manhole covers, and a soft shade where walls meet it. Trees are birches, lindens, pines and
   spruces by season (bare in winter, yellow in autumn); private houses have hedges or fences; streets have signs and
-  bins.
+  bins. Shop fronts carry boards with made-up words chosen by seed. The building the incident's place owns
+  (`Site.place`) is dressed by its kind instead (section 9.4): a board with the place's own name, a ground floor of
+  its kind and what hangs on its front. It never gets a random board, and when the place has a board of its own, the
+  other shop boards whose wall lies within 42 m of the spot carry no words (their glass and coloured band stay).
+  Streets without a dressed place keep their random boards.
 - **People** (`render/human.ts`). Section 11's base body, padded where clothes are, proportioned for women and
   children, painted per person (jacket, trousers, skin, hair, a police vest with reflective bands and POLITSEI on the
   back), with hair, cap peaks, rucksacks and belt kit added. `figure.ts` poses drive the skeleton.
@@ -736,7 +1034,9 @@ While `situation.paused` is true `update` moves nothing (a camera opened while p
   aim changes.
 
 Budget per frame at 640x360: under 300 000 triangles, under 120 draw calls with a full street, a dozen people and six
-vehicles; no program compiled or linked while the picture is steady.
+vehicles; no program compiled or linked while the picture is steady. A dressed place costs one more draw call and
+no program of its own (measured: 29 programs by day and 26 at night, with a place and without; an undressed street
+is unchanged).
 
 ### 9.1 Getting the first picture onto the card
 
@@ -790,7 +1090,7 @@ page; on a fast device it never comes near.
   they were meanwhile.
 - **A change of weather.** Rain starting or stopping, snow cover changing by more than 0.3, or a new season rebuilds
   the street (`setScene`) with its parked cars and clears the shadow pass's stand-in materials; the painted sheets
-  are kept. Its programs are then linked in the first frame after: one long frame, rarely.
+  are kept, except the place's sheet (9.4), which is painted again with the street. Its programs are then linked in the first frame after: one long frame, rarely.
 
 ### 9.3 What is kept, and what an opening costs
 
@@ -801,11 +1101,166 @@ page; on a fast device it never comes near.
   is plain pixels and numbers: the house-front sheet (`facades.ts`, painted once per seed at 1536 and shrunk to
   1024 by an area average, its night twin at 512), the last two car paintings (`PAINTINGS_KEPT`), the drops' table,
   and the base body (`human.ts`, loaded once; `live.ts` disposes of its GPU side when a camera closes).
+- **Skeletons.** Every figure's skinned mesh owns a clone of the base body's skeleton, and three.js keeps a
+  skeleton's bones in a texture of its own that only `skeleton.dispose()` frees. `HumanMesh.dispose` calls it.
+  Before 2.41.1 every person who left the picture, and every rebuild of the street (rain, snow, a season), left one
+  texture per figure on the graphics card until the window closed. The harness's counts hold this (section 12):
+  the textures stay level over five changes of rain and five rebuilds, and a second view opened, drawn and closed
+  leaves nothing. There is no automated test of it: `HumanMesh` needs a canvas and the loaded body.
 - **Texture memory** per opening, measured: about 32 MB by day and 18 MB at night (the house-front sheet with its
-  mipmaps is 5.6 MB of it).
+  mipmaps is 5.6 MB of it). A dressed place adds about 1.8 MB: its sheet and its night twin with mipmaps.
 - **The long task that remains.** Each opening creates a new WebGL context (1 to 4 s on a software renderer, one
   task); only one context kept for the whole page would remove it, and that is not done. With it, 'live' comes 10
   to 15 s after the click on a loaded software renderer and the first frame then takes 5 to 9 ms.
+
+### 9.4 The place's own building (`render/place.ts`)
+
+**The split.** The street data holds everything that stands on the ground where people walk and cars drive (a
+canopy on posts, its pumps, the forecourt, the bays, the shelters: section 4.3), because the director keeps people
+and vehicles out of what is solid. The renderer adds only what is within 0.6 m of the front wall or at least 2.6 m up,
+which the director need not know: the board, a band, an awning (its edge at 2.6 m), an entrance canopy (2.7 to 3.3 m
+up, 2.2 m deep, hung from the wall), a projecting sign (from 2.75 m, at most 2 m out), a cash machine, poster cases,
+a clock, flags, a scaffold (standards at 0.1 and 0.56 m out) with its netting (0.58 m out, from 2.75 m up) and a
+hoarding at its foot (0.58 m out), a building site's board on the scaffold's face (0.66 m out), a church's tower,
+door, windows and the cross over its door. Nothing new stands on the ground further than 0.6 m from the wall. A
+cemetery's headstones are not the place's but the street's: `world.ts` sets them where its benches and bins may
+stand (below).
+
+**The board** (`boardLines`). The place's own name without what the game adds in brackets (`Pank (Liivalaia)` is a
+board that says PANK), in capitals; the kind's word when there is no name. Most of the game's names are of that
+form, so most boards say the kind's word; real names such as `Ida-Tallinna Keskhaigla` are painted as they are. A
+name whose last word ends in ala, piirkond, rajoon, kallas, piir, krunt, väli, mägi, sild or hooned describes an
+area, not a building, and the kind's word is painted instead (`Lasnamäe tööstuspiirkond` is TEHAS, `Sõprussild`
+PIIRIPUNKT); a festival's ground says FESTIVAL. A board has two lines above 18 letters (above 9 on a bus shelter):
+broken at the name's comma when it has one (the comma is dropped), else at a space, never after a word of three
+letters or fewer where another space will do; of the spaces left, the one before the last word (the kind of thing
+it is) when the lines are then within 4 letters as equal as they can be, else the most equal one, a tie going to the
+later space. So ROCCA AL MARE / KESKUS, ALEKSANDER NEVSKI / KATEDRAAL, VANASADAM / A-TERMINAL. Where every space
+follows a short word (A. LE COQ / ÕLLETEHAS) the most equal one is taken. `tests/cctv-render-place.test.ts` checks
+the board of every dressed place in `src/data`.
+
+**The front.** The own building's front can differ from what its footprint would give (section 4.1): a ground floor
+of the kind (shop glass along its street walls, a public building's windows, closed walls, a hall's gates) with one
+entrance in the front; a flat roof for kiosk, shop, mall, bus station, port, airport, stadium, industrial and parking
+house (small buildings otherwise get pitched roofs, which made petrol kiosks look like houses); a plaster front in
+place of boarded wood where shop glass is needed; no upper windows for church, cemetery, stadium and parking house.
+
+The front is planned before its wall is laid. `planOwn` works out the entrance, the entrance canopy, the awning and
+the board (its wall, place and size) without drawing anything (`FrontPlan`). `world.ts` lays the own building's
+walls first and asks `boardCovers` for each bay: an upper bay whose window the board would lie over is painted as
+plain wall, and a ground bay under an eye-level plate becomes plain wall too, unless it is the door's bay.
+`dressOwn` then draws to the same plan. The bays' random choices are drawn as before, so only the covered bays
+change.
+
+| Kind | Word | What it gets |
+| --- | --- | --- |
+| bar | BAAR | shop glass, awning, projecting sign |
+| nightclub | ÖÖKLUBI | closed wall, lit strips round the door, projecting sign |
+| mall | KAUBANDUSKESKUS | shop glass, band, entrance canopy, flat roof |
+| shop | POOD | shop glass, band, flat roof |
+| bank | PANK | shop glass, band, cash machine, projecting sign |
+| school, kindergarten, university | KOOL, LASTEAED, ÜLIKOOL | a public building's front; a flag for school and university |
+| hospital | HAIGLA, with a cross | public front, entrance canopy, lit |
+| trainstation | RAUDTEEJAAM | public front, entrance canopy, clock |
+| busstation | BUSSIJAAM | shop glass, entrance canopy, clock, flat roof; the name also on the roofs of the three shelters nearest the spot |
+| port, airport | SADAM, LENNUJAAM | shop glass, entrance canopy, flat roof |
+| stadium, industrial | STAADION, TEHAS | a hall front with gates, flat roof |
+| concert | KONTSERDIMAJA | shop glass, entrance canopy, poster cases |
+| museum | MUUSEUM | public front, poster cases, flag |
+| office | BÜROOHOONE | glass front |
+| construction | EHITUS | scaffold, netting in one sheet per scaffold bay (every other a shade darker, with a painted weave), a grey hoarding 2 m high with a band in the board's yellow at the scaffold's foot, open 1.3 m to each side of the entrance |
+| parking (a parking house) | PARKLA, with a P | closed walls, flat roof, no upper windows |
+| hotel | HOTELL | public front, entrance canopy, three flags, projecting sign |
+| church | KIRIK, a plate beside the door | tower with spire and cross, tall door in a pointed arch with a cross on the wall over it (0.2 x 1.7 m with a 1 m bar, dark on a pale wall, pale on a dark one), tall windows, no upper windows |
+| cemetery | KALMISTU, a plate beside the door | a chapel: the church's pointed door, cross and tall windows without the tower, no upper windows; up to 150 headstones on the grass round it |
+| gasstation | TANKLA | a glass kiosk with band and flat roof; the name also on the canopy's fascia; one of four made-up brand colours by the site's seed, on the board, the band and the canopy's band (no real brand) |
+| government | RIIGIASUTUS | public front, flag |
+| embassy | SAATKOND, a plate beside the door | a plain white-over-red flag that claims no country |
+| prison | VANGLA | closed walls |
+
+Kinds with nothing of their own: residential, house, street, park, beach, forest, lake, highway, ruralroad, farm,
+summerhouse, village, oldtown, border (they are what the street already is). The table in the code also dresses a
+border crossing (PIIRIPUNKT, entrance canopy, flag), but `Site.place` is null for it, so the game never shows it;
+only the harness's `pk=border` does. Where the plate of a church, a cemetery and an embassy goes: below.
+
+**The cemetery's graves** (`world.ts`). Up to 150 headstones in rows (2.4 m apart one way, 1.5 m the other, within
+26 m of the chapel's middle, the rows along the chapel), grey and dark granite and a few pale ones, some leaning.
+They stand only on a green area the map draws, off the paths (their half width and 1 m) and the walks (1.6 m), at
+least 3 m from the chapel, and only where the street's furniture may stand (`free`: clear of the spot, the stopping
+places, the line of sight and the lens). They are boxes in the street's solid mesh: no draw call more.
+
+**Where the board goes** (`planFront`). Over the ground floor at the entrance (on a building of one floor, on the
+edge of its roof). Where the picture does not hold all of it there, in this order: lower on the wall; at each of
+those two heights, along the wall near the entrance (up to 3 m or the board's width either way, half a metre at a
+time, the camera's side first); then at each height slid on a metre at a time the way that brings it towards the
+middle of the picture, as far as the wall goes; on the front edge of the entrance canopy; at eye level beside the
+entrance (its middle at least 1.4 m plus half its width from the door, near there and then slid); on a wall round
+the corner that faces the camera (the four nearest within 18 m of the entrance, the same way). All of that is tried
+at the board's grown size for a camera far away (below), then at its own size, then at 0.78 and at 0.6 of it. A
+place counts only when the board is seen whole: five upright lines across it, from its first letter to its last,
+each with its foot and its top in front of the lens and projecting (`site.ts projectPoint`) within 0.92 of the way
+from the picture's middle to its edge (`EDGE`), on both axes; clear of the burned-in text in the corners (higher
+than 0.8 is out where more than 0.42 from the middle across, for the camera's name and the clock; lower than -0.8 is
+out right of 0.6, for the version); at more than about 17 degrees to its wall; and not behind another house, another
+wing of its own building, a roof on posts, or its own canopy or awning (for these the board's top edge, which the
+camera loses first). The first such place is taken. Where no place, slide or size shows it whole, the board goes
+where the picture shows the most of it from its first letter on (then the most of it), so that a name starts right
+even if its end is lost. On a long front whose entrance is more than 6 m from where it happens, the board is sought
+from where it happens. On a building site it stands on the face of the scaffold (0.66 m out from the wall), so that
+the netting and the poles do not cover it; a single pole can still cross it. Where the camera looks along the wall,
+a copy of the board stands out from it.
+
+**The plate beside the door** (church, cemetery's chapel, embassy) is at eye level (its foot 1.5 m up), on the side
+of the door the camera is on, else the other. Its middle is 1.9 m plus half its width from the door for a church and
+a chapel (clear of the wide door's frame, which a camera seeing the wall aslant would see it overlap), 1 m plus half
+its width for an embassy, and moved further out by up to 1.5 m, half a metre at a time, where the picture then holds
+it whole; then all of that at 0.78 and 0.6 of its size. Where it is seen whole nowhere, it goes where most of it is
+read from its first letter.
+
+**The sign standing out from the wall** (the kind's word: BAAR, PANK, HOTELL, ÖÖKLUBI) never hangs in front of the
+board on the same wall (`bladeAt`, built on `boardCovers`): where it would, it moves past the board's end away from
+the camera (half a metre beyond it), or, where the wall has no room there, past the board's near end, clear of it by
+half a metre and the sign's reach. The board carries the name, so the sign gives way.
+
+**Its size.** A board over the ground floor has its kind's own size, made up to 1.6 times larger for a camera far
+away (`GROW`) until one line of its text is 24 of the picture's 360 lines high (`BOARD_PX`), where the wall has room
+and the picture holds it whole; then the 1, 0.78 and 0.6 steps above. A board a metre high can so be 1.6 m for a
+camera more than about 30 m off: legibility before strict scale. An eye-level plate keeps its cap of 1.45 m. The
+letters take more than half of a board's height: the board is 1.34 letter heights high in one line, 2.3 in two.
+
+**The petrol station's forecourt** (a `paved` area round an open building over 80 m2) is poured concrete in slabs
+of 5 m with dark joints. On the ground it lies 0.027 m up: over the green, forest, pitch and sand areas (0.02) and
+under the paths (0.03), so that a station on a lawn the map draws shows its paving, and a footpath across the
+forecourt keeps its own place.
+
+**The petrol station's price pylon** (6.2 m high, taller than most cameras hang) stands 3.2 m past the edge of the
+nearest street, tried 8, 14 and 20 m to either side along it, only where `hidesPlace` is false: not in the field of
+view within 14 m of the lens, and not within 1.8 m of the line from the lens to the spot, the road's spot, the
+canopy's middle and corners, the own front's ends or the door. With no such place free it is left out.
+
+**The sheet.** One canvas of 1024 x 256: the board as large as its text fits, and the small parts in the board's
+colours (the word sign, the cash machine, the awning's cloth, two flags, the clock, a church's door and window, plain
+colours). Its night twin of 512 x 128 holds what is lit. It is made in `buildWorld`, uploaded in `prepare` with the
+street's other textures and disposed with the street. It is opaque, so its paintings take the colour of their corners
+(white: as painted; the wall's colour for a church's door and windows). The mesh `place` draws it with a material
+built like the house fronts' (the same `onBeforeCompile`, cache key `cctv-wall`): one more draw call, no program of
+its own, no shadow. Its emissive is 0.5 + 0.5 x night while the lamps are on (the house fronts' 0.2 + 0.5 x night).
+Name boards and kind-word boards are lit the same way. The night picture's gain is 2.15, so a lit board with a light
+ground (the hospital's cream, a yellow brand) would clip to a white blot: in the night twin the lit board and the
+word sign are drawn dimmed to min(1, 0.37 / luminance of the ground) to the power 1 / 2.2 (`LIT_GROUND`,
+`luminance`), and a dark ground is left as painted. `tests/cctv-render-place.test.ts` covers the pure parts of the
+file (the board's text over every place in `src/data`, `hidesPlace`, where `planOwn` puts the board, `boardCovers`,
+`bladeAt`, `luminance`); it needs no map sample.
+
+Known limits. A board or plate that no place, slide or size shows whole is still drawn in part, from its first
+letter. Where the camera stands decides the rest, and that is the site's (section 4.2), not the renderer's: among the
+real places filmed, a university's board is a small sliver at the far end of a long wall, a stadium's is barely in the
+picture, and a school's is small and seen from the side. On a made-up street whose place stands 40 to 60 m off at
+the top of the picture, the board is readable but small, and a concert hall, a port and an airport there share the
+car park's layout (`procedural.ts`; at one seed they no longer get the same street, section 4). A single pole of a
+building site's scaffold can cross its board. The five kinds dressed last (concert, port, airport, construction,
+cemetery) were judged by eye in the harness (`scene.html`) and on made-up streets, not by a test; the cemetery's
+graves too.
 
 ## 10. Emergency vehicles of Estonia
 
@@ -931,10 +1386,19 @@ variable is set, and without it the scene page says that no sample is configured
   models; `clean=1` turns the camera's faults off; `acts=idle,talk,...` and `cars=...` choose who and what stands
   there, `cast=0` the street alone; `dolls=1` uses the plain mannequins; `smoke=1`, `lamps=1`, `zoom=<k>`, `t=<s>`;
   `hide=<parts>` leaves parts of the picture out to see what they cost; `sheet=atlas` shows the painted house-front
-  sheet and its night twin.
+  sheet and its night twin. `name=<text>` is the place's own name on the made-up street (its board);
+  `pk=<PlaceKind>&pname=<text>` dresses the building nearest the spot as a place of that kind by hand, on any
+  street. The log line says `place=<kind>/<name>/own=<id>` and ends with what the view holds on the graphics card,
+  `tex=<textures> geo=<geometries>`. `window.__cctv.rebuild(n)` builds the street again n times, as a change of
+  weather does, and returns `textures/geometries`: the same numbers as before (geometries one apart with rain on, the
+  rain's own lines). `window.__cctv.reopen(n)` opens, draws and disposes of a second view n times and returns what
+  each left behind, which must be `0/0`. The top of `harness.ts` says the same.
 - `scene.html` plays a whole scenario through the director and the real renderer, for filming scenes from start to
   end. The street: `place=<PlaceKind>&seed=<n>`, a hand-made `plain=dead|narrow|far|square`, or a real street with
-  `tiles=<lng>,<lat>` (and `archive=<file>`, default `sample.pmtiles`) from the `EPD_MAP_TILES` folder. The cast:
+  `tiles=<lng>,<lat>` (and `archive=<file>`, default `sample.pmtiles`) from the `EPD_MAP_TILES` folder. With
+  `tiles=`, `place=<PlaceKind>&name=<text>` reads the street for that place as the game does (section 4); without
+  `place` the bare point is read as before. `name=` also names the place on a made-up street. The log line then adds
+  `place= own= front=` (what the site made of the place). The cast:
   `kind=<SceneKind>&roles=svcw&cars=...` (roles as letters) with the flags `down`, `runs`, `mayFlee`, `armed`,
   `drunk`, `live=0`, `single`, `inRoad`, `chant`, `riot`, `carFire`, `prio=<1..4>`, or `tpl=<templateId>` for a real
   incident of a shift. The situation is scripted over the scene's clock: units
@@ -944,7 +1408,9 @@ variable is set, and without it the scene page says that no sample is configured
   `weather`, `temp`, `wind`, the close view and `clean=1` as `harness.html`, and the window's own zoom
   (`zoom=<k>&panx&pany`). `quiet=1` turns passing traffic and passers-by off; `who=1` adds everybody and every vehicle
   on stage with their place and yaw to the log line; `manual=1` keeps the page from playing by itself, for a caller
-  that drives it with `step` and `seek`. The top of `scene.ts` lists the parameters.
+  that drives it with `step` and `seek`; `cam=<x>,<y>,<h>,<tx>,<ty>[,<th>[,<fov>]]` hangs the camera by hand in scene
+  metres (its place, height, target, the target's height and the lens). The top of `scene.ts` lists the
+  parameters.
 - `vehicles.html` shows the vehicles on plain asphalt: `car=<id>,...` or `set=police|ems|civil|all`,
   `view=front|rear|side|top|cctv`, `night=1`, `lamps=1`, `beacons=1`, `low=1` for the parked cars' level of detail.
 - `model.html?src=<url>` draws a glTF model four times, turned a quarter each (`plain=1`: one grey material).
@@ -956,16 +1422,19 @@ variable is set, and without it the scene page says that no sample is configured
 | File | What it guards |
 | --- | --- |
 | `tests/cctv-math.test.ts` | the local frame, angles, rings (area, inside, nearest wall and its normal), segments, the box round a house, lines (offset, slice, cut at a circle), the seeded randomness |
-| `tests/cctv-tiles.test.ts` | the street read from zoom 15 tiles: synthetic tiles written through `tests/fixtures/mapdata.ts`, roads, buildings, areas, bounds, section 4.1's heights, `readStreet` and its failure paths, the map's own opened archive; a real archive too when `EPD_PMTILES_SAMPLE` names one |
-| `tests/cctv-site.test.ts` | every site is sound (nothing inside a house or in water, a free line to the spot) for every kind of place over forty seeds, and for a dozen of them the story is in the picture (the spot, a standing adult's size, the first crew's stretch and car from each end, the door, street rather than a wall), measured with its own projection checked against `projectPoint`; hand-made streets with what real tiles bring (a lane between house fronts, an incident inside a block, a quay, a dead end, a passage); null where nothing holds; a real town's points when the Florence sample is there |
+| `tests/cctv-tiles.test.ts` | the street read from zoom 15 tiles: synthetic tiles written through `tests/fixtures/mapdata.ts`, roads, buildings, areas, bounds, section 4.1's heights, `readStreet` and its failure paths, the map's own opened archive; points of interest (kept kinds with their names, each once; no list without the layer); `readStreet` for a place (a matching name first, else the nearest, nothing beyond 250 m, without a `pois` layer, a plain kind, no road within 70 m); the name rule (whole words, four letters at the least, a shared first word only 60 m, a one-letter map name matches nothing); no street where the surroundings cannot carry the place (a petrol station in a row of houses); a real archive too when `EPD_PMTILES_SAMPLE` names one |
+| `tests/cctv-site.test.ts` | every site is sound (nothing inside a house or in water, a free line to the spot) for every kind of place over forty seeds, and for a dozen of them the story is in the picture (the spot, a standing adult's size, the first crew's stretch and car from each end, the door, street rather than a wall), measured with its own projection checked against `projectPoint`; hand-made streets with what real tiles bring (a lane between house fronts, an incident inside a block, a quay, a dead end, a passage); null where nothing holds; a real town's points when the Florence sample is there; kinds that borrow one layout get different streets at one seed, and the layouts' own kinds keep theirs; the place the incident names (a petrol station without a building, with its kiosk, and with a canopy drawn as a house; a made-up station left as it is; a car park; a bus station; a bank in a row of houses; a school between a street and a back lane; a bar in a lane between house fronts, 5 m apart: the camera across the lane has its board, none hangs on the bar's own house, the scene within 26 m of its door, an adult at least 8 % of the picture's height, no more than a quarter of the picture another house's wall; plain kinds; the made-up streets' own building; a petrol station on open ground, in a row of houses, in a block's yard and across the street; a parking house and a car park with no room; a bus station with room for one shelter only); a wall or a roof right before the lens (`nearCover` on simple cases, `panelBlock` against `render/world.ts facadeKindOf` over 4000 buildings, made-up streets with no walled camera and no pole at a wall); and, with `EPD_PMTILES_SAMPLE`, the audit's places in a real town (at most 8 % of their pictures over 15 % wall, and those only with the place's board in the picture and no more than a quarter of it another house's wall; no camera on the place's own building without its board; the board in the picture at 90 % of the places with a building at the least) and places that had a wall before the lens: a free picture at every seed, or, for a church and a bar in lanes, the board in the picture, no camera on the own building, no more than a quarter another house's wall and the scene within 16 m of the door |
 | `tests/cctv-coverage.test.ts` | the table of chances, a place has a camera or not for good, the four-digit number and the name, nothing left to see, the share of a real shift's incidents that can be watched |
 | `tests/cctv-cast.test.ts` | every template of the catalogue gets a kind at each of its places and a cast from a real incident without throwing; well-known templates get the expected kind; the choices a scene reads from its template (drunk, single, in the road, armed, chanting); the picture tells the card's story: every template and scenario that can make a `stop` has its line in `STOP_STORY`, variant by variant; a vehicle the card says has gone is not at the kerb (drive-offs, speeders, drivers who did not stop); a template whose variants differ shows the vehicle only for the variant that says it is there; a crash is of one vehicle, with somebody trapped inside, when its own card says so |
-| `tests/cctv-situation.test.ts` | a crew coming, near, here, then left over a real shift; other services; a pursuit; the outcome and the transports |
+| `tests/cctv-situation.test.ts` | a crew coming, near, here, then left over a real shift; other services; a pursuit; the outcome and the transports; `streetScale` at every speed; the etas of a step played in parts |
 | `tests/cctv-director.test.ts` | the stage before anyone comes; a patrol arrives (from the side the game says, from the open end of a dead end); what each kind of scene does; how it ends, every result; any moment is safe (opening in the middle, a closed incident, pause, the same frames from the same inputs, rapid changes, recalls); awkward streets and many crews; incidents of a real shift, traffic and passers-by, the cost of a step; what the reviewers found (crews driving up when the camera opens, a slowed clock, call-backs, stops and pursuits, arrests into the right car, the threat's distances, frames independent of how time is cut); what the films showed (arrests out of a door, officers left inside, water, smoke, chases, nobody on another's place); the parked cars solid; crews stopping where the camera sees them and the first patrol in the picture (a real town's points with `EPD_PMTILES_SAMPLE`), nobody out of the car before the game says on scene; the scenes as two reviewers wanted them (a vehicle that has gone, somebody trapped in a wreck, nobody inside anybody, the brawl's fall for the camera, crews getting out one after the other, aim kept until the cuffs are on, cuffing and the search at the car, the stretcher, the sheet and the cordon, the hose and the wrecks to the kerb, the crowd in knots, the window and the cover posts of a stop); the last pass after the reviewers (an arrest as one walk for two, never more than 1.5 m apart, for four kinds on five streets, and with parked cars, people about and one crew or two from the two ends; a crash with somebody hurt: nobody walks off while a wreck stands in the road, a wreck that moves has somebody at the wheel, and both drivers are by their cars afterwards; nobody holds their hands at their head for long; an officer who knelt by the patient gets up and steps back when the paramedics have them; out of a car door bent low for the first quarter of a second; the hose from the lorry to a nozzle aimed at the smoke, its crew before the burning house); what the verifiers of the last pass proved (a wreck kept from its kerb stands where it got to; the police are held by a wreck for 55 s after the end at most; no driver is left by a wreck when the last police crew has gone or none ever came; a camera opened after a crash has ended finds no driver by a wreck); after a tragedy the dead and the sheet (which names whom it covers) stay where they lie once the crews have gone, and a camera opened when it is long over finds the street empty; on every frame nobody inside a house, nothing jumping, moving vehicles on the road and in nothing, nobody left behind |
-| `tests/cctv-session.test.ts` | the session over a real shift with a fake view: frames with the incident's people and a patrol arriving, the clock and the light read at most every 2 s, dusk, pause, the measured pace, a crew getting out only once the game says on scene on a slow device, `expect`, the settled first frame (`stage`), the feed ending ('ended') after the street empties or when the incident leaves the simulation, the made-up street fallback, the same place twice |
+| `tests/cctv-session.test.ts` | the session over a real shift with a fake view: frames with the incident's people and a patrol arriving, the clock and the light read at most every 2 s, dusk, pause, the measured pace, a crew getting out only once the game says on scene on a slow device, the street two, four and eight times as fast at 2x, 4x and 8x and as at 1x at the real-time and call speeds, a patrol standing when the game says on scene at 1x, 4x and 8x, through a change of speed and a pause in its approach, a slow frame at 8x played in full, `expect`, the settled first frame (`stage`), the feed ending ('ended') after the street empties or when the incident leaves the simulation, the made-up street fallback, the same place twice; the place on a made-up street, the session's street as the site's own; `mapPose` (map coordinates, bearings north 0 to west 270, no pose on a made-up street; a made-up petrol station where the real one cannot stand, with no pose) |
+| `tests/cctv-render-place.test.ts` | the pure parts of `render/place.ts`: the board's text for every dressed place in `src/data` (the area names, the breaks), `hidesPlace`; where `planOwn` puts the board (slid along the wall when the entrance stands at the picture's edge, down from the roof of a tall hall of one floor, a church's plate moved and shrunk until it is whole, a board no place holds whole shown from its first letter); `boardCovers`; the sign standing out from the wall never in front of the board (`bladeAt`); `luminance`; no map sample needed |
 | `tests/cctv-lazy.test.ts` | the import guard (section 14); after a build, three.js only in the camera chunk and nothing of the camera in `sw.js` (skipped without `dist/`, required with `CCTV_DIST=1`: the CI job runs this file once more after its build with that set) |
 | `tests/sw.test.ts` | the camera chunk's name, neither it nor the body model precached, the licence file's entries |
 | `tests/visual-ui.test.ts` | the window's place on a desktop, the phone upright and on its side, the title bar never cutting the code or the number, the folded bar, reduced motion |
+| `tests/map-camera-cone.test.ts` | the cone's geometry (its width, bearing, bands, outline), the window's zoom and pan, a broken pose; the line and the label when the spot is more than 40 m from the marker (`mapLabel`, the label's side away from the marker, the camera's dot and the cone, the line only while longer than 36 px at the map's zoom); bringing it into view (the free part beside the window, below it on a phone, without the tool column; no move when it shows; an overview keeps its zoom; at most 1.5 levels closer; back only as far as needed; a free part too small for the cone, the marker brought just inside it; on the 1280 x 720 map, the marker and the ring kept together in the band, zoomed out up to 1.5 levels, the fallback when no strip holds both, an overview, no move once both show, a spot by the marker; the 3D tilt's correction, the marker and ring kept in their strip; only the marker before the picture is live); `RevealGate` (the live reveal dropped after a move, a request older than the last move dropped with the opening one, "Näita kaardil" pressed before or after a move, a reveal kept while the map has no size, "Näita kaardil" from zoom 15); the marker and its fallback; the layers in every base map |
+| `tests/map-camera-window.test.ts` | (jsdom) the window opens the camera at the map's marker and shows the map its pose only while live, nothing once closed; the incident and the place name it tells the map, the live reveal marked `auto`; the fallback to the incident's own coordinates; no cone without a picture; the small note on a made-up street, said once |
 | `e2e/camera.spec.ts` | see section 14, Tests |
 
 ## 14. The window in the game
@@ -1023,11 +1492,118 @@ show); also without the camera icon and the live tag (the lamp still says live o
 fits beside the code; and only when even that does not fit, the number's last part (`K-4821 · 0001`). In a window of
 312 px and less the place name, the icon and the tag are hidden by the style sheet as well.
 
-**The map beside it.** Selecting an incident centres the map on it, which on a desktop is where the window
-sits. So while a window is open, every focus of the map that names a zoom (the selection, the window's own open
-and its size button) is moved by `clearOfCamera` (`CameraWindow.tsx`, used by `GameScreen` `MapHost`): the map is
-centred so that the place shows in the middle of the largest strip of the map the window leaves free. Closing the
-window moves nothing back.
+**Where the camera is opened.** The window opens the camera at the point where the map draws the incident's marker:
+`OpenOptions.origin = shownIncidentCoord(sim, incident)` (`src/map/cameraCone.ts`, the map's own snap of the
+incident onto its building or road, `roads.ts incidentCoord` through the shared road service for `mapBase()`), and
+the incident's own `location.coord` when the map's road data has no answer yet. `live.ts` reads the street there for
+the incident's kind of place and its name (section 4). The camera's seed and its code are unchanged (`coverage.ts`).
+
+**The map shows the camera.** `CameraHandle.pose` is `session.ts mapPose(site)`: `at` (where the camera hangs) and
+`spot` (where the scene happens) as map coordinates through `frameAt(street.origin)`; `bearing`, degrees clockwise
+from north, `(90 - yaw of target minus camera) mod 360`; `fovH = 2 atan(tan(fov / 2) x 16 / 9)`; `reach`, the
+largest of 1.6 times the distance to the camera's target, the spot's distance plus 8 m and the far ends of
+`Site.seen`, kept within 20 to 90 m (the map clamps it again to 5 to 500 m). It is null on a made-up street. While
+the window is open, its picture live and the window not folded to its title bar, the game map draws a dot where the
+camera hangs, a ring where the scene happens, and the view cone: `fovH` wide about `bearing`, out to `reach`, in
+three bands that fade outwards, narrowed and turned with the window's zoom and pan exactly as the picture's lens crops
+(edges at `bearing + atan((2 panX -/+ 1 / zoom) tan(fovH / 2))`, `coneEdges`). When the spot is more than 40 m from
+the incident's marker (`LINK_MIN_M`: the camera found the map's own place, up to 250 m away), the place's name as the
+window's title shows it stands by the ring (`mapLabel` keeps only the letters the map's fonts have, U+0020 to U+01FF
+and U+2000 to U+20FF, at most 32; a name with nothing left gets no label). It goes on one of 8 sides of the ring
+(`labelSide`): away from the marker, away from the camera's own dot while that dot is near enough for the text to
+reach it (fully counted within 50 m of the ring, not at all from 150 m), not further into the cone, and rather off
+its middle line. A thin dashed line in the cone's colour joins the marker to the ring when the spot is more than
+40 m away and also more than 36 px away on the screen at the map's zoom (`linkShown`, `LINK_MIN_PX`: half the
+44 px marker and 14 px); nearer, the line would hide under the marker and the ring is plainly at it. The map draws
+the source again when its zoom crosses that length. Near the marker there is neither line nor name: the marker says
+which place it is. It is the GeoJSON source `epd-camera` with up to 8 features (three bands,
+`edge`, `link`, `spot`, `at`, `label`) and the layers `camera-cone`, `camera-cone-edge` (under the routes and the
+markers), `camera-link` (above the routes, under the ring), `camera-spot`, `camera-at` and `camera-label` (Noto Sans
+Medium in the cone's colour with each base map's halo), in every base map's colours. It catches no clicks and is
+hidden in cinematic mode. It goes when the window closes, the feed ends, fails or is unavailable, or the window
+folds. The window tells the map through `showCameraCone` (`cameraCone.ts`), scoped to the shift's `sim`, so a
+replay's or a menu's map never draws it. The picture's hover hint adds "Kaardil on näha kaamera asukoht ja
+vaateväli" (`game.cam.onMap`).
+
+**A street made up for the picture** has no pose and so nothing on the map. Once its picture is live the window says
+so once, small and muted in the picture's bottom left corner (`.gm-cam__nomap`): "Selle kaamera asukohta kaardil ei
+näidata" (`game.cam.noMap`, en "This camera is not shown on the map"). It fades after about 9 s, and the same
+sentence stays in the picture's hover hint.
+
+**Bringing the camera into view** (`cameraCone.ts revealPlan`, carried out by `MapController`). What has to show:
+the marker, the camera, the spot and the cone's far edge. The free part is the largest strip of the map beside the
+window (on a phone, below it, where it docks over the map), without the map's tool column (`.epdm-tools`, read live,
+cut away from the side it stands on); a strip with room for the cone (a short side of 160 px, `FREE_MIN_PX`) comes
+before a larger one without. The marker is kept 30 px inside it (`REVEAL_PAD`: half the 44 px marker and 8 px).
+
+- With the picture live, from zoom 14 up (`OVERVIEW_ZOOM`) and a free part whose short side is at least 160 px, it
+  zooms in by at most 1.5 levels (`REVEAL_ZOOM_IN`) to make the cone 60 px long (`CONE_MIN_PX`), never past zoom 18,
+  and out only as far as fitting the marker, the camera, the spot and the cone needs, with them in the middle of the
+  free part. A zoom the player chose above 18 is not undone for the cone. It does not move while everything shows and
+  the cone is as large as that rule allows.
+- Otherwise, with the picture live and the spot more than 40 m from the marker (`LINK_MIN_M`), the marker and the
+  spot's ring are kept in view together, in one of the strips the window leaves beside, above or below itself
+  (`freeStrips`, each without the tool column): the marker 30 px inside the strip, the ring 14 px (`SPOT_PAD`). The
+  map zooms out only as far as that needs, at most 1.5 levels (`REVEAL_ZOOM_OUT`), never closer than it was (than
+  zoom 15 for "Näita kaardil"), and moves only as far as it must. Of the strips, the one with the fewest px of the
+  marker outside it wins, then the one that zooms out least, then the shortest move; a strip too narrow for the whole
+  marker is taken only when no other holds the ring. When no strip holds both, the ring goes into the strip that
+  brings it nearest the marker, the marker stays whole on the map, and the line runs to it. Nothing moves once both
+  show.
+- In every other case (an overview below zoom 14, before the picture is live, no place apart on the map, a free part
+  under 160 px with the spot by the marker, or no strip that holds even the ring) the zoom never changes, and the map
+  pans only if the marker is not wholly in the free part: just far enough to bring it inside with its 30 px, not to
+  the middle of the free part, so that as much of the dispatcher's view as can stays. When the free part is too thin
+  even for the marker, nothing moves.
+- It eases over 700 ms (0 with reduced motion). With the 3D tilt on, the plan is worked out on a flat map: after the
+  ease the map looks once more and, if a point it kept (`RevealMove.keep`) lies more than 2 px outside its own box
+  (`RevealMove.within`), eases once more over 400 ms (`revealFix`), zooming out no further than the plan allows
+  (`RevealMove.minZoom`: not at all for the marker alone, 1.5 levels for the marker and the ring, as needed in the
+  first case). In the first case it centres; otherwise it moves as little as it can. This happens only if the ease
+  got there and nobody moved the map.
+- The cone is drawn whatever its size: in an overview or a small free part it can be a few px, or partly under the
+  window. The marker and the ring are what must show; the line and the window's title still say where the camera is.
+
+**When it happens** (`RevealGate`): on opening, when the picture goes live, after the size button, and on "Näita
+kaardil". Every request carries its time (`performance.now()`): the window's in `CameraConeView.revealAt`, set
+when it asks, and "Näita kaardil"'s press time, which `showCameraOnMap` stores (`cameraAskedAt`). The map records
+the time of its last move by the player or the game (`RevealGate.moved(at)`), stamped when the map handles it: a
+drag, the wheel, a pinch or keys (each `movestart` and `move` that carries an input event), the map's zoom buttons
+(`zoomBy`), `recenter`, a focus from the game and following a unit. A request older than that move (strictly
+earlier) is used up without moving the map, the opening one included, and the map stays counted as moved, so the
+reveal when the picture goes live is dropped too. That one is also dropped whenever the map was moved since the last
+reveal, however the move was noticed: any change of centre or zoom from where the last reveal left the map counts,
+so moves made in code count too, but such a move noticed only from the map's position has no time and drops no other
+request. A change of the map's size keeps its centre and zoom and does not count. The player's requests made after
+the last move (opening, the size button, "Näita kaardil") run. While the map follows a unit the window's reveals are
+used up without a move.
+A reveal that comes while the map has no size (a phone's other tab), or has not yet taken its new size, waits and
+runs on a later frame once it has one.
+
+**"Näita kaardil"** on the incident card, while this incident's camera window is open, unfolded and live with a
+place on the map (`showCameraOnMap`), runs the reveal rule from at least zoom 15 (`ASK_ZOOM`); at a fixed zoom 15
+the cone hid under the marker. Otherwise the button focuses the map at zoom 15 as before.
+
+**Other focuses** of the map that name a zoom while a window is open (selecting an incident, which on a desktop
+centres the map where the window sits) are moved by `clearOfCamera` (`CameraWindow.tsx`, used by `GameScreen`
+`MapHost`): the map is centred so that the place shows in the middle of the largest strip of the map the window
+leaves free. Closing the window moves nothing back.
+
+**Test hooks** on the map's root `.epdm`: `data-camera-cone` (how many features the camera's source holds, none when
+nothing is drawn), `data-camera-kinds` (their kinds), `data-camera-spot-m` (metres from the marker to the spot) and
+`data-zoom` (the map's zoom after each move ends).
+
+Known limits of the map's part. A camera on a made-up street (no archive, a failed read, a place its surroundings
+cannot carry) is not on the map at all. In an overview or a free part under 160 px the cone is a few px, or partly
+under the window. An overview keeps its zoom, so at 1280 x 720 (an 86 px band under the window) a unit 900 m from
+the incident can leave the map when the marker is brought out from under the window: zooming out to keep it would
+break that rule, and it is left as a choice for the owner. At 1280 x 720 the map's attribution, open until the
+player first drags the map, covers the bottom of that band, so the ring and the label can lie partly under its text;
+counting it as an obstacle would cost about 30 px of the band. The label's side is chosen in metres, not on the
+screen: near the map's edge the ring is kept in view, the label not always. Where no strip holds both the marker and
+the ring, each new request (only the player's repeat, on a change of the window's size) may zoom out another 1.5
+levels. The cone's colours on the light Maa-amet and aerial base maps are checked by the style test only, not seen.
+The e2e cases of the cone and of the moved map need `EPD_PMTILES_SAMPLE`, which CI does not set.
 
 **On a phone** (899 px and narrower) the window is docked at the top of the map pane at full width, opaque, shown
 only on the map tab, with 44 px controls and no size button. The picture box itself is 16:9 (at most 42vh tall), so
@@ -1069,19 +1645,38 @@ state or the phase changes. Game seconds per real second are `effectiveSpeed(sim
 the window is not shown (the phone's other tabs), the window is folded above a call, or the game is paused (a zoom
 then draws the standing frame once).
 
-The session (`session.ts`) reads the situation, steps the director by the real seconds (a step of at most 0.5 s),
-reads the light again at most every 2 real seconds (`ENV_EVERY_S`: dusk falls in seconds at the fastest speed), and
-draws with the burned-in texts: the camera's name top left, the game's date and clock top right ("23.10.2026 19:42"),
-`EPD v<version>` bottom right, and a recording dot that blinks once a second of the camera's own clock.
+The session (`session.ts`) reads the situation and steps the director by the real seconds of the frame (at most
+0.5 s, `MAX_DT`) times the street's scale (`CameraSession.scale`, `streetScale` of the nominal and the measured
+speed): at 1x and below the street plays in real seconds, at 2x, 4x and 8x two, four and eight times as fast, like a
+recording played faster. A new speed counts from the next frame, and nothing jumps: the director goes on from where
+it stands, and from 1x up an eta is the same number of the street's seconds at every speed (15 game seconds each),
+so a change of speed does not time a car anew. A pause keeps the scale it stood at. The step is played in parts of
+at most 0.5 s of the street (`PART_S`), each with the situation read again with the etas shortened by what the step
+has played (`played`), because the director plays at most 2 s at once and times a car anew when its eta is off by
+more than a second: a slow frame at 8x (4 s of the street, 40 of the director's steps of 0.1 s) is played in full.
+A frame at 8x and 12 frames a second costs about 0.13 ms (at 1x about 0.06 ms), a slow frame of 0.5 s at 8x about
+0.5 ms.
+What stays in real seconds whatever the speed: the frames a second, the picture's own life (the view is handed the
+director's frame with `t` set to the picture's own clock, which starts where the director's stood and runs in real
+seconds: the blue lights and hazards flash, the rain falls, the smoke rises, the grain and the torn lines run and the camera shakes at
+their real pace), the light read again at most every 2 real seconds (`ENV_EVERY_S`: dusk falls in seconds at the
+fastest speed), the 15 s of empty street before a finished feed ends, the pace windows and the opening. It draws with
+the burned-in texts: the camera's name top left, the game's date and clock top right ("23.10.2026 19:42"),
+`EPD v<version>` bottom right, and a recording dot that blinks once a real second (it stands while the game is
+paused).
 
 **The session's pace.** The game plays at most 250 ms of a slow frame, so on a slow device its clock runs behind
 the nominal speed. The picture follows the game's real clock, not the nominal speed: over windows of 0.5 real
 seconds (`PACE_WINDOW_S`) the session measures how far `sim.now` moved against the real time between camera frames,
 keeps that pace between 0.05 and 1.5 of the nominal speed (`PACE_MIN`, `PACE_MAX`), smooths it, and passes the
-nominal speed times the pace to `situationOf` (`CameraSession.speed`). The measuring starts again after a pause or a
-change of speed. Until the pace has been measured once, units and services that are `near` are handed to the
-director as still `coming`, so a crew never gets out on camera while the unit list still says it is on its way;
-half a second later it drives in on the measured speed.
+nominal speed times the pace (`CameraSession.speed`), divided by the street's scale, to `situationOf`. Above 1x the
+scale follows the measured clock too (8x on a device whose clock keeps half the pace plays the street at 4x). The
+measuring starts again after a pause or a change of speed. Until the pace has been measured once, units and services
+that are `near` are handed to the director as still `coming`, so a crew never gets out on camera while the unit list
+still says it is on its way; half a real second later it drives in on the measured speed. At 8x that half second is
+4 s of the street (60 game seconds): a camera opened in the last minute or two of game time of an approach sees the
+car stand up to about 7 of the street's seconds (under a real second) after the game says it is on scene, and its
+officers get out after that as usual. Opened earlier, the car stands when the game says on scene at every speed.
 
 **Disposal.** The view (its WebGL context, geometry, textures, render targets) is disposed when the window closes,
 when another incident's camera opens, when a new shift starts, when the game screen unmounts, when a retry starts,
@@ -1106,7 +1701,8 @@ same machine went live sooner and then stood still for 3 to 6 s in the first fra
 
 **Where it comes from.** `live.ts` and everything it imports beyond the game's own bundle (three.js, `render/`,
 the director, the cast, the tile reader with `@mapbox/vector-tile` and `pbf`) build into one chunk,
-`assets/cctv-<hash>.js` (`vite.config.ts chunkFileName`), about 1 000 kB (290 kB gzipped). The window fetches it
+`assets/cctv-<hash>.js` (`vite.config.ts chunkFileName`), about 1 060 kB (1 061.65 kB and 312.28 kB gzipped in
+the last build); the game's entry chunk holds nothing of it (664.60 kB), and the map's chunk is 1 307.70 kB. The window fetches it
 through one loader per page that forgets a failed fetch. The body model is `assets/human-<hash>.glb` (94 kB).
 Neither is in the service worker's precache list (`vite.config.ts precacheList`, `CAMERA_CHUNK`): they are fetched
 the first time a camera is opened, from the game's own server, so the first opening needs the network; then the
@@ -1123,9 +1719,16 @@ camera in `sw.js`, required with `CCTV_DIST=1`, which the CI job's step after it
 (the chunk's name, nothing of the camera precached), `tests/visual-ui.test.ts` (the window's place, the phone
 upright and on its side, the title bar, the folded bar, reduced motion), `e2e/camera.spec.ts`: the card and the
 queue's mark, no chunk before the click, a live picture that stands while paused and moves while running, the
-incident's marker beside the window, the patrol's car arriving, the zoom buttons' focus at the limits, the size
+small note that a made-up street is not shown on the map, the incident's marker dragged under the window before
+opening and brought whole into the free part at the same zoom, the patrol's car arriving, an overview that keeps its
+zoom, the zoom buttons' focus at the limits, the size
 button (its label, no `aria-pressed`), the title bar at every width from 240 px up, paused and live, in Estonian and
 English, size and drag inside the map, K and Escape, every camera context lost and none held after garbage
 collection over three opens, a throw while drawing ending in a working retry, the phone, the fold above an answered
 112 call at 1280x720 and its unfolding, and a blocked chunk offering the reload: saved in a normal shift, a second
-press in a director-mode shift.
+press in a director-mode shift. "Surveillance camera on the map" serves the street archive that
+`EPD_PMTILES_SAMPLE` names in place of the street file and is skipped without it (so CI skips it): the cone drawn
+while live, following the window's zoom and gone when it closes; the line to the spot exactly when the spot is more
+than 40 m from the marker and more than 36 px away at the map's zoom (not checked within 3 px of that length), and
+the spot at most 260 m away; a map moved while the camera connected is not pulled
+back when the picture goes live.

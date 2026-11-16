@@ -528,7 +528,10 @@ export class Director {
     this.build();
   }
 
-  /** Follow the situation for `dt` real seconds. The first call settles the stage: the same code, run forward. */
+  /**
+   * Follow the situation for `dt` seconds of the street's own time (real seconds at 1x, faster with the game's
+   * speed: session.ts). The first call settles the stage: the same code, run forward.
+   */
   update(sit: Situation, dt: number): void {
     if (!this.started) {
       this.started = true;

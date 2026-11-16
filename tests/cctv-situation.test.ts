@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { directorSpawn, dispatchUnits, pursuitAction, recallUnit, requestAgency } from '@/sim/commands';
+import { TURN_SPEEDS } from '@/sim/coop';
 import { createShift, step } from '@/sim/engine';
 import { destination, haversineKm } from '@/sim/geo';
 import { startPursuit } from '@/sim/pursuit';
@@ -13,7 +14,7 @@ import { MIN, tallinnTime } from '@/sim/time';
 import type { Incident, NewShiftOptions, SimState, Unit } from '@/sim/types';
 import { custodyDestination, moveUnit, nearestHospital } from '@/sim/units';
 import { angleDiff, frameAt, yawOf } from '@/cctv/math';
-import { NEAR_S, situationOf } from '@/cctv/situation';
+import { BASE_SPEED, NEAR_S, situationOf, streetScale } from '@/cctv/situation';
 import type { Situation, UnitSit } from '@/cctv/stage';
 
 const OPTS: NewShiftOptions = {
@@ -27,7 +28,10 @@ const OPTS: NewShiftOptions = {
   weather: 'clear',
 };
 
-/** Game seconds per real second: the game's slowest clock, so a crew a few kilometres away is not near at once. */
+/**
+ * Game seconds per second of the street's own time: 15 at every speed from 1x up (the street runs as many times faster
+ * as the game), so a crew a few kilometres away is not near at once.
+ */
 const SPEED = 15;
 
 /** A shift with one incident of a template a few kilometres from a patrol, and that patrol. */
@@ -80,7 +84,7 @@ describe('cctv situation: what the game says about an incident', () => {
 
     const { states, sits } = follow(s, inc, unit.id, (sit) => sit.closed && unitOf(sit, unit.id)?.state === 'left');
     expect(states).toEqual(['coming', 'near', 'here', 'left']);
-    // Near: the last seven real seconds of the drive, counted down in real seconds.
+    // Near: the last seven seconds of the drive in the street's own time, counted down in them.
     const near = unitOf(sits[1], unit.id)!;
     expect(near.eta).toBeGreaterThan(NEAR_S - 1.5 / SPEED - 1e-9);
     expect(near.eta).toBeLessThanOrEqual(NEAR_S);
@@ -115,7 +119,7 @@ describe('cctv situation: what the game says about an incident', () => {
     expect(last).toBeGreaterThan(0.99);
   });
 
-  it('near depends on the speed of the game: the same moment is near at a fast clock and coming at a slow one', () => {
+  it('near depends on how many game seconds a second of the street holds: near at a fast clock, coming at a slow one', () => {
     const { s, inc, unit } = shiftWith('public_order_drunk_harassing');
     dispatchUnits(s, inc.id, [unit.id]);
     const arriveAt = s.units[unit.id].move!.arriveAt;
@@ -128,6 +132,36 @@ describe('cctv situation: what the game says about an incident', () => {
     expect(near.eta).toBeCloseTo((arriveAt - s.now) / 1000 / 15, 6);
     // A speed of nothing (a paused game hands on its last running speed, but be safe) does not divide by zero.
     expect(Number.isFinite(unitOf(situationOf(s, inc, 0), unit.id)!.eta)).toBe(true);
+  });
+
+  it('the street plays in real seconds up to the 1x speed and as many times faster as the game above it', () => {
+    expect(BASE_SPEED).toBe(TURN_SPEEDS[1]);
+    // The real-time mode, an open 112 call, anything up to 1x: real seconds.
+    for (const speed of [0.5, 1, 2, 10, BASE_SPEED]) expect(streetScale(speed)).toBe(1);
+    // 2x, 4x and 8x: like a recording played two, four and eight times as fast.
+    expect(TURN_SPEEDS.slice(1).map((speed) => streetScale(speed))).toEqual([1, 2, 4, 8]);
+    // Above 1x the street follows the clock the game really keeps (a slow device), never slower than real time.
+    expect(streetScale(120, 60)).toBe(4);
+    expect(streetScale(30, 10)).toBe(1);
+    // At 1x a clock a little ahead does not speed the street up; nothing that is not a speed does anything.
+    expect(streetScale(BASE_SPEED, 17)).toBe(1);
+    for (const speed of [0, -15, NaN, Infinity]) expect(streetScale(speed)).toBe(1);
+    expect(streetScale(120, NaN)).toBe(1);
+  });
+
+  it("a long step played in parts: each part's etas are shorter by what the step has played", () => {
+    const { s, inc, unit } = shiftWith('public_order_drunk_harassing');
+    dispatchUnits(s, inc.id, [unit.id]);
+    const arriveAt = s.units[unit.id].move!.arriveAt;
+    // Eight seconds of the street away: still coming, and near once one and a half of them are played.
+    while (arriveAt - s.now > 8 * SPEED * 1000) step(s, 1000);
+    const left = (arriveAt - s.now) / 1000 / SPEED;
+    expect(unitOf(situationOf(s, inc, SPEED), unit.id)!.state).toBe('coming');
+    const later = unitOf(situationOf(s, inc, SPEED, false, 1.5), unit.id)!;
+    expect(later.state).toBe('near');
+    expect(later.eta).toBeCloseTo(left - 1.5, 6);
+    // Played past the arrival the game has not counted yet: there, waiting for it.
+    expect(unitOf(situationOf(s, inc, SPEED, false, 20), unit.id)).toMatchObject({ state: 'near', eta: 0 });
   });
 
   it('a recalled crew has left, whether it was on its way or on scene', { timeout: 60_000 }, () => {

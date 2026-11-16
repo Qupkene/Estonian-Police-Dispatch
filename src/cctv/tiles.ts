@@ -10,13 +10,15 @@
  *   `is_tunnel`, `oneway`, `service`, `name`.
  * - `buildings` (polygons): `kind` building or building_part; `height`, `min_height`; `kind_detail` roof (a canopy).
  * - `landuse` and `water` (polygons): `kind`.
+ * - `pois` (points), where the archive has the layer: `kind` (fuel, bank, parking ...) and `name`. Only the kinds a
+ *   place of the game can be are kept (place.ts POI_KINDS).
  *
  * Pure apart from `readStreet`, which only fetches the tiles: no DOM, no three.js. Decoding is done as the build
  * script does it, with @mapbox/vector-tile over a pbf reader.
  */
 import { VectorTile } from '@mapbox/vector-tile';
 import { PbfReader } from 'pbf';
-import type { LngLat } from '@/sim/types';
+import type { LngLat, PlaceKind } from '@/sim/types';
 import {
   boundingBox,
   clipLineToCircle,
@@ -34,11 +36,13 @@ import {
   sub,
   type V2,
 } from './math';
+import { carryDressing, KEPT_POI_KINDS, pickPoi, POI_KINDS, POI_REACH_M, roadAnchor, settlePlace } from './place';
 import {
   ROAD_WIDTH,
   type Area,
   type AreaKind,
   type Building,
+  type Poi,
   type Road,
   type RoadClass,
   type RoofKind,
@@ -66,6 +70,8 @@ const MIN_WIDTH_M = 0.6;
 const MERGE_M = 0.05;
 /** readStreet gives up after this long. */
 const DEFAULT_TIMEOUT_MS = 6000;
+/** At most this many points of interest are kept, the nearest. */
+export const MAX_POIS = 120;
 /** No road this close to the incident: the map has nothing to stand the scene on (site.ts uses the same 70 m). */
 const MAX_ROAD_M = 70;
 
@@ -660,11 +666,47 @@ export const MAX_HOLE_VERTICES = 48;
 /** Holes are clipped this many tile units inside the outer ring's clip line, so that a cut hole never touches it. */
 const HOLE_INSET = 0.5;
 
+/** The points of interest of one tile within `reach` metres of the origin, added to `out` (a point both tiles' buffers hold: once). */
+function readPois(vt: VectorTile, t: TileData, origin: LngLat, reach: number, out: Poi[]): boolean {
+  const pl = vt.layers.pois;
+  if (!pl) return false;
+  const tf = tileFrame(t, pl.extent, origin);
+  for (let i = 0; i < pl.length; i++) {
+    try {
+      const f = pl.feature(i);
+      const kind = text(f.properties.kind);
+      if (f.type !== 1 || !KEPT_POI_KINDS.has(kind)) continue;
+      const name = text(f.properties.name) || null;
+      for (const g of f.loadGeometry()) {
+        for (const q of pointsOf(g)) {
+          if (tf.far(q, reach)) continue;
+          const pos = tf.toLocal(q);
+          if (!out.some((o) => o.kind === kind && o.name === name && dist(o.pos, pos) < 3)) out.push({ kind, name, pos });
+        }
+      }
+    } catch {
+      // A feature that does not decode: the rest of the tile is still good.
+    }
+  }
+  return true;
+}
+
+/**
+ * The map's points of interest within `reach` metres of `origin`, the nearest first: those of the kinds a place of
+ * the game can be. Empty for an archive without a `pois` layer.
+ */
+export function poisFromTiles(tiles: TileData[], origin: LngLat, reach: number): Poi[] {
+  const out: Poi[] = [];
+  for (const t of tiles) readPois(new VectorTile(new PbfReader(bytesOf(t.data))), t, origin, reach, out);
+  return out.sort((a, b) => dist(a.pos, [0, 0]) - dist(b.pos, [0, 0]));
+}
+
 /**
  * The street of `tiles` around `origin` (source 'tiles'). Pure. Throws only when a tile does not parse as a vector
  * tile (readStreet turns that into null); a feature that does not decode is skipped.
  *
- * Roads are cut at the circle of `radius`. A building or an area is kept when it reaches within `radius` + 40 m (a
+ * Roads are cut at the circle of `radius`. Points of interest are kept within `radius` + 40 m (`pois`: only when the
+ * archive has the layer). A building or an area is kept when it reaches within `radius` + 40 m (a
  * vertex or an edge that near, or the incident inside it) and is clipped to the square of that half size around the
  * incident, so that a park or a sea the incident stands in is there and stays small.
  */
@@ -673,9 +715,12 @@ export function streetFromTiles(tiles: TileData[], origin: LngLat, radius = STRE
   const roads: (Road & { d: number })[] = [];
   const pieces: Piece[] = [];
   const areas: (Area & { a: number })[] = [];
+  const pois: Poi[] = [];
+  let hasPois = false;
 
   for (const t of tiles) {
     const vt = new VectorTile(new PbfReader(bytesOf(t.data)));
+    if (readPois(vt, t, origin, keep, pois)) hasPois = true;
 
     const rl = vt.layers.roads;
     if (rl) {
@@ -840,13 +885,16 @@ export function streetFromTiles(tiles: TileData[], origin: LngLat, radius = STRE
   for (const r of near) r.walk = hasPavements(r, buildings);
 
   areas.sort((a, b) => b.a - a.a);
-  return {
+  const street: StreetData = {
     source: 'tiles',
     radius,
     roads: near.map(({ d: _d, ...r }) => r),
     buildings,
     areas: areas.map(({ a: _a, ...x }) => x),
+    origin,
   };
+  if (hasPois) street.pois = pois.sort((a, b) => dist(a.pos, [0, 0]) - dist(b.pos, [0, 0])).slice(0, MAX_POIS);
+  return street;
 }
 
 const CAR_CLASSES: ReadonlySet<RoadClass> = new Set<RoadClass>([
@@ -901,16 +949,31 @@ export interface TileArchive {
   getZxy(z: number, x: number, y: number, signal?: AbortSignal): Promise<{ data: ArrayBuffer } | undefined>;
 }
 
+/** Has a street a road a scene can be played on within reach of its origin? */
+function usable(street: StreetData): boolean {
+  return street.roads.some((r) => !r.tunnel && r.cls !== 'rail' && r.cls !== 'tram' && nearestOnLine([0, 0], r.pts).d <= MAX_ROAD_M);
+}
+
 /**
  * Read the street around `origin` from the archive. Never throws and never hangs: no tile under the incident, a
  * tile that does not parse, a timeout (6 s), an archive shallower than zoom 14, an abort or no road within 70 m all
  * give null, and the caller makes a street up (procedural.ts). A missing tile beside the incident's own is empty
  * (open sea) and is skipped.
+ *
+ * With `place` (the incident's kind of place and its name) the street is read for that place (place.ts), and its
+ * origin may move from the given point:
+ * 1. to the map's own point for the place, where the archive has points of interest: the nearest of the kind within
+ *    250 m, one whose name matches first (the game's coordinates are typed by hand, often 100 to 300 m off);
+ * 2. then to just before the front of the place's own building (the wall that faces the best road before it), so
+ *    that the scene plays before the place and not on the street behind it;
+ * 3. or, with no road within 70 m (the middle of a stadium), to beside the nearest road the street has.
+ * `StreetData.origin` says where the origin ended up and `StreetData.place` carries the kind, the name and the
+ * place's own point for buildSite. Without points of interest step 1 is skipped and the rest works as it is.
  */
 export async function readStreet(
   archive: TileArchive,
   origin: LngLat,
-  opts: { radius?: number; signal?: AbortSignal; timeoutMs?: number } = {},
+  opts: { radius?: number; signal?: AbortSignal; timeoutMs?: number; place?: { kind: PlaceKind; name?: string | null } } = {},
 ): Promise<StreetData | null> {
   const radius = opts.radius ?? STREET_RADIUS;
   const ctl = new AbortController();
@@ -929,22 +992,71 @@ export async function readStreet(
     const header = await archive.getHeader();
     const z = Math.min(TILE_ZOOM, header.maxZoom);
     if (z < MIN_ZOOM) return null;
-    const want = tilesAround(origin, radius + POLYGON_MARGIN, z);
-    const got = await Promise.all(want.map((t) => archive.getZxy(t.z, t.x, t.y, ctl.signal)));
-    if (ctl.signal.aborted) return null;
-    const own = { x: Math.floor(tileX(origin[0], z)), y: Math.floor(tileY(origin[1], z)) };
-    const tiles: TileData[] = [];
-    for (let i = 0; i < want.length; i++) {
-      const g = got[i];
-      if (g?.data && g.data.byteLength) tiles.push({ ...want[i], data: g.data });
-      else if (want[i].x === own.x && want[i].y === own.y) return null;
+    /** The tiles read so far (null: the archive has none there). */
+    const got = new Map<string, TileData | null>();
+    /** The tiles that cover the circle of `r` metres around `o`, or null when the one under `o` is missing (or on an abort). */
+    const tilesFor = async (o: LngLat, r: number): Promise<TileData[] | null> => {
+      const want = tilesAround(o, r, z);
+      await Promise.all(
+        want.map(async (t) => {
+          const key = `${t.x}/${t.y}`;
+          if (got.has(key)) return;
+          const g = await archive.getZxy(t.z, t.x, t.y, ctl.signal);
+          got.set(key, g?.data && g.data.byteLength ? { ...t, data: g.data } : null);
+        }),
+      );
+      if (ctl.signal.aborted) return null;
+      const own = { x: Math.floor(tileX(o[0], z)), y: Math.floor(tileY(o[1], z)) };
+      const tiles: TileData[] = [];
+      for (const t of want) {
+        const data = got.get(`${t.x}/${t.y}`);
+        if (data) tiles.push(data);
+        else if (t.x === own.x && t.y === own.y) return null;
+      }
+      return tiles;
+    };
+    const read = async (o: LngLat): Promise<StreetData | null> => {
+      const tiles = await tilesFor(o, radius + POLYGON_MARGIN);
+      return tiles ? streetFromTiles(tiles, o, radius) : null;
+    };
+    const place = opts.place;
+    if (!place) {
+      const street = await read(origin);
+      return street && usable(street) ? street : null;
     }
-    const street = streetFromTiles(tiles, origin, radius);
-    const usable = street.roads.some(
-      (r) =>
-        !r.tunnel && r.cls !== 'rail' && r.cls !== 'tram' && nearestOnLine([0, 0], r.pts).d <= MAX_ROAD_M,
-    );
-    return usable ? street : null;
+    const name = place.name ?? null;
+    // 1. The map's own point for the place.
+    let at = origin;
+    if (POI_KINDS[place.kind]) {
+      const wide = await tilesFor(origin, POI_REACH_M);
+      if (!wide) return null;
+      const poi = pickPoi(poisFromTiles(wide, origin, POI_REACH_M), place.kind, name);
+      if (poi) at = frameAt(origin).toLngLat(poi.pos);
+    }
+    let street = await read(at);
+    if (!street) return null;
+    street.place = { kind: place.kind, name, at: [0, 0] };
+    // 2. Before the front of its own building; 3. or beside the nearest road when none is in reach.
+    const settled = settlePlace(street, street.place);
+    // The surroundings cannot carry the place (no room for a petrol station's canopy, for bays, for shelters): no
+    // street, and the caller shows a made-up one of the kind.
+    if (!settled.fits) return null;
+    const { plan } = settled;
+    const anchor = plan.anchor ?? (usable(street) ? null : roadAnchor(street));
+    if (plan.anchor && plan.front) street.place.door = plan.front.door;
+    if (anchor && Math.hypot(anchor[0], anchor[1]) > 3) {
+      const centre = frameAt(at).toLngLat(anchor);
+      const moved = await read(centre);
+      if (moved && usable(moved)) {
+        // The same place seen from the new origin (both frames are metres east and north: a plain shift), with what
+        // was found to stand before it, so that the site is built for the very place the origin was moved for.
+        const next = carryDressing(street, settled.street, moved, anchor);
+        next.place = { kind: place.kind, name, at: sub([0, 0], anchor) };
+        if (street.place.door) next.place.door = sub(street.place.door, anchor);
+        street = next;
+      }
+    }
+    return usable(street) ? street : null;
   })().catch(() => null);
   try {
     return await Promise.race([work, gaveUp]);

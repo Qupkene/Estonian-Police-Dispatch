@@ -3,6 +3,7 @@
  * (src/cctv/math.ts), read from the street map (tiles.ts) or made up when the map is not there (procedural.ts).
  * No DOM, no three.js: the renderer (src/cctv/render) only draws this.
  */
+import type { LngLat, PlaceKind } from '@/sim/types';
 import type { V2 } from './math';
 
 export type RoadClass =
@@ -107,6 +108,43 @@ export interface StreetData {
   roads: Road[];
   buildings: Building[];
   areas: Area[];
+  /** The map's points of interest inside the radius, when its archive has them (the game's own may have none). */
+  pois?: Poi[];
+  /** Where on the map the scene's origin is (a street read from the map): scene metres are east and north of it. */
+  origin?: LngLat;
+  /** The place the incident names, when the street was read or made for one (src/cctv/place.ts). */
+  place?: PlaceHint;
+}
+
+/** What a street is told of the place its incident names: the site finds the place's own building and front from it. */
+export interface PlaceHint {
+  kind: PlaceKind;
+  name: string | null;
+  /** The place's own point in scene metres: the map's point of interest when it has one, else the point the incident gives. */
+  at: V2;
+  /** The door of the place's own building, when the street was read around it (tiles.ts readStreet): its wall is the front. */
+  door?: V2;
+}
+
+/** A point of interest of the map near the scene (the archive's pois layer), in scene metres. */
+export interface Poi {
+  kind: string;
+  name: string | null;
+  pos: V2;
+}
+
+/** The place the incident names, as the picture is to show it. */
+export interface SitePlace {
+  kind: PlaceKind;
+  /** The place's own name when the incident has one ("Olerex Tartu", "Selver"), for its board; else null. */
+  name: string | null;
+  /** The place's own building: its Building.id in street.buildings, or null when the place has none (a car park, a park, a road). */
+  building: number | null;
+  /**
+   * The stretch of that building's wall that faces the scene (the camera sees it): its two ends on the ground and
+   * the unit vector out of the wall. Null without a building.
+   */
+  front: { a: V2; b: V2; out: V2 } | null;
 }
 
 /** A camera: where it hangs and what it looks at. Heights in metres above the ground. */
@@ -181,6 +219,8 @@ export interface Site {
    * the camera does not see the road at the scene. Vehicles that stop inside it stop in the picture.
    */
   seen?: { from: number; to: number };
+  /** The place the incident names (null: nothing of its own to show: an ordinary street, a road, a forest). */
+  place: SitePlace | null;
 }
 
 /**

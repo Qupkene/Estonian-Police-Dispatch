@@ -5402,6 +5402,30 @@ button.gm-ctask__btn:hover {
   font-size: 10px;
   pointer-events: none;
 }
+/* The camera's street is not on the map: said once, small and muted, in the picture's free corner, then it fades. */
+.gm-cam__nomap {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  max-width: calc(100% - 96px);
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+  background: rgba(0, 0, 0, 0.5);
+  color: rgba(230, 230, 230, 0.78);
+  font-size: 10.5px;
+  line-height: 1.5;
+  pointer-events: none;
+  animation: gm-cam-nomap 9s ease forwards;
+}
+@keyframes gm-cam-nomap {
+  0%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
 .gm-cam__note {
   position: absolute;
   inset: 0;
