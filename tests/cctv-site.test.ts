@@ -40,7 +40,7 @@ import {
 import { pumpIslands, settlePlace } from '@/cctv/place';
 import { layoutOf, makeStreet } from '@/cctv/procedural';
 import { facadeKindOf } from '@/cctv/render/world';
-import { buildSite, clearLine, NEAR_COVER_MAX, nearCover, onDrive, panelBlock, pavement, projectPoint, walkLine } from '@/cctv/site';
+import { boardShown, buildSite, clearLine, NEAR_COVER_MAX, nearCover, onDrive, panelBlock, pavement, projectPoint, walkLine } from '@/cctv/site';
 import { readStreet } from '@/cctv/tiles';
 import type { Building, CameraPose, Road, Site, StreetData } from '@/cctv/types';
 import type { PlaceKind } from '@/sim/types';
@@ -444,6 +444,27 @@ describe('sites on made-up streets', () => {
       poses.add(JSON.stringify(a.camera));
     }
     expect(poses.size).toBeGreaterThan(1);
+  });
+
+  it('kinds that borrow one layout do not get one street at one seed, and the layouts\' own kinds keep theirs', () => {
+    const drawn = (kind: PlaceKind, seed: number) => {
+      const street = makeStreet(kind, seed);
+      return JSON.stringify([street.roads.map((r) => r.pts), street.buildings.map((b) => b.ring)]);
+    };
+    for (const group of [['concert', 'port', 'airport', 'stadium', 'mall'], ['bar', 'bank', 'hospital', 'nightclub', 'hotel', 'school'], ['church', 'museum']] as PlaceKind[][]) {
+      for (const seed of [3, 564, 7920]) {
+        const streets = group.map((kind) => drawn(kind, seed));
+        expect(new Set(streets).size, `${group.join(', ')} at seed ${seed}`).toBe(group.length);
+        // The same kind and seed: the same street.
+        expect(drawn(group[0], seed)).toBe(streets[0]);
+      }
+    }
+    // A kind that borrows a layout is not the layout's own kind at that seed either.
+    expect(drawn('bar', 564)).not.toBe(drawn('street', 564));
+    expect(drawn('concert', 564)).not.toBe(drawn('parking', 564));
+    // The layout is still the borrowed one.
+    expect(layoutOf('port')).toBe('carpark');
+    expect(layoutOf('bank')).toBe('street');
   });
 
   it("projectPoint is the pose's pinhole picture", () => {
@@ -1088,6 +1109,39 @@ describe('the place the incident names', () => {
     expect(onStreet).toBe(FRAME_SEEDS.length);
   });
 
+  it('a bar in a lane between house fronts: the camera across the lane has its board, and none hangs on the bar looking away', () => {
+    // House fronts 5 m apart: no camera in the lane is without a wall within 8 m of its lens.
+    const lane = road([[-140, 0], [140, 0]], 'residential', 5, false);
+    const houses = [...row(2.5, 14, -70, 70, 14), ...row(-14, -2.5, -70, 70, 14)];
+    const failures: string[] = [];
+    // The bar at the incident's point, and 30 m along the lane from it on either side.
+    for (const at of [[5, 8], [-30, 9], [33, -7]] as V2[]) {
+      for (const seed of FRAME_SEEDS.slice(0, 5)) {
+        const site = buildSite(placed(streetOf([lane], houses), 'bar', at, 'Kelder'), seed)!;
+        const where = `bar at ${fmt(at)} seed ${seed}`;
+        for (const p of faults(site)) failures.push(`${where}: ${p}`);
+        const own = site.street.buildings.findIndex((b) => b.id === site.place!.building);
+        if (own < 0 || !pointInRing(at, site.street.buildings[own].ring)) {
+          failures.push(`${where}: the bar's house is not the own building`);
+          continue;
+        }
+        if (!boardShown(site)) failures.push(`${where}: the board is not in the picture`);
+        if (nearestOnRing(site.camera.pos, site.street.buildings[own].ring).d < 1.3) failures.push(`${where}: the camera hangs on the bar's own house`);
+        // The camera looks at the front from its outer side, and the scene is near the bar's door: as far along the
+        // lane from it as the lens needs to hold the road the first crew stops on beside the board.
+        const front = site.place!.front!;
+        if (dot(front.out, sub(site.camera.pos, front.a)) < 2) failures.push(`${where}: the camera is not before the front`);
+        if (site.doorBuilding !== own || dist(site.door!, site.spot) > 26) failures.push(`${where}: the scene is not near the bar's door`);
+        const person = (project(site.camera, site.spot, 1.75).y - project(site.camera, site.spot, 0).y) / 2;
+        if (person < 0.08) failures.push(`${where}: an adult at the spot is ${(person * 100).toFixed(1)} % of the picture's height`);
+        // What is right before the lens is the bar's own front, not another house's wall.
+        const others = nearCover(site.street, site.camera, 32, 18, own);
+        if (others > 0.25) failures.push(`${where}: ${(others * 100).toFixed(0)} % of the picture is another house's wall right before the lens`);
+      }
+    }
+    expect(failures, failures.slice(0, 15).join('\n')).toEqual([]);
+  }, 60_000);
+
   it('says nothing for an ordinary street, and the kind alone for a place without a building', () => {
     expect(buildSite(makeStreet('street', 3), 3)!.place).toBeNull();
     expect(buildSite(makeStreet('highway', 3), 3)!.place).toBeNull();
@@ -1325,6 +1379,7 @@ describe.skipIf(!SAMPLE || !existsSync(SAMPLE))("the audit's places in a real to
     let withBuilding = 0;
     let pictures = 0;
     let walled = 0;
+    let boards = 0;
     // The point as the game has it: typed by hand, some way off the place (here 60 m to the north-east).
     for (const off of [0, 60]) {
       for (const [kind, name, lng, lat] of PLACES) {
@@ -1348,12 +1403,23 @@ describe.skipIf(!SAMPLE || !existsSync(SAMPLE))("the audit's places in a real to
         for (const p of [...invalid(site.street, site), ...unsound(site.street, site)]) bad.push(`${at}: ${p}`);
         const f = framing(site);
         if (!inFrame(f.spot, 0.2)) bad.push(`${at}: the spot is not in the picture`);
-        // A wall or a roof right before the lens: never over a quarter of the picture, and over a seventh only in a
-        // lane too narrow for any other camera.
+        // A wall or a roof right before the lens over a seventh of the picture: only where the picture has the place's
+        // board (a lane's camera across from the front), and then it is the place's own front, not another house.
         const share = nearCover(site.street, site.camera);
+        const shown = boardShown(site);
+        const ownIndex = site.street.buildings.findIndex((b) => b.id === site.place?.building);
         pictures++;
-        if (share > NEAR_COVER_MAX) walled++;
-        if (share > 0.25) bad.push(`${at}: ${(share * 100).toFixed(0)} % of the picture is a wall or a roof right before the lens`);
+        if (shown) boards++;
+        if (share > NEAR_COVER_MAX) {
+          walled++;
+          const others = nearCover(site.street, site.camera, 32, 18, ownIndex);
+          if (!shown) bad.push(`${at}: ${(share * 100).toFixed(0)} % of the picture is a wall or a roof right before the lens, and the place's board is not in it`);
+          else if (others > 0.25) bad.push(`${at}: ${(others * 100).toFixed(0)} % of the picture is another house's wall right before the lens`);
+        }
+        // No camera hangs on the place's own building looking away from its board.
+        if (ownIndex >= 0 && !shown && nearestOnRing(site.camera.pos, site.street.buildings[ownIndex].ring).d < 1.3) {
+          bad.push(`${at}: the camera hangs on the place's own building without its board in the picture`);
+        }
         const p = site.place;
         if (!p || p.kind !== kind || p.name !== name) {
           bad.push(`${at}: the site does not say its place`);
@@ -1387,10 +1453,12 @@ describe.skipIf(!SAMPLE || !existsSync(SAMPLE))("the audit's places in a real to
     expect(bad, bad.join('\n')).toEqual([]);
     // The door people come out of is the place's own nearly everywhere it has a building.
     expect(ownDoor, `${ownDoor} of ${withBuilding}`).toBeGreaterThanOrEqual(withBuilding * 0.85);
-    expect(walled, `${walled} of ${pictures}`).toBeLessThanOrEqual(pictures * 0.05);
+    expect(walled, `${walled} of ${pictures}`).toBeLessThanOrEqual(pictures * 0.08);
+    // The place's board is in the picture nearly everywhere the place has a front.
+    expect(boards, `${boards} of ${withBuilding}`).toBeGreaterThanOrEqual(withBuilding * 0.9);
   }, 600_000);
 
-  it('places that had a wall, a roof or a balcony before the lens have a free picture at every seed', async () => {
+  it('places that had a wall, a roof or a balcony before the lens have a free picture, or their own front with its board, at every seed', async () => {
     const fd = openSync(SAMPLE, 'r');
     const archive = new PMTiles({
       getKey: () => SAMPLE,
@@ -1401,8 +1469,9 @@ describe.skipIf(!SAMPLE || !existsSync(SAMPLE))("the audit's places in a real to
       },
     });
     // A school across the lane from a panel block's balconies (given from six sides), a hotel in a street of house
-    // fronts, a church among low pitched roofs.
-    const cases: [PlaceKind, string, number, number, number[]][] = [
+    // fronts: a free picture. A church among low pitched roofs and a bar on a corner, both in lanes where every camera
+    // has a wall within 8 m: the camera across the lane from the front, with the board in its picture (`lane`).
+    const cases: [PlaceKind, string, number, number, number[], boolean?][] = [
       ['school', 'Machiavelli', 11.242106, 43.770012, [500, 601, 702]],
       ['school', 'Machiavelli', 11.243599, 43.769473, [513, 614, 715]],
       ['school', 'Machiavelli', 11.242106, 43.768126, [526, 627, 728]],
@@ -1410,15 +1479,24 @@ describe.skipIf(!SAMPLE || !existsSync(SAMPLE))("the audit's places in a real to
       ['school', 'Machiavelli', 11.240167, 43.770281, [552, 653, 754]],
       ['school', 'Machiavelli', 11.241226, 43.768838, [565, 666, 767]],
       ['hotel', 'Hotell', 11.2485, 43.7745, [111, 222, 333, 444, 555, 666]],
-      ['church', 'S. Frediano', 11.244005, 43.769959, [15850387, 15850488, 15850589, 15850690, 15850791, 15850892]],
+      ['church', 'S. Frediano', 11.244005, 43.769959, [15850387, 15850488, 15850589, 15850690, 15850791, 15850892], true],
+      ['bar', 'Baar (Kalamaja)', 11.249831, 43.768965, [96028, 1, 2, 3, 4, 5], true],
     ];
     const bad: string[] = [];
-    for (const [kind, name, lng, lat, seeds] of cases) {
+    for (const [kind, name, lng, lat, seeds, lane] of cases) {
       const street = (await readStreet(archive, [lng, lat], { place: { kind, name } }))!;
       for (const seed of seeds) {
         const site = buildSite(street, seed)!;
+        const at = `${name} ${lng},${lat} seed ${seed}`;
         const share = nearCover(site.street, site.camera);
-        if (share > NEAR_COVER_MAX) bad.push(`${name} ${lng},${lat} seed ${seed}: ${(share * 100).toFixed(0)} %`);
+        if (lane) {
+          const own = site.street.buildings.findIndex((b) => b.id === site.place!.building);
+          const others = nearCover(site.street, site.camera, 32, 18, own);
+          if (!boardShown(site)) bad.push(`${at}: the place's board is not in the picture`);
+          if (nearestOnRing(site.camera.pos, site.street.buildings[own].ring).d < 1.3) bad.push(`${at}: the camera hangs on the place's own building`);
+          if (others > 0.25) bad.push(`${at}: ${(others * 100).toFixed(0)} % of the picture is another house's wall right before the lens`);
+          if (dist(site.spot, site.door ?? [1e9, 1e9]) > 16) bad.push(`${at}: the scene is not at the place's door`);
+        } else if (share > NEAR_COVER_MAX) bad.push(`${at}: ${(share * 100).toFixed(0)} %`);
         // No camera hangs among a panel block's balconies.
         for (const b of site.street.buildings) {
           if (!panelBlock(b)) continue;

@@ -179,9 +179,9 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
   const marker = useRef<LngLat | null>(null);
   /**
    * Asks the map to bring the marker and the cone into view: on opening, once live (`auto`: left out when the map was
-   * moved meanwhile), and after a change of size.
+   * moved meanwhile), and after a change of size; `at` is when (the map drops a request older than its last move).
    */
-  const [reveal, setReveal] = useState({ n: 0, auto: false });
+  const [reveal, setReveal] = useState({ n: 0, auto: false, at: 0 });
   /** Where the window was dragged to, from the map area's top left corner; null while it sits in its corner. */
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   /** The width the map area leaves the window (px; null on a phone, where it is docked at full width). */
@@ -283,7 +283,7 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
         handle = h;
         handleRef.current = h;
         setPose(h.pose);
-        if (h.pose) setReveal({ n: nextReveal(), auto: true });
+        if (h.pose) setReveal({ n: nextReveal(), auto: true, at: performance.now() });
         setState('live');
       })
       .catch((e: unknown) => {
@@ -468,7 +468,7 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
   // moved meanwhile) and after a change of size, the map brings the marker and the cone into the part of the map the
   // window leaves free (it does not move when they already show there, and keeps an overview's zoom). GameScreen
   // MapHost moves every other focus while a window is open, see clearOfCamera.
-  useEffect(() => setReveal({ n: nextReveal(), auto: false }), [large]);
+  useEffect(() => setReveal({ n: nextReveal(), auto: false, at: performance.now() }), [large]);
   const sim = useGame((s) => s.sim);
   const live = state === 'live';
   const folded = fold !== null;
@@ -487,6 +487,7 @@ function CameraFrame({ incidentId, byKey, crashed, onRetry }: FrameProps) {
       panX,
       shown: !folded,
       reveal: reveal.n,
+      revealAt: reveal.at,
       auto: reveal.auto,
       cover: (map) => {
         const win = winRef.current;

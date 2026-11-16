@@ -10,7 +10,7 @@
  * seed, so cameras do not all look the same way. Pure: no DOM, no three.js.
  */
 import type { PlaceKind } from '@/sim/types';
-import { nearestOnRing, pointInRing, rand, rectRing, ringArea, ringCentroid, type Rand, type V2 } from './math';
+import { hash32, nearestOnRing, pointInRing, rand, rectRing, ringArea, ringCentroid, type Rand, type V2 } from './math';
 import { hasOwnBuilding, isShown } from './place';
 import { ROAD_WIDTH, type Area, type AreaKind, type Building, type Road, type RoadClass, type RoofKind, type StreetData } from './types';
 
@@ -46,6 +46,20 @@ const LAYOUT: Partial<Record<PlaceKind, Layout>> = {
 };
 
 export const layoutOf = (kind: PlaceKind): Layout => LAYOUT[kind] ?? 'street';
+
+/** The kind each layout was drawn for: its street is drawn from the seed as it is. */
+const PLAIN: Record<Layout, PlaceKind> = {
+  street: 'street',
+  oldtown: 'oldtown',
+  station: 'busstation',
+  estate: 'residential',
+  houses: 'house',
+  carpark: 'parking',
+  shopfront: 'shop',
+  fuel: 'gasstation',
+  highway: 'highway',
+  park: 'park',
+};
 
 const FLOOR_M = 3;
 
@@ -308,13 +322,16 @@ function ownPoint(d: Draft, kind: PlaceKind): V2 {
 }
 
 /**
- * The made-up street for a kind of place. `seed` picks the variation (the same seed: the same street). `name`: the
- * place's own name, for its board.
+ * The made-up street for a kind of place. `seed` picks the variation (the same kind and seed: the same street).
+ * A kind that borrows another's layout (a concert hall, a port and an airport a car park's; a bar, a bank and a
+ * hospital a plain street's) draws from the seed with its kind mixed in: two such places do not get the same
+ * houses, turned the same way, at one seed. `name`: the place's own name, for its board.
  */
 export function makeStreet(kind: PlaceKind, seed: number, name: string | null = null): StreetData {
-  const r = rand(seed);
-  const d = new Draft(r);
   const layout = layoutOf(kind);
+  const own = kind === PLAIN[layout] ? seed >>> 0 : (seed ^ hash32('made-up street', kind)) >>> 0;
+  const r = rand(own);
+  const d = new Draft(r);
   if (layout === 'street') street(d, false);
   else if (layout === 'oldtown') street(d, true);
   else if (layout === 'station') street(d, false, 9);
@@ -326,7 +343,7 @@ export function makeStreet(kind: PlaceKind, seed: number, name: string | null = 
   else if (layout === 'highway') highway(d);
   else park(d, kind === 'cemetery');
   // Turn the whole layout about the origin.
-  const a = rand(seed ^ 0x5bd1e995)() * Math.PI * 2;
+  const a = rand(own ^ 0x5bd1e995)() * Math.PI * 2;
   const c = Math.cos(a);
   const s = Math.sin(a);
   const made: StreetData = {

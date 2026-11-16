@@ -659,6 +659,18 @@ export function boardCovers(plan: FrontPlan | null, w: OwnWall, s0: number, s1: 
   return Math.min(s1, b.s + b.W / 2) - Math.max(s0, b.s - b.W / 2) > 0.15 && Math.min(h1, b.h + b.H) - Math.max(h0, b.h) > 0.15;
 }
 
+/**
+ * Where along wall `w` the sign standing out from it goes (wanted at `s`, from h0 to h1 up, `wide` out): never in
+ * front of the board on the same wall, so past the board's end away from the camera (`camSide`) or, without room
+ * there, past its near end.
+ */
+export function bladeAt(plan: FrontPlan | null, w: OwnWall, s: number, h0: number, h1: number, wide: number, camSide: number): number {
+  const b = plan?.board;
+  if (!b || !boardCovers(plan, w, s - 0.4, s + 0.4, h0, h1)) return s;
+  const far = b.s - camSide * (b.W / 2 + 0.5);
+  return far >= 0.5 && far <= w.len - 0.5 ? far : clamp(b.s + camSide * (b.W / 2 + 0.5 + wide), 0.5, w.len - 0.5);
+}
+
 /** Dress the place's own building, wall by wall as the renderer laid them (`main`: the front), to its plan. */
 export function dressOwn(c: DressCtx, walls: readonly { w: OwnWall; main: boolean }[], plan: FrontPlan | null): void {
   for (const x of walls) dressWall(c, x.w, x.main ? plan : null);
@@ -996,8 +1008,8 @@ function dressWall(c: DressCtx, w: OwnWall, plan: FrontPlan | null): void {
     const wide = along2 ? Math.min(1.8, 0.8 * sheet.aspect) : 1.35;
     const high = along2 ? wide / sheet.aspect : 0.45;
     const uv = along2 ? sheet.board : sheet.part.word;
-    const s = clamp(sDoor + camSide * (over + 0.7), 0.5, w.len - 0.5);
     const hb = Math.max(w.base + 2.75, Math.min(floor, w.g1 - 0.1 - high));
+    const s = bladeAt(plan, w, clamp(sDoor + camSide * (over + 0.7), 0.5, w.len - 0.5), hb, hb + high, wide, camSide);
     const [i0, i1] = [0.22, 0.22 + wide];
     solids.tube(at(P(s, 0.03), hb + high + 0.07), at(P(s, i1), hb + high + 0.07), 0.022, 0.022, dark, 4);
     const tt = dir3(w.t);

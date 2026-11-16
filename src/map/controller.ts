@@ -36,6 +36,8 @@ import {
   cameraCone,
   distM,
   freeBox,
+  freeStrips,
+  linkShown,
   revealFix,
   revealPlan,
   revealPoints,
@@ -178,6 +180,8 @@ export class MapController {
   private areaStationSet: Set<string> | null = null;
   /** The camera window's view as last drawn (cameraCone.ts), and which of its reveals are owed and when. */
   private coneSeen: CameraConeView | null = null;
+  /** Whether the line from the marker to the spot was drawn at the map's zoom then (linkShown). */
+  private coneLink = false;
   private coneGate = new RevealGate();
   /** Counts the reveal's eases: the correction after one (revealFix) is for that ease only. */
   private coneEase = 0;
@@ -246,10 +250,13 @@ export class MapController {
     this.map.on('click', this.onClick);
     this.map.setMissingStyleImageResolver(this.resolveImage);
     this.map.on('dragstart', this.onUserMove);
-    // A move with an input event behind it is the player's own (the map's own eases carry none).
-    this.map.on('movestart', (e: { originalEvent?: unknown }) => {
-      if (e.originalEvent) this.coneGate.moved();
-    });
+    // A move with an input event behind it is the player's own (the map's own eases carry none): drag, wheel, pinch,
+    // keys. Its time, every frame of it, outdates a camera reveal asked for before it (RevealGate).
+    const userMove = (e: { originalEvent?: unknown }) => {
+      if (e.originalEvent) this.coneGate.moved(performance.now());
+    };
+    this.map.on('movestart', userMove);
+    this.map.on('move', userMove);
     // For the tests: the zoom the map came to rest at.
     this.map.on('moveend', () => (this.root.dataset.zoom = this.map.getZoom().toFixed(2)));
     this.map.on('zoom', this.onZoom);
@@ -418,7 +425,7 @@ export class MapController {
   }
 
   zoomBy(delta: number) {
-    this.coneGate.moved();
+    this.coneGate.moved(performance.now());
     this.map.easeTo({ zoom: this.map.getZoom() + delta, duration: this.motionOK ? 250 : 0 });
   }
 
@@ -426,7 +433,7 @@ export class MapController {
   recenter(jump = false) {
     const r = REGIONS[this.regionId];
     if (!r) return;
-    this.coneGate.moved();
+    this.coneGate.moved(performance.now());
     const opts = { duration: this.motionOK && !jump ? 900 : 0, pitch: this.map.getPitch(), bearing: 0 };
     if (this.area.sectors.length) {
       try {
@@ -486,7 +493,7 @@ export class MapController {
   }
 
   focus(target: LngLat, zoom?: number) {
-    this.coneGate.moved();
+    this.coneGate.moved(performance.now());
     // An incident or unit coordinate goes to where that marker is shown (on its building or road).
     let coord = target;
     try {
@@ -503,7 +510,7 @@ export class MapController {
   setFollow(v: boolean) {
     this.follow = v;
     if (v) {
-      this.coneGate.moved();
+      this.coneGate.moved(performance.now());
       const p = this.getProps();
       const u = p.selectedUnitId ? p.sim.units[p.selectedUnitId] : undefined;
       if (u) {
@@ -862,9 +869,13 @@ export class MapController {
   private syncCone(s: SimState) {
     const raw = cameraCone();
     const v = raw && raw.sim === s ? raw : null;
-    if (v !== this.coneSeen) {
+    // The line from the marker is drawn only while the map shows it longer than the marker's half (linkShown).
+    const mapZoom = this.map.getZoom();
+    const link = !!v?.pose && linkShown(v.marker, v.pose.spot, mapZoom);
+    if (v !== this.coneSeen || link !== this.coneLink) {
       this.coneSeen = v;
-      const fc = v?.pose && v.shown ? buildCameraCone(v.pose, v.zoom, v.panX, { marker: v.marker, place: v.place }) : EMPTY_FC;
+      this.coneLink = link;
+      const fc = v?.pose && v.shown ? buildCameraCone(v.pose, v.zoom, v.panX, { marker: v.marker, place: v.place, mapZoom }) : EMPTY_FC;
       this.setSource(SRC.camera, fc);
       // For the tests: how many features the camera's source was given (none: nothing of the camera is drawn), their
       // kinds, and how far the spot the camera shows is from the incident's marker (m).
@@ -873,7 +884,8 @@ export class MapController {
       this.root.dataset.cameraSpotM = v?.pose && v.shown ? String(Math.round(distM(v.marker, v.pose.spot))) : '';
     }
     // A map moved away from where the last reveal left it, by anyone (the game's own moves without an input event
-    // too), counts as moved. A change of the map's size keeps its centre and zoom, so it does not count.
+    // too), counts as moved, though without a time: it does not outdate a request. A change of the map's size keeps
+    // its centre and zoom, so it does not count.
     if (this.coneEasing && !this.map.isMoving()) {
       // An ease that ended without telling (it had nowhere to go): at rest here.
       this.coneEasing = false;
@@ -926,8 +938,21 @@ export class MapController {
         const q = this.map.project(p);
         return [q.x, q.y];
       };
-      const free = freeBox(width, height, v.cover(el), this.toolsBox(el));
-      const plan = revealPlan({ points, shown: points.map(project), reach: v.pose?.reach ?? null, zoom: this.map.getZoom(), width, height, free, atLeast });
+      const cover = v.cover(el);
+      const tools = this.toolsBox(el);
+      const free = freeBox(width, height, cover, tools);
+      const plan = revealPlan({
+        points,
+        shown: points.map(project),
+        reach: v.pose?.reach ?? null,
+        zoom: this.map.getZoom(),
+        width,
+        height,
+        free,
+        atLeast,
+        spot: v.pose?.spot,
+        strips: freeStrips(width, height, cover, tools),
+      });
       const ease = ++this.coneEase;
       if (!plan) {
         this.coneRest = this.restHere();
@@ -954,11 +979,10 @@ export class MapController {
         if (this.coneGate.wasMoved || !w || !h || Math.abs(this.map.getZoom() - plan.zoom) > 0.01) return;
         const [cx, cy] = project(plan.center);
         if (Math.hypot(cx - w / 2 - plan.offset[0], cy - h / 2 - plan.offset[1]) > 2) return;
-        const box = freeBox(w, h, v.cover(el), this.toolsBox(el));
-        const f = revealFix(plan.keep.map(project), box, this.map.getZoom());
+        const f = revealFix(plan.keep.map(project), plan, this.map.getZoom());
         if (!f) return;
         const at = this.map.unproject(f.at);
-        easeTo({ center: [at.lng, at.lat], zoom: f.zoom, offset: [box.x + box.w / 2 - w / 2, box.y + box.h / 2 - h / 2] }, 400);
+        easeTo({ center: [at.lng, at.lat], zoom: f.zoom, offset: [f.to[0] - w / 2, f.to[1] - h / 2] }, 400);
       };
       easeTo(plan, 700, fix);
     } catch (e) {

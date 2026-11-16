@@ -30,6 +30,11 @@ import {
   REVEAL_MAX_ZOOM,
   REVEAL_PAD,
   REVEAL_ZOOM_IN,
+  REVEAL_ZOOM_OUT,
+  SPOT_PAD,
+  freeStrips,
+  LINK_MIN_PX,
+  linkShown,
   showCameraCone,
   showCameraOnMap,
   type CameraConeView,
@@ -51,6 +56,9 @@ function polar(p: LngLat): { b: number; d: number } {
   const [e, n] = local(p);
   return { b: ((Math.atan2(e, n) / DEG) % 360 + 360) % 360, d: Math.hypot(e, n) };
 }
+/** Is the screen point inside the box (within 1e-6 px)? */
+const within = (q: [number, number], b: { x: number; y: number; w: number; h: number }) =>
+  q[0] >= b.x - 1e-6 && q[0] <= b.x + b.w + 1e-6 && q[1] >= b.y - 1e-6 && q[1] <= b.y + b.h + 1e-6;
 const bands = (fc: ReturnType<typeof buildCameraCone>) => fc.features.filter((f) => f.properties?.kind === 'band') as Feature<Polygon>[];
 /** Every vertex of the cone's bands, as seen from the camera. */
 const vertices = (fc: ReturnType<typeof buildCameraCone>) => bands(fc).flatMap((f) => f.geometry.coordinates[0].map((p) => p as LngLat));
@@ -211,17 +219,22 @@ describe('bringing the camera into view', () => {
     expect(plan(17.9, AT, { reach: 5 })!.zoom).toBeLessThanOrEqual(REVEAL_MAX_ZOOM);
   });
 
-  it('keeps an overview: below zoom 14 the zoom never changes, the map only pans to a hidden marker', () => {
+  it('keeps an overview: below zoom 14 the zoom never changes, the map only pans a hidden marker out, no further', () => {
     for (const zoom of [9, 12.5, 13.9]) {
-      // The marker under the window: a pan to the middle of the free part, same zoom.
+      // The marker under the window: a pan just far enough to bring it beside the window with its room, same zoom
+      // (w1280-overview-1.png: a pan to the middle of the free part carried a unit 900 m away off the map).
       const under = offsetM(view.marker, 270, (cover.x + cover.w / 2 - W / 2) * metresPerPx(zoom, AT[1]));
-      expect(inside(project(under, zoom)(view.marker), cover)).toBe(true);
+      const was = project(under, zoom)(view.marker);
+      expect(inside(was, cover)).toBe(true);
       const p = plan(zoom, under)!;
       expect(p).not.toBeNull();
       expect(p.zoom).toBe(zoom);
-      expect(p.center).toEqual(view.marker);
       expect(p.keep).toEqual([view.marker]);
-      expect(inside(after(p, view.marker), free, REVEAL_PAD)).toBe(true);
+      const now = after(p, view.marker);
+      expect(inside(now, free, REVEAL_PAD)).toBe(true);
+      // (Within half a px: this test's projection is a local one, the plan's Web Mercator.)
+      expect(now[0]).toBeCloseTo(free.x + free.w - REVEAL_PAD, 0);
+      expect(now[1]).toBeCloseTo(was[1], 0);
       // The marker already in the free part: no move at all, however small the cone looks.
       const c = offsetM(view.marker, 90, 200 * metresPerPx(zoom, AT[1]));
       expect(plan(zoom, c)).toBeNull();
@@ -274,12 +287,111 @@ describe('bringing the camera into view', () => {
     expect(revealPlan({ points, shown: points.map(prj(view.marker, 15)), reach: 40, zoom: 15, width: mw, height: mh, free: { x: 0, y: 340, w: mw, h: 45 } })).toBeNull();
   });
 
+  describe("at 1280 x 720, with the camera's place apart from the marker (the far Tamoil, w1280-fuelfar-1.png)", () => {
+    // The game's map at 1280 x 720: 548 x 385, the window over most of it, the tool column at its right edge. The only
+    // strip with room for the marker is the 86 px band below the window.
+    const mw = 548;
+    const mh = 385;
+    const win = { x: 40, y: 12, w: 448, h: 287 };
+    const tools = { x: 500, y: 12, w: 36, h: 230 };
+    const band = freeBox(mw, mh, win, tools);
+    const strips = freeStrips(mw, mh, win, tools);
+    const marker: LngLat = [11.228666, 43.775678];
+    const prj = (c: LngLat, zoom: number) => (p: LngLat): [number, number] => {
+      const mpp = metresPerPx(zoom, c[1]);
+      return [mw / 2 + ((p[0] - c[0]) * DEG * 6371008.8 * Math.cos(c[1] * DEG)) / mpp, mh / 2 - ((p[1] - c[1]) * DEG * 6371008.8) / mpp];
+    };
+    const land = (p: { center: LngLat; zoom: number; offset: [number, number] }, q: LngLat): [number, number] => {
+      const [x, y] = prj(p.center, p.zoom)(q);
+      return [x + p.offset[0], y + p.offset[1]];
+    };
+    /** The live reveal at `zoom` with the marker in the middle of the map (under the window), its spot `m` m towards `b`. */
+    const reveal = (b: number, m: number, zoom = 15) => {
+      const at = offsetM(marker, b, m + 12);
+      const v = { marker, pose: pose({ at, spot: offsetM(marker, b, m), bearing: (b + 180) % 360, reach: 45 }), zoom: 1, panX: 0 };
+      const pts = revealPoints(v);
+      const plan = revealPlan({ points: pts, shown: pts.map(prj(marker, zoom)), reach: 45, zoom, width: mw, height: mh, free: band, spot: v.pose.spot, strips })!;
+      return { plan, spot: v.pose.spot };
+    };
+    const whole = (q: [number, number]) => inside(q, { x: 0, y: 0, w: mw, h: mh }, MARKER_PX / 2);
+
+    it('the band is the free part, too small for the cone', () => {
+      expect(band).toEqual({ x: 0, y: 299, w: mw, h: 86 });
+      expect(strips).toContainEqual(band);
+    });
+
+    it('keeps the marker and the ring in the band together, at the same zoom when they fit', () => {
+      const { plan, spot } = reveal(250, 156);
+      expect(plan).not.toBeNull();
+      expect(plan.keep).toEqual([marker, spot]);
+      expect(plan.zoom).toBe(15);
+      expect(inside(land(plan, marker), band, REVEAL_PAD - 0.5)).toBe(true);
+      expect(inside(land(plan, spot), band, SPOT_PAD - 0.5)).toBe(true);
+    });
+
+    it('zooms out as far as that needs, no more than 1.5 levels', () => {
+      for (const b of [180, 0, 200]) {
+        const { plan, spot } = reveal(b, 156);
+        expect(plan.zoom).toBeLessThan(15);
+        expect(plan.zoom).toBeGreaterThanOrEqual(15 - REVEAL_ZOOM_OUT);
+        expect(inside(land(plan, marker), band, REVEAL_PAD - 0.5)).toBe(true);
+        expect(inside(land(plan, spot), band, SPOT_PAD - 0.5)).toBe(true);
+        // Just: one level less would not fit them (the band is 86 px tall).
+        const span = Math.abs(land(plan, marker)[1] - land(plan, spot)[1]);
+        expect(span).toBeCloseTo(band.h - REVEAL_PAD - SPOT_PAD, 0);
+      }
+    });
+
+    it('when no strip holds both, the ring goes into the band and the marker stays whole, the line running to it', () => {
+      // 300 m south: some 61 px even 1.5 levels out, the band holds 42.
+      const { plan, spot } = reveal(180, 300);
+      expect(plan.zoom).toBeCloseTo(15 - REVEAL_ZOOM_OUT, 9);
+      expect(inside(land(plan, spot), band, SPOT_PAD - 0.5)).toBe(true);
+      const m = land(plan, marker);
+      expect(whole(m)).toBe(true);
+      // As near the band as the line lets it be: straight above the ring, the ring at the band's bottom.
+      expect(m[0]).toBeCloseTo(land(plan, spot)[0], 0);
+      expect(land(plan, spot)[1]).toBeCloseTo(band.y + band.h - SPOT_PAD, 0);
+      expect(plan.within[0]).toEqual({ x: MARKER_PX / 2 + 1, y: MARKER_PX / 2 + 1, w: mw - MARKER_PX - 2, h: mh - MARKER_PX - 2 });
+      // North of the marker, the ring cannot go below it in the band with the marker on the map: it goes into the
+      // strip beside the window instead, the marker whole below it.
+      const north = reveal(0, 300);
+      const ring = land(north.plan, north.spot);
+      expect(inside(ring, strips[0], SPOT_PAD - 0.5)).toBe(true);
+      expect(whole(land(north.plan, marker))).toBe(true);
+    });
+
+    it('from an overview it keeps the zoom, never zooming in', () => {
+      const { plan, spot } = reveal(241, 156, 12.5);
+      expect(plan.zoom).toBe(12.5);
+      expect(inside(land(plan, marker), band, REVEAL_PAD - 0.5)).toBe(true);
+      expect(inside(land(plan, spot), band, SPOT_PAD - 0.5)).toBe(true);
+      // Moved only as far as it takes: the marker at the band's top with its room, straight down.
+      expect(land(plan, marker)[1]).toBeCloseTo(band.y + REVEAL_PAD, 0);
+      expect(land(plan, marker)[0]).toBeCloseTo(mw / 2, 0);
+    });
+
+    it('does not move once both show in the band', () => {
+      const { plan } = reveal(250, 156);
+      const v = { marker, pose: pose({ at: offsetM(marker, 250, 168), spot: offsetM(marker, 250, 156), bearing: 70, reach: 45 }), zoom: 1, panX: 0 };
+      const pts = revealPoints(v);
+      const shown = pts.map((q) => land(plan, q));
+      expect(revealPlan({ points: pts, shown, reach: 45, zoom: 15, width: mw, height: mh, free: band, spot: v.pose.spot, strips })).toBeNull();
+    });
+
+    it('a spot by the marker (no line) keeps the old rule: the marker alone', () => {
+      const { plan } = reveal(241, LINK_MIN_M - 5);
+      expect(plan.keep).toEqual([marker]);
+      expect(plan.zoom).toBe(15);
+    });
+  });
+
   it('before the picture is live only the marker counts: no zoom change for it', () => {
     const marker = [view.marker];
     const c = offsetM(view.marker, 270, 200 * metresPerPx(14, AT[1]));
     const p = revealPlan({ points: marker, shown: marker.map(project(c, 14)), reach: null, zoom: 14, width: W, height: H, free })!;
     expect(p.zoom).toBe(14);
-    expect(p.center[0]).toBeCloseTo(view.marker[0], 9);
+    expect(after(p, view.marker)[0]).toBeCloseTo(free.x + free.w - REVEAL_PAD, 0);
     expect(revealPlan({ points: marker, shown: marker.map(project(offsetM(view.marker, 90, 300 * metresPerPx(14, AT[1])), 14)), reach: null, zoom: 14, width: W, height: H, free })).toBeNull();
   });
 
@@ -298,18 +410,37 @@ describe('bringing the camera into view', () => {
 
 describe('the map tilted in 3D', () => {
   it('looks again once the reveal has eased and corrects what is outside the free part', () => {
-    const free = { x: 0, y: 0, w: 700, h: 800 };
+    const room = { x: REVEAL_PAD, y: REVEAL_PAD, w: 700 - 2 * REVEAL_PAD, h: 800 - 2 * REVEAL_PAD };
+    const all = (n: number) => ({ within: Array.from({ length: n }, () => room), minZoom: -Infinity, centre: true });
     // In view: nothing to correct (2 px of slack for rounding).
-    expect(revealFix([[100, 100], [600, 700], [REVEAL_PAD - 1.5, 400]], free, 17)).toBeNull();
+    expect(revealFix([[100, 100], [600, 700], [REVEAL_PAD - 1.5, 400]], all(3), 17)).toBeNull();
     // The far edge of the cone pushed below the free part by the pitch: the middle of the points to the middle of the
     // free part, zoomed out just enough to fit.
-    const f = revealFix([[100, 100], [600, 900]], free, 17)!;
+    const f = revealFix([[100, 100], [600, 900]], all(2), 17)!;
     expect(f.at).toEqual([350, 500]);
+    expect(f.to[0]).toBeCloseTo(350, 9);
+    expect(f.to[1]).toBeCloseTo(400, 9);
     expect(f.zoom).toBeCloseTo(17 + Math.log2((800 - 2 * REVEAL_PAD) / 800), 9);
     // Only a pan when they fit.
-    const g = revealFix([[650, 100], [690, 200]], free, 17)!;
+    const g = revealFix([[650, 100], [690, 200]], all(2), 17)!;
     expect(g.zoom).toBe(17);
     expect(g.at).toEqual([670, 150]);
+    expect(g.to).toEqual([350, 400]);
+  });
+
+  it('keeps the marker and the ring in their strip, zooming out no further than the move allows', () => {
+    // The 1280 x 720 band below the window (w1280-tilt-1.png): the pitch pushed the ring below the map.
+    const band = { x: 0, y: 299, w: 548, h: 86 };
+    const move = { within: [{ x: 30, y: 329, w: 488, h: 26 }, { x: 14, y: 313, w: 520, h: 58 }], minZoom: 13.5, centre: false };
+    expect(revealFix([[260, 340], [190, 360]], move, 15)).toBeNull();
+    const f = revealFix([[260, 340], [190, 410]], move, 15)!;
+    const s = 2 ** (f.zoom - 15);
+    const land = (p: [number, number]): [number, number] => [f.to[0] + (p[0] - f.at[0]) * s, f.to[1] + (p[1] - f.at[1]) * s];
+    expect(f.zoom).toBeLessThan(15);
+    expect(f.zoom).toBeGreaterThanOrEqual(13.5);
+    expect(within(land([260, 340]), move.within[0])).toBe(true);
+    expect(within(land([190, 410]), move.within[1])).toBe(true);
+    expect(band.y + band.h).toBeGreaterThan(land([190, 410])[1]);
   });
 });
 
@@ -324,8 +455,8 @@ describe('the incident and the camera apart', () => {
     const label = fc.features.find((f) => f.properties?.kind === 'label');
     expect(label?.properties?.name).toBe('Tamoil');
     expect(label?.geometry).toEqual({ type: 'Point', coordinates: p.spot });
-    // The marker lies west-north-west of the spot, the camera looks east: the name goes on the south side, away from
-    // the line and across the cone rather than along it.
+    // The marker lies west-north-west of the spot, the camera behind it to the west looks east: the name goes on the
+    // south side, away from the line, the camera's dot and the cone.
     expect(label?.properties?.anchor).toBe('top');
     expect(fc.features.map((f) => f.properties?.kind)).toEqual(['band', 'band', 'band', 'edge', 'link', 'spot', 'at', 'label']);
     expect(distM(marker, p.spot)).toBeGreaterThan(LINK_MIN_M);
@@ -344,18 +475,52 @@ describe('the incident and the camera apart', () => {
     expect(kinds).not.toContain('label');
   });
 
-  it('puts the name on the side away from the marker, across the cone', () => {
+  it('puts the name on the side away from the marker, the camera and the cone', () => {
     const p = pose();
     const side = (b: number) => buildCameraCone(p, 1, 0, { marker: offsetM(p.spot, b, 120), place: 'X' }).features.find((f) => f.properties?.kind === 'label')?.properties;
     expect(side(0)).toMatchObject({ anchor: 'top', offset: [0, 0.8] });
-    expect(side(90)).toMatchObject({ anchor: 'right', offset: [-0.9, 0] });
     expect(side(180)).toMatchObject({ anchor: 'bottom', offset: [0, -0.8] });
-    expect(side(270)).toMatchObject({ anchor: 'left', offset: [0.9, 0] });
+    // The camera 20 m west of the spot looking east: neither west (its dot) nor east (into the cone), whichever side
+    // the marker is on; across instead.
+    expect(side(90)).toMatchObject({ anchor: 'top' });
+    expect(side(270)).toMatchObject({ anchor: 'top' });
+    // The camera far behind (90 m): its dot is out of the name's reach, so the name may go its way, away from the marker.
+    const far = pose({ spot: offsetM(AT, 90, 90), reach: 120 });
+    const farSide = buildCameraCone(far, 1, 0, { marker: offsetM(far.spot, 90, 120), place: 'X' }).features.find((f) => f.properties?.kind === 'label');
+    expect(farSide?.properties).toMatchObject({ anchor: 'right' });
     // Florence's Tamoil (dt-fuelfar.png): the marker north-east of the spot, the camera looking west. Not on the
     // west side, where the cone is: below the ring.
     const tamoil = pose({ bearing: 262 });
     const at = buildCameraCone(tamoil, 1, 0, { marker: offsetM(tamoil.spot, 60, 139), place: 'Tamoil' }).features.find((f) => f.properties?.kind === 'label');
     expect(at?.properties?.anchor).toBe('top');
+    // The Tamoil of lt3-fuelfar-zoom.png: the camera's dot 15 m south-west of the ring, looking north-east towards the
+    // marker. The name went below the ring, onto the dot; now it goes to the north-west, clear of the dot, the line
+    // and the cone.
+    const spot = offsetM(AT, 45, 15);
+    const lt3 = pose({ spot, bearing: 55, fovH: 70, reach: 45 });
+    const label = buildCameraCone(lt3, 1, 0, { marker: offsetM(spot, 62, 156), place: 'Tamoil' }).features.find((f) => f.properties?.kind === 'label');
+    expect(label?.properties?.anchor).toBe('bottom-right');
+  });
+
+  it('draws the line only while the map shows it longer than the marker, so that it never hides under it', () => {
+    // In Florence, where the verifier saw it.
+    const fl: LngLat = [11.2318, 43.7843];
+    const p = pose({ at: fl, spot: offsetM(fl, 90, 20) });
+    const kinds = (m: number, mapZoom?: number) =>
+      buildCameraCone(p, 1, 0, { marker: offsetM(p.spot, 0, m), place: 'Q8', mapZoom }).features.map((f) => f.properties?.kind);
+    // Q8 in Florence (dt-open15-1.png): 48 m at zoom 15.2, some 30 px, nearly all of it under the 44 px marker.
+    expect(48 / metresPerPx(15.2, p.spot[1])).toBeLessThan(LINK_MIN_PX);
+    expect(kinds(48, 15.2)).not.toContain('link');
+    // The name stays: it tells which place the ring by the marker is.
+    expect(kinds(48, 15.2)).toContain('label');
+    // Closer in, the same place is far enough on the screen for the line.
+    expect(kinds(48, 16.5)).toContain('link');
+    expect(linkShown(p.spot, offsetM(p.spot, 0, 48), 16.5)).toBe(true);
+    // The far Tamoil, 156 m: drawn from zoom 14 up.
+    expect(kinds(156, 14)).toContain('link');
+    expect(LINK_MIN_PX).toBeGreaterThan(MARKER_PX / 2);
+    // Without the map's zoom (the metres alone) as before.
+    expect(kinds(48)).toContain('link');
   });
 
   it("keeps only the letters the map's fonts have", () => {
@@ -388,6 +553,7 @@ describe('when the map carries out a reveal', () => {
     panX: 0,
     shown: true,
     reveal: 0,
+    revealAt: 0,
     auto: false,
     cover: () => null,
     ...more,
@@ -417,6 +583,58 @@ describe('when the map carries out a reveal', () => {
     g.step(view({ reveal: nextReveal() }), false, run);
     expect(runs).toHaveLength(4);
     expect(g.wasMoved).toBe(false);
+  });
+
+  it('drops a request older than the last move, the opening one too, and keeps the map counted as moved (e2e race)', () => {
+    const runs: (number | undefined)[] = [];
+    const run = (z?: number) => (runs.push(z), true);
+    // The camera's code loading keeps the page busy: the player's drag (t 150) reaches the map before the overlay
+    // frame that sees the opening request (t 100). The opening is dropped, and the live reveal after it too.
+    const g = new RevealGate();
+    g.moved(150);
+    g.step(view({ reveal: nextReveal(), revealAt: 100, pose: null }), false, run);
+    expect(runs).toHaveLength(0);
+    expect(g.wasMoved).toBe(true);
+    g.step(view({ reveal: nextReveal(), revealAt: 2000, auto: true }), false, run);
+    expect(runs).toHaveLength(0);
+    // A drag before the camera was asked for (t 50, asked at 100): the opening is carried out, then the live one.
+    const g2 = new RevealGate();
+    g2.moved(50);
+    g2.step(view({ reveal: nextReveal(), revealAt: 100, pose: null }), false, run);
+    expect(runs).toHaveLength(1);
+    expect(g2.wasMoved).toBe(false);
+    g2.step(view({ reveal: nextReveal(), revealAt: 2000, auto: true }), false, run);
+    expect(runs).toHaveLength(2);
+    // A move noticed only by where the map is (no time) does not outdate the request, but still the live reveal.
+    const g3 = new RevealGate();
+    g3.step(view({ reveal: nextReveal(), revealAt: 100, pose: null }), false, run);
+    expect(runs).toHaveLength(3);
+    g3.moved();
+    g3.step(view({ reveal: nextReveal(), revealAt: 2000, auto: true }), false, run);
+    expect(runs).toHaveLength(3);
+    // A change of size after the move (t 2500 against the move noticed): carried out.
+    g3.step(view({ reveal: nextReveal(), revealAt: 2500 }), false, run);
+    expect(runs).toHaveLength(4);
+    // A request asked in the same frame as a later move by the game (a focus at 3001) is dropped too.
+    g3.moved(3001);
+    g3.step(view({ reveal: nextReveal(), revealAt: 3000 }), false, run);
+    expect(runs).toHaveLength(4);
+  });
+
+  it('drops "Näita kaardil" when the map was moved after the press, not when before', () => {
+    const g = new RevealGate();
+    const runs: (number | undefined)[] = [];
+    const run = (z?: number) => (runs.push(z), true);
+    const v = view();
+    showCameraCone(v);
+    g.moved(1000);
+    expect(showCameraOnMap('i1', 900)).toBe(true);
+    g.step(v, false, run);
+    expect(runs).toEqual([]);
+    expect(g.wasMoved).toBe(true);
+    expect(showCameraOnMap('i1', 1100)).toBe(true);
+    g.step(v, false, run);
+    expect(runs).toEqual([ASK_ZOOM]);
   });
 
   it('keeps a reveal that came while the map had no size, and carries it out when it has one', () => {

@@ -347,7 +347,7 @@ vehicles out of what is solid and the renderer draws it as on a made-up street. 
 
 | Place | What is added |
 | --- | --- |
-| petrol station | A canopy the street has (an open building within 75 m) is taken as it is, with a `paved` forecourt about it when it is over 80 m2. Else a free-standing house the map draws by the kiosk becomes the canopy (marked open, 5.2 m high): 80 to 300 m2, short side 6.5 m or more, long side at most 36 m, within 45 m of the point and 14 m of the kiosk on its side of the street, by a street, not on a mapped lawn. Else one is made of 21 x 9.4, 16 x 9, 12 x 8 or 11 x 7.5 m, 5.2 m high: first before the kiosk's front, then about the point along the nearest road, then by the nearest street (within 45 m) 3.5 to 12 m from its edge; in those two, slid along by half a pump island's pitch (3.2 m) first, so that the point lies between two islands. A made canopy must stand where a station can: clear of houses, roads, water, trees and pitches; 3 m clear of every house but its kiosk; not on a mapped lawn (the grass would show through the forecourt); beside a street (not a service road) within a forecourt's depth of 26 m; with its forecourt reaching that street's edge and 1 m clear of houses; the kiosk, found or made, within 25 m of it on its side of the street. A kiosk of 17 x 9, 12 x 7 or 8 x 6 m (4.2 m high) is made behind the canopy or at one end of it where the map has none there. Last, when the point is inside a house of 80 to 400 m2 that stands as a canopy would, that house is the canopy and the station has no kiosk. No canopy is under 80 m2: the renderer puts pumps under a canopy only from that size. Where none of this stands, the street cannot carry the station (`fits` false, section 4). |
+| petrol station | A canopy the street has (an open building within 75 m) is taken as it is, with a `paved` forecourt about it when it is over 80 m2. Else a free-standing house the map draws by the kiosk becomes the canopy (marked open, 5.2 m high): 80 to 300 m2, short side 6.5 m or more, long side at most 36 m, within 45 m of the point and 14 m of the kiosk on its side of the street, by a street, not on a mapped lawn. Else one is made of 21 x 9.4, 16 x 9, 12 x 8 or 11 x 7.5 m, 5.2 m high: first before the kiosk's front, then about the point along the nearest road, then by the nearest street (within 45 m) 3.5 to 12 m from its edge; in those two, slid along by half a pump island's pitch (3.2 m) first, so that the point lies between two islands. A made canopy must stand where a station can: clear of houses, roads, water, trees and pitches; 3 m clear of every house but its kiosk; not on a mapped lawn (a block's yard, a park; the renderer now draws a forecourt over a lawn, section 9.4, but a station is not made there); beside a street (not a service road) within a forecourt's depth of 26 m; with its forecourt reaching that street's edge and 1 m clear of houses; the kiosk, found or made, within 25 m of it on its side of the street. A kiosk of 17 x 9, 12 x 7 or 8 x 6 m (4.2 m high) is made behind the canopy or at one end of it where the map has none there. Last, when the point is inside a house of 80 to 400 m2 that stands as a canopy would, that house is the canopy and the station has no kiosk. No canopy is under 80 m2: the renderer puts pumps under a canopy only from that size. Where none of this stands, the street cannot carry the station (`fits` false, section 4). |
 | car park | A `parking` area (bays and parked cars are drawn on it) where the map has none within 30 m and the point is in no parking house: the largest of 52 x 32 down to 14 x 10 m about the point (shifted up to 30 m), along the nearest road, clear of houses, roads, water, trees and pitches, not on a mapped lawn, with a road within 25 m and no house between the two. Else `fits` is false. |
 | bus station | Where fewer than two shelters stand within 45 m: up to three shelters of 3.8 x 1.6 m (2.5 m high, open) along the kerb of the nearest road, 3.4 m beyond the kerb on the scene's side, each 1 m clear of every house. With room for fewer than two, `fits` is false. |
 
@@ -1036,8 +1036,10 @@ and vehicles out of what is solid. The renderer adds only what is within 0.6 m o
 which the director need not know: the board, a band, an awning (its edge at 2.6 m), an entrance canopy (2.7 to 3.3 m
 up, 2.2 m deep, hung from the wall), a projecting sign (from 2.75 m, at most 2 m out), a cash machine, poster cases,
 a clock, flags, a scaffold (standards at 0.1 and 0.56 m out) with its netting (0.58 m out, from 2.75 m up) and a
-hoarding at its foot (0.58 m out), a church's tower, door, windows and the cross over its door. Nothing new stands
-on the ground further than 0.6 m from the wall.
+hoarding at its foot (0.58 m out), a building site's board on the scaffold's face (0.66 m out), a church's tower,
+door, windows and the cross over its door. Nothing new stands on the ground further than 0.6 m from the wall. A
+cemetery's headstones are not the place's but the street's: `world.ts` sets them where its benches and bins may
+stand (below).
 
 **The board** (`boardLines`). The place's own name without what the game adds in brackets (`Pank (Liivalaia)` is a
 board that says PANK), in capitals; the kind's word when there is no name. Most of the game's names are of that
@@ -1085,7 +1087,7 @@ change.
 | parking (a parking house) | PARKLA, with a P | closed walls, flat roof, no upper windows |
 | hotel | HOTELL | public front, entrance canopy, three flags, projecting sign |
 | church | KIRIK, a plate beside the door | tower with spire and cross, tall door in a pointed arch with a cross on the wall over it (0.2 x 1.7 m with a 1 m bar, dark on a pale wall, pale on a dark one), tall windows, no upper windows |
-| cemetery | KALMISTU, a plate beside the door | a chapel: the church's pointed door, cross and tall windows without the tower, no upper windows |
+| cemetery | KALMISTU, a plate beside the door | a chapel: the church's pointed door, cross and tall windows without the tower, no upper windows; up to 150 headstones on the grass round it |
 | gasstation | TANKLA | a glass kiosk with band and flat roof; the name also on the canopy's fascia; one of four made-up brand colours by the site's seed, on the board, the band and the canopy's band (no real brand) |
 | government | RIIGIASUTUS | public front, flag |
 | embassy | SAATKOND, a plate beside the door | a plain white-over-red flag that claims no country |
@@ -1094,23 +1096,57 @@ change.
 Kinds with nothing of their own: residential, house, street, park, beach, forest, lake, highway, ruralroad, farm,
 summerhouse, village, oldtown, border (they are what the street already is). The table in the code also dresses a
 border crossing (PIIRIPUNKT, entrance canopy, flag), but `Site.place` is null for it, so the game never shows it;
-only the harness's `pk=border` does. The plate of a church, a cemetery and an embassy goes on the side of the door
-the picture holds more of.
+only the harness's `pk=border` does. Where the plate of a church, a cemetery and an embassy goes: below.
 
-**Where the board goes.** Over the ground floor at the entrance (on a building of one floor, on the edge of its
-roof). Where the picture does not hold all of it there: lower on the wall, on the front edge of the entrance canopy,
-at eye level beside the entrance, on a wall round the corner (within 18 m of the entrance), then all of that at 0.78
-and at 0.6 of its size. A place counts only when all of the board projects inside the picture (`site.ts
-projectPoint`), under the burned-in text of the top corners, at more than about 17 degrees to its wall, and not
-behind another house, another wing of its own building, a roof on posts, or its own canopy or awning. The first such
-place is taken, else the place seen most. On a long front whose entrance is more than 6 m from where it happens, the
-board goes where it happens. Where the camera looks along the wall, a copy of the board stands out from it.
+**The cemetery's graves** (`world.ts`). Up to 150 headstones in rows (2.4 m apart one way, 1.5 m the other, within
+26 m of the chapel's middle, the rows along the chapel), grey and dark granite and a few pale ones, some leaning.
+They stand only on a green area the map draws, off the paths (their half width and 1 m) and the walks (1.6 m), at
+least 3 m from the chapel, and only where the street's furniture may stand (`free`: clear of the spot, the stopping
+places, the line of sight and the lens). They are boxes in the street's solid mesh: no draw call more.
+
+**Where the board goes** (`planFront`). Over the ground floor at the entrance (on a building of one floor, on the
+edge of its roof). Where the picture does not hold all of it there, in this order: lower on the wall; at each of
+those two heights, along the wall near the entrance (up to 3 m or the board's width either way, half a metre at a
+time, the camera's side first); then at each height slid on a metre at a time the way that brings it towards the
+middle of the picture, as far as the wall goes; on the front edge of the entrance canopy; at eye level beside the
+entrance (its middle at least 1.4 m plus half its width from the door, near there and then slid); on a wall round
+the corner that faces the camera (the four nearest within 18 m of the entrance, the same way). All of that is tried
+at the board's grown size for a camera far away (below), then at its own size, then at 0.78 and at 0.6 of it. A
+place counts only when the board is seen whole: five upright lines across it, from its first letter to its last,
+each with its foot and its top in front of the lens and projecting (`site.ts projectPoint`) within 0.92 of the way
+from the picture's middle to its edge (`EDGE`), on both axes; clear of the burned-in text in the corners (higher
+than 0.8 is out where more than 0.42 from the middle across, for the camera's name and the clock; lower than -0.8 is
+out right of 0.6, for the version); at more than about 17 degrees to its wall; and not behind another house, another
+wing of its own building, a roof on posts, or its own canopy or awning (for these the board's top edge, which the
+camera loses first). The first such place is taken. Where no place, slide or size shows it whole, the board goes
+where the picture shows the most of it from its first letter on (then the most of it), so that a name starts right
+even if its end is lost. On a long front whose entrance is more than 6 m from where it happens, the board is sought
+from where it happens. On a building site it stands on the face of the scaffold (0.66 m out from the wall), so that
+the netting and the poles do not cover it; a single pole can still cross it. Where the camera looks along the wall,
+a copy of the board stands out from it.
+
+**The plate beside the door** (church, cemetery's chapel, embassy) is at eye level (its foot 1.5 m up), on the side
+of the door the camera is on, else the other. Its middle is 1.9 m plus half its width from the door for a church and
+a chapel (clear of the wide door's frame, which a camera seeing the wall aslant would see it overlap), 1 m plus half
+its width for an embassy, and moved further out by up to 1.5 m, half a metre at a time, where the picture then holds
+it whole; then all of that at 0.78 and 0.6 of its size. Where it is seen whole nowhere, it goes where most of it is
+read from its first letter.
+
+**The sign standing out from the wall** (the kind's word: BAAR, PANK, HOTELL, ÖÖKLUBI) never hangs in front of the
+board on the same wall (`bladeAt`, built on `boardCovers`): where it would, it moves past the board's end away from
+the camera (half a metre beyond it), or, where the wall has no room there, past the board's near end, clear of it by
+half a metre and the sign's reach. The board carries the name, so the sign gives way.
 
 **Its size.** A board over the ground floor has its kind's own size, made up to 1.6 times larger for a camera far
 away (`GROW`) until one line of its text is 24 of the picture's 360 lines high (`BOARD_PX`), where the wall has room
 and the picture holds it whole; then the 1, 0.78 and 0.6 steps above. A board a metre high can so be 1.6 m for a
 camera more than about 30 m off: legibility before strict scale. An eye-level plate keeps its cap of 1.45 m. The
 letters take more than half of a board's height: the board is 1.34 letter heights high in one line, 2.3 in two.
+
+**The petrol station's forecourt** (a `paved` area round an open building over 80 m2) is poured concrete in slabs
+of 5 m with dark joints. On the ground it lies 0.027 m up: over the green, forest, pitch and sand areas (0.02) and
+under the paths (0.03), so that a station on a lawn the map draws shows its paving, and a footpath across the
+forecourt keeps its own place.
 
 **The petrol station's price pylon** (6.2 m high, taller than most cameras hang) stands 3.2 m past the edge of the
 nearest street, tried 8, 14 and 20 m to either side along it, only where `hidesPlace` is false: not in the field of
@@ -1128,16 +1164,17 @@ Name boards and kind-word boards are lit the same way. The night picture's gain 
 ground (the hospital's cream, a yellow brand) would clip to a white blot: in the night twin the lit board and the
 word sign are drawn dimmed to min(1, 0.37 / luminance of the ground) to the power 1 / 2.2 (`LIT_GROUND`,
 `luminance`), and a dark ground is left as painted. `tests/cctv-render-place.test.ts` covers the pure parts of the
-file (the board's text over every place in `src/data`, `hidesPlace`, `boardCovers`, `luminance`); it needs no map
-sample.
+file (the board's text over every place in `src/data`, `hidesPlace`, where `planOwn` puts the board, `boardCovers`,
+`bladeAt`, `luminance`); it needs no map sample.
 
-Known limits. Where the entrance is at a corner of its wall and the board is hung towards the camera, the board can
-still be cut by the frame's edge (a department store in the Florence sample): the check that the board is seen whole
-lets a board through whose ends lie at the very edge. A church's plate can be cut by the edge when the door stands at
-the edge of the picture and the plate is too wide for the other side; it is not shrunk or moved further. On a
-made-up street whose place stands 40 to 60 m off at the top of the picture, the board is readable but small: the
-camera's distance is the site's. The five kinds dressed last (concert, port, airport, construction, cemetery) were
-judged by eye in the harness and on made-up streets, not by a test.
+Known limits. A board or plate that no place, slide or size shows whole is still drawn in part, from its first
+letter. Where the camera stands decides the rest, and that is the site's (section 4.2), not the renderer's: among the
+real places filmed, a university's board is a small sliver at the far end of a long wall, a stadium's is barely in the
+picture, and a school's is small and seen from the side. On a made-up street whose place stands 40 to 60 m off at
+the top of the picture, the board is readable but small, and a concert hall, a port and an airport there stand on
+the same kind of street (`procedural.ts`). A single pole of a building site's scaffold can cross its board. The
+five kinds dressed last (concert, port, airport, construction, cemetery) were judged by eye in the harness
+(`scene.html`) and on made-up streets, not by a test; the cemetery's graves too.
 
 ## 10. Emergency vehicles of Estonia
 
@@ -1306,11 +1343,11 @@ variable is set, and without it the scene page says that no sample is configured
 | `tests/cctv-situation.test.ts` | a crew coming, near, here, then left over a real shift; other services; a pursuit; the outcome and the transports; `streetScale` at every speed; the etas of a step played in parts |
 | `tests/cctv-director.test.ts` | the stage before anyone comes; a patrol arrives (from the side the game says, from the open end of a dead end); what each kind of scene does; how it ends, every result; any moment is safe (opening in the middle, a closed incident, pause, the same frames from the same inputs, rapid changes, recalls); awkward streets and many crews; incidents of a real shift, traffic and passers-by, the cost of a step; what the reviewers found (crews driving up when the camera opens, a slowed clock, call-backs, stops and pursuits, arrests into the right car, the threat's distances, frames independent of how time is cut); what the films showed (arrests out of a door, officers left inside, water, smoke, chases, nobody on another's place); the parked cars solid; crews stopping where the camera sees them and the first patrol in the picture (a real town's points with `EPD_PMTILES_SAMPLE`), nobody out of the car before the game says on scene; the scenes as two reviewers wanted them (a vehicle that has gone, somebody trapped in a wreck, nobody inside anybody, the brawl's fall for the camera, crews getting out one after the other, aim kept until the cuffs are on, cuffing and the search at the car, the stretcher, the sheet and the cordon, the hose and the wrecks to the kerb, the crowd in knots, the window and the cover posts of a stop); the last pass after the reviewers (an arrest as one walk for two, never more than 1.5 m apart, for four kinds on five streets, and with parked cars, people about and one crew or two from the two ends; a crash with somebody hurt: nobody walks off while a wreck stands in the road, a wreck that moves has somebody at the wheel, and both drivers are by their cars afterwards; nobody holds their hands at their head for long; an officer who knelt by the patient gets up and steps back when the paramedics have them; out of a car door bent low for the first quarter of a second; the hose from the lorry to a nozzle aimed at the smoke, its crew before the burning house); what the verifiers of the last pass proved (a wreck kept from its kerb stands where it got to; the police are held by a wreck for 55 s after the end at most; no driver is left by a wreck when the last police crew has gone or none ever came; a camera opened after a crash has ended finds no driver by a wreck); after a tragedy the dead and the sheet (which names whom it covers) stay where they lie once the crews have gone, and a camera opened when it is long over finds the street empty; on every frame nobody inside a house, nothing jumping, moving vehicles on the road and in nothing, nobody left behind |
 | `tests/cctv-session.test.ts` | the session over a real shift with a fake view: frames with the incident's people and a patrol arriving, the clock and the light read at most every 2 s, dusk, pause, the measured pace, a crew getting out only once the game says on scene on a slow device, the street two, four and eight times as fast at 2x, 4x and 8x and as at 1x at the real-time and call speeds, a patrol standing when the game says on scene at 1x, 4x and 8x, through a change of speed and a pause in its approach, a slow frame at 8x played in full, `expect`, the settled first frame (`stage`), the feed ending ('ended') after the street empties or when the incident leaves the simulation, the made-up street fallback, the same place twice; the place on a made-up street, the session's street as the site's own; `mapPose` (map coordinates, bearings north 0 to west 270, no pose on a made-up street; a made-up petrol station where the real one cannot stand, with no pose) |
-| `tests/cctv-render-place.test.ts` | the pure parts of `render/place.ts`: the board's text for every dressed place in `src/data` (the area names, the breaks), `hidesPlace`, `boardCovers`, `luminance`; no map sample needed |
+| `tests/cctv-render-place.test.ts` | the pure parts of `render/place.ts`: the board's text for every dressed place in `src/data` (the area names, the breaks), `hidesPlace`; where `planOwn` puts the board (slid along the wall when the entrance stands at the picture's edge, down from the roof of a tall hall of one floor, a church's plate moved and shrunk until it is whole, a board no place holds whole shown from its first letter); `boardCovers`; the sign standing out from the wall never in front of the board (`bladeAt`); `luminance`; no map sample needed |
 | `tests/cctv-lazy.test.ts` | the import guard (section 14); after a build, three.js only in the camera chunk and nothing of the camera in `sw.js` (skipped without `dist/`, required with `CCTV_DIST=1`: the CI job runs this file once more after its build with that set) |
 | `tests/sw.test.ts` | the camera chunk's name, neither it nor the body model precached, the licence file's entries |
 | `tests/visual-ui.test.ts` | the window's place on a desktop, the phone upright and on its side, the title bar never cutting the code or the number, the folded bar, reduced motion |
-| `tests/map-camera-cone.test.ts` | the cone's geometry (its width, bearing, bands, outline), the window's zoom and pan, a broken pose; the line and the label when the spot is more than 40 m from the marker (`mapLabel`, the label's side); bringing it into view (the free part beside the window, below it on a phone, without the tool column; no move when it shows; an overview keeps its zoom; at most 1.5 levels closer; back only as far as needed; a free part too small for the cone; the 3D tilt's correction; only the marker before the picture is live); `RevealGate` (the live reveal dropped after a move, a reveal kept while the map has no size, "Näita kaardil" from zoom 15); the marker and its fallback; the layers in every base map |
+| `tests/map-camera-cone.test.ts` | the cone's geometry (its width, bearing, bands, outline), the window's zoom and pan, a broken pose; the line and the label when the spot is more than 40 m from the marker (`mapLabel`, the label's side away from the marker, the camera's dot and the cone, the line only while longer than 36 px at the map's zoom); bringing it into view (the free part beside the window, below it on a phone, without the tool column; no move when it shows; an overview keeps its zoom; at most 1.5 levels closer; back only as far as needed; a free part too small for the cone, the marker brought just inside it; on the 1280 x 720 map, the marker and the ring kept together in the band, zoomed out up to 1.5 levels, the fallback when no strip holds both, an overview, no move once both show, a spot by the marker; the 3D tilt's correction, the marker and ring kept in their strip; only the marker before the picture is live); `RevealGate` (the live reveal dropped after a move, a request older than the last move dropped with the opening one, "Näita kaardil" pressed before or after a move, a reveal kept while the map has no size, "Näita kaardil" from zoom 15); the marker and its fallback; the layers in every base map |
 | `tests/map-camera-window.test.ts` | (jsdom) the window opens the camera at the map's marker and shows the map its pose only while live, nothing once closed; the incident and the place name it tells the map, the live reveal marked `auto`; the fallback to the incident's own coordinates; no cone without a picture; the small note on a made-up street, said once |
 | `e2e/camera.spec.ts` | see section 14, Tests |
 
@@ -1384,11 +1421,16 @@ the window is open, its picture live and the window not folded to its title bar,
 camera hangs, a ring where the scene happens, and the view cone: `fovH` wide about `bearing`, out to `reach`, in
 three bands that fade outwards, narrowed and turned with the window's zoom and pan exactly as the picture's lens crops
 (edges at `bearing + atan((2 panX -/+ 1 / zoom) tan(fovH / 2))`, `coneEdges`). When the spot is more than 40 m from
-the incident's marker (`LINK_MIN_M`: the camera found the map's own place, up to 250 m away), a thin dashed line in
-the cone's colour joins the marker to the ring, and the place's name as the window's title shows it stands by the
-ring, on the side away from the marker and across the cone (`mapLabel` keeps only the letters the map's fonts have,
-U+0020 to U+01FF and U+2000 to U+20FF, at most 32; a name with nothing left gets no label). Near the marker there is
-neither: the marker says which place it is. It is the GeoJSON source `epd-camera` with up to 8 features (three bands,
+the incident's marker (`LINK_MIN_M`: the camera found the map's own place, up to 250 m away), the place's name as the
+window's title shows it stands by the ring (`mapLabel` keeps only the letters the map's fonts have, U+0020 to U+01FF
+and U+2000 to U+20FF, at most 32; a name with nothing left gets no label). It goes on one of 8 sides of the ring
+(`labelSide`): away from the marker, away from the camera's own dot while that dot is near enough for the text to
+reach it (fully counted within 50 m of the ring, not at all from 150 m), not further into the cone, and rather off
+its middle line. A thin dashed line in the cone's colour joins the marker to the ring when the spot is more than
+40 m away and also more than 36 px away on the screen at the map's zoom (`linkShown`, `LINK_MIN_PX`: half the
+44 px marker and 14 px); nearer, the line would hide under the marker and the ring is plainly at it. The map draws
+the source again when its zoom crosses that length. Near the marker there is neither line nor name: the marker says
+which place it is. It is the GeoJSON source `epd-camera` with up to 8 features (three bands,
 `edge`, `link`, `spot`, `at`, `label`) and the layers `camera-cone`, `camera-cone-edge` (under the routes and the
 markers), `camera-link` (above the routes, under the ring), `camera-spot`, `camera-at` and `camera-label` (Noto Sans
 Medium in the cone's colour with each base map's halo), in every base map's colours. It catches no clicks and is
@@ -1406,27 +1448,49 @@ sentence stays in the picture's hover hint.
 the marker, the camera, the spot and the cone's far edge. The free part is the largest strip of the map beside the
 window (on a phone, below it, where it docks over the map), without the map's tool column (`.epdm-tools`, read live,
 cut away from the side it stands on); a strip with room for the cone (a short side of 160 px, `FREE_MIN_PX`) comes
-before a larger one without. Everything is kept 30 px inside it (`REVEAL_PAD`: half the 44 px marker and 8 px).
+before a larger one without. The marker is kept 30 px inside it (`REVEAL_PAD`: half the 44 px marker and 8 px).
 
-- Below zoom 14 (`OVERVIEW_ZOOM`, an overview), before the picture is live, or when the free part's short side is
-  under 160 px, the zoom never changes: the map pans the whole marker into the middle of the free part, and only if
-  it is not wholly there already. When the free part is too thin even for the marker, nothing moves.
-- From zoom 14 up it zooms in by at most 1.5 levels (`REVEAL_ZOOM_IN`) to make the cone 60 px long (`CONE_MIN_PX`),
-  never past zoom 18, and out only as far as fitting the marker, the camera, the spot and the cone needs, with them
-  in the middle of the free part. A zoom the player chose above 18 is not undone for the cone. It does not move while
-  everything shows and the cone is as large as that rule allows.
+- With the picture live, from zoom 14 up (`OVERVIEW_ZOOM`) and a free part whose short side is at least 160 px, it
+  zooms in by at most 1.5 levels (`REVEAL_ZOOM_IN`) to make the cone 60 px long (`CONE_MIN_PX`), never past zoom 18,
+  and out only as far as fitting the marker, the camera, the spot and the cone needs, with them in the middle of the
+  free part. A zoom the player chose above 18 is not undone for the cone. It does not move while everything shows and
+  the cone is as large as that rule allows.
+- Otherwise, with the picture live and the spot more than 40 m from the marker (`LINK_MIN_M`), the marker and the
+  spot's ring are kept in view together, in one of the strips the window leaves beside, above or below itself
+  (`freeStrips`, each without the tool column): the marker 30 px inside the strip, the ring 14 px (`SPOT_PAD`). The
+  map zooms out only as far as that needs, at most 1.5 levels (`REVEAL_ZOOM_OUT`), never closer than it was (than
+  zoom 15 for "Näita kaardil"), and moves only as far as it must. Of the strips, the one with the fewest px of the
+  marker outside it wins, then the one that zooms out least, then the shortest move; a strip too narrow for the whole
+  marker is taken only when no other holds the ring. When no strip holds both, the ring goes into the strip that
+  brings it nearest the marker, the marker stays whole on the map, and the line runs to it. Nothing moves once both
+  show.
+- In every other case (an overview below zoom 14, before the picture is live, no place apart on the map, a free part
+  under 160 px with the spot by the marker, or no strip that holds even the ring) the zoom never changes, and the map
+  pans only if the marker is not wholly in the free part: just far enough to bring it inside with its 30 px, not to
+  the middle of the free part, so that as much of the dispatcher's view as can stays. When the free part is too thin
+  even for the marker, nothing moves.
 - It eases over 700 ms (0 with reduced motion). With the 3D tilt on, the plan is worked out on a flat map: after the
-  ease the map looks once more and, if a point lies outside the free part, eases once more over 400 ms, centred and
-  zoomed out only if needed (`revealFix`). This happens only if the ease got there and nobody moved the map.
+  ease the map looks once more and, if a point it kept (`RevealMove.keep`) lies more than 2 px outside its own box
+  (`RevealMove.within`), eases once more over 400 ms (`revealFix`), zooming out no further than the plan allows
+  (`RevealMove.minZoom`: not at all for the marker alone, 1.5 levels for the marker and the ring, as needed in the
+  first case). In the first case it centres; otherwise it moves as little as it can. This happens only if the ease
+  got there and nobody moved the map.
 - The cone is drawn whatever its size: in an overview or a small free part it can be a few px, or partly under the
-  window. The line and the window's title still say where the camera is.
+  window. The marker and the ring are what must show; the line and the window's title still say where the camera is.
 
 **When it happens** (`RevealGate`): on opening, when the picture goes live, after the size button, and on "Näita
-kaardil". The one when the picture goes live is dropped when the map was moved since the last reveal: a drag, the
-wheel, keys or touch (a `movestart` from the player's input), the map's buttons, a focus from the game, following a
-unit, or any change of centre or zoom from where the last reveal left the map, so moves made in code count too. A
-change of the map's size keeps its centre and zoom and does not count. The player's own requests (opening, the size
-button, "Näita kaardil") always run. While the map follows a unit the window's reveals are used up without a move.
+kaardil". Every request carries its time (`performance.now()`): the window's in `CameraConeView.revealAt`, set
+when it asks, and "Näita kaardil"'s press time, which `showCameraOnMap` stores (`cameraAskedAt`). The map records
+the time of its last move by the player or the game (`RevealGate.moved(at)`), stamped when the map handles it: a
+drag, the wheel, a pinch or keys (each `movestart` and `move` that carries an input event), the map's zoom buttons
+(`zoomBy`), `recenter`, a focus from the game and following a unit. A request older than that move (strictly
+earlier) is used up without moving the map, the opening one included, and the map stays counted as moved, so the
+reveal when the picture goes live is dropped too. That one is also dropped whenever the map was moved since the last
+reveal, however the move was noticed: any change of centre or zoom from where the last reveal left the map counts,
+so moves made in code count too, but such a move noticed only from the map's position has no time and drops no other
+request. A change of the map's size keeps its centre and zoom and does not count. The player's requests made after
+the last move (opening, the size button, "Näita kaardil") run. While the map follows a unit the window's reveals are
+used up without a move.
 A reveal that comes while the map has no size (a phone's other tab), or has not yet taken its new size, waits and
 runs on a later frame once it has one.
 
@@ -1445,8 +1509,15 @@ nothing is drawn), `data-camera-kinds` (their kinds), `data-camera-spot-m` (metr
 
 Known limits of the map's part. A camera on a made-up street (no archive, a failed read, a place its surroundings
 cannot carry) is not on the map at all. In an overview or a free part under 160 px the cone is a few px, or partly
-under the window. The cone's colours on the light Maa-amet and aerial base maps are checked by the style test only,
-not seen. The e2e cases of the cone and of the moved map need `EPD_PMTILES_SAMPLE`, which CI does not set.
+under the window. An overview keeps its zoom, so at 1280 x 720 (an 86 px band under the window) a unit 900 m from
+the incident can leave the map when the marker is brought out from under the window: zooming out to keep it would
+break that rule, and it is left as a choice for the owner. At 1280 x 720 the map's attribution, open until the
+player first drags the map, covers the bottom of that band, so the ring and the label can lie partly under its text;
+counting it as an obstacle would cost about 30 px of the band. The label's side is chosen in metres, not on the
+screen: near the map's edge the ring is kept in view, the label not always. Where no strip holds both the marker and
+the ring, each new request (only the player's repeat, on a change of the window's size) may zoom out another 1.5
+levels. The cone's colours on the light Maa-amet and aerial base maps are checked by the style test only, not seen.
+The e2e cases of the cone and of the moved map need `EPD_PMTILES_SAMPLE`, which CI does not set.
 
 **On a phone** (899 px and narrower) the window is docked at the top of the map pane at full width, opaque, shown
 only on the map tab, with 44 px controls and no size button. The picture box itself is 16:9 (at most 42vh tall), so
@@ -1544,9 +1615,8 @@ same machine went live sooner and then stood still for 3 to 6 s in the first fra
 
 **Where it comes from.** `live.ts` and everything it imports beyond the game's own bundle (three.js, `render/`,
 the director, the cast, the tile reader with `@mapbox/vector-tile` and `pbf`) build into one chunk,
-`assets/cctv-<hash>.js` (`vite.config.ts chunkFileName`), about 1 050 kB (1 053 kB and 312 kB gzipped when
-measured, before the last changes to `site.ts` and `place.ts`); the game's entry chunk holds nothing of it (664.59 kB,
-unchanged), and the map's chunk is 1 305 kB. The window fetches it
+`assets/cctv-<hash>.js` (`vite.config.ts chunkFileName`), about 1 060 kB (1 061.65 kB and 312.28 kB gzipped in
+the last build); the game's entry chunk holds nothing of it (664.60 kB), and the map's chunk is 1 307.70 kB. The window fetches it
 through one loader per page that forgets a failed fetch. The body model is `assets/human-<hash>.glb` (94 kB).
 Neither is in the service worker's precache list (`vite.config.ts precacheList`, `CAMERA_CHUNK`): they are fetched
 the first time a camera is opened, from the game's own server, so the first opening needs the network; then the
@@ -1573,5 +1643,6 @@ collection over three opens, a throw while drawing ending in a working retry, th
 press in a director-mode shift. "Surveillance camera on the map" serves the street archive that
 `EPD_PMTILES_SAMPLE` names in place of the street file and is skipped without it (so CI skips it): the cone drawn
 while live, following the window's zoom and gone when it closes; the line to the spot exactly when the spot is more
-than 40 m from the marker, and the spot at most 260 m away; a map moved while the camera connected is not pulled
+than 40 m from the marker and more than 36 px away at the map's zoom (not checked within 3 px of that length), and
+the spot at most 260 m away; a map moved while the camera connected is not pulled
 back when the picture goes live.

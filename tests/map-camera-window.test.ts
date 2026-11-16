@@ -84,6 +84,10 @@ describe('the camera window and the map', () => {
     expect(cameraCone()?.marker).toEqual(SHOWN);
     expect(cameraCone()?.pose).toBeNull();
     const first = cameraCone()!.reveal;
+    // Each request says when it was made: the map drops one older than its last move (RevealGate).
+    const firstAt = cameraCone()!.revealAt;
+    expect(firstAt).toBeGreaterThan(0);
+    expect(firstAt).toBeLessThanOrEqual(performance.now());
     // Opening the window is the player's own request; the camera's incident and place go with it.
     expect(cameraCone()!.auto).toBe(false);
     expect(cameraCone()!.incidentId).toBe(id);
@@ -100,6 +104,7 @@ describe('the camera window and the map', () => {
     expect(v.panX).toBe(0);
     expect(v.shown).toBe(true);
     expect(v.reveal).toBeGreaterThan(first);
+    expect(v.revealAt).toBeGreaterThanOrEqual(firstAt);
     // That one comes from the picture, not the player: the map leaves it out if it was moved meanwhile.
     expect(v.auto).toBe(true);
     // A place on the map: no note about it.

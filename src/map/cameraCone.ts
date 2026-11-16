@@ -55,6 +55,11 @@ export interface CameraConeView {
   /** A new number asks the map to bring the marker and the cone into view (see revealPlan). */
   reveal: number;
   /**
+   * When that request was made (performance.now() in the window): the map drops a request older than its last move
+   * by the player or the game (RevealGate), so a drag that reaches the map before the request is carried out wins.
+   */
+  revealAt: number;
+  /**
    * True when that request comes from the picture going live rather than from the player (opening the window,
    * changing its size): the map carries it out only if nobody has moved the map since the last reveal.
    */
@@ -66,6 +71,7 @@ export interface CameraConeView {
 let current: CameraConeView | null = null;
 let reveals = 0;
 let asks = 0;
+let askedAt = -Infinity;
 
 /** A reveal number never used before on this page (CameraConeView.reveal): a new window's first one is new too. */
 export const nextReveal = (): number => ++reveals;
@@ -85,15 +91,19 @@ export function cameraCone(): CameraConeView | null {
  * brings the marker and the camera into view by the reveal's rule, from at least ASK_ZOOM (revealPlan). False when
  * there is no such window; the caller then shows the incident as it would without one.
  */
-export function showCameraOnMap(incidentId: string): boolean {
+export function showCameraOnMap(incidentId: string, at = performance.now()): boolean {
   const v = current;
   if (!v || v.incidentId !== incidentId || !v.shown || !v.pose) return false;
   asks++;
+  askedAt = at;
   return true;
 }
 
 /** How many times "Näita kaardil" asked the map to show the open camera (showCameraOnMap): the map compares. */
 export const cameraAsks = (): number => asks;
+
+/** When "Näita kaardil" last asked (performance.now()), to compare with the map's last move (RevealGate). */
+export const cameraAskedAt = (): number => askedAt;
 
 /**
  * Where the map draws an incident's marker: on its building or road once the map's road data knows (roads.ts
@@ -180,23 +190,41 @@ export function mapLabel(name: string): string {
   return s.length > 32 ? `${s.slice(0, 31).trimEnd()}\u2026` : s;
 }
 
+/** The sides of the ring a label can go on: its direction (east, north) and the text's anchor and offset (em). */
+const LABEL_SIDES: readonly { d: [number, number]; anchor: string; offset: [number, number] }[] = [
+  { d: [0, -1], anchor: 'top', offset: [0, 0.8] },
+  { d: [0, 1], anchor: 'bottom', offset: [0, -0.8] },
+  { d: [1, 0], anchor: 'left', offset: [0.9, 0] },
+  { d: [-1, 0], anchor: 'right', offset: [-0.9, 0] },
+  { d: [Math.SQRT1_2, -Math.SQRT1_2], anchor: 'top-left', offset: [0.6, 0.5] },
+  { d: [-Math.SQRT1_2, -Math.SQRT1_2], anchor: 'top-right', offset: [-0.6, 0.5] },
+  { d: [Math.SQRT1_2, Math.SQRT1_2], anchor: 'bottom-left', offset: [0.6, -0.5] },
+  { d: [-Math.SQRT1_2, Math.SQRT1_2], anchor: 'bottom-right', offset: [-0.6, -0.5] },
+];
+
 /**
- * Which side of the ring the place's label goes on: away from the marker, so that it never lies on the line, and
- * where it covers the least of the cone (across the camera's bearing rather than along it).
+ * Which side of the ring the place's label goes on: away from the marker, so that it never lies on the line; away
+ * from the camera's own dot while that is near enough for the text to reach it (a name is some 70 to 120 m long at the
+ * zooms the camera is looked at); and off the cone's middle line, not further into the cone. Of equal sides, the
+ * first in LABEL_SIDES.
  */
-function labelSide(marker: LngLat, spot: LngLat, bearing: number): { anchor: string; offset: [number, number] } {
-  const mx = (marker[0] - spot[0]) * Math.cos(spot[1] * DEG);
-  const my = marker[1] - spot[1];
-  const ml = Math.hypot(mx, my) || 1;
-  const [bx, by] = [Math.sin(bearing * DEG), Math.cos(bearing * DEG)];
-  const sides: { d: [number, number]; anchor: string; offset: [number, number] }[] = [
-    { d: [0, -1], anchor: 'top', offset: [0, 0.8] },
-    { d: [0, 1], anchor: 'bottom', offset: [0, -0.8] },
-    { d: [1, 0], anchor: 'left', offset: [0.9, 0] },
-    { d: [-1, 0], anchor: 'right', offset: [-0.9, 0] },
-  ];
-  const score = ({ d }: { d: [number, number] }) => -(d[0] * mx + d[1] * my) / ml - 0.9 * Math.abs(d[0] * bx + d[1] * by);
-  const best = sides.reduce((a, b) => (score(b) > score(a) + 1e-9 ? b : a));
+function labelSide(marker: LngLat, pose: Pick<CameraPose, 'at' | 'spot' | 'bearing'>): { anchor: string; offset: [number, number] } {
+  const k = Math.cos(pose.spot[1] * DEG);
+  const unit = (p: LngLat): [number, number] => {
+    const v: [number, number] = [(p[0] - pose.spot[0]) * k, p[1] - pose.spot[1]];
+    const l = Math.hypot(v[0], v[1]);
+    return l > 0 ? [v[0] / l, v[1] / l] : [0, 0];
+  };
+  const m = unit(marker);
+  const a = unit(pose.at);
+  const near = clamp(1.5 - distM(pose.at, pose.spot) / 100, 0, 1);
+  const b: [number, number] = [Math.sin(pose.bearing * DEG), Math.cos(pose.bearing * DEG)];
+  // From the cone's middle line out towards the spot: as long as the sine of the spot's angle off it (none on it).
+  const along = -a[0] * b[0] - a[1] * b[1];
+  const n: [number, number] = [-a[0] - b[0] * along, -a[1] - b[1] * along];
+  const dot = (d: [number, number], v: [number, number]) => d[0] * v[0] + d[1] * v[1];
+  const score = ({ d }: { d: [number, number] }) => -dot(d, m) - near * Math.max(0, dot(d, a)) - 1.2 * Math.max(0, dot(d, b)) + 0.3 * dot(d, n);
+  const best = LABEL_SIDES.reduce((x, y) => (score(y) > score(x) + 1e-9 ? y : x));
   return { anchor: best.anchor, offset: best.offset };
 }
 
@@ -204,14 +232,27 @@ function labelSide(marker: LngLat, spot: LngLat, bearing: number): { anchor: str
 export interface ConeLink {
   marker: LngLat;
   place: string;
+  /** The map's zoom: the line is drawn only when it is longer on the screen than LINK_MIN_PX (linkShown). */
+  mapZoom?: number;
+}
+
+/**
+ * Whether the dashed line from the marker to the spot is drawn: the spot more than LINK_MIN_M from the marker and, at
+ * the map's zoom when given, more than LINK_MIN_PX away on the screen. Nearer, the line would lie under the marker:
+ * the ring is then plainly at the marker.
+ */
+export function linkShown(marker: LngLat, spot: LngLat, mapZoom?: number): boolean {
+  if (!Number.isFinite(marker[0]) || !Number.isFinite(marker[1])) return false;
+  const m = distM(marker, spot);
+  return m > LINK_MIN_M && (mapZoom === undefined || m / metresPerPx(mapZoom, spot[1]) > LINK_MIN_PX);
 }
 
 /**
  * The camera on the map, as GeoJSON for the source SRC.camera: the view cone in bands that fade outwards (`kind`
  * 'band', `o` how strong), its outline ('edge'), the camera ('at') and the spot ('spot'). When the spot lies more than
- * LINK_MIN_M from the incident's marker (the camera found the place itself, up to 250 m from the game's point), a
- * dashed line from the marker to the spot ('link') says "this incident is seen by that camera there", and the place's
- * name ('label', `name`, with the side it goes on) stands by the ring.
+ * LINK_MIN_M from the incident's marker (the camera found the place itself, up to 250 m from the game's point), the
+ * place's name ('label', `name`, with the side it goes on) stands by the ring and, while the map shows it long enough
+ * (linkShown), a dashed line from the marker to the spot ('link') says "this incident is seen by that camera there".
  */
 export function buildCameraCone(pose: CameraPose, zoom = 1, panX = 0, link: ConeLink | null = null): FeatureCollection {
   const [left, right] = coneEdges(pose, zoom, panX);
@@ -224,12 +265,12 @@ export function buildCameraCone(pose: CameraPose, zoom = 1, panX = 0, link: Cone
     return { type: 'Feature', properties: { kind: 'band', o: band.o }, geometry: { type: 'Polygon', coordinates: [[...outer, ...inner, outer[0]]] } };
   });
   features.push({ type: 'Feature', properties: { kind: 'edge' }, geometry: { type: 'LineString', coordinates: [pose.at, ...ring(reach), pose.at] } });
-  const apart = link !== null && Number.isFinite(link.marker[0]) && Number.isFinite(link.marker[1]) && distM(link.marker, pose.spot) > LINK_MIN_M;
-  if (apart) features.push({ type: 'Feature', properties: { kind: 'link' }, geometry: { type: 'LineString', coordinates: [link.marker, pose.spot] } });
+  const apart = link !== null && linkShown(link.marker, pose.spot);
+  if (apart && linkShown(link.marker, pose.spot, link.mapZoom)) features.push({ type: 'Feature', properties: { kind: 'link' }, geometry: { type: 'LineString', coordinates: [link.marker, pose.spot] } });
   features.push({ type: 'Feature', properties: { kind: 'spot' }, geometry: { type: 'Point', coordinates: pose.spot } });
   features.push({ type: 'Feature', properties: { kind: 'at' }, geometry: { type: 'Point', coordinates: pose.at } });
   const name = apart ? mapLabel(link.place) : '';
-  if (apart && name) features.push({ type: 'Feature', properties: { kind: 'label', name, ...labelSide(link.marker, pose.spot, pose.bearing) }, geometry: { type: 'Point', coordinates: pose.spot } });
+  if (apart && name) features.push({ type: 'Feature', properties: { kind: 'label', name, ...labelSide(link.marker, pose) }, geometry: { type: 'Point', coordinates: pose.spot } });
   return { type: 'FeatureCollection', features };
 }
 
@@ -259,6 +300,8 @@ export const FREE_MIN_PX = 160;
 export const ASK_ZOOM = 15;
 /** The incident's marker as drawn when selected (px across, about its icon and ring). */
 export const MARKER_PX = 44;
+/** The line from the marker to the spot is drawn only when longer than this on the screen (px): half the marker and some. */
+export const LINK_MIN_PX = MARKER_PX / 2 + 14;
 /**
  * Room kept between what is brought into view and the edges of the free part of the map (px): half the marker and a
  * little more, so that the marker is never cut by the map's edge nor lies partly under the window.
@@ -292,24 +335,30 @@ function withoutTools(s: ScreenBox, tools: ScreenBox | null): ScreenBox {
 }
 
 /**
- * The part of the map the camera window leaves free (px from the map container's top left corner): the largest strip
- * beside the window (on a phone, where it docks at the top of the map, the part below it), or the whole map; without
- * the map's tool column (`tools`, its box over the map). A strip with room for the cone (FREE_MIN_PX) is taken before
- * a larger one without.
+ * The strips of the map beside the camera window (left, right, above, below; on a phone, where it docks at the top of
+ * the map, the part below it), each without the map's tool column (`tools`, its box over the map); the whole map
+ * without the column when the window covers none of it. Px from the map container's top left corner.
  */
-export function freeBox(width: number, height: number, cover: ScreenBox | null, tools: ScreenBox | null = null): ScreenBox {
-  const all = { x: 0, y: 0, w: width, h: height };
+export function freeStrips(width: number, height: number, cover: ScreenBox | null, tools: ScreenBox | null = null): ScreenBox[] {
   const l = cover ? clamp(cover.x, 0, width) : 0;
   const r = cover ? clamp(cover.x + cover.w, 0, width) : 0;
   const t = cover ? clamp(cover.y, 0, height) : 0;
   const b = cover ? clamp(cover.y + cover.h, 0, height) : 0;
-  if (!cover || r <= l || b <= t) return withoutTools(all, tools);
-  const strips: ScreenBox[] = [
+  if (!cover || r <= l || b <= t) return [withoutTools({ x: 0, y: 0, w: width, h: height }, tools)];
+  return [
     { x: 0, y: 0, w: l, h: height },
     { x: r, y: 0, w: width - r, h: height },
     { x: 0, y: 0, w: width, h: t },
     { x: 0, y: b, w: width, h: height - b },
   ].map((s) => withoutTools(s, tools));
+}
+
+/**
+ * The part of the map the camera window leaves free: the largest of its free strips (freeStrips), a strip with room
+ * for the cone (FREE_MIN_PX) taken before a larger one without.
+ */
+export function freeBox(width: number, height: number, cover: ScreenBox | null, tools: ScreenBox | null = null): ScreenBox {
+  const strips = freeStrips(width, height, cover, tools);
   const roomy = strips.filter((s) => Math.min(s.w, s.h) >= FREE_MIN_PX);
   return (roomy.length ? roomy : strips).reduce((a, s) => (s.w * s.h > a.w * a.h ? s : a));
 }
@@ -329,6 +378,10 @@ export interface RevealInput {
   free: ScreenBox;
   /** The least zoom to start from ("Näita kaardil": ASK_ZOOM); the map's own zoom when not given. */
   atLeast?: number;
+  /** The spot the camera shows, once live: apart from the marker (LINK_MIN_M), its ring is kept in view with it. */
+  spot?: LngLat;
+  /** All the strips the window leaves free (freeStrips), for the marker and the ring; `free` alone when not given. */
+  strips?: ScreenBox[];
 }
 
 /** Where to ease the map to: `center` lands `offset` px from the container's middle (maplibre easeTo). */
@@ -336,22 +389,115 @@ export interface RevealMove {
   center: LngLat;
   zoom: number;
   offset: [number, number];
-  /** What the move brings into view (the marker alone, or everything): revealFix checks these once it has eased. */
+  /** What the move brings into view (the marker alone, the marker and the ring, or everything). */
   keep: LngLat[];
+  /** For each of `keep`, the box on the screen (px) it is to lie in once eased: revealFix checks and corrects. */
+  within: ScreenBox[];
+  /** The farthest out a correction may zoom. */
+  minZoom: number;
+  /** A correction brings the points to the middle of their boxes (true) or moves them only as far as it must. */
+  centre: boolean;
 }
+
+/** The most the reveal zooms out to keep the incident's marker and the camera's ring in view together (levels). */
+export const REVEAL_ZOOM_OUT = 1.5;
+/** Room kept between the spot's ring and the edges of the part of the map it is brought into (px). */
+export const SPOT_PAD = 14;
 
 /** The box `b` with `m` px taken off every side. */
 const inset = (b: ScreenBox, m: number): ScreenBox => ({ x: b.x + m, y: b.y + m, w: b.w - 2 * m, h: b.h - 2 * m });
 const within = (p: [number, number], b: ScreenBox, tol = 0) => p[0] >= b.x - tol && p[0] <= b.x + b.w + tol && p[1] >= b.y - tol && p[1] <= b.y + b.h + tol;
 
+/** A point on the screen now and the box it is to lie in after a move (px); `soft`: wanted, but given up first. */
+interface Want {
+  p: [number, number];
+  box: ScreenBox;
+  soft?: boolean;
+}
+
+/** A move on the screen: every point p goes to p * s + t (s: the change of scale, 2 to the change of zoom). */
+interface Placed {
+  s: number;
+  t: [number, number];
+  /** How far (px) the soft wants are from their boxes; 0 when every want is met. */
+  gap: number;
+}
+
+/** The interval of scales at which the wants can all be met together (pairwise in each axis, enough in one dimension). */
+function scales(wants: Want[]): [number, number] {
+  let lo = 0;
+  let hi = Infinity;
+  if (wants.some((w) => w.box.w < 0 || w.box.h < 0)) return [1, 0];
+  for (const a of wants) {
+    for (const b of wants) {
+      if (a === b) continue;
+      for (const k of [0, 1] as const) {
+        // b's point right of a's by c px at scale 1 must not end beyond b's box when a's lies at the start of its own.
+        const c = b.p[k] - a.p[k];
+        const room = (k ? b.box.y + b.box.h : b.box.x + b.box.w) - (k ? a.box.y : a.box.x);
+        if (c > 1e-9) hi = Math.min(hi, room / c);
+        else if (c < -1e-9 && room < 0) lo = Math.max(lo, room / c);
+        else if (room < 0) return [1, 0];
+      }
+    }
+  }
+  return [lo, hi];
+}
+
+/**
+ * The move that meets the wants at the largest scale from sMin to sMax (zooming out no more than it must); if the soft
+ * ones cannot be met there, the hard ones at sMin with the soft ones as near as they get. Within what is left, the move
+ * nearest to keeping `still` where it is, or with the points in the middle of their room (`centre`). Null when even the
+ * hard wants cannot be met.
+ */
+function place(wants: Want[], sMin: number, sMax: number, still: [number, number], centre: boolean): Placed | null {
+  const [lo, hi] = scales(wants);
+  const hard = wants.filter((w) => !w.soft);
+  const [hlo, hhi] = scales(hard);
+  let s: number;
+  if (Math.max(lo, sMin) <= Math.min(hi, sMax)) s = Math.min(hi, sMax);
+  else if (Math.max(hlo, sMin) <= Math.min(hhi, sMax)) s = Math.max(hlo, sMin);
+  else return null;
+  const t: [number, number] = [0, 0];
+  let gap = 0;
+  for (const k of [0, 1] as const) {
+    const span = (ws: Want[]): [number, number] =>
+      ws.reduce<[number, number]>(
+        ([a, b], w) => {
+          const start = k ? w.box.y : w.box.x;
+          const len = k ? w.box.h : w.box.w;
+          return [Math.max(a, start - w.p[k] * s), Math.min(b, start + len - w.p[k] * s)];
+        },
+        [-Infinity, Infinity],
+      );
+    const [h0, h1] = span(hard);
+    const [s0, s1] = span(wants.filter((w) => w.soft));
+    let [a, b] = [Math.max(h0, s0), Math.min(h1, s1)];
+    if (a > b) {
+      // The soft wants out of reach: the hard room's end nearest them.
+      const end = s0 > h1 ? h1 : h0;
+      gap += s0 > h1 ? s0 - h1 : h0 - s1;
+      [a, b] = [end, end];
+    }
+    const keep = still[k] * (1 - s);
+    t[k] = centre && Number.isFinite(a) && Number.isFinite(b) ? (a + b) / 2 : clamp(keep, a, b);
+  }
+  return { s, t, gap };
+}
+
 /**
  * Whether and where the map moves to show the camera, keeping the dispatcher's own view wherever it can:
- * - in an overview (below OVERVIEW_ZOOM), before the picture is live, without a place on the map, or when the free
- *   part of the map is too small for the cone (its short side under FREE_MIN_PX), the zoom stays: the map pans only
- *   if the marker is not wholly in the free part, and brings it to the middle of it;
- * - else it zooms in by at most REVEAL_ZOOM_IN to make the cone CONE_MIN_PX long, and out only as far as fitting the
+ * - with the camera live, the zoom 14 or closer and a free part with room for the cone (its short side FREE_MIN_PX or
+ *   more), it zooms in by at most REVEAL_ZOOM_IN to make the cone CONE_MIN_PX long, and out only as far as fitting the
  *   marker, the camera, the spot and the cone needs, with them in the middle of the free part; it does not move while
- *   they all show there and the cone is big enough or as big as that rule allows.
+ *   they all show there and the cone is big enough or as big as that rule allows;
+ * - else, when the spot the camera shows is apart from the marker (LINK_MIN_M: the line is drawn), the marker and the
+ *   spot's ring are kept in view together in one of the strips beside the window, zoomed out no more than that needs
+ *   and at most REVEAL_ZOOM_OUT (never in), and moved only as far as that takes; when no strip holds both, the ring
+ *   goes into the strip that brings it nearest the marker, with the marker whole on the map and the line running to it;
+ * - else (an overview, before the picture is live, a camera without a place on the map, a free part too small for the
+ *   cone) the zoom stays and the map pans only if the marker is not wholly in the free part, and only as far as that
+ *   takes, so that as much of the dispatcher's view as can stays.
  * The cone itself is drawn whatever its size.
  */
 export function revealPlan(i: RevealInput): RevealMove | null {
@@ -359,14 +505,57 @@ export function revealPlan(i: RevealInput): RevealMove | null {
   const z0 = Math.max(i.zoom, i.atLeast ?? -Infinity);
   const asked = z0 > i.zoom;
   const inner = inset(i.free, REVEAL_PAD);
-  if (inner.w < 1 || inner.h < 1) return null;
   const offset: [number, number] = [i.free.x + i.free.w / 2 - i.width / 2, i.free.y + i.free.h / 2 - i.height / 2];
   const marker = i.points[0];
   const full = i.reach !== null && i.points.length > 1 && z0 >= OVERVIEW_ZOOM && Math.min(i.free.w, i.free.h) >= FREE_MIN_PX;
   if (!full) {
-    if (!asked && i.shown[0] && within(i.shown[0], inner)) return null;
-    return { center: marker, zoom: z0, offset, keep: [marker] };
+    const p0 = i.shown[0];
+    const mid: [number, number] = [i.width / 2, i.height / 2];
+    const scale = 2 ** (z0 - i.zoom);
+    // A move found on the screen as a plan for the map: the marker lands where the move takes it.
+    const plan = (r: Placed, keep: LngLat[], boxes: ScreenBox[], minZoom: number): RevealMove => {
+      const zoom = i.zoom + Math.log2(r.s);
+      const k = 2 ** zoom;
+      const [mx, my] = merc(marker);
+      const q = [p0[0] * r.s + r.t[0], p0[1] * r.s + r.t[1]];
+      const center = unmerc(mx - (q[0] - mid[0] - offset[0]) / k, my - (q[1] - mid[1] - offset[1]) / k);
+      return { center, zoom, offset, keep, within: boxes, minZoom, centre: false };
+    };
+    const linked = i.reach !== null && !!i.spot && !!p0 && distM(marker, i.spot) > LINK_MIN_M;
+    if (linked && i.spot) {
+      const [mx, my] = merc(marker);
+      const [sx, sy] = merc(i.spot);
+      const zk = 2 ** i.zoom;
+      const ps: [number, number] = [p0[0] + (sx - mx) * zk, p0[1] + (sy - my) * zk];
+      const whole = inset({ x: 0, y: 0, w: i.width, h: i.height }, MARKER_PX / 2 + 1);
+      const sMin = 2 ** (z0 - REVEAL_ZOOM_OUT - i.zoom);
+      let best: { r: Placed; boxes: ScreenBox[]; cost: number } | null = null;
+      for (const strip of i.strips?.length ? i.strips : [i.free]) {
+        const ring = inset(strip, SPOT_PAD);
+        if (ring.w < 0 || ring.h < 0) continue;
+        // A strip too narrow for the whole marker can hold the ring only: the marker as near its middle as can be.
+        const room = inset(strip, REVEAL_PAD);
+        const thin = room.w < 0 || room.h < 0;
+        const mk = thin ? { x: strip.x + strip.w / 2, y: strip.y + strip.h / 2, w: 0, h: 0 } : room;
+        const r = place([{ p: ps, box: ring }, { p: p0, box: whole }, { p: p0, box: mk, soft: true }], sMin, scale, mid, false);
+        if (!r) continue;
+        const gap = r.gap + (thin ? 1e4 : 0);
+        // Fewer px of the marker out of its strip first, then less zooming out, then the shorter pan.
+        const cost = gap * 1e6 - Math.log2(r.s) * 1e4 + Math.hypot(r.t[0] - mid[0] * (1 - r.s), r.t[1] - mid[1] * (1 - r.s));
+        if (!best || cost < best.cost) best = { r, boxes: [gap > 0 ? whole : mk, ring], cost };
+      }
+      if (best) {
+        const { r } = best;
+        if (!asked && Math.abs(r.s - 1) < 1e-9 && Math.hypot(r.t[0], r.t[1]) < 0.5) return null;
+        return plan(r, [marker, i.spot], best.boxes, z0 - REVEAL_ZOOM_OUT);
+      }
+    }
+    if (inner.w < 1 || inner.h < 1 || !p0) return null;
+    if (!asked && within(p0, inner)) return null;
+    const r = place([{ p: p0, box: inner }], scale, scale, mid, false);
+    return r ? plan(r, [marker], [inner], z0) : null;
   }
+  if (inner.w < 1 || inner.h < 1) return null;
   const lat = i.points.reduce((s, p) => s + p[1], 0) / i.points.length;
   const inView = !asked && i.shown.length === i.points.length && i.shown.every((p) => within(p, inner));
   const m = i.points.map(merc);
@@ -380,7 +569,7 @@ export function revealPlan(i: RevealInput): RevealMove | null {
   const fit = Math.log2(Math.min(x1 > x0 ? inner.w / (x1 - x0) : Infinity, y1 > y0 ? inner.h / (y1 - y0) : Infinity));
   const zoom = Math.min(want, fit);
   if (inView && zoom <= i.zoom + 0.01) return null;
-  return { center: unmerc((x0 + x1) / 2, (y0 + y1) / 2), zoom, offset, keep: i.points };
+  return { center: unmerc((x0 + x1) / 2, (y0 + y1) / 2), zoom, offset, keep: i.points, within: i.points.map(() => inner), minZoom: -Infinity, centre: true };
 }
 
 /**
@@ -388,17 +577,24 @@ export function revealPlan(i: RevealInput): RevealMove | null {
  * requests (CameraConeView.reveal) and "Näita kaardil" (showCameraOnMap). `run` carries one out and answers false
  * while the map has no size (a phone's other tab): the request then stays owed and is tried again on the next frame,
  * so it happens once the map has a size again. Following a unit uses up the window's requests (the map stays on the
- * unit), and the request when the picture goes live (`auto`) is used up without a move when someone has moved the map
- * since the last reveal (`moved`).
+ * unit). A request older than the map's last move by the player or the game (`moved` with its time) is used up
+ * without a move, the opening one too: a drag that the map handled before it got round to the request wins. The
+ * request when the picture goes live (`auto`) is used up without a move when someone has moved the map since the last
+ * reveal, however the move was noticed.
  */
 export class RevealGate {
   private reveal = 0;
   private ask = cameraAsks();
   private touched = false;
+  private lastMove = -Infinity;
 
-  /** Someone moved the map: the player (drag, wheel, keys, the map's buttons), a focus from the game, following. */
-  moved(): void {
+  /**
+   * Someone moved the map: the player (drag, wheel, pinch, keys, the map's buttons), a focus from the game, following.
+   * `at` (performance.now()) when the move's time is known; a move noticed only by where the map is has none.
+   */
+  moved(at?: number): void {
     this.touched = true;
+    if (at !== undefined && at > this.lastMove) this.lastMove = at;
   }
 
   /** Whether someone moved the map since the last reveal began. */
@@ -409,11 +605,12 @@ export class RevealGate {
   step(v: CameraConeView | null, follow: boolean, run: (atLeast?: number) => boolean): void {
     const asks = cameraAsks();
     if (asks !== this.ask) {
-      if (v?.pose && v.shown && !this.try(() => run(ASK_ZOOM))) return;
+      if (v?.pose && v.shown && !(cameraAskedAt() < this.lastMove) && !this.try(() => run(ASK_ZOOM))) return;
       this.ask = asks;
     }
     if (v && v.reveal && v.reveal !== this.reveal && v.shown) {
-      if (!follow && !(v.auto && this.touched) && !this.try(() => run())) return;
+      const stale = v.revealAt < this.lastMove || (v.auto && this.touched);
+      if (!follow && !stale && !this.try(() => run())) return;
       this.reveal = v.reveal;
     }
   }
@@ -428,24 +625,26 @@ export class RevealGate {
   }
 }
 
-/** A second, small move once the reveal has eased: `at` (a screen point now) lands where the plan's offset says. */
+/** A second, small move once the reveal has eased: the screen point `at` goes to `to`, at `zoom`. */
 export interface RevealFix {
   at: [number, number];
+  to: [number, number];
   zoom: number;
 }
 
 /**
  * The reveal works on a flat, north-up map; with the player's 3D tilt (or a turned map) what it brought into view can
- * still lie outside the free part. Given where those points are on the screen once the map has eased, the
- * correction: the middle of them to the middle of the free part, zoomed out if they do not fit. Null when they all
- * show (within 2 px).
+ * still lie outside its boxes (RevealMove.within). Given where those points are on the screen once the map has eased,
+ * the correction: zoomed out as far as they need to fit (not past the move's minZoom), and moved to the middle of their
+ * room or only as far as they must (RevealMove.centre). Null when they all show (within 2 px) or nothing can be done.
  */
-export function revealFix(shown: [number, number][], free: ScreenBox, zoom: number): RevealFix | null {
-  const inner = inset(free, REVEAL_PAD);
-  if (!shown.length || inner.w < 1 || inner.h < 1 || shown.every((p) => within(p, inner, 2))) return null;
+export function revealFix(shown: [number, number][], move: Pick<RevealMove, 'within' | 'minZoom' | 'centre'>, zoom: number): RevealFix | null {
+  if (!shown.length || shown.length !== move.within.length) return null;
+  if (move.within.some((b) => b.w < 0 || b.h < 0) || shown.every((p, k) => within(p, move.within[k], 2))) return null;
   const xs = shown.map((p) => p[0]);
   const ys = shown.map((p) => p[1]);
-  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-  const s = Math.min(1, x1 > x0 ? inner.w / (x1 - x0) : 1, y1 > y0 ? inner.h / (y1 - y0) : 1);
-  return { at: [(x0 + x1) / 2, (y0 + y1) / 2], zoom: zoom + Math.log2(s) };
+  const at: [number, number] = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+  const r = place(shown.map((p, k) => ({ p, box: move.within[k] })), Math.min(1, 2 ** (move.minZoom - zoom)), 1, at, move.centre);
+  if (!r) return null;
+  return { at, to: [at[0] * r.s + r.t[0], at[1] * r.s + r.t[1]], zoom: zoom + Math.log2(r.s) };
 }

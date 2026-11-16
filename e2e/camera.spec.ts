@@ -648,10 +648,13 @@ test.describe('surveillance camera on the map', () => {
     // place's name when the spot is more than 40 m from the marker (the camera found its place itself).
     const kinds = /^band band band edge (link )?spot at( label)?$/;
     await expect(map).toHaveAttribute('data-camera-kinds', kinds, { timeout: SLOW });
+    // The line only while the map shows it longer than the marker's half and some (36 px: cameraCone.ts LINK_MIN_PX).
+    await page.waitForTimeout(1500);
     const spotM = Number(await map.getAttribute('data-camera-spot-m'));
     const linked = /link/.test((await map.getAttribute('data-camera-kinds'))!);
+    const px = spotM / ((40075016.686 * Math.cos(43.77 * (Math.PI / 180))) / (512 * 2 ** (await mapZoom(page))));
     expect(spotM).toBeLessThanOrEqual(260);
-    expect(linked, `the spot is ${spotM} m from the marker`).toBe(spotM > 40);
+    if (Math.abs(px - 36) > 3) expect(linked, `the spot is ${spotM} m from the marker, ${px.toFixed(0)} px`).toBe(spotM > 40 && px > 36);
     // No note about the map: this camera has its place on it.
     await expect(page.getByTestId('camera-nomap')).toHaveCount(0);
     // Zoomed in, it is drawn again (narrower: tests/map-camera-cone.test.ts) and stays.

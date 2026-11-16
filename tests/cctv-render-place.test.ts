@@ -3,7 +3,7 @@
 // one is broken), where a tall thing would hide the place from the camera, where the board goes on the front so that
 // the picture holds all of it, which bays the board covers, and how bright a lit board's ground is.
 import { describe, expect, it } from 'vitest';
-import { boardCovers, boardLines, dressOf, hidesPlace, luminance, planOwn, type FrontPlan, type OwnWall } from '@/cctv/render/place';
+import { bladeAt, boardCovers, boardLines, dressOf, hidesPlace, luminance, planOwn, type FrontPlan, type OwnWall } from '@/cctv/render/place';
 import { projectPoint } from '@/cctv/site';
 import type { CameraPose, Site } from '@/cctv/types';
 import type { PlaceKind } from '@/sim/types';
@@ -216,6 +216,29 @@ describe('the bays a board covers', () => {
     expect(boardCovers(plan(0.145), other, 9, 12, 3.2, 4)).toBe(false);
     expect(boardCovers(plan(2.2), wall, 9, 12, 3.2, 4)).toBe(false);
     expect(boardCovers(null, wall, 9, 12, 3.2, 4)).toBe(false);
+  });
+});
+
+describe('the sign standing out from the wall', () => {
+  const wall = { a: [0, 0], t: [1, 0], n: [0, -1], len: 20 } as unknown as OwnWall;
+  const plan = (s: number) => ({ board: { v: wall, s, h: 3, off: 0.145, W: 4, H: 1.2 } }) as unknown as FrontPlan;
+
+  it('stays where it was wanted when the board is elsewhere', () => {
+    expect(bladeAt(plan(10), wall, 14, 3.2, 3.65, 1.35, 1)).toBe(14);
+    expect(bladeAt(plan(10), wall, 11, 4.5, 4.95, 1.35, 1)).toBe(11);
+    expect(bladeAt(null, wall, 11, 3.2, 3.65, 1.35, 1)).toBe(11);
+  });
+
+  it('never hangs in front of the board: past its far end from the camera, else past its near end', () => {
+    // UniCredit: a board slid along the wall over the place where the sign by the door would stand.
+    const s = bladeAt(plan(10), wall, 11, 3.2, 3.65, 1.35, 1);
+    expect(s).toBeCloseTo(7.5, 5);
+    expect(bladeAt(plan(10), wall, 11, 3.2, 3.65, 1.35, -1)).toBeCloseTo(12.5, 5);
+    // No room past the far end at the wall's corner: past the near end and clear of the board by the sign's reach.
+    const near = bladeAt(plan(2.2), wall, 3, 3.2, 3.65, 1.35, 1);
+    expect(near).toBeCloseTo(2.2 + 2 + 0.5 + 1.35, 5);
+    expect(boardCovers(plan(10), wall, s - 0.4, s + 0.4, 3.2, 3.65)).toBe(false);
+    expect(boardCovers(plan(2.2), wall, near - 0.4, near + 0.4, 3.2, 3.65)).toBe(false);
   });
 });
 
