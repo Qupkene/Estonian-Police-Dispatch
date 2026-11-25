@@ -82,6 +82,11 @@ async function register(browser: Browser, name: string) {
   const page = await ctx.newPage();
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e)));
+  // The browser's own complaints (a graphics context lost, a request refused): told when a step waits in vain.
+  const logs: string[] = [];
+  page.on('console', (m) => {
+    if (m.type() === 'error' || /webgl|context/i.test(m.text())) logs.push(`${m.type()}: ${m.text()}`);
+  });
   await boot(page);
   await page.getByRole('tab', { name: 'Klassika' }).click();
   await page.getByRole('button', { name: 'Pole veel kontot? Loo konto' }).click();
@@ -90,7 +95,32 @@ async function register(browser: Browser, name: string) {
   await page.getByLabel('Korda parooli').fill(PASS);
   await page.locator('form.sh-legacy button[type="submit"]').click();
   await expect.poll(() => screen(page), { timeout: 20_000 }).toBe('menu');
-  return { ctx, page, errors };
+  return { ctx, page, errors, logs };
+}
+
+/**
+ * What a page shows instead of the control a step waited for: its accessibility tree, whether it still answers, and
+ * what it complained about. Printed in the test's output (the report's own snapshot is of the first player's page).
+ */
+async function tell(who: { page: Page; errors: string[]; logs: string[] }, waited: string) {
+  const answers = await Promise.race([
+    who.page.evaluate(() => (window as unknown as EpdWindow).__epd.game.getState().screen),
+    new Promise<string>((resolve) => setTimeout(() => resolve('no answer in 5 s'), 5_000)),
+  ]).catch((e: unknown) => `failed: ${String(e)}`);
+  const tree = await who.page
+    .locator('body')
+    .ariaSnapshot({ timeout: 10_000 })
+    .catch((e: unknown) => `no snapshot: ${String(e)}`);
+  process.stdout.write(
+    [
+      `--- instead of ${waited}: screen ${answers}`,
+      tree,
+      `page errors: ${who.errors.join(' | ') || 'none'}`,
+      `console: ${who.logs.slice(-30).join(' | ') || 'none'}`,
+      '---',
+      '',
+    ].join('\n'),
+  );
 }
 
 async function openRooms(page: Page) {
@@ -352,7 +382,12 @@ test.describe.serial('role co-op', () => {
     await guest.page.getByRole('button', { name: 'Välju (saad naasta)' }).click();
     await expect.poll(() => screen(guest.page)).toBe('menu');
     await openRooms(guest.page);
-    await guest.page.getByRole('button', { name: 'Liitu vahetusega' }).click();
+    const rejoin = guest.page.getByRole('button', { name: 'Liitu vahetusega' });
+    await rejoin.waitFor({ timeout: 90_000 }).catch(async (e: unknown) => {
+      await tell(guest, '"Liitu vahetusega"');
+      throw e;
+    });
+    await rejoin.click();
     await expect.poll(() => screen(guest.page), { timeout: 20_000 }).toBe('game');
     await expect(guest.page.getByTestId('coop-status')).toHaveText('Ühendatud', { timeout: 45_000 });
     await expectInSync(host.page, guest.page, resynced);
