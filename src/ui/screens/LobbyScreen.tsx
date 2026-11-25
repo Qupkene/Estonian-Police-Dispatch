@@ -65,6 +65,8 @@ import { ChallengeList } from './shell/Challenge';
 import { FriendsPanel } from './shell/Friends';
 import { useFriends } from '@/store/friends';
 import { VkLayer } from './shell/VkLayer';
+import { LobbyStage, StageWindow } from './shell/LobbyStage';
+import type { StageSource } from '@/lobby3d/scene';
 import { DeskOptions, DeskPicker, DeskSummary, deskOfPlayer, desksOf, withDesks } from './shell/LobbyDesks';
 import { CustomEditor } from './custom/CustomEditor';
 import { RoomDraft } from './custom/RoomDraft';
@@ -110,6 +112,8 @@ export function LobbyScreen() {
   const [room, setRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** The create form's choice, for the 3D room behind the panels (it follows the form live). */
+  const [draft, setDraft] = useState<RoomDraftChoice | null>(null);
   const toast = useToast();
   /** Each opening of the lobby (a friend's invitation taken while it is open, too) loads its room again. */
   const opened = useLobbyNav((s) => s.n);
@@ -148,6 +152,15 @@ export function LobbyScreen() {
     ? t('rooms.sub.room', { code: displayRoomCode(room.code), state: t(`rooms.state.${room.state}`) })
     : t('rooms.sub');
 
+  // What the 3D room shows: standby for a guest and while loading, the create form's choice, or the room.
+  const signedIn = loggedIn && backend === 'online' && !loading;
+  const source = useMemo<StageSource>(() => {
+    if (!signedIn || !account) return { kind: 'standby' };
+    if (room) return { kind: 'room', room };
+    if (!draft) return { kind: 'standby' };
+    return { kind: 'create', mode: draft.mode, options: draft.options, me: { name: account.name, avatar: account.avatar } };
+  }, [signedIn, account, room, draft]);
+
   let body: ReactNode;
   if (backend === 'offline') body = <Notice title={t('rooms.title')} text={t('rooms.offline')} />;
   else if (!loggedIn)
@@ -169,7 +182,7 @@ export function LobbyScreen() {
         <Spinner size={14} /> {t('rooms.loading')}
       </p>
     );
-  else if (!room) body = <NoRoom onRoom={setRoom} error={error} setError={setError} />;
+  else if (!room) body = <NoRoom onRoom={setRoom} error={error} setError={setError} onDraft={setDraft} />;
   else
     body = (
       <RoomView
@@ -185,8 +198,15 @@ export function LobbyScreen() {
     );
 
   return (
-    <ShellPage title={t('rooms.title')} subtitle={subtitle} backTo="menu" onBack={() => setScreen('menu')}>
+    <ShellPage
+      title={t('rooms.title')}
+      subtitle={subtitle}
+      backTo="menu"
+      onBack={() => setScreen('menu')}
+      className="vk-lobby"
+    >
       {toast.node}
+      <LobbyStage source={source} />
       {body}
     </ShellPage>
   );
@@ -204,18 +224,27 @@ function Notice({
   testid?: string;
 }) {
   return (
-    <section className="vk-panel vk-mp__notice" aria-labelledby="vk-mp-notice" data-testid={testid}>
-      <div className="vk-panel__head">
-        <h2 className="vk-h" id="vk-mp-notice">
-          {title}
-        </h2>
-      </div>
-      <div className="vk-panel__body">
-        <p>{text}</p>
-      </div>
-      {action && <div className="vk-panel__foot">{action}</div>}
-    </section>
+    <div className="vk-mp vk-mp--solo">
+      <section className="vk-panel vk-mp__notice" aria-labelledby="vk-mp-notice" data-testid={testid}>
+        <div className="vk-panel__head">
+          <h2 className="vk-h" id="vk-mp-notice">
+            {title}
+          </h2>
+        </div>
+        <div className="vk-panel__body">
+          <p>{text}</p>
+        </div>
+        {action && <div className="vk-panel__foot">{action}</div>}
+      </section>
+      <StageWindow />
+    </div>
   );
+}
+
+/** What the create form has chosen so far: the 3D room shows it. */
+interface RoomDraftChoice {
+  mode: RoomMode;
+  options: RoomOptions;
 }
 
 // ── No room yet: create one or join with a code ─────────────────────────────
@@ -224,10 +253,13 @@ function NoRoom({
   onRoom,
   error,
   setError,
+  onDraft,
 }: {
   onRoom: (r: Room) => void;
   error: string | null;
   setError: (e: string | null) => void;
+  /** The form's mode and options, each time they change. */
+  onDraft: (d: RoomDraftChoice) => void;
 }) {
   const t = useT();
   const [mode, setMode] = useState<RoomMode>('race');
@@ -238,6 +270,7 @@ function NoRoom({
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState<'create' | 'join' | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
+  useEffect(() => onDraft({ mode, options: opts }), [mode, opts]);
 
   const create = async () => {
     if (busy) return;
@@ -303,6 +336,8 @@ function NoRoom({
           </button>
         </div>
       </section>
+
+      <StageWindow />
 
       <div className="vk-mp__col">
         <section className="vk-panel" aria-labelledby="vk-mp-join">
@@ -988,6 +1023,8 @@ function RoomView({
           </section>
         )}
       </div>
+
+      <StageWindow />
 
       <div className="vk-mp__col">
         {room.state === 'lobby' ? (

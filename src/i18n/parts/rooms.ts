@@ -14,6 +14,12 @@ export default {
   },
   'rooms.sub.room': { et: 'Ruum {code} · {state}', en: 'Room {code} · {state}' },
 
+  // The 3D control room behind the panels (src/lobby3d): the words on its video wall and monitors
+  'rooms.stage.header': { et: 'EPD · Juhtimiskeskus', en: 'EPD · Control room' },
+  'rooms.stage.standby': { et: 'Ootel', en: 'Standby' },
+  'rooms.stage.on': { et: 'Vahetus käib', en: 'Shift on' },
+  'rooms.stage.seat': { et: 'Pult {n}', en: 'Desk {n}' },
+
   // Room states
   'rooms.state.lobby': { et: 'ootab alustamist', en: 'waiting to start' },
   'rooms.state.running': { et: 'vahetus käib', en: 'shift on' },
