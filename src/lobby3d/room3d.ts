@@ -54,6 +54,7 @@ import {
   type WallLayer,
 } from './paint';
 import { LED_COLOUR, newlySeated, PALETTE, seatAngles, type SceneDesc, type SeatDesc } from './scene';
+import { isSoftware } from './renderer';
 
 /** The room's measures, metres. The wall and the consoles' arc share one centre of curvature behind the camera. */
 const CENTRE_Z = 6;
@@ -80,18 +81,6 @@ const DOLLY_S = 31;
 const WIPE_S = 0.9;
 const LEAN_S = 2.6;
 
-/** Can this browser draw the room at all. The probe's context is given back at once: a page may hold only a few. */
-export function canRender(): boolean {
-  try {
-    const c = document.createElement('canvas');
-    const gl = c.getContext('webgl2');
-    gl?.getExtension('WEBGL_lose_context')?.loseContext();
-    return !!gl;
-  } catch {
-    return false;
-  }
-}
-
 /** The part of the canvas the room is composed for (CSS px from its top left): what the panels leave free. */
 export interface StageView {
   x: number;
@@ -111,7 +100,8 @@ export interface RoomHandle {
   setStill(still: boolean): void;
   /**
    * Drawn by the processor, not by a graphics card (SwiftShader, llvmpipe and the like, where a browser blocks the
-   * card): the room is then always still, since every frame of the sway would keep a processor core busy.
+   * card): the room is then always still, since every frame of the sway would keep a processor core busy. The stage
+   * opens the room on such a renderer only when asked to (`stageForced`, the e2e tests); players get the duty map.
    */
   readonly software: boolean;
   /** Frames drawn so far (the stage's tests read it). */
@@ -126,14 +116,6 @@ export interface OpenRoomOptions {
   onLost: () => void;
   /** The first frame is on the canvas. */
   onFirstFrame: () => void;
-}
-
-/** Whether the renderer draws without a graphics card: the names software renderers give themselves. */
-function softwareRenderer(renderer: WebGLRenderer): boolean {
-  const gl = renderer.getContext();
-  const info = gl.getExtension('WEBGL_debug_renderer_info');
-  const name = String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER) ?? '');
-  return /swiftshader|llvmpipe|softpipe|lavapipe|software|basic render/i.test(name);
 }
 
 /** A strip of a cylinder's inside around the room's centre, between two heights: u runs left to right, v up. */
@@ -516,7 +498,7 @@ class Room implements RoomHandle {
     });
     this.renderer.setClearColor(PALETTE.navy);
     canvas.addEventListener('webglcontextlost', this.lost);
-    this.software = softwareRenderer(this.renderer);
+    this.software = isSoftware(this.renderer.getContext());
     this.still = this.software;
 
     const s = this.scene;

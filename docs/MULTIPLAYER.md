@@ -940,6 +940,8 @@ show is the room's own state.
   player's picture is the one `PlayerAvatar` shows (the face they picked, else their drawing).
 - `src/lobby3d/room3d.ts`: the room in three.js. Low-poly and made in code; unlit emissive screens, two lights, fog,
   no shadows. The floor's reflection is the wall's own texture drawn again upside down on the floor, fading out.
+- `src/lobby3d/renderer.ts`: what the browser would draw with (`probeRender`: a graphics card, the processor or
+  nothing), asked before the room's chunk is fetched; small and free of three.js, like `scene.ts`.
 - `src/ui/screens/shell/LobbyStage.tsx`: loads the room, feeds it the scene, its size and whether it is seen.
 
 ### 19.4 Cost
@@ -953,13 +955,16 @@ show is the room's own state.
   that stays under 20 frames a second is stepped down to 75 % and then 50 % of the resolution.
 - Reduced motion (the game's setting or the system's): no sway, no wipe, and a frame only when something changes.
 - A browser that draws without a graphics card (SwiftShader, llvmpipe and the like, named by
-  `WEBGL_debug_renderer_info`; Chrome falls back to them where it blocks a card) gets the same still room
-  (`RoomHandle.software`, the stage's `data-still`): every frame of the sway would keep a processor core busy, and two
-  such pages slowed the co-op e2e tests past their time. The e2e browser is such a browser, and
-  `e2e/lobby-stage.spec.ts` checks that a still room draws nothing while nothing changes.
+  `WEBGL_debug_renderer_info`; Chrome falls back to them where it blocks a card) gets the duty map, and the room's
+  chunk and three.js are not fetched (`probeRender`, the stage's `data-renderer`). The processor would compile the
+  room's shaders and paint its textures in long tasks, and the page, with every page of the same browser, waited on
+  them: in CI a player back in the lobby found the room's buttons only after 15 seconds, or not at all, while the
+  other player's shift drew its map. The e2e browser is such a browser. localStorage `epd:stage3d` set to `on` draws
+  the room anyway, always still (`RoomHandle.software`, the stage's `data-still`); `e2e/lobby-stage.spec.ts` uses it
+  and checks that a still room draws nothing while nothing changes.
 - Closing the screen disposes of the geometries, materials and textures, the renderer and its graphics context.
-- Without WebGL, when the room fails to open, or when the context is lost, the stage shows the duty map with the
-  room's prefecture lit (`DutyMap`), and nothing else changes (`tests/lobby-stage.test.ts`).
+- Without WebGL or a graphics card, when the room fails to open, or when the context is lost, the stage shows the
+  duty map with the room's prefecture lit (`DutyMap`), and nothing else changes (`tests/lobby-stage.test.ts`).
 
 ### 19.5 Limits
 

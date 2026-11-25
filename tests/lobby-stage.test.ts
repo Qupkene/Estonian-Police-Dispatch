@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 // Juhtimiskeskuse saal (src/ui/screens/shell/LobbyStage.tsx, docs/MULTIPLAYER.md section 19): the stage loads the 3D
 // room's chunk only when it is on the page, shows it the scene, tells it when it is seen and whether it may move,
-// and gives everything back when it closes. Where the room cannot be drawn (no WebGL, a failed open, a lost
-// context) it shows the duty map instead and nothing breaks. The room itself (three.js) is replaced here.
+// and gives everything back when it closes. Where the room cannot be drawn (no WebGL, no graphics card, a failed
+// open, a lost context) it shows the duty map instead and nothing breaks. The room itself (three.js) and the
+// browser's renderer are replaced here.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
@@ -13,7 +14,10 @@ import { useSettings } from '@/store/settings';
 const fake = vi.hoisted(() => ({
   /** How many times the room's chunk was evaluated. */
   loads: 0,
-  canRender: true,
+  /** What the browser draws with (src/lobby3d/renderer.ts). */
+  kind: 'gpu' as 'gpu' | 'software' | 'none',
+  /** The room drawn even without a graphics card (localStorage "epd:stage3d"). */
+  forced: false,
   failOpen: false,
   /** The room says it is drawn by the processor (no graphics card). */
   software: false,
@@ -24,10 +28,14 @@ const fake = vi.hoisted(() => ({
   }[],
 }));
 
+vi.mock('@/lobby3d/renderer', () => ({
+  probeRender: () => fake.kind,
+  stageForced: () => fake.forced,
+}));
+
 vi.mock('@/lobby3d/room3d', () => {
   fake.loads++;
   return {
-    canRender: () => fake.canRender,
     openRoom: async (canvas: HTMLCanvasElement, options: unknown) => {
       if (fake.failOpen) throw new Error('no context');
       const handle = {
@@ -64,7 +72,8 @@ async function mount(source: StageSource) {
 }
 
 beforeEach(() => {
-  fake.canRender = true;
+  fake.kind = 'gpu';
+  fake.forced = false;
   fake.failOpen = false;
   fake.software = false;
   fake.opened.length = 0;
@@ -94,6 +103,7 @@ describe('the lobby stage', () => {
     const { canvas, handle } = fake.opened[0];
     expect(stage.contains(canvas)).toBe(true);
     expect(stage.dataset.mode).toBe('3d');
+    expect(stage.dataset.renderer).toBe('gpu');
     expect(stage.dataset.phase).toBe('standby');
     expect(stage.dataset.seats).toBe('dark,dark,dark,dark');
     expect(stage.querySelector('.vk-map')).toBeNull();
@@ -131,10 +141,25 @@ describe('the lobby stage', () => {
     expect(handle.setStill).toHaveBeenLastCalledWith(true);
   });
 
-  it('a room drawn without a graphics card says so: the stage reports it still, without reduced motion', async () => {
+  it('without a graphics card it shows the duty map and opens no room', async () => {
+    fake.kind = 'software';
+    const { stage } = await mount(CREATE);
+    expect(fake.opened).toHaveLength(0);
+    expect(stage.dataset.mode).toBe('still');
+    expect(stage.dataset.renderer).toBe('software');
+    expect(stage.querySelector('.vk-stage__canvas')).toBeNull();
+    expect(stage.querySelector('.vk-stage__still .vk-map')).not.toBeNull();
+    expect(stage.dataset.seats).toBe('invite,open,open,open');
+  });
+
+  it('asked to draw the room anyway (the e2e tests), a room drawn by the processor stays still', async () => {
+    fake.kind = 'software';
+    fake.forced = true;
     fake.software = true;
     const { stage } = await mount(STANDBY);
+    expect(fake.opened).toHaveLength(1);
     expect(stage.dataset.mode).toBe('3d');
+    expect(stage.dataset.renderer).toBe('software');
     expect(stage.dataset.still).toBe('true');
   });
 
@@ -147,7 +172,7 @@ describe('the lobby stage', () => {
   });
 
   it('without WebGL it shows the duty map with the prefecture lit, and opens no room', async () => {
-    fake.canRender = false;
+    fake.kind = 'none';
     const { stage } = await mount(CREATE);
     expect(fake.opened).toHaveLength(0);
     expect(stage.dataset.mode).toBe('still');

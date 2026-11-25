@@ -1,12 +1,13 @@
 // Juhtimiskeskuse saal (docs/MULTIPLAYER.md section 19): the stage of the multiplayer screen's 3D control room.
 // On a wide screen it is the page's full-bleed background with the panels over it; on a narrow one a band on top.
 // The room itself (three.js, src/lobby3d/room3d.ts) is a lazy chunk that loads when this mounts; until it has drawn,
-// and wherever it cannot (no WebGL, a lost context, a chunk that did not arrive), the stage shows the duty map with
-// the room's prefecture lit instead. Decoration only: aria-hidden, nothing to focus or click, and the panels say
-// everything it shows. The data attributes tell the tests what it shows.
+// and wherever it cannot (no WebGL, no graphics card, a lost context, a chunk that did not arrive), the stage shows
+// the duty map with the room's prefecture lit instead. Decoration only: aria-hidden, nothing to focus or click, and
+// the panels say everything it shows. The data attributes tell the tests what it shows.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLang, useT, useTx } from '@/i18n';
 import type { RoomHandle, StageView } from '@/lobby3d/room3d';
+import { probeRender, stageForced, type RenderKind } from '@/lobby3d/renderer';
 import { describeScene, sceneWords, seatStates, type StageSource } from '@/lobby3d/scene';
 import { useSettings } from '@/store/settings';
 import { DutyMap, NO_DUTY } from './DutyMap';
@@ -77,6 +78,8 @@ export function LobbyStage({ source }: { source: StageSource }) {
   const [drawn, setDrawn] = useState(false);
   /** The room is drawn by the processor (no graphics card): it stays still (RoomHandle.software). */
   const [software, setSoftware] = useState(false);
+  /** What the browser draws with, once asked (`probeRender`). */
+  const [renderer, setRenderer] = useState<RenderKind | null>(null);
   const smallRef = useRef(small);
   smallRef.current = small;
 
@@ -84,6 +87,14 @@ export function LobbyStage({ source }: { source: StageSource }) {
   useEffect(() => {
     const holder = holderRef.current;
     if (!holder) return;
+    // Without a graphics card the processor would compile and draw the room, and the page (with every page of the
+    // browser) would wait on it: the duty map instead, and the room's chunk is not even fetched.
+    const kind = probeRender();
+    setRenderer(kind);
+    if (kind === 'none' || (kind === 'software' && !stageForced())) {
+      setMode('still');
+      return;
+    }
     let alive = true;
     let room: RoomHandle | null = null;
     let canvas: HTMLCanvasElement | null = null;
@@ -101,7 +112,6 @@ export function LobbyStage({ source }: { source: StageSource }) {
     loadRoom()
       .then(async (m) => {
         if (!alive) return;
-        if (!m.canRender()) return fail();
         canvas = document.createElement('canvas');
         canvas.className = 'vk-stage__canvas';
         holder.appendChild(canvas);
@@ -196,6 +206,7 @@ export function LobbyStage({ source }: { source: StageSource }) {
       data-mode={mode}
       data-drawn={drawn && mode === '3d' ? 'true' : 'false'}
       data-still={still || software ? 'true' : 'false'}
+      data-renderer={renderer ?? ''}
       data-phase={scene.phase}
       data-room-mode={scene.mode ?? ''}
       data-seats={seatStates(scene)}

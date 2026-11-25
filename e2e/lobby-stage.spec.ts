@@ -5,7 +5,9 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
  * room draws, and says what it shows through the stage's data attributes. A guest's room is in standby with four dark
  * consoles; the create page lights four and follows the mode chosen; a room seats exactly its players, on both
  * players' screens, and a phone gets the room as a band above the panels. The stage is decoration: hidden from
- * screen readers, with nothing to focus. STAGE_SHOTS=<dir> saves screenshots of each.
+ * screen readers, with nothing to focus. The test browser draws without a graphics card (SwiftShader): by itself the
+ * stage shows it the duty map and fetches no room, as it does for a player without a card; asked to (localStorage
+ * "epd:stage3d"), it draws the room anyway, still. STAGE_SHOTS=<dir> saves screenshots of each.
  */
 
 type EpdWindow = Window & {
@@ -29,6 +31,8 @@ async function boot(page: Page) {
 
 async function register(browser: Browser, name: string, viewport = { width: 1440, height: 900 }) {
   const ctx = await browser.newContext({ viewport });
+  // These players' browsers draw the room although they have no graphics card (see the guest's test).
+  await ctx.addInitScript(() => localStorage.setItem('epd:stage3d', 'on'));
   const page = await ctx.newPage();
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e)));
@@ -101,13 +105,27 @@ test.describe.serial('the lobby stage', () => {
     expect(three).toEqual([]);
     await openRooms(page);
     await expect(page.getByTestId('rooms-guest')).toBeVisible();
+    // The test's browser draws without a graphics card (SwiftShader), as a player's does where it blocks the card:
+    // the stage shows the duty map, and neither the room nor three.js is fetched. Compiled and drawn by the processor,
+    // the room held the page up, and every page of the browser with it.
+    await expect(stage(page)).toHaveAttribute('data-renderer', 'software');
+    await expect(stage(page)).toHaveAttribute('data-mode', 'still');
+    await expect(stage(page).locator('.vk-stage__still .vk-map')).toHaveCount(1);
+    await expect(stage(page).locator('canvas.vk-stage__canvas')).toHaveCount(0);
+    await expect(stage(page)).toHaveAttribute('data-phase', 'standby');
+    expect(three).toEqual([]);
+    await shot(page, 'stage-guest-still-1600');
+
+    // Asked to draw the room anyway (as the tests below are), it does, and stays still: it keeps no processor busy.
+    await page.evaluate(() => localStorage.setItem('epd:stage3d', 'on'));
+    await page.getByRole('button', { name: 'Peamenüü' }).first().click();
+    await expect.poll(() => screen(page)).toBe('menu');
+    await openRooms(page);
     await drawn(page);
     expect(three.some((u) => /lobby3d-/.test(u))).toBe(true);
     expect(three.some((u) => /three-/.test(u))).toBe(true);
     await expect(stage(page)).toHaveAttribute('data-phase', 'standby');
     await expect(stage(page)).toHaveAttribute('data-seats', 'dark,dark,dark,dark');
-    // The test's browser draws without a graphics card (SwiftShader): the room knows it and stays still, so that it
-    // keeps no processor core busy (a player whose browser blocks the card would get the same).
     await expect(stage(page)).toHaveAttribute('data-still', 'true');
     const draws = () => page.evaluate(() => (window as unknown as { __draws: number }).__draws);
     await page.waitForTimeout(1000);

@@ -3,7 +3,7 @@
 // ask it while drawing) and types; everything else comes through import() of the camera chunk's entry.
 // Juhtimiskeskuse saal (docs/MULTIPLAYER.md section 19) is the second user of three.js: the multiplayer screen's 3D
 // room, src/lobby3d/room3d.ts, loaded with import() when that screen opens. Of src/lobby3d the game's bundle may
-// import only scene.ts (the plain description of the room) and types.
+// import only scene.ts (the plain description of the room), renderer.ts (what the browser draws with) and types.
 // After a build, the last cases read the output too: three.js in one shared chunk that only lazy chunks load, never
 // reached from the entry, and nothing of it, of the camera or of the lobby's room in the service worker's precache.
 // They need dist/ and are skipped without it, unless CCTV_DIST=1 asks for them (CI runs this file once more after its
@@ -18,8 +18,10 @@ const CCTV = path.join(SRC, 'cctv');
 const LOBBY3D = path.join(SRC, 'lobby3d');
 /** The lobby room's chunk entry, the only module outside src/cctv that imports three.js. */
 const ROOM3D = path.join(LOBBY3D, 'room3d.ts');
-/** What the game's bundle may load of src/lobby3d up front: the description of the scene. */
+/** What the game's bundle may load of src/lobby3d up front: the description of the scene and the renderer probe. */
 const SCENE = path.join(LOBBY3D, 'scene.ts');
+const RENDERER = path.join(LOBBY3D, 'renderer.ts');
+const UP_FRONT = new Set([SCENE, RENDERER]);
 
 /** The only modules of src/cctv the game's bundle may load up front: small, pure, no package behind them. */
 const LIGHT = new Set(['coverage.ts', 'math.ts'].map((f) => path.join(CCTV, f)));
@@ -126,20 +128,20 @@ describe('the camera chunk stays lazy', () => {
     expect(bad).toEqual([]);
   });
 
-  it("no module outside src/lobby3d statically imports more of it than scene.ts and types", () => {
+  it("no module outside src/lobby3d statically imports more of it than scene.ts, renderer.ts and types", () => {
     const bad: string[] = [];
     for (const file of sourceFiles(SRC)) {
       if (inLobby3d(file)) continue;
       for (const imp of staticImports(file)) {
         const to = resolve(file, imp.spec);
         if (!to || !inLobby3d(to) || imp.typeOnly) continue;
-        if (to !== SCENE) bad.push(`${rel(file)} imports ${imp.spec}`);
+        if (!UP_FRONT.has(to)) bad.push(`${rel(file)} imports ${imp.spec}`);
       }
     }
     expect(bad).toEqual([]);
   });
 
-  it("the lobby's scene description reaches neither three.js nor the room that draws it", () => {
+  it("the lobby's scene description and renderer probe reach neither three.js nor the room that draws it", () => {
     const seen = new Set<string>();
     const bad: string[] = [];
     const walk = (file: string) => {
@@ -150,11 +152,12 @@ describe('the camera chunk stays lazy', () => {
         if (imp.spec === 'three' || imp.spec.startsWith('three/')) bad.push(`${rel(file)} imports ${imp.spec}`);
         const to = resolve(file, imp.spec);
         if (!to || !existsSync(to) || !/\.(?:ts|tsx)$/.test(to)) continue;
-        if (inLobby3d(to) && to !== SCENE) bad.push(`${rel(file)} imports ${rel(to)}`);
+        if (inLobby3d(to) && !UP_FRONT.has(to)) bad.push(`${rel(file)} imports ${rel(to)}`);
         else walk(to);
       }
     };
     walk(SCENE);
+    walk(RENDERER);
     expect(seen.size).toBeGreaterThan(3);
     expect(bad).toEqual([]);
   });
@@ -164,6 +167,7 @@ describe('the camera chunk stays lazy', () => {
     expect(readFileSync(stage, 'utf8')).toMatch(/import\(\s*['"]@\/lobby3d\/room3d['"]\s*\)/);
     expect(staticImports(stage).find((i) => i.spec === '@/lobby3d/room3d')?.typeOnly).toBe(true);
     expect(staticImports(stage).find((i) => i.spec === '@/lobby3d/scene')?.typeOnly).toBe(false);
+    expect(staticImports(stage).find((i) => i.spec === '@/lobby3d/renderer')?.typeOnly).toBe(false);
     // And the entry is where three.js comes in.
     expect(staticImports(ROOM3D).map((i) => i.spec)).toContain('three');
   });
