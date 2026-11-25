@@ -2,6 +2,26 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.42.0 (2026-11-25)
+
+- **Mitmikmängu ekraan on nüüd juhtimiskeskuse saal, 3D-s:**
+  - Paneelide taga on tume saal: tagaseinas kumer videosein Eesti kaardiga, selle ees kaares puldid, igal kaks monitori, tool ja valgusriba. Kaamera liigub aeglaselt.
+  - Külaline näeb saali ootel: puldid on pimedad ja seinal on kiri "Ootel". Sisselogimise teade on alles.
+  - Ruumi luues järgib saal sinu valikuid kohe. Valitud prefektuur süttib seinal. Võistluses on puldid eraldi ja seinal nelja kohaga tulemustabel. Rollides on puldid üks meeskond ja igal monitoril on oma roll. Sektorites on kaart jagatud töölaudadeks, igal oma värv, ja igast puldist viib valgusjoon oma sektorini.
+  - Ruumis on igal mängijal oma pult: monitoril tema pilt ja nimi, valgusriba on roheline, kui ta on valmis, kollane, kui ootab, ja hall, kui ühendus on katkenud. Looja puldil on kuldne märk ja sinu oma pult on esile tõstetud. Vaba koha monitor ütleb "Vaba koht". Kui keegi liitub, süttib tema monitor ja kaamera pöördub korraks tema poole.
+  - Seinal on ruumi kood suurelt, režiim, prefektuur ja vahetuse aeg. Kui vahetus käib, ütleb sein seda koos kellaga; kui voor on läbi, on seinal tulemused.
+- **Laial ekraanil** täidab saal kogu tausta ja paneelid on vasakul ja paremal, nagu kaart peamenüüs. **Telefonis** on saal riba ekraani ülaosas ja paneelid tulevad selle alla. Kõik nupud ja valikud on samad mis enne.
+- **Kiirus:** saal ja 3D-teek laetakse alles siis, kui mitmikmängu ekraani avad. Pilti joonistatakse ainult siis, kui see on näha, kuni 30 kaadrit sekundis. Seade "Vähem liikumist" jätab pildi paigale. Kui seade 3D-d ei toeta, on saali asemel kaart, kus ruumi prefektuur on esile tõstetud.
+
+<details>
+<summary>English</summary>
+
+The multiplayer screen is a 3D control room ("Juhtimiskeskuse saal", docs/MULTIPLAYER.md section 19), drawn with three.js: a curved video wall with the duty map (painted by `dutyMapCanvas.ts`), an arc of consoles before it (a desk, two monitors, a chair, an LED strip each), fog and a floor that mirrors the wall. `src/lobby3d/scene.ts` turns the screen's state (a guest, the create form's choice, a room) into a plain description (seats, their states and colours, the monitors' words, what the wall shows), with unit tests; `src/lobby3d/paint.ts` paints the screens into canvases and `src/lobby3d/room3d.ts` draws the description. The stage (`src/ui/screens/shell/LobbyStage.tsx`) is the page's full-bleed background from 1100 px up, with the panels in a left and a right column and the room composed into the window between them; below that it is a band on top (200 to 240 px on a phone). It is decoration: aria-hidden, nothing to focus, every control and `data-testid` as before.
+
+three.js now lives in one shared lazy chunk (`assets/three-*.js`) used by the camera chunk and by the new `assets/lobby3d-*.js`; none of the three is precached (`ON_DEMAND_CHUNKS` in `vite.config.ts`), and `tests/cctv-lazy.test.ts` guards that three.js is never reached from the entry. The room draws only while the document is shown and the stage is on screen, at 30 frames a second at most and a pixel ratio of at most 1.5 (1 on a phone), steps its resolution down on a slow machine, draws still frames with reduced motion, and gives back its geometries, materials, textures and the graphics context when the screen closes. Without WebGL, or after a lost context, the stage shows the duty map with the room's prefecture lit.
+
+</details>
+
 ## 2.41.3 (2026-11-25)
 
 - **Sisselogimise paneel püsib paigal:** ID-kaardi PIN-sammul kasvas paneel varem ligi 200 pikslit kõrgemaks ja selle alumine osa jäi ekraanist välja. Nüüd on igal sammul (ID-kaart, Mobiil-ID, Smart-ID, tervitus) sama kõrgus ja paneel ei liigu.

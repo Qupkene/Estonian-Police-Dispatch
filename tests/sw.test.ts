@@ -278,7 +278,15 @@ describe('build stamping', () => {
     expect(precacheList(files)).toEqual(['assets/GameScreen-B.js', 'assets/cctvhelp-C.js', 'assets/index-A.js']);
   });
 
+  it("leaves three.js and the lobby's 3D room to the first opening of the multiplayer screen", () => {
+    // Juhtimiskeskuse saal (docs/MULTIPLAYER.md section 19): three.js is shared by the camera and the room.
+    const files = ['assets/index-A.js', 'assets/lobby3d-L1.js', 'assets/three-T2.js', 'assets/LobbyScreen-B.js', 'assets/threeway-C.js'];
+    expect(precacheList(files)).toEqual(['assets/LobbyScreen-B.js', 'assets/index-A.js', 'assets/threeway-C.js']);
+  });
+
   it('names the camera chunk after what it is, and every other chunk as before', () => {
+    expect(chunkFileName({ facadeModuleId: '/repo/src/lobby3d/room3d.ts' })).toBe('assets/lobby3d-[hash].js');
+    expect(chunkFileName({ facadeModuleId: '/repo/src/lobby3d/scene.ts' })).toBe('assets/[name]-[hash].js');
     expect(chunkFileName({ facadeModuleId: '/repo/src/cctv/live.ts' })).toBe('assets/cctv-[hash].js');
     expect(chunkFileName({ facadeModuleId: '/repo/src/ui/game/GameScreen.tsx' })).toBe('assets/[name]-[hash].js');
     expect(chunkFileName({ facadeModuleId: null })).toBe('assets/[name]-[hash].js');

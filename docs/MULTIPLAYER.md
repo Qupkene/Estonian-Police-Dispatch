@@ -16,7 +16,8 @@ mode (a) on the same lockstep core; section 8 describes it. Since 2.21.0 the co-
 fallback when the game server is not there. A room plays round after round: after a game everybody carries on in the
 same lobby (section 11). Since 2.34.0 the host can remove a player, a desk nobody holds can be taken over, and the game
 server signs the result of the shifts it runs (section 12). Every client records the shift it plays, and the report and
-the history replay it on the map (section 17). Careers and polish are next (section 6).
+the history replay it on the map (section 17). Since 2.42.0 the multiplayer screen is a 3D control room that shows
+what the room is (section 19). Careers and polish are next (section 6).
 
 Code: `server/lib/rooms.php` (routes in `server/api/index.php`, schema step 4 in `server/lib/db.php`),
 `src/net/rooms.ts`, `src/sim/room.ts`, `src/ui/screens/LobbyScreen.tsx`, `src/ui/screens/shell/RoomBoard.tsx`,
@@ -885,3 +886,79 @@ docs/SERVER.md (4.1, Friends); the client is `src/net/friends.ts`, `src/store/fr
   end).
 - At most 60 invitations an hour and 10 friends per call; one still waiting for the same friend is renewed, not sent
   twice. Ending a friendship removes the invitations between the two.
+
+## 19. Juhtimiskeskuse saal: the lobby in 3D (2.42.0)
+
+The owner asked for a multiplayer menu "much more illustrative, like single player is, but much better, even in 3D".
+The single-player menu stands on a map of Estonia; the multiplayer screen stands in a control room. The room is not a
+picture beside the lobby: it shows the lobby. Each seat of the room is a console, and what a console and the video wall
+show is the room's own state.
+
+### 19.1 What it shows
+
+| The screen | The consoles | The video wall |
+| --- | --- | --- |
+| A guest, offline, loading | Four, dark | The map, dim, and "Ootel" |
+| Create or join | Four lit, the first inviting the player with their picture | Follows the form (below) |
+| A room's lobby | One per seat (`room.max`): a player's picture and name, or "Vaba koht" | The code in big type, the mode, the prefecture, the shift |
+| The shift is on | The players: amber on shift, green when their result is in | "Vahetus käib", the shift's hours, the clock |
+| The round is over | As above | The results: ranks, names, points |
+
+- The strip of light along a desk: green ready, amber waiting, grey offline (or nobody), cyan for the console that
+  invites the player. A gold mark turns on the host's console; a cyan ring on the floor marks the player's own.
+- The mode arranges the room. Võistlus: separate consoles, and on the create page a scoreboard of four empty ranks.
+  Rollid: the desks joined into one, each console's second monitor titled with its role, one map over the whole wall.
+  Sektorid: the prefecture's desks coloured on the map, each console tinted with its desk's colour, and a thin line of
+  light from the console to its sector on the wall.
+- The prefecture chosen is lit on the wall's map (the duty map's own painter, `dutyMapCanvas.ts`).
+- A player who joins: their monitors come on behind a scanline, and the camera leans toward them for a moment.
+- The camera sways about 5 degrees each way over 36 seconds and moves in and out a little over 31.
+- Every word on a screen comes from the dictionary (`rooms.stage.*` and the lobby's own keys). The room is always a
+  dark room, in the light theme too: it uses the dark Valvekaart tokens as fixed colours. No PPA logo or coat of arms.
+
+### 19.2 Layout
+
+- From 1100 px up the stage is the page's full-bleed background (fixed, so the panels scroll over it), and the panels
+  stand in a left column (344 px) and a right one (376 px). Between them is an empty cell, `.vk-mp__window`: the stage
+  measures it and the camera composes the room into it (`setViewOffset`), so the consoles and the wall's board always
+  show between the panels and the rest of the room continues behind them. A tall window makes the camera look down more
+  steeply, so that the floor between the consoles and the wall fills it.
+- Below 1100 px the stage is a band on top of the page, edge to edge: 200 to 240 px on a phone, 300 px on a tablet. The
+  panels follow in one column, as before.
+- The order of the panels and of the keyboard, every control and every `data-testid` are as they were. The fields of
+  the options form have their label above the control on every width now, because the columns are narrow on every width.
+- The stage is decoration: `aria-hidden`, no focusable parts, no pointer events. Everything a player reads or does is
+  in the panels.
+
+### 19.3 The code
+
+- `src/lobby3d/scene.ts`: `describeScene` turns a guest, the create form's choice or a `Room` into a `SceneDesc`: the
+  seats (state, strip, name, picture, title, host, own, sector colour) and the wall (map, board, facts). Plain data, no
+  DOM and no three.js; `tests/lobby-scene.test.ts`. The stage writes it into `data-phase`, `data-room-mode` and
+  `data-seats` ("seated,seated,free,free") for the end-to-end test (`e2e/lobby-stage.spec.ts`).
+- `src/lobby3d/paint.ts`: the wall and the monitors painted into 2D canvases, after `document.fonts.ready`. A
+  player's picture is the one `PlayerAvatar` shows (the face they picked, else their drawing).
+- `src/lobby3d/room3d.ts`: the room in three.js. Low-poly and made in code; unlit emissive screens, two lights, fog,
+  no shadows. The floor's reflection is the wall's own texture drawn again upside down on the floor, fading out.
+- `src/ui/screens/shell/LobbyStage.tsx`: loads the room, feeds it the scene, its size and whether it is seen.
+
+### 19.4 Cost
+
+- three.js is one lazy chunk shared with the surveillance camera (`assets/three-*.js`, `codeSplitting` in
+  `vite.config.ts`); the room is `assets/lobby3d-*.js`. Both load with `import()` when the multiplayer screen opens,
+  and neither is precached by the service worker (`ON_DEMAND_CHUNKS`). `tests/cctv-lazy.test.ts` guards that three.js
+  is imported only by the camera's renderer and by `room3d.ts`, and that the built entry never reaches it.
+- Frames only while the document is shown and the stage is on screen (`IntersectionObserver`), 30 a second at most.
+  The pixel ratio is at most 1.5 on a desktop and 1 on a phone, and a frame has at most 2.4 million pixels. A machine
+  that stays under 20 frames a second is stepped down to 75 % and then 50 % of the resolution.
+- Reduced motion (the game's setting or the system's): no sway, no wipe, and a frame only when something changes.
+- Closing the screen disposes of the geometries, materials and textures, the renderer and its graphics context.
+- Without WebGL, when the room fails to open, or when the context is lost, the stage shows the duty map with the
+  room's prefecture lit (`DutyMap`), and nothing else changes (`tests/lobby-stage.test.ts`).
+
+### 19.5 Limits
+
+- The room shows at most four consoles, as a room has at most four seats.
+- The wall's clock is the top bar's: Tallinn time, as everywhere in the game, repainted once a minute (`useMinuteClock`). The shift's own clock is in the shift.
+- In the lobby the wall is the status board in every mode; the mode's own wall (scoreboard, shared map, sectors over
+  the whole wall) is on the create page. The consoles keep the mode's arrangement in both.

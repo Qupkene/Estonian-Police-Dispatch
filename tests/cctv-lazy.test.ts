@@ -1,9 +1,13 @@
 // Kaamerad (docs/CCTV.md section 14): three.js, the renderer, the director and the tile reader load only when a
 // camera is first opened. The game's own bundle may import from src/cctv only coverage.ts (the queue and the card
 // ask it while drawing) and types; everything else comes through import() of the camera chunk's entry.
-// After a build, the last cases read the output too: three.js only in the camera chunk, nothing of the camera in the
-// service worker's precache. They need dist/ and are skipped without it, unless CCTV_DIST=1 asks for them (CI runs
-// this file once more after its build with that set).
+// Juhtimiskeskuse saal (docs/MULTIPLAYER.md section 19) is the second user of three.js: the multiplayer screen's 3D
+// room, src/lobby3d/room3d.ts, loaded with import() when that screen opens. Of src/lobby3d the game's bundle may
+// import only scene.ts (the plain description of the room) and types.
+// After a build, the last cases read the output too: three.js in one shared chunk that only lazy chunks load, never
+// reached from the entry, and nothing of it, of the camera or of the lobby's room in the service worker's precache.
+// They need dist/ and are skipped without it, unless CCTV_DIST=1 asks for them (CI runs this file once more after its
+// build with that set).
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -11,6 +15,11 @@ import { describe, expect, it } from 'vitest';
 const ROOT = path.resolve(__dirname, '..');
 const SRC = path.join(ROOT, 'src');
 const CCTV = path.join(SRC, 'cctv');
+const LOBBY3D = path.join(SRC, 'lobby3d');
+/** The lobby room's chunk entry, the only module outside src/cctv that imports three.js. */
+const ROOM3D = path.join(LOBBY3D, 'room3d.ts');
+/** What the game's bundle may load of src/lobby3d up front: the description of the scene. */
+const SCENE = path.join(LOBBY3D, 'scene.ts');
 
 /** The only modules of src/cctv the game's bundle may load up front: small, pure, no package behind them. */
 const LIGHT = new Set(['coverage.ts', 'math.ts'].map((f) => path.join(CCTV, f)));
@@ -62,6 +71,7 @@ const DIST = path.join(ROOT, 'dist');
 const haveDist = existsSync(path.join(DIST, 'sw.js'));
 const needDist = process.env.CCTV_DIST === '1';
 const inCctv = (f: string) => f === CCTV || f.startsWith(CCTV + path.sep);
+const inLobby3d = (f: string) => f === LOBBY3D || f.startsWith(LOBBY3D + path.sep);
 const rel = (f: string) => path.relative(ROOT, f).split(path.sep).join('/');
 
 describe('the camera chunk stays lazy', () => {
@@ -104,11 +114,11 @@ describe('the camera chunk stays lazy', () => {
     expect(entry).toContain('./render/view');
   });
 
-  it('three.js is imported only by the renderer and the harness pages', () => {
+  it("three.js is imported only by the camera's renderer, its harness pages and the lobby's room", () => {
     const allowed = [path.join(CCTV, 'render'), path.join(CCTV, '__dev__')];
     const bad: string[] = [];
     for (const file of sourceFiles(SRC)) {
-      if (allowed.some((d) => file.startsWith(d + path.sep))) continue;
+      if (file === ROOM3D || allowed.some((d) => file.startsWith(d + path.sep))) continue;
       for (const imp of staticImports(file)) {
         if (!imp.typeOnly && (imp.spec === 'three' || imp.spec.startsWith('three/'))) bad.push(`${rel(file)} imports ${imp.spec}`);
       }
@@ -116,16 +126,81 @@ describe('the camera chunk stays lazy', () => {
     expect(bad).toEqual([]);
   });
 
-  it.runIf(haveDist || needDist)('the build puts three.js in the camera chunk only, and precaches nothing of the camera', () => {
+  it("no module outside src/lobby3d statically imports more of it than scene.ts and types", () => {
+    const bad: string[] = [];
+    for (const file of sourceFiles(SRC)) {
+      if (inLobby3d(file)) continue;
+      for (const imp of staticImports(file)) {
+        const to = resolve(file, imp.spec);
+        if (!to || !inLobby3d(to) || imp.typeOnly) continue;
+        if (to !== SCENE) bad.push(`${rel(file)} imports ${imp.spec}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it("the lobby's scene description reaches neither three.js nor the room that draws it", () => {
+    const seen = new Set<string>();
+    const bad: string[] = [];
+    const walk = (file: string) => {
+      if (seen.has(file)) return;
+      seen.add(file);
+      for (const imp of staticImports(file)) {
+        if (imp.typeOnly) continue;
+        if (imp.spec === 'three' || imp.spec.startsWith('three/')) bad.push(`${rel(file)} imports ${imp.spec}`);
+        const to = resolve(file, imp.spec);
+        if (!to || !existsSync(to) || !/\.(?:ts|tsx)$/.test(to)) continue;
+        if (inLobby3d(to) && to !== SCENE) bad.push(`${rel(file)} imports ${rel(to)}`);
+        else walk(to);
+      }
+    };
+    walk(SCENE);
+    expect(seen.size).toBeGreaterThan(3);
+    expect(bad).toEqual([]);
+  });
+
+  it("the lobby's stage reaches the room through import() of the chunk's entry", () => {
+    const stage = path.join(SRC, 'ui/screens/shell/LobbyStage.tsx');
+    expect(readFileSync(stage, 'utf8')).toMatch(/import\(\s*['"]@\/lobby3d\/room3d['"]\s*\)/);
+    expect(staticImports(stage).find((i) => i.spec === '@/lobby3d/room3d')?.typeOnly).toBe(true);
+    expect(staticImports(stage).find((i) => i.spec === '@/lobby3d/scene')?.typeOnly).toBe(false);
+    // And the entry is where three.js comes in.
+    expect(staticImports(ROOM3D).map((i) => i.spec)).toContain('three');
+  });
+
+  it.runIf(haveDist || needDist)('the build puts three.js in one shared chunk that only lazy chunks load, and precaches none of them', () => {
     expect(haveDist).toBe(true);
-    const assets = readdirSync(path.join(DIST, 'assets')).filter((f) => f.endsWith('.js'));
-    const cam = assets.filter((f) => f.startsWith('cctv-'));
-    expect(cam.length).toBe(1);
-    const elsewhere = assets.filter((f) => !f.startsWith('cctv-') && readFileSync(path.join(DIST, 'assets', f), 'utf8').includes('WebGLRenderer'));
-    expect(elsewhere).toEqual([]);
-    expect(readFileSync(path.join(DIST, 'assets', cam[0]), 'utf8')).toContain('WebGLRenderer');
+    const dir = path.join(DIST, 'assets');
+    const assets = readdirSync(dir).filter((f) => f.endsWith('.js'));
+    const text = (f: string) => readFileSync(path.join(dir, f), 'utf8');
+    const named = (prefix: string) => assets.filter((f) => f.startsWith(prefix));
+    const [cam, room, three] = [named('cctv-'), named('lobby3d-'), named('three-')];
+    expect([cam.length, room.length, three.length]).toEqual([1, 1, 1]);
+    // three.js itself is in its own chunk and nowhere else.
+    expect(assets.filter((f) => text(f).includes('WebGLRenderer'))).toEqual(three);
+    // The chunks a page loads up front: the entry and what it imports statically, and so on. Neither three.js nor
+    // the two chunks that use it are among them, and the page does not preload them.
+    const statics = (f: string) =>
+      [...text(f).matchAll(/(?:\bfrom|\bimport)\s*["']\.\/([^"']+\.js)["']/g)].map((m) => m[1]);
+    const html = readFileSync(path.join(DIST, 'index.html'), 'utf8');
+    const entry = /src="[^"]*assets\/(index-[^"]+\.js)"/.exec(html)?.[1];
+    expect(entry).toBeTruthy();
+    const upFront = new Set<string>();
+    const walk = (f: string) => {
+      if (upFront.has(f) || !assets.includes(f)) return;
+      upFront.add(f);
+      statics(f).forEach(walk);
+    };
+    walk(entry as string);
+    expect(upFront.size).toBeGreaterThan(0);
+    const lazy = [...cam, ...room, ...three];
+    expect(lazy.filter((f) => upFront.has(f))).toEqual([]);
+    for (const f of lazy) expect(html).not.toContain(f);
+    // The camera and the room both get three.js from the shared chunk.
+    expect(statics(cam[0])).toContain(three[0]);
+    expect(statics(room[0])).toContain(three[0]);
     const sw = readFileSync(path.join(DIST, 'sw.js'), 'utf8');
-    expect(sw).not.toMatch(/cctv-|human-/);
+    expect(sw).not.toMatch(/cctv-|human-|lobby3d-|assets\/three-/);
   });
 
   it('the reader of import statements sees what it must', () => {

@@ -426,6 +426,8 @@ Screens: Boot (fake OS boot log) → Login (ID-kaart / Mobiil-ID / Smart-ID simu
 account login, empty fields only ask for a name and a password; every step of every method keeps the panel's
 height) → Menu (Karjäär, Kiirmäng,
 Režissööri režiim, Seaded, Algsed versioonid 2024/2025, Tiitrid) → Briefing → Game → Report.
+Mitmikmäng (Lobby) from the menu: its panels stand over a 3D control room that shows the room's seats and state
+(docs/MULTIPLAYER.md section 19), as the menu's stand over the duty map.
 A disclaimer is always visible on login/menu: "Mitteametlik fännimäng · ei ole seotud PPA-ga ·
 hädaolukorras helista 112". Never use the real PPA logo/coat of arms; our emblem is an original
 shield with a cornflower (rukkilill) and "EPD".
