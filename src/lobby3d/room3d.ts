@@ -109,6 +109,11 @@ export interface RoomHandle {
   setActive(active: boolean): void;
   /** Reduced motion: no sway, no wipes, a frame only when something changed. */
   setStill(still: boolean): void;
+  /**
+   * Drawn by the processor, not by a graphics card (SwiftShader, llvmpipe and the like, where a browser blocks the
+   * card): the room is then always still, since every frame of the sway would keep a processor core busy.
+   */
+  readonly software: boolean;
   /** Frames drawn so far (the stage's tests read it). */
   readonly frames: number;
   dispose(): void;
@@ -121,6 +126,14 @@ export interface OpenRoomOptions {
   onLost: () => void;
   /** The first frame is on the canvas. */
   onFirstFrame: () => void;
+}
+
+/** Whether the renderer draws without a graphics card: the names software renderers give themselves. */
+function softwareRenderer(renderer: WebGLRenderer): boolean {
+  const gl = renderer.getContext();
+  const info = gl.getExtension('WEBGL_debug_renderer_info');
+  const name = String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER) ?? '');
+  return /swiftshader|llvmpipe|softpipe|lavapipe|software|basic render/i.test(name);
 }
 
 /** A strip of a cylinder's inside around the room's centre, between two heights: u runs left to right, v up. */
@@ -475,6 +488,7 @@ class Room implements RoomHandle {
   private fog = new FogExp2(PALETTE.navy, 0.03);
   private active = false;
   private still = false;
+  readonly software: boolean;
   private dirty = true;
   private disposed = false;
   private raf = 0;
@@ -502,6 +516,8 @@ class Room implements RoomHandle {
     });
     this.renderer.setClearColor(PALETTE.navy);
     canvas.addEventListener('webglcontextlost', this.lost);
+    this.software = softwareRenderer(this.renderer);
+    this.still = this.software;
 
     const s = this.scene;
     s.fog = this.fog;
@@ -830,7 +846,8 @@ class Room implements RoomHandle {
     } else this.stop();
   }
 
-  setStill(still: boolean): void {
+  setStill(asked: boolean): void {
+    const still = asked || this.software;
     if (this.disposed || this.still === still) return;
     this.still = still;
     if (still) {

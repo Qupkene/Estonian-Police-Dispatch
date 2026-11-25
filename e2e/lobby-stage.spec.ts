@@ -80,6 +80,20 @@ test.describe.serial('the lobby stage', () => {
     page.on('request', (r) => {
       if (/assets\/(three|lobby3d)-/.test(r.url())) three.push(r.url());
     });
+    // Every WebGL draw call is counted: a still room draws nothing while nothing changes.
+    await page.addInitScript(() => {
+      const w = window as unknown as { __draws: number };
+      w.__draws = 0;
+      for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) {
+        for (const f of ['drawElements', 'drawArrays'] as const) {
+          const orig = C.prototype[f] as (...a: unknown[]) => void;
+          (C.prototype as unknown as Record<string, unknown>)[f] = function (this: unknown, ...a: unknown[]) {
+            w.__draws++;
+            return orig.apply(this, a);
+          };
+        }
+      }
+    });
     await boot(page);
     await page.getByRole('button', { name: 'Jätka külalisena' }).click();
     await expect.poll(() => screen(page), { timeout: 15_000 }).toBe('menu');
@@ -92,6 +106,14 @@ test.describe.serial('the lobby stage', () => {
     expect(three.some((u) => /three-/.test(u))).toBe(true);
     await expect(stage(page)).toHaveAttribute('data-phase', 'standby');
     await expect(stage(page)).toHaveAttribute('data-seats', 'dark,dark,dark,dark');
+    // The test's browser draws without a graphics card (SwiftShader): the room knows it and stays still, so that it
+    // keeps no processor core busy (a player whose browser blocks the card would get the same).
+    await expect(stage(page)).toHaveAttribute('data-still', 'true');
+    const draws = () => page.evaluate(() => (window as unknown as { __draws: number }).__draws);
+    await page.waitForTimeout(1000);
+    const before = await draws();
+    await page.waitForTimeout(3000);
+    expect(await draws()).toBe(before);
     await expect(stage(page)).toHaveAttribute('aria-hidden', 'true');
     expect(await stage(page).locator('button, a, input, select, [tabindex]').count()).toBe(0);
     await shot(page, 'stage-guest-1600');

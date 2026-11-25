@@ -952,6 +952,11 @@ show is the room's own state.
   The pixel ratio is at most 1.5 on a desktop and 1 on a phone, and a frame has at most 2.4 million pixels. A machine
   that stays under 20 frames a second is stepped down to 75 % and then 50 % of the resolution.
 - Reduced motion (the game's setting or the system's): no sway, no wipe, and a frame only when something changes.
+- A browser that draws without a graphics card (SwiftShader, llvmpipe and the like, named by
+  `WEBGL_debug_renderer_info`; Chrome falls back to them where it blocks a card) gets the same still room
+  (`RoomHandle.software`, the stage's `data-still`): every frame of the sway would keep a processor core busy, and two
+  such pages slowed the co-op e2e tests past their time. The e2e browser is such a browser, and
+  `e2e/lobby-stage.spec.ts` checks that a still room draws nothing while nothing changes.
 - Closing the screen disposes of the geometries, materials and textures, the renderer and its graphics context.
 - Without WebGL, when the room fails to open, or when the context is lost, the stage shows the duty map with the
   room's prefecture lit (`DutyMap`), and nothing else changes (`tests/lobby-stage.test.ts`).

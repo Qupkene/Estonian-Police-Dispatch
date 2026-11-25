@@ -75,6 +75,8 @@ export function LobbyStage({ source }: { source: StageSource }) {
   /** loading: the chunk is on its way. 3d: the room draws. still: it cannot, the map shows instead. */
   const [mode, setMode] = useState<'loading' | '3d' | 'still'>('loading');
   const [drawn, setDrawn] = useState(false);
+  /** The room is drawn by the processor (no graphics card): it stays still (RoomHandle.software). */
+  const [software, setSoftware] = useState(false);
   const smallRef = useRef(small);
   smallRef.current = small;
 
@@ -115,6 +117,7 @@ export function LobbyStage({ source }: { source: StageSource }) {
         }
         room = opened;
         roomRef.current = opened;
+        setSoftware(opened.software);
         setMode('3d');
       })
       .catch(fail);
@@ -192,6 +195,7 @@ export function LobbyStage({ source }: { source: StageSource }) {
       data-testid="lobby-stage"
       data-mode={mode}
       data-drawn={drawn && mode === '3d' ? 'true' : 'false'}
+      data-still={still || software ? 'true' : 'false'}
       data-phase={scene.phase}
       data-room-mode={scene.mode ?? ''}
       data-seats={seatStates(scene)}

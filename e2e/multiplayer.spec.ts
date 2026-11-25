@@ -308,7 +308,8 @@ test.describe.serial('multiplayer rooms', () => {
     if (SHOTS) await shot(host.page, 'report-room-open');
     await host.page.keyboard.press('Enter');
     await expect.poll(() => screen(host.page)).toBe('lobby');
-    await expect(host.page.getByTestId('room')).toHaveAttribute('data-state', 'lobby');
+    // The room comes over the network again, as for the guest above.
+    await expect(host.page.getByTestId('room')).toHaveAttribute('data-state', 'lobby', { timeout: 15_000 });
 
     // The host changes the shift (3 hours) and starts once the others are ready again.
     await host.page.getByRole('radio', { name: '3 h' }).click();

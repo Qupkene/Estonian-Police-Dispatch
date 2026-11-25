@@ -15,6 +15,8 @@ const fake = vi.hoisted(() => ({
   loads: 0,
   canRender: true,
   failOpen: false,
+  /** The room says it is drawn by the processor (no graphics card). */
+  software: false,
   opened: [] as {
     canvas: HTMLCanvasElement;
     options: unknown;
@@ -36,7 +38,7 @@ vi.mock('@/lobby3d/room3d', () => {
         dispose: vi.fn(),
       };
       fake.opened.push({ canvas, options, handle });
-      return { ...handle, frames: 0 } satisfies RoomHandle;
+      return { ...handle, frames: 0, software: fake.software } satisfies RoomHandle;
     },
   };
 });
@@ -64,6 +66,7 @@ async function mount(source: StageSource) {
 beforeEach(() => {
   fake.canRender = true;
   fake.failOpen = false;
+  fake.software = false;
   fake.opened.length = 0;
   useSettings.setState({ reducedMotion: false, lang: 'et' });
   // The duty map's canvas has no 2D context in jsdom.
@@ -126,6 +129,13 @@ describe('the lobby stage', () => {
 
     act(() => useSettings.setState({ reducedMotion: true }));
     expect(handle.setStill).toHaveBeenLastCalledWith(true);
+  });
+
+  it('a room drawn without a graphics card says so: the stage reports it still, without reduced motion', async () => {
+    fake.software = true;
+    const { stage } = await mount(STANDBY);
+    expect(stage.dataset.mode).toBe('3d');
+    expect(stage.dataset.still).toBe('true');
   });
 
   it('gives the room and its canvas back when the screen closes', async () => {
