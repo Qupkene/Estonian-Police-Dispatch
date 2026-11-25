@@ -19,22 +19,21 @@ type EpdWindow = Window & {
 
 const screen = (page: Page) => page.evaluate(() => (window as unknown as EpdWindow).__epd.game.getState().screen);
 
-async function bootAndLegacyLogin(page: Page) {
+async function bootAsGuest(page: Page) {
   await page.goto('/');
   // Boot log: any key skips it.
   await page.keyboard.press('Space');
   await expect.poll(() => screen(page), { timeout: 15_000 }).toBe('login');
-  // The 2024 easter egg: empty username + password on the "Klassika" tab logs in.
-  await page.getByRole('tab', { name: 'Klassika' }).click();
-  await page.locator('form.sh-legacy button[type="submit"]').click();
+  // In as a guest: the login page's own button.
+  await page.getByRole('button', { name: 'Jätka külalisena' }).click();
   await expect.poll(() => screen(page), { timeout: 15_000 }).toBe('menu');
 }
 
-test('boots, logs in the 2024 way and plays a quick shift to the report', async ({ page }) => {
+test('boots, logs in as a guest and plays a quick shift to the report', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e)));
 
-  await bootAndLegacyLogin(page);
+  await bootAsGuest(page);
   await expect(page.getByText('Mitteametlik ja tasuta fännimäng', { exact: false }).first()).toBeVisible();
 
   // Kiirmäng sits in the menu's Üksikmäng group (2.27.0): open it unless it is open already.
@@ -95,7 +94,7 @@ test('boots, logs in the 2024 way and plays a quick shift to the report', async 
 test('a requested ambulance drives to the scene on the map and opens its incident', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await bootAndLegacyLogin(page);
+  await bootAsGuest(page);
   const epd = <T = unknown>(body: string) => page.evaluate(`(() => { const e = window.__epd; ${body} })()`) as Promise<T>;
   await epd(
     `return e.game.getState().startShift({ seed: 2026, regionId: 'pohja', mode: 'free', difficulty: 'normal',
@@ -137,7 +136,7 @@ test('a requested ambulance drives to the scene on the map and opens its inciden
 test('a major incident: the choice, the briefing, the staff, a decision and a task (2.37.0)', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await bootAndLegacyLogin(page);
+  await bootAsGuest(page);
   const epd = <T = unknown>(body: string) => page.evaluate(`(() => { const e = window.__epd; ${body} })()`) as Promise<T>;
   // The free shift's briefing offers the choice: its chance, always, never.
   if (!(await page.getByRole('button', { name: /Kiirmäng/ }).first().isVisible()))
@@ -189,8 +188,45 @@ test('original versions are bundled', async ({ request }) => {
 
 test('menu fits a phone screen', async ({ browser }) => {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-  await bootAndLegacyLogin(page);
+  await bootAsGuest(page);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
   await page.close();
+});
+
+test('the sign-in panel keeps its height and place through every step, and stays on a laptop screen', async ({ browser }) => {
+  for (const viewport of [
+    { width: 1366, height: 768 },
+    { width: 1280, height: 720 },
+  ]) {
+    const page = await browser.newPage({ viewport });
+    await page.goto('/');
+    await page.keyboard.press('Space');
+    await expect.poll(() => screen(page), { timeout: 15_000 }).toBe('login');
+    const panel = page.locator('.vk-login__panel');
+    await expect(panel).toBeVisible();
+    const box = async () => {
+      const b = (await panel.boundingBox())!;
+      return [Math.round(b.y), Math.round(b.height)];
+    };
+    const start = await box();
+    expect(start[0] + start[1], `${viewport.width}x${viewport.height}: the panel ends on the screen`).toBeLessThanOrEqual(viewport.height);
+    // ID card: insert it, wait for the PIN, type it.
+    await page.getByRole('button', { name: 'Sisesta kaart' }).click();
+    await expect(page.getByLabel('Sisesta PIN1')).toBeEnabled({ timeout: 10_000 });
+    expect(await box()).toEqual(start);
+    await page.keyboard.type('1234');
+    await expect(page.getByRole('button', { name: 'Kinnita' })).toBeInViewport({ ratio: 1 });
+    // Mobiil-ID's form; Smart-ID's form and its waiting step, which then signs in: the welcome keeps the height too.
+    await page.getByRole('tab', { name: 'Mobiil-ID' }).click();
+    expect(await box()).toEqual(start);
+    await page.getByRole('tab', { name: 'Smart-ID' }).click();
+    expect(await box()).toEqual(start);
+    await page.getByRole('button', { name: 'Jätka', exact: true }).click();
+    await expect(page.locator('.sh-mid__code')).toBeVisible();
+    expect(await box()).toEqual(start);
+    await expect(page.locator('.vk-login__success')).toBeVisible({ timeout: 15_000 });
+    expect(await box()).toEqual(start);
+    await page.close();
+  }
 });

@@ -356,7 +356,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'grade_a_streak', name: T('Stabiilne tegija', 'Steady hand'), desc: T('Viis vahetust järjest vähemalt hindega A.', 'Five shifts in a row graded A or better.'), icon: 'trophy' },
   { id: 'pursuit_master', name: T('Jälitusmeister', 'Pursuit master'), desc: T('Peata karjääri jooksul 5 jälitust kinnipidamisega.', 'End 5 pursuits with an arrest over your career.'), icon: 'siren' },
   { id: 'people_reader', name: T('Inimeste tundja', 'People reader'), desc: T('10 õiget registripäringu vastust järjest.', '10 correct registry replies in a row.'), icon: 'id' },
-  { id: 'nostalgia_2024', name: T('2024 nostalgia', '2024 nostalgia'), desc: T('Logisid sisse vanal moel, tühja kasutajanime ja parooliga.', 'Logged in the old way, with an empty username and password.'), icon: 'keyboard' },
+  { id: 'nostalgia_2024', name: T('2024 nostalgia', '2024 nostalgia'), desc: T('Avasid 2024. aasta algse versiooni, kuhu sai sisse tühja kasutajanime ja parooliga.', 'Opened the original 2024 version, which let you in with an empty username and password.'), icon: 'keyboard' },
   { id: 'legend_2025', name: T('Legendide jälil', 'On the legends’ trail'), desc: T('Otsi andmebaasist üles mõni 2025. aasta legend.', 'Look up one of the 2025 legends in the database.'), icon: 'search' },
   { id: 'lasnamae_legend', name: T('Lasnamäe legend', 'Lasnamäe legend'), desc: T('Lahenda ühe vahetusega 8 sündmust Lasnamäel.', 'Resolve 8 incidents in Lasnamäe in one shift.'), icon: 'building' },
   { id: 'island_guard', name: T('Saarte valvur', 'Guardian of the islands'), desc: T('Lahenda ühe vahetusega 5 sündmust Saaremaal, Hiiumaal või Muhus.', 'Resolve 5 incidents on Saaremaa, Hiiumaa or Muhu in one shift.'), icon: 'boat' },

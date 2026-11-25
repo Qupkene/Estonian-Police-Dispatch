@@ -47,8 +47,7 @@ test('a shift plays back on the map from its report: timeline, pause, jumps, an 
   await page.goto('/');
   await page.keyboard.press('Space');
   await expect.poll(() => screen(page), { timeout: 15_000 }).toBe('login');
-  await page.getByRole('tab', { name: 'Klassika' }).click();
-  await page.locator('form.sh-legacy button[type="submit"]').click();
+  await page.getByRole('button', { name: 'Jätka külalisena' }).click();
   await expect.poll(() => screen(page), { timeout: 15_000 }).toBe('menu');
 
   await page.evaluate(() =>

@@ -7,7 +7,6 @@ import {
   formatMoney,
   generateIdentity,
   gradeTone,
-  isLegacyLogin,
   isValidPin1,
   looksLikeEstonianMobile,
   looksLikeIdcode,
@@ -32,14 +31,6 @@ import { ICON_NAMES } from '@/ui/components/Icon';
 import DICT from '@/i18n/parts/shell';
 
 describe('login simulation', () => {
-  it('accepts exactly the 2024 empty login', () => {
-    expect(isLegacyLogin('', '')).toBe(true);
-    expect(isLegacyLogin('   ', '')).toBe(true);
-    expect(isLegacyLogin('admin', '')).toBe(false);
-    expect(isLegacyLogin('', ' ')).toBe(false);
-    expect(isLegacyLogin('a', 'b')).toBe(false);
-  });
-
   it('generates deterministic, valid Estonian identities', () => {
     const a = generateIdentity(42);
     const b = generateIdentity(42);

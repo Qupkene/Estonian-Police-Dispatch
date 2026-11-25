@@ -82,8 +82,6 @@ export default {
     et: 'Simulatsioon: sobib iga neljakohaline kood.',
     en: 'Simulation: any four-digit code works.',
   },
-  'shell.login.id.pad': { et: 'Numbriklahvistik', en: 'Number pad' },
-  'shell.login.id.erase': { et: 'Kustuta', en: 'Delete' },
   'shell.login.id.verify': { et: 'Kontrollin sertifikaati…', en: 'Checking certificate…' },
   'shell.login.confirm': { et: 'Kinnita', en: 'Confirm' },
   'shell.login.continue': { et: 'Jätka', en: 'Continue' },
@@ -113,11 +111,11 @@ export default {
   'shell.login.legacy.pass': { et: 'Parool', en: 'Password' },
   'shell.login.legacy.submit': { et: 'Logi sisse', en: 'Log in' },
   'shell.login.legacy.wrong': { et: 'Vale kasutajanimi või parool.', en: 'Wrong username or password.' },
+  'shell.login.legacy.empty': { et: 'Sisesta kasutajanimi ja parool.', en: 'Enter your username and password.' },
   'shell.login.legacy.note': {
     et: 'Politsei Andmebaasi originaalne sisselogimine (2024).',
     en: 'The original Politsei Andmebaas login (2024).',
   },
-  'shell.login.legacy.welcome': { et: 'Tere tagasi, 2024!', en: 'Welcome back, 2024!' },
   'shell.login.classic.back': {
     et: 'Tagasi: ID-kaart, Mobiil-ID, Smart-ID',
     en: 'Back: ID card, Mobile-ID, Smart-ID',

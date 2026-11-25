@@ -114,11 +114,6 @@ export function verificationCode(seed: number): string {
   return String(new Rng(seed ^ 0x51ed).int(0, 9999)).padStart(4, '0');
 }
 
-/** The 2024 login accepted exactly one combination: both fields empty. */
-export function isLegacyLogin(username: string, password: string): boolean {
-  return username.trim() === '' && password === '';
-}
-
 export function isValidPin1(pin: string): boolean {
   return /^\d{4}$/.test(pin);
 }

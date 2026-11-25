@@ -352,18 +352,21 @@ test('a profile picture found by writing what one wants stays with the account (
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
-test('the 2024 easter egg still works with the API online', async ({ page }) => {
+test('empty fields sign nobody in: the form asks for a name and a password', async ({ page }) => {
   await boot(page);
   await openClassic(page);
   await expect(page.getByRole('button', { name: /Loo konto/ })).toBeVisible({ timeout: 10_000 });
   await page.locator('form.sh-legacy button[type="submit"]').click();
-  await expect(page.getByText('Tere tagasi, 2024!')).toBeVisible();
-  await expect.poll(() => screen(page), { timeout: 15_000 }).toBe('menu');
-  expect(await page.evaluate(() => (window as unknown as EpdWindow).__epd.game.getState().user?.method)).toBe('legacy');
-  expect(await page.evaluate(() => localStorage.getItem('epd:legacyLogin'))).toBe('1');
+  await expect(page.locator('.sh-legacy__err')).toHaveText('Sisesta kasutajanimi ja parool.');
+  await expect(page.getByLabel('Kasutajanimi')).toBeFocused();
+  // Nobody got in, and nothing was made up: still the login page, no user, no flag of the old 2024 login.
+  await page.waitForTimeout(1500);
+  expect(await screen(page)).toBe('login');
+  expect(await page.evaluate(() => (window as unknown as EpdWindow).__epd.game.getState().user)).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('epd:legacyLogin'))).toBeNull();
 });
 
-test('without a backend: one calm line, and the easter egg still works', async ({ page }) => {
+test('without a backend: one calm line, empty fields are asked for, and the guest gets in', async ({ page }) => {
   // GitHub Pages / plain vite: /api answers with a static 404 page.
   await page.route('**/api/**', (route) => route.fulfill({ status: 404, contentType: 'text/html', body: '<h1>404</h1>' }));
   await boot(page);
@@ -371,6 +374,9 @@ test('without a backend: one calm line, and the easter egg still works', async (
   await expect(page.getByText('Kontod töötavad politsei.eu serveris. Siin saad mängida külalisena.')).toBeVisible();
   await expect(page.getByRole('button', { name: /Loo konto/ })).toHaveCount(0);
   await page.locator('form.sh-legacy button[type="submit"]').click();
+  await expect(page.locator('.sh-legacy__err')).toHaveText('Sisesta kasutajanimi ja parool.');
+  expect(await screen(page)).toBe('login');
+  await page.locator('.sh-classic__guest').click();
   await expect.poll(() => screen(page), { timeout: 15_000 }).toBe('menu');
   await expect(page.getByRole('heading', { name: /Edetabel/ })).toHaveCount(0);
 });

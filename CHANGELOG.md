@@ -2,6 +2,23 @@
 
 Kõik olulised muudatused on kirjas siin. Each version has a short English summary below it.
 
+## 2.41.3 (2026-11-25)
+
+- **Sisselogimise paneel püsib paigal:** ID-kaardi PIN-sammul kasvas paneel varem ligi 200 pikslit kõrgemaks ja selle alumine osa jäi ekraanist välja. Nüüd on igal sammul (ID-kaart, Mobiil-ID, Smart-ID, tervitus) sama kõrgus ja paneel ei liigu.
+  - PIN-sammul on omanik ja isikukood ühel real, ekraanil olevat numbriklahvistikku enam ei ole: PIN-koodi saab sisestada klaviatuurilt, telefonis avaneb numbriklaviatuur.
+  - Telefonis jääb aktiivne samm alati nähtavale; Mobiil-ID ja Smart-ID ootesammul ei ole telefonis enam telefoni pilti, sest kontrollkood on juba näha.
+- **Tühjade väljadega ei saa enam sisse:** Klassika vahelehel logis tühi kasutajanimi ja parool varem sisse juhusliku võltsnimega. Nüüd palub vorm sisestada kasutajanime ja parooli. Külalisena saab edasi nupuga "Jätka külalisena".
+  - 2024. aasta algne sisselogimine töötab endiselt algversioonis (menüü "Algsed versioonid"). Saavutuse "2024 nostalgia" saab nüüd selle versiooni avamise eest.
+
+<details>
+<summary>English</summary>
+
+The sign-in panel keeps one height through every step of every method (`.vk-login__flow` min-height in `src/ui/screens/shell/login.css`): the ID card's PIN step had grown it by about 200 px and pushed its bottom off a 1366x768 screen. That step now shows the owner and personal code on one line and has no on-screen keypad (the keyboard, or a phone's number keyboard, types the PIN). The welcome keeps the panel's height. On a phone the active step is scrolled into view (`keepInView` in `src/ui/screens/LoginScreen.tsx`) and the Mobiil-ID / Smart-ID phone picture is hidden.
+
+The Klassika form no longer signs anybody in with both fields empty (it used to sign in under a generated name, the 2024 easter egg): it asks for a username and a password. The 2024 login lives on in the original (Menu > Original versions), and opening it now earns "2024 nostalgia". The e2e tests sign in through the guest button.
+
+</details>
+
 ## 2.41.2 (2026-11-16)
 
 - **Kaamera avaneb vastuvõtmisel:** kui võtad vastu sündmuse, mille kohas on valvekaamera, avaneb selle pilt kohe ja eelmine kaamera läheb kinni. Seadetes (Üldine, "Ava kaamera vastuvõtmisel") saab selle välja lülitada.

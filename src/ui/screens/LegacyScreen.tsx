@@ -9,6 +9,19 @@ function open(file: string) {
   window.open(`${base}legacy/${file}`, '_blank', 'noopener');
 }
 
+/**
+ * Opening the 2024 original, whose login let anyone in with both fields empty, earns "2024 nostalgia" with the next
+ * shift report (src/store/career.ts reads the flag; its name is from when the game's own login did that).
+ */
+function open2024() {
+  try {
+    localStorage.setItem('epd:legacyLogin', '1');
+  } catch {
+    /* storage blocked: no achievement, the original still opens */
+  }
+  open('politseimang-2024.html');
+}
+
 export function LegacyScreen() {
   const t = useT();
   return (
@@ -51,7 +64,7 @@ export function LegacyScreen() {
             <button
               type="button"
               className="vk-btn vk-btn--primary"
-              onClick={() => open('politseimang-2024.html')}
+              onClick={open2024}
             >
               {t('shell.leg.open')}
             </button>

@@ -42,11 +42,6 @@
   /* Centred in the height while there is room; a taller panel starts at the top and the page scrolls. */
   margin: auto 0;
   border-top: 2px solid var(--vk-acc);
-  transition: opacity 1s ease;
-}
-/* 2024: the login box faded out for a second before the game opened. */
-.sh-login.is-leaving .vk-login__panel {
-  opacity: 0;
 }
 /* The system owner's header: PPA's logo, a hairline, the EPD name. */
 .vk-login__ident {
@@ -123,10 +118,12 @@
 .ui-tab.is-active .vk-login__tabLabel .ui-icon {
   color: var(--vk-acc);
 }
+/* One height for every step of every method (the ID card's PIN step is the tallest), so that the panel does not
+   grow or shrink while the player signs in and stays where it was put on the screen. */
 .vk-login__flow {
   display: flex;
   flex-direction: column;
-  min-height: 244px;
+  min-height: 252px;
   padding: 18px;
 }
 .vk-login__alt {
@@ -228,7 +225,9 @@
   gap: 8px;
 }
 
+/* The welcome takes the room the form had (the panel keeps its height, LoginScreen.tsx), its text in the middle. */
 .vk-login__success {
+  flex: 1;
   display: grid;
   align-content: center;
   gap: 6px;
@@ -335,12 +334,24 @@
   min-height: 44px;
   color: var(--vk-text-1);
 }
+/* The card's owner and personal code on one line. */
 .vk-id__owner {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 6px 12px;
   border: 1px solid var(--vk-line-2);
   border-radius: 5px;
+  font-size: 13px;
+  color: var(--vk-text-0);
 }
-.vk-id__owner > div {
-  padding: 6px 12px;
+.vk-id__owner dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sh-pin {
   position: relative;
@@ -393,44 +404,6 @@
   font-size: 12px;
   color: var(--vk-text-3);
 }
-.sh-pad {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-}
-.sh-pad__key {
-  height: 38px;
-  border: 1px solid var(--vk-line);
-  border-radius: 4px;
-  background: var(--vk-panel-2);
-  color: var(--vk-text-0);
-  font: 500 15px/1 var(--vk-font-mono);
-  cursor: pointer;
-}
-.sh-pad__key:hover {
-  background: var(--vk-raise);
-}
-.sh-pad__key:active {
-  transform: translateY(1px);
-}
-.sh-pad__key--fn {
-  color: var(--vk-text-2);
-}
-.sh-pad__key--ok {
-  border-color: transparent;
-  background: var(--vk-acc);
-  color: var(--vk-on-acc);
-  font-weight: 600;
-}
-.sh-pad__key--ok:hover {
-  background: var(--vk-acc-hover);
-}
-.sh-pad__key:disabled {
-  opacity: 0.45;
-  cursor: default;
-  transform: none;
-}
-
 /* ── Mobiil-ID, Smart-ID ───────────────────────────────────────────────── */
 
 .sh-mid {
@@ -716,7 +689,7 @@
     padding-bottom: 12px;
   }
   .vk-login__flow {
-    min-height: 224px;
+    min-height: 228px;
     padding-top: 14px;
     padding-bottom: 14px;
   }
@@ -728,9 +701,6 @@
   }
   .sh-pin__box {
     height: 36px;
-  }
-  .sh-pad__key {
-    height: 34px;
   }
 }
 
@@ -756,7 +726,7 @@
 }
 @media (max-width: 520px) {
   .vk-login__flow {
-    min-height: 0;
+    min-height: 256px;
   }
   .vk-login__strip {
     height: 180px;
@@ -778,17 +748,13 @@
     padding-left: 14px;
     padding-right: 14px;
   }
-  .sh-mid--wait {
-    flex-direction: column;
-  }
+  /* The phone beside the code is a picture of what the code is for: on a phone it would only make the panel
+     taller than the screen, and the code is already there. */
   .sh-phone {
-    width: 100%;
+    display: none;
   }
   .vk-login__resumeActions .ui-btn {
     flex: 1;
-    height: 44px;
-  }
-  .sh-pad__key {
     height: 44px;
   }
 }
@@ -845,11 +811,6 @@
   gap: 14px;
   width: 100%;
   max-width: 360px;
-  transition: opacity 1s ease;
-}
-/* 2024: the login box faded out for a second before the game opened. */
-.sh-classic.is-leaving .sh-classic__stage {
-  opacity: 0;
 }
 .sh-classic__mark {
   display: flex;
