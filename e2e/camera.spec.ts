@@ -51,13 +51,12 @@ async function heldContexts(page: Page): Promise<number> {
   }
 }
 
-async function bootAndLegacyLogin(page: Page) {
+async function bootAsGuest(page: Page) {
   await page.addInitScript(HOOKS);
   await page.goto('/');
   await page.keyboard.press('Space');
   await expect.poll(() => screen(page), { timeout: 15_000 }).toBe('login');
-  await page.getByRole('tab', { name: 'Klassika' }).click();
-  await page.locator('form.sh-legacy button[type="submit"]').click();
+  await page.getByRole('button', { name: 'Jätka külalisena' }).click();
   await expect.poll(() => screen(page), { timeout: 15_000 }).toBe('menu');
 }
 
@@ -157,7 +156,7 @@ test.describe('surveillance camera', () => {
     page.on('request', (r) => {
       if (/\/assets\/(?:cctv-[^/]+\.js|human-[^/]+\.glb)$/.test(r.url())) chunk.push(r.url());
     });
-    await bootAndLegacyLogin(page);
+    await bootAsGuest(page);
     const { id, unitId, camera } = await fightUnderCamera(page);
     const held = await heldContexts(page);
 
@@ -354,7 +353,7 @@ test.describe('surveillance camera', () => {
     test.setTimeout(240_000);
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
-    await bootAndLegacyLogin(page);
+    await bootAsGuest(page);
     const { id } = await fightUnderCamera(page);
     const coord = await epd<[number, number]>(page, `return e.game.getState().sim.incidents['${id}'].location.coord`);
     // The dispatcher's overview of the district, the incident under where the window opens.
@@ -378,7 +377,7 @@ test.describe('surveillance camera', () => {
     test.setTimeout(360_000);
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
-    await bootAndLegacyLogin(page);
+    await bootAsGuest(page);
     const { id } = await fightUnderCamera(page);
     const held = await heldContexts(page);
     const button = page.locator(`[data-camera-toggle="${id}"]`);
@@ -397,7 +396,7 @@ test.describe('surveillance camera', () => {
     test.setTimeout(240_000);
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
-    await bootAndLegacyLogin(page);
+    await bootAsGuest(page);
     const { id } = await fightUnderCamera(page);
     await page.locator(`[data-camera-toggle="${id}"]`).click();
     await expect.poll(() => camState(page), { timeout: 60_000, intervals: [250] }).toBe('live');
@@ -419,7 +418,7 @@ test.describe('surveillance camera', () => {
   test('on a phone it docks at the top of the map pane, with 44 px controls, the map tools below it', async ({ page }) => {
     test.setTimeout(240_000);
     await page.setViewportSize({ width: 390, height: 844 });
-    await bootAndLegacyLogin(page);
+    await bootAsGuest(page);
     const { id } = await fightUnderCamera(page);
     // The card is on the panel tab; opening the camera goes to the map, where the picture is.
     await page.locator('.gm-mnav__btn').nth(2).click();
@@ -449,7 +448,7 @@ test.describe('surveillance camera', () => {
     await page.setViewportSize({ width: 1280, height: 720 });
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
-    await bootAndLegacyLogin(page);
+    await bootAsGuest(page);
     const { id } = await fightUnderCamera(page);
     await page.locator(`[data-camera-toggle="${id}"]`).click();
     await expect.poll(() => camState(page), { timeout: 60_000, intervals: [500] }).toBe('live');
@@ -520,7 +519,7 @@ test.describe('surveillance camera without its chunk', () => {
   test('a chunk that failed to load offers a reload of the page that saves the shift first', async ({ page }) => {
     test.setTimeout(180_000);
     await page.route(CHUNK, (r) => r.abort());
-    await bootAndLegacyLogin(page);
+    await bootAsGuest(page);
     const { id } = await fightUnderCamera(page);
     await page.locator(`[data-camera-toggle="${id}"]`).click();
     await expect.poll(() => camState(page), { timeout: 60_000 }).toBe('reload');
@@ -544,7 +543,7 @@ test.describe('surveillance camera without its chunk', () => {
   test('in a director-mode shift, which cannot be saved, the note says so and only a second press reloads', async ({ page }) => {
     test.setTimeout(180_000);
     await page.route(CHUNK, (r) => r.abort());
-    await bootAndLegacyLogin(page);
+    await bootAsGuest(page);
     const { id } = await fightUnderCamera(page, 12, 'director');
     await page.locator(`[data-camera-toggle="${id}"]`).click();
     await expect.poll(() => camState(page), { timeout: 60_000 }).toBe('reload');
@@ -597,7 +596,7 @@ test.describe('surveillance camera on the map', () => {
 
   /** A paused shift, and a street fight in the middle of the sample's city where a camera sees it, selected. */
   async function fightInFlorence(page: Page): Promise<string> {
-    await bootAndLegacyLogin(page);
+    await bootAsGuest(page);
     await epd(
       page,
       `return e.game.getState().startShift({ seed: 2041, regionId: 'pohja', mode: 'free', difficulty: 'normal',

@@ -13,19 +13,18 @@ const epd = <T = unknown>(page: Page, body: string) =>
   page.evaluate(`(() => { const e = window.__epd; ${body} })()`) as Promise<T>;
 const screen = (page: Page) => epd<string>(page, 'return e.game.getState().screen');
 
-async function bootAndLegacyLogin(page: Page) {
+async function bootAsGuest(page: Page) {
   await page.goto('/');
   await page.keyboard.press('Space');
   await expect.poll(() => screen(page), { timeout: 30_000 }).toBe('login');
-  await page.getByRole('tab', { name: 'Klassika' }).click();
-  await page.locator('form.sh-legacy button[type="submit"]').click();
+  await page.getByRole('button', { name: 'Jätka külalisena' }).click();
   await expect.poll(() => screen(page), { timeout: 30_000 }).toBe('menu');
 }
 
 test('a new career at the Tartu linn desk plays its own area', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await bootAndLegacyLogin(page);
+  await bootAsGuest(page);
   await epd(page, 'e.career.getState().reset()');
 
   // Onboarding: the prefecture, then the first sector.
@@ -126,7 +125,7 @@ test('a new career at the Tartu linn desk plays its own area', async ({ page }) 
 });
 
 test('a career from before sectors keeps the whole prefecture', async ({ page }) => {
-  await bootAndLegacyLogin(page);
+  await bootAsGuest(page);
   // As an old save loads: no sectors, no sectorsChangedDay.
   await epd(
     page,

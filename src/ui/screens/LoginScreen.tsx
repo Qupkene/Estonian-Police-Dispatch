@@ -2,16 +2,17 @@
 // The e-ID flows are simulations: any input is accepted after a short delay (guest logins). On a wide screen the
 // panel stands in the right half (login.css) and the duty map is moved left, so Estonia sits in the free space.
 // The "Klassika" tab is the real account login when the server answers (src/net/account.ts), on a screen of its
-// own like the 2024 and 2025 originals (blue page, white box); both fields empty is still the 2024 easter egg.
+// own like the 2024 and 2025 originals (blue page, white box). Both fields empty only asks for them: the 2024 login
+// that let anyone in that way lives on in the original itself (Menu > Original versions, LegacyScreen.tsx).
 // Owned by ui-shell.
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useGame, type LoginUser } from '@/store/game';
 import { useAccount, type AccountUser } from '@/net/account';
+import { useSettings } from '@/store/settings';
 import { nameProblem, PASSWORD_MIN } from '@/net/sync';
 import { useLang, useT } from '@/i18n';
 import { sfx } from '@/audio/sfx';
 import { BrandLogo, Button, Icon, IconButton, PpaLogo, Spinner, Tabs, TextField, type Brand } from '@/ui/components';
-import { useToast } from './shell/ShellPage';
 import { DutyMap, NO_DUTY } from './shell/DutyMap';
 import { LOGIN_VIEW } from './shell/dutyMap';
 import { ShellFooter, ShellIdent, ShellTopBar, STACKED, useMedia } from './shell/ShellFrame';
@@ -21,7 +22,6 @@ import { LogoutDialog } from './shell/AccountChip';
 import {
   formatCountdown,
   generateIdentity,
-  isLegacyLogin,
   isValidPin1,
   verificationCode,
   VERSION,
@@ -45,9 +45,17 @@ export function LoginScreen() {
   // The menu's "Create account" button opens the Klassika tab straight away.
   const [method, setMethod] = useState<Method>(() => (useAccount.getState().intent ? 'legacy' : 'idcard'));
   const [success, setSuccess] = useState<string | null>(null);
-  const [leaving, setLeaving] = useState(false);
-  const toast = useToast(3000);
   const stacked = useMedia(STACKED);
+  /** The sign-in flow's area: a step that does not fit on the screen is brought into view (keepInView). */
+  const flowRef = useRef<HTMLDivElement>(null);
+  const onStep = () => keepInView(flowRef.current);
+  const panelRef = useRef<HTMLElement>(null);
+  /** The panel's height when the welcome replaced the form: kept, so that nothing on the screen moves. */
+  const [held, setHeld] = useState<number | null>(null);
+  const welcome = (who: string) => {
+    setHeld(panelRef.current?.offsetHeight ?? null);
+    setSuccess(who);
+  };
 
   const shuffle = () => {
     const s = (seed * 1664525 + 1013904223) >>> 0;
@@ -75,31 +83,17 @@ export function LoginScreen() {
   const complete = (m: LoginUser['method'], idcode?: string) => {
     leaveAccount();
     const user: LoginUser = { name: finalName(), method: m, idcode };
-    setSuccess(user.name);
+    welcome(user.name);
     sfx.unlock();
     sfx.play('login');
     setTimeout(() => login(user), 850);
   };
 
   const accountLogin = (u: AccountUser) => {
-    setSuccess(u.name);
+    welcome(u.name);
     sfx.unlock();
     sfx.play('login');
     setTimeout(() => login({ name: u.name, method: 'account' }), 850);
-  };
-
-  const legacyLogin = () => {
-    leaveAccount();
-    try {
-      localStorage.setItem('epd:legacyLogin', '1');
-    } catch {
-      /* storage blocked */
-    }
-    sfx.unlock();
-    sfx.play('login');
-    toast.show(t('shell.login.legacy.welcome'), 'gold');
-    setLeaving(true); // 2024: the login box faded out for one second
-    setTimeout(() => login({ name: finalName(), method: 'legacy' }), 1100);
   };
 
   const guest = () => {
@@ -134,8 +128,7 @@ export function LoginScreen() {
 
   if (method === 'legacy')
     return (
-      <div className={`vk vk-ui sh-login sh-classic${leaving ? ' is-leaving' : ''}`}>
-        {toast.node}
+      <div className="vk vk-ui sh-login sh-classic">
         <main className="sh-classic__main">
           <button type="button" className="sh-classic__back" onClick={() => setMethod('idcard')}>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
@@ -162,7 +155,7 @@ export function LoginScreen() {
                     {t('account.lost')}
                   </p>
                 )}
-                <LegacyForm onLegacy={legacyLogin} onAccount={accountLogin} />
+                <LegacyForm onAccount={accountLogin} />
                 <div className="sh-classic__alt">
                   <span>{t('shell.login.or')}</span>
                   <button type="button" className="sh-classic__guest" onClick={guest} data-sfx="click">
@@ -180,16 +173,18 @@ export function LoginScreen() {
     );
 
   return (
-    <div
-      className={`vk vk-ui vk-login sh-login${stacked ? ' is-stacked' : ''}${leaving ? ' is-leaving' : ''}`}
-    >
-      {toast.node}
+    <div className={`vk vk-ui vk-login sh-login${stacked ? ' is-stacked' : ''}`}>
       <ShellTopBar account={false} />
       <main className="vk-login__main">
         <div className={stacked ? 'vk-login__strip' : 'vk-login__map'}>
           <DutyMap variant={stacked ? 'strip' : 'full'} input={NO_DUTY} view={stacked ? undefined : LOGIN_VIEW} />
         </div>
-        <section className="vk-panel vk-login__panel" aria-labelledby="sh-login-title">
+        <section
+          className="vk-panel vk-login__panel"
+          aria-labelledby="sh-login-title"
+          ref={panelRef}
+          style={success && held ? { minHeight: held } : undefined}
+        >
           {/* The system owner's header first, as on an official sign-in page; then what this page is. */}
           <ShellIdent className="vk-login__ident" />
           <div className="vk-panel__head vk-login__head">
@@ -252,12 +247,13 @@ export function LoginScreen() {
                   },
                 ]}
               />
-              <div className="vk-login__flow" role="tabpanel">
+              <div className="vk-login__flow" role="tabpanel" ref={flowRef}>
                 {method === 'idcard' && (
                   <IdCardFlow
                     key={id.idcode}
                     identity={id}
                     name={finalName()}
+                    onStep={onStep}
                     onDone={(code) => complete('idcard', code)}
                   />
                 )}
@@ -266,6 +262,7 @@ export function LoginScreen() {
                     key={`m${id.idcode}`}
                     kind="mobiilid"
                     identity={id}
+                    onStep={onStep}
                     onDone={(code) => complete('mobiilid', code)}
                   />
                 )}
@@ -274,6 +271,7 @@ export function LoginScreen() {
                     key={`s${id.idcode}`}
                     kind="smartid"
                     identity={id}
+                    onStep={onStep}
                     onDone={(code) => complete('smartid', code)}
                   />
                 )}
@@ -311,6 +309,19 @@ export function LoginScreen() {
   );
 }
 
+/**
+ * Brings the sign-in flow wholly into view when a step left part of it off the screen (a phone, where the panel
+ * follows the map strip and the page scrolls). Every step fits the flow's one height (login.css), so on a wide
+ * screen nothing moves.
+ */
+function keepInView(el: HTMLElement | null) {
+  if (!el || typeof el.scrollIntoView !== 'function') return;
+  const r = el.getBoundingClientRect();
+  if (r.top >= 0 && r.bottom <= window.innerHeight) return;
+  const still = useSettings.getState().reducedMotion || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  el.scrollIntoView({ block: 'nearest', behavior: still ? 'auto' : 'smooth' });
+}
+
 /** A sign-in tab: the method's own logo (used with its owner's permission, if its file is there) and its name. */
 function TabLabel({ brand, text }: { brand: Brand; text: string }) {
   return (
@@ -326,10 +337,13 @@ function TabLabel({ brand, text }: { brand: Brand; text: string }) {
 function IdCardFlow({
   identity,
   name,
+  onStep,
   onDone,
 }: {
   identity: GeneratedIdentity;
   name: string;
+  /** A step began: the sign-in page keeps the flow in view. */
+  onStep: () => void;
   onDone: (idcode: string) => void;
 }) {
   const t = useT();
@@ -338,8 +352,16 @@ function IdCardFlow({
   const pinRef = useRef<HTMLInputElement>(null);
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
+  const stepRef = useRef(onStep);
+  stepRef.current = onStep;
+  /** The step last shown: only a new step (not the first) moves the page, so a page that just opened stays put. */
+  const shownRef = useRef(phase);
 
   useEffect(() => {
+    if (shownRef.current !== phase) {
+      shownRef.current = phase;
+      stepRef.current();
+    }
     if (phase === 'reading') {
       const id = setTimeout(() => setPhase('pin'), 1300);
       return () => clearTimeout(id);
@@ -351,12 +373,6 @@ function IdCardFlow({
     }
   }, [phase, identity.idcode]);
 
-  const typeDigit = (d: string) => {
-    if (pin.length >= 4) return;
-    sfx.play('typing');
-    setPin(pin + d);
-    pinRef.current?.focus();
-  };
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
     if (isValidPin1(pin)) setPhase('verifying');
@@ -404,15 +420,12 @@ function IdCardFlow({
       )}
       {(phase === 'pin' || phase === 'verifying') && (
         <form className="sh-id__step" onSubmit={submit}>
-          <dl className="vk-kv vk-id__owner">
-            <div>
-              <dt>{t('shell.login.id.owner')}</dt>
-              <dd>{name.toUpperCase()}</dd>
-            </div>
-            <div>
-              <dt>{t('shell.login.idcode')}</dt>
-              <dd className="vk-mono">{identity.idcode}</dd>
-            </div>
+          {/* The card's owner on one line, so that the PIN step is no taller than the others. */}
+          <dl className="vk-id__owner">
+            <dt className="sr-only">{t('shell.login.id.owner')}</dt>
+            <dd>{name.toUpperCase()}</dd>
+            <dt className="sr-only">{t('shell.login.idcode')}</dt>
+            <dd className="vk-mono">{identity.idcode}</dd>
           </dl>
           <label className="sh-pin" onClick={() => pinRef.current?.focus()}>
             <span className="sh-pin__label">
@@ -446,44 +459,9 @@ function IdCardFlow({
           </label>
           <p className="sh-pin__hint">{t('shell.login.id.pinHint')}</p>
           {phase === 'pin' ? (
-            <>
-              <div className="sh-pad" role="group" aria-label={t('shell.login.id.pad')}>
-                {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    className="sh-pad__key"
-                    onClick={() => typeDigit(d)}
-                    tabIndex={-1}
-                  >
-                    {d}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className="sh-pad__key sh-pad__key--fn"
-                  onClick={() => setPin(pin.slice(0, -1))}
-                  tabIndex={-1}
-                  aria-label={t('shell.login.id.erase')}
-                >
-                  ⌫
-                </button>
-                <button type="button" className="sh-pad__key" onClick={() => typeDigit('0')} tabIndex={-1}>
-                  0
-                </button>
-                <button
-                  type="submit"
-                  className="sh-pad__key sh-pad__key--ok"
-                  disabled={!isValidPin1(pin)}
-                  tabIndex={-1}
-                >
-                  OK
-                </button>
-              </div>
-              <Button type="submit" variant="primary" size="lg" disabled={!isValidPin1(pin)} block>
-                {t('shell.login.confirm')}
-              </Button>
-            </>
+            <Button type="submit" variant="primary" size="lg" disabled={!isValidPin1(pin)} block>
+              {t('shell.login.confirm')}
+            </Button>
           ) : (
             <div className="sh-id__status">
               <Spinner size={18} /> {t('shell.login.id.verify')}
@@ -502,10 +480,13 @@ const CONFIRM_WINDOW_S = 120;
 function MobileFlow({
   kind,
   identity,
+  onStep,
   onDone,
 }: {
   kind: 'mobiilid' | 'smartid';
   identity: GeneratedIdentity;
+  /** A step began: the sign-in page keeps the flow in view. */
+  onStep: () => void;
   onDone: (idcode: string) => void;
 }) {
   const t = useT();
@@ -517,6 +498,16 @@ function MobileFlow({
   const [pinDots, setPinDots] = useState(0);
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
+  const stepRef = useRef(onStep);
+  stepRef.current = onStep;
+  /** The step last shown: only a new step (not the first) moves the page, so a page that just opened stays put. */
+  const shownRef = useRef(phase);
+
+  useEffect(() => {
+    if (shownRef.current === phase) return;
+    shownRef.current = phase;
+    stepRef.current();
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== 'waiting') return;
@@ -629,7 +620,7 @@ function MobileFlow({
 
 type LegacyMode = 'login' | 'register';
 
-function LegacyForm({ onLegacy, onAccount }: { onLegacy: () => void; onAccount: (u: AccountUser) => void }) {
+function LegacyForm({ onAccount }: { onAccount: (u: AccountUser) => void }) {
   const t = useT();
   const lang = useLang();
   const backend = useAccount((s) => s.backend);
@@ -680,12 +671,8 @@ function LegacyForm({ onLegacy, onAccount }: { onLegacy: () => void; onAccount: 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (busy) return;
-    // 2024: both fields empty was the only combination that worked. It still does.
-    if (isLegacyLogin(user, pass) && (!register || pass2 === '')) {
-      setError(null);
-      onLegacy();
-      return;
-    }
+    // Nothing typed: ask for both (the 2024 login took empty fields; that lives on only in the original itself).
+    if (!register && user.trim() === '' && pass === '') return fail(t('shell.login.legacy.empty'), 'user');
     const acct = useAccount.getState();
     if (acct.backend === 'unknown') await acct.init();
     if (useAccount.getState().backend !== 'online') {

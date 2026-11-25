@@ -22,13 +22,12 @@ async function shot(page: Page, name: string, fullPage = false) {
   await page.screenshot({ path: `${OUT}/${name}.png`, fullPage });
 }
 
-/** Into the menu as a guest of the classic login, then a Friday night shift in Tallinn, paused. */
+/** Into the menu as a guest, then a Friday night shift in Tallinn, paused. */
 async function startNight(page: Page) {
   await page.goto('/');
   await page.keyboard.press('Space');
   await expect.poll(() => epd(page, 'return e.game.getState().screen')).toBe('login');
-  await page.getByRole('tab', { name: 'Klassika' }).click();
-  await page.locator('form.sh-legacy button[type="submit"]').click();
+  await page.getByRole('button', { name: 'Jätka külalisena' }).click();
   await expect.poll(() => epd(page, 'return e.game.getState().screen')).toBe('menu');
 }
 
@@ -66,8 +65,7 @@ test('capture README screenshots', async ({ page }) => {
   await page.keyboard.press('Space');
   await expect.poll(() => epd(page, 'return e.game.getState().screen')).toBe('login');
   await shot(page, 'login');
-  await page.getByRole('tab', { name: 'Klassika' }).click();
-  await page.locator('form.sh-legacy button[type="submit"]').click();
+  await page.getByRole('button', { name: 'Jätka külalisena' }).click();
   await expect.poll(() => epd(page, 'return e.game.getState().screen')).toBe('menu');
   await shot(page, 'menu');
 

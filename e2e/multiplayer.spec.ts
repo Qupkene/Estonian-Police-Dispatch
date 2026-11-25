@@ -146,8 +146,7 @@ test.describe.serial('multiplayer rooms', () => {
 
   test('a guest gets the sign-in hint, not a room', async ({ page }) => {
     await boot(page);
-    await page.getByRole('tab', { name: 'Klassika' }).click();
-    await page.locator('form.sh-legacy button[type="submit"]').click();
+    await page.getByRole('button', { name: 'Jätka külalisena' }).click();
     await expect.poll(() => screen(page), { timeout: 15_000 }).toBe('menu');
     await openRooms(page);
     const hint = page.getByTestId('rooms-guest');

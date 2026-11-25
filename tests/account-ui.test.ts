@@ -31,6 +31,7 @@ const net = vi.hoisted(() => {
 });
 
 import { useAccount } from '@/net/account';
+import { useGame } from '@/store/game';
 import { useSettings } from '@/store/settings';
 import { LoginScreen } from '@/ui/screens/LoginScreen';
 import { SettingsScreen } from '@/ui/screens/SettingsScreen';
@@ -96,13 +97,20 @@ describe('Klassika login', () => {
     expect(net.calls.some((c) => c.path === '/api/register')).toBe(false);
   });
 
-  it('the 2024 easter egg (both fields empty) still logs in without any request', async () => {
+  it('both fields empty sign nobody in: no request, the form asks for both, the focus goes to the name', async () => {
     await openClassic();
     net.calls.length = 0;
     const user = screen.getByLabelText('Kasutajanimi') as HTMLInputElement;
     fireEvent.submit(user.form as HTMLFormElement);
-    expect(await screen.findByText('Tere tagasi, 2024!')).toBeTruthy();
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('Sisesta kasutajanimi ja parool.');
+    expect(document.activeElement).toBe(user);
+    expect(user.getAttribute('aria-invalid')).toBe('true');
     expect(net.calls.filter((c) => c.path !== '/api/health')).toEqual([]);
+    // Nobody is signed in, under any name: no welcome follows.
+    await new Promise((r) => setTimeout(r, 1300));
+    expect(useGame.getState().user).toBeNull();
+    expect(screen.queryByText('Autentimine õnnestus')).toBeNull();
   });
 
   it('says what an account stores under the account form, and keeps the e-ID note elsewhere', async () => {

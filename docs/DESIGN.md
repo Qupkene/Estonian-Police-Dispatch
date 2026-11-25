@@ -422,8 +422,9 @@ dock that slides in. Below 1100 px the side panels become tabs.
 Hotkeys: Space pause, 1-5 speed, F2 queue, F3 Andmebaas, F4 units, F6 radio, A acknowledge,
 D dispatch recommended, K the selected incident's surveillance camera (docs/CCTV.md section 14),
 Esc closes the topmost thing (placing, the queue drawer, the camera, the selection). Everything keyboard reachable.
-Screens: Boot (fake OS boot log) → Login (ID-kaart / Mobiil-ID / Smart-ID simulation; empty
-user+password = legacy login easter egg "Tere tagasi, 2024!") → Menu (Karjäär, Kiirmäng,
+Screens: Boot (fake OS boot log) → Login (ID-kaart / Mobiil-ID / Smart-ID simulation; the Klassika tab is the
+account login, empty fields only ask for a name and a password; every step of every method keeps the panel's
+height) → Menu (Karjäär, Kiirmäng,
 Režissööri režiim, Seaded, Algsed versioonid 2024/2025, Tiitrid) → Briefing → Game → Report.
 A disclaimer is always visible on login/menu: "Mitteametlik fännimäng · ei ole seotud PPA-ga ·
 hädaolukorras helista 112". Never use the real PPA logo/coat of arms; our emblem is an original

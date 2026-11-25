@@ -208,9 +208,8 @@ test.describe.serial('daily challenge', () => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await boot(page);
-    // The 2024 way in: a guest.
-    await page.getByRole('tab', { name: 'Klassika' }).click();
-    await page.locator('form.sh-legacy button[type="submit"]').click();
+    // In as a guest.
+    await page.getByRole('button', { name: 'Jätka külalisena' }).click();
     await expect.poll(() => screen(page), { timeout: 15_000 }).toBe('menu');
 
     // The panel is closed until its row is pressed: then it slides in, the area is lit on the map and the row

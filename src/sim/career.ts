@@ -718,7 +718,7 @@ export function pushLedger(p: CareerProfile, e: LedgerEntry): void {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface AchievementContext {
-  /** The player logged in the 2024 way (empty user + password); the UI reads its own localStorage flag. */
+  /** The player opened the original 2024 version (Menu > Original versions); the UI reads its own localStorage flag. */
   legacyLogin?: boolean;
 }
 

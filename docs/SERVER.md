@@ -298,7 +298,7 @@ Cloud sync in the client (`src/net/account.ts`, decisions in `src/net/sync.ts`, 
   `epd:acct:<id>:backup.<slot>` as `{ at, owner, data }`.
 - A tab stops syncing when another tab of the browser signs in to another account, signs out or clears
   the data (a `storage` event on `epd:sync`), or when the server answers `user_mismatch`.
-- Choosing a guest, e-ID or 2024 login ends an open session (the guest's data becomes active at once) and
+- Choosing a guest or e-ID login ends an open session (the guest's data becomes active at once) and
   keeps a late `/api/me` answer from starting one. "Delete all data" in Settings signs out (after the last
   uploads) before it clears the browser, so the reload does not pull the cloud data back.
 - Scores: only a shift played signed in to an account posts `POST /api/score`; guests never post.
